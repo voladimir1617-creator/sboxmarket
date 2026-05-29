@@ -2,6 +2,7 @@ package com.sboxmarket.service
 
 import com.sboxmarket.model.WatchlistItem
 import com.sboxmarket.repository.WatchlistItemRepository
+import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -31,12 +32,18 @@ class WatchlistService {
     static final int MAX_PER_USER = 500
 
     @Autowired WatchlistItemRepository repository
+    @Autowired BanGuard banGuard
 
     /** Star an item. Idempotent — if the user already has it, no-op +
      *  return false so the caller can short-circuit a redundant write. */
     @Transactional
     boolean add(Long userId, Long itemId) {
         if (userId == null || itemId == null) return false
+        // Ban guard — a watchlist row is a state-changing write that wires
+        // the user into the WatchlistAlertService price-drop fanout (bell +
+        // email pings forever). A banned account must not be able to plant
+        // new alerts; mirrors LoadoutService.create / SavedSearchService.upsert.
+        banGuard.assertNotBanned(userId)
         if (repository.existsByUserAndItem(userId, itemId)) return false
         // Cap check happens AFTER the existence probe so re-saving an
         // already-starred id never trips the limit (idempotent semantics).
@@ -106,6 +113,12 @@ class WatchlistService {
     @Transactional
     List<Long> bulkMerge(Long userId, List<Long> incoming) {
         if (userId == null) return []
+        // Ban guard — bulkMerge inserts the same alert-wiring rows as add()
+        // (just in batch from the first-sign-in localStorage migration).
+        // Skipping the guard here would let a banned user re-seed an entire
+        // watchlist via the migration endpoint and bypass the per-row check
+        // on add(). Same rationale as add() above.
+        banGuard.assertNotBanned(userId)
         def cleaned = (incoming ?: []).findAll { it != null }.unique()
         if (cleaned.size() > MAX_PER_USER) cleaned = cleaned.take(MAX_PER_USER)
         if (cleaned.isEmpty()) return list(userId)

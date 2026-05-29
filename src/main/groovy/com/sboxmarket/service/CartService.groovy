@@ -43,6 +43,29 @@ class CartService {
     boolean add(Long userId, Long listingId) {
         if (userId == null || listingId == null) return false
         if (repository.existsByUserAndListing(userId, listingId)) return false
+        // Hidden-listing guard. PurchaseService.buy and OfferService.makeOffer
+        // both reject hidden rows (Boolean.TRUE.equals(listing.hidden) ->
+        // ListingNotAvailableException) because the listing id is stable
+        // and guessable — a seller toggling stall-privacy / vacation-mode
+        // must not be reachable by a cached client or a scraped-id payload.
+        // Without this gate the cart-add path is the back door: a stale tab
+        // (or any /api/cart POST with a hidden id) persists the row, and
+        // every subsequent /cart/checkout against it returns
+        // LISTING_NOT_AVAILABLE — but CartController.checkout only scrubs
+        // SUCCESSFUL rows, so the buyer wedges with a stale row they can't
+        // see in the grid and can't buy. Rejecting at the add-path mirrors
+        // the buy/offer hidden gate and keeps the cart honest. Same
+        // best-effort posture as the own-listing probe below: a DB blip on
+        // the hidden probe falls through to the buy-path's hidden gate,
+        // which remains the backstop.
+        if (listingRepository != null) {
+            Boolean hidden = null
+            try { hidden = listingRepository.findHiddenById(listingId) }
+            catch (Exception e) { log.debug("hidden probe failed for listing=${listingId}: ${e.message}") }
+            if (Boolean.TRUE.equals(hidden)) {
+                throw new com.sboxmarket.exception.ListingNotAvailableException(listingId)
+            }
+        }
         // Own-listing guard. Without this, a seller can pad their own cart
         // with their own active listings up to MAX_PER_USER — every row
         // then fails OWN_LISTING at checkout (PurchaseService.buy line
@@ -161,6 +184,26 @@ class CartService {
                 }
             } catch (Exception e) {
                 log.debug("bulkMerge own-listing probe failed for user=${userId}: ${e.message}")
+            }
+        }
+        // Hidden-listing guard — silently drop hidden ids from the merge.
+        // Mirrors the single-add hidden gate above and matches the
+        // PurchaseService.buy / OfferService.makeOffer rejection of hidden
+        // rows: the listing id is stable and a captured POST /api/cart/bulk
+        // can otherwise persist a row the seller has pulled off-market,
+        // which then wedges /cart/checkout with LISTING_NOT_AVAILABLE for
+        // a row the buyer can't see in the grid (CartController.checkout
+        // only scrubs successful rows). Silent drop — same posture as the
+        // own-listing pre-filter directly above. Probe failure falls
+        // through; the buy-path hidden gate remains the backstop.
+        if (listingRepository != null && !toAdd.isEmpty()) {
+            try {
+                def hiddenIds = listingRepository.findHiddenListingIds(toAdd).toSet()
+                if (!hiddenIds.isEmpty()) {
+                    toAdd = toAdd.findAll { !hiddenIds.contains(it) }
+                }
+            } catch (Exception e) {
+                log.debug("bulkMerge hidden probe failed for user=${userId}: ${e.message}")
             }
         }
         // Truncate at the per-user cap including pre-existing rows.

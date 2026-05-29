@@ -180,7 +180,20 @@ class TradeProtectionService {
             "Protection added · ${trade.itemName ?: 'your trade'}",
             "If this trade fails you'll be auto-refunded \$${trade.price} — no support ticket needed.",
             tradeId, '/profile?tab=trades')
-        auditService?.log('TRADE_PROTECTION_ENABLED', buyerUserId, trade.sellerUserId, tradeId,
+        // Subject = buyer (the wallet that just moved), NOT the seller.
+        // Convention pinned by the sibling CLAIMED / REVERSED audit writes
+        // a few methods down and locked in by the /security-activity feed
+        // (ProfileController:267): every money-impact event on the buyer's
+        // wallet uses subjectUserId = the wallet owner so bySubject(buyer)
+        // returns the row. Tagging the seller here mis-routes a buyer-
+        // wallet debit into the SELLER's audit-by-subject filter — admins
+        // searching the buyer's audit trail for "where did this $X
+        // disappear" come up empty, and an account-takeover that flipped
+        // protection on every active trade to drain MIN_FEE × N out of
+        // the buyer's wallet leaves no row on the victim's own audit
+        // filter. The trade resource id is still on the row, so the
+        // counterparty link survives the by-resource view.
+        auditService?.log('TRADE_PROTECTION_ENABLED', buyerUserId, buyerUserId, tradeId,
             "Protection enabled (fee \$${fee}, cover \$${trade.price})")
         log.info("Trade #{} protected by buyer {} — fee \${}, cover \${}",
             tradeId, buyerUserId, fee, trade.price)

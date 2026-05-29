@@ -428,9 +428,25 @@ class SupportService {
         int closed = 0
         candidates.each { t ->
             try {
-                t.status = 'RESOLVED'
-                t.updatedAt = System.currentTimeMillis()
-                ticketRepository.save(t)
+                // Multi-pod claim (wave 127). Same shape as waves 124
+                // (BidService.sweepEndingSoon), 125 (BuyOrder stale),
+                // 126 (Stripe stale-deposit). Without an atomic claim
+                // each pod independently fires TICKET_AUTO_RESOLVED before
+                // either pod's save() lands — user gets "your ticket was
+                // auto-closed" TWICE for one ticket. Worse: if the user
+                // replied between sweeper read and save (flipping status
+                // WAITING_USER → WAITING_STAFF), the unconditional save
+                // was about to overwrite that with RESOLVED, silently
+                // discarding the user's reply and closing a ticket they
+                // expected staff to read. The conditional UPDATE flips
+                // WAITING_USER→RESOLVED only WHERE status is still
+                // WAITING_USER at UPDATE time and returns 1 on win, 0 on
+                // sibling-pod-already-claimed or user-just-replied.
+                int claimed = ticketRepository.claimAutoResolve(t.id, System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("Ticket auto-close claim lost for ${t.id} — sibling pod or user reply")
+                    return
+                }
                 notificationService?.push(t.userId, 'TICKET_AUTO_RESOLVED',
                     "Support ticket auto-closed · ${t.subject ?: 'your question'}",
                     "Staff didn't hear back from you within ${autoResolveWaitingUserDays} days, so the thread was auto-closed. Open a new ticket any time if you still need help.",

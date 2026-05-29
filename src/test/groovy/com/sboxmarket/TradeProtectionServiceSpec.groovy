@@ -430,7 +430,11 @@ class TradeProtectionServiceSpec extends Specification {
 
         and: "the buyer is notified and the action is audited"
         1 * notificationService.safePush(10L, 'TRADE_PROTECTED', _, _, 1L, _)
-        1 * auditService.log('TRADE_PROTECTION_ENABLED', 10L, 20L, 1L, _)
+        // Subject = buyer (10), not seller (20). Audit subject convention
+        // for buyer-wallet money-impact events: the wallet owner is the
+        // subject so bySubject() returns it on /security-activity. Mirrors
+        // the sibling CLAIMED / REVERSED writes a few hundred lines down.
+        1 * auditService.log('TRADE_PROTECTION_ENABLED', 10L, 10L, 1L, _)
     }
 
     def "enable charges the MIN_FEE floor on a cheap trade"() {

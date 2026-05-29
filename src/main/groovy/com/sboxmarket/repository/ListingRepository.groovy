@@ -252,6 +252,22 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("SELECT l.id, l.sellerUserId FROM Listing l WHERE l.id IN :ids AND l.sellerUserId IS NOT NULL")
     List<Object[]> findSellerUserIdsForListings(@Param("ids") Collection<Long> ids)
 
+    /** Scalar projection of the `hidden` flag for a given listing — drives
+     *  the cart hidden-listing guard (CartService.add) without hydrating
+     *  the whole row + item graph. Returns null when the listing doesn't
+     *  exist; legacy null-hidden rows project as null and the caller
+     *  treats null as visible (matches the listing-grid SQL's
+     *  `l.hidden IS NULL OR l.hidden = false` convention). */
+    @Query("SELECT l.hidden FROM Listing l WHERE l.id = :listingId")
+    Boolean findHiddenById(@Param("listingId") Long listingId)
+
+    /** Batch variant — returns the ids of listings in `:ids` that are
+     *  currently hidden. Drives the cart bulkMerge hidden-listing guard
+     *  so the merge endpoint can drop hidden ids without a per-row probe.
+     *  Null-hidden legacy rows are excluded (treated as visible). */
+    @Query("SELECT l.id FROM Listing l WHERE l.id IN :ids AND l.hidden = true")
+    List<Long> findHiddenListingIds(@Param("ids") Collection<Long> ids)
+
     /** Count of the seller's hidden-but-active listings. Drives the
      *  away-mode "N hidden" chip without hydrating every row to count
      *  `.hidden == true`. Includes the legacy NULL-hidden fallback

@@ -1,9 +1,11 @@
 package com.sboxmarket
 
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.model.WatchlistItem
 import com.sboxmarket.repository.WatchlistItemRepository
 import com.sboxmarket.service.WatchlistService
+import com.sboxmarket.service.security.BanGuard
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -20,9 +22,10 @@ import spock.lang.Subject
 class WatchlistServiceSpec extends Specification {
 
     WatchlistItemRepository repository = Mock()
+    BanGuard banGuard = Mock()
 
     @Subject
-    WatchlistService service = new WatchlistService(repository: repository)
+    WatchlistService service = new WatchlistService(repository: repository, banGuard: banGuard)
 
     def "add inserts when not already starred"() {
         given:
@@ -263,5 +266,55 @@ class WatchlistServiceSpec extends Specification {
         then:
         0 * repository.save(_)
         out == [1L, 2L, 3L]
+    }
+
+    // ── Ban guard ───────────────────────────────────────────────────
+    // A watchlist row wires the user into the WatchlistAlertService
+    // price-drop fanout (bell + email pings forever). A banned account
+    // must not be able to plant new alerts; mirrors LoadoutService.create
+    // and SavedSearchService.upsert.
+
+    def "add rejects a banned user before any repo work"() {
+        given:
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException('Your account is banned: x') }
+
+        when:
+        service.add(10L, 100L)
+
+        then:
+        thrown(ForbiddenException)
+        // Ban check fires first — no existence probe, no cap query, no save.
+        0 * repository.existsByUserAndItem(_, _)
+        0 * repository.findItemIdsByUser(_)
+        0 * repository.save(_)
+    }
+
+    def "add consults the ban guard exactly once on the happy path"() {
+        given:
+        repository.existsByUserAndItem(10L, 100L) >> false
+        repository.findItemIdsByUser(10L) >> []
+
+        when:
+        service.add(10L, 100L)
+
+        then:
+        1 * banGuard.assertNotBanned(10L)
+        1 * repository.save(_)
+    }
+
+    def "bulkMerge rejects a banned user before any repo work"() {
+        given:
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException('Your account is banned: x') }
+
+        when:
+        service.bulkMerge(10L, [1L, 2L, 3L])
+
+        then:
+        thrown(ForbiddenException)
+        // Migration endpoint must not let a banned account re-seed an entire
+        // watchlist via the bulk path and bypass the per-row check on add().
+        0 * repository.findExistingItemIds(_, _)
+        0 * repository.countByUser(_)
+        0 * repository.save(_)
     }
 }

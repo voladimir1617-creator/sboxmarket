@@ -262,8 +262,20 @@ class ReviewService {
         }
         def saved = reviewRepository.save(review)
         if (changed) {
-            auditService?.log('REVIEW_REPLIED', sellerUserId, review.fromUserId, reviewId,
-                review.sellerReply ? "Replied: ${review.sellerReply.take(120)}" : "Cleared reply")
+            // Audit subject is the SELLER whose stall just got a public reply
+            // attached — NOT the buyer-author. Same alignment as REVIEW_CREATED,
+            // REVIEW_DELETED, and REVIEW_DELETED_STAFF (Wave 118): all four
+            // review-lifecycle events anchor to the seller so CSR's
+            // `bySubject(sellerId)` rollup surfaces the full timeline of
+            // touches against a seller's rating page. With subject=fromUserId
+            // (the buyer) the reply event vanished from seller-scoped audits
+            // even though the seller is the actor AND owns the surface the
+            // reply lives on. The buyer's id is captured in the summary so
+            // counterparty traceability is preserved.
+            auditService?.log('REVIEW_REPLIED', sellerUserId, sellerUserId, reviewId,
+                review.sellerReply
+                    ? "Replied to buyer ${review.fromUserId}: ${review.sellerReply.take(120)}"
+                    : "Cleared reply to buyer ${review.fromUserId}")
         }
         // Notify the buyer that the seller responded — only on a genuine
         // new/changed reply (not on clear, not on a no-op re-save). A reply

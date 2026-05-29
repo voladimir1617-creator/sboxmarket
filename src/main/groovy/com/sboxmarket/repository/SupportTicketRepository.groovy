@@ -2,6 +2,7 @@ package com.sboxmarket.repository
 
 import com.sboxmarket.model.SupportTicket
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -110,4 +111,34 @@ interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
     """)
     List<SupportTicket> findStaleWaitingUser(@Param("cutoff") Long cutoff,
                                              org.springframework.data.domain.Pageable pageable)
+
+    /**
+     * Atomic claim for the stale-WAITING_USER auto-close sweep (wave 127).
+     * Flips `status` from WAITING_USER→RESOLVED and stamps `updatedAt`
+     * ONLY if the ticket is still WAITING_USER at UPDATE time. Returns
+     * the affected-row count: 1 = this pod owns the fan-out
+     * (TICKET_AUTO_RESOLVED bell push), 0 = a sibling pod already
+     * claimed it OR the user replied between sweeper read and claim
+     * (status flipped to WAITING_STAFF) — in either case the losing
+     * path bails before the auto-close notification runs.
+     *
+     * Multi-pod race protection. Same shape as waves 112, 120, 124,
+     * 125, 126. Without an atomic claim each pod independently fires
+     * the TICKET_AUTO_RESOLVED bell push before either pod's `save()`
+     * lands — the user receives "your support ticket was auto-closed"
+     * TWICE for one ticket. Worse: if the user replied between read
+     * and save (flipping status to WAITING_STAFF), the unconditional
+     * save was about to overwrite that with RESOLVED, silently
+     * discarding the user's reply and closing a ticket they expected
+     * staff to read.
+     */
+    @Modifying
+    @Query("""
+        UPDATE SupportTicket t
+           SET t.status    = 'RESOLVED',
+               t.updatedAt = :now
+         WHERE t.id     = :id
+           AND t.status = 'WAITING_USER'
+    """)
+    int claimAutoResolve(@Param('id') Long id, @Param('now') Long now)
 }
