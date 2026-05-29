@@ -13218,7 +13218,11 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     if (cleared) delete next[itemId];
     else next[itemId] = n;
     setAlerts(next);
-    localStorage.setItem('sb_watchlist_alerts', JSON.stringify(next));
+    // Same QuotaExceededError guard as sb_cart / sb_watchlist persist
+    // writes — saveAlert runs in a click handler, so an unguarded throw
+    // here crashes the click + the surrounding WatchlistModal render.
+    // State stays in-memory; user just loses cross-reload persistence.
+    try { localStorage.setItem('sb_watchlist_alerts', JSON.stringify(next)); } catch (_) {}
     setEditingAlert(null);
     // Pre-fix this was a silent click — the user typed a price, hit Set,
     // and got no confirmation that anything happened. Toast surfaces
@@ -13306,7 +13310,12 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     });
     if (changed) {
       setSnapshots(next);
-      localStorage.setItem('sb_watchlist_snap', JSON.stringify(next));
+      // Same QuotaExceededError guard as sb_cart / sb_watchlist persist
+      // writes — an unguarded throw here bubbles out of the effect and
+      // crashes the WatchlistModal render. Snapshots stay in-memory;
+      // user just loses cross-reload "−$X since starred" delta on full
+      // storage.
+      try { localStorage.setItem('sb_watchlist_snap', JSON.stringify(next)); } catch (_) {}
     }
   }, [starred, watchlist]);
 

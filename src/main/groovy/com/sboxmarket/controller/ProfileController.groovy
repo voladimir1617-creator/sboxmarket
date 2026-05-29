@@ -161,7 +161,22 @@ class ProfileController {
             // the trade sweeper credits the seller wallet; the seller has
             // a legitimate right to see "your N-day no-confirm window
             // elapsed, funds were released" in their own security feed.
-            'TRADE_AUTO_RELEASED'
+            'TRADE_AUTO_RELEASED',
+            // Trade Protection money-path events — these credit (CLAIMED)
+            // or debit (REVERSED) the buyer's wallet for the full item
+            // price the moment a protected trade fails or staff overturns
+            // a paid claim. TradeProtectionService.autoClaim and
+            // reverseClaim both write the audit row with
+            // subjectUserId = protection.buyerUserId so bySubject() returns
+            // them — but without the event on this whitelist the consumer
+            // filter drops them, leaving the buyer blind to the literal
+            // "the platform paid $X into / clawed $X out of your wallet"
+            // events the security feed exists for. Same shape as the
+            // WITHDRAW_* / DEPOSIT_COMPLETE / REFUND_ISSUED money-movement
+            // rows already on the list; an account takeover that disputes
+            // a protected trade to drain cover must be visible to the
+            // owner on this surface.
+            'TRADE_PROTECTION_CLAIMED', 'TRADE_PROTECTION_REVERSED'
         ] as Set
         def filtered = rows.findAll { WHITELIST.contains(it.eventType) }.take(50)
         ResponseEntity.ok(filtered.collect { r ->
