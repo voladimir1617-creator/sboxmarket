@@ -46,6 +46,22 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
     @Query("DELETE FROM Notification n WHERE n.read = true AND n.createdAt < :cutoff")
     int deleteReadOlderThan(@Param("cutoff") Long cutoff)
 
+    /** Paged companion — ids of READ rows older than `cutoff`, ordered
+     *  oldest-first so the sweeper drains the longest-stale rows
+     *  before newer ones. Drives the per-tick row cap in
+     *  {@code NotificationService.sweepOldReadNotifications}: without
+     *  a cap the bulk DELETE on a years-old DB (or a freshly-lowered
+     *  `notifications.retain-read-days`) could match millions of rows
+     *  in a single statement, locking the table for the duration of
+     *  the undo-log write, blocking every concurrent read, and
+     *  generating a transaction-log spike large enough to fail the
+     *  prod commit. Capping at SWEEP_BATCH_LIMIT per tick keeps each
+     *  pass bounded; remaining rows drain across subsequent daily
+     *  ticks (the rolling cutoff naturally re-includes them). */
+    @Query("SELECT n.id FROM Notification n WHERE n.read = true AND n.createdAt < :cutoff ORDER BY n.createdAt ASC")
+    List<Long> findReadIdsOlderThan(@Param("cutoff") Long cutoff,
+                                     org.springframework.data.domain.Pageable pageable)
+
     /** Bulk-delete every READ notification a user owns in a single
      *  DELETE. Drives "Clear read" from the bell.
      *

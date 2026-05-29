@@ -312,6 +312,19 @@ class NotificationService {
     @Value('${notifications.retain-read-days:180}')
     long retainReadDays
 
+    /** Hard cap on rows deleted per sweep tick. Same shape as
+     *  {@code SupportService.SWEEP_BATCH_LIMIT}, {@code
+     *  WatchlistAlertService} batch clamps, etc. Without this the
+     *  daily sweep is an unbounded `DELETE FROM notifications WHERE
+     *  read = true AND created_at < :cutoff`. On a heavy DB (years of
+     *  accumulated history) — or after an ops misconfiguration that
+     *  drops `notifications.retain-read-days` from 180 to 1 — a single
+     *  tick would lock the table, balloon the undo log, and risk
+     *  rollback on commit-log overflow. 50k per pass keeps each tick
+     *  inside a sane lock window; remaining rows drain across
+     *  subsequent ticks (the rolling cutoff still includes them). */
+    static final int SWEEP_BATCH_LIMIT = 50000
+
     /**
      * Daily sweep — deletes READ notifications older than
      * `retainReadDays`. Without this the notifications table grows
@@ -319,6 +332,15 @@ class NotificationService {
      * per active user, times years of history). Unread rows stay
      * regardless of age because a long-unread row is a signal the
      * user hasn't attended to it yet.
+     *
+     * Per-tick row count is clamped at {@link #SWEEP_BATCH_LIMIT} to
+     * cap mass deletion: the previous unbounded `deleteReadOlderThan`
+     * could match millions of rows in a single statement on a heavy
+     * DB or after a `notifications.retain-read-days` cut — locking
+     * the table, blowing the undo log, and risking commit-log overflow.
+     * The capped version fetches the oldest N matching ids in a single
+     * indexed scan and deletes that bounded set; remaining backlog
+     * drains across subsequent daily ticks.
      *
      * Runs once a day at a 30-minute offset so it doesn't collide
      * with the other sweepers on container start. Logs the row
@@ -330,7 +352,12 @@ class NotificationService {
     void sweepOldReadNotifications() {
         if (retainReadDays <= 0L) return
         def cutoff = System.currentTimeMillis() - (retainReadDays * 24L * 60L * 60L * 1000L)
-        int n = notificationRepository.deleteReadOlderThan(cutoff)
-        if (n > 0) log.info("Notification retention sweep: deleted ${n} read row(s) older than ${retainReadDays}d")
+        def ids = notificationRepository.findReadIdsOlderThan(
+            cutoff, PageRequest.of(0, SWEEP_BATCH_LIMIT))
+        if (ids == null || ids.isEmpty()) return
+        notificationRepository.deleteAllByIdInBatch(ids)
+        int n = ids.size()
+        log.info("Notification retention sweep: deleted ${n} read row(s) older than ${retainReadDays}d" +
+            (n >= SWEEP_BATCH_LIMIT ? " (capped at ${SWEEP_BATCH_LIMIT} — backlog will drain across subsequent ticks)" : ''))
     }
 }

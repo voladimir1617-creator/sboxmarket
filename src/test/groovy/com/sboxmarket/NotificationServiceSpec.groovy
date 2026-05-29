@@ -182,7 +182,8 @@ class NotificationServiceSpec extends Specification {
         service.sweepOldReadNotifications()
 
         then:
-        0 * notificationRepository.deleteReadOlderThan(_)
+        0 * notificationRepository.findReadIdsOlderThan(_, _)
+        0 * notificationRepository.deleteAllByIdInBatch(_)
     }
 
     def "sweepOldReadNotifications purges read rows older than the retention cutoff"() {
@@ -193,7 +194,10 @@ class NotificationServiceSpec extends Specification {
         service.sweepOldReadNotifications()
 
         then:
-        1 * notificationRepository.deleteReadOlderThan({ it < System.currentTimeMillis() }) >> 3
+        1 * notificationRepository.findReadIdsOlderThan(
+            { it < System.currentTimeMillis() },
+            { it.pageSize > 0 }) >> [1L, 2L, 3L]
+        1 * notificationRepository.deleteAllByIdInBatch([1L, 2L, 3L])
         noExceptionThrown()
     }
 
