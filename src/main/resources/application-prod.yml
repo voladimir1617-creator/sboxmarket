@@ -7,6 +7,30 @@
 ###
 
 server:
+  # Trust the proxy's X-Forwarded-* headers. The live topology is
+  # Cloudflare tunnel -> nginx -> app, and the cloudflared->nginx hop is
+  # plain HTTP: nginx stamps `X-Forwarded-Proto: $scheme` which is `http`
+  # on that internal hop even though TLS is mandatory at the edge. Without
+  # this strategy Spring's ServletRequest sees scheme=http, so:
+  #   * HttpServletResponse.sendRedirect() (SteamAuthController login bounce
+  #     + /return) emits `Location: http://skinbox.market/...` Location
+  #     headers — the browser then gets a Cloudflare HTTPS->the redirect
+  #     downgrades to http and 301-loops or trips mixed-content,
+  #   * request.isSecure() is false, so any Secure-cookie / scheme-aware
+  #     logic thinks the request is insecure,
+  #   * ServletUriComponentsBuilder / framework absolute-URL builders emit
+  #     http:// links.
+  # `framework` activates Spring's ForwardedHeaderFilter which rewrites the
+  # request's scheme/host/port from X-Forwarded-* BEFORE any controller or
+  # the security-header filter runs — fixing all of the above centrally.
+  # The per-controller `if (host == skinbox.market) proto = 'https'` hacks
+  # in OpenGraphController / SitemapController become belt-and-braces rather
+  # than the only thing forcing https. `framework` (not `native`) because
+  # the upstream is nginx/cloudflared, not Tomcat's own RemoteIpValve, and
+  # `framework` works regardless of the embedded container. Overridable via
+  # SERVER_FORWARD_HEADERS_STRATEGY for an operator who fronts the app with
+  # a proxy that strips the X-Forwarded-* headers.
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
   # Graceful shutdown (batch 373). On SIGTERM (Docker stop / k8s pod
   # terminate / systemd stop) Tomcat stops accepting new requests but
   # keeps serving in-flight ones up to the timeout. Without this, a

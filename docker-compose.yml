@@ -14,6 +14,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
 
   app:
     build: .
@@ -22,6 +23,16 @@ services:
         condition: service_healthy
     ports:
       - "${APP_PORT:-8080}:8080"
+    # Real secrets (Stripe live keys, SMTP password, Steam API key, Sentry DSN)
+    # come from an operator-supplied env file — NEVER committed, NEVER baked
+    # into the image. Copy deploy/skinbox.env.example -> deploy/skinbox.env and
+    # fill in real values. The explicit `environment:` block below provides
+    # safe non-secret defaults; env_file entries override anything also set
+    # there. Marked optional so `docker compose up` still works for a bare
+    # local smoke test before the operator has written the file.
+    env_file:
+      - path: deploy/skinbox.env
+        required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/skinbox

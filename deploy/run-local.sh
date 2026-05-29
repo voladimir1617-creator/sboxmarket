@@ -120,6 +120,7 @@ run_app_container() {
     -e APP_EMAIL_FROM=noreply@localhost \
     -e APP_EMAIL_FROM_NAME=SkinBox \
     -e APP_PUBLIC_URL="${PUBLIC_URL}" \
+    -e APP_UNSUBSCRIBE_SECRET="${APP_UNSUBSCRIBE_SECRET:-local-prod-unsub-secret-not-for-real-deploys}" \
     -e SENTRY_DSN= \
     -e SENTRY_ENV=local \
     -e TRADE_AUTO_RELEASE_DAYS=8 \
