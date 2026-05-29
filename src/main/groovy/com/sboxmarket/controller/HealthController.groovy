@@ -32,6 +32,16 @@ class HealthController {
     @Value('${info.app.version:1.0.0}')
     String appVersion
 
+    // Mirrors GlobalExceptionHandler's posture flag. When false (the
+    // hardened prod default — application-prod.yml pins it, and that's
+    // also the only profile where actuator is killed to hide the
+    // framework version), we must not hand internal recon detail to an
+    // anonymous caller. Used below to gate `startupAt` out of the public
+    // /api/version body. Devs/ops opt back in with
+    // SECURITY_VERBOSE_ERRORS=true for a debugging session.
+    @Value('${security.verbose-errors:false}')
+    boolean verboseDetails
+
     @Autowired(required = false) DataSource dataSource
     @Autowired(required = false) Environment environment
 
@@ -115,14 +125,29 @@ class HealthController {
         // pipeline always rebuilds the image so cache buster isn't
         // needed.
         //
-        // Batch 866 — also surface `startupAt` (JVM process start, not
-        // request time) so ops / status pages can display deploy age
-        // without needing a separate /actuator endpoint. Same 10-min
-        // cache: the timestamp is stable across the lifetime of a pod,
-        // so caching is safe and saves repeat round-trips.
+        // `startupAt` (JVM process start, not request time) lets ops /
+        // status pages show deploy age without a separate /actuator
+        // endpoint (batch 866). BUT it is a per-pod recon fingerprint:
+        // an anonymous scanner can read off exactly when each replica
+        // was last deployed/restarted. That contradicts the whole
+        // reason actuator is disabled in prod (hide internal detail
+        // from scanners — see class javadoc) and the prod
+        // `show-details: never` / `verbose-errors: false` posture.
+        //
+        // So gate it on the SAME hardening flag GlobalExceptionHandler
+        // uses: in prod (verboseDetails=false) the public body carries
+        // ONLY `version` — which the SPA footer + status page need and
+        // changelog.html already advertises publicly. Ops read uptime
+        // off the private actuator management port (ACTUATOR_PORT), or
+        // flip SECURITY_VERBOSE_ERRORS=true for an incident-debug
+        // session, at which point startupAt reappears here.
+        def body = [version: appVersion] as LinkedHashMap
+        if (verboseDetails) {
+            body.startupAt = STARTUP_AT
+        }
         ResponseEntity.ok()
             .header('Cache-Control', 'public, max-age=600')
-            .body([version: appVersion, startupAt: STARTUP_AT])
+            .body(body)
     }
 
     /**

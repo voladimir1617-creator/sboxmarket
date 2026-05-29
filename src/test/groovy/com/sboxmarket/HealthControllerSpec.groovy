@@ -203,7 +203,32 @@ class HealthControllerSpec extends Specification {
         then:
         resp.statusCode == HttpStatus.OK
         resp.body.version == '9.9.9-test'
-        (resp.body.startupAt as long) > 0
         resp.headers.getFirst('Cache-Control')?.contains('max-age=600')
+    }
+
+    def "version() hides startupAt from anonymous callers under the hardened prod posture"() {
+        given: 'verbose-errors=false — the prod default (application-prod.yml pins it)'
+        controller.verboseDetails = false
+
+        when:
+        def resp = controller.version()
+
+        then: 'public body carries ONLY version; the per-pod deploy-age fingerprint is withheld'
+        resp.statusCode == HttpStatus.OK
+        resp.body.version == '9.9.9-test'
+        !resp.body.containsKey('startupAt')
+    }
+
+    def "version() exposes startupAt to ops when verbose detail is opted in"() {
+        given: 'SECURITY_VERBOSE_ERRORS=true — incident-debug / non-prod posture'
+        controller.verboseDetails = true
+
+        when:
+        def resp = controller.version()
+
+        then: 'startupAt reappears for the status page / ops uptime display'
+        resp.statusCode == HttpStatus.OK
+        resp.body.version == '9.9.9-test'
+        (resp.body.startupAt as long) > 0
     }
 }

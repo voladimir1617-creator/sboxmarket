@@ -130,6 +130,40 @@ class StripeService {
         log.info("Stripe initialised (key prefix: ${secretKey?.take(7)}…)")
     }
 
+    /**
+     * Redact a Stripe Checkout Session id for the application log.
+     *
+     * A raw session id (`cs_live_<long-opaque-token>`) is a capability,
+     * not a harmless reference: combined with the publishable key (which
+     * IS public) it lets a holder call Stripe.js `retrieveCheckoutSession`
+     * and read the buyer's email, amount, and line items. The prod
+     * logging config (application-prod.yml) deliberately pins
+     * `org.springframework.web` to WARN precisely so request URIs carrying
+     * `&session_id=cs_live_…` (see the success-url wiring in
+     * createDepositSession) never reach /var/log/skinbox/skinbox.log — but
+     * `com.sboxmarket` logs at INFO, so any `log.info`/`log.warn` here that
+     * interpolated the raw id silently defeated that protection.
+     *
+     * We keep the mode-qualified prefix (`cs_live_` / `cs_test_`, not
+     * secret) plus four chars so ops can still eyeball-correlate a line
+     * with a Stripe dashboard search, and drop the rest — symmetric with
+     * how {@link #init} logs only the secret-key prefix. Null/short/non-cs
+     * values pass through a generic mask rather than throwing.
+     */
+    static String redactSession(String sessionId) {
+        if (!sessionId) return '<none>'
+        // Keep `cs_<mode>_` + 4 chars of the opaque token, redact the rest.
+        // `cs_live_` / `cs_test_` is 8 chars → 12 keeps a short, non-usable
+        // breadcrumb. Anything that doesn't look like a Stripe session id
+        // (legacy/dev refs like "manual" or "dev_…") is masked wholesale.
+        if (sessionId.startsWith('cs_') && sessionId.length() > 12) {
+            return sessionId.substring(0, 12) + '…'
+        }
+        // Short or non-cs reference — never echo it verbatim; show only a
+        // 3-char head so a truncated dev/manual ref stays greppable.
+        return (sessionId.length() <= 3 ? sessionId : sessionId.substring(0, 3)) + '…'
+    }
+
     String getPublishableKey() { publishableKey }
 
     boolean isLive() {
@@ -261,7 +295,7 @@ class StripeService {
         // happy-path double-click is a true no-op at the ledger layer.
         def existingForSession = transactionRepository.findByStripeReference(session.id)
         if (existingForSession != null) {
-            log.info("Reusing existing deposit tx ${existingForSession.id} for idempotent Stripe session ${session.id} (idem=${idemKey})")
+            log.info("Reusing existing deposit tx ${existingForSession.id} for idempotent Stripe session ${redactSession(session.id)} (idem=${idemKey})")
             return [checkoutUrl: session.url, sessionId: session.id,
                     transactionId: existingForSession.id, live: true]
         }
@@ -277,7 +311,7 @@ class StripeService {
         )
         transactionRepository.save(tx)
 
-        log.info("Created Stripe Checkout session ${session.id} for wallet $walletId amount \$${amount} (idem=${idemKey})")
+        log.info("Created Stripe Checkout session ${redactSession(session.id)} for wallet $walletId amount \$${amount} (idem=${idemKey})")
         [checkoutUrl: session.url, sessionId: session.id, transactionId: tx.id, live: true]
     }
 
@@ -1320,7 +1354,7 @@ class StripeService {
             // Hard failure instead of silent return — the old behaviour let
             // an attacker probe arbitrary session ids and get a harmless
             // 200. That masked a bug and looked like "success" in client code.
-            log.warn("confirm-deposit called with unknown sessionId=${sessionId}")
+            log.warn("confirm-deposit called with unknown sessionId=${redactSession(sessionId)}")
             throw new IllegalStateException("Unknown deposit session")
         }
         // Only PENDING deposits should be credited. Pre-fix this only
@@ -1344,7 +1378,7 @@ class StripeService {
         // idempotent-replay contract: a tx leaves PENDING exactly once,
         // and only the PENDING→COMPLETED edge credits the wallet.
         if (tx.status != "PENDING") {
-            log.info("completeDeposit short-circuit: tx ${tx.id} already in terminal state ${tx.status} (sessionId=${sessionId})")
+            log.info("completeDeposit short-circuit: tx ${tx.id} already in terminal state ${tx.status} (sessionId=${redactSession(sessionId)})")
             return
         }
         if (tx.type != 'DEPOSIT') {
@@ -1372,7 +1406,7 @@ class StripeService {
                 // backoff; on the synchronous /confirm-deposit path it maps
                 // to a 500 too (correct — a Stripe outage is a server fault,
                 // not a client error), and the user can retry.
-                log.warn("Stripe session retrieve failed for ${sessionId} (transient — retryable): ${e.message}")
+                log.warn("Stripe session retrieve failed for ${redactSession(sessionId)} (transient — retryable): ${e.message}")
                 throw new RuntimeException("Stripe session could not be verified — temporary Stripe error, retry", e)
             }
             if (session == null) {
@@ -1380,7 +1414,7 @@ class StripeService {
             }
             def paymentStatus = session.paymentStatus  // 'paid' | 'unpaid' | 'no_payment_required'
             if (!'paid'.equalsIgnoreCase(paymentStatus)) {
-                log.warn("confirm-deposit refused: session ${sessionId} payment_status=${paymentStatus}")
+                log.warn("confirm-deposit refused: session ${redactSession(sessionId)} payment_status=${paymentStatus}")
                 throw new IllegalStateException("Payment is not complete")
             }
             // Metadata and amount must match what we stored when we created
@@ -1472,7 +1506,7 @@ class StripeService {
                 log.warn("Deposit-complete push failed for tx=${tx.id}: ${e.message}")
             }
         }
-        log.info("Deposit \$${tx.amount} credited to wallet ${tx.walletId} (session ${sessionId})")
+        log.info("Deposit \$${tx.amount} credited to wallet ${tx.walletId} (session ${redactSession(sessionId)})")
     }
 
     @Transactional
