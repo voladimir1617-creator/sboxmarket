@@ -67,6 +67,14 @@ class ProfileControllerSpec extends Specification {
         ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> uid
     }
 
+    def setup() {
+        // setEmail / resendVerification record into a process-global static
+        // send-cooldown map keyed by user id. Most cases here use uid=100,
+        // so a prior successful send would leak a spurious RESEND_COOLDOWN
+        // into a later setEmail case. Reset before each case for isolation.
+        ProfileController.clearEmailCooldowns()
+    }
+
     /**
      * Compute the TOTP code an authenticator app would currently display
      * for a Base32 secret. Decodes the secret through TotpService's own
@@ -434,6 +442,25 @@ class ProfileControllerSpec extends Specification {
         def user = new SteamUser(id: 100L, steamId64: '1', email: 'a@b.com',
             emailVerified: true, emailVerificationToken: null)
         steamUserRepository.findById(100L) >> Optional.of(user)
+        // Wave-131 CAS contract: confirm2fa no longer save(user)s — it issues
+        // ONE atomic commit2faEnrollment(id, expectedStaging, secret, step,
+        // codes) UPDATE guarded on (totpSecret IS NULL AND emailVerification
+        // Token = expectedStaging), and treats a 0-row result as a lost CAS
+        // race (NOT_ENROLLING). Declared BEFORE the confirm call so the
+        // stubbed 1-row success is actually returned during the when below.
+        // Self-contained boolean closures (no captures — Spock rewrites a
+        // bare assignment in a constraint as a failed condition) validate
+        // the args at call time: the staging slot is the "totp_pending:"
+        // form, the secret is exactly that slot's suffix, and the TOTP verify
+        // resolved a real (non-negative) step. `user.emailVerificationToken`
+        // still holds the staged value during the call — confirm2fa clears it
+        // via the DB UPDATE, not on the in-memory mock.
+        1 * steamUserRepository.commit2faEnrollment(
+                100L,
+                { it == user.emailVerificationToken && it.startsWith('totp_pending:') },
+                { it == user.emailVerificationToken.substring('totp_pending:'.length()) },
+                { it != null && (it as Long) >= 0L },
+                { it instanceof String && it.length() > 0 }) >> 1
 
         when: 'step 1 — enroll stages a secret'
         def enrollResp = controller.enroll2fa(req)
@@ -450,13 +477,20 @@ class ProfileControllerSpec extends Specification {
         def code = currentTotpCode(staged)
         def confirmResp = controller.confirm2fa([code: code], req)
 
-        then: '2FA is now live, the staging slot is cleared, recovery codes minted'
+        then: '''2FA is committed via the wave-131 CAS UPDATE, not save(user):
+                  the 1-row commit2faEnrollment result (asserted in the given
+                  block above) yields the enabled response carrying the 10
+                  freshly-minted, shown-once recovery codes. The row state now
+                  lives in the DB mutated by the UPDATE, so there is nothing to
+                  assert on the detached `user` mock here — the CAS interaction
+                  is the contract.'''
         confirmResp.statusCode.value() == 200
         confirmResp.body.enabled == true
         (confirmResp.body.recoveryCodes as List).size() == 10
-        user.totpSecret == staged
-        user.emailVerificationToken == null
-        user.lastTotpStep != null
+        // `staged` is the secret enroll produced; the CAS interaction above
+        // already pinned that commit2faEnrollment received exactly this
+        // secret (arg 3) wrapped in the "totp_pending:" staging slot (arg 2).
+        staged != null && !staged.isEmpty()
     }
 
     def "no permanent wedge: a staged enrollment can always be escaped via /2fa/cancel, restoring email verify"() {

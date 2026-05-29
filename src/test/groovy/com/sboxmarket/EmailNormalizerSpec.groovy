@@ -125,6 +125,15 @@ class EmailNormalizerSpec extends Specification {
         ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> uid
     }
 
+    def setup() {
+        // setEmail consults a process-global static send-cooldown map keyed
+        // by user id. Several of these specs use uid=100, so a successful
+        // write in one case would prime the cooldown and make the next
+        // setEmail throw RESEND_COOLDOWN. Reset before each case so this
+        // spec is isolated from cross-test cooldown pollution.
+        ProfileController.clearEmailCooldowns()
+    }
+
     @Unroll
     def "setEmail rejects '#alias' when 'voladimir1617@gmail.com' is already taken by another account"() {
         given: 'an existing account on the canonical Gmail mailbox owned by uid=42'

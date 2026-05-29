@@ -755,7 +755,19 @@ class TradeService {
                 "Leave a review for the seller — takes 10 seconds.",
                 t.id, "/stall/${t.sellerUserId}".toString())
         }
-        auditService?.log(AuditService.TRADE_VERIFIED, t.buyerUserId, t.sellerUserId, t.id,
+        // Audit actor: on the MANUAL buyer-confirm path the buyer is the
+        // actor (they clicked Confirm Receipt). On the AUTO-release sweep
+        // path the buyer did NOTHING — the system released the funds after
+        // `autoReleaseDays` of buyer silence — so the actor is the system
+        // (null), matching the sibling TRADE_AUTO_RELEASED /
+        // TRADE_AUTO_CANCELLED rows (actor=null, subject=sellerUserId).
+        // Attributing the auto-release to `t.buyerUserId` falsely records
+        // a privileged money-moving action as something the buyer did,
+        // corrupting the actor-keyed audit trail (`byActor`) and the
+        // buyer's own security-activity view. The subject stays
+        // sellerUserId either way — the seller is the party who got paid.
+        auditService?.log(AuditService.TRADE_VERIFIED,
+            autoRelease ? null : t.buyerUserId, t.sellerUserId, t.id,
             "Verified trade #${t.id} for \$${t.price}")
         // Trade Protection resolution. Normally the trade completed
         // cleanly, so any ACTIVE cover lapses (ACTIVE → EXPIRED) and the

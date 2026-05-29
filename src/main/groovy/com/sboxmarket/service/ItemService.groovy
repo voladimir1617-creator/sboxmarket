@@ -86,6 +86,28 @@ class ItemService {
             default:
                 sorted.sort { a, b -> b.lowestPrice <=> a.lowestPrice }; break
         }
+
+        // Relevance: when a free-text `q` drove the lookup, an item whose
+        // name EXACTLY equals the query (case-insensitively) must rank
+        // above mere substring matches — a search for "Sniper" should
+        // surface the item literally named "Sniper" before "Golden Sniper
+        // Rifle", regardless of which one is pricier. `searchByName` is a
+        // bare `LIKE %q%` with no ordering, and the sort above keys purely
+        // off price/popularity/etc., so without this pass the exact match
+        // was buried wherever its price happened to land. Implemented as a
+        // STABLE partition (Groovy's List.sort is a stable mergesort) on a
+        // 0/1 exact-match rank, so the chosen `sort` order is preserved as
+        // the tiebreaker WITHIN each group (exact matches stay price-asc
+        // among themselves, etc.). A null name can never be exact, so the
+        // `?.` guard treats it as a non-match rather than NPEing.
+        if (q) {
+            String needle = q.trim().toLowerCase()
+            sorted.sort(true) { a, b ->
+                int ra = (a.name?.toLowerCase() == needle) ? 0 : 1
+                int rb = (b.name?.toLowerCase() == needle) ? 0 : 1
+                ra <=> rb
+            }
+        }
         sorted
     }
 

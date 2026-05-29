@@ -35,19 +35,77 @@ class ProfileController {
     private static final java.util.regex.Pattern EMAIL_RE = ~/^[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9.\-]{1,253}\.[A-Za-z]{2,24}$/
     private static final java.util.regex.Pattern TRADE_URL_RE = ~/^https:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d{1,10}&token=[A-Za-z0-9_-]{1,16}$/
 
-    /** Per-user verification-resend cooldown (batch 602). Prevents a UI
-     *  that double-fires the Resend button from flooding SMTP with
-     *  redundant verification emails. Global 20/10s rate limit catches
-     *  script-level hammer but allows 20 resends in 10s; this tighter
-     *  60s cooldown is specifically for the outbound-email side. In-
-     *  memory (survives a rolling deploy is not required — cooldown is
-     *  about UX, not security). Capped at 10k entries so a wide ID
-     *  sweep can't grow the map unbounded; LRU via ConcurrentHashMap
-     *  size-check fallback. */
+    /** Per-user verification-email send cooldown (batch 602). Prevents a UI
+     *  that double-fires the Resend button — OR a stolen-session attacker —
+     *  from flooding SMTP with redundant verification emails. Global 20/10s
+     *  rate limit catches script-level hammer but allows 20 sends in 10s;
+     *  this tighter 60s cooldown is specifically for the outbound-email
+     *  side (SMTP reputation + mailbox-flood cost). In-memory (survives a
+     *  rolling deploy is not required — cooldown is about send-cost, not a
+     *  hard security gate). Capped at 10k entries so a wide ID sweep can't
+     *  grow the map unbounded; LRU via ConcurrentHashMap size-check
+     *  fallback.
+     *
+     *  Wave 145 — gates BOTH /email/resend AND PUT /email. Previously only
+     *  /email/resend consulted this map, so an attacker could bypass the
+     *  cooldown entirely by spamming PUT /email (which fires the identical
+     *  sendVerification on every successful call) to flood an arbitrary
+     *  address with up to 20 "Confirm your SkinBox email" messages per 10s.
+     *  Re-saving your own pending address is explicitly allowed, and the
+     *  uniqueness gate only blocks OTHER users' verified emails — so a bare
+     *  un-cooldowned PUT /email was a full mailbox-flood / SMTP-reputation
+     *  vector that defeated the very cooldown the resend path documents. */
     private static final long RESEND_COOLDOWN_MS = 60_000L
     private static final int RESEND_MAP_CAP = 10_000
     private static final java.util.concurrent.ConcurrentHashMap<Long, Long> LAST_RESEND_AT =
         new java.util.concurrent.ConcurrentHashMap<>()
+
+    /**
+     * Enforce the per-user verification-email send cooldown and record this
+     * send. Throws RESEND_COOLDOWN (400) when a verification email was sent
+     * to this user within the last {@link #RESEND_COOLDOWN_MS}. Shared by
+     * /email/resend and PUT /email so neither path can be used to flood a
+     * mailbox faster than once per 60s. Bounded eviction keeps the backing
+     * map from growing without limit under a wide-id sweep.
+     *
+     * NOTE: this cooldown is a PER-INSTANCE, in-memory best-effort guard. It
+     * resets on restart and is NOT shared across pods, so it sits ON TOP of
+     * the existing /api/profile RateLimitFilter bucket (20 writes/10s per IP)
+     * rather than replacing it. The IP bucket is the hard throttle; this
+     * tighter per-user 60s cooldown specifically protects the outbound-email
+     * side (SMTP reputation + mailbox-flood cost) and is fine to lose on a
+     * rolling deploy — at worst a fresh pod grants one extra send.
+     */
+    private void enforceVerificationSendCooldown(Long uid, long now) {
+        def last = LAST_RESEND_AT.get(uid)
+        if (last != null && (now - last) < RESEND_COOLDOWN_MS) {
+            long retryIn = (RESEND_COOLDOWN_MS - (now - last)) / 1000L
+            if (retryIn < 1L) retryIn = 1L
+            throw new BadRequestException('RESEND_COOLDOWN',
+                "Verification email already sent — wait ${retryIn}s before requesting another.")
+        }
+        // Cap the map size so a pathological id sweep can't grow it
+        // unbounded. Simple eviction: when the cap is hit, drop a
+        // random entry before inserting the new one.
+        if (LAST_RESEND_AT.size() >= RESEND_MAP_CAP && !LAST_RESEND_AT.containsKey(uid)) {
+            def iter = LAST_RESEND_AT.keySet().iterator()
+            if (iter.hasNext()) { iter.next(); iter.remove() }
+        }
+        LAST_RESEND_AT.put(uid, now)
+    }
+
+    /**
+     * Test-only: wipe the process-global verification-email cooldown map.
+     * The map is {@code static} so it survives across Spock specs sharing
+     * the test JVM — a send primed by one spec would otherwise fire a
+     * spurious RESEND_COOLDOWN in an unrelated spec. Specs that exercise
+     * the send path call this in setup() to stay isolated. Package-private
+     * (effectively {@code @VisibleForTesting}) so production code can't
+     * reach it; there is no legitimate runtime reason to clear the cooldown.
+     */
+    static void clearEmailCooldowns() {
+        LAST_RESEND_AT.clear()
+    }
 
     /** Per-user brute-force protection for 2FA verification endpoints
      *  (/2fa/disable, /2fa/regenerate-codes). The global /api/profile rate
@@ -572,6 +630,15 @@ class ProfileController {
         // verified (unverified addresses don't meaningfully change
         // recovery posture).
         String prevVerifiedEmail = (Boolean.TRUE.equals(user.emailVerified) && user.email) ? user.email : null
+
+        // Wave 145 — verification-email send cooldown. PUT /email fires the
+        // same outbound sendVerification as /email/resend, so without this
+        // gate an attacker could spam PUT /email to flood an arbitrary
+        // mailbox at the global 20/10s rate, bypassing the 60s resend
+        // cooldown entirely. Checked BEFORE mutating/persisting the user so
+        // a cooldown rejection leaves the row (and the prior pending token)
+        // untouched.
+        enforceVerificationSendCooldown(uid, System.currentTimeMillis())
 
         user.email = textSanitizer.cleanShort(emailRaw)
         // V63 — write the canonical form alongside the raw email so the
@@ -1243,14 +1310,11 @@ class ProfileController {
         // 60s per-user cooldown (batch 602). Prevents a UI that double-
         // fires the button or a refresh-spam pattern from flooding
         // SMTP. Separate from the global 20/10s rate limit — this
-        // cooldown is specifically tuned to SMTP reputation cost.
+        // cooldown is specifically tuned to SMTP reputation cost. Shared
+        // with PUT /email (wave 145) via enforceVerificationSendCooldown
+        // so neither path can be alternated to double the flood rate.
         def now = System.currentTimeMillis()
-        def last = LAST_RESEND_AT.get(uid)
-        if (last != null && (now - last) < RESEND_COOLDOWN_MS) {
-            long retryIn = (RESEND_COOLDOWN_MS - (now - last)) / 1000L
-            throw new BadRequestException('RESEND_COOLDOWN',
-                "Verification email already sent — wait ${retryIn}s before resending.")
-        }
+        enforceVerificationSendCooldown(uid, now)
         user.emailVerificationToken = randomToken()
         // Batch 647 — fresh 24h window on every resend. Matches the
         // /email (set-new-email) behaviour so a user who rotates email
@@ -1258,14 +1322,6 @@ class ProfileController {
         user.emailVerificationTokenExpiresAt = now + (24L * 60L * 60L * 1000L)
         steamUserRepository.save(user)
         emailService.sendVerification(user.email, user.emailVerificationToken)
-        // Cap the map size so a pathological id sweep can't grow it
-        // unbounded. Simple eviction: when the cap is hit, drop a
-        // random entry before inserting the new one.
-        if (LAST_RESEND_AT.size() >= RESEND_MAP_CAP) {
-            def iter = LAST_RESEND_AT.keySet().iterator()
-            if (iter.hasNext()) { iter.next(); iter.remove() }
-        }
-        LAST_RESEND_AT.put(uid, now)
         def resp = [email: user.email, verified: false, resent: true] as Map
         if (!emailService.smtpReady) resp.token = user.emailVerificationToken
         ResponseEntity.ok(resp)
