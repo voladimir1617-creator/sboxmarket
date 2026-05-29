@@ -309,8 +309,14 @@ class ReviewService {
         def itemName = review.itemName
         def cleanReason = reason?.trim() ?: 'policy violation'
         reviewRepository.delete(review)
-        auditService?.log('REVIEW_DELETED_STAFF', staffUserId, buyerId, reviewId,
-            "Staff removed ${oldRating}★ review on ${itemName ?: 'listing'}: ${cleanReason}")
+        // Audit subject is the SELLER whose stall just had a review yanked,
+        // not the buyer-author. Keeps the audit subject consistent with
+        // REVIEW_CREATED + REVIEW_DELETED (both use the seller as subject)
+        // so CSR's `bySubject(sellerId)` rollup actually surfaces staff
+        // overrides on the seller's rating. The buyer is captured in the
+        // summary so authorship is still traceable.
+        auditService?.log('REVIEW_DELETED_STAFF', staffUserId, sellerId, reviewId,
+            "Staff removed ${oldRating}★ review by buyer ${buyerId} on ${itemName ?: 'listing'}: ${cleanReason}")
         log.warn("Staff ${staffUserId} deleted review ${reviewId} (buyer=${buyerId}, seller=${sellerId}): ${cleanReason}")
         // Notify the BUYER so they know why their review was removed —
         // without this they'd see it silently disappear on a refresh.

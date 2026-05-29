@@ -9,6 +9,7 @@ import com.sboxmarket.model.Trade
 import com.sboxmarket.repository.ReviewRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TradeRepository
+import com.sboxmarket.service.AuditService
 import com.sboxmarket.service.NotificationService
 import com.sboxmarket.service.ReviewService
 import com.sboxmarket.service.TextSanitizer
@@ -635,6 +636,42 @@ class ReviewServiceSpec extends Specification {
         then:
         1 * reviewRepository.delete(review)
         noExceptionThrown()
+    }
+
+    def "adminDeleteReview's REVIEW_DELETED_STAFF audit row uses the SELLER as subject (CSR-search alignment)"() {
+        // Wave V68 regression: the staff-delete audit row used to set
+        // subjectUserId = buyerId (the review author). That broke CSR's
+        // `bySubject(sellerId)` rollup — a staff override of a review on a
+        // SELLER's stall vanished from the seller's audit history, even
+        // though the seller's average + count were just rewritten by staff
+        // fiat. Aligns with REVIEW_CREATED + REVIEW_DELETED (both use the
+        // seller as subject) so all three lifecycle events show up under
+        // the same seller-id query. The buyer id is still captured in the
+        // summary string for authorship traceability.
+        given:
+        def auditService = Mock(AuditService)
+        service.auditService = auditService
+        def review = new Review(id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L,
+            rating: 1, comment: 'contains a phone number', itemName: 'Wizard Hat')
+        reviewRepository.findById(42L) >> Optional.of(review)
+
+        when:
+        service.adminDeleteReview(500L, 42L, 'PII in comment')
+
+        then:
+        1 * reviewRepository.delete(review)
+        1 * auditService.log(
+            'REVIEW_DELETED_STAFF',
+            500L,                                            // actor: staff
+            20L,                                             // subject: SELLER (was buyerId=10L pre-fix)
+            42L,                                             // resource: review id
+            { String summary ->
+                summary.contains('1★') &&
+                summary.contains('Wizard Hat') &&
+                summary.contains('PII in comment') &&
+                summary.contains('10')                       // buyer id captured in summary
+            }
+        )
     }
 
     // ── eligibleTradesFor ───────────────────────────────────────────
