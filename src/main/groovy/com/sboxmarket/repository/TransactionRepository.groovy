@@ -225,6 +225,39 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     """)
     int claimExpirePending(@Param('id') Long id)
 
+    /**
+     * Atomic claim for a user-initiated withdrawal self-cancel. Flips a
+     * PENDING withdrawal to CANCELLED in a single conditional UPDATE so
+     * the caller can detect whether THIS transaction won the race against
+     * an admin-side reject ({@link com.sboxmarket.service.AdminService#rejectWithdrawal})
+     * landing at the same instant. Returns 1 = this caller owns the
+     * refund (credit wallet + write audit row), 0 = the admin reject
+     * (or some other terminal flip) already took the row — the caller
+     * MUST bail without re-crediting the wallet.
+     *
+     * Pre-fix StripeService.cancelPendingWithdrawal read the tx via
+     * findById, saw status=PENDING, credited wallet.balance += tx.amount,
+     * then saved. AdminService.rejectWithdrawal ran the same sequence at
+     * the same instant on a different connection: both saw PENDING, both
+     * credited the wallet, and the wallet ended up with 2 × tx.amount
+     * credited from one withdrawal — the user got their money back twice
+     * while only one tx flipped to a terminal state (whichever path
+     * committed last to the same tx row).
+     *
+     * Same conditional-UPDATE shape as claimExpirePending above, wave 124
+     * (ListingRepository.claimEndingSoonNotify), wave 125
+     * (BuyOrderRepository.claimExpire), and wave 126
+     * (sweepStalePendingDeposits multi-pod claim).
+     */
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+           SET t.status = 'CANCELLED'
+         WHERE t.id     = :id
+           AND t.status = 'PENDING'
+    """)
+    int claimCancelPendingWithdrawal(@Param('id') Long id)
+
     /** Sum of withdrawal amounts the wallet has requested within a
      *  rolling window — drives the daily withdrawal cap enforced at
      *  the /api/wallet/withdraw controller (batch 357). Includes

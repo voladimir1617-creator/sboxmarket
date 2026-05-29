@@ -471,9 +471,39 @@ class StripeService {
         }
         def wallet = walletRepository.findById(walletId)
             .orElseThrow { new NotFoundException("Wallet", walletId) }
+        // Atomic claim against a concurrent admin-side reject (wave 127).
+        // Pre-fix, this method's findById-read + unconditional credit was
+        // racing AdminService.rejectWithdrawal at the same-instant: both
+        // loaded the same PENDING row, both credited wallet.balance +=
+        // tx.amount, and the wallet ended up double-refunded — the user
+        // got their money back twice from one withdrawal request while
+        // only the last-committing path's tx.status overwrite stuck. The
+        // conditional UPDATE flips PENDING→CANCELLED only when the row
+        // is still PENDING and returns 1 to the winning caller; the
+        // losing caller sees 0 and must bail BEFORE the wallet credit.
+        // Same shape as claimExpirePending (sweepStalePendingDeposits
+        // multi-pod race, wave 126).
+        int claimed = transactionRepository.claimCancelPendingWithdrawal(tx.id)
+        if (claimed == 0) {
+            // Lost the race — admin's reject (or some other terminal flip)
+            // landed first. Re-read the row to surface an accurate status
+            // to the user so the SPA's withdrawal-row UI shows the actual
+            // resolution instead of a stale PENDING.
+            def latest = transactionRepository.findById(tx.id).orElse(null)
+            def now = latest?.status ?: tx.status
+            log.info("cancelPendingWithdrawal lost race on tx ${tx.id} — current status=${now}")
+            throw new IllegalStateException(
+                "Withdrawal is ${now}, not PENDING — cannot cancel. " +
+                "If it already paid out, contact support for a reversal."
+            )
+        }
         // Credit the amount back exactly as requestWithdrawal debited it.
         wallet.balance = wallet.balance + (tx.amount ?: BigDecimal.ZERO)
         walletRepository.save(wallet)
+        // Status flip is already persisted by the conditional UPDATE above;
+        // re-stamp the in-memory copy so the audit/log lines below see the
+        // accurate value, append the user-cancel suffix to the description
+        // (matches the legacy persisted shape), and bump updatedAt.
         tx.status = 'CANCELLED'
         tx.description = ((tx.description ?: '') + ' · cancelled by user').take(500)
         // Bump updatedAt to the cancellation moment. Every OTHER tx-status

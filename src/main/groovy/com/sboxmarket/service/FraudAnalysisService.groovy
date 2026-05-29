@@ -347,6 +347,19 @@ class FraudAnalysisService {
             log.warn("Fraud sweeper admin lookup failed: ${e.message}")
             return
         }
+        // Drop banned admins from the fan-out. A banned admin is a
+        // demoted/compromised staff account — they shouldn't receive
+        // HIGH fraud signal bells (they can't act on them anyway, and
+        // a banned-but-still-ADMIN-role account being included in the
+        // fan-out is the classic "leaked admin notification stream"
+        // problem). BanGuard would reject any action they tried to
+        // take in the admin panel; the bell entry is dead-end noise
+        // at best and an information leak at worst (an ex-admin
+        // shouldn't be tipped off the moment a HIGH signal lands).
+        // Matches the banned-recipient filter NotificationService
+        // applies to every other multi-target fan-out (PRICE_DROPPED,
+        // CART_ITEM_SOLD, AUCTION_ENDING).
+        admins = admins.findAll { !Boolean.TRUE.equals(it.banned) }
         if (admins.isEmpty()) return
         int pushed = 0
         highs.each { sig ->

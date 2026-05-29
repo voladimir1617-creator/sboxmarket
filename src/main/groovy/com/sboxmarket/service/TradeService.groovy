@@ -246,7 +246,17 @@ class TradeService {
     }
 
     List<Trade> listForUser(Long userId) {
-        tradeRepository.findByParticipant(userId)
+        // Pagination cap (bug class #9). Previously this called
+        // `findByParticipant` UNBOUNDED — a power-user with thousands
+        // of historical trades would force the server to serialise the
+        // entire history on every call, blowing memory + latency on
+        // the JSON marshal step. The sibling `listForUserWithCounterparty`
+        // already caps via `findByParticipantPaged` + TRADE_LIST_CAP=200;
+        // this method is the public Trade-entity entry point on the
+        // service and was the matching outlier. Older trades remain
+        // queryable by id via /api/trades/{id}.
+        tradeRepository.findByParticipantPaged(userId,
+            org.springframework.data.domain.PageRequest.of(0, TRADE_LIST_CAP))
     }
 
     /**
