@@ -210,16 +210,38 @@ class SavedSearchService {
         def byName = [:]
         cleaned.each { byName[mergeKeyFor(it.name as String)] = it }
         def candidates = byName.values() as List
-        // Existing names normalised through the same key function so the
-        // update / create split is robust to sanitization differences.
-        def existingKeys = (repository.findByUser(userId) ?: [])
-            .collect { mergeKeyFor(it.name as String) }
-            .findAll { it } as Set
+        // Existing names indexed by lowercased merge-key → original
+        // stored name. The merge-key view classifies updates vs creates
+        // case-insensitively (so "Hats" and "hats" collide), and the
+        // stored-name view lets us rewrite an incoming row's name to
+        // the existing case before handing off to upsert — whose
+        // `findByUserAndName` lookup is case-sensitive at the JPQL
+        // layer. Without that rewrite an incoming "hats" against an
+        // existing "Hats" would classify as an UPDATE (no headroom
+        // consumed) but upsert's case-sensitive lookup would miss,
+        // fall to the INSERT branch, and silently push the user one
+        // row over MAX_PER_USER (the headroom math thought this was
+        // an in-place edit).
+        def existingByKey = [:] as Map<String, String>
+        (repository.findByUser(userId) ?: []).each { row ->
+            def key = mergeKeyFor(row.name as String)
+            if (key && !existingByKey.containsKey(key)) {
+                existingByKey[key] = row.name as String
+            }
+        }
         def updates = []
         def creates = []
         candidates.each { row ->
             def key = mergeKeyFor(row.name as String)
-            if (key && existingKeys.contains(key)) updates << row else creates << row
+            if (key && existingByKey.containsKey(key)) {
+                // Rewrite to the existing stored name so upsert's
+                // case-sensitive findByUserAndName lookup hits the
+                // existing row and overwrites in place.
+                if (row instanceof Map) row.name = existingByKey[key]
+                updates << row
+            } else {
+                creates << row
+            }
         }
         def headroom = MAX_PER_USER - repository.countByUser(userId)
         if (headroom < creates.size()) creates = creates.take(Math.max(0, (int) headroom))

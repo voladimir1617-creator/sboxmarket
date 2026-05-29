@@ -28,6 +28,18 @@ class SupportService {
     @Autowired TextSanitizer textSanitizer
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
 
+    /** Per-user open-ticket cap. Each new ticket fans a SUPPORT_REPLY
+     *  bell push to every ADMIN + CSR (see create() staff fan-out
+     *  below). Without a cap, a single user could open arbitrarily
+     *  many tickets and flood the staff inbox — a free DoS on the
+     *  shift queue. 20 is generous (a legitimate user rarely has more
+     *  than a handful of concurrent open threads) and well above the
+     *  one-per-real-issue norm; the cap only triggers on obviously
+     *  abusive bursts. Matches the per-user-cap pattern used by
+     *  SavedSearchService (MAX_PER_USER), CartService, and
+     *  WatchlistService. */
+    static final int MAX_OPEN_TICKETS_PER_USER = 20
+
     /**
      * Newline-preserving body sanitizer. {@link TextSanitizer#body} collapses
      * EVERY whitespace run — including \n — into a single space, which flattens
@@ -128,6 +140,19 @@ class SupportService {
 
     @Transactional
     SupportTicket create(Long userId, String username, String subject, String category, String body) {
+        // Per-user open-ticket cap — checked BEFORE any sanitization /
+        // save so an abusive caller can't burn CPU on the sanitizer
+        // either. Each new ticket fans a SUPPORT_REPLY bell push to
+        // every ADMIN and CSR; without this cap a single user can
+        // spam the staff inbox. RESOLVED tickets don't count so the
+        // cap is on the live queue, not a long-tenure account's
+        // archive. 20 is well above legitimate concurrent use (see
+        // MAX_OPEN_TICKETS_PER_USER doc).
+        if (ticketRepository.countOpenByUser(userId) >= MAX_OPEN_TICKETS_PER_USER) {
+            throw new BadRequestException("TOO_MANY_OPEN_TICKETS",
+                "You already have ${MAX_OPEN_TICKETS_PER_USER} open support tickets. " +
+                "Please resolve an existing one before opening a new ticket.")
+        }
         // Sanitize EVERYTHING at the ingestion boundary — HTML tags, JS
         // protocols, on* attributes, and HTML entities are stripped. The
         // stored values are guaranteed safe to render as plain text.

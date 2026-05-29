@@ -42,6 +42,17 @@ class UserBlockService {
      * the existing row without raising an error from the client's POV.
      * Self-blocking is rejected (CHECK constraint would also catch it,
      * but a clean 400 is friendlier than a constraint-violation 500).
+     *
+     * `noRollbackFor = DataIntegrityViolationException` is load-bearing
+     * for the UNIQUE-constraint race recovery below. The try/catch
+     * swallows the dup at save() time but Spring's @Transactional proxy
+     * still marks the tx rollback-only on any RuntimeException thrown
+     * from a JPA op — without this hint, the recovery's findByBlocker
+     * read runs against an already-doomed tx and the method commit
+     * fires UnexpectedRollbackException, surfacing as a 500 to the
+     * caller even though we caught the original violation. Same posture
+     * the AuditService / NotificationService deferral was forced to
+     * adopt for the same Spring-tx-poisoning class of bug.
      */
     @Transactional
     UserBlock block(Long blockerUserId, Long blockedUserId) {

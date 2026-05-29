@@ -25,6 +25,18 @@ interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
     @Query("SELECT COUNT(t) FROM SupportTicket t WHERE t.status <> 'RESOLVED'")
     long countOpen()
 
+    /** Per-user open-ticket count. Gates SupportService.create so a
+     *  single user can't spam the queue: every new ticket fans a
+     *  SUPPORT_REPLY bell push to every ADMIN + CSR (see
+     *  SupportService.create staff fan-out, lines 202-221), so an
+     *  unbounded open-ticket spammer is a free DoS on the staff
+     *  inbox. Same pattern as SavedSearchRepository.countByUser /
+     *  CartItemRepository.countByUser / WatchlistItemRepository.
+     *  countByUser. Only counts non-RESOLVED rows so the cap is on
+     *  the live queue, not a user's lifetime ticket history. */
+    @Query("SELECT COUNT(t) FROM SupportTicket t WHERE t.userId = :uid AND t.status <> 'RESOLVED'")
+    long countOpenByUser(@Param('uid') Long uid)
+
     @Query("SELECT COUNT(t) FROM SupportTicket t WHERE t.status = :status")
     long countByStatus(@Param('status') String status)
 
