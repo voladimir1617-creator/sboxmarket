@@ -15,7 +15,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Standing buy orders — when a new listing is created (or an existing one has its
@@ -42,6 +45,56 @@ class BuyOrderService {
     // references here, but we are *called from* ListingService which in turn
     // calls PurchaseService. Using @Lazy keeps Spring's graph happy.
     @Autowired @Lazy PurchaseService purchaseService
+
+    /** Optional so unit tests that build the service with `new
+     *  BuyOrderService(...)` (no Spring context) still work — in that case
+     *  there is never an active transaction and {@link #runInIsolatedTx}
+     *  runs the work inline so the mocked-repo assertions still fire. */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
+
+    /**
+     * Run {@code work} in a fresh REQUIRES_NEW transaction when a
+     * PlatformTransactionManager is wired (production), otherwise run
+     * inline (Spock unit tests that build BuyOrderService without a
+     * Spring context).
+     *
+     * Why this matters for the auto-fill loop: `purchaseService.buy` is
+     * itself {@code @Transactional}. When the matcher's outer caller is
+     * also transactional (create / update / tryFillFromExisting itself
+     * carries {@code @Transactional}), Spring's PROPAGATION_REQUIRED
+     * makes the inner buy join the SHARED outer transaction. A buy that
+     * throws ({@code ListingNotAvailableException} from a sniped listing,
+     * {@code InsufficientBalanceException} from a concurrent withdraw,
+     * an OptimisticLockingFailureException from a versioned Wallet
+     * collision) triggers Spring's inner-proxy
+     * {@code setRollbackOnly()} on the SHARED outer tx BEFORE the
+     * exception escapes back to our try/catch. The catch then swallows
+     * the throw and the loop tries the next listing — but the outer tx
+     * is already poisoned. At commit time the outer commit blows up
+     * with {@code UnexpectedRollbackException} and EVERY "successful"
+     * fill the loop landed (debit, listing→SOLD, Trade row, BuyOrder
+     * decrement) is rolled back along with the freshly-INSERTed BuyOrder
+     * from {@link #create}. The buyer's API returned 201 Created but
+     * their order doesn't exist in the DB, listings the loop "bought"
+     * are still ACTIVE, and no notification ever fires.
+     *
+     * Running each buy in its own REQUIRES_NEW sub-tx means a failed
+     * fill rolls back ONLY that sub-tx — the outer tx is never
+     * poisoned, the next listing iteration proceeds cleanly, and
+     * successful fills durably commit. The outer pessimistic lock on
+     * the BuyOrder row (acquired via findByIdForUpdate) is still held
+     * by the outer tx throughout the loop, so concurrent fills against
+     * the same order remain serialised.
+     */
+    private void runInIsolatedTx(Closure work) {
+        if (transactionManager == null) {
+            work()
+            return
+        }
+        def tt = new TransactionTemplate(transactionManager)
+        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        tt.executeWithoutResult { work() }
+    }
 
     // Per-buyer ACTIVE buy-order cap. Prevents a single account from
     // queueing 100k+ standing orders that tie up the matcher (the matcher
@@ -199,7 +252,21 @@ class BuyOrderService {
             // says, with no knowledge of the order's cap.
             if (listing.price == null || listing.price > order.maxPrice) continue
             try {
-                purchaseService.buy(wallet.id, order.buyerUserId, listing.id)
+                // REQUIRES_NEW sub-tx around the buy (see runInIsolatedTx).
+                // Without this, a single sniped/over-debited listing throws
+                // ListingNotAvailableException / InsufficientBalanceException
+                // out of PurchaseService.buy, Spring's inner @Transactional
+                // proxy marks the SHARED outer tx rollback-only BEFORE the
+                // throw escapes, the catch below swallows the exception, and
+                // the loop continues — but the outer tx is poisoned. Every
+                // later successful fill, the BuyOrder decrement, and the
+                // freshly-INSERTed BuyOrder from create() all roll back at
+                // outer commit while the buyer's API response said 201
+                // Created. Running each buy in its own sub-tx isolates the
+                // failure to that one listing.
+                runInIsolatedTx {
+                    purchaseService.buy(wallet.id, order.buyerUserId, listing.id)
+                }
                 order.quantity = Math.max(0, order.quantity - 1)
                 order.updatedAt = System.currentTimeMillis()
                 if (order.quantity == 0) order.status = 'FILLED'
@@ -588,7 +655,20 @@ class BuyOrderService {
                 // knowledge; the locked re-load can also surface a
                 // maxPrice the buyer lowered after the match query.
                 if (listing.price == null || listing.price > locked.maxPrice) continue
-                purchaseService.buy(wallet.id, locked.buyerUserId, listing.id)
+                // REQUIRES_NEW sub-tx around the buy — see runInIsolatedTx
+                // for the full rationale. tryMatch is called from
+                // ListingService when a fresh listing lands; the caller
+                // ALSO carries @Transactional, so without the sub-tx a
+                // buy() throw (sniped listing, concurrent wallet drain,
+                // versioned-Wallet collision) marks the shared outer tx
+                // rollback-only and torches the listing's own
+                // create/relist save. The catch below swallows the throw
+                // so the loop tries the next candidate, but the outer
+                // commit later blows up with UnexpectedRollbackException
+                // and the listing the seller just published vanishes.
+                runInIsolatedTx {
+                    purchaseService.buy(wallet.id, locked.buyerUserId, listing.id)
+                }
                 locked.quantity = Math.max(0, locked.quantity - 1)
                 locked.updatedAt = System.currentTimeMillis()
                 if (locked.quantity == 0) locked.status = 'FILLED'
