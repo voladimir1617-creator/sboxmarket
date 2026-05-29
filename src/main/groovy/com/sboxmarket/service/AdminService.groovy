@@ -1659,7 +1659,17 @@ class AdminService {
     @Transactional
     Map creditWallet(Long adminUserId, Long targetUserId, BigDecimal amount, String note) {
         requireAdmin(adminUserId)
-        if (amount == null || amount == BigDecimal.ZERO) {
+        // `signum() == 0` — semantic "is zero" — works regardless of
+        // BigDecimal scale. `amount == BigDecimal.ZERO` was a sloppy
+        // guard: BigDecimal's `equals()` is SCALE-SENSITIVE, so
+        // `new BigDecimal("0.00").equals(BigDecimal.ZERO)` returns
+        // FALSE (different scale). An admin sending `{"amount": 0.00}`
+        // would have slipped past this gate and into the credit path
+        // for a no-op $0 adjustment — not a money leak, but a tx row +
+        // audit log + user notification for nothing, polluting the
+        // user's wallet history. signum() reports -1/0/+1 by value, not
+        // by encoded form.
+        if (amount == null || amount.signum() == 0) {
             throw new BadRequestException("INVALID_AMOUNT", "Amount must be non-zero")
         }
         // Hard sanity cap on the per-call adjustment size — without this
