@@ -1408,18 +1408,30 @@ class ProfileController {
         if (step < 0) {
             throw new BadRequestException("INVALID_CODE", "That code is invalid or already used")
         }
-        user.totpSecret = secret
-        user.lastTotpStep = step
-        // Clear the staging slot. enroll2fa rejects starting 2FA while a
-        // real email-verification token is in flight, so this only ever
-        // clears a "totp_pending:" value — no genuine email token is lost.
-        user.emailVerificationToken = null
         // Mint backup codes atomically with enrollment so the user can never
         // be in the "2FA on, no recovery path" state. Shown exactly once in
         // the response; only the hashed set is persisted.
         def codes = totpService.generateBackupCodes()
-        user.totpRecoveryCodes = codes.hashed as String
-        steamUserRepository.save(user)
+        // CAS commit — refuses to overwrite a totpSecret that another
+        // concurrent /2fa/confirm just committed. Without this guard, two
+        // confirms with the same staged secret + same valid 6-digit code
+        // both read NULL for totpSecret, both call totpService.generate
+        // BackupCodes() (which is non-deterministic — fresh codes each
+        // call), and both `save(user)` succeed. The user copies the FIRST
+        // response's recovery list onto paper, but the SECOND save wins
+        // the row state, leaving the stored recovery hashes pointing at
+        // codes the user has never seen. The user has now lost their
+        // recovery path before they ever knew they had one. Mapping a
+        // zero-row update back to NOT_ENROLLING (rather than a generic
+        // 500) gives the loser a clean retry against the post-commit
+        // state — they will be told they are already enrolled and can
+        // route to /2fa/regenerate-codes if they need a fresh list.
+        int updated = steamUserRepository.commit2faEnrollment(
+            uid, stage, secret, step, codes.hashed as String)
+        if (updated == 0) {
+            throw new BadRequestException("NOT_ENROLLING",
+                "Two-factor enrollment was already completed on a parallel request. Use /2fa/regenerate-codes if you need a fresh recovery list.")
+        }
         ResponseEntity.ok([
             enabled:      true,
             recoveryCodes: codes.plaintext as List

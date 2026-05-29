@@ -231,4 +231,35 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
     @org.springframework.transaction.annotation.Transactional
     @Query("UPDATE SteamUser u SET u.lastSeenAt = :ts WHERE u.id = :id")
     int updateLastSeenAt(@Param('id') Long id, @Param('ts') Long timestamp)
+
+    /** CAS-style commit of a 2FA enrollment. Used by /2fa/confirm so two
+     *  concurrent confirms with the SAME staged secret + SAME valid TOTP
+     *  code can NEVER both succeed — without this guard, the second
+     *  confirm overwrites the first's freshly-minted backup-code hashes,
+     *  silently invalidating the recovery-code list the user already
+     *  copied off the first response and locking them out of the lost-
+     *  authenticator path. The WHERE clause requires the totpSecret slot
+     *  to still be NULL (no prior confirm has committed) AND the staging
+     *  token to still match (no concurrent /2fa/cancel + re-enroll has
+     *  shifted the secret out from under us). Returns 1 on the winner,
+     *  0 on every loser — the controller maps 0 to NOT_ENROLLING so the
+     *  loser gets a clean error rather than a stale 200 with throwaway
+     *  backup codes. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("""
+        UPDATE SteamUser u
+        SET u.totpSecret = :secret,
+            u.lastTotpStep = :step,
+            u.totpRecoveryCodes = :codes,
+            u.emailVerificationToken = NULL
+        WHERE u.id = :id
+          AND u.totpSecret IS NULL
+          AND u.emailVerificationToken = :expectedStaging
+    """)
+    int commit2faEnrollment(@Param('id') Long id,
+                            @Param('expectedStaging') String expectedStaging,
+                            @Param('secret') String secret,
+                            @Param('step') Long step,
+                            @Param('codes') String codes)
 }

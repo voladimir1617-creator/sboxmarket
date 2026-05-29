@@ -44,6 +44,7 @@ class ListingController {
     @Autowired(required = false) com.sboxmarket.service.NotificationService notificationService
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
+    @Autowired(required = false) com.sboxmarket.service.security.AdminAuthorization adminAuthorization
 
     // Batch 659 — canonical enum lists + normaliser live in
     // `com.sboxmarket.util.ListingEnums` (shared with ItemController
@@ -256,12 +257,41 @@ class ListingController {
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<Listing> getById(@PathVariable Long id) {
+    ResponseEntity<Listing> getById(@PathVariable Long id, HttpServletRequest req) {
+        Listing listing
         try {
-            ResponseEntity.ok(listingService.getById(id))
+            listing = listingService.getById(id)
         } catch (NoSuchElementException ignored) {
             throw new NotFoundException("Listing", id)
         }
+        // Hidden-listing leak guard. PurchaseService.buy, OfferService.makeOffer
+        // and CartService.add all reject hidden rows so a scraped/cached id can't
+        // round-trip a seller's pulled-off-market listing into a purchase. This
+        // endpoint was the back door — anyone walking /api/listings/{1..N} could
+        // pull a hidden listing's full payload (price, description, seller id,
+        // maxDiscount, etc) even though it's deliberately invisible on every
+        // grid / rail / stall surface. Treat as 404 for non-owners (and non-
+        // admins): the resource may exist in the DB but it is not addressable
+        // from outside. The seller themselves still sees their own row so the
+        // MyStall edit path keeps working off this endpoint.
+        if (Boolean.TRUE.equals(listing.hidden)) {
+            def viewer = req?.session?.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+            boolean isOwner = (viewer != null && viewer == listing.sellerUserId)
+            // Short-circuit on owner BEFORE the admin probe so the owner-fetch
+            // path doesn't burn an isAdmin() DB round-trip on every MyStall
+            // edit-modal open (the common case). Also matters for the regression
+            // spec, which pins `0 * adminAuthorization.isAdmin(_)` on the owner
+            // path — if the owner branch unconditionally evaluated isAdmin in
+            // the same boolean expression, Spock would see one too many calls.
+            if (!isOwner) {
+                boolean isAdmin = (viewer != null && adminAuthorization != null
+                    && adminAuthorization.isAdmin(viewer))
+                if (!isAdmin) {
+                    throw new NotFoundException("Listing", id)
+                }
+            }
+        }
+        ResponseEntity.ok(listing)
     }
 
     @GetMapping("/stats")

@@ -157,11 +157,23 @@ class AuditService {
         try { subject = subjectUserId ? steamUserRepository.findById(subjectUserId).orElse(null) : null }
         catch (Exception e) { log.warn("Audit subject enrichment failed for uid=${subjectUserId}: ${e.message}") }
         def req = currentRequest()
+        // Belt-and-braces length caps on the persisted name fields.
+        // SteamUser.displayName is length=255 but AuditLog.actorName /
+        // subjectName are length=80. A user with a 81+ char displayName
+        // (Steam policy is 32, but our column allows 255 — historical
+        // imports and some Unicode sequences can blow past 80) would
+        // overflow the audit row INSERT. The save runs inside a
+        // post-commit REQUIRES_NEW transaction (deferOrRun) so the parent
+        // op isn't poisoned, but the audit row is silently dropped — the
+        // privileged-action trail then has a hole exactly when staff
+        // would most want it (long-named user gets banned, no row written).
+        // Same defensive .take() already applied to summary / ipAddress /
+        // userAgent above.
         def entry = new AuditLog(
             actorUserId:   actorUserId,
-            actorName:     actor?.displayName,
+            actorName:     actor?.displayName?.take(80),
             subjectUserId: subjectUserId,
-            subjectName:   subject?.displayName,
+            subjectName:   subject?.displayName?.take(80),
             eventType:     eventType,
             resourceId:    resourceId,
             summary:       summary?.take(500),

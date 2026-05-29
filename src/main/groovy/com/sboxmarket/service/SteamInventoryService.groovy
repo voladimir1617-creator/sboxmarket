@@ -200,47 +200,7 @@ class SteamInventoryService {
             return []
         }
 
-        // Descriptions are unique by (classid, instanceid); assets refer back
-        // via those two fields. Build a lookup of descriptions, then walk the
-        // assets so we return one entry per physical copy in the inventory.
-        def descriptions = [:]
-        json?.descriptions?.each { d ->
-            def key = "${d.classid}_${d.instanceid}"
-            descriptions[key] = d
-        }
-        def out = []
-        json?.assets?.each { a ->
-            def key = "${a.classid}_${a.instanceid}"
-            def d = descriptions[key]
-            if (d == null) return
-            // Prefer icon_url_large (sharper) but fall back to icon_url. Both
-            // are path fragments that need the akamaihd base + an explicit size.
-            // We've hit cases where cloudflare.steamstatic.com returns 404 for
-            // s&box items that resolve fine under the akamai origin, so the
-            // primary URL now points at akamai and we expose both.
-            def iconFrag = d.icon_url_large ?: d.icon_url
-            def fullIcon = null
-            // .toString() forces a plain java.lang.String rather than a
-            // GStringImpl — Jackson occasionally serialises the latter as
-            // an object ({values: [...], strings: [...]}), which broke the
-            // frontend's `url.replace(...)` call in primitives.js when the
-            // /sell page tried to render a Steam inventory thumbnail.
-            if (iconFrag) {
-                fullIcon = "https://steamcommunity-a.akamaihd.net/economy/image/${iconFrag}/330x192".toString()
-            }
-            out << [
-                assetId:    a.assetid?.toString(),
-                classId:    a.classid?.toString(),
-                instanceId: a.instanceid?.toString(),
-                name:       (d.market_hash_name ?: d.market_name ?: d.name)?.toString(),
-                tradable:   ((d.tradable as Integer) ?: 0) == 1,
-                marketable: ((d.marketable as Integer) ?: 0) == 1,
-                type:       d.type?.toString(),
-                iconUrl:    fullIcon,
-                imageUrl:   fullIcon,   // alias so ItemImage can read it directly
-                tags:       d.tags?.collect { [category: it.category?.toString(), name: it.name?.toString(), localized: it.localized_tag_name?.toString()] }
-            ]
-        }
+        def out = mapInventoryJson(json, steamId64)
         log.info("Fetched ${out.size()} s&box inventory items for $steamId64 (icons: ${out.count { it.iconUrl }}/${out.size()})")
         // Cache the result. Bounded soft-cap eviction at CACHE_MAX so a
         // long-running container doesn't accumulate unbounded entries.
@@ -257,6 +217,74 @@ class SteamInventoryService {
             } catch (NoSuchElementException ignored) { /* raced to empty */ }
         }
         inventoryCache.put(steamId64, [at: System.currentTimeMillis(), items: out] as Map)
+        out
+    }
+
+    /**
+     * Walk a parsed Steam inventory JSON tree and return the flat row list.
+     *
+     * Descriptions are unique by (classid, instanceid); assets refer back via
+     * those two fields. We build a lookup of descriptions, then walk the
+     * assets so we emit one row per physical copy in the inventory.
+     *
+     * The whole walk is wrapped in a try/catch because Steam occasionally
+     * returns shapes we don't expect (200 OK with `{"success": false}`, a
+     * `descriptions` array containing null entries, a `tags` list whose
+     * members lack `category`, etc.). Without this guard a single null
+     * dereference — `d.classid` when d is null — escapes the caller as an
+     * NPE, but fetchInventory is documented as "never throw" because GET
+     * /api/steam/inventory, POST /api/steam/list and /list-bulk all call it
+     * without a surrounding try/catch, so any escape 500s a user-facing
+     * endpoint. Degrade to [] like every other failure path.
+     *
+     * Package-private for direct Spock coverage of the shape-tolerance.
+     */
+    List<Map> mapInventoryJson(json, String steamId64) {
+        def out = []
+        try {
+            def descriptions = [:]
+            json?.descriptions?.each { d ->
+                if (d == null) return
+                def key = "${d.classid}_${d.instanceid}"
+                descriptions[key] = d
+            }
+            json?.assets?.each { a ->
+                if (a == null) return
+                def key = "${a.classid}_${a.instanceid}"
+                def d = descriptions[key]
+                if (d == null) return
+                // Prefer icon_url_large (sharper) but fall back to icon_url. Both
+                // are path fragments that need the akamaihd base + an explicit size.
+                // We've hit cases where cloudflare.steamstatic.com returns 404 for
+                // s&box items that resolve fine under the akamai origin, so the
+                // primary URL now points at akamai and we expose both.
+                def iconFrag = d.icon_url_large ?: d.icon_url
+                def fullIcon = null
+                // .toString() forces a plain java.lang.String rather than a
+                // GStringImpl — Jackson occasionally serialises the latter as
+                // an object ({values: [...], strings: [...]}), which broke the
+                // frontend's `url.replace(...)` call in primitives.js when the
+                // /sell page tried to render a Steam inventory thumbnail.
+                if (iconFrag) {
+                    fullIcon = "https://steamcommunity-a.akamaihd.net/economy/image/${iconFrag}/330x192".toString()
+                }
+                out << [
+                    assetId:    a.assetid?.toString(),
+                    classId:    a.classid?.toString(),
+                    instanceId: a.instanceid?.toString(),
+                    name:       (d.market_hash_name ?: d.market_name ?: d.name)?.toString(),
+                    tradable:   ((d.tradable as Integer) ?: 0) == 1,
+                    marketable: ((d.marketable as Integer) ?: 0) == 1,
+                    type:       d.type?.toString(),
+                    iconUrl:    fullIcon,
+                    imageUrl:   fullIcon,   // alias so ItemImage can read it directly
+                    tags:       d.tags?.findAll { it != null }?.collect { [category: it.category?.toString(), name: it.name?.toString(), localized: it.localized_tag_name?.toString()] }
+                ]
+            }
+        } catch (Exception e) {
+            log.warn("Steam inventory for $steamId64 had unexpected shape: ${e.message}")
+            return []
+        }
         out
     }
 

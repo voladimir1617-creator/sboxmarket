@@ -1438,7 +1438,22 @@ Thanks for your patience.
 
     /** Truncate the given string to `cap` chars, appending an ellipsis
      *  if the cut actually fired. Returns the original when null/empty
-     *  or already inside the cap — no allocation in the common case. */
+     *  or already inside the cap — no allocation in the common case.
+     *
+     *  Surrogate-pair safety: Java {@code String}s are UTF-16, so a
+     *  supplementary code point (emoji like 😀 = U+1F600, mathematical
+     *  alphanumerics like 𝕊 = U+1D54A, every 4-byte UTF-8 codepoint) is
+     *  stored as a high+low surrogate PAIR occupying TWO {@code char}
+     *  slots. A naive {@code substring(0, cap-1)} that lands between the
+     *  high and low surrogate produces a string with an unpaired high
+     *  surrogate — invalid UTF-16 that becomes the replacement char
+     *  {@code ?} (0x3F) when Jakarta Mail later QP/base64 encodes the
+     *  subject for the wire. An attacker who sets a Steam display name
+     *  full of emoji can otherwise push the cut to land mid-surrogate
+     *  on every subject they trigger, garbling the recipient-facing
+     *  template name. Back the cut off by one char when the boundary
+     *  lands on a high surrogate so the trailing emoji is dropped
+     *  cleanly rather than being silently mangled to {@code ?}. */
     private static String cap(String s, int cap) {
         if (s == null) return s
         if (s.length() <= cap) return s

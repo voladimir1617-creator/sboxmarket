@@ -180,7 +180,28 @@ class SteamMarketPriceService {
                     applyPriceUpdate(item, lowestPrice, bestPrice)
 
                     itemRepository.save(item)
-                    priceHistoryService?.record(item, bestPrice)
+                    // Only stamp price_history when we actually adopted the
+                    // Steam-market price as the platform floor — i.e. the
+                    // item is NOT currently listed on sboxmarket. For LISTED
+                    // items, applyPriceUpdate intentionally preserves
+                    // `item.lowestPrice` (the authoritative platform floor
+                    // owned by ListingService.updateItemFloorPrice), and
+                    // recording Steam's `bestPrice` here anyway forks the
+                    // sparkline away from what the grid card actually shows:
+                    // the chart trends down to Steam-market 3.00 while the
+                    // card still reads platform-floor 5.00. Worse, every
+                    // 30-min sync stamps a fresh history row with Steam's
+                    // (usually lower) market price, so the chart's "latest"
+                    // point converges to a number the user can never click
+                    // through to. Skipping the record() for listed items
+                    // keeps price_history a faithful log of what the
+                    // platform actually quoted. Listed-item history is fed
+                    // separately by PurchaseService.record() (actual sales)
+                    // and BidService.record() (auction settles), both of
+                    // which write the true platform price.
+                    if (!item.isListed) {
+                        priceHistoryService?.record(item, bestPrice)
+                    }
                     updated++
                 } else {
                     skipped++

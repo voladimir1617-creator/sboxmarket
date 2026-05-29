@@ -290,23 +290,41 @@ class CsrService {
         t.updatedAt = System.currentTimeMillis()
         supportTicketRepository.save(t)
 
-        notificationService?.push(t.userId, 'SUPPORT_REPLY',
-            "New reply on ticket #${t.id}",
-            t.subject, t.id, '/support')
-        // Email the user too (batch 475). The bell notification can sit
-        // unread for hours; an email lands in the user's inbox so they
-        // know to come back. Gated on email + verified — same pattern
-        // as withdrawal-approved emails. Failure-tolerant: a bad SMTP
-        // doesn't block the reply from saving.
-        if (emailService != null) {
-            try {
-                def user = steamUserRepository.findById(t.userId).orElse(null)
-                if (emailService.canSendSecurityTo(user)) {
-                    emailService.sendSupportReply(user.email, user.displayName,
-                        t.id, t.subject, cleanBody)
+        // Skip user-facing notifications + email when the ticket owner has
+        // been banned since opening the ticket (e.g. fraud appeal that
+        // backfired). Mirrors NotificationService.filterActiveRecipients
+        // for the batch case and `issueGoodwillCredit`'s banned-target
+        // refusal — a banned account is inert and shouldn't receive bell
+        // pings or emails about staff activity on a frozen ticket. The
+        // reply, status flip, and audit row still happen: this is a
+        // delivery suppression, not an action refusal — staff need their
+        // forensic trail and the CSR-side view of the thread must update.
+        // Null-safe on the lookup itself so a stubbed-out repository or a
+        // transient DB blip can't roll back the reply we already saved.
+        SteamUser owner = null
+        try {
+            def lookup = steamUserRepository.findById(t.userId)
+            owner = (lookup != null) ? lookup.orElse(null) : null
+        } catch (Exception ignored) { /* treat as unknown */ }
+        boolean ownerBanned = (owner != null && Boolean.TRUE.equals(owner.banned))
+        if (!ownerBanned) {
+            notificationService?.push(t.userId, 'SUPPORT_REPLY',
+                "New reply on ticket #${t.id}",
+                t.subject, t.id, '/support')
+            // Email the user too (batch 475). The bell notification can sit
+            // unread for hours; an email lands in the user's inbox so they
+            // know to come back. Gated on email + verified — same pattern
+            // as withdrawal-approved emails. Failure-tolerant: a bad SMTP
+            // doesn't block the reply from saving.
+            if (emailService != null) {
+                try {
+                    if (emailService.canSendSecurityTo(owner)) {
+                        emailService.sendSupportReply(owner.email, owner.displayName,
+                            t.id, t.subject, cleanBody)
+                    }
+                } catch (Exception e) {
+                    log.warn("Support-reply email failed for ticket ${t.id}: ${e.message}")
                 }
-            } catch (Exception e) {
-                log.warn("Support-reply email failed for ticket ${t.id}: ${e.message}")
             }
         }
         // Audit-log the CSR reply (matches the CSR_CREDIT audit pattern
