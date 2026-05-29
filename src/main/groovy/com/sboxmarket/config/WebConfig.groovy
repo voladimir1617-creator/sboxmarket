@@ -119,16 +119,27 @@ class WebConfig implements WebMvcConfigurer {
         // request with an `If-Modified-Since` round-trip, burning a
         // worker thread per asset per visit instead of returning a 304
         // straight from the browser cache.
-        registry.addResourceHandler('/css/**', '/js/**', '/img/**', '/fonts/**',
-                                    '/favicon.ico', '/manifest.json', '/robots.txt',
-                                    '/opensearch.xml')
-                .addResourceLocations('classpath:/static/')
-                .setCachePeriod(60 * 60 * 24 * 7)
-        // SPA shell + HTML pages — NO browser cache. Every deploy rewrites
-        // index.html with new bundle hashes; a cached index.html would
-        // load stale JS/CSS references and 404 forever until the user
-        // hard-refreshed. setCachePeriod(0) sends `Cache-Control: no-store`
-        // so the browser always asks the server for the current shell.
+        // CRITICAL: each '/dir/**' handler MUST point at 'classpath:/static/dir/'.
+        // Spring strips the handler's literal prefix ('/css/') and resolves only
+        // the '**' remainder ('design.css') against the location — so a SHARED
+        // 'classpath:/static/' location resolves '/css/design.css' to
+        // static/design.css (wrong dir) and 404s. That was the f6f7548
+        // regression: one /static/ location across /css,/js,/img,/fonts 404'd
+        // EVERY asset, leaving the SPA stuck on its skeleton. The shell itself
+        // still 200'd via the '/**' handler below, so a `curl /` smoke-test
+        // (200 OK) masked a fully-broken site. Per-directory locations keep the
+        // 7-day immutable-asset cache AND resolve correctly.
+        int week = 60 * 60 * 24 * 7
+        registry.addResourceHandler('/css/**').addResourceLocations('classpath:/static/css/').setCachePeriod(week)
+        registry.addResourceHandler('/js/**').addResourceLocations('classpath:/static/js/').setCachePeriod(week)
+        registry.addResourceHandler('/img/**').addResourceLocations('classpath:/static/img/').setCachePeriod(week)
+        registry.addResourceHandler('/fonts/**').addResourceLocations('classpath:/static/fonts/').setCachePeriod(week)
+        // Everything else — SPA shell, HTML pages, and the static-root files
+        // (favicon.ico, manifest.json, robots.txt, opensearch.xml) — NO browser
+        // cache. Every deploy rewrites index.html with new bundle references; a
+        // cached shell would load stale JS/CSS and 404 until a hard refresh.
+        // setCachePeriod(0) sends `Cache-Control: no-store`. The root files
+        // resolve correctly here because '/**' keeps their full path.
         registry.addResourceHandler('/**')
                 .addResourceLocations('classpath:/static/')
                 .setCachePeriod(0)
