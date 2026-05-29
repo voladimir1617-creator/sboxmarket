@@ -1659,6 +1659,27 @@ class AdminService {
     @Transactional
     Map creditWallet(Long adminUserId, Long targetUserId, BigDecimal amount, String note) {
         requireAdmin(adminUserId)
+        // Self-target guard — mirrors banUser / grantAdmin / forceLogout /
+        // grantCsr. creditWallet was the last admin mutation missing the
+        // check, and was the most exploitable one: an admin could push
+        // up to the $10k cap into their OWN wallet in a single click,
+        // with an operator-written "audit trail" note attributing the
+        // grant to themselves. The audit row's subjectUserId = admin's
+        // own id meant the action would not appear under the usual
+        // "show me admin actions taken against user X" filter for any
+        // OTHER user — the only forensic trail was an ADMIN_CREDIT row
+        // whose actor and subject collapse to one id. The hard cap +
+        // note requirement do nothing to deter a corrupt admin from
+        // walking $10k home every day. Force the explicit "ask another
+        // admin to credit your wallet" flow so the audit row's actor
+        // and subject diverge, exactly like every other privileged
+        // mutation. Symmetric for debit too — an admin shouldn't be
+        // able to debit themselves either (would silently wipe a
+        // mistakenly-large credit before another admin notices).
+        if (adminUserId == targetUserId) {
+            throw new BadRequestException("CANT_CREDIT_SELF",
+                "You cannot adjust your own wallet — ask another admin")
+        }
         // `signum() == 0` — semantic "is zero" — works regardless of
         // BigDecimal scale. `amount == BigDecimal.ZERO` was a sloppy
         // guard: BigDecimal's `equals()` is SCALE-SENSITIVE, so
