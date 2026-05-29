@@ -151,7 +151,17 @@ class ProfileController {
             'USER_BANNED', 'USER_UNBANNED',
             'ADMIN_GRANTED', 'ADMIN_REVOKED',
             'CSR_GRANTED', 'CSR_REVOKED',
-            'REFUND_ISSUED'
+            'REFUND_ISSUED',
+            // Wave 109/110/111 audit-subject fix made TRADE_AUTO_RELEASED
+            // rows visible by setting subjectUserId = sellerUserId on the
+            // sweeper write (TradeService:1558). Without including the
+            // event on this consumer-side whitelist the seller still can't
+            // see the auto-release of their escrowed funds — defeating the
+            // entire purpose of the subject fix. The matching log line in
+            // the trade sweeper credits the seller wallet; the seller has
+            // a legitimate right to see "your N-day no-confirm window
+            // elapsed, funds were released" in their own security feed.
+            'TRADE_AUTO_RELEASED'
         ] as Set
         def filtered = rows.findAll { WHITELIST.contains(it.eventType) }.take(50)
         ResponseEntity.ok(filtered.collect { r ->

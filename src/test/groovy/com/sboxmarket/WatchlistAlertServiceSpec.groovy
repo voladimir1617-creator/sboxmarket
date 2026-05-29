@@ -17,7 +17,15 @@ import spock.lang.Subject
  */
 class WatchlistAlertServiceSpec extends Specification {
 
-    WatchlistAlertRepository repo                = Mock()
+    WatchlistAlertRepository repo                = Mock() {
+        // Wave 112: fireRow now claims ACTIVE → FIRED via a conditional
+        // UPDATE that returns the affected-row count. Default-stub it
+        // to "1 row claimed" so every legacy sweep/sweepForItem spec
+        // (which doesn't care about multi-pod contention) sees the
+        // win-the-claim path. The dedicated race-condition specs
+        // override this stub to assert the "lost the claim" branch.
+        claimForFiring(_, _) >> 1
+    }
     ItemRepository           itemRepository      = Mock()
     NotificationService      notificationService = Mock()
     com.sboxmarket.service.EmailService emailService = Mock() {
@@ -288,10 +296,16 @@ class WatchlistAlertServiceSpec extends Specification {
         when:
         service.sweep()
 
-        then:
-        // a1 stayed ACTIVE because its try-block threw before save; a2 fired clean.
+        then: 'sweep absorbs the per-row failure — a2 still fires clean'
         a2.status == 'FIRED'
         noExceptionThrown()
+        // Wave 112 race-claim: a1 already had its ACTIVE → FIRED claim
+        // committed (claimForFiring returned 1) BEFORE the push throws.
+        // We accept the missed-push trade-off over duplicate pushes in a
+        // multi-pod cluster: the row stays FIRED so next tick won't
+        // re-attempt and spray a second notification once the transient
+        // downstream issue clears.
+        a1.status == 'FIRED'
     }
 
     // ── sweep email hook ────────────────────────────────────────
@@ -700,5 +714,146 @@ class WatchlistAlertServiceSpec extends Specification {
         and: 'the row that came back still fires — behaviour is unchanged for in-cap inputs'
         a.status == 'FIRED'
         1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP', _, _, 7L, '/item/7')
+    }
+
+    // ── multi-pod race claim (wave 112 duplicate-push guard) ──────
+    //
+    // Production hazard: `@Scheduled(fixedDelay)` only serialises ticks
+    // WITHIN one JVM. On a two-pod cluster both schedulers fire roughly
+    // together, both call `findTriggered()`, both pull the SAME ACTIVE
+    // row, and (before this fix) both invoked
+    // `notificationService.push` + `emailService.sendPriceDrop` BEFORE
+    // either persisted `status=FIRED`. The user got two duplicate
+    // "Price drop" pushes (the in-app bell shows two of the same item
+    // notification stacked) and — because the email dedup ledger is a
+    // per-pod in-memory `LinkedHashMap` — up to two duplicate emails
+    // per fired alert too.
+    //
+    // Fix shape: convert the FIRED flip into a conditional UPDATE that
+    // matches on `status='ACTIVE'` and returns the affected row count.
+    // The repo method (`claimForFiring`) is the authoritative gate —
+    // whichever pod's UPDATE lands first returns 1 and proceeds to
+    // push + email; the loser returns 0 and bails BEFORE any
+    // user-facing side-effect. The same conditional gate also closes
+    // the cancel-vs-sweep race (user clicks Cancel between
+    // findTriggered() and the claim → row is now CANCELLED → claim
+    // returns 0 → no push lands on a row the user just disowned).
+    //
+    // Three asserts pin the contract:
+    //   1) sweep calls claimForFiring with the alert id BEFORE the
+    //      push (regression guard against re-ordering the claim after
+    //      the side-effects),
+    //   2) when claimForFiring returns 0 (sibling pod won the race or
+    //      user cancelled mid-tick), NO push and NO email lands, and
+    //   3) the in-memory alert object is NOT mutated to FIRED on a
+    //      lost claim — important for any test or caller asserting
+    //      "FIRED rows = rows we successfully fired this tick".
+
+    def "fireRow performs the conditional ACTIVE→FIRED claim BEFORE pushing the notification (wave 112)"() {
+        given: 'a triggered alert headed into the sweep'
+        def a = new WatchlistAlert(id: 99L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggered() >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+
+        // Stub the claim so we can observe call ordering relative to
+        // the push. Returns 1 (this pod wins) so the rest of fireRow
+        // continues normally.
+        def callOrder = []
+        repo.claimForFiring(99L, _) >> { args ->
+            callOrder << 'claim'
+            return 1
+        }
+        notificationService.push(42L, _, _, _, _, _) >> { args ->
+            callOrder << 'push'
+        }
+
+        when:
+        service.sweep()
+
+        then: 'claim happens FIRST — push is gated by a successful claim'
+        callOrder == ['claim', 'push']
+
+        and: 'the in-memory mirror also flips so caller assertions still see FIRED'
+        a.status == 'FIRED'
+        a.firedAt != null
+    }
+
+    def "fireRow swallows the push when the conditional claim returns 0 (sibling pod won the race)"() {
+        given: 'two pods both see the same ACTIVE row — this pod loses the race'
+        def a = new WatchlistAlert(id: 99L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggered() >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 42L, email: 'buyer@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, displayName: 'Alice'
+        ))
+        // Sibling pod already flipped this row to FIRED — our UPDATE
+        // matches zero rows (status='ACTIVE' filter fails).
+        repo.claimForFiring(99L, _) >> 0
+
+        when:
+        service.sweep()
+
+        then: 'no duplicate notification — the bell does NOT get a second WATCHLIST_PRICE_DROP'
+        0 * notificationService.push(_, _, _, _, _, _)
+
+        and: 'no duplicate email — the inbox does NOT get a second price-drop send'
+        0 * emailService.sendPriceDrop(_, _, _, _, _, _)
+
+        and: 'this pod did NOT mutate the in-memory alert — the row was the sibling pod\'s to flip'
+        a.status == 'ACTIVE'
+        a.firedAt == null
+    }
+
+    def "fireRow swallows the push when claim returns 0 because the user cancelled mid-tick (cancel-race)"() {
+        given: 'sweep saw the row as ACTIVE, but the user cancelled it before fireRow ran'
+        def a = new WatchlistAlert(id: 99L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggered() >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        // Conditional UPDATE matches zero rows because status is now
+        // CANCELLED — the cancel-vs-sweep race closes through the same
+        // gate as the cross-pod race.
+        repo.claimForFiring(99L, _) >> 0
+
+        when:
+        service.sweep()
+
+        then: 'no push lands on a row the user just disowned'
+        0 * notificationService.push(_, _, _, _, _, _)
+        0 * emailService.sendPriceDrop(_, _, _, _, _, _)
+    }
+
+    def "sweepForItem also gates push behind the conditional claim (sync-sweep multi-pod parity)"() {
+        given: 'fresh listing triggers a sync sweep on a hot item; sibling pod claims it first'
+        def a = new WatchlistAlert(id: 77L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggeredForItem(7L, _) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        repo.claimForFiring(77L, _) >> 0   // lost the race
+
+        when:
+        service.sweepForItem(7L)
+
+        then: 'same gate applies to the synchronous per-item path — no duplicate spray'
+        0 * notificationService.push(_, _, _, _, _, _)
+        0 * emailService.sendPriceDrop(_, _, _, _, _, _)
+        a.status == 'ACTIVE'
+    }
+
+    def "fireRow does NOT call repo.save — the conditional UPDATE is the only write path (wave 112)"() {
+        given: 'a normal triggered row that the sweep should fire'
+        def a = new WatchlistAlert(id: 88L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggered() >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        repo.claimForFiring(88L, _) >> 1
+
+        when:
+        service.sweep()
+
+        then: 'the FIRED write happens via claimForFiring — repo.save is dead code on the sweep hot path'
+        0 * repo.save(_)
+
+        and: 'in-memory mirror still reflects FIRED so caller / UI sees the flip immediately'
+        a.status == 'FIRED'
+        a.firedAt != null
     }
 }

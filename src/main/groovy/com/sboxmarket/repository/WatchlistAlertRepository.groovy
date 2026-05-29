@@ -161,6 +161,36 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     @Query("DELETE FROM WatchlistAlert a WHERE a.userId = :uid AND a.status = 'FIRED'")
     int deleteFiredForUser(@Param("uid") Long uid)
 
+    /** Race-safe ACTIVE → FIRED claim used by the sweeper (wave 112).
+     *
+     *  Multi-pod prod hazard: `@Scheduled(fixedDelay)` serialises ticks
+     *  WITHIN one JVM only — when sboxmarket runs on two or more pods,
+     *  both schedulers fire roughly together, both call
+     *  {@link #findTriggered()}, and both pull the SAME ACTIVE rows.
+     *  Without an atomic claim each pod's `fireRow` would push a
+     *  WATCHLIST_PRICE_DROP notification and email to the user, then
+     *  blind-save FIRED — the second save just overwrites with FIRED
+     *  again so the DB looks fine, but the user already got two
+     *  duplicate "Price drop" pushes and (per-pod LRU-bounded email
+     *  dedup ledger) up to two duplicate emails per fired alert.
+     *
+     *  Conditional UPDATE with affected-rows check makes the flip the
+     *  authoritative gate: whichever pod wins gets `1` back and pushes;
+     *  the loser gets `0` and bails BEFORE invoking notification +
+     *  email. Filtering on `status = 'ACTIVE'` keeps the operation
+     *  idempotent against any prior FIRED / CANCELLED flip (cancel
+     *  racing the sweep is also covered — a user who cancels between
+     *  `findTriggered` and the claim won't be pushed at). */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("""
+        UPDATE WatchlistAlert a
+           SET a.status = 'FIRED',
+               a.firedAt = :now
+         WHERE a.id = :id
+           AND a.status = 'ACTIVE'
+    """)
+    int claimForFiring(@Param("id") Long id, @Param("now") Long now)
+
     /** Full wipe of a user's alert rows — used by GDPR account
      *  finalization so the sweeper stops scanning orphaned alerts
      *  forever after an account is deleted. Returns the count wiped. */

@@ -308,8 +308,22 @@ class WatchlistAlertService {
     /** Fires a single triggered row — notification + email + FIRED flip.
      *  Extracted so both the periodic sweep and the per-item synchronous
      *  sweep share the same logic. Returns true when the row was fired
-     *  (notification actually pushed), false when the user was banned or
-     *  the save failed. */
+     *  (notification actually pushed), false when the user was banned,
+     *  the claim was lost to another pod, or the save failed.
+     *
+     *  Wave 112 race-claim: the ACTIVE → FIRED flip is performed by
+     *  {@link WatchlistAlertRepository#claimForFiring} BEFORE the
+     *  notification / email side-effects. A multi-pod cluster runs the
+     *  `@Scheduled` sweep on every pod, and `fixedDelay` only serialises
+     *  ticks within a single JVM — both pods read the same ACTIVE row
+     *  from `findTriggered()`. Pushing first and saving second would
+     *  spray duplicate "Price drop" notifications and emails before
+     *  either side persisted FIRED. The conditional UPDATE matches on
+     *  `status = 'ACTIVE'`, so exactly one pod's claim returns 1; the
+     *  loser returns 0 and bails BEFORE invoking notificationService or
+     *  emailService. Same gate also closes the cancel-vs-sweep race —
+     *  a user who clicks Cancel between `findTriggered` and the claim
+     *  flips the row to CANCELLED and the sweep skips the push. */
     private boolean fireRow(Object[] row) {
         try {
             WatchlistAlert a = row[0] as WatchlistAlert
@@ -326,6 +340,21 @@ class WatchlistAlertService {
                 def item = itemRepository.findById(a.itemId).orElse(null)
                 name = item?.name ?: "Item #${a.itemId}"
             }
+            // Atomic ACTIVE → FIRED claim. If the row was already
+            // claimed by a sibling pod (or cancelled by the user)
+            // between findTriggered() and now, claimed == 0 and we
+            // skip ALL side-effects: no push, no email, no in-memory
+            // mutation of the alert object. Mirroring the flip on the
+            // in-memory entity keeps callers and unit-test assertions
+            // ("a.status == 'FIRED'") agreeing with the row in the DB.
+            long nowMs = System.currentTimeMillis()
+            int claimed = repo.claimForFiring(a.id, nowMs)
+            if (claimed <= 0) {
+                log.debug("Watchlist alert ${a.id} already claimed (multi-pod race or cancel); skipping push")
+                return false
+            }
+            a.status = 'FIRED'
+            a.firedAt = nowMs
             def user = steamUserRepository?.findById(a.userId)?.orElse(null)
             boolean userBanned = user != null && Boolean.TRUE.equals(user.banned)
             if (!userBanned) {
@@ -345,9 +374,6 @@ class WatchlistAlertService {
                     log.warn("Price-drop email failed for user ${a.userId}: ${inner.message}")
                 }
             }
-            a.status = 'FIRED'
-            a.firedAt = System.currentTimeMillis()
-            repo.save(a)
             return !userBanned
         } catch (Exception e) {
             log.warn("Watchlist alert fire failed for one row: ${e.message}")
