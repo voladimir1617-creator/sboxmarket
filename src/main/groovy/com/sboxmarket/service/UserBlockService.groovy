@@ -54,7 +54,7 @@ class UserBlockService {
      * the AuditService / NotificationService deferral was forced to
      * adopt for the same Spring-tx-poisoning class of bug.
      */
-    @Transactional
+    @Transactional(noRollbackFor = DataIntegrityViolationException)
     UserBlock block(Long blockerUserId, Long blockedUserId) {
         if (blockerUserId == null || blockedUserId == null) {
             throw new BadRequestException('INVALID_BLOCK', 'Both blocker and blocked user ids are required')

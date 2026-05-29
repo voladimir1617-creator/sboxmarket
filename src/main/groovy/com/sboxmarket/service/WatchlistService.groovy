@@ -35,8 +35,17 @@ class WatchlistService {
     @Autowired BanGuard banGuard
 
     /** Star an item. Idempotent — if the user already has it, no-op +
-     *  return false so the caller can short-circuit a redundant write. */
-    @Transactional
+     *  return false so the caller can short-circuit a redundant write.
+     *
+     *  `noRollbackFor = DataIntegrityViolationException` is load-bearing
+     *  for the UNIQUE-constraint race recovery below. The try/catch
+     *  swallows the dup at save() time, but Spring's @Transactional
+     *  proxy still marks the tx rollback-only on any RuntimeException
+     *  thrown from a JPA op — without this hint, the tx commits as
+     *  rollback-only and Spring surfaces UnexpectedRollbackException to
+     *  the caller as a 500 even though we caught the original violation.
+     *  Same posture as UserBlockService.block. */
+    @Transactional(noRollbackFor = org.springframework.dao.DataIntegrityViolationException)
     boolean add(Long userId, Long itemId) {
         if (userId == null || itemId == null) return false
         // Ban guard — a watchlist row is a state-changing write that wires

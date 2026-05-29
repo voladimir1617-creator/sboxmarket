@@ -59,7 +59,16 @@ class ReviewService {
     static final int  SHORT_REVIEW_MIN_LEN   = 20                  // chars
     static final int  SHORT_REVIEW_BURST_LIMIT = 3                 // 4th in-window short review is rejected
 
-    @Transactional
+    // noRollbackFor — same rollback-only leak class as waves 136
+    // (UserBlockService.block) and 137 (SellerFollowService.follow). The
+    // catch(DataIntegrityViolationException) recovery path further down
+    // runs but Spring's DIVE translator already marked the SHARED outer
+    // tx rollback-only BEFORE the catch fires. Without this, the
+    // recovery's findByFromUserIdAndTradeId re-read + the notification
+    // fan-out below commit NOTHING — the review row never persists for
+    // the losing-race request, and at commit time Spring throws
+    // UnexpectedRollbackException. Identical fix to wave 136/137.
+    @Transactional(noRollbackFor = [org.springframework.dao.DataIntegrityViolationException])
     Review leaveReview(Long fromUserId, Long tradeId, Integer rating, String comment) {
         banGuard.assertNotBanned(fromUserId)
         // Null-tradeId guard up front. Spring Data's findById(null) throws
@@ -468,7 +477,15 @@ class ReviewService {
      * Returns the NEW state after the toggle so the caller doesn't need
      * a second roundtrip: `{ helpfulCount, viewerHasVoted }`.
      */
-    @Transactional
+    // noRollbackFor — sister fix to leaveReview above. The catch
+    // (DataIntegrityViolationException) recovery path for the rapid
+    // double-tap race runs but Spring's DIVE translator already marked
+    // the shared outer tx rollback-only. Without noRollbackFor, the
+    // recovery's countByReview re-read + the early return both happen
+    // but commit nothing, and the controller's 200 response is followed
+    // by an UnexpectedRollbackException at commit time. Same fix shape
+    // as waves 136/137 + leaveReview above.
+    @Transactional(noRollbackFor = [org.springframework.dao.DataIntegrityViolationException])
     Map toggleHelpful(Long userId, Long reviewId) {
         if (helpfulVoteRepository == null) {
             throw new BadRequestException('UNSUPPORTED', 'Helpful votes not available')

@@ -46,12 +46,12 @@ class ProfileService {
      * Never drops from good→poor on a single bad review — the ≥3-review
      * floor prevents a lone grudge-rating from tanking someone's standing.
      */
-    private Map computeAccountStanding(SteamUser user, long saleCount) {
+    private Map computeAccountStanding(SteamUser user, long saleCount, List<Object[]> aggregateRows) {
         if (user?.banned) return [state: 'banned', label: 'Banned', note: user.banReason ?: 'Account banned by staff.']
         Double avg = null
         Long reviewCount = 0L
         try {
-            def rows = reviewRepository?.aggregateForUser(user.id)
+            def rows = aggregateRows
             if (rows && rows[0] != null) {
                 reviewCount = ((rows[0][0] as Number) ?: 0).longValue()
                 avg = rows[0][1] == null ? null : ((rows[0][1] as Number).doubleValue())
@@ -112,6 +112,10 @@ class ProfileService {
         def activeAutoBids  = bidRepository.countActiveAutoBidsForUser(userId)
         def openOffers      = offerRepository.countPendingByBuyer(userId)
 
+        // Pull the COUNT/AVG review aggregate exactly once and reuse it
+        // for both the rating widget and the standing gauge below.
+        def reviewAggregate = fetchReviewAggregate(userId)
+
         [
             user: user,
             // Derived safe boolean so the frontend can render the 2FA UI
@@ -152,18 +156,38 @@ class ProfileService {
             // Self-facing rating (batch 491) — user sees their own
             // seller star average + review count on their profile
             // page. Null when they've never received a review yet.
-            rating: computeUserRating(userId),
-            accountStanding: computeAccountStanding(user, saleCount as long)
+            //
+            // Aggregate fetched ONCE here and threaded into both
+            // computeUserRating + computeAccountStanding — the previous
+            // shape ran the same `SELECT COUNT(r), AVG(r.rating)` query
+            // twice per /me hit, doubling the review-table scan cost on
+            // every post-login + refresh for users with lots of reviews.
+            rating: computeUserRating(userId, reviewAggregate),
+            accountStanding: computeAccountStanding(user, saleCount as long, reviewAggregate)
         ]
+    }
+
+    /** Pull the single review aggregate row used by both the rating
+     *  widget and the account-standing gauge. Returns null when the
+     *  review repository isn't wired (test harness) or the query
+     *  blows up — both consumers tolerate a null aggregate by
+     *  falling back to "no reviews yet" behaviour. */
+    private List<Object[]> fetchReviewAggregate(Long userId) {
+        if (reviewRepository == null || userId == null) return null
+        try {
+            reviewRepository.aggregateForUser(userId)
+        } catch (Exception ignored) {
+            null
+        }
     }
 
     /** Compact review summary for a user — same aggregate the public
      *  stall page uses. Nulled out when reviewRepository isn't wired
      *  (test harness) or the user has no reviews yet. */
-    private Map computeUserRating(Long userId) {
+    private Map computeUserRating(Long userId, List<Object[]> aggregateRows) {
         if (reviewRepository == null || userId == null) return null
         try {
-            def agg = reviewRepository.aggregateForUser(userId)
+            def agg = aggregateRows
             if (agg == null || agg.isEmpty()) return null
             def row = agg[0]
             def count = (row[0] ?: 0L) as long

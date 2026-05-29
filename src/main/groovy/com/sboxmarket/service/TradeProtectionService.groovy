@@ -10,6 +10,7 @@ import com.sboxmarket.repository.TradeProtectionRepository
 import com.sboxmarket.repository.TradeRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
+import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -68,6 +69,7 @@ class TradeProtectionService {
     @Autowired TransactionRepository transactionRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) AuditService auditService
+    @Autowired(required = false) BanGuard banGuard
 
     // ── Quote ────────────────────────────────────────────────────────
 
@@ -114,6 +116,24 @@ class TradeProtectionService {
      */
     @Transactional
     TradeProtection enable(Long buyerUserId, Long tradeId) {
+        // Banned buyers must not be able to enable protection. Every sibling
+        // money-path on the buyer surface (TradeService.cancel/dispute/buy)
+        // gates writes behind banGuard.assertNotBanned; this call site was
+        // missed when BanGuard was extracted. The hole is exploitable:
+        // (a) the trade's seller-timeout sweeper auto-cancels stale trades
+        //     and TradeService.cancel runs autoClaim on a protected trade,
+        //     paying the buyer the FULL item price out of platform funds —
+        //     a banned buyer who enables protection on a live trade gets a
+        //     wallet credit path the ban was supposed to close,
+        // (b) an account-takeover that flips protection on every live trade
+        //     of a freshly-banned account drains MIN_FEE × N from the
+        //     victim's wallet before staff can lock the account, and
+        // (c) the controller has no guard either (TradeProtectionController
+        //     just enforces "signed-in"), so the only place to land it is
+        //     here. Throws the same ForbiddenException the rest of the
+        //     codebase uses so the existing 403 handler renders the ban
+        //     reason verbatim.
+        banGuard?.assertNotBanned(buyerUserId)
         def trade = tradeRepository.findById(tradeId)
             .orElseThrow { new NotFoundException("Trade", tradeId) }
         if (trade.buyerUserId == null || trade.buyerUserId != buyerUserId) {
