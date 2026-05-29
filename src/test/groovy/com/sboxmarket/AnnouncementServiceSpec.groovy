@@ -211,7 +211,10 @@ class AnnouncementServiceSpec extends Specification {
 
         then:
         row.active == false
-        1 * auditService.log('ANNOUNCEMENT_DEACTIVATED', 10L, null, 7L, null)
+        // Summary is now a non-null "Deactivated <SEV>: <msg snippet>" line
+        // (was hard-null) so the admin Audit-log tab renders something
+        // meaningful instead of a blank "—".
+        1 * auditService.log('ANNOUNCEMENT_DEACTIVATED', 10L, null, 7L, _ as String)
     }
 
     def "deactivate 404s for an unknown id"() {
@@ -236,7 +239,7 @@ class AnnouncementServiceSpec extends Specification {
 
         then:
         row.active == false
-        1 * auditService.log('ANNOUNCEMENT_DEACTIVATED', 10L, null, 7L, null)
+        1 * auditService.log('ANNOUNCEMENT_DEACTIVATED', 10L, null, 7L, _ as String)
     }
 
     // ── sanitization with a real TextSanitizer (defence in depth) ────

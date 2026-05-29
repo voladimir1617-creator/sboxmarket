@@ -446,6 +446,9 @@ class StripeServiceSpec extends Specification {
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction t -> t }
+        // Win the atomic PENDING→CANCELLED claim (wave 127). A 0 here would
+        // mean a concurrent admin reject landed first → no wallet credit.
+        transactionRepository.claimCancelPendingWithdrawal(9L) >> 1
 
         when:
         def result = service.cancelPendingWithdrawal(500L, 9L)
@@ -477,6 +480,7 @@ class StripeServiceSpec extends Specification {
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction t -> t }
+        transactionRepository.claimCancelPendingWithdrawal(9L) >> 1
         def before = System.currentTimeMillis()
 
         when:
@@ -576,6 +580,7 @@ class StripeServiceSpec extends Specification {
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction t -> t }
+        transactionRepository.claimCancelPendingWithdrawal(9L) >> 1
         steamUserRepository.findBySteamId64('76561198000000001') >> owner
 
         when:

@@ -1858,15 +1858,18 @@ class TradeServiceSpec extends Specification {
         def trade = tradeIn('VERIFIED', [id: 7L, buyer: 10L, seller: 20L])
         trade.settledAt = System.currentTimeMillis() - (60L * 3600_000L)  // 60h since clear
         tradeRepository.findReviewNudgeCandidates(_) >> [trade]
-        tradeRepository.save(_) >> { Trade t -> t }
 
         when:
         service.sweepReviewNudge()
 
         then:
+        // The reviewNudgeSentAt stamp is now an atomic conditional UPDATE
+        // (claimReviewNudge stamps only WHERE it's still NULL, returns 1 to
+        // the winning pod) rather than an in-memory save — so winning the
+        // claim is what gates the REVIEW_REMINDER push.
+        1 * tradeRepository.claimReviewNudge(7L, _) >> 1
         1 * notificationService.push(10L, 'REVIEW_REMINDER', _, _, 7L,
             { it as String == '/stall/20' || it.toString() == '/stall/20' })
-        trade.reviewNudgeSentAt != null
     }
 
     def "sweepReviewNudge is a silent no-op when nothing past the 48h cutoff"() {
@@ -1896,41 +1899,42 @@ class TradeServiceSpec extends Specification {
         Math.abs(captured - expected) < 5000L
     }
 
-    def "sweepReviewNudge isolates per-row save failures — one bad row never poisons a sibling stamp + push"() {
-        // Bug bar: the outer sweep used to be @Transactional. A
-        // tradeRepository.save() failure on trade #7 (e.g. an
-        // OptimisticLockingFailureException from a concurrent leaveReview /
-        // postMessage on the same row) marked the SHARED outer tx
-        // rollback-only — the per-row try/catch swallowed the throw, but
-        // every reviewNudgeSentAt stamp the sweep had already applied to
-        // SIBLING rows silently reverted at commit. Next 24h tick re-fired
-        // REVIEW_REMINDER pushes for every nudged buyer in the batch,
-        // exactly the duplicate-notification leak the partial-index dedup
-        // was meant to prevent. Per-row auto-commit must isolate the bad
-        // row from sibling work.
+    def "sweepReviewNudge isolates per-row claim failures — one bad row never poisons a sibling stamp + push"() {
+        // Bug bar: the outer sweep used to be @Transactional. A per-row
+        // failure on trade #7 (e.g. an OptimisticLockingFailureException
+        // from a concurrent leaveReview / postMessage on the same row)
+        // marked the SHARED outer tx rollback-only — the per-row try/catch
+        // swallowed the throw, but every reviewNudgeSentAt stamp the sweep
+        // had already applied to SIBLING rows silently reverted at commit.
+        // Next 24h tick re-fired REVIEW_REMINDER pushes for every nudged
+        // buyer in the batch, exactly the duplicate-notification leak the
+        // partial-index dedup was meant to prevent. Per-row auto-commit must
+        // isolate the bad row from sibling work. The stamp is now the atomic
+        // claimReviewNudge conditional UPDATE, so the bad row throws there.
         given:
         def bad  = tradeIn('VERIFIED', [id: 7L, buyer: 10L, seller: 20L])
         def good = tradeIn('VERIFIED', [id: 8L, buyer: 11L, seller: 21L])
         bad.settledAt  = System.currentTimeMillis() - (60L * 3600_000L)
         good.settledAt = System.currentTimeMillis() - (60L * 3600_000L)
         tradeRepository.findReviewNudgeCandidates(_) >> [bad, good]
-        // Row #7 save blows up (concurrent write → OptimisticLockingFailure).
-        // Row #8 save succeeds. Without per-row isolation the sweep would
-        // either re-throw out of the .each loop (losing the entire batch)
-        // OR commit-rollback the sibling stamp under an outer @Transactional.
-        tradeRepository.save({ Trade t -> t.id == 7L }) >> {
+        // Row #7 claim blows up (concurrent write → OptimisticLockingFailure).
+        // Row #8 claim wins (returns 1). Without per-row isolation the sweep
+        // would either re-throw out of the .each loop (losing the entire
+        // batch) OR commit-rollback the sibling stamp under an outer
+        // @Transactional.
+        tradeRepository.claimReviewNudge(7L, _) >> {
             throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
                 'Trade', 7L)
         }
-        tradeRepository.save({ Trade t -> t.id == 8L }) >> { Trade t -> t }
+        tradeRepository.claimReviewNudge(8L, _) >> 1
 
         when:
         service.sweepReviewNudge()
 
-        then: "sibling row's stamp must persist — not be rolled back by the bad save"
-        good.reviewNudgeSentAt != null
-        and: "sibling row's REVIEW_REMINDER push still fired — sweep didn't abort"
+        then: "sibling row's claim+push still ran — not aborted by the bad row"
         1 * notificationService.push(11L, 'REVIEW_REMINDER', _, _, 8L, _)
+        and: "the bad row never pushed — its claim threw before the push"
+        0 * notificationService.push(10L, 'REVIEW_REMINDER', _, _, 7L, _)
         and: "no exception bubbles out — bad row was swallowed in the per-row catch"
         noExceptionThrown()
     }
@@ -1942,7 +1946,6 @@ class TradeServiceSpec extends Specification {
         t1.settledAt = System.currentTimeMillis() - (60L * 3600_000L)
         t2.settledAt = System.currentTimeMillis() - (60L * 3600_000L)
         tradeRepository.findReviewNudgeCandidates(_) >> [t1, t2]
-        tradeRepository.save(_) >> { Trade t -> t }
         steamUserRepository.findAllById(_) >> []
         notificationService.push(_, 'REVIEW_REMINDER', _, _, 7L, _) >> { throw new RuntimeException('push down') }
 
@@ -1952,11 +1955,12 @@ class TradeServiceSpec extends Specification {
         then:
         // Both attempted.
         1 * notificationService.push(_, 'REVIEW_REMINDER', _, _, 8L, _)
-        // Batch 329 changed the stamp ordering: we stamp BEFORE the
-        // push so a failing push doesn't make the sweeper retry the
-        // same row every 24h forever. Both rows end stamped now.
-        t1.reviewNudgeSentAt != null
-        t2.reviewNudgeSentAt != null
+        // Batch 329 stamp ordering: the row is CLAIMED (atomic conditional
+        // UPDATE) BEFORE the push, so a failing push doesn't make the
+        // sweeper retry the same row every 24h forever. Both rows end
+        // claimed now, even though row #7's push threw.
+        1 * tradeRepository.claimReviewNudge(7L, _) >> 1
+        1 * tradeRepository.claimReviewNudge(8L, _) >> 1
     }
 
     // ── Trade-chat deep-link path ───────────────────────────────────
@@ -1968,18 +1972,19 @@ class TradeServiceSpec extends Specification {
         def trade = tradeIn('PENDING_SELLER_SEND', [id: 7L])
         trade.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)  // 30h idle
         tradeRepository.findSlowSellerUnwarned(_) >> [trade]
-        tradeRepository.save(_) >> { Trade t -> t }
 
         when:
         service.sweepSlowSellerWarning()
 
         then:
+        // The slowSellerWarnedAt stamp is now an atomic conditional UPDATE
+        // (claimSlowSellerWarning stamps only WHERE it's still NULL, returns
+        // 1 to the winning pod) so winning the claim gates the warning push
+        // and guards against the next sweep tick re-pushing.
+        1 * tradeRepository.claimSlowSellerWarning(7L, _) >> 1
         // Buyer (10L per the helper default) is the one warned.
         1 * notificationService.push(10L, 'TRADE_SLOW_SELLER', _, _, 7L,
             '/profile?tab=trades&openChat=7')
-        trade.slowSellerWarnedAt != null
-        // Stamped so the next sweep tick won't re-push.
-        trade.slowSellerWarnedAt > 0L
     }
 
     def "sweepSlowSellerWarning is a silent no-op when nothing is past the 24h cutoff"() {
@@ -2009,26 +2014,27 @@ class TradeServiceSpec extends Specification {
         Math.abs(captured - expected) < 5000L
     }
 
-    def "sweepSlowSellerWarning isolates per-row save failures — sibling stamp + pushes still fire"() {
+    def "sweepSlowSellerWarning isolates per-row claim failures — sibling stamp + pushes still fire"() {
         // Same bug bar as the sweepReviewNudge spec just above. With the
-        // old outer @Transactional, a tradeRepository.save() throw on row
-        // #7 marked the shared tx rollback-only, the catch silently
-        // swallowed it, and the slowSellerWarnedAt stamp on row #8 was
-        // reverted at commit — so the next hourly tick re-fired
-        // TRADE_SLOW_SELLER + TRADE_SELLER_NUDGE to every buyer + seller
-        // pair in the batch. Per-row auto-commit must keep the bad row's
-        // failure from corrupting sibling stamps.
+        // old outer @Transactional, a per-row failure on row #7 marked the
+        // shared tx rollback-only, the catch silently swallowed it, and the
+        // slowSellerWarnedAt stamp on row #8 was reverted at commit — so the
+        // next hourly tick re-fired TRADE_SLOW_SELLER + TRADE_SELLER_NUDGE
+        // to every buyer + seller pair in the batch. Per-row auto-commit
+        // must keep the bad row's failure from corrupting sibling stamps.
+        // The stamp is now the atomic claimSlowSellerWarning conditional
+        // UPDATE, so the bad row throws there.
         given:
         def bad  = tradeIn('PENDING_SELLER_SEND', [id: 7L, buyer: 10L, seller: 20L])
         def good = tradeIn('PENDING_SELLER_ACCEPT', [id: 8L, buyer: 11L, seller: 21L])
         bad.updatedAt  = System.currentTimeMillis() - (30L * 3600_000L)
         good.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
         tradeRepository.findSlowSellerUnwarned(_) >> [bad, good]
-        tradeRepository.save({ Trade t -> t.id == 7L }) >> {
+        tradeRepository.claimSlowSellerWarning(7L, _) >> {
             throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
                 'Trade', 7L)
         }
-        tradeRepository.save({ Trade t -> t.id == 8L }) >> { Trade t -> t }
+        tradeRepository.claimSlowSellerWarning(8L, _) >> 1
         // No banned sellers — keeps the seller nudge live so we can assert
         // it fires for the sibling row.
         steamUserRepository.findById(21L) >> Optional.of(
@@ -2037,12 +2043,12 @@ class TradeServiceSpec extends Specification {
         when:
         service.sweepSlowSellerWarning()
 
-        then: "sibling row's stamp must persist despite bad row's save throwing"
-        good.slowSellerWarnedAt != null
-        and: "sibling buyer still gets TRADE_SLOW_SELLER push"
+        then: "sibling buyer still gets TRADE_SLOW_SELLER push despite bad row's claim throwing"
         1 * notificationService.push(11L, 'TRADE_SLOW_SELLER', _, _, 8L, _)
         and: "sibling seller still gets TRADE_SELLER_NUDGE push"
         1 * notificationService.push(21L, 'TRADE_SELLER_NUDGE', _, _, 8L, _)
+        and: "the bad row never pushed — its claim threw before the push"
+        0 * notificationService.push(10L, 'TRADE_SLOW_SELLER', _, _, 7L, _)
         and: "bad row's failure is swallowed in the per-row catch — sweep keeps going"
         noExceptionThrown()
     }
@@ -2054,7 +2060,6 @@ class TradeServiceSpec extends Specification {
         t1.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
         t2.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
         tradeRepository.findSlowSellerUnwarned(_) >> [t1, t2]
-        tradeRepository.save(_) >> { Trade t -> t }
         steamUserRepository.findAllById(_) >> []
         // First push throws, second succeeds — sweeper must continue.
         notificationService.push(_, 'TRADE_SLOW_SELLER', _, _, 7L, _) >> { throw new RuntimeException('push down') }
@@ -2065,10 +2070,11 @@ class TradeServiceSpec extends Specification {
         then:
         // Both trades attempted.
         1 * notificationService.push(_, 'TRADE_SLOW_SELLER', _, _, 8L, _)
-        // Batch 329 changed the stamp ordering: stamp BEFORE push so a
-        // flaky push doesn't retry every hour forever. Both stamped.
-        t1.slowSellerWarnedAt != null
-        t2.slowSellerWarnedAt != null
+        // Batch 329 stamp ordering: the row is CLAIMED (atomic conditional
+        // UPDATE) BEFORE the push so a flaky push doesn't retry every hour
+        // forever. Both rows end claimed, even though row #7's push threw.
+        1 * tradeRepository.claimSlowSellerWarning(7L, _) >> 1
+        1 * tradeRepository.claimSlowSellerWarning(8L, _) >> 1
     }
 
     def "sweepSlowSellerWarning ALSO pushes TRADE_SELLER_NUDGE to the seller (batch 563)"() {
@@ -2076,7 +2082,7 @@ class TradeServiceSpec extends Specification {
         def trade = tradeIn('PENDING_SELLER_SEND', [id: 9L, buyer: 10L, seller: 20L])
         trade.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
         tradeRepository.findSlowSellerUnwarned(_) >> [trade]
-        tradeRepository.save(_) >> { Trade t -> t }
+        tradeRepository.claimSlowSellerWarning(9L, _) >> 1
         // Seller exists + not banned so the nudge fires.
         steamUserRepository.findById(20L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 20L, banned: false))
 
@@ -2096,7 +2102,7 @@ class TradeServiceSpec extends Specification {
         def trade = tradeIn('PENDING_SELLER_ACCEPT', [id: 11L, buyer: 10L, seller: 20L])
         trade.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
         tradeRepository.findSlowSellerUnwarned(_) >> [trade]
-        tradeRepository.save(_) >> { Trade t -> t }
+        tradeRepository.claimSlowSellerWarning(11L, _) >> 1
         steamUserRepository.findById(20L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 20L, banned: true))
 
         when:

@@ -1468,6 +1468,9 @@ class BidServiceSpec extends Specification {
         def listing = auctionListing(id: 100L, currentBid: new BigDecimal("15"),
                                      expiresAt: System.currentTimeMillis() + 5 * 60 * 1000L)
         listingRepository.findEndingSoonUnnotified(_, _) >> [listing]
+        // claimEndingSoonNotify (the atomic multi-pod claim, wave 124) is
+        // stubbed-and-verified in the then: block below — this pod wins
+        // the claim (returns 1) so the fan-out fires.
         // Three bids from two distinct users → two unique bidders
         bidRepository.findByListing(100L) >> [
             new Bid(id: 1L, listingId: 100L, bidderUserId: 10L, amount: new BigDecimal("15")),
@@ -1493,9 +1496,12 @@ class BidServiceSpec extends Specification {
         1 * notificationService.push(20L, 'AUCTION_ENDING', _, _, 100L, _)
         1 * notificationService.push(30L, 'AUCTION_ENDING', _, _, 100L, _)
         0 * notificationService.push(_, 'AUCTION_ENDING', _, _, 100L, _)
-        // Dedup flag set so the next tick skips this listing.
-        listing.endingSoonNotified == true
-        1 * listingRepository.save({ Listing l -> l.endingSoonNotified == true })
+        // Dedup is now persisted atomically by the claim UPDATE
+        // (claimEndingSoonNotify flips endingSoonNotified false→true) —
+        // no entity save() and no in-memory flag mutation. Asserting the
+        // claim fired once is the new dedup invariant.
+        1 * listingRepository.claimEndingSoonNotify(100L) >> 1
+        0 * listingRepository.save(_)
     }
 
     def "sweepEndingSoon fan-outs AUCTION_ENDING email to verified-email recipients (batch 572)"() {
@@ -1503,6 +1509,8 @@ class BidServiceSpec extends Specification {
         def listing = auctionListing(id: 100L, currentBid: new BigDecimal("15"),
                                      expiresAt: System.currentTimeMillis() + 5 * 60 * 1000L)
         listingRepository.findEndingSoonUnnotified(_, _) >> [listing]
+        // Win the atomic ending-soon claim (wave 124) so the fan-out runs.
+        listingRepository.claimEndingSoonNotify(100L) >> 1
         bidRepository.findByListing(100L) >> [
             new Bid(id: 1L, listingId: 100L, bidderUserId: 10L, amount: new BigDecimal("15"))
         ]
@@ -1755,6 +1763,8 @@ class BidServiceSpec extends Specification {
         def listing = auctionListing(id: 100L, currentBid: new BigDecimal("15"),
                                      expiresAt: System.currentTimeMillis() + 5 * 60 * 1000L)
         listingRepository.findEndingSoonUnnotified(_, _) >> [listing]
+        // Win the atomic ending-soon claim (wave 124) so the fan-out runs.
+        listingRepository.claimEndingSoonNotify(100L) >> 1
         bidRepository.findByListing(100L) >> [
             new Bid(id: 1L, listingId: 100L, bidderUserId: 10L, amount: new BigDecimal("15")),
             new Bid(id: 2L, listingId: 100L, bidderUserId: 20L, amount: new BigDecimal("13"))

@@ -1260,13 +1260,17 @@ class BuyOrderServiceSpec extends Specification {
             itemName: 'Wizard Hat', maxPrice: new BigDecimal("50"),
             quantity: 1, status: 'ACTIVE')
         buyOrderRepository.findStaleActive(_) >> [stale]
-        buyOrderRepository.save(_) >> { BuyOrder b -> b }
 
         when:
         service.sweepStaleBuyOrders()
 
         then:
-        stale.status == 'EXPIRED'
+        // The ACTIVE→EXPIRED flip is now persisted atomically by the
+        // claimExpire conditional UPDATE (wave 125), not an entity save —
+        // winning the claim (returns 1) is what gates the fan-out. The
+        // sweep no longer calls buyOrderRepository.save(order).
+        1 * buyOrderRepository.claimExpire(7L, _) >> 1
+        0 * buyOrderRepository.save(_)
         1 * notificationService.push(10L, 'BUY_ORDER_EXPIRED', _, _, 7L, '/profile?tab=buyorders')
     }
 
@@ -1276,7 +1280,8 @@ class BuyOrderServiceSpec extends Specification {
             itemName: 'Wizard Hat', maxPrice: new BigDecimal("50"),
             quantity: 1, status: 'ACTIVE')
         buyOrderRepository.findStaleActive(_) >> [stale]
-        buyOrderRepository.save(_) >> { BuyOrder b -> b }
+        // Win the atomic expire claim (wave 125) so the email fan-out runs.
+        buyOrderRepository.claimExpire(7L, _) >> 1
         def buyer = new SteamUser(id: 10L, steamId64: '111', displayName: 'Alice',
             email: 'alice@example.com', emailVerified: true,
             emailNotificationsEnabled: true)
@@ -1305,7 +1310,10 @@ class BuyOrderServiceSpec extends Specification {
             itemName: 'Wizard Hat', maxPrice: new BigDecimal("50"),
             quantity: 1, status: 'ACTIVE')
         buyOrderRepository.findStaleActive(_) >> [stale]
-        buyOrderRepository.save(_) >> { BuyOrder b -> b }
+        // Win the atomic expire claim (wave 125) so the sweep reaches the
+        // email path — the mute gate (canSendTo false), not a lost claim,
+        // is what must block the email here.
+        buyOrderRepository.claimExpire(7L, _) >> 1
         def buyer = new SteamUser(id: 10L, steamId64: '111',
             email: 'alice@example.com', emailVerified: true,
             emailNotificationsEnabled: true, mutedEmailKinds: 'TRADES')
@@ -1423,20 +1431,24 @@ class BuyOrderServiceSpec extends Specification {
         def b2 = new BuyOrder(id: 8L, buyerUserId: 11L, status: 'ACTIVE',
             quantity: 1, maxPrice: new BigDecimal("20"), itemName: 'B')
         buyOrderRepository.findStaleActive(_) >> [b1, b2]
-        buyOrderRepository.save(_) >> { BuyOrder b -> b }
+        // Both rows win their atomic expire claim (wave 125) — stubbed +
+        // cardinality-verified in the then: block below. The UPDATE
+        // persists status=EXPIRED, so the fan-out is attempted for each.
+        // b1's push then throws; the per-row catch must isolate it.
         notificationService.push(10L, 'BUY_ORDER_EXPIRED', _, _, _, _) >> { throw new RuntimeException('push down') }
 
         when:
         service.sweepStaleBuyOrders()
 
         then:
+        // b1's push threw, but b2's push MUST still fire — the per-row
+        // catch swallows b1's failure and the loop continues.
         1 * notificationService.push(11L, 'BUY_ORDER_EXPIRED', _, _, _, _)
-        // The exception only short-circuits the failed row's stamp.
-        // The successful row's status flip happens BEFORE the push,
-        // so it lands; the failed row's flip ALSO happens before
-        // (status set then save, then push). So both end EXPIRED.
-        b1.status == 'EXPIRED'
-        b2.status == 'EXPIRED'
+        // The EXPIRED flip for both rows is persisted by claimExpire's
+        // conditional UPDATE (it returned 1 for each), not an entity save;
+        // the sweep no longer calls buyOrderRepository.save(order).
+        2 * buyOrderRepository.claimExpire(_, _) >> 1
+        0 * buyOrderRepository.save(_)
     }
 
     /**
@@ -1473,25 +1485,29 @@ class BuyOrderServiceSpec extends Specification {
         def b2 = new BuyOrder(id: 8L, buyerUserId: 11L, status: 'ACTIVE',
             quantity: 1, maxPrice: new BigDecimal("20"), itemName: 'B')
         buyOrderRepository.findStaleActive(_) >> [b1, b2]
-        // First save throws (simulating an OptimisticLockingFailureException
-        // from a concurrent tryMatch hitting the same row), second succeeds.
-        buyOrderRepository.save(b1) >> { throw new RuntimeException('lock conflict') }
-        buyOrderRepository.save(b2) >> b2
+        // First row's atomic expire claim throws (simulating an
+        // OptimisticLockingFailureException / DB blip on that row),
+        // second row's claim succeeds. The per-row catch must isolate
+        // b1's failure so b2 still expires + notifies. The sweep no
+        // longer calls buyOrderRepository.save(order) — the claim
+        // conditional UPDATE is the persistence point.
+        buyOrderRepository.claimExpire(7L, _) >> { throw new RuntimeException('lock conflict') }
+        buyOrderRepository.claimExpire(8L, _) >> 1
 
         when:
         service.sweepStaleBuyOrders()
 
         then:
-        // b2's push MUST fire even though b1's save threw — the rollback-
+        // b2's push MUST fire even though b1's claim threw — the rollback-
         // only-leak bug would have silently dropped b2's work too once the
-        // outer tx tried to commit. With no outer @Transactional, b2's
-        // notification still goes out.
+        // outer tx tried to commit. With no outer @Transactional and a
+        // per-row catch, b2's notification still goes out.
         1 * notificationService.push(11L, 'BUY_ORDER_EXPIRED', _, _, 8L, '/profile?tab=buyorders')
-        // b1 is still marked EXPIRED in-memory (we set it before save),
-        // but its save threw so the row didn't persist — that's the failure
-        // mode this sweep documents as best-effort. The KEY invariant is
-        // that the second row still landed.
-        b2.status == 'EXPIRED'
+        // b1's claim threw so its row didn't expire — that's the
+        // best-effort failure mode this sweep documents. b1's buyer is
+        // never pinged. The KEY invariant is that the second row landed.
+        0 * notificationService.push(10L, _, _, _, _, _)
+        0 * buyOrderRepository.save(_)
     }
 
     // ── runInIsolatedTx rollback-only-leak guard on the auto-fill path ──

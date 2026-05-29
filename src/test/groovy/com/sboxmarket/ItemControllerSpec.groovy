@@ -565,8 +565,13 @@ class ItemControllerSpec extends Specification {
 
         then: "only the row with the literal underscore matches"
         response.statusCode == HttpStatus.OK
-        def ids = response.body*.id as Set
-        ids.contains(hit.id)
-        !ids.contains(miss.id)
+        // Normalise to Long before membership: a JSON id small enough to
+        // fit an int deserialises into the untyped List as Integer, and
+        // Groovy's Set<Integer>.contains(Long) is value-false (Integer 50
+        // != Long 50L). Coerce both sides so the assertion tests the
+        // LIKE-escape behaviour, not a number-boxing artefact.
+        def ids = response.body*.id.collect { it as Long } as Set
+        ids.contains(hit.id as Long)
+        !ids.contains(miss.id as Long)
     }
 }

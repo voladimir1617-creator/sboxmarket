@@ -306,8 +306,8 @@ class SellerStatsControllerSpec extends Specification {
         when:
         def resp = controller.bulkShipTimes(null)
 
-        then:
-        0 * tradeService.typicalShipMs(_)
+        then: 'no parsing, no service round-trip'
+        0 * tradeService.typicalShipMsBulk(_)
         resp.body == [:]
     }
 
@@ -316,27 +316,32 @@ class SellerStatsControllerSpec extends Specification {
         def resp = controller.bulkShipTimes('   ')
 
         then:
-        0 * tradeService.typicalShipMs(_)
+        0 * tradeService.typicalShipMsBulk(_)
         resp.body == [:]
     }
 
     def "bulkShipTimes() skips malformed tokens and negatives"() {
-        given: 'only positive Long values survive the parser'
-        1 * tradeService.typicalShipMs(7L) >> 3_600_000L
+        given: 'only positive Long values survive the parser, then the bulk aggregate runs once'
+        List<Long> queried = null
+        1 * tradeService.typicalShipMsBulk(_) >> { args ->
+            queried = args[0] as List<Long>
+            [7L: 3_600_000L]
+        }
 
         when:
         def resp = controller.bulkShipTimes('abc,-5,7,,0')
 
-        then:
-        0 * tradeService.typicalShipMs(-5L)
-        0 * tradeService.typicalShipMs(0L)
+        then: 'negatives + zero + non-numeric tokens never reach the bulk query'
+        queried == [7L]
         resp.body == [7L: 3_600_000L]
     }
 
     def "bulkShipTimes() omits sellers below the noise floor (service returns null)"() {
-        given:
-        1 * tradeService.typicalShipMs(1L) >> null     // <3 samples
-        1 * tradeService.typicalShipMs(2L) >> 7_200_000L
+        given: 'the bulk aggregate omits sub-noise-floor sellers from its result map'
+        // typicalShipMsBulk already drops sellers below the 3-sample floor
+        // (pinned by TradeServiceTypicalShipBulkSpec); the controller passes
+        // the omission straight through.
+        1 * tradeService.typicalShipMsBulk([1L, 2L]) >> [2L: 7_200_000L]
 
         when:
         def resp = controller.bulkShipTimes('1,2')
@@ -348,31 +353,41 @@ class SellerStatsControllerSpec extends Specification {
     def "bulkShipTimes() caps input at 200 ids"() {
         given:
         def lots = (1..250).collect { String.valueOf(it) }.join(',')
-        int seenCalls = 0
-        _ * tradeService.typicalShipMs(_) >> { seenCalls++; null }
+        List<Long> queried = null
+        1 * tradeService.typicalShipMsBulk(_) >> { args ->
+            queried = args[0] as List<Long>
+            [:]
+        }
 
         when:
         controller.bulkShipTimes(lots)
 
-        then: 'at most 200 uids queried, never 250'
-        seenCalls <= 200
+        then: 'at most 200 uids handed to the bulk query, never 250'
+        queried.size() <= 200
+
+        and: 'the bulk path replaces the old per-seller fan-out entirely'
+        0 * tradeService.typicalShipMs(_)
     }
 
     def "bulkShipTimes() dedupes repeated ids before querying"() {
-        given:
-        1 * tradeService.typicalShipMs(5L) >> 1_000_000L
+        given: 'the controller .unique()s before the single bulk call'
+        List<Long> queried = null
+        1 * tradeService.typicalShipMsBulk(_) >> { args ->
+            queried = args[0] as List<Long>
+            [5L: 1_000_000L]
+        }
 
         when:
         def resp = controller.bulkShipTimes('5,5,5,5')
 
-        then: 'the unique() collapses to one service call'
-        0 * tradeService.typicalShipMs({ it != 5L })
+        then: 'the unique() collapses four 5s to a single id in one service call'
+        queried == [5L]
         resp.body == [5L: 1_000_000L]
     }
 
     def "bulkShipTimes() carries the 2-minute public cache header"() {
         given:
-        _ * tradeService.typicalShipMs(_) >> 1_000L
+        _ * tradeService.typicalShipMsBulk(_) >> [1L: 1_000L]
 
         when:
         def resp = controller.bulkShipTimes('1')

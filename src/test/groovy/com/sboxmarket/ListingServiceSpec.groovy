@@ -888,6 +888,11 @@ class ListingServiceSpec extends Specification {
         // listing#1 is in uid=42's cart; listing#2 has two cart-holders
         cartRepo.findOtherUsersWithListing(1L, 99L) >> [42L]
         cartRepo.findOtherUsersWithListing(2L, 99L) >> [42L, 77L]
+        // PRICE_DROPPED fan-out now routes cart-holders through
+        // filterActiveRecipients (hidden-listing / away-mode suppression,
+        // ListingService:795). Pass-through so every holder stays an active
+        // recipient and the per-(listing,holder) pushes below still fire.
+        notifier.filterActiveRecipients(_) >> { args -> args[0] }
 
         when:
         service.bulkAdjustPrices(99L, new BigDecimal('-10'))

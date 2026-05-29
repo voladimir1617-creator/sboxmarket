@@ -467,7 +467,6 @@ class OfferServiceSpec extends Specification {
         given:
         def stale = pendingOffer(id: 1L, amount: new BigDecimal("20"))
         offerRepository.findStalePending(_) >> [stale]
-        offerRepository.save(_) >> { Offer o -> o }
 
         when:
         service.sweepStaleOffers()
@@ -476,8 +475,10 @@ class OfferServiceSpec extends Specification {
         // EXPIRED is the seller-side "didn't respond" status — counts
         // in countSellerEngagedTotal's denominator. CANCELLED would
         // hide this from the seller's response-rate stat and silently
-        // inflate it.
-        stale.status == 'EXPIRED'
+        // inflate it. The PENDING→EXPIRED flip is now persisted atomically
+        // by the claimAutoExpire conditional UPDATE (wave 128), not an
+        // entity save — winning the claim (returns 1) gates the fan-out.
+        1 * offerRepository.claimAutoExpire(1L, _) >> 1
         1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, _, '/offers')
     }
 
@@ -511,18 +512,22 @@ class OfferServiceSpec extends Specification {
         def a = pendingOffer(id: 1L, amount: new BigDecimal("20"))
         def b = pendingOffer(id: 2L, amount: new BigDecimal("30"))
         offerRepository.findStalePending(_) >> [a, b]
-        offerRepository.save({ Offer o -> o.id == 1L }) >> {
+        // Row #1's atomic auto-expire claim throws (concurrent buyer cancel
+        // / seller accept landing on it, or a DB blip); row #2's claim wins.
+        // The sweep no longer calls offerRepository.save(offer) — the
+        // claimAutoExpire conditional UPDATE is the persistence point, so
+        // the per-row catch around the claim is what isolates the failure.
+        offerRepository.claimAutoExpire(1L, _) >> {
             throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
                 'Offer', 1L)
         }
-        offerRepository.save({ Offer o -> o.id == 2L }) >> { Offer o -> o }
 
         when:
         service.sweepStaleOffers()
 
-        then: "sibling row's EXPIRED flip persists — not rolled back by the bad save"
-        b.status == 'EXPIRED'
-        and: "sibling row's buyer push still fires — sweep didn't abort"
+        then: "sibling row #2 still wins its claim — not blocked by row #1's failure"
+        1 * offerRepository.claimAutoExpire(2L, _) >> 1
+        and: "sibling row's buyer push still fires — sweep didn't abort (only row #2 reaches the push)"
         1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, 100L, '/offers')
         and: "no exception bubbles out — bad row was swallowed in the per-row catch"
         noExceptionThrown()
@@ -548,19 +553,25 @@ class OfferServiceSpec extends Specification {
         a.updatedAt = System.currentTimeMillis() - (8L * 24L * 60L * 60L * 1000L)
         b.updatedAt = System.currentTimeMillis() - (8L * 24L * 60L * 60L * 1000L)
         offerRepository.findPendingDueForNudge(_, _) >> [a, b]
-        offerRepository.save({ Offer o -> o.id == 1L }) >> {
+        // Row #1's atomic nudge claim throws (concurrent seller acceptance
+        // landing on it, or a DB blip); row #2's claim wins. The sweep no
+        // longer calls offerRepository.save(offer) — claimNudge stamps
+        // sellerNudgedAt via a conditional UPDATE, so the per-row catch
+        // around the claim is what isolates the failure.
+        offerRepository.claimNudge(1L, _) >> {
             throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
                 'Offer', 1L)
         }
-        offerRepository.save({ Offer o -> o.id == 2L }) >> { Offer o -> o }
 
         when:
         service.sweepOffersDueForNudge()
 
-        then: "sibling row's sellerNudgedAt stamp persists — not rolled back by the bad save"
-        b.sellerNudgedAt != null
+        then: "sibling row #2 still wins its nudge claim — not blocked by row #1's failure"
+        1 * offerRepository.claimNudge(2L, _) >> 1
         and: "sibling row's seller ping still fires — sweep didn't abort"
         1 * notificationService.push(92L, 'OFFER_RECEIVED', _, _, 101L, _)
+        and: "row #1's failed claim fired no seller ping — swallowed in the per-row catch"
+        0 * notificationService.push(91L, 'OFFER_RECEIVED', _, _, 100L, _)
         and: "no exception bubbles out — bad row was swallowed in the per-row catch"
         noExceptionThrown()
     }
@@ -1042,13 +1053,21 @@ class OfferServiceSpec extends Specification {
         def staleCounter = sellerCounter(id: 2L, parent: 1L, amount: new BigDecimal("40"))
         offerRepository.findStalePending(_) >> [staleCounter]
         offerRepository.findById(1L) >> Optional.of(original)
+        // Win the atomic auto-expire claim (wave 128) so the sweep proceeds
+        // to closeCounteredParent. The claim's conditional UPDATE persists
+        // the counter's PENDING→EXPIRED flip; closeCounteredParent still
+        // entity-saves the COUNTERED parent to flip it CLOSED.
+        offerRepository.claimAutoExpire(2L, _) >> 1
         offerRepository.save(_) >> { Offer o -> o }
 
         when:
         service.sweepStaleOffers()
 
         then:
-        staleCounter.status == 'EXPIRED'
+        // The COUNTERED parent is closed in the same pass so the buyer
+        // isn't permanently blocked by the dup-guard once the counter
+        // negotiation times out unanswered. (The counter's own EXPIRED
+        // flip is persisted by claimAutoExpire's UPDATE, not in-memory.)
         original.status == 'CLOSED'
     }
 
@@ -1089,6 +1108,9 @@ class OfferServiceSpec extends Specification {
         def staleCounter = sellerCounter(id: 2L, parent: 1L)
         offerRepository.findStalePending(_) >> [staleCounter]
         offerRepository.findById(1L) >> Optional.of(original)
+        // Win the atomic auto-expire claim (wave 128) so the sweep reaches
+        // closeCounteredParent and frees the COUNTERED original.
+        offerRepository.claimAutoExpire(2L, _) >> 1
         offerRepository.save(_) >> { Offer o -> o.id = o.id ?: 8L; o }
         listingRepository.findById(100L) >> Optional.of(activeListing())
         offerRepository.findLiveByBuyerAndListing(10L, 100L) >> []

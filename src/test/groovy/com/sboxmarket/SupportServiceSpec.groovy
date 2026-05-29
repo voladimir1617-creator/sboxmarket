@@ -472,14 +472,17 @@ class SupportServiceSpec extends Specification {
         def stale1 = new SupportTicket(id: 1L, userId: 10L, subject: 'where is my deposit', status: 'WAITING_USER', updatedAt: 1L)
         def stale2 = new SupportTicket(id: 2L, userId: 20L, subject: null, status: 'WAITING_USER', updatedAt: 1L)
         ticketRepository.findStaleWaitingUser(_) >> [stale1, stale2]
-        ticketRepository.save(_) >> { args -> args[0] }
 
         when:
         service.sweepStaleWaitingUser()
 
         then:
-        stale1.status == 'RESOLVED'
-        stale2.status == 'RESOLVED'
+        // The WAITING_USER→RESOLVED flip is now an atomic conditional UPDATE
+        // (claimAutoResolve) rather than an in-memory status mutation + save:
+        // it flips only WHERE status is still WAITING_USER and returns 1 on
+        // win, so the per-row push only fires for a won claim.
+        1 * ticketRepository.claimAutoResolve(1L, _) >> 1
+        1 * ticketRepository.claimAutoResolve(2L, _) >> 1
         1 * notificationService.push(10L, 'TICKET_AUTO_RESOLVED', _, _, 1L, '/support')
         1 * notificationService.push(20L, 'TICKET_AUTO_RESOLVED', _, _, 2L, '/support')
     }
@@ -497,20 +500,21 @@ class SupportServiceSpec extends Specification {
         0 * notificationService.push(*_)
     }
 
-    def "sweepStaleWaitingUser keeps going if one row's save throws (batch 553)"() {
+    def "sweepStaleWaitingUser keeps going if one row's claim throws (batch 553)"() {
         given:
         service.autoResolveWaitingUserDays = 14L
         def good = new SupportTicket(id: 1L, userId: 10L, subject: 'ok', status: 'WAITING_USER', updatedAt: 1L)
         def bad  = new SupportTicket(id: 2L, userId: 20L, subject: 'boom', status: 'WAITING_USER', updatedAt: 1L)
         ticketRepository.findStaleWaitingUser(_) >> [bad, good]
-        ticketRepository.save(bad)  >> { throw new RuntimeException('db flake') }
-        ticketRepository.save(good) >> { args -> args[0] }
+        // The per-row claim is what can now throw (optimistic-lock collision,
+        // constraint violation, etc.); the bad row blows up at claim time.
+        ticketRepository.claimAutoResolve(2L, _) >> { throw new RuntimeException('db flake') }
+        ticketRepository.claimAutoResolve(1L, _) >> 1
 
         when:
         service.sweepStaleWaitingUser()
 
         then:
-        good.status == 'RESOLVED'
         // The good ticket still got its auto-resolved push even though
         // the bad one blew up mid-batch — per-row isolation holds.
         1 * notificationService.push(10L, 'TICKET_AUTO_RESOLVED', _, _, 1L, '/support')
