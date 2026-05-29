@@ -49,6 +49,33 @@ class ProfileController {
     private static final java.util.concurrent.ConcurrentHashMap<Long, Long> LAST_RESEND_AT =
         new java.util.concurrent.ConcurrentHashMap<>()
 
+    /** Per-user brute-force protection for 2FA verification endpoints
+     *  (/2fa/disable, /2fa/regenerate-codes). The global /api/profile rate
+     *  limit caps at 20 writes / 10s per IP — at that rate, an attacker
+     *  with a stolen session can submit ~172k TOTP guesses per day from a
+     *  single IP. With 3 valid 6-digit codes in any ±1 step window
+     *  (3/1,000,000), that's a ~50% brute-force success probability inside
+     *  48 hours per stolen session. The /2fa/disable endpoint is the
+     *  highest-value target — it disables the only second-factor gate on
+     *  withdraw. Lock the per-user attempt counter after 5 failed
+     *  TOTP/recovery code submissions inside a 15-minute window; clear
+     *  the counter on any successful verification so a legitimate user
+     *  whose finger slipped on the keypad is not punished. Map is bounded
+     *  at 10k entries (matches LAST_RESEND_AT pattern) so a wide-id sweep
+     *  can't grow it unbounded; survives a rolling deploy is not required
+     *  — at worst a fresh pod resets the counter and the attacker gets
+     *  another 5 attempts before re-locking, which is still 60x tighter
+     *  than the IP-level limit alone. */
+    private static final int  TWOFA_MAX_FAILS    = 5
+    private static final long TWOFA_LOCKOUT_MS   = 15L * 60_000L
+    private static final int  TWOFA_FAILS_CAP    = 10_000
+    /** Value is [failCount, firstFailEpochMs] — once failCount ≥ MAX_FAILS
+     *  the user is locked out until firstFailEpochMs + LOCKOUT_MS. After
+     *  the window expires the counter resets transparently on the next
+     *  attempt. A successful verify clears the entry entirely. */
+    private static final java.util.concurrent.ConcurrentHashMap<Long, long[]> TWOFA_FAILS =
+        new java.util.concurrent.ConcurrentHashMap<>()
+
     @Autowired ProfileService profileService
     @Autowired SteamUserRepository steamUserRepository
     @Autowired TotpService totpService
@@ -86,6 +113,67 @@ class ProfileController {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (uid == null) throw new UnauthorizedException()
         uid
+    }
+
+    /**
+     * Throws TWOFA_LOCKED if the user has exceeded {@link #TWOFA_MAX_FAILS}
+     * failed 2FA verifications within the {@link #TWOFA_LOCKOUT_MS} window.
+     * Called BEFORE running any verify() — never burns a real attempt
+     * against the underlying TOTP/recovery store while the user is locked.
+     * Returns silently when the window has expired (transparent reset on
+     * the caller's first attempt past the expiry).
+     */
+    private void check2faLockout(Long uid) {
+        def entry = TWOFA_FAILS.get(uid)
+        if (entry == null) return
+        long count = entry[0]
+        long firstFailAt = entry[1]
+        long now = System.currentTimeMillis()
+        if (now - firstFailAt >= TWOFA_LOCKOUT_MS) {
+            // Window expired — clear the stale entry so the next attempt
+            // starts fresh. Atomic remove avoids a race where two threads
+            // both see a stale entry and one re-locks the user on its
+            // first attempt past the expiry.
+            TWOFA_FAILS.remove(uid, entry)
+            return
+        }
+        if (count >= TWOFA_MAX_FAILS) {
+            long retryAfterSec = ((firstFailAt + TWOFA_LOCKOUT_MS - now) / 1000L) as long
+            if (retryAfterSec < 1L) retryAfterSec = 1L
+            throw new BadRequestException("TWOFA_LOCKED",
+                "Too many failed two-factor attempts. Try again in ${retryAfterSec}s.")
+        }
+    }
+
+    /** Record one failed 2FA verification for the user. Starts a fresh
+     *  window on the first failure; increments the count on every
+     *  subsequent failure within the same window. Bounded at 10k entries
+     *  via a coarse size check — when over cap we drop the entry rather
+     *  than allowing the map to grow without bound under a wide-id sweep. */
+    private void record2faFail(Long uid) {
+        long now = System.currentTimeMillis()
+        // Bounded map — once over cap, refuse to track new entries. The
+        // global IP-level rate limit (20/10s on /api/profile) is the
+        // backstop in this degenerate case.
+        if (TWOFA_FAILS.size() >= TWOFA_FAILS_CAP && !TWOFA_FAILS.containsKey(uid)) {
+            return
+        }
+        TWOFA_FAILS.compute(uid, { _, existing ->
+            if (existing == null || (now - existing[1]) >= TWOFA_LOCKOUT_MS) {
+                // Fresh window — first failure, start the counter.
+                return [1L, now] as long[]
+            }
+            existing[0] = existing[0] + 1L
+            return existing
+        })
+    }
+
+    /** Clear the failed-attempt counter for the user. Called on any
+     *  successful 2FA verification (TOTP or recovery code) so a user who
+     *  fumbles 4 codes then enters the right one isn't punished by a
+     *  stale counter on their next legit attempt. */
+    private void clear2faFails(Long uid) {
+        TWOFA_FAILS.remove(uid)
     }
 
     @GetMapping("/me")
@@ -1346,6 +1434,16 @@ class ProfileController {
         if (!user.totpSecret) {
             return ResponseEntity.ok([enabled: false])
         }
+        // Per-user brute-force gate — refuse to even consult the TOTP /
+        // recovery store while the user is locked. Without this, the
+        // /api/profile IP-level rate limit (20/10s) lets a stolen-session
+        // attacker submit ~172k guesses/day = ~50% brute-force chance per
+        // 48h. The check fires BEFORE verify() so a locked attacker never
+        // observes a real verification side effect (constant time, no
+        // signal). Also gates the recovery-code path — a 60-bit recovery
+        // code is brute-force-infeasible on its own but a lockout adds
+        // defence-in-depth against future entropy drift in the generator.
+        check2faLockout(uid)
         def code = (body?.code as String ?: '').trim()
         def step = totpService.verify(user.totpSecret, code, user.lastTotpStep)
         if (step < 0) {
@@ -1355,11 +1453,13 @@ class ProfileController {
             // stored hash set so it can't be replayed.
             def remaining = totpService.consumeRecoveryCode(user.totpRecoveryCodes, code)
             if (remaining == null) {
+                record2faFail(uid)
                 throw new BadRequestException("INVALID_CODE",
                     "Provide a valid 2FA code or a one-time recovery code")
             }
             user.totpRecoveryCodes = remaining
         }
+        clear2faFails(uid)
         user.totpSecret = null
         user.lastTotpStep = null
         user.totpRecoveryCodes = null
@@ -1402,11 +1502,20 @@ class ProfileController {
         if (!user.totpSecret) {
             throw new BadRequestException("NOT_ENROLLED", "2FA is not enabled on this account")
         }
+        // Shares the per-user 2FA brute-force counter with /2fa/disable —
+        // an attacker with a stolen session who can hammer regenerate-
+        // codes to print new codes can pivot to draining the wallet via
+        // withdraw without ever touching disable. Counts on the same
+        // 5-fails-in-15-min budget so the attacker can't fan out across
+        // sibling endpoints to avoid the lockout.
+        check2faLockout(uid)
         def code = (body?.code as String ?: '').trim()
         def step = totpService.verify(user.totpSecret, code, user.lastTotpStep)
         if (step < 0) {
+            record2faFail(uid)
             throw new BadRequestException("INVALID_CODE", "Provide a current 2FA code to regenerate backup codes")
         }
+        clear2faFails(uid)
         user.lastTotpStep = step
         def codes = totpService.generateBackupCodes()
         user.totpRecoveryCodes = codes.hashed as String

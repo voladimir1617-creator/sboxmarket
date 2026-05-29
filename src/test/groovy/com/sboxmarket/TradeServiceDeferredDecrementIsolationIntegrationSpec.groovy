@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ApplicationContext
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.aop.framework.Advised
 import org.springframework.aop.support.AopUtils
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.UnexpectedRollbackException
@@ -109,8 +110,8 @@ class TradeServiceDeferredDecrementIsolationIntegrationSpec extends Specificatio
      *  to the inline branch. {@link AopUtils} bridges both CGLIB and
      *  JDK dynamic proxies via the same call. */
     private TradeService unwrap(TradeService bean) {
-        if (AopUtils.isAopProxy(bean) && bean instanceof org.springframework.aop.framework.Advised) {
-            return (TradeService) ((org.springframework.aop.framework.Advised) bean).getTargetSource().getTarget()
+        if (AopUtils.isAopProxy(bean) && bean instanceof Advised) {
+            return (TradeService) ((Advised) bean).getTargetSource().getTarget()
         }
         return bean
     }
