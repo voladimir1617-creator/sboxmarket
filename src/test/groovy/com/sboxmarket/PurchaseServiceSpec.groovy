@@ -205,8 +205,60 @@ class PurchaseServiceSpec extends Specification {
         then:
         1 * notifier.safePush(999L, 'ITEM_PURCHASED', _, _, _, _)
         0 * notifier.push(_, 'CART_ITEM_SOLD', _, _, _, _)
-        // Scrub still skips when there's nobody to notify
-        0 * cartRepo.deleteAllByListing(_)
+        // The bulk DELETE still fires even with no OTHER cart-holders —
+        // the buyer's OWN cart row (if any) still needs scrubbing on the
+        // Buy Now / accept-offer paths (cart checkout scrubs per-row in
+        // CartController). `deleteAllByListing` is keyed on listing id,
+        // so it's a single bounded DELETE that nukes any row pointing at
+        // the now-SOLD listing in one round-trip. See the buyer-cart
+        // scrub spec below for the regression case.
+        1 * cartRepo.deleteAllByListing(5L)
+    }
+
+    def "buy scrubs the BUYER's own cart row even when nobody else has the listing queued (regression: buy-now-from-item-modal stale row)"() {
+        // Regression: PurchaseService.buy used to gate the cart bulk DELETE
+        // behind `!others.isEmpty()`. A buyer who queued an item, then
+        // bought it directly from the item modal (Buy Now), as the only
+        // person with the listing in cart, was left with a stale-grey row
+        // pointing at a now-SOLD listing until the 24h cart-stale sweeper
+        // ran (or the client-side stale detector hid it on next /api/cart
+        // fetch). The cart-checkout path already scrubs per-row in
+        // CartController, but Buy Now / accept-offer hit only this scrub
+        // path — so for those entry points the buyer's row leaked.
+        //
+        // After the fix, the bulk DELETE fires unconditionally on every
+        // successful sale, so the buyer's own row is always cleaned up
+        // — no matter how the BUY was triggered and no matter whether
+        // anyone else had the listing in cart.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('200.00'))
+        def item = new Item(id: 10L, name: 'Wizard Hat')
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot')
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository = cartRepo
+        service.notificationService = notifier
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        // No OTHER cart-holders — the buyer is the only one with the
+        // listing in their cart. Pre-fix this short-circuited the bulk
+        // DELETE and left the buyer's own row stale.
+        cartRepo.findOtherUsersWithListing(5L, 999L) >> []
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "no CART_ITEM_SOLD pushes since nobody else was watching"
+        0 * notifier.push(_, 'CART_ITEM_SOLD', _, _, _, _)
+
+        and: "but the cart scrub still fires — the BUYER's own row must be cleared"
+        1 * cartRepo.deleteAllByListing(5L)
+
+        and: "the money path still completes cleanly"
+        listing.status == 'SOLD'
+        listing.buyerUserId == 999L
+        buyer.balance == new BigDecimal('150.00')
     }
 
     def "buy refuses a frozen wallet (batch 509)"() {
