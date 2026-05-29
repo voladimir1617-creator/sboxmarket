@@ -111,7 +111,8 @@ class TradeServiceDeferredDecrementIsolationIntegrationSpec extends Specificatio
      *  JDK dynamic proxies via the same call. */
     private TradeService unwrap(TradeService bean) {
         if (AopUtils.isAopProxy(bean) && bean instanceof Advised) {
-            return (TradeService) ((Advised) bean).getTargetSource().getTarget()
+            Advised advised = (Advised) bean
+            return (TradeService) advised.getTargetSource().getTarget()
         }
         return bean
     }
