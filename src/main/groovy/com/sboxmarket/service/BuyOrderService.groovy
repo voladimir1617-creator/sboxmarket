@@ -235,6 +235,15 @@ class BuyOrderService {
         for (Listing listing : candidates) {
             if (order.quantity <= 0 || order.status != 'ACTIVE') break
             if (listing.sellerUserId != null && listing.sellerUserId == order.buyerUserId) continue
+            // Banned-seller skip (wave 141 parity with
+            // OfferService.tryAutoAccept). PurchaseService.buy gates
+            // the buyer's ban state but not the seller's, so without
+            // this skip the matcher could route the buyer's wallet
+            // into a banned seller's escrow. Walk to the next
+            // candidate so we still try unfilled inventory from
+            // legitimate sellers at the same price tier. System
+            // listings (sellerUserId == null) bypass.
+            if (listing.sellerUserId != null && banGuard.isBanned(listing.sellerUserId)) continue
 
             def user = steamUserRepository.findById(order.buyerUserId).orElse(null)
             if (user == null) break
@@ -609,6 +618,18 @@ class BuyOrderService {
     void tryMatch(Listing listing) {
         if (listing == null || listing.status != 'ACTIVE' || listing.listingType != 'BUY_NOW') return
         if (Boolean.TRUE.equals(listing.hidden)) return
+        // Banned-seller short-circuit (wave 141 parity with
+        // OfferService.tryAutoAccept). PurchaseService.buy only
+        // asserts the BUYER isn't banned — it does not gate on the
+        // seller. Without this check, a seller banned AFTER posting
+        // a listing can still get their listing auto-purchased via
+        // a matching buy order: buyer's wallet drains, listing flips
+        // SOLD, and the banned seller's wallet would be credited
+        // through the escrow Trade row. The matching engine MUST
+        // refuse to route any new sale to a banned seller — the
+        // listing should sit until the ListingService sweeper takes
+        // it down. System listings (sellerUserId == null) skip.
+        if (listing.sellerUserId != null && banGuard.isBanned(listing.sellerUserId)) return
 
         // Cap the candidate list at 50 — the first matching order with
         // enough balance wins, so iterating every single matching order
