@@ -61,7 +61,12 @@ async function safeJson(url, opts, meta) {
       // surfaces a branded "not found" empty state — stall/loadout/item
       // dead links). Without this opt-out, every dead-link landing fired
       // 3-4 console.warns that read as a bug to anyone tailing the tab.
-      const muted = meta && Array.isArray(meta.expect) && meta.expect.indexOf(r.status) >= 0;
+      // 401 is already handled above via sb:session-expired (friendly toast +
+      // me→null), so its console.warn was pure noise — a stale read after a
+      // session expiry painted a red "HTTP 401" line per poll. Mute it like the
+      // opt-in expected statuses. (wave-146 audit)
+      const muted = r.status === 401 ||
+        (meta && Array.isArray(meta.expect) && meta.expect.indexOf(r.status) >= 0);
       if (!muted) console.warn(`[${url}] HTTP ${r.status}`);
       return null;
     }
