@@ -1,5 +1,26 @@
 # Audit backlog — 2026-05 bug-hunt wave
 
+> **STATUS (wave 146 grind):** 12 fixes shipped + committed, full suite green,
+> live site verified. **All P1s are fixed**, plus most P2s. Commits: deposit-cap
+> bypass, reverseClaim double-clawback, pendingReviewsFor paging, CSR daily-cap,
+> eligibleTradesFor scoping, refund-cap LIKE anchoring, fmtCompact dead-code,
+> Buy double-submit guard, tradeOfferUrl XSS guard (×3 sites), 401 console-spam,
+> FX-display literal-USD (sell-proceeds + wallet breakdown).
+>
+> **Remaining (backend P2s — each needs an app-restart test cycle):**
+> WatchlistAlertService.fireRow (price-drop email sent inside the uncommitted
+> REQUIRES_NEW tx → afterCommit); SavedSearchService.notifyMatchingForListing
+> (un-paged candidate scan + per-owner isBlocked N+1 → Pageable cap + bulk
+> block-set); SupportService.reply (non-atomic createdAt stamp → order by
+> (createdAt, id)). **Minor frontend P2:** withdrawal-cancel double-click is
+> cosmetic only (backend claimCancelPendingWithdrawal is a conditional UPDATE —
+> no double-credit), so deprioritized.
+>
+> Original full findings below for reference.
+
+---
+
+
 Three parallel read-only hunters (frontend JS, adversarial money-paths, backend
 concurrency) swept the now-rendering app. The transaction/money/multi-pod surface
 is exhaustively hardened after ~170 prior waves, so fresh bugs concentrate in
