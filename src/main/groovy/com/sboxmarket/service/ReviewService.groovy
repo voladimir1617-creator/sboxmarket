@@ -445,8 +445,12 @@ class ReviewService {
         if (buyerUserId == sellerUserId) return []
         def trades = tradeRepository.findVerifiedBetween(buyerUserId, sellerUserId)
         if (trades.isEmpty()) return []
-        def existing = reviewRepository.findByFromUserId(buyerUserId)
-        def reviewedTradeIds = existing.collect { it.tradeId } as Set
+        // Scope the reviewed-set to THIS pair's trades rather than loading every
+        // review the buyer ever wrote across all sellers (findByFromUserId) — a
+        // prolific reviewer otherwise hydrates thousands of rows to build a Set
+        // that's only ever checked against `trades` (already bounded to the pair).
+        def reviewedTradeIds = reviewRepository
+                .findByFromUserIdAndTradeIdIn(buyerUserId, trades*.id)*.tradeId as Set
         trades.collect { t ->
             [
                 tradeId:   t.id,

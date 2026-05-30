@@ -23,6 +23,11 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
 
     Review findByFromUserIdAndTradeId(Long fromUserId, Long tradeId)
 
+    /** Reviews the buyer wrote for a SPECIFIC set of trades — drives
+     *  eligibleTradesFor's reviewed-flag without loading the buyer's entire
+     *  cross-seller review history just to build a Set. Derived query (no JPQL). */
+    List<Review> findByFromUserIdAndTradeIdIn(Long fromUserId, Collection<Long> tradeIds)
+
     /** Spam guard — count short, recent reviews authored by this buyer
      *  since the given epoch-ms cutoff. A "short" review is one whose
      *  comment is null/blank or shorter than the supplied length. Used

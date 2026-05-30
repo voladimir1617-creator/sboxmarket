@@ -683,11 +683,13 @@ class ReviewServiceSpec extends Specification {
         def t2 = new Trade(id: 2L, buyerUserId: 10L, sellerUserId: 20L, state: 'VERIFIED',
             itemName: 'Cyber Vest', price: new BigDecimal('9.00'), settledAt: 1_700_000_100_000L)
         tradeRepository.findVerifiedBetween(10L, 20L) >> [t1, t2]
-        // The buyer has already reviewed trade 1 (and an unrelated trade 99).
-        reviewRepository.findByFromUserId(10L) >> [
-            new Review(id: 7L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 5),
-            new Review(id: 8L, fromUserId: 10L, toUserId: 30L, tradeId: 99L, rating: 4)
+        // The buyer reviewed trade 1. The scoped lookup only returns reviews for
+        // THIS pair's trades ([1,2]) — never the buyer's whole cross-seller
+        // history (an unrelated trade-99 review would not come back here).
+        reviewRepository.findByFromUserIdAndTradeIdIn(10L, [1L, 2L]) >> [
+            new Review(id: 7L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 5)
         ]
+        0 * reviewRepository.findByFromUserId(10L)
 
         when:
         def rows = service.eligibleTradesFor(10L, 20L)
