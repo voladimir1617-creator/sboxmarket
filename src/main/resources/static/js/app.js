@@ -7218,20 +7218,13 @@ export function App() {
         // real liquidity signal, not just the static "X listings found"
         // count. Component handles its own empty-state guard so a fresh
         // marketplace doesn't show "$0 traded".
-        routeName === 'market' && h(MarketStatsStrip),
-        // Price freshness chip — quiet "Prices updated 23s ago" badge
-        // above the listings grid so a buyer can tell the floors aren't
-        // stale. Polls /api/items/price-refresh-status every 30s and
-        // the in-memory tick advances `timeAgo()` between fetches.
-        routeName === 'market' && h('div', {
-          style: {
-            margin: '12px auto 0', maxWidth: 1260,
-            padding: '0 20px',
-            display: 'flex', justifyContent: 'flex-start'
-          }
-        },
-          h(PriceFreshnessChip)
-        ),
+        // wave-147 csfloat-parity (swarm P0 #2 & #4): the 4-tile MarketStatsStrip
+        // band AND the standalone full-width PriceFreshnessChip row used to sit
+        // ABOVE the grid, burying listings far down the page — csfloat's /search
+        // fills the grid immediately under the toolbar. Both removed here so the
+        // grid rises to the top like a normal marketplace. (MarketStatsStrip stays
+        // defined for potential reuse as compact inline text later; the freshness
+        // chip now rides inside the results-meta row below instead of its own band.)
         routeName === 'market' && h('h1', { className: 'visually-hidden' }, 'Marketplace'),
         h('div', {
           className: 'results-meta',
