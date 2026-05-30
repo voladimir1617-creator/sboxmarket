@@ -1,21 +1,23 @@
 # Audit backlog — 2026-05 bug-hunt wave
 
-> **STATUS (wave 146 grind — COMPLETE):** 16 fixes shipped + committed, full
-> suite green throughout, live site verified after each. **Every P1 and P2 from
-> the 3-hunter audit is fixed.** Commits: deposit-cap bypass, reverseClaim
-> double-clawback, pendingReviewsFor paging, CSR daily-cap, eligibleTradesFor
-> scoping, refund-cap LIKE anchoring, fmtCompact dead-code, Buy double-submit
-> guard, tradeOfferUrl XSS guard (×3 sites), 401 console-spam, FX-display
-> literal-USD (sell-proceeds + wallet breakdown), SupportService.reply
-> (createdAt,id) ordering tiebreak, WatchlistAlert price-drop email → afterCommit,
-> SavedSearch candidate-scan paging cap (500).
+> **STATUS (wave 146 grind):** 15 fixes shipped + committed, full suite green at
+> HEAD, live site verified. **Every P1 from the 3-hunter audit is fixed**, plus
+> all but one P2. Commits: deposit-cap bypass, reverseClaim double-clawback,
+> pendingReviewsFor paging, CSR daily-cap, eligibleTradesFor scoping, refund-cap
+> LIKE anchoring, fmtCompact dead-code, Buy double-submit guard, tradeOfferUrl
+> XSS guard (×3 sites), 401 console-spam, FX-display literal-USD (sell-proceeds +
+> wallet breakdown), SupportService.reply (createdAt,id) ordering tiebreak,
+> WatchlistAlert price-drop email → afterCommit.
 >
-> **Two intentionally-deferred remainders (both low-value, documented):**
-> 1. SavedSearch per-candidate `isBlocked` N+1 — now bounded to ≤500 by the
->    paging cap; replacing the loop with a bulk block-set query needs a new
->    UserBlockRepository finder (`blockersOf(seller, candidateIds)`). Best-effort
->    path, low ROI.
-> 2. Frontend withdrawal-cancel double-click — cosmetic only; the backend
+> **Deferred (low-value, documented):**
+> 1. **SavedSearch candidate-scan paging cap (P2, perf).** Attempted a Pageable
+>    overload + 500-cap, but it broke `SavedSearchServiceSpec` "notification
+>    suppressed when follower blocked the seller" in a non-obvious way (the block
+>    path interacts with the candidate-fanout) — REVERTED to keep the tree green
+>    rather than force a best-effort perf optimization. Re-attempt needs the
+>    block-suppression interaction understood first. Also: the per-candidate
+>    `isBlocked` N+1 (the original P2) would fold into the same change.
+> 2. **Frontend withdrawal-cancel double-click** — cosmetic only; the backend
 >    `claimCancelPendingWithdrawal` is a conditional UPDATE so there's no
 >    double-credit, just a redundant error toast.
 >
