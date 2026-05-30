@@ -197901,3 +197901,39 @@ body:has(.shortcuts-backdrop) .csfloat-fab {
   display: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #12806 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY — measured-token match (wave-147)
+   Values sampled live from csfloat.com via getComputedStyle:
+     page bg   = rgb(21,23,28)   (ours was oklch 0.17 ≈ rgb 16,18,22 — darker)
+     card surf = rgb(38,41,48)   (ours was rgb 27,29,36 — darker)
+     card radius = 0px SHARP     (ours was 12px rounded)
+   csfloat reads crisp + slightly lifted; ours read dark + rounded. Match it.
+   Appended last so it wins the cascade deterministically over the
+   ~12.8k earlier parity ships without hunting each override layer.
+   ===================================================================== */
+:root {
+  --bg:   rgb(21, 23, 28) !important;   /* csfloat exact page background */
+  --bg-1: rgb(30, 33, 39) !important;   /* one step up — nav / panels */
+  --bg-2: rgb(38, 41, 48) !important;   /* csfloat exact card surface */
+  --bg-3: rgb(46, 50, 58) !important;   /* hover / raised */
+}
+body {
+  background: rgb(21, 23, 28) !important;
+}
+/* Grid + item cards: csfloat ships SHARP corners (0px) on a rgb(38,41,48)
+   surface. Drop our 12px rounding + lift the fill to match. */
+.grid-card,
+.card,
+.market-stats-strip > div,
+.market-stat {
+  border-radius: 0 !important;
+  background: rgb(38, 41, 48) !important;
+}
+/* The card thumbnail already renders 0px; keep the whole card square so
+   the thumb + body share one crisp rectangle like csfloat. */
+.grid-card .grid-thumb,
+.grid-card .grid-body {
+  border-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY — measured-token match (wave-147) */
