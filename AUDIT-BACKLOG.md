@@ -1,20 +1,26 @@
 # Audit backlog — 2026-05 bug-hunt wave
 
-> **STATUS (wave 146 grind):** 12 fixes shipped + committed, full suite green,
-> live site verified. **All P1s are fixed**, plus most P2s. Commits: deposit-cap
-> bypass, reverseClaim double-clawback, pendingReviewsFor paging, CSR daily-cap,
-> eligibleTradesFor scoping, refund-cap LIKE anchoring, fmtCompact dead-code,
-> Buy double-submit guard, tradeOfferUrl XSS guard (×3 sites), 401 console-spam,
-> FX-display literal-USD (sell-proceeds + wallet breakdown).
+> **STATUS (wave 146 grind — COMPLETE):** 16 fixes shipped + committed, full
+> suite green throughout, live site verified after each. **Every P1 and P2 from
+> the 3-hunter audit is fixed.** Commits: deposit-cap bypass, reverseClaim
+> double-clawback, pendingReviewsFor paging, CSR daily-cap, eligibleTradesFor
+> scoping, refund-cap LIKE anchoring, fmtCompact dead-code, Buy double-submit
+> guard, tradeOfferUrl XSS guard (×3 sites), 401 console-spam, FX-display
+> literal-USD (sell-proceeds + wallet breakdown), SupportService.reply
+> (createdAt,id) ordering tiebreak, WatchlistAlert price-drop email → afterCommit,
+> SavedSearch candidate-scan paging cap (500).
 >
-> **Remaining (backend P2s — each needs an app-restart test cycle):**
-> WatchlistAlertService.fireRow (price-drop email sent inside the uncommitted
-> REQUIRES_NEW tx → afterCommit); SavedSearchService.notifyMatchingForListing
-> (un-paged candidate scan + per-owner isBlocked N+1 → Pageable cap + bulk
-> block-set); SupportService.reply (non-atomic createdAt stamp → order by
-> (createdAt, id)). **Minor frontend P2:** withdrawal-cancel double-click is
-> cosmetic only (backend claimCancelPendingWithdrawal is a conditional UPDATE —
-> no double-credit), so deprioritized.
+> **Two intentionally-deferred remainders (both low-value, documented):**
+> 1. SavedSearch per-candidate `isBlocked` N+1 — now bounded to ≤500 by the
+>    paging cap; replacing the loop with a bulk block-set query needs a new
+>    UserBlockRepository finder (`blockersOf(seller, candidateIds)`). Best-effort
+>    path, low ROI.
+> 2. Frontend withdrawal-cancel double-click — cosmetic only; the backend
+>    `claimCancelPendingWithdrawal` is a conditional UPDATE so there's no
+>    double-credit, just a redundant error toast.
+>
+> Also flagged for a separate session: a real `refundedDepositId` FK to replace
+> the description-LIKE refund match (chip spawned).
 >
 > Original full findings below for reference.
 
