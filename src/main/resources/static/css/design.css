@@ -36,12 +36,16 @@ html { scroll-padding-top: calc(var(--nav-h, 56px) + 16px); }
   --ink-3:     oklch(0.74 0.010 90);
   --ink-4:     oklch(0.66 0.010 90);
 
-  /* Premium mono + hint-of-blue — primary accent is near-white; blue is
-     reserved for CTAs, live LED, and active chip underlines only. */
-  --accent:     oklch(0.97 0.006 90);
-  --accent-d:   oklch(0.85 0.006 90);
-  --accent-i:   oklch(0.17 0.008 260); /* ink-on-accent */
-  --accent-hue: 90;
+  /* wave-147: csfloat is PERVASIVELY blue — links, active tabs, icons, focus
+     rings all route through one vivid blue. We were monochrome (near-white
+     accent), which the parity swarm flagged as the #1 reason we looked least
+     like csfloat. Make the blue CTA token the live accent. --accent-i flips to
+     WHITE (was dark) because text now sits on a BLUE accent fill, not a white
+     one. Body text stays --ink (near-white) — only the ACCENT layer goes blue. */
+  --accent:     #237bff;
+  --accent-d:   #1668e6;
+  --accent-i:   #ffffff; /* ink-on-accent — white on blue */
+  --accent-hue: 235;
 
   /* CSFloat blue — sampled live from csfloat.com (rgb(35,123,255) = #237bff)
      for exact parity; ours was #3b82f6 (rgb 59,130,246), visibly less vivid.
@@ -66,11 +70,12 @@ html { scroll-padding-top: calc(var(--nav-h, 56px) + 16px); }
   --up:        oklch(0.82 0.16 150);
   --down:      oklch(0.72 0.16 25);
 
-  /* Functional neutral highlight — for live/info states so the UI
-     still has an accent layer even in pure-mono mode. Near-white. */
-  --blue:      oklch(0.92 0.006 90);
-  --blue-d:    oklch(0.76 0.008 90);
-  --blue-soft: oklch(1 0 0 / 0.08);
+  /* wave-147: this block previously RE-overrode --blue (set to the real CTA
+     blue at line ~54) back to near-white, making links/info/live states gray.
+     The swarm flagged it. Restore csfloat blue so --blue actually reads blue. */
+  --blue:      #237bff;
+  --blue-d:    #1668e6;
+  --blue-soft: color-mix(in oklch, #237bff 14%, transparent);
 
   --r-xs: 3px;
   --r-sm: 6px;
@@ -90,7 +95,11 @@ html { scroll-padding-top: calc(var(--nav-h, 56px) + 16px); }
 /* Accent swaps — mono is default. In mono, --accent stays near-white so
    brand surfaces remain monochrome, but --blue persists (defined in :root)
    so CTAs, live LEDs, and active-tab underlines keep a subtle blue hint. */
-html[data-accent="mono"]   { --accent: oklch(0.97 0.006 90); --accent-d: oklch(0.85 0.006 90); --accent-i: oklch(0.17 0.008 260); --accent-hue: 90; }
+/* wave-147: nav-widgets.js boots with data-accent="mono", which previously
+   forced the accent back to near-white and defeated the :root blue. Point the
+   mono default at csfloat blue so the live accent is blue out of the box (the
+   other named accents below still work as user overrides). White ink on blue. */
+html[data-accent="mono"]   { --accent: #237bff; --accent-d: #1668e6; --accent-i: #ffffff; --accent-hue: 235; }
 html[data-accent="blue"]   { --accent: #1ea5ff; --accent-d: #0d87db; --accent-i: #04121c; --accent-hue: 235; }
 html[data-accent="orange"] { --accent: #ff9639; --accent-d: #e8801a; --accent-i: #1a0f06; --accent-hue: 35; }
 html[data-accent="ember"]  { --accent: #ff5a1f; --accent-d: #e04310; --accent-i: #1a0803; --accent-hue: 22; }
