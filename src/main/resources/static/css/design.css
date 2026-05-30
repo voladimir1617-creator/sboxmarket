@@ -197937,3 +197937,29 @@ body {
   border-radius: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY — measured-token match (wave-147) */
+
+/* CSFLOAT-1:1 PARITY (wave-147b) — the wave-147 .grid-card override lost to a
+   higher-specificity earlier rule (card stayed 12px / rgb(27,29,36)). Bump
+   specificity with body-prefixed + .listing-grid-scoped selectors so the
+   sharp-corner + csfloat card surface actually win. Measured target:
+   radius 0, background rgb(38,41,48). */
+body .grid-card,
+body .card,
+.listing-grid .grid-card,
+body .market-stat {
+  border-radius: 0 !important;
+  background: rgb(38, 41, 48) !important;
+}
+/* END CSFLOAT-1:1 PARITY (wave-147b) */
+
+/* CSFLOAT-1:1 PARITY (wave-147c) — CORRECTION: csfloat's real card radius is
+   4px (measured on the inner .item-card div, not the host) — NOT 0px. The
+   wave-147/b blocks wrongly set 0 and lost the radius to a higher-specificity
+   12px rule (background DID win → rgb(38,41,48) ✓). Use a (0,2,2) selector
+   (.grid-card.grid-card) to beat any 2-class rule, set the correct 4px. */
+html body .grid-card.grid-card,
+html body .listing-grid .grid-card {
+  border-radius: 4px !important;
+  background: rgb(38, 41, 48) !important;
+}
+/* END CSFLOAT-1:1 PARITY (wave-147c) */
