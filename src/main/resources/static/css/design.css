@@ -141191,12 +141191,12 @@ input[name="deposit-amount"]:focus,
    database regardless of the active page. We have the same nav item, so mirror it
    exactly. (Header height matched separately via --nav-h: 70px == csfloat's 70px
    mat-toolbar.) */
-.site-header .nav-link[href*="database" i] {
+.nav-link[href*="database" i] {
   color: rgb(33, 118, 255) !important;
   font-weight: 500 !important;
 }
-.site-header .nav-link[href*="database" i]:hover,
-.site-header .nav-link[href*="database" i].active {
+.nav-link[href*="database" i]:hover,
+.nav-link[href*="database" i].active {
   color: rgb(78, 150, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #5501 */

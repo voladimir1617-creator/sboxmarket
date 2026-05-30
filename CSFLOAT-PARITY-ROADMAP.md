@@ -3,7 +3,16 @@
 Captured by driving csfloat.com/search and localhost:8082/market side-by-side at
 the same viewport. What actually differs, highest-impact first.
 
-## 1. LEFT FILTER RAIL (the defining csfloat look) — BIGGEST GAP
+## 1. LEFT FILTER RAIL (the defining csfloat look) — ✅ FIXED (9c54f2a, 2026-05-30)
+- The rail was BUILT all along (app.js:6657 `<aside class="sidebar">` with Price
+  Range / Availability / Rarity / Quick Filters / Sort). The bug: CSS ships #4201
+  (1280-1599px) and #4202 (1024-1279px) hid it with `display:none !important`,
+  which killed it across EVERY common laptop width (1366/1440/1536). Fixed by a
+  final EOF block (#5500) re-asserting the 2-col `[300px rail | feed]` layout at
+  >=1100px, feed auto-fill minmax(220px,1fr). Verified live at 1440/1280/1024/390,
+  0 overflow, 0 console errors. Original (now-historical) analysis below.
+
+### (historical) ORIGINAL ANALYSIS — BIGGEST GAP
 - **csfloat:** persistent left sidebar — Price (min/max + slider), Wear, Special
   (StatTrak/Souvenir), Patterns, Search — grid starts at the very top-right, ~10
   cards visible immediately.
