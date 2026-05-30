@@ -1072,7 +1072,7 @@ class ReviewServiceSpec extends Specification {
         def t2 = new Trade(id: 2L, buyerUserId: 10L, sellerUserId: 30L,
                            state: 'VERIFIED', itemName: 'Cyber Vest',
                            price: new BigDecimal('12.00'), settledAt: 1_700_000_100_000L)
-        tradeRepository.findUnreviewedByBuyer(10L) >> [t1, t2]
+        tradeRepository.findUnreviewedByBuyer(10L, _) >> [t1, t2]
         steamUserRepository.findAllById(_) >> [
             new SteamUser(id: 20L, displayName: 'Alice', avatarUrl: 'a.png'),
             new SteamUser(id: 30L, displayName: 'Bob',   avatarUrl: 'b.png')
@@ -1095,7 +1095,7 @@ class ReviewServiceSpec extends Specification {
 
     def "pendingReviewsFor returns empty list when the buyer has no unreviewed trades"() {
         given:
-        tradeRepository.findUnreviewedByBuyer(10L) >> []
+        tradeRepository.findUnreviewedByBuyer(10L, _) >> []
 
         when:
         def rows = service.pendingReviewsFor(10L)
@@ -1112,13 +1112,14 @@ class ReviewServiceSpec extends Specification {
                       state: 'VERIFIED', itemName: "Item ${idx}",
                       price: new BigDecimal('1.00'), settledAt: System.currentTimeMillis())
         }
-        tradeRepository.findUnreviewedByBuyer(10L) >> flood
         steamUserRepository.findAllById(_) >> [new SteamUser(id: 20L, displayName: 'Alice')]
 
         when:
         def rows = service.pendingReviewsFor(10L)
 
-        then:
+        then: 'the 50-cap is pushed into SQL (LIMIT) — service asks for a 50-row page, never hydrating the full flood'
+        1 * tradeRepository.findUnreviewedByBuyer(10L, { it.pageSize == 50 }) >> flood.take(50)
+        0 * tradeRepository.findUnreviewedByBuyer(10L)
         rows.size() == 50
     }
 

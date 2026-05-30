@@ -403,9 +403,16 @@ class ReviewService {
      */
     List<Map> pendingReviewsFor(Long buyerUserId) {
         if (tradeRepository == null || buyerUserId == null) return []
-        def trades = tradeRepository.findUnreviewedByBuyer(buyerUserId)
+        // Push the 50-cap into SQL (LIMIT) rather than hydrating the buyer's
+        // ENTIRE unreviewed-trade history and truncating in memory. A power
+        // buyer (many buy-order auto-fills, none reviewed) otherwise loads
+        // thousands of Trade rows — each carrying a NOT EXISTS correlated
+        // subquery — on every /api/profile/pending-reviews hit, just to throw
+        // all but 50 away. The paged overload + the repo's ORDER BY settledAt
+        // DESC preserve the newest-first ordering.
+        def trades = tradeRepository.findUnreviewedByBuyer(buyerUserId,
+                org.springframework.data.domain.PageRequest.of(0, 50))
         if (trades.isEmpty()) return []
-        if (trades.size() > 50) trades = trades.take(50)
         def sellerIds = trades*.sellerUserId.unique()
         def sellers = steamUserRepository.findAllById(sellerIds).collectEntries { [(it.id): it] }
         trades.collect { t ->
