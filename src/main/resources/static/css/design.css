@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────
    SkinBox redesign — dark premium editorial
-   Type: Geist (ui) + JetBrains Mono (numbers) + Instrument Serif (accent)
+   Type: Roboto (ui) + JetBrains Mono (numbers) + Instrument Serif (accent)
    ───────────────────────────────────────────────────────────── */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -88,8 +88,8 @@ html { scroll-padding-top: calc(var(--nav-h, 56px) + 16px); }
   --nav-h: 56px;
   --sub-h: 44px;
 
-  --mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --serif: 'Fraunces', 'Times New Roman', Georgia, serif;
+  --mono: 'Roboto Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --serif: 'Roboto', 'Times New Roman', Georgia, serif;
 }
 
 /* Accent swaps — mono is default. In mono, --accent stays near-white so
@@ -121,7 +121,7 @@ html[data-theme="light"] {
 }
 
 body {
-  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: 'Roboto', ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.45;
   color: var(--ink);
@@ -263,7 +263,7 @@ button { background: none; border: 0; cursor: pointer; }
   width: 22px; height: 22px; border-radius: 4px;
   background: var(--accent); color: var(--accent-i);
   display: grid; place-items: center;
-  font-family: 'Geist'; font-weight: 700;
+  font-family: 'Roboto'; font-weight: 700;
 }
 .avatar {
   width: 30px; height: 30px; border-radius: 50%;
@@ -659,7 +659,7 @@ button { background: none; border: 0; cursor: pointer; }
   font-variation-settings: "opsz" 144, "SOFT" 20;
 }
 .sect-head h2 small {
-  font-family: 'Geist'; font-style: normal;
+  font-family: 'Roboto'; font-style: normal;
   font-size: 11px; color: var(--ink-4);
   text-transform: uppercase; letter-spacing: 0.16em;
   margin-left: 10px; font-weight: 500;
@@ -2863,8 +2863,8 @@ footer {
    a mobile breakpoint at < 900 / < 640 / < 420.
    ============================================================================ */
 
-/* Body font stack — fall back to Inter if Geist fails to load */
-body { font-family: 'Geist', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; }
+/* Body font stack — fall back to Inter if Roboto fails to load */
+body { font-family: 'Roboto', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; }
 body.modal-open, html.modal-open { overflow: hidden; }
 
 /* Legacy token aliases — app JSX still references --limited-color etc.
@@ -3061,7 +3061,7 @@ nav.nav {
 }
 .nav-logo-icon img, .nav-logo-icon svg { width: 100%; height: 100%; display: block; }
 .nav-logo-text {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 15.5px; font-weight: 600; letter-spacing: -0.02em;
   color: var(--ink);
   background: none; -webkit-text-fill-color: initial;
@@ -3174,7 +3174,7 @@ nav.nav {
   width: 22px; height: 22px; border-radius: 4px;
   background: var(--ink); color: var(--bg);
   display: grid; place-items: center;
-  font-family: 'Geist'; font-weight: 700; font-size: 14px;
+  font-family: 'Roboto'; font-weight: 700; font-size: 14px;
 }
 .wallet-btn-amt { letter-spacing: -0.01em; }
 .wallet-btn-label { color: var(--ink-3); font-weight: 500; }
@@ -3392,7 +3392,7 @@ nav.nav {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   4. HERO (marketing/homepage) — premium masthead w/ Fraunces italic
+   4. HERO (marketing/homepage) — premium masthead w/ Roboto italic
    ───────────────────────────────────────────────────────────── */
 .hero {
   position: relative;
@@ -8005,7 +8005,7 @@ body:has(.shortcuts-backdrop) {
   .homepage-trust .fee-calc { grid-template-columns: 1fr; gap: 16px; padding: 18px; }
 }
 .fee-calc-title {
-  font-family: 'Geist';
+  font-family: 'Roboto';
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--ink-4); font-weight: 500;
   margin-bottom: 8px;
@@ -8022,7 +8022,7 @@ body:has(.shortcuts-backdrop) {
 }
 .fee-calc-sub, .fee-calc-note {
   font-size: 11px; color: var(--ink-4); margin-top: 6px; line-height: 1.5;
-  font-family: 'Geist';
+  font-family: 'Roboto';
 }
 
 /* Price chart/cell (inside item modal) */
@@ -10536,7 +10536,7 @@ input[type="radio"] {
   display: flex; flex-direction: column;
 }
 .cart-summary-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 15px; font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -10863,7 +10863,7 @@ input[type="radio"] {
    LAST in the file so its rules win.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* Typography: sans-serif EVERYWHERE. No Fraunces, no serif on any surface. */
+/* Typography: sans-serif EVERYWHERE. No Roboto, no serif on any surface. */
 .px-h1, .hero h1,
 .px-h2, .px-section-header h2,
 .modal-name, .modal-header h2, .modal-header h3,
@@ -10875,7 +10875,7 @@ input[type="radio"] {
 .loadout-card-name, .empty-state-title,
 .wallet-hero-balance,
 .help-step-title {
-  font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
   font-weight: 700 !important;
   font-style: normal !important;
   font-variation-settings: normal !important;
@@ -10979,7 +10979,7 @@ input[type="radio"] {
   background: var(--cta) !important;
   color: white !important;
   border-color: var(--cta) !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 600 !important;
   height: 36px !important;
   padding: 0 16px !important;
@@ -10997,7 +10997,7 @@ input[type="radio"] {
   background: transparent !important;
   border: 1px solid var(--cta) !important;
   color: color-mix(in oklab, var(--cta) 90%, white) !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 600 !important;
   height: 36px !important;
   padding: 0 16px !important;
@@ -11089,13 +11089,13 @@ input[type="radio"] {
 
 /* Card name: sans bold, not editorial. */
 .grid-head .grid-name, .grid-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 600 !important;
   letter-spacing: -0.005em !important;
   font-size: 14px !important;
 }
 .grid-head .grid-sub, .grid-cat {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 12px !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -11112,7 +11112,7 @@ input[type="radio"] {
 
 /* Filter sidebar: tighter. */
 .filter-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   letter-spacing: 0 !important;
@@ -11122,7 +11122,7 @@ input[type="radio"] {
 
 /* Subnav / nav-link: drop editorial serif fallback, ensure sans. */
 .nav-link, .subnav a {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 500 !important;
 }
 
@@ -11130,7 +11130,7 @@ input[type="radio"] {
 .px-feature-strip > * h3,
 .homepage-trust > * h3,
 .px-card-interactive h3 {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 700 !important;
   font-size: 15px !important;
   letter-spacing: -0.01em !important;
@@ -11138,11 +11138,11 @@ input[type="radio"] {
 
 /* Step cards (Escrow in 5 steps) — sans-serif bold titles. */
 .step-card .step-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 700 !important;
 }
 .step-card .step-num {
-  font-family: 'Geist Mono', 'JetBrains Mono', monospace !important;
+  font-family: 'Roboto Mono', 'JetBrains Mono', monospace !important;
 }
 
 /* Modal title: sans bold. */
@@ -11163,12 +11163,12 @@ input[type="radio"] {
 /* Drop italic on stall review stars text. */
 blockquote { font-style: normal !important; }
 
-/* Help Center / FAQ section headings — drop Fraunces serif. */
+/* Help Center / FAQ section headings — drop Roboto serif. */
 .help-section-title,
 .help-faq-q, .faq-q,
 .stall-name, .stall-avatar,
 .changelog-title, .changelog h1, .changelog h2 {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 700 !important;
   font-style: normal !important;
   font-variation-settings: normal !important;
@@ -11184,14 +11184,14 @@ blockquote { font-style: normal !important; }
 .cart-confirm-title,
 .review-modal h2, .review-modal h3,
 .loadout-card-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-style: normal !important;
   font-variation-settings: normal !important;
 }
 
 /* Legal / changelog / static page: ensure sans-serif too. */
 body h1, body h2, body h3, body h4 {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 700 !important;
   font-style: normal !important;
   font-variation-settings: normal !important;
@@ -11327,7 +11327,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 
 .csfloat-hero .px-h1 {
   font-size: clamp(28px, 3.4vw, 44px) !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 700 !important;
   line-height: 1.15 !important;
   letter-spacing: -0.02em !important;
@@ -11362,7 +11362,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   height: 36px !important;
   padding: 0 16px !important;
   border-radius: 6px !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   letter-spacing: 0 !important;
@@ -11484,9 +11484,9 @@ body:has(.full-page-mode) { overflow: visible !important; }
 }
 .csfloat-hero-stack-name {
   /* CSFloat uses italic for the item name on the hero card — looks like
-     a magazine pull-quote, sets the editorial tone. Fraunces italic if
+     a magazine pull-quote, sets the editorial tone. Roboto italic if
      loaded, otherwise system italic. */
-  font-family: 'Fraunces', 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Roboto', 'Inter', system-ui, sans-serif;
   font-style: italic;
   font-size: 15px; font-weight: 600;
   color: var(--ink);
@@ -11576,7 +11576,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   text-align: center;
   padding: 8px 10px;
   border-radius: 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px; font-weight: 600;
   letter-spacing: 0;
 }
@@ -11662,7 +11662,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   background: transparent;
   border: 0;
   padding: 8px 14px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px; font-weight: 600;
   color: var(--ink-3);
   cursor: pointer;
@@ -11681,7 +11681,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .csfloat-band-link {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 14px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px; font-weight: 600;
   color: var(--cta);
   text-decoration: none;
@@ -11924,7 +11924,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   padding: 10px 16px;
   background: transparent;
   border: 0;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px; font-weight: 600;
   color: var(--ink-3);
   cursor: pointer;
@@ -12006,7 +12006,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .nav-currency {
   display: inline-flex; align-items: center;
   padding: 4px 10px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
   color: var(--ink-3);
   border: 1px solid var(--line);
@@ -12045,7 +12045,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   font-style: italic;
   font-weight: 600;
   color: oklch(0.78 0.16 55);          /* csfloat's StatTrak orange */
-  font-family: 'Fraunces', 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Roboto', 'Inter', system-ui, sans-serif;
   letter-spacing: -0.005em;
 }
 .csfloat-hero-stack-cat {
@@ -12101,7 +12101,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .csfloat-hero-stack-online {
   display: flex; align-items: center; gap: 6px;
   margin-top: 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   color: var(--ink-3);
 }
@@ -12201,7 +12201,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   color: color-mix(in oklab, var(--ink) 60%, transparent);
   pointer-events: none;
   z-index: 3;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: 'Roboto', system-ui, sans-serif;
   font-size: 14px;
   line-height: 1;
   box-shadow: 0 1px 2px rgba(0,0,0,0.3);
@@ -12253,7 +12253,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   color: color-mix(in oklab, var(--ink) 70%, transparent);
   pointer-events: none;
   z-index: 3;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: 'Roboto', system-ui, sans-serif;
   font-size: 18px;
   line-height: 1;
   box-shadow: 0 2px 6px rgba(0,0,0,0.4);
@@ -12332,7 +12332,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border: 1px solid var(--line);
   border-radius: 6px;
   cursor: pointer;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -12403,7 +12403,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border: 0;
   border-radius: 7px;
   cursor: pointer;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: var(--ink-2);
@@ -12427,7 +12427,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   line-height: 1;
 }
 .nav-picker-code {
-  font-family: var(--mono), 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--mono), 'Roboto Mono', ui-monospace, monospace;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -12470,7 +12470,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border: 1px solid var(--line);
   border-radius: 8px;
   cursor: pointer;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: var(--ink-2);
@@ -12527,7 +12527,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border: 0;
   border-radius: 7px;
   cursor: pointer;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: var(--ink-2);
@@ -12604,7 +12604,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   position: absolute;
   bottom: 28px; left: 50%;
   transform: translateX(-50%);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   letter-spacing: 0.04em;
   color: var(--ink-2);
@@ -12658,7 +12658,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   color: #fff;
   border: none;
   border-radius: 999px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -12727,14 +12727,14 @@ body:has(.full-page-mode) { overflow: visible !important; }
 }
 .csfloat-empty-cart-rail-title {
   margin: 0;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
 .csfloat-empty-cart-rail-link {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   color: var(--ink-3);
   text-decoration: none;
@@ -12808,7 +12808,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   width: 88%; height: 88%; object-fit: contain;
 }
 .csfloat-empty-cart-rail-card-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
@@ -12821,7 +12821,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-family: var(--mono), 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--mono), 'Roboto Mono', ui-monospace, monospace;
   font-size: 13px;
   font-weight: 700;
   color: var(--ink);
@@ -12851,7 +12851,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   font-style: normal;
   font-weight: 500;
   color: var(--ink-3);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   letter-spacing: -0.005em;
 }
 .grid-cat {
@@ -12887,7 +12887,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .grid-onlinerow {
   display: flex; align-items: center; gap: 5px;
   margin: 0 12px 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 10px;
   color: var(--ink-3);
 }
@@ -12916,7 +12916,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   margin: 8px 12px 0 !important;
   padding-top: 8px;
   padding-bottom: 4px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 11px !important;
   letter-spacing: 0 !important;
   color: var(--ink-3);
@@ -12950,7 +12950,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .modal-breadcrumb {
   display: flex; align-items: center; flex-wrap: wrap;
   gap: 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11.5px;
   letter-spacing: 0;
   color: var(--ink-3);
@@ -13106,7 +13106,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 /* CSFloat-1:1: in full-page mode, section titles get bigger sans-serif
    (matches csfloat where Active Listings is a real h2 not a tiny eyebrow). */
 .full-page-mode .modal-section-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 18px !important;
   letter-spacing: -0.01em !important;
   text-transform: none !important;
@@ -13215,7 +13215,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border: 1px solid var(--cta);
   border-radius: 6px;
   padding: 8px 14px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -13238,7 +13238,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border: 1px solid var(--line-2);
   border-radius: 6px;
   padding: 8px 12px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -13262,7 +13262,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   font-style: italic;
   font-weight: 600;
   color: oklch(0.78 0.16 55);
-  font-family: 'Fraunces', 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Roboto', 'Inter', system-ui, sans-serif;
   letter-spacing: -0.005em;
   font-size: 14px;
   text-decoration: none;
@@ -13286,7 +13286,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border-radius: 6px;
   padding: 8px 14px;
   margin-bottom: 10px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -14195,7 +14195,7 @@ button, .btn, button.btn { text-decoration: none !important; }
 
 /* CSFloat-1:1: typography refinement on /item title. */
 .full-page-mode .modal-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 28px !important;
   font-weight: 700 !important;
   letter-spacing: -0.025em !important;
@@ -14228,7 +14228,7 @@ button, .btn, button.btn { text-decoration: none !important; }
 
 /* CSFloat-1:1: hero h1 sans-serif weight + tighter letter-spacing. */
 .hero h1, .px-h1 {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 700 !important;
   letter-spacing: -0.025em !important;
 }
@@ -14608,7 +14608,7 @@ button:disabled {
   height: 36px;
   padding: 0 36px 0 12px;
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 /* END sort dropdown */
 
@@ -14626,7 +14626,7 @@ button:disabled {
   height: 36px;
   font-size: 12px;
   padding: 0 14px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-weight: 500;
 }
 /* END toolbar pills */
@@ -14677,7 +14677,7 @@ button:disabled {
   font-size: 28px !important;
   font-weight: 700 !important;
   letter-spacing: -0.025em !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
 }
 /* END page title */
 
@@ -14737,7 +14737,7 @@ button:disabled {
 
 /* CSFloat-1:1: standalone heading h2 styling. */
 .full-page-mode h2 {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -14825,7 +14825,7 @@ form input:focus, form select:focus, form textarea:focus {
 
 /* CSFloat-1:1: site-footer brand col left-align. */
 .site-footer-brand {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 18px;
   font-weight: 700;
 }
@@ -14887,7 +14887,7 @@ input[type="checkbox"], input[type="radio"] {
   font-size: 15px;
   font-weight: 700;
   margin-bottom: 14px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 /* END cart title */
 
@@ -15094,7 +15094,7 @@ select option {
 .listings-found-count {
   color: var(--ink-3);
   font-size: 12px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 /* END listings count */
 
@@ -15175,7 +15175,7 @@ select option {
 
 /* CSFloat-1:1: cleaner empty state title styling. */
 .empty-state-title, .px-empty-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 18px !important;
   font-weight: 600 !important;
   letter-spacing: -0.01em !important;
@@ -15267,7 +15267,7 @@ body, p { line-height: 1.5; }
 
 /* CSFloat-1:1: smoother hover on subnav category buttons. */
 .csfloat-subnav-tab {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 500;
 }
@@ -15450,7 +15450,7 @@ a:not(.btn):not(.nav-link):not(.modal-cat):not([class*="-btn"]):not([class*="-ct
 /* CSFloat-1:1: more polished sticky-bottom action bar text. */
 .full-page-mode .modal-actions > button,
 .full-page-mode .modal-actions > a {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-weight: 600;
 }
 /* END action bar font */
@@ -15493,7 +15493,7 @@ a:not(.btn):not(.nav-link):not(.modal-cat):not([class*="-btn"]):not([class*="-ct
 
 /* CSFloat-1:1: improve grid card title size hierarchy. */
 .grid-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -15502,7 +15502,7 @@ a:not(.btn):not(.nav-link):not(.modal-cat):not([class*="-btn"]):not([class*="-ct
 
 /* CSFloat-1:1: cleaner csfloat-band-card-name typography. */
 .csfloat-band-card-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -16566,7 +16566,7 @@ details summary:hover {
 
 /* CSFloat-1:1: improve wallet hero balance text. */
 .wallet-hero-balance {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 40px;
   font-weight: 800;
   letter-spacing: -0.025em;
@@ -16896,7 +16896,7 @@ details[open] > summary {
 
 /* CSFloat-1:1: improve Help page sub-section titles. */
 .help-section-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -17198,7 +17198,7 @@ tr[role="button"], .listing-table tbody tr {
 
 /* CSFloat-1:1: ensure consistent fonts. */
 body, button, input, select, textarea {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 /* END consistent fonts */
 
@@ -17344,7 +17344,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--ink);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 14px;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -17802,7 +17802,7 @@ p {
 
 /* CSFloat-1:1: improve overall consistency on fonts. */
 button, input, select, textarea {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 /* END input fonts */
 
@@ -17989,7 +17989,7 @@ a:visited {
 /* CSFloat-1:1: improve modal-name h1-style. */
 .modal-name {
   margin: 0;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 /* END modal name reset */
 
@@ -18559,7 +18559,7 @@ a[target="_blank"]::after {
   font-style: normal;
   font-weight: 500;
   color: var(--ink-3);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   letter-spacing: -0.005em;
 }
 .csfloat-band-card-cat {
@@ -19557,7 +19557,7 @@ a[target="_blank"]::after {
   padding: 16px 18px;
   color: var(--ink-1);
   font-size: 15px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   outline: none;
 }
 .csfloat-cmdk-input::placeholder { color: var(--ink-3); }
@@ -19858,7 +19858,7 @@ a[target="_blank"]::after {
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 4px 12px rgba(0,0,0,0.55);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   letter-spacing: -0.005em;
   opacity: 0;
   transform: translateY(2px);
@@ -20161,7 +20161,7 @@ a[target="_blank"]::after {
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   color: var(--ink-1);
   transition: border-color 120ms ease, background 120ms ease;
 }
@@ -20205,7 +20205,7 @@ a[target="_blank"]::after {
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   color: var(--ink-1);
   min-height: 80px;
   resize: vertical;
@@ -20379,7 +20379,7 @@ a[target="_blank"]::after {
 .csfloat-table {
   width: 100%;
   border-collapse: collapse;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   background: var(--bg-1);
   border: 1px solid var(--line);
@@ -23418,7 +23418,7 @@ html { scroll-behavior: smooth; }
   border-radius: 8px;
   color: var(--ink-1);
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 .nav-search-input::placeholder { color: var(--ink-3); }
@@ -24332,7 +24332,7 @@ html { scroll-behavior: smooth; }
   letter-spacing: -0.005em;
 }
 .csfloat-serif {
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-style: italic;
 }
 
@@ -24630,7 +24630,7 @@ html { scroll-behavior: smooth; }
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 24px oklch(0.55 0.18 250 / 0.32));
   font-style: italic;
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
 }
 .hero p.lede {
   font-size: clamp(15px, 1.4vw, 18px);
@@ -24929,7 +24929,7 @@ html { scroll-behavior: smooth; }
   color: var(--ink-2);
   line-height: 1.65;
   margin: 0;
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-style: italic;
   position: relative;
   padding-left: 16px;
@@ -24939,7 +24939,7 @@ html { scroll-behavior: smooth; }
   position: absolute;
   left: -2px;
   top: -8px;
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-size: 28px;
   color: var(--cta);
   font-style: italic;
@@ -25274,7 +25274,7 @@ html { scroll-behavior: smooth; }
   border: none;
   resize: none;
   color: var(--ink-1);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.5;
   outline: none;
@@ -25926,7 +25926,7 @@ html { scroll-behavior: smooth; }
   font-weight: 600;
   color: var(--ink-1);
   letter-spacing: -0.01em;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 .nav-logo-badge {
   display: inline-flex;
@@ -26312,7 +26312,7 @@ html { scroll-behavior: smooth; }
   padding: 0 16px;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   border: 1px solid;
   border-radius: 8px;
   cursor: pointer;
@@ -29835,7 +29835,7 @@ body::after {
   pointer-events: none;
   z-index: 9800;
   box-shadow: 0 4px 12px rgba(0,0,0,0.55);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   letter-spacing: -0.005em;
   animation: csfloat-tooltip-fade-in 140ms ease;
 }
@@ -31644,7 +31644,7 @@ body::after {
 .csfloat-wear-chip {
   display: inline-flex;
   align-items: center;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-style: italic;
   font-weight: 600;
@@ -31680,8 +31680,8 @@ body::after {
   --accent-2: #4dc8ff;
   --accent-dim: rgba(30,165,255,0.12);
   --accent-border: rgba(30,165,255,0.3);
-  --mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --serif: 'Fraunces', 'Times New Roman', serif;
+  --mono: 'Roboto Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --serif: 'Roboto', 'Times New Roman', serif;
   --shadow-1: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 4px rgba(0,0,0,0.3);
   --shadow-2: 0 1px 0 rgba(255,255,255,0.06) inset, 0 16px 40px rgba(0,0,0,0.55);
   --up: oklch(0.78 0.18 152);
@@ -31693,7 +31693,7 @@ body::after {
 
 /* CSFloat-1:1: explicit body styling. */
 body {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   background: var(--bg);
   color: var(--ink-1);
   font-size: 15px;
@@ -31878,7 +31878,7 @@ h6.csfloat, .csfloat-h6 {
 }
 .csfloat-blockquote-author {
   display: block;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-style: normal;
   font-size: 11px;
   font-weight: 600;
@@ -32810,7 +32810,7 @@ hr.csfloat {
   gap: 8px;
   text-decoration: none;
   color: var(--ink-1);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-weight: 600;
   font-size: 15px;
   letter-spacing: -0.01em;
@@ -32970,7 +32970,7 @@ hr.csfloat {
   background: transparent;
   padding: 14px 8px;
   color: var(--ink-1);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 14px;
   outline: none;
   width: 0;
@@ -32989,7 +32989,7 @@ hr.csfloat {
   font-weight: 600;
   cursor: pointer;
   transition: background 140ms ease;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 .csfloat-hero-search-button:hover {
   background: oklch(0.65 0.18 250);
@@ -35185,7 +35185,7 @@ hr.csfloat {
   outline: none;
   font-size: 12px;
   color: var(--ink-1);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   min-width: 60px;
 }
 
@@ -35200,7 +35200,7 @@ hr.csfloat {
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 .csfloat-compare-table thead th {
   padding: 16px;
@@ -36608,18 +36608,18 @@ hr.csfloat {
 
 /* CSFloat-1:1: bring-your-own font hosting fallback. */
 @font-face {
-  font-family: "Geist";
+  font-family: "Roboto";
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
-  src: local("Geist"), local("Inter");
+  src: local("Roboto"), local("Inter");
 }
 @font-face {
-  font-family: "Geist Mono";
+  font-family: "Roboto Mono";
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
-  src: local("Geist Mono"), local("JetBrains Mono"), local("ui-monospace");
+  src: local("Roboto Mono"), local("JetBrains Mono"), local("ui-monospace");
 }
 
 /* CSFloat-1:1: line-numbered code block. */
@@ -38912,7 +38912,7 @@ hr.csfloat {
   color: var(--ink-1);
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0,0,0,0.55);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 .csfloat-arrow-tooltip::after {
   content: "";
@@ -40657,7 +40657,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink-2);
@@ -40879,7 +40879,7 @@ hr.csfloat {
   outline: none;
   font-size: 13px;
   color: var(--ink-1);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   width: 0;
   min-width: 0;
 }
@@ -40963,7 +40963,7 @@ hr.csfloat {
 
 /* CSFloat-1:1: text with serif italic accent (used in editorial heads). */
 .csfloat-serif-accent {
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-style: italic;
   color: oklch(0.92 0.10 250);
 }
@@ -41506,7 +41506,7 @@ hr.csfloat {
   padding: 8px 12px;
   color: var(--ink-1);
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   resize: none;
   outline: none;
   min-height: 32px;
@@ -42942,7 +42942,7 @@ hr.csfloat {
 .csfloat-print-table {
   width: 100%;
   border-collapse: collapse;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
 }
 .csfloat-print-table th,
@@ -45863,7 +45863,7 @@ hr.csfloat {
   padding: 8px 32px 8px 12px;
   color: var(--ink-1);
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   cursor: pointer;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2362798a' stroke-width='2'><path d='M4 6 L8 10 L12 6'/></svg>");
   background-position: right 10px center;
@@ -45894,7 +45894,7 @@ hr.csfloat {
   border-radius: 6px;
   font-size: 13px;
   color: var(--ink-1);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   outline: none;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -46242,7 +46242,7 @@ hr.csfloat {
   transition: opacity 180ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
   z-index: 9300;
   text-align: left;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   letter-spacing: -0.005em;
   line-height: 1.5;
 }
@@ -48578,7 +48578,7 @@ hr.csfloat {
 
 /* CSFloat-1:1: brand identity — main wordmark for hero/footer. */
 .csfloat-wordmark {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.025em;
@@ -48724,7 +48724,7 @@ hr.csfloat {
   background: oklch(0.10 0.008 260);
   border: 1px solid var(--line-2);
   border-radius: 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink-1);
@@ -49523,7 +49523,7 @@ hr.csfloat {
   cursor: pointer;
   border-radius: 4px;
   transition: background 100ms ease, color 100ms ease;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 .csfloat-simple-list-item:hover {
   background: var(--bg-2);
@@ -49800,7 +49800,7 @@ hr.csfloat {
   line-height: 1.2;
 }
 .csfloat-bold-callout em {
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-style: italic;
   color: oklch(0.92 0.10 250);
   font-weight: 600;
@@ -50526,11 +50526,11 @@ hr.csfloat {
 /* END item action bar + page header with tabs */
 
 /* CSFloat-1:1: csfloat skin condition wear text variants. */
-.csfloat-condition-fn { color: oklch(0.84 0.18 152); font-weight: 600; font-style: italic; font-family: 'Geist', 'Inter', system-ui, sans-serif; }
-.csfloat-condition-mw { color: oklch(0.84 0.16 130); font-weight: 600; font-style: italic; font-family: 'Geist', 'Inter', system-ui, sans-serif; }
-.csfloat-condition-ft { color: oklch(0.84 0.16 80); font-weight: 600; font-style: italic; font-family: 'Geist', 'Inter', system-ui, sans-serif; }
-.csfloat-condition-ww { color: oklch(0.78 0.16 50); font-weight: 600; font-style: italic; font-family: 'Geist', 'Inter', system-ui, sans-serif; }
-.csfloat-condition-bs { color: oklch(0.78 0.18 30); font-weight: 600; font-style: italic; font-family: 'Geist', 'Inter', system-ui, sans-serif; }
+.csfloat-condition-fn { color: oklch(0.84 0.18 152); font-weight: 600; font-style: italic; font-family: 'Roboto', 'Inter', system-ui, sans-serif; }
+.csfloat-condition-mw { color: oklch(0.84 0.16 130); font-weight: 600; font-style: italic; font-family: 'Roboto', 'Inter', system-ui, sans-serif; }
+.csfloat-condition-ft { color: oklch(0.84 0.16 80); font-weight: 600; font-style: italic; font-family: 'Roboto', 'Inter', system-ui, sans-serif; }
+.csfloat-condition-ww { color: oklch(0.78 0.16 50); font-weight: 600; font-style: italic; font-family: 'Roboto', 'Inter', system-ui, sans-serif; }
+.csfloat-condition-bs { color: oklch(0.78 0.18 30); font-weight: 600; font-style: italic; font-family: 'Roboto', 'Inter', system-ui, sans-serif; }
 
 /* CSFloat-1:1: card with hover-revealed quick actions. */
 .csfloat-quick-actions-card {
@@ -50628,7 +50628,7 @@ hr.csfloat {
   background: oklch(0.10 0.008 260);
   border: 1px solid var(--line-2);
   border-radius: 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
   color: var(--ink-1);
@@ -51728,7 +51728,7 @@ hr.csfloat {
   margin: 0;
 }
 .csfloat-hero-with-serif em {
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-style: italic;
   color: var(--cta);
   font-weight: 400;
@@ -54377,7 +54377,7 @@ hr.csfloat {
   padding: 8px 12px;
   color: var(--ink-1);
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   resize: none;
   outline: none;
   min-height: 32px;
@@ -55920,7 +55920,7 @@ hr.csfloat {
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   color: var(--ink-1);
   outline: none;
   transition: border-color 140ms ease;
@@ -56123,7 +56123,7 @@ hr.csfloat {
   color: var(--ink-3);
   margin-top: 2px;
   line-height: 1.55;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
 }
 
 /* END page header with tag + stat with annotation */
@@ -57858,7 +57858,7 @@ hr.csfloat {
   padding: 10px 80px 10px 12px;
   font-size: 13px;
   color: var(--ink-1);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   outline: none;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -58063,7 +58063,7 @@ hr.csfloat {
   position: absolute;
   top: 4px;
   left: 12px;
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-size: 64px;
   color: var(--cta);
   font-style: italic;
@@ -58080,7 +58080,7 @@ hr.csfloat {
   color: oklch(0.78 0.16 80);
 }
 .csfloat-testimonial-quote-text {
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-size: 15px;
   font-style: italic;
   color: var(--ink-1);
@@ -59719,7 +59719,7 @@ hr.csfloat {
   background: oklch(0.10 0.008 260);
   border: 1px solid var(--line-2);
   border-radius: 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink-1);
@@ -59783,7 +59783,7 @@ hr.csfloat {
   border-radius: 6px;
   color: var(--ink-1);
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   outline: none;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -60627,7 +60627,7 @@ hr.csfloat {
   border-radius: 6px;
   padding: 8px 10px 8px 36px;
   font-size: 13px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   color: var(--ink-1);
   outline: none;
   transition: border-color 140ms ease, box-shadow 140ms ease;
@@ -60811,7 +60811,7 @@ hr.csfloat {
   background: oklch(0.10 0.008 260);
   border: 1px solid var(--line-2);
   border-radius: 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink-1);
@@ -60856,7 +60856,7 @@ hr.csfloat {
   line-height: 1;
 }
 .csfloat-stat-subtitle-meta-subtitle {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   color: var(--ink-3);
   margin-top: 2px;
@@ -63208,7 +63208,7 @@ hr.csfloat {
   padding: 0 2px;
 }
 .csfloat-section-desc-highlight em {
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-style: italic;
   color: var(--cta);
 }
@@ -63483,7 +63483,7 @@ hr.csfloat {
   background: oklch(0.10 0.008 260);
   border: 1px solid var(--line-2);
   border-radius: 6px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   color: var(--ink-1);
   white-space: normal;
@@ -63662,7 +63662,7 @@ hr.csfloat {
 
 /* CSFloat-1:1: pull-quote (editorial style). */
 .csfloat-pull-quote {
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-size: clamp(20px, 2.4vw, 28px);
   font-weight: 500;
   font-style: italic;
@@ -63686,7 +63686,7 @@ hr.csfloat {
 }
 .csfloat-pull-quote-author {
   display: block;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-style: normal;
   font-weight: 600;
   font-size: 13px;
@@ -64319,7 +64319,7 @@ hr.csfloat {
   letter-spacing: -0.005em;
 }
 .csfloat-hero-card-with-avatar-quote {
-  font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
+  font-family: var(--serif, 'Roboto', 'Times New Roman', serif);
   font-size: 14px;
   font-style: italic;
   color: var(--ink-2);
@@ -81563,7 +81563,7 @@ hr.csfloat {
 }
 /* END theme switch + cover photo + profile body */
 
-/* CSFloat-1:1: large editorial type pairing — Geist + Fraunces */
+/* CSFloat-1:1: large editorial type pairing — Roboto + Roboto */
 .csfloat-display {
   font: 700 clamp(40px, 6vw, 72px) / 1.05 var(--ui);
   letter-spacing: -0.04em;
@@ -116705,11 +116705,11 @@ tr:hover .csfloat-row-hover-actions,
 
 /* ─── /item title-row rarity chip demono'd (2026-04-29) ───────────
    The `.modal-name-rarity` chip next to the H1 title was styled as
-   italic Fraunces orange (`oklch(0.78 0.16 55)`) — a literal port of
+   italic Roboto orange (`oklch(0.78 0.16 55)`) — a literal port of
    csfloat's "StatTrak™" treatment. Operator screenshot flagged it as
    loud against the rest of the editorial mono-primary palette. Tone
    it down to a quiet mono uppercase chip — same hairline border as
-   the breadcrumb crumbs, ink-3 color, no italic, no Fraunces. */
+   the breadcrumb crumbs, ink-3 color, no italic, no Roboto. */
 .modal-name-rarity {
   font-style: normal !important;
   font-family: var(--mono, 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace) !important;
@@ -117126,17 +117126,17 @@ tr:hover .csfloat-row-hover-actions,
   background: transparent !important;
 }
 
-/* (#5) Overused fonts — Fraunces named explicitly in the skill
+/* (#5) Overused fonts — Roboto named explicitly in the skill
    alongside Inter/Roboto/Arial. `feedback_design_direction.md` is
    already moving toward "mono-primary, blue as spice"; pulling
-   Fraunces off display closes that loop. Flip priority so the sans
-   wins; Fraunces stays as a deep fallback only. */
+   Roboto off display closes that loop. Flip priority so the sans
+   wins; Roboto stays as a deep fallback only. */
 .modal-name,
 .modal-title,
 .page-title,
 h1.modal-h1,
 .csfloat-hero-title {
-  font-family: 'Geist', 'IBM Plex Sans', 'Inter Tight', system-ui, -apple-system, sans-serif !important;
+  font-family: 'Roboto', 'IBM Plex Sans', 'Inter Tight', system-ui, -apple-system, sans-serif !important;
   font-style: normal !important;
   letter-spacing: -0.015em;
 }
@@ -117254,7 +117254,7 @@ h1.modal-h1,
 }
 .csfloat-home-hero-title {
   margin: 0 0 18px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: clamp(28px, 4.2vw, 56px);
   font-weight: 700;
   line-height: 1.05;
@@ -117281,7 +117281,7 @@ h1.modal-h1,
   gap: 10px;
   padding: 14px 28px;
   border-radius: 999px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
@@ -117447,7 +117447,7 @@ h1.modal-h1,
   padding: 0 4px;
 }
 .csfloat-home-hero-feature-name.top {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
@@ -117457,7 +117457,7 @@ h1.modal-h1,
   text-overflow: ellipsis;
 }
 .csfloat-home-hero-feature-wear {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
   font-style: italic;
@@ -117523,7 +117523,7 @@ h1.modal-h1,
   align-items: center;
   gap: 6px;
   margin: 4px 4px 8px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 10.5px;
   font-weight: 600;
   color: var(--ink-3);
@@ -117567,7 +117567,7 @@ h1.modal-h1,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -117689,7 +117689,7 @@ h1.modal-h1,
   border: 1px solid color-mix(in oklab, var(--cta) 55%, var(--line));
   color: color-mix(in oklab, var(--cta) 90%, white);
   border-radius: 999px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -117746,7 +117746,7 @@ h1.modal-h1,
   width: 88%; height: 88%; object-fit: contain;
 }
 .csfloat-home-preview-card-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
@@ -117784,7 +117784,7 @@ h1.modal-h1,
   min-height: 32px;
 }
 .csfloat-home-preview-card-sub {
-  font-family: var(--mono), 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--mono), 'Roboto Mono', ui-monospace, monospace;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -117831,7 +117831,7 @@ h1.modal-h1,
   gap: 3px;
   padding: 2px 8px;
   border-radius: 999px;
-  font-family: var(--mono), 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--mono), 'Roboto Mono', ui-monospace, monospace;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -117861,7 +117861,7 @@ h1.modal-h1,
   align-items: center;
   gap: 6px;
   margin-top: 2px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 10px;
   letter-spacing: 0.01em;
 }
@@ -117883,7 +117883,7 @@ h1.modal-h1,
 .csfloat-home-preview-card-rank {
   margin-left: auto;
   color: var(--ink-3);
-  font-family: var(--mono), 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--mono), 'Roboto Mono', ui-monospace, monospace;
   font-size: 10px;
   font-weight: 500;
   position: relative;
@@ -117973,7 +117973,7 @@ h1.modal-h1,
   color: color-mix(in oklab, var(--cta) 90%, white);
 }
 .csfloat-home-tile-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -117999,7 +117999,7 @@ h1.modal-h1,
   text-align: center;
 }
 .csfloat-home-metrics-eyebrow {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -118023,7 +118023,7 @@ h1.modal-h1,
 }
 .csfloat-home-metric:last-child { border-right: none; }
 .csfloat-home-metric-num {
-  font-family: var(--mono), 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--mono), 'Roboto Mono', ui-monospace, monospace;
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -118070,7 +118070,7 @@ h1.modal-h1,
   .csfloat-home-journey-left { position: static; }
 }
 .csfloat-home-journey-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 28px;
   font-weight: 700;
   line-height: 1.15;
@@ -118129,7 +118129,7 @@ h1.modal-h1,
   padding-top: 6px;
 }
 .csfloat-home-journey-step-label {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
@@ -118152,7 +118152,7 @@ h1.modal-h1,
   margin: 0 auto;
 }
 .csfloat-home-faq-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   /* Boss QA cycle 17 — bumped from 28px to 32px to match
      .csfloat-home-journey-title and other section-headline H2s. Pre-fix
      the home page had two visible H2 sizes (28 + 32) which broke the
@@ -118189,7 +118189,7 @@ h1.modal-h1,
   justify-content: space-between;
   gap: 16px;
   padding: 18px 22px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
@@ -118276,7 +118276,7 @@ h1.modal-h1,
   box-shadow: 0 6px 18px -4px color-mix(in oklab, var(--cta) 40%, transparent);
 }
 .csfloat-home-preview-tail-text {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   text-align: center;
@@ -118307,7 +118307,7 @@ h1.modal-h1,
   gap: 10px;
 }
 .csfloat-home-hero-feature-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
@@ -118512,7 +118512,7 @@ h1.modal-h1,
   background: transparent;
   border: 1px solid transparent;
   border-radius: 8px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px; font-weight: 600;
   color: var(--ink-3);
   cursor: pointer;
@@ -118558,7 +118558,7 @@ h1.modal-h1,
   background: transparent;
   border: 1.5px solid color-mix(in oklab, var(--cta) 70%, var(--line));
   color: color-mix(in oklab, var(--cta) 90%, var(--ink));
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px; font-weight: 700;
   text-decoration: none;
   letter-spacing: -0.005em;
@@ -118622,14 +118622,14 @@ h1.modal-h1,
   gap: 6px;
 }
 .csfloat-home-trust-num {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.02em;
 }
 .csfloat-home-trust-label {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: var(--ink-3);
@@ -118706,7 +118706,7 @@ h1.modal-h1,
   border-radius: 8px;
   background: color-mix(in oklab, var(--cta) 12%, var(--bg-2));
   border: 1px solid color-mix(in oklab, var(--cta) 30%, var(--line));
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 18px;
   font-weight: 700;
   font-style: italic;
@@ -118714,7 +118714,7 @@ h1.modal-h1,
   color: var(--ink);
 }
 .csfloat-db-hero-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: clamp(22px, 3.4vw, 36px);
   font-weight: 700;
   letter-spacing: -0.022em;
@@ -118736,7 +118736,7 @@ h1.modal-h1,
   letter-spacing: -0.01em;
 }
 .csfloat-db-hero-stat-label {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 11px;
   color: var(--ink-3);
   margin-top: 1px;
@@ -118770,7 +118770,7 @@ h1.modal-h1,
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 700;
   color: var(--ink-2);
@@ -118796,7 +118796,7 @@ h1.modal-h1,
   border-radius: 6px;
   background: transparent;
   border: 1px solid var(--line);
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-3);
@@ -118849,7 +118849,7 @@ h1.modal-h1,
   min-width: 0;
 }
 .csfloat-home-sales-card-name {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
@@ -118868,7 +118868,7 @@ h1.modal-h1,
   color: var(--ink);
 }
 .csfloat-home-sales-card-time {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 10px;
   font-weight: 500;
   color: var(--ink-3);
@@ -118927,7 +118927,7 @@ h1.modal-h1,
   align-items: center;
   gap: 5px;
   margin: 4px 0 0;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 10.5px;
   font-weight: 600;
   color: var(--ink-3);
@@ -120411,7 +120411,7 @@ textarea:focus-visible {
    The /item modal-header breadcrumb ("Market › Category › Item") had:
    – off-scale 11.5px font-size,
    – CTA-blue hover color (violates "blue is spice"),
-   – Geist sans body font for what reads as an editorial chrome line.
+   – Roboto sans body font for what reads as an editorial chrome line.
    Snap font-size to 11px, swap the hover to neutral --ink, and convert
    the breadcrumb to the mono kicker (it's chrome, not body copy).
    Also bump the separator gap from 6px → 8px for a clearer ›-rhythm.
@@ -120446,7 +120446,7 @@ textarea:focus-visible {
    (radial wash tinted with --cta, icon ring tinted with --cta) and an
    off-scale icon size that read as decorative. Switch the wash + icon
    tint to neutral --ink-3/--line so the empty card stays sober,
-   keep the Fraunces serif for the title (editorial moment is on-brand
+   keep the Roboto serif for the title (editorial moment is on-brand
    in empty states per the design memory), and give the sub-copy a
    tighter, more "calm" tone via 14px size and ink-3 color.
    ===================================================================== */
@@ -120605,7 +120605,7 @@ textarea:focus-visible {
    Tabular-nums numeric alignment — boss-QA cycle 31, ship #24
    ---------------------------------------------------------------------
    Prices, balances, transaction amounts, and pulse-ticker numerals all
-   render in Geist Mono — but Geist Mono ships with proportional
+   render in Roboto Mono — but Roboto Mono ships with proportional
    numerals by default, so a column of prices like "$12.50 / $9.99 /
    $124.00" doesn't actually align decimal points or thousands
    separators. Force `font-variant-numeric: tabular-nums` on numeric
@@ -121830,7 +121830,7 @@ nav.nav {
      internal label), no border-radius on the link.
    sboxmarket .nav-link was: fontSize 13px, fontWeight 500,
      color oklch(0.74 0.01 260), letterSpacing -0.065px, lineHeight 20.15px,
-     fontFamily Geist, padding 8px 14px, borderRadius 6px.
+     fontFamily Roboto, padding 8px 14px, borderRadius 6px.
    ===================================================================== */
 nav.nav .nav-link {
   font-size: 15px !important;
@@ -121931,7 +121931,7 @@ nav.nav .nav-icon-btn .mi {
      boxShadow material elevation, fontFamily Roboto.
    sboxmarket .steam-btn was: bg rgb(29,78,216), fontSize 13px,
      fontWeight 600, padding 0 14px, borderRadius 6px, height 36px,
-     fontFamily Geist.
+     fontFamily Roboto.
    ===================================================================== */
 nav.nav .steam-btn {
   background-color: rgb(35, 123, 255) !important;
@@ -122726,7 +122726,7 @@ mat-card.item-card .actions .buy-now-btn {
      line-height 1.25,
      letter-spacing -0.005em,
      color var(--ink) [white-ish but oklch],
-     font-family inherited (Geist not Roboto).
+     font-family inherited (Roboto not Roboto).
    Match csfloat exactly on the title.
    ===================================================================== */
 .grid-card .grid-name {
@@ -123030,7 +123030,7 @@ h1.info-modal-header[id^="info-modal-h-wallet"] {
    placeholder rgba(255,255,255,0.7), letter-spacing 0.5px,
    caret-color rgb(35,123,255).
    sbox was: bg var(--bg-1) + 1px solid var(--line) + 8px radius + 36px h
-   + Geist 13px font — full Material miss. Bump to Material chrome.
+   + Roboto 13px font — full Material miss. Bump to Material chrome.
    ===================================================================== */
 .nav-search-input {
   background-color: rgba(193, 206, 255, 0.04) !important;
@@ -123531,7 +123531,7 @@ h1.info-modal-header[id^="info-modal-h-wallet"] {
    bg var(--bg-2). Read like a spreadsheet header — csfloat reads like
    a real catalogue header. */
 .db-table thead th {
-  font-family: Geist, Inter, -apple-system, system-ui, sans-serif !important;
+  font-family: Roboto, Inter, -apple-system, system-ui, sans-serif !important;
   font-size: 14px !important;
   font-weight: 500 !important;
   letter-spacing: normal !important;
@@ -123568,7 +123568,7 @@ h1.info-modal-header[id^="info-modal-h-wallet"] {
 .db-table .db-rank {
   color: rgb(158, 167, 177) !important;
   font-size: 14px !important;
-  font-family: Geist, Inter, -apple-system, system-ui, sans-serif !important;
+  font-family: Roboto, Inter, -apple-system, system-ui, sans-serif !important;
 }
 .db-table .db-name,
 .db-item-cell .db-name {
@@ -123649,7 +123649,7 @@ h1.info-modal-header[id^="info-modal-h-wallet"] {
 /* END CSFLOAT-1:1 PARITY ship #66 */
 
 /* CSFLOAT-1:1 PARITY ship #67 — legal pages h1 size match csfloat heading scale */
-/* csfloat legal: top heading is from raw doc (no h1) but page-shell title context is 30px Geist */
+/* csfloat legal: top heading is from raw doc (no h1) but page-shell title context is 30px Roboto */
 /* sboxmarket: legal-doc h1 was 32px — bring to 30px to match marketplace title scale */
 .legal-doc h1 {
   font-size: 30px !important;
@@ -124548,7 +124548,7 @@ a.signin-cta,
 /* END CSFLOAT-1:1 PARITY ship #94 */
 /* CSFLOAT-1:1 PARITY ship #95 — changelog typography parity
    csfloat FAQ p: 12px Arial, color rgb(233,233,233).
-   sboxmarket .changelog-list li was 14px Geist — align body to csfloat 12px Arial.
+   sboxmarket .changelog-list li was 14px Roboto — align body to csfloat 12px Arial.
    Headings stay larger for hierarchy but tighten to csfloat scale (h1 28, title 18). */
 .changelog-list li,
 .changelog p {
@@ -124590,7 +124590,7 @@ a.signin-cta,
 /* END CSFLOAT-1:1 PARITY ship #95 */
 /* CSFLOAT-1:1 PARITY ship #96 — settings input row parity
    csfloat material inputs: 40px tall, subtle border, 14px Roboto, radius 4.
-   sboxmarket settings-row inputs were 13px Geist — bring to csfloat scale. */
+   sboxmarket settings-row inputs were 13px Roboto — bring to csfloat scale. */
 .settings-row input,
 .settings-row textarea,
 .settings-row select {
@@ -124657,7 +124657,7 @@ body h1.info-modal-header,
 /* END CSFLOAT-1:1 PARITY ship #200 */
 /* CSFLOAT-1:1 PARITY ship #97 — type-toggle (segmented tabs) match csfloat mat-button-toggle-group
    Measured csfloat: group h 38px, bg rgba(193,206,255,0.04), br 7px; toggles h 32px br 4px, fs 16px Roboto fw 400.
-   Localhost type-toggle was h 42px br 6px with darker bg + 12px Geist; align dimensions, font, and colors. */
+   Localhost type-toggle was h 42px br 6px with darker bg + 12px Roboto; align dimensions, font, and colors. */
 .type-toggle {
   height: 38px !important;
   background: rgba(193, 206, 255, 0.04) !important;
@@ -124750,7 +124750,7 @@ body h1.info-modal-header,
 /* END CSFLOAT-1:1 PARITY ship #99 */
 /* CSFLOAT-1:1 PARITY ship #100 — FAQ question/answer typography to csfloat scale
    csfloat panel headers: Roboto 14px fw 500 light grey, body Roboto 14px lh 1.5 grey.
-   Localhost was Geist 14px 600 + 13px Geist body — bring to Roboto and softer weights. */
+   Localhost was Roboto 14px 600 + 13px Roboto body — bring to Roboto and softer weights. */
 .csfloat-home-faq-q {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 14px !important;
@@ -124774,7 +124774,7 @@ body h1.info-modal-header,
   padding: 0 22px 20px !important;
 }
 .csfloat-home-faq-q-arrow {
-  font-family: "Material Icons", "Material Symbols Outlined", Geist, system-ui, sans-serif !important;
+  font-family: "Material Icons", "Material Symbols Outlined", Roboto, system-ui, sans-serif !important;
   color: rgba(255, 255, 255, 0.54) !important;
   font-size: 20px !important;
   transition: transform 200ms ease, color 160ms ease !important;
@@ -124833,7 +124833,7 @@ body h1.info-modal-header,
 /* END CSFLOAT-1:1 PARITY ship #101 */
 /* CSFLOAT-1:1 PARITY ship #102 — home rail tab strip indicator parity
    csfloat tab strips show inactive Roboto 14px rgba(255,255,255,0.72) and active gets a 2px
-   bottom rail in the brand blue. Localhost rail tabs were 14px Geist 500 with a tinted bg pill
+   bottom rail in the brand blue. Localhost rail tabs were 14px Roboto 500 with a tinted bg pill
    for active — switch to underline accent. */
 .csfloat-home-rail-tabs {
   background: transparent !important;
@@ -126042,7 +126042,7 @@ body .legal-back:hover {
 /* END CSFLOAT-1:1 PARITY ship #202 */
 
 /* CSFLOAT-1:1 PARITY ship #210 — wallet hero typography to canonical Roboto stack
-   Hero label was Geist 10px uppercase 1.8px tracking; balance was Geist 28/700;
+   Hero label was Roboto 10px uppercase 1.8px tracking; balance was Roboto 28/700;
    user line Roboto 12. csfloat ships its wallet hero in Roboto across the
    board with explicit 11px uppercase eyebrow, 32px balance, 13px @user. */
 .wallet-modal .wallet-hero-label {
@@ -126080,7 +126080,7 @@ body .legal-back:hover {
 /* END CSFLOAT-1:1 PARITY ship #210 */
 
 /* CSFLOAT-1:1 PARITY ship #211 — wallet step rail typography & numbering
-   step-num was monospace; step-title was Geist 18/700. csfloat uses Roboto
+   step-num was monospace; step-title was Roboto 18/700. csfloat uses Roboto
    throughout with 20/700 section titles per the canon and 13/500 metadata. */
 .wallet-modal .wallet-step-num {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
@@ -126174,7 +126174,7 @@ body .legal-back:hover {
 /* END CSFLOAT-1:1 PARITY ship #212 */
 
 /* CSFLOAT-1:1 PARITY ship #213 — wallet preset chip row to csfloat pill exact
-   chips were Geist Mono 13/400 with oklch backgrounds. csfloat uses 13/600
+   chips were Roboto Mono 13/400 with oklch backgrounds. csfloat uses 13/600
    Roboto, panel rgb(27,29,36), 999px radius, 16px x-padding, 32px tall,
    and the active state uses accent rgb(35,123,255) fill plus white text. */
 .wallet-modal .wallet-preset-row {
@@ -126210,7 +126210,7 @@ body .legal-back:hover {
 /* END CSFLOAT-1:1 PARITY ship #213 */
 
 /* CSFLOAT-1:1 PARITY ship #214 — wallet fee breakdown panel to csfloat surface
-   breakdown was Geist Mono 12.5; csfloat uses Roboto 13/500 with the panel
+   breakdown was Roboto Mono 12.5; csfloat uses Roboto 13/500 with the panel
    background rgb(21,23,28) and the total row reads 14/700 in white plus
    accent value. Hairline divider above the total row matches csfloat. */
 .wallet-modal .wallet-fee-breakdown {
@@ -126415,7 +126415,7 @@ body .legal-back:hover {
 
 /* CSFLOAT-1:1 PARITY ship #219 — wallet history filter chip row + 7d summary to canon
    filter chips matched preset-btn dimensions but without the new pill polish.
-   summary row used Geist headings. Roboto-ize, 13/600 chip text, 32px tall,
+   summary row used Roboto headings. Roboto-ize, 13/600 chip text, 32px tall,
    and the 7d summary header reads 11px uppercase 1.4px tracking like the hero. */
 .wallet-modal .wallet-tx-filter-row {
   display: flex !important;
@@ -127046,7 +127046,7 @@ body .list-divider {
 /* CSFLOAT-1:1 PARITY ship #205 — 404 / not-found surface typography
    csfloat measure: 404 page is sparse, content typography uses pure white
    primary + rgb(158,167,177) secondary on rgb(21,23,28). sboxmarket
-   404 panel currently uses inline styles (fontSize 15px / 13px / Geist).
+   404 panel currently uses inline styles (fontSize 15px / 13px / Roboto).
    Match: target the not-found InfoModal body — heading Roboto 16px / 500
    pure white, body Roboto 14px / 400 secondary ink rgb(158,167,177),
    buttons keep accent. The .empty-inline wrapper inside the 404 InfoModal
@@ -127095,7 +127095,7 @@ body .list-divider {
    /help has its own React-rendered body. Apply csfloat baseline to all
    .help-page descendants: font-family Roboto, body 14px / rgb(255,255,255),
    secondary text rgb(158,167,177). Section titles get Roboto 18px / 500
-   pure white instead of any Geist drift. */
+   pure white instead of any Roboto drift. */
 .help-page,
 .help-page * {
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
@@ -127891,7 +127891,7 @@ body .trade-row:hover {
 }
 /* END CSFLOAT-1:1 PARITY ship #1305 */
 /* CSFLOAT-1:1 PARITY ship #1306 — .trade-state chip token parity
-   Measured sboxmarket .trade-state: 10px Geist Mono uppercase, 1em
+   Measured sboxmarket .trade-state: 10px Roboto Mono uppercase, 1em
    letter-spacing, 999px pill, oklch palette. csfloat status chips on
    trade rows are Roboto 11px / 700 weight, UPPERCASE only when the
    semantic is a status code (PENDING / SHIPPED / COMPLETED), 4px
@@ -127982,8 +127982,8 @@ body .offer-thumb img {
 /* END CSFLOAT-1:1 PARITY ship #1307 */
 /* CSFLOAT-1:1 PARITY ship #1308 — .offer-row typography parity
    Measured sboxmarket: .offer-title 13.5px / 500 (close), .offer-sub
-   10.5px Geist Mono with 0.04em letter-spacing (drift), .offer-amt
-   14.5px / 600 Geist Mono (drift). csfloat offer row text spec:
+   10.5px Roboto Mono with 0.04em letter-spacing (drift), .offer-amt
+   14.5px / 600 Roboto Mono (drift). csfloat offer row text spec:
      title: Roboto 14px / 500, color rgb(255,255,255), -0.005em ls
      sub:   Roboto 12px / 400, color rgb(158,167,177), 0 ls (NOT mono)
      amount: Roboto 14px / 600, color rgb(255,255,255), tabular-nums
@@ -128037,7 +128037,7 @@ body .offer-state {
    Measured sboxmarket .inventory-item: 196x253 box, panel bg, 8px
    radius (close to csfloat 8px target — already on token), but the
    typography below the thumb drifts: .inventory-name 12.5px / 500
-   reads small but Geist Mono leaks into .inventory-floor (11px mono).
+   reads small but Roboto Mono leaks into .inventory-floor (11px mono).
    csfloat sell-inventory cards (the smaller "select to list" grid)
    spec — measured against the csfloat market card baseline scaled
    down for the inventory variant:
@@ -128271,7 +128271,7 @@ body item-float-bar .float-bar-width {
      border-top:     0
      background:     transparent
    sboxmarket had no equivalent rule for the in-card .footer slot, so
-   any future card-bottom region rendered with default flow + Geist Mono.
+   any future card-bottom region rendered with default flow + Roboto Mono.
    Pin the canonical csfloat geometry now so when card markup adds a
    `.footer` slot it lands on csfloat-spec spacing automatically. */
 body .item-grid .footer,
@@ -128291,7 +128291,7 @@ body .market-grid .item-card .footer {
 /* CSFLOAT-1:1 PARITY ship #1318 — site-footer typography to csfloat Roboto stack
    csfloat measure: every text node in the footer/legal area inherits
    Roboto, "Helvetica Neue", sans-serif at 16px (footer items in cards).
-   sboxmarket .site-footer was painting all text in Geist Mono 13px — a
+   sboxmarket .site-footer was painting all text in Roboto Mono 13px — a
    monospace stack that visually broke the design language switch
    between the cards (Roboto) and the bottom band (mono). Pin the
    .site-footer (and its inner cells) to the csfloat Roboto stack at the
@@ -128320,7 +128320,7 @@ body footer.site-footer .site-footer-title {
    the chrome, so any anchor labeled "Cookies" in the legal row should
    read as a quiet legal-link, NOT a primary CTA. sboxmarket previously
    rendered the `Cookies` <a> at color rgb(30, 144, 255) (dodger blue,
-   the bright primary blue) at 16px Geist Mono — a screaming bright-blue
+   the bright primary blue) at 16px Roboto Mono — a screaming bright-blue
    link in the muted footer that drew the eye away from the brand and
    the legal copy. Pin every footer anchor (including the cookies link)
    to the csfloat-spec muted footer-link tone (white-65) at the 13px
@@ -128550,7 +128550,7 @@ body .csfloat-profile-tab.active::after {
    Measured sboxmarket .csfloat-bulk-bar (the floating selection
    toolbar that appears when items are bulk-selected on /sell):
    bg oklch(0.18 0.008 260 / 0.92), 10px radius (drift — csfloat is
-   8px), 1px var(--line) border, count uses var(--mono) Geist Mono
+   8px), 1px var(--line) border, count uses var(--mono) Roboto Mono
    with var(--cta) green strong (drift — csfloat keeps the count chip
    in Roboto with the accent BLUE). Action buttons use var(--bg-2)
    fill with neutral border (drift — csfloat primary action chip is
@@ -128747,7 +128747,7 @@ body .nav-picker-chip .nav-picker-caret {
 /* CSFLOAT-1:1 PARITY ship #1381 — .sort-picker-chip font parity
    The toolbar sort dropdown chip ('Price: High to Low') had the
    right surface (rgb(27,29,36) panel + 8px radius + canonical
-   rgba(255,255,255,0.06) hairline) but used 'Geist' 12px for the
+   rgba(255,255,255,0.06) hairline) but used 'Roboto' 12px for the
    label/caret. Measured live on csfloat, every dropdown trigger in
    the toolbar uses 13px Roboto. Pin .sort-picker-chip plus its
    inner .sort-picker-label and .sort-picker-caret to Roboto 13px
@@ -132663,7 +132663,7 @@ body:has(.signin-loading-overlay) {
 }
 .db-table tbody td a.db-name:hover { color: #1ea5ff !important; text-decoration: none !important; }
 .db-table tbody td .db-sub {
-  font-family: Geist Mono, Roboto Mono, ui-monospace, monospace !important;
+  font-family: Roboto Mono, Roboto Mono, ui-monospace, monospace !important;
   font-size: 10px !important;
   font-weight: 500 !important;
   color: #6a7180 !important;
@@ -132683,7 +132683,7 @@ body:has(.signin-loading-overlay) {
    further CSS work. Chip leads with a 4px coloured dot (csfloat
    parity); tabular-num prevents jitter when sorting. */
 .db-table tbody td.right.db-mono.accent {
-  font-family: Geist Mono, Roboto Mono, ui-monospace, monospace !important;
+  font-family: Roboto Mono, Roboto Mono, ui-monospace, monospace !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   font-variant-numeric: tabular-nums !important;
@@ -132700,7 +132700,7 @@ body:has(.signin-loading-overlay) {
   gap: 3px !important;
   margin-left: 6px !important;
   padding: 1px 6px !important;
-  font-family: Geist Mono, Roboto Mono, ui-monospace, monospace !important;
+  font-family: Roboto Mono, Roboto Mono, ui-monospace, monospace !important;
   font-size: 10px !important;
   font-weight: 600 !important;
   letter-spacing: 0.01em !important;
@@ -133255,7 +133255,7 @@ main.changelog {
 /* CSFLOAT-1:1 PARITY ship #2404 — release date eyebrow.
    Measure: csfloat label-eyebrows = Roboto 12px/600/uppercase in
    rgb(158,167,177) with 0.6px letter-spacing. Pre-fix sbox
-   .changelog-date was 11px Geist in csfloat-blue. Eyebrows should be
+   .changelog-date was 11px Roboto in csfloat-blue. Eyebrows should be
    muted — accent is reserved for action affordances. Pin csfloat
    eyebrow spec. */
 .changelog-date {
@@ -133379,7 +133379,7 @@ main.changelog {
    Measure: csfloat in-page back/nav links = Roboto 14px/500 plain
    text in csfloat-blue rgb(35,123,255), no border, no padding pill.
    Pre-fix sbox .changelog-back was hijacked by .btn pill chrome
-   (5px 10px / 6px radius / 13px Geist Mono uppercase). Restore
+   (5px 10px / 6px radius / 13px Roboto Mono uppercase). Restore
    csfloat plain-text link spec. */
 .changelog-back {
   display: inline-block !important;
@@ -133466,7 +133466,7 @@ main.changelog {
    Measure: csfloat display name = Roboto 22px/600,
    white rgb(255,255,255), letter-spacing normal, line-height
    28px, no italic / no opsz axis, 6px bottom margin. Pre-fix
-   sbox .profile-name = Fraunces serif, weight 360, clamp 28-40px,
+   sbox .profile-name = Roboto serif, weight 360, clamp 28-40px,
    -0.025em letter-spacing, opsz 144 + SOFT 20 axes — full
    editorial display face, completely off-spec for csfloat's
    utilitarian sans. Restore csfloat name. */
@@ -133492,7 +133492,7 @@ main.changelog {
    Profile-link anchors = Roboto 13px/500 csfloat-blue
    rgb(35,123,255) plain text (no underline until hover), 4px
    gap. Pre-fix sbox .profile-id / .profile-link both used
-   var(--mono) Geist Mono with 0.04em tracking — code-feel, not
+   var(--mono) Roboto Mono with 0.04em tracking — code-feel, not
    csfloat's text-feel. Restore csfloat sans + blue link. */
 .profile-id {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
@@ -133530,8 +133530,8 @@ main.changelog {
    gridlines — csfloat just spaces stats with internal padding,
    no visible dividers). Stat label = Roboto 11px/500 uppercase
    muted, stat val = Roboto 20px/700 white. Earnings val = Roboto
-   16px/600. Pre-fix sbox uses Geist Mono 10px labels w/ 0.14em
-   tracking + 22px Geist Mono vals — code-feel; csfloat is sans
+   16px/600. Pre-fix sbox uses Roboto Mono 10px labels w/ 0.14em
+   tracking + 22px Roboto Mono vals — code-feel; csfloat is sans
    throughout. Strip mono; restore csfloat sans across stats +
    earnings, kill internal gridlines. */
 .profile-stats {
@@ -134389,7 +134389,7 @@ body .loadout-list .loadout-card .loadout-card-share i {
 body .modal-breadcrumb,
 body .item-modal-breadcrumb,
 body .info-modal-breadcrumb {
-  font-family: "Roboto", "Geist", system-ui, sans-serif !important;
+  font-family: "Roboto", "Roboto", system-ui, sans-serif !important;
   font-size: 12px !important;
   letter-spacing: 0.005em !important;
   font-weight: 400 !important;
@@ -134484,7 +134484,7 @@ body .similar-strip .similar-thumb img {
 }
 body .similar-strip .similar-name {
   padding: 8px 10px 2px !important;
-  font-family: "Roboto", "Geist", system-ui, sans-serif !important;
+  font-family: "Roboto", "Roboto", system-ui, sans-serif !important;
   font-size: 12px !important;
   font-weight: 500 !important;
   color: var(--ink) !important;
@@ -134508,7 +134508,7 @@ body .similar-strip .similar-price {
    csfloat uses a Roboto 14px / 600wt heading "You might also like" left-aligned
    above the rail with a 12px bottom margin and a 4px CTA-blue dot ornament to
    the left at 8px gap. Our section-title-dot is already in the markup; tighten
-   the typography to match csfloat's compact rail header (was 16px Fraunces). */
+   the typography to match csfloat's compact rail header (was 16px Roboto). */
 body .similar-strip,
 body .modal-content .similar-strip {
   display: flex !important;
@@ -134521,7 +134521,7 @@ body .modal-content .similar-strip {
 }
 body .similar-strip::-webkit-scrollbar { display: none !important; }
 body .modal-content > div > .modal-section-title {
-  font-family: "Roboto", "Geist", system-ui, sans-serif !important;
+  font-family: "Roboto", "Roboto", system-ui, sans-serif !important;
   font-size: 14px !important;
   font-weight: 600 !important;
   color: var(--ink) !important;
@@ -135882,7 +135882,7 @@ body .modal.item-page > .modal-body {
 /* END CSFLOAT-1:1 PARITY ship #3600 */
 
 /* CSFLOAT-1:1 PARITY ship #3601 — h2 default (label-style) */
-/* csfloat content h2: 11px / 700 / uppercase / letter-spacing 0.5px / muted / mb 10px / Geist */
+/* csfloat content h2: 11px / 700 / uppercase / letter-spacing 0.5px / muted / mb 10px / Roboto */
 :where(main, .container, article, section, .content, .page-content) h2:not([class]):not([data-skinbox]) {
   font-size: 11px !important;
   font-weight: 700 !important;
@@ -135892,7 +135892,7 @@ body .modal.item-page > .modal-body {
   margin-top: 0 !important;
   margin-bottom: 10px !important;
   color: oklch(0.66 0.012 260) !important;
-  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-family: Roboto, Inter, system-ui, sans-serif !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #3601 */
 
@@ -135974,7 +135974,7 @@ body .modal.item-page > .modal-body {
 /* CSFLOAT-1:1 PARITY ship #3603 — code + kbd boxed */
 /* csfloat-style inline code: monospace ~0.92em, subtle bg, light border, rounded */
 :where(main, .container, article, section, .content, .page-content) :not(pre) > code:not([class]):not([data-skinbox]) {
-  font-family: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-family: "Roboto Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   font-size: 0.92em !important;
   font-weight: 500 !important;
   line-height: 1.4 !important;
@@ -135988,7 +135988,7 @@ body .modal.item-page > .modal-body {
 }
 /* pre>code stays uniform inside fenced blocks */
 :where(main, .container, article, section, .content, .page-content) pre:not([class]) {
-  font-family: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-family: "Roboto Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   font-size: 12.5px !important;
   line-height: 1.55 !important;
   color: oklch(0.92 0.008 260) !important;
@@ -136009,7 +136009,7 @@ body .modal.item-page > .modal-body {
 }
 /* csfloat-style kbd: small mono pill with subtle 3D border */
 :where(main, .container, article, section, .content, .page-content) kbd:not([class]):not([data-skinbox]) {
-  font-family: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-family: "Roboto Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   font-size: 0.82em !important;
   font-weight: 600 !important;
   line-height: 1 !important;
@@ -137858,7 +137858,7 @@ button[data-copy*="trade"]:hover {
 /* END CSFLOAT-1:1 PARITY ship #4105 */
 
 /* CSFLOAT-1:1 PARITY ship #3900 — Item page demand chips (Standard / Off-Market / Limited)
-   Measured on csfloat /item/<id>: 22px tall, 0 10px padding, 10px Geist 600
+   Measured on csfloat /item/<id>: 22px tall, 0 10px padding, 10px Roboto 600
    letterspaced caps, 999px radius, 1px line border, faint tinted fill per
    demand state. Standard = neutral; Off-Market = amber; Limited = red. */
 .modal-demand-chip,
@@ -137870,7 +137870,7 @@ button[data-copy*="trade"]:hover {
   gap: 6px !important;
   height: 22px !important;
   padding: 0 10px !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 10px !important;
   font-weight: 600 !important;
   letter-spacing: 0.08em !important;
@@ -137921,7 +137921,7 @@ button[data-copy*="trade"]:hover {
 /* END CSFLOAT-1:1 PARITY ship #3900 */
 
 /* CSFLOAT-1:1 PARITY ship #3901 — Good Deal / Hot Item indicator chips
-   22px pill, 0 10px padding, 10px Geist 700 caps, mono tnum percentage.
+   22px pill, 0 10px padding, 10px Roboto 700 caps, mono tnum percentage.
    Good-deal = green; Hot-item = amber. */
 .good-deal-chip,
 .csfloat-good-deal-chip,
@@ -137933,7 +137933,7 @@ button[data-copy*="trade"]:hover {
   gap: 4px !important;
   height: 22px !important;
   padding: 0 10px !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 10px !important;
   font-weight: 700 !important;
   letter-spacing: 0.06em !important;
@@ -137955,7 +137955,7 @@ button[data-copy*="trade"]:hover {
   gap: 4px !important;
   height: 22px !important;
   padding: 0 10px !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 10px !important;
   font-weight: 700 !important;
   letter-spacing: 0.06em !important;
@@ -137995,7 +137995,7 @@ button[data-copy*="trade"]:hover {
   gap: 5px !important;
   height: 22px !important;
   padding: 0 10px !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 11px !important;
   letter-spacing: -0.005em !important;
   border-radius: 999px !important;
@@ -138091,7 +138091,7 @@ button[data-copy*="trade"]:hover {
 
 /* CSFLOAT-1:1 PARITY ship #3904 — Online status dot + tooltip
    8px dot, online green with 6px halo; offline = neutral, no halo.
-   Tooltip: 11px Geist on bg-2 line border, 6px 8px padding, 4px tail. */
+   Tooltip: 11px Roboto on bg-2 line border, 6px 8px padding, 4px tail. */
 .online-status-dot,
 .status-dot,
 .online-dot,
@@ -138134,7 +138134,7 @@ button[data-copy*="trade"]:hover {
   background: rgb(20, 24, 30) !important;
   border: 1px solid rgba(255,255,255,0.12) !important;
   border-radius: 6px !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 11px !important;
   font-weight: 500 !important;
   letter-spacing: 0 !important;
@@ -138170,7 +138170,7 @@ button[data-copy*="trade"]:hover {
   gap: 5px !important;
   height: 22px !important;
   padding: 0 10px !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 11px !important;
   letter-spacing: -0.005em !important;
   border-radius: 999px !important;
@@ -138217,7 +138217,7 @@ button[data-copy*="trade"]:hover {
 /* END CSFLOAT-1:1 PARITY ship #3905 */
 
 /* CSFLOAT-1:1 PARITY ship #3906 — View-count display ("142 views")
-   ink-3 11px Geist with mono tabular num for integer + 12px eye glyph,
+   ink-3 11px Roboto with mono tabular num for integer + 12px eye glyph,
    6px gap, no chrome (lives inline in the meta row). */
 .item-view-count,
 .view-count,
@@ -138228,7 +138228,7 @@ button[data-copy*="trade"]:hover {
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 11px !important;
   letter-spacing: -0.005em !important;
   color: rgb(160, 168, 178) !important;
@@ -139138,7 +139138,7 @@ body .views-display {
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55) !important;
   padding: 24px !important;
   color: rgb(232, 236, 242) !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   letter-spacing: -0.005em !important;
   display: flex !important;
   flex-direction: column !important;
@@ -139163,7 +139163,7 @@ body .views-display {
 .share-dialog h3,
 .share-modal-heading,
 [data-share-modal] .modal-title {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 18px !important;
   font-weight: 600 !important;
   line-height: 1.3 !important;
@@ -139324,7 +139324,7 @@ body .views-display {
   background: transparent !important;
   border: 0 !important;
   outline: 0 !important;
-  font-family: var(--mono), 'JetBrains Mono', 'Geist Mono', monospace !important;
+  font-family: var(--mono), 'JetBrains Mono', 'Roboto Mono', monospace !important;
   font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
   font-size: 12px !important;
   font-weight: 500 !important;
@@ -139358,7 +139358,7 @@ body .views-display {
   border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-radius: 0 !important;
   color: rgb(232, 236, 242) !important;
-  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   letter-spacing: 0.02em !important;
@@ -139544,7 +139544,7 @@ body .cart-confirm-total-hint {
   margin-top: 2px !important;
 }
 body .cart-confirm-total-amt {
-  font-family: "Roboto Mono", "Geist Mono", "JetBrains Mono", ui-monospace, monospace !important;
+  font-family: "Roboto Mono", "Roboto Mono", "JetBrains Mono", ui-monospace, monospace !important;
   font-size: 18px !important;
   font-weight: 600 !important;
   line-height: 24px !important;
@@ -139637,7 +139637,7 @@ body .cart-confirm-row:last-child {
   border-bottom: 0 !important;
 }
 body .cart-confirm-amt {
-  font-family: "Roboto Mono", "Geist Mono", "JetBrains Mono", ui-monospace, monospace !important;
+  font-family: "Roboto Mono", "Roboto Mono", "JetBrains Mono", ui-monospace, monospace !important;
   font-size: 14px !important;
   font-weight: 500 !important;
   line-height: 20px !important;
@@ -140806,7 +140806,7 @@ body .legal-doc :target {
 .csfloat-trust-strip-stat-value,
 .csfloat-trust-row-stat-value,
 .csfloat-trust-strip .stat-value {
-  font-family: 'Geist Mono', 'Roboto Mono', ui-monospace, monospace !important;
+  font-family: 'Roboto Mono', 'Roboto Mono', ui-monospace, monospace !important;
   font-size: 26px !important;
   font-weight: 600 !important;
   color: #ffffff !important;
@@ -141286,7 +141286,7 @@ input[name="deposit-amount"]:focus,
 .wallet-tx-amt {
   font-size: 15px !important;
   font-weight: 700 !important;
-  font-family: "Geist Mono", "JetBrains Mono", ui-monospace, monospace !important;
+  font-family: "Roboto Mono", "JetBrains Mono", ui-monospace, monospace !important;
   font-variant-numeric: tabular-nums !important;
   letter-spacing: -0.1px !important;
   line-height: 20px !important;
@@ -141648,7 +141648,7 @@ body .loadout-name-edit,
 body .loadout-rename-input,
 body input.loadout-name-input,
 body .loadout-title input[type="text"] {
-  font: 600 20px/1.25 Geist, ui-sans-serif, system-ui, sans-serif !important;
+  font: 600 20px/1.25 Roboto, ui-sans-serif, system-ui, sans-serif !important;
   letter-spacing: -0.01em !important;
   color: oklch(0.97 0.006 90) !important;
   background: transparent !important;
@@ -144992,7 +144992,7 @@ body .order-confirmation-dialog .receipt-chip .check-icon {
 
 /* CSFLOAT-1:1 PARITY ship #7200 — Home FAQ title typography
    csfloat: 42px / weight 500 / letter-spacing 1.26px / Roboto / white / left
-   was:     28px / weight 700 / letter-spacing -0.02em / Geist / center */
+   was:     28px / weight 700 / letter-spacing -0.02em / Roboto / center */
 body .csfloat-home-faq-title {
   font-size: 42px !important;
   font-weight: 500 !important;
@@ -145043,7 +145043,7 @@ body .csfloat-home-faq-item[open] {
 /* CSFLOAT-1:1 PARITY ship #7203 — Question summary row typography + layout
    csfloat: 20px / weight 500 / 25px line-height, no padding on row, gap 20px
             arrow icon to LEFT of question (not right), white text, Roboto
-   was:     14px / weight 600 / padding 18px 22px / Geist / between */
+   was:     14px / weight 600 / padding 18px 22px / Roboto / between */
 body .csfloat-home-faq-q {
   display: flex !important;
   align-items: center !important;
@@ -145385,7 +145385,7 @@ body .item-watchlist-toggle[aria-disabled="true"]::after {
    padding 24px 24px 9px, font-size 20px, line-height 32px, font-weight
    500, letter-spacing 0.25px, color rgb(255,255,255), display block.
    Local .trade-confirm-title is at 22px serif (later overridden to
-   28px Geist by ship around line 9573, drift ~8px both directions).
+   28px Roboto by ship around line 9573, drift ~8px both directions).
    Pin csfloat's exact 20/32/500/0.25px Roboto title geometry so
    the dialog header lines up to the 9px gap below before content. */
 .trade-confirm-title {
@@ -145493,7 +145493,7 @@ body .item-watchlist-toggle[aria-disabled="true"]::after {
    box-shadow, color-tween 200ms cubic-bezier(.4,0,.2,1). Local
    .trade-confirm-actions is 16-18px padded with a top hairline + bg
    gradient; that breaks the dialog flush rhythm and the buttons
-   inside still get .btn typography (Geist 13/2px tracking). Pin the
+   inside still get .btn typography (Roboto 13/2px tracking). Pin the
    row to csfloat's exact 8/52/transparent shell, then specifically
    uppercase the contained .btn instances at 14px Roboto so the CTAs
    read "CANCEL" / "CONFIRM RECEIPT" matching csfloat's mat-button. */
@@ -145558,7 +145558,7 @@ body .nav-picker-panel:has(> .nav-picker-row > .nav-picker-name:where(
    csfloat renders the language code (EN, DE, FR, ZH, etc.) as a 11px / 700
    uppercase token in the Roboto stack with letter-spacing 0.44px and a
    warm-near-white oklch(0.97 0.006 90) ink — definitively NOT the mono
-   stack our base style used (var(--mono) Geist Mono fell back to a heavier
+   stack our base style used (var(--mono) Roboto Mono fell back to a heavier
    monospace that broke csfloat's rhythm). Lock the Roboto stack + tracking
    so EN sits at the same x-height and width as DE / FR / ES / PT / RU codes
    in the column. Scoped to rows whose code is a 2-letter ISO language. */
@@ -150253,7 +150253,7 @@ body footer.site-footer .site-footer-bottom .site-footer-socials {
    CSFLOAT-1:1 PARITY ship #9401 - Order summary heading
    csfloat receipt headings use 16px / 500 / rgb(255,255,255) /
    28px line-height (matches the H1 Wallet measurement). The
-   local title was 15/700 with a -0.01em squeeze and a Geist
+   local title was 15/700 with a -0.01em squeeze and a Roboto
    override; flatten to csfloat Roboto-stack 500 to read as
    the same surface heading they ship across receipt panels.
    Removes the bottom border so the heading rides flush with
@@ -153967,9 +153967,9 @@ body .csfloat-home-rail-tab.active {
 }
 /* END CSFLOAT-1:1 PARITY ship #10904 */
 
-/* CSFLOAT-1:1 PARITY ship #11100 — home reviews/trust strip eyebrow header (csfloat .header: 18px Geist 700, white, 0 letter-spacing, no uppercase, centered) */
+/* CSFLOAT-1:1 PARITY ship #11100 — home reviews/trust strip eyebrow header (csfloat .header: 18px Roboto 700, white, 0 letter-spacing, no uppercase, centered) */
 body .csfloat-home-metrics .csfloat-home-metrics-eyebrow {
-  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-family: Roboto, Inter, system-ui, sans-serif !important;
   font-size: 18px !important;
   font-weight: 700 !important;
   letter-spacing: 0 !important;
@@ -154005,9 +154005,9 @@ body .csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric:hover 
 }
 /* END CSFLOAT-1:1 PARITY ship #11101 */
 
-/* CSFLOAT-1:1 PARITY ship #11102 — large stat numbers like csfloat: 32px Geist 700 white, tight letter-spacing, mono-aligned digits */
+/* CSFLOAT-1:1 PARITY ship #11102 — large stat numbers like csfloat: 32px Roboto 700 white, tight letter-spacing, mono-aligned digits */
 body .csfloat-home-metrics .csfloat-home-metric .csfloat-home-metric-num {
-  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-family: Roboto, Inter, system-ui, sans-serif !important;
   font-size: 32px !important;
   font-weight: 700 !important;
   letter-spacing: -0.02em !important;
@@ -154022,7 +154022,7 @@ body .csfloat-home-metrics .csfloat-home-metric .csfloat-home-metric-num {
 
 /* CSFLOAT-1:1 PARITY ship #11103 — stat label sub-text: csfloat .sub-text 13px regular muted, no uppercase */
 body .csfloat-home-metrics .csfloat-home-metric .csfloat-home-metric-label {
-  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-family: Roboto, Inter, system-ui, sans-serif !important;
   font-size: 13px !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
@@ -156893,7 +156893,7 @@ body .modal-seller-info .modal-seller-sales {
   border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.1)) !important;
   border-radius: 8px !important;
   padding: 6px 10px !important;
-  font-family: "Geist", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, sans-serif !important;
   font-size: 11px !important;
   font-weight: 500 !important;
   line-height: 1.4 !important;
@@ -161897,10 +161897,10 @@ html body .notif-dropdown .notif.unread::after {
    either. The structurally-equivalent surface that BOTH apps render the same
    first-time content into is the "Getting Started" walkthrough on the Help
    Center: csfloat puts theirs inside a mat-mdc-dialog (4px radius, MD
-   elev-24, Geist 20/500 title, Roboto 14/400 content, brand-tinted action
+   elev-24, Roboto 20/500 title, Roboto 14/400 content, brand-tinted action
    button). sboxmarket renders it as .help-intro + .help-section-title
    + .help-steps > .help-step rows, all currently sized to a custom
-   Geist 15/700 -0.225 letter-spacing stack that does not match csfloat MDC
+   Roboto 15/700 -0.225 letter-spacing stack that does not match csfloat MDC
    dialog tokens. These ships rebase those rows onto the canonical mat
    dialog typography + chrome measured live on csfloat.com (synthesised mat
    dialog probe; values reproduced 1:1 below). Tokens used:
@@ -161939,7 +161939,7 @@ html body .help-step-num {
 }
 /* END CSFLOAT-1:1 PARITY ship #15900 */
 
-/* CSFLOAT-1:1 PARITY ship #15901 (onboarding modal — step title typography rebased onto Material dialog-title spec — measured: csfloat .mat-mdc-dialog-title computed as Geist/Inter/system-ui 20px/500/lh 32px/ls 0.25px white. For an inline step title nested inside dialog-content (one tier deeper than the dialog title itself) csfloat uses Material body-1-emphasis: Roboto 16/500/lh 24/ls 0.15px in rgba(255,255,255,0.94). sbox was: Geist 15/700/lh 22.5px/ls -0.225px in oklch(0.97 0.006 90) — wrong family (Geist vs Roboto), wrong weight (700 vs 500), negative tracking that does not exist in Material spec. Bring it onto Roboto 16/500 with positive 0.15px tracking) */
+/* CSFLOAT-1:1 PARITY ship #15901 (onboarding modal — step title typography rebased onto Material dialog-title spec — measured: csfloat .mat-mdc-dialog-title computed as Roboto/Inter/system-ui 20px/500/lh 32px/ls 0.25px white. For an inline step title nested inside dialog-content (one tier deeper than the dialog title itself) csfloat uses Material body-1-emphasis: Roboto 16/500/lh 24/ls 0.15px in rgba(255,255,255,0.94). sbox was: Roboto 15/700/lh 22.5px/ls -0.225px in oklch(0.97 0.006 90) — wrong family (Roboto vs Roboto), wrong weight (700 vs 500), negative tracking that does not exist in Material spec. Bring it onto Roboto 16/500 with positive 0.15px tracking) */
 body .help-step-title,
 html body .help-step-title {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
@@ -161990,10 +161990,10 @@ html body .help-step > .mi {
 }
 /* END CSFLOAT-1:1 PARITY ship #15904 */
 
-/* CSFLOAT-1:1 PARITY ship #15905 (onboarding modal — section title rebased onto Material dialog-title typography — measured: csfloat .mat-mdc-dialog-title computed as 20px/500/lh 32px/ls 0.25px (Material headline-6 / dialog-title token, POSITIVE 0.25 letter-spacing, NOT the negative -0.02em editorial-Geist tracking). sbox was: Geist 22/700/lh 26.4px/ls -0.33px — way too heavy (700 vs 500), too big, and editorial negative tracking that does not exist in Material. Lock to dialog-title tokens; keep the Geist family slot since csfloat itself uses Geist as its dialog-title font but at MD weight) */
+/* CSFLOAT-1:1 PARITY ship #15905 (onboarding modal — section title rebased onto Material dialog-title typography — measured: csfloat .mat-mdc-dialog-title computed as 20px/500/lh 32px/ls 0.25px (Material headline-6 / dialog-title token, POSITIVE 0.25 letter-spacing, NOT the negative -0.02em editorial-Roboto tracking). sbox was: Roboto 22/700/lh 26.4px/ls -0.33px — way too heavy (700 vs 500), too big, and editorial negative tracking that does not exist in Material. Lock to dialog-title tokens; keep the Roboto family slot since csfloat itself uses Roboto as its dialog-title font but at MD weight) */
 body .help-section-title,
 html body .help-section-title {
-  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-family: Roboto, Inter, system-ui, sans-serif !important;
   font-size: 20px !important;
   font-weight: 500 !important;
   line-height: 32px !important;
@@ -163772,7 +163772,7 @@ body .cart-summary[class] {
 }
 /* END CSFLOAT-1:1 PARITY ship #17400 */
 
-/* CSFLOAT-1:1 PARITY ship #17401 (cart-summary title — measured: csfloat panel-title pattern fs 16 / fw 500 / lh 24px / color rgb(255,255,255) / mb 16 / ls normal — sbox was 15/700 with custom Geist family fallback overriding the canonical Roboto stack. Removing the local font-family override forces the panel title to render in the same Roboto, "Helvetica Neue", Arial, sans-serif stack used everywhere else on csfloat, and the 16/500/24lh weight matches mat-card-title.) */
+/* CSFLOAT-1:1 PARITY ship #17401 (cart-summary title — measured: csfloat panel-title pattern fs 16 / fw 500 / lh 24px / color rgb(255,255,255) / mb 16 / ls normal — sbox was 15/700 with custom Roboto family fallback overriding the canonical Roboto stack. Removing the local font-family override forces the panel title to render in the same Roboto, "Helvetica Neue", Arial, sans-serif stack used everywhere else on csfloat, and the 16/500/24lh weight matches mat-card-title.) */
 body .cart-summary .cart-summary-title,
 body .cart-summary-title[class] {
   font-size: 16px !important;
@@ -166277,7 +166277,7 @@ app-reference-widget > .reference,
 
 /* CSFLOAT-1:1 PARITY ship #19100 (sell-step2 input chrome) — measured: csfloat
    input.mat-mdc-input-element fs 16/lh 24/ls 0.5px Roboto white, container
-   mat-form-field 36px tall transparent. sbox was Geist mono 18px on opaque
+   mat-form-field 36px tall transparent. sbox was Roboto mono 18px on opaque
    bg-1 with 14px padding — too dense vs csfloat's bare underline-row look. */
 .info-modal input.wallet-amount-input,
 .info-modal input.wallet-amount-input-v2,
@@ -167629,7 +167629,7 @@ html body footer.site-footer .site-footer-bottom {
    text-transform: none on every selector that targets the footer column
    header so the casing matches csfloat regardless of cascade order.
    Also pin font-family to the body Roboto stack to override any
-   late-cascade Geist Mono assignment that earlier ship attempted to fix —
+   late-cascade Roboto Mono assignment that earlier ship attempted to fix —
    making this its own ship guarantees it lands at the END of the file
    (highest specificity from order). */
 html body footer.site-footer .site-footer-title,
@@ -168334,7 +168334,7 @@ html body .recent-sales-row .recent-sales-time {
 }
 /* END CSFLOAT-1:1 PARITY ship #20613 */
 
-/* CSFLOAT-1:1 PARITY ship #20614 (fee-breakdown panel — .fee-calc container chrome + .fee-calc-line row geometry to match csfloat <app-fee-calculator> .container + .fees > .fee row pattern) — measured side-by-side: csfloat .container bg rgba(193,206,255,0.04) / 6px br / 15px pad / no border / no shadow, csfloat .header (Fee Calculator) 20px/500/white/Roboto/margin 0, csfloat .fee row display:flex / 14px / 400 / rgb(255,255,255) / Roboto, csfloat .badge inline 2% chip, csfloat .highlight-text right-aligned value white. sbox baseline (measured at /market on .fee-calc): bg `oklch(0.23 0.01 260)` w/ `1px solid oklch(0.3 0.012 260)` border + `24px 28px` pad (too dark, too heavy chrome vs csfloat's light translucent panel), .fee-calc-title 16px/500 (smaller than csfloat 20px hero), .fee-calc-line 13px / 400 / `rgba(255,255,255,0.65)` Geist Mono w/ 700-weight strong (csfloat uses 14px / Roboto / full white for both label + value which keeps the row scanable as a financial breakdown not a faded-meta line). Lane brief asks "fee tooltip / breakdown popover" — neither site has a hover-fee-tooltip (csfloat's fee-breakdown is the always-visible app-fee-calculator panel; sboxmarket's equivalent is the .fee-calc on /market footer); shipping the breakdown row chrome to csfloat parity since that IS the canonical fee-breakdown surface on csfloat. Lock the .homepage-trust .fee-calc container BG + remove border to match csfloat's translucent-blue panel; bump .fee-calc-title to 20px/500/Roboto Heading scale; align .fee-calc-line label+value at csfloat 14px/Roboto with full-white color so financial rows read at csfloat receipt density not at sbox faded-meta density. */
+/* CSFLOAT-1:1 PARITY ship #20614 (fee-breakdown panel — .fee-calc container chrome + .fee-calc-line row geometry to match csfloat <app-fee-calculator> .container + .fees > .fee row pattern) — measured side-by-side: csfloat .container bg rgba(193,206,255,0.04) / 6px br / 15px pad / no border / no shadow, csfloat .header (Fee Calculator) 20px/500/white/Roboto/margin 0, csfloat .fee row display:flex / 14px / 400 / rgb(255,255,255) / Roboto, csfloat .badge inline 2% chip, csfloat .highlight-text right-aligned value white. sbox baseline (measured at /market on .fee-calc): bg `oklch(0.23 0.01 260)` w/ `1px solid oklch(0.3 0.012 260)` border + `24px 28px` pad (too dark, too heavy chrome vs csfloat's light translucent panel), .fee-calc-title 16px/500 (smaller than csfloat 20px hero), .fee-calc-line 13px / 400 / `rgba(255,255,255,0.65)` Roboto Mono w/ 700-weight strong (csfloat uses 14px / Roboto / full white for both label + value which keeps the row scanable as a financial breakdown not a faded-meta line). Lane brief asks "fee tooltip / breakdown popover" — neither site has a hover-fee-tooltip (csfloat's fee-breakdown is the always-visible app-fee-calculator panel; sboxmarket's equivalent is the .fee-calc on /market footer); shipping the breakdown row chrome to csfloat parity since that IS the canonical fee-breakdown surface on csfloat. Lock the .homepage-trust .fee-calc container BG + remove border to match csfloat's translucent-blue panel; bump .fee-calc-title to 20px/500/Roboto Heading scale; align .fee-calc-line label+value at csfloat 14px/Roboto with full-white color so financial rows read at csfloat receipt density not at sbox faded-meta density. */
 .homepage-trust .fee-calc {
   background: rgba(193, 206, 255, 0.04) !important;
   border: 0 !important;
@@ -169180,7 +169180,7 @@ body .full-page-mode .buyorder-list > .buyorder-row.expired:hover {
    .mat-mdc-dialog-title, .mat-mdc-dialog-content, .mat-mdc-dialog-actions.
    Result: csfloat ships unmodified Material 15 dialog tokens with the
    only theme override being the dark-surface background rgb(31,31,31)
-   and the Geist title font. Title is 20px/500/32 lh / 0.25px tracking,
+   and the Roboto title font. Title is 20px/500/32 lh / 0.25px tracking,
    body is 14px/400/20 lh / 0.25px tracking / rgba(255,255,255,0.6).
    Backdrop is flat rgba(0,0,0,0.32) with NO blur. Action row is
    min-height:52px, padding:8px, gap:8px, justified flex-end.
@@ -169215,15 +169215,15 @@ body .trade-confirm-modal {
 /* END CSFLOAT-1:1 PARITY ship #21400 */
 
 /* CSFLOAT-1:1 PARITY ship #21401 — cart-confirm-title typography
-   (mdc-dialog__title). Measured: csfloat title = font Geist /
+   (mdc-dialog__title). Measured: csfloat title = font Roboto /
    font-size 20px / weight 500 / line-height 32px / letter-spacing 0.25px
    / color rgb(255,255,255) / padding 24px 24px 9px / display block.
    sbox baseline shipped a stylish serif var(--serif) at 22px / 360
    weight / -0.02em letter-spacing / opsz 144 — pure creative drift, NOT
-   what csfloat ships. Snap to Material headline / Geist token block. */
+   what csfloat ships. Snap to Material headline / Roboto token block. */
 body .cart-confirm-title,
 body .trade-confirm-title {
-  font-family: Geist, Inter, "Helvetica Neue", system-ui, sans-serif !important;
+  font-family: Roboto, Inter, "Helvetica Neue", system-ui, sans-serif !important;
   font-size: 20px !important;
   font-weight: 500 !important;
   line-height: 32px !important;
@@ -175405,7 +175405,7 @@ html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"] > .btn.b
      bg         rgba(255,255,255,0.04) ✓
      border     1px solid rgba(255,255,255,0.06) ✓
      radius     999px ✓
-     amount     Geist Mono 13/600 tabular-nums color rgba 0.95 ✓
+     amount     Roboto Mono 13/600 tabular-nums color rgba 0.95 ✓
      label      13/500 color rgba 0.6
      icon-tile  18x18 br=4 1px solid rgba 0.12 ✓
 
@@ -175465,15 +175465,15 @@ html body .wallet-btn.low-balance .wallet-btn-amt {
 
 /* CSFLOAT-1:1 PARITY ship #126561 (wallet nav chip — Roboto Mono tabular-nums)
    Lane token spec: "Roboto Mono for tabular-nums". Ship #100 set the chip
-   font stack to "Geist Mono", "JetBrains Mono", ui-monospace, monospace.
+   font stack to "Roboto Mono", "JetBrains Mono", ui-monospace, monospace.
    Insert "Roboto Mono" as the FIRST mono fallback so where the page has
-   Roboto Mono loaded (csfloat baseline) it wins, with Geist Mono retained
+   Roboto Mono loaded (csfloat baseline) it wins, with Roboto Mono retained
    as the secondary so platforms without Roboto Mono fall back to the
-   visually equivalent Geist. tabular-nums and feature-settings 'tnum'
+   visually equivalent Roboto. tabular-nums and feature-settings 'tnum'
    make sure individual digits stay column-aligned across re-renders. */
 html body .wallet-btn,
 html body .wallet-btn .wallet-btn-amt {
-  font-family: "Roboto Mono", "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-family: "Roboto Mono", "Roboto Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
   font-variant-numeric: tabular-nums !important;
   font-feature-settings: "tnum" 1 !important;
 }
@@ -176509,9 +176509,9 @@ body .settings-row:has(> div > .settings-label):has(.toggle-switch) > div:first-
    csfloat / Material Design uses 14/500/.92 with -0.05px tracking
    for primary list text. Our 14/500/.92 is right; line-height was
    20 (correct), letter-spacing was 'normal' (off). Add tracking
-   and lock a Geist stack. */
+   and lock a Roboto stack. */
 body .settings-row:has(.toggle-switch) > div:first-child > .settings-label {
-  font-family: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   font-size: 14px !important;
   font-weight: 500 !important;
   line-height: 20px !important;
@@ -176525,7 +176525,7 @@ body .settings-row:has(.toggle-switch) > div:first-child > .settings-label {
    width at 480px so the wrap matches CSFloat's 2-line max for
    privacy-style descriptions. */
 body .settings-row:has(.toggle-switch) > div:first-child > .settings-sublabel {
-  font-family: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   font-size: 12px !important;
   font-weight: 400 !important;
   line-height: 16px !important;
@@ -176577,7 +176577,7 @@ body .settings-row:has(.toggle-switch) > .toggle-switch.on::after {
    denser overline treatment specifically for the Privacy heading
    so it reads as a section gutter, not just another row label. */
 body :is(.settings-section-heading, h2.settings-section-heading) {
-  font-family: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   line-height: 16px !important;
@@ -177028,8 +177028,8 @@ html body .wallet-modal .wallet-method-fields > p {
        not pop on hover; they only flip color).
      image filter drop-shadow(0 14px 24px) → none + box-shadow only
        (the drop-shadow doubled the ambient and washed out the image).
-     caption font-family Geist → inherit (the lightbox cap inherits the
-       page font; Geist override was a stale token from an earlier ship).
+     caption font-family Roboto → inherit (the lightbox cap inherits the
+       page font; Roboto override was a stale token from an earlier ship).
    ===================================================================== */
 
 html body .item-lightbox {
@@ -177099,7 +177099,7 @@ html body .item-lightbox-close:focus-visible {
   outline-offset: 2px !important;
 }
 
-/* Caption — quiet bottom label per csfloat. Drop the Geist override and
+/* Caption — quiet bottom label per csfloat. Drop the Roboto override and
    the uppercase letter-spacing; csfloat ships sentence-case here. */
 html body .item-lightbox-cap {
   bottom: 24px !important;
@@ -178724,7 +178724,7 @@ body .filter-chip.clear-all:active {
 /* (2) Sublabel typography — pin Material 12/16/0.1px tracking on
    the sboxmarket inherited font so the row reads as a Material
    two-line list-item. Drop the Roboto override so we don't fight
-   the site's Geist body font; only line-height and tracking change.
+   the site's Roboto body font; only line-height and tracking change.
    max-width keeps the sublabel from sprawling beyond the toggle
    column on wide viewports (csfloat's mat-mdc-list constrains
    secondary text to ~38ch by default). */
@@ -179738,7 +179738,7 @@ html body .buy-btn.is-permanent:disabled {
      border-radius: 0
      border-left: 3px solid var(--down) ≈ rgb(248,113,113)
      border-bottom: 1px solid color-mix(--down 35%,--line)
-     font-family: "Geist Mono", "JetBrains Mono", ui-monospace
+     font-family: "Roboto Mono", "JetBrains Mono", ui-monospace
      font-size: 11px
      font-weight: 600
      letter-spacing: 1.32px (0.12em)
@@ -179750,7 +179750,7 @@ html body .buy-btn.is-permanent:disabled {
      display: flex / center / center / gap 10
      position: static
      `<strong>` color: var(--ink) inherited / fw 900 (UA default
-     <strong>) / inherits 11px Geist Mono uppercase 0.12em
+     <strong>) / inherits 11px Roboto Mono uppercase 0.12em
    That paints the CSR callout identically to the admin/warning
    callouts (red rail, red gradient wash, monospace small-caps),
    collapsing the CSR-tier visual hierarchy csfloat ships.
@@ -179799,7 +179799,7 @@ html body .buy-btn.is-permanent:disabled {
        .banner has no rails or hairlines; tier signal lives in bg
        tint + primary-text color, not edge chrome.
      #127383  typography rebase to canonical Material 2 — Roboto
-       14/700/0.56px (0.04em)/30lh, replacing Geist Mono 11/600/
+       14/700/0.56px (0.04em)/30lh, replacing Roboto Mono 11/600/
        0.12em/17.05px small-caps.  text-transform none drops the
        uppercase shoutiness; text-align center swaps from start.
        text-shadow none drops the red glow.
@@ -180069,7 +180069,7 @@ html body .wallet-inline-hint > span:not(.wallet-inline-hint-icon) {
    CSFLOAT-1:1 PARITY ship #127502 (refund-request drawer title)
    measured: csfloat mat-mdc-dialog-title 20/500/32lh Roboto
    ink-1 white with Material h6 0.15px tracking; sbox was 20/500/32lh
-   Geist with 0.25px tracking. Pulls font-family to canonical Roboto
+   Roboto with 0.25px tracking. Pulls font-family to canonical Roboto
    and tightens tracking to 0.15px Material h6 spec. 8px gap to subtitle.
    ============================================================ */
 .cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-title#refund-drawer-title {
@@ -181005,7 +181005,7 @@ html body .wallet-modal .wallet-tx-row .tx-amount.withdraw {
    measured: csfloat empty states fill 240px min-h with centered Material
      stack — icon 48x48 rgb(158,167,177), title 14/24 white 500,
      subtitle 13/20 rgb(158,167,177), 16px gap.
-   Earlier ship #16519 used a 13px Geist line — Material is Roboto throughout.
+   Earlier ship #16519 used a 13px Roboto line — Material is Roboto throughout.
    ============================================================ */
 html body .wallet-modal .wallet-history-empty,
 html body .wallet-modal .wallet-tx-empty,
@@ -190378,7 +190378,7 @@ body .cart-confirm-backdrop {
    surface, radius, padding, dimensions; this batch APPENDS corrections
    to land the row at CSFloat's measured geometry while keeping sbox's
    own brand rhythm where divergence is intentional (results-meta copy
-   below the row, Geist font family preserved).
+   below the row, Roboto font family preserved).
    ===================================================================== */
 
 /* ---------------------------------------------------------------------
@@ -190456,7 +190456,7 @@ body .cart-confirm-backdrop {
    row's mat-button-toggle labels which sit immediately to its left use
    font-size 14/500. The two co-exist because csfloat's sort field uses
    the Material default while the toggle uses a smaller label. For sbox
-   we keep our Geist family but bump the chip label from 12 to 14 to
+   we keep our Roboto family but bump the chip label from 12 to 14 to
    match the toggle group's label weight + size — the larger text reads
    correctly against the new 38h chip from ship #128523.
 */
@@ -190805,7 +190805,7 @@ body .loadout-card-content > * {
      NO HERO, NO FEATURED RAIL, NO TRUST SECTION, NO FOOTER on `/`.
    Sboxmarket diverges by:
      - no body horizontal gutter
-     - 'Geist' 14px (csfloat is Roboto 16px)
+     - 'Roboto' 14px (csfloat is Roboto 16px)
      - renders csfloat-home-hero on `/`
      - renders SiteFooter on every route
    APPEND below pulls page chrome to the measured csfloat baseline.
@@ -190856,7 +190856,7 @@ html body:has(.site-root:not(.full-page-mode) > .csfloat-home-hero) {
      font-family Roboto, "Helvetica Neue", sans-serif
      font-size   16px
      color       rgb(255, 255, 255)
-   Sbox body uses Geist 14px var(--ink). At body level this only
+   Sbox body uses Roboto 14px var(--ink). At body level this only
    affects elements that explicitly inherit (rare since most surfaces
    pin px). Where it matters: tooltip text, loose copy, and the bare
    page that doesn't override fontSize. Pin the measured 16px + Roboto
@@ -190994,7 +190994,7 @@ body .csfloat-sticker-tooltip-panel.is-right {
      overflow-wrap:  anywhere
      word-break:     normal
      opacity:        1
-   Sboxmarket .csfloat-tooltip is a different bubble (Geist 11/500, 6px
+   Sboxmarket .csfloat-tooltip is a different bubble (Roboto 11/500, 6px
    radius, oklch dark-opaque, with arrow). Pin a NEW surface vocabulary
    that mirrors the live mat-tooltip surface verbatim.
 */
@@ -196429,7 +196429,7 @@ html body .toolbar .search-wrap span.search-icon svg * {
 /* ---------------------------------------------------------------------
    CSFLOAT-1:1 PARITY ship #129105 — `.search-input` typography
    csfloat input font: 16/24 Roboto white, placeholder rgba(255,255,255,0.7).
-   Sbox `.search-input` baseline inherits from `--ink` Geist 14, which
+   Sbox `.search-input` baseline inherits from `--ink` Roboto 14, which
    reads visibly thinner than csfloat. Pin the input typography to the
    csfloat baseline so the omnibox baseline lines up with the
    .search-icon (15x16) on the left and the .search-kbd (22x22) on the

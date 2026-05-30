@@ -142,7 +142,7 @@
        fetches were pure dead weight (~47KB on every cold load). -->
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
   <!-- CSFLOAT-1:1 PARITY — Roboto family for typography parity with csfloat -->
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;900&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Material Symbols Rounded — Boss QA cycle 13 P1: switched to the
        icon-subset API. The full variable font weighed 5.2MB because
        Google ships the entire 2700-glyph set when no icon_names filter
@@ -159,7 +159,7 @@
        edge + browsers refetch instead of serving a stale design.css (the
        no-cache header alone wasn't defeating the edge cache, so live users
        kept seeing the pre-parity look). index.html itself is no-store. -->
-  <link rel="stylesheet" href="/css/design.css?v=152">
+  <link rel="stylesheet" href="/css/design.css?v=153">
   <!-- Boss QA cycle 12 — inline critical CSS so the first paint on slow 3G
        isn't a UA-default WHITE flash. design.css is ~2MB and on slow
        networks paints 1-3s after first byte; before this block, the
@@ -169,7 +169,7 @@
   <style>
     :root { color-scheme: dark; }
     html, body { background: #1f2228; color: #f3f4f6; margin: 0; min-height: 100%; }
-    body { font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    body { font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif; }
     #root { min-height: 100vh; }
     .boot-skel { display: flex; flex-direction: column; min-height: 100vh; }
     .boot-skel-nav { height: 56px; border-bottom: 1px solid #2a2d34; display: flex; align-items: center; padding: 0 24px; gap: 14px; }
