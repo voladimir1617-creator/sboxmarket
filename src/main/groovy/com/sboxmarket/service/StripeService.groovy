@@ -196,15 +196,29 @@ class StripeService {
         // the same 2dp value.
         amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
 
-        def wallet = walletRepository.findById(walletId)
+        // PESSIMISTIC_WRITE lock on the wallet row. The cap check just below is
+        // read-then-act (sumDepositsSince → compare → the PENDING row that
+        // counts is only INSERTED later, after the Stripe round-trip), and the
+        // deposit path never SAVES the wallet, so the @Version that serializes
+        // withdrawals/purchases never fires here. Without this lock, N
+        // concurrent POST /api/wallet/deposit all read the same used24h and
+        // every one passes the cap — letting ~20 parallel Checkout sessions
+        // (RateLimitFilter allows 20 writes/10s and is a counter, not a lock)
+        // blow a $5k/24h cap to ~$190k: exactly the card-testing / stolen-card
+        // drain the cap exists to stop. The lock serializes deposit-session
+        // creation per wallet — caller #2 blocks here until #1 commits its
+        // PENDING row, then reads a used24h that includes it. Per-wallet, so
+        // distinct users never contend; deposits are low-frequency, so holding
+        // the row lock across the Stripe call is an acceptable trade for a
+        // correct fraud cap.
+        def wallet = walletRepository.findByIdForUpdate(walletId)
                 .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
 
-        // Rolling 24-hour deposit cap (batch 497). Sums every DEPOSIT
-        // row that either already credited the wallet (COMPLETED), is
-        // currently in-flight (PENDING), or is under dispute (DISPUTED)
-        // — so an attacker can't bypass the cap by queuing many
-        // parallel Checkout sessions. Rejects with DEPOSIT_DAILY_CAP
-        // and a clear message naming the remaining amount.
+        // Rolling 24-hour deposit cap (batch 497). Sums every DEPOSIT row that
+        // already credited the wallet (COMPLETED), is in-flight (PENDING), or
+        // is under dispute (DISPUTED). Combined with the wallet lock above,
+        // parallel Checkout sessions can no longer race past it. Rejects with
+        // DEPOSIT_DAILY_CAP and a clear message naming the remaining amount.
         def since = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
         def used24h = transactionRepository.sumDepositsSince(walletId, since) ?: BigDecimal.ZERO
         def remaining = (dailyDepositCap ?: BigDecimal.ZERO) - used24h

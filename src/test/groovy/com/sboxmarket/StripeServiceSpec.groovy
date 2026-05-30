@@ -126,6 +126,33 @@ class StripeServiceSpec extends Specification {
         saved.amount == new BigDecimal("51.00")
     }
 
+    // ── live-mode rolling deposit cap (concurrency lock) ──────────
+    def "createDepositSession reads the wallet via the PESSIMISTIC_WRITE lock so the rolling 24h cap can't be raced"() {
+        // Live mode skips the dev short-circuit and reaches the rolling-cap
+        // branch. Two guarantees this pins:
+        //  (a) the wallet is read via the LOCKING finder findByIdForUpdate —
+        //      NEVER the plain findById — so concurrent POST /api/wallet/deposit
+        //      serialize per wallet instead of all reading the same used24h and
+        //      blowing the $5k/24h cap to ~$190k (card-testing / stolen-card
+        //      drain). Revert to findById and `0 * findById` + `1 * findByIdForUpdate` both fail.
+        //  (b) DEPOSIT_DAILY_CAP is thrown BEFORE Session.create, so no Stripe
+        //      round-trip is needed and no PENDING row is written on rejection.
+        given:
+        service.secretKey = 'sk_live_abc123'             // isLive() == true
+        service.dailyDepositCap = new BigDecimal('5000')
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), username: 'vlad')
+
+        when: 'used 4999 of 5000 → $1 remaining, a $2 deposit is over the cap'
+        service.createDepositSession(500L, new BigDecimal('2.00'))
+
+        then:
+        1 * walletRepository.findByIdForUpdate(500L) >> Optional.of(wallet)
+        1 * transactionRepository.sumDepositsSince(500L, _) >> new BigDecimal('4999.00')
+        0 * walletRepository.findById(_)                 // the un-locked read must NOT be used
+        0 * transactionRepository.save(_)                // no PENDING row written on a capped reject
+        thrown(com.sboxmarket.exception.BadRequestException)
+    }
+
     // ── requestWithdrawal ─────────────────────────────────────────
 
     def "requestWithdrawal debits the wallet and records a COMPLETED tx in dev mode"() {
@@ -1006,7 +1033,9 @@ class StripeServiceSpec extends Specification {
         service.secretKey = 'sk_live_dedupe_test'
         service.dailyDepositCap = new BigDecimal('1000')   // leave plenty of headroom
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"))
-        walletRepository.findById(500L) >> Optional.of(wallet)
+        // Live path reads the wallet under the PESSIMISTIC_WRITE lock (deposit-cap
+        // race fix), so stub the locking finder, not the plain findById.
+        walletRepository.findByIdForUpdate(500L) >> Optional.of(wallet)
         // Daily cap not relevant — no prior deposits.
         transactionRepository.sumDepositsSince(_, _) >> BigDecimal.ZERO
 

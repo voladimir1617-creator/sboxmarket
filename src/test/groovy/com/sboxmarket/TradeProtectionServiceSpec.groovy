@@ -1168,6 +1168,7 @@ class TradeProtectionServiceSpec extends Specification {
             itemName: 'Wizard Hat', listingId: 100L)
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('70.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -1206,6 +1207,7 @@ class TradeProtectionServiceSpec extends Specification {
     def "reverseClaim is a no-op returning null when the trade has no protection"() {
         given:
         tradeProtectionRepository.findByTradeId(1L) >> null
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> null
 
         when:
         def result = service.reverseClaim(1L, 'Trade released as valid')
@@ -1222,6 +1224,7 @@ class TradeProtectionServiceSpec extends Specification {
         def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
             status: status, coverageAmount: new BigDecimal('50.00'))
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
 
         when:
         def result = service.reverseClaim(1L, 'Trade released as valid')
@@ -1244,6 +1247,7 @@ class TradeProtectionServiceSpec extends Specification {
         def trade  = tradeIn('VERIFIED', buyer: 10L, buyerWallet: 500L)
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('12.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -1272,6 +1276,7 @@ class TradeProtectionServiceSpec extends Specification {
             status: TradeProtection.CLAIMED, coverageAmount: new BigDecimal('50.00'))
         def trade = tradeIn('VERIFIED', buyer: 10L, buyerWallet: 500L)
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.empty()
         tradeProtectionRepository.save(_) >> { TradeProtection p -> p }

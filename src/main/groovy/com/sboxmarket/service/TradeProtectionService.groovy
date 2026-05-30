@@ -383,7 +383,14 @@ class TradeProtectionService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     TradeProtection reverseClaim(Long tradeId, String reason) {
-        def protection = tradeProtectionRepository.findByTradeId(tradeId)
+        // PESSIMISTIC_WRITE lock, mirroring autoClaim/lockAndExpireIfActiveOrReportClaimed.
+        // reverseClaim is check-then-act (read status == CLAIMED, then debit the
+        // buyer the coverageAmount). With a plain findByTradeId, two concurrent
+        // reversals (admin double-click on "release", or a manual release racing
+        // a sweeper path — each its own REQUIRES_NEW tx) both read CLAIMED, both
+        // pass the guard, and both claw back the cover → double debit. The row
+        // lock serializes them so the second observes status != CLAIMED and no-ops.
+        def protection = tradeProtectionRepository.findByTradeIdForUpdate(tradeId)
         if (protection == null) return null
         if (protection.status != TradeProtection.CLAIMED) return protection
         def trade = tradeRepository.findById(tradeId).orElse(null)
