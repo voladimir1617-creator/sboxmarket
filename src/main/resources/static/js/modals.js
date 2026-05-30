@@ -14867,11 +14867,12 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                     amt > 0 && h('div', { className: 'wallet-fee-breakdown' },
                       h('div', { className: 'wallet-fee-row' },
                         h('span', null, tab === 'deposit' ? 'Card charged' : 'Wallet debited'),
-                        h('strong', null, fmt(amt))
+                        // amt is the $-prefixed USD wallet input — literal USD, not fmt() (FX-converted). (wave-146)
+                        h('strong', null, '$' + amt.toFixed(2))
                       ),
                       h('div', { className: 'wallet-fee-row total' },
                         h('span', null, tab === 'deposit' ? 'Wallet credit' : 'Payout amount'),
-                        h('strong', { style: { color: 'var(--accent)' } }, fmt(amt))
+                        h('strong', { style: { color: 'var(--accent)' } }, '$' + amt.toFixed(2))
                       ),
                       // Batch 799 — concrete ETA date for withdrawals. "1-2
                       // business days" is abstract; showing an actual date
