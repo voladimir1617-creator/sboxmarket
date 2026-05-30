@@ -10117,12 +10117,16 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           }
         },
           h('div', { style: { color: 'var(--text-muted)' } }, isAuction ? 'Starting bid' : 'Listed price'),
-          h('div', { style: { color: 'var(--text-primary)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, fmt(p)),
+          // The asking-price field is labeled "(USD)", so p/fee/net are literal
+          // USD — render them with a fixed '$', NOT fmt() (which multiplies by
+          // the selected-currency FX rate and would show e.g. "€90.16" under a
+          // USD field, misleading a EUR seller about what they net). (wave-146)
+          h('div', { style: { color: 'var(--text-primary)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, '$' + p.toFixed(2)),
           h('div', { style: { color: 'var(--text-muted)' } }, 'Platform fee (2%)'),
-          h('div', { style: { color: 'var(--red)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, '−' + fmt(fee)),
+          h('div', { style: { color: 'var(--red)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, '−$' + fee.toFixed(2)),
           h('div', { style: { color: 'var(--text-muted)', fontWeight: 700 } },
             isAuction ? 'Minimum you\'ll receive' : "You'll receive"),
-          h('div', { style: { color: 'var(--accent)', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } }, fmt(net)),
+          h('div', { style: { color: 'var(--accent)', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } }, '$' + net.toFixed(2)),
           isAuction && h('div', {
             style: { gridColumn: '1 / -1', fontSize: 10, color: 'var(--text-muted)', marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 6 }
           },
