@@ -43,11 +43,14 @@ html { scroll-padding-top: calc(var(--nav-h, 56px) + 16px); }
   --accent-i:   oklch(0.17 0.008 260); /* ink-on-accent */
   --accent-hue: 90;
 
-  /* CSFloat-style blue — used sparingly for primary actions + live state */
-  --cta:        #3b82f6;
-  --cta-d:      #2563eb;
+  /* CSFloat blue — sampled live from csfloat.com (rgb(35,123,255) = #237bff)
+     for exact parity; ours was #3b82f6 (rgb 59,130,246), visibly less vivid.
+     CTA-only token (buttons / live LED / active underline), so no text-on-bg
+     contrast impact. --cta-d is a ~12%-darker hover shade. (wave-147 parity) */
+  --cta:        #237bff;
+  --cta-d:      #1668e6;
   --cta-ink:    #ffffff;
-  --cta-soft:   color-mix(in oklch, #3b82f6 14%, transparent);
+  --cta-soft:   color-mix(in oklch, #237bff 14%, transparent);
 
   /* --blue is the existing live/info/link token; alias to CTA blue so
      all accent-free surfaces still get a hint of brand color. */
