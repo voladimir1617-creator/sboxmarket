@@ -372,11 +372,20 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
      *  against the same deposit can't exceed the original amount —
      *  critical for legacy dev-mode (dev_*) deposits and any other path
      *  that doesn't ride Stripe's own over-refund protection. */
+    // Anchored match. The old trailing-'%' (`'%...#', :depositId, '%'`) over-
+    // counted: `#1` also matched `#10`, `#100`, … so sumRefundsByDeposit(1)
+    // folded in refunds of deposits 10/100/… The two stamped formats are
+    // "Refund of deposit #<id>" (id at end, StripeService:432) and
+    // "Refund of deposit #<id> (via Stripe Dashboard)" (id + space + text,
+    // :942), so match (ends-with-#id) OR (#id followed by a space). Neither
+    // matches #10 for depositId=1. (A real refundedDepositId FK is the proper
+    // long-term fix — see AUDIT-BACKLOG.md.)
     @Query("""
         SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
         WHERE t.type = 'REFUND'
           AND t.status = 'COMPLETED'
-          AND t.description LIKE CONCAT('%Refund of deposit #', :depositId, '%')
+          AND (t.description LIKE CONCAT('%Refund of deposit #', :depositId)
+               OR t.description LIKE CONCAT('%Refund of deposit #', :depositId, ' %'))
     """)
     BigDecimal sumRefundsByDeposit(@Param('depositId') Long depositId)
 }
