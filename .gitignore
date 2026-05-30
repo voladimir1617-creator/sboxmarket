@@ -1,21 +1,60 @@
-# Build / IDE
+# Build
 build/
-.gitignore~
+.gradle/
+out/
+*.class
+*.jar
+*.war
 
-# Cloudflared local tunnel log (created by `cloudflared tunnel run`)
-cloudflared.log
-cloudflared/
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
 
-# Local secrets — only the *.example is tracked; the real env file never is
-deploy/skinbox.env
+# Runtime data
+data/
+*.db
+*.mv.db
+*.trace.db
+logs/
 
-# Editor / patch backups
+# Local dev artefacts that should never be committed. boot.log is the
+# nohup target for bootRun; gradle.properties holds machine-local Gradle
+# JVM tuning; *.output / .tmp_* are leftover agent/test artefacts. Each
+# was actively dirtying `git status` and risked being accidentally
+# included in a bulk `git add .`.
+boot.log
+gradle.properties
+*.output
+.tmp_*
+
+# Editor / patch backups (e.g. WatchlistAlertService.groovy.orig)
 *.orig
 
-# Logs
-*.log
+# Environment / secrets — only the *.example is tracked, never the real env
+.env
+*.env
+.env.*
+deploy/skinbox.env
 
-# Screenshots + Playwright MCP artifacts (QA/design scratch, never committed)
-*.png
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node (if ever added)
+node_modules/
+
+# Docker
+docker-compose.override.yml
+
+# Claude memory (project-local, not committed)
+.claude/
 .playwright-mcp/
 **/.playwright-mcp/
+cycle*.png
+*.png
+cloudflared.log
+cloudflared/
