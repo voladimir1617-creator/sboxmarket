@@ -53,7 +53,8 @@ class CsrServiceSpec extends Specification {
         notificationService      : notificationService,
         textSanitizer            : textSanitizer,
         auditService             : auditService,
-        creditCapStr             : '25.00'
+        creditCapStr             : '25.00',
+        dailyCapStr              : '200.00'
     )
 
     def setup() {
@@ -276,7 +277,8 @@ class CsrServiceSpec extends Specification {
             supportMessageRepository: supportMessageRepository,
             notificationService: notificationService,
             textSanitizer: csrSanitizer,
-            creditCapStr: '25.00'
+            creditCapStr: '25.00',
+            dailyCapStr: '200.00'
         )
         steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
         supportTicketRepository.findById(1L) >> Optional.of(new SupportTicket(id: 1L, userId: 10L, status: 'WAITING_STAFF'))
@@ -481,6 +483,22 @@ class CsrServiceSpec extends Specification {
         0 * auditService.log(*_)
     }
 
+    def "issueGoodwillCredit refuses once the CSR's rolling 24h total would exceed the daily cap"() {
+        given: 'this CSR already issued $190 of goodwill in the last 24h (dailyCap = $200)'
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        transactionRepository.sumByTypeReferenceSince('ADJUSTMENT_CREDIT', 'csr_5', _) >> new BigDecimal('190.00')
+
+        when: 'a $25 credit (within the per-adjustment cap) would push the day to $215'
+        service.issueGoodwillCredit(5L, 10L, new BigDecimal('25'), 'one too many')
+
+        then: 'the per-CSR daily cap rejects it before any money moves — closes the compromised-CSR drain'
+        def e = thrown(BadRequestException)
+        e.code == 'CSR_DAILY_CAP'
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+        0 * auditService.log(*_)
+    }
+
     def "issueGoodwillCredit refuses an unknown target user"() {
         given:
         steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
@@ -539,7 +557,8 @@ class CsrServiceSpec extends Specification {
             supportMessageRepository: supportMessageRepository,
             notificationService: notificationService,
             textSanitizer: csrSanitizer,
-            creditCapStr: '25.00'
+            creditCapStr: '25.00',
+            dailyCapStr: '200.00'
         )
         steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
 

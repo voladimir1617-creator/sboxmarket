@@ -49,6 +49,12 @@ class CsrService {
 
     @Value('${csr.credit-cap:25.00}') String creditCapStr
 
+    /** Per-CSR cumulative goodwill cap over a rolling 24h window. The per-
+     *  adjustment cap (creditCapStr, $25) bounds ONE credit; without a daily
+     *  total a compromised/colluding CSR could loop issueGoodwillCredit
+     *  unbounded into a confederate wallet. Default $200/day per CSR. */
+    @Value('${csr.daily-cap:200.00}') String dailyCapStr
+
     @Autowired SteamUserRepository steamUserRepository
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
@@ -413,6 +419,23 @@ class CsrService {
         if (amount > cap) {
             throw new BadRequestException("OVER_CAP",
                 "CSR credit cap is \$${cap.toPlainString()} per adjustment — escalate to an admin for more")
+        }
+        // Rolling per-CSR 24h cumulative cap. The per-adjustment cap above bounds
+        // ONE credit; without this, a compromised or colluding CSR could loop
+        // issueGoodwillCredit unbounded ($25 × the 20/10s rate limit ≈ $180k/hr)
+        // into a confederate wallet — the drain the class docstring wrongly
+        // claims is already impossible. Sum this CSR's COMPLETED goodwill credits
+        // (keyed on the 'csr_<id>' stripeReference stamped on the row below) over
+        // the last 24h and reject once the day's total would exceed the cap.
+        // Best-effort vs. a concurrent burst (no per-CSR lock; the rate limiter
+        // bounds the burst) — it closes the sequential unbounded-loop drain.
+        def dailyCap = new BigDecimal(dailyCapStr)
+        def since = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
+        def used24h = transactionRepository.sumByTypeReferenceSince(
+            'ADJUSTMENT_CREDIT', "csr_${csrUserId}".toString(), since) ?: BigDecimal.ZERO
+        if (used24h + amount > dailyCap) {
+            throw new BadRequestException("CSR_DAILY_CAP",
+                "CSR daily goodwill cap is \$${dailyCap.toPlainString()} — \$${used24h.toPlainString()} already issued in the last 24h. Escalate to an admin.")
         }
         def cleanNote = textSanitizer.medium(note)
         if (!cleanNote || cleanNote.isEmpty()) {

@@ -29,6 +29,18 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
         @Param('since')  Long since
     )
 
+    /** Rolling-window SUM keyed on stripeReference — drives the per-CSR
+     *  cumulative goodwill-credit cap. Every issueGoodwillCredit writes
+     *  type='ADJUSTMENT_CREDIT', status='COMPLETED', stripeReference='csr_<id>',
+     *  so summing those rows for one csr ref over the last 24h bounds how much a
+     *  single (compromised/colluding) CSR can move per day. */
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.type = :type AND t.stripeReference = :ref AND t.status = 'COMPLETED' AND t.createdAt >= :since")
+    BigDecimal sumByTypeReferenceSince(
+        @Param('type') String type,
+        @Param('ref')  String ref,
+        @Param('since') Long since
+    )
+
     /** Same shape as `sumByTypeSinceCompleted` but bounded at both ends.
      *  Used by the admin dashboard 24h delta — compare last-24h vs the
      *  prior 24h window. One query per cell instead of loading rows. */
