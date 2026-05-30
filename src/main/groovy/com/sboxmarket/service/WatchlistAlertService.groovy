@@ -392,15 +392,35 @@ class WatchlistAlertService {
                     "Floor price reached \$${currentFloor.toPlainString()} (target \$${a.targetPrice.toPlainString()})",
                     a.itemId,
                     "/item/${a.itemId}")
-                try {
-                    if (emailService != null && emailService.canSendTo(user, 'WATCHLIST')
-                            && shouldSendEmail(a.userId)) {
-                        emailService.sendPriceDrop(user.email, user.displayName,
-                            name, currentFloor, a.targetPrice,
-                            "/item/${a.itemId}".toString())
+                // Defer the price-drop EMAIL to afterCommit. fireRow runs inside
+                // sweepForItem's REQUIRES_NEW tx; if that tx fails at commit, the
+                // ACTIVE→FIRED claim rolls back and the next sweep re-fires — but
+                // a synchronously-sent email has already left, so the user gets a
+                // duplicate (the per-pod 5-min dedup is racy at the sweep cadence).
+                // afterCommit sends only once the claim is durably committed. The
+                // bell push already defers this way; the email was the straggler.
+                // Inline fallback when no tx sync is active (unit specs) keeps the
+                // tested behaviour unchanged. a/name/currentFloor/user are stable
+                // within this fireRow call (separate stack frame per row), so the
+                // closure capture is safe. (wave-146 audit P2)
+                def sendEmail = {
+                    try {
+                        if (emailService != null && emailService.canSendTo(user, 'WATCHLIST')
+                                && shouldSendEmail(a.userId)) {
+                            emailService.sendPriceDrop(user.email, user.displayName,
+                                name, currentFloor, a.targetPrice,
+                                "/item/${a.itemId}".toString())
+                        }
+                    } catch (Exception inner) {
+                        log.warn("Price-drop email failed for user ${a.userId}: ${inner.message}")
                     }
-                } catch (Exception inner) {
-                    log.warn("Price-drop email failed for user ${a.userId}: ${inner.message}")
+                }
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override void afterCommit() { sendEmail() }
+                    })
+                } else {
+                    sendEmail()
                 }
             }
             return !userBanned
