@@ -82,7 +82,9 @@ export const fmtCompact = (n) => {
   const mRounded = Math.round(abs / 1e6 * 100) / 100; // M, 2dp
   if (mRounded >= 1) return sign + sym + mRounded.toFixed(2) + 'M';
   const kRounded = Math.round(abs / 1e3 * 10) / 10;   // K, 1dp
-  if (kRounded >= 1000) return sign + sym + (abs / 1e6).toFixed(2) + 'M';
+  // NOTE: no `kRounded >= 1000 → M` branch — it's unreachable. Any magnitude
+  // big enough for kRounded ≥ 1000 (abs ≳ 999_950) already makes mRounded ≥ 1
+  // and returned 'M' two lines up. (Dead branch removed — wave 146 audit.)
   if (kRounded >= 1) return sign + sym + kRounded.toFixed(1) + 'K';
   return fmt(n);
 };
