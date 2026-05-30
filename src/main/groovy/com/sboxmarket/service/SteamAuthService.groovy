@@ -31,6 +31,25 @@ class SteamAuthService {
     // Lazy to break the cycle: AdminService → SteamUserRepository → SteamAuthService
     @Autowired(required = false) @Lazy AdminService adminService
     @Autowired(required = false) NotificationService notificationService
+    // Optional so existing specs that construct the service directly aren't
+    // forced to wire it. When absent, sanitizeName falls back to a plain cap.
+    @Autowired(required = false) TextSanitizer textSanitizer
+
+    /**
+     * Sanitize a Steam-supplied display name once at the trust boundary.
+     * displayName is the most-reused user-influenced string in the app (OG
+     * tags, email subjects/bodies, CSV exports, notification payloads); every
+     * sink escapes it today, but sanitizing at the WRITE site means a future
+     * sink that forgets to escape inherits a safe value. Strips HTML / control
+     * chars via the shared sanitizer and caps at 64. Null/blank result (or a
+     * hostile name the sanitizer empties out) falls back to the stable
+     * `Player_<id6>` placeholder so the column is never blank.
+     */
+    private String sanitizeName(String raw, String steamId64) {
+        def cleaned = textSanitizer != null ? textSanitizer.cleanShort(raw) : raw
+        cleaned = (cleaned ?: '').trim().take(64)
+        cleaned ?: "Player_${steamId64.takeRight(6)}".toString()
+    }
 
     /** One-time-use guard for OpenID assertions (security QA P1).
      *  Steam's `check_authentication` endpoint returns `is_valid:true`
@@ -311,7 +330,7 @@ class SteamAuthService {
         def profile = fetchProfileWithRetry(steamId64)
 
         if (profile != null) {
-            if (profile.displayName) user.displayName = profile.displayName
+            if (profile.displayName) user.displayName = sanitizeName(profile.displayName as String, steamId64)
             if (profile.avatarUrl)   user.avatarUrl   = profile.avatarUrl
             if (profile.profileUrl)  user.profileUrl  = profile.profileUrl
             user = steamUserRepository.save(user)
