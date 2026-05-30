@@ -1629,7 +1629,7 @@ function AdminTradesTab() {
                     // decisions want a one-click path to the actual
                     // offer, not "search the seller's Steam offers
                     // inbox by date".
-                    r.tradeOfferUrl && h('a', {
+                    r.tradeOfferUrl && /^https:\/\/steamcommunity\.com\/tradeoffer\//.test(r.tradeOfferUrl) && h('a', {
                       href: r.tradeOfferUrl,
                       target: '_blank',
                       rel: 'noopener noreferrer',

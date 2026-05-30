@@ -7374,7 +7374,7 @@ function ProfileTradesTab({ me, privacy }) {
                   // that exact offer. Still render the generic inbox
                   // shortcut alongside so a buyer who can't open the
                   // direct link for any reason has a fallback.
-                  t.tradeOfferUrl && h('a', {
+                  t.tradeOfferUrl && /^https:\/\/steamcommunity\.com\/tradeoffer\//.test(t.tradeOfferUrl) && h('a', {
                     href: t.tradeOfferUrl,
                     target: '_blank',
                     rel: 'noopener noreferrer',
@@ -7887,7 +7887,7 @@ function ProfileTradesTab({ me, privacy }) {
           // the buyer open the exact offer in a new tab to verify the
           // items, trade partner, and amount before releasing escrow.
           // Hidden on legacy trades without a captured URL.
-          confirmTrade.tradeOfferUrl && h('div', { className: 'trade-confirm-row' },
+          confirmTrade.tradeOfferUrl && /^https:\/\/steamcommunity\.com\/tradeoffer\//.test(confirmTrade.tradeOfferUrl) && h('div', { className: 'trade-confirm-row' },
             h('span', { className: 'trade-confirm-k' }, 'Steam offer'),
             h('span', { className: 'trade-confirm-v', style: { display: 'flex', alignItems: 'center', gap: 8 } },
               h('a', {

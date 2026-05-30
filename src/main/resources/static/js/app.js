@@ -5104,7 +5104,14 @@ export function App() {
   // expectedPrice (optional) pins what the user saw in the modal / card so
   // the server can 400 PRICE_CHANGED if a seller raised the price mid-click
   // (batch 323). Callers pass the listing's .price; legacy callers still work.
+  const buyingRef = React.useRef(false);
   const handleBuy = async (listingId, expectedPrice) => {
+    // In-flight guard — a double-click (or a second Buy on the next-cheapest
+    // listing after a grid refresh) must not fire two purchase POSTs. A ref,
+    // not state, so the guard is synchronous and a rapid second click can't slip
+    // through before React processes a setState. (wave-146 audit)
+    if (buyingRef.current) return;
+    buyingRef.current = true;
     try {
       const res = await buyListing(listingId, expectedPrice);
       if (res && (res.code || res.error)) {
@@ -5152,6 +5159,8 @@ export function App() {
       load();
     } catch (e) {
       showToast('Purchase failed: ' + (e.message || 'unknown'), 'err');
+    } finally {
+      buyingRef.current = false;
     }
   };
 
