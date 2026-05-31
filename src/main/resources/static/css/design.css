@@ -11260,6 +11260,21 @@ body:has(.full-page-mode) { overflow: visible !important; }
   width: min(94vw, 1040px) !important;
   max-width: 1040px !important;
 }
+/* CART MODAL WIDTH — definitive fix (CART48-FIX marker).
+   The modal is a CENTERED grid item of .modal-backdrop (place-items:center), so
+   it sizes to its CONTENT — setting width on the modal alone does NOT widen it
+   (proven live: modal stayed 440px, items column a 48px sliver). Break the
+   circular sizing by giving the GRID a desktop min-width so the grid drives the
+   modal's content width. >=901px only; the earlier <=760px media query still
+   stacks single-column on phones, so no mobile overflow. */
+@media (min-width: 901px) {
+  .full-page-mode .info-modal:has(.cart-grid) .cart-grid {
+    min-width: 700px !important;
+    width: 100% !important;
+    grid-template-columns: minmax(0, 1fr) 320px !important;
+    gap: 28px !important;
+  }
+}
 /* Hide the X close button — a full page doesn't need one; the nav handles
    navigation back out. Also kill the backdrop-absolute positioning it had. */
 .full-page-mode .modal-close { display: none !important; }
