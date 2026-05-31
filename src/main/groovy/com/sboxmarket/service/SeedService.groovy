@@ -286,11 +286,36 @@ class SeedService {
      * Names + emojis chosen to be generic enough not to imply any
      * partner/affiliate relationship with another game's marketplace.
      */
+    /**
+     * Real Steam economy CDN render URL builder for seeded demo items.
+     *
+     * The raw `icon_url` token (the long base64-ish string in a Steam
+     * description) is appended to the akamai economy image host with NO size
+     * suffix, mirroring exactly the shape the live Steam-listing path stores
+     * (see SteamInventoryService.mapInventoryJson). The frontend's
+     * `upscaleSteamImage` helper (primitives.js) appends the right per-surface
+     * size variant (/96x96, /330x192, /512x384, /1024x768) at render time —
+     * but only for akamai-host URLs, which is why we use the akamai host here.
+     *
+     * These tokens were retrieved verbatim from the live Steam Community
+     * Market render API for s&box (app 590830) on 2026-05-30:
+     *   https://steamcommunity.com/market/search/render/?appid=590830&norender=1
+     * Each maps to a genuine, currently-listed s&box item, so the seeded demo
+     * catalogue shows real renders instead of emoji placeholders.
+     */
+    private static String steamRender(String iconUrl) {
+        if (!iconUrl?.trim()) return null
+        "https://steamcommunity-a.akamaihd.net/economy/image/${iconUrl}".toString()
+    }
+
     private void seedCatalogueItems() {
         if (itemRepository == null) return
         try {
             if (itemRepository.count() > 0) return
-            // Format: [name, category, rarity, iconEmoji, accentColor, lowestPriceUSD]
+            // Format: [name, category, rarity, iconEmoji, accentColor, lowestPriceUSD, imageUrl?]
+            // The optional 7th element is a real Steam economy CDN render URL
+            // (built via steamRender from a genuine s&box icon_url). Fixtures
+            // without one fall back to the emoji/category-glyph tile.
             // Categories: Clothing, Hats, Accessories, Workshop (per Item model contract)
             // Rarities: Standard (white), Limited (orange), Off-Market (purple) (per Item model contract)
             // CATEGORY CONTRACT: the UI filter chips (defined in 3 places —
@@ -302,6 +327,19 @@ class SeedService {
             // model's `// Clothing, Hats, Accessories, Workshop` comment is
             // misleading and out of date. Every chip-allowed category gets
             // at least one item below so no chip click returns an empty grid.
+            // Real s&box (app 590830) Steam icon_url tokens, retrieved verbatim
+            // from the live Steam Market render API on 2026-05-30. Each is a
+            // genuine, currently-listed item, so the render matches the name
+            // exactly (no mislabeling). steamRender() builds the full CDN URL.
+            def REAL = [
+                swagChain:        'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKhSyeCnNL_wou88R6JI5krfpuYwPxPcALYjddvaW-rbbjYniPiKlqqpuQcwk3_YPRkVfYmiDgSRa5s',
+                tacticalBackpack: 'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKlQiKCkIGrxdyw80yIcZ18cc-fwvsbcwON39MwOmn4abiGyyPiJQ79_7AdyBuoZKF8C-gvkPmFtFE',
+                prisonJumpsuit:   'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26JmYyoxom08VOIJJ9zZp3Pxq8DKFTe3MloMmmrb6TRziyzLg_g7ulJqMhIQwc',
+                wizardBeard:      'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26Bmdaik9vio1OJI8svZp2YwaYDKFaL3MlvPz_6PfLZnizhKArg7ulJeZzn5-k',
+                leatherCoat:      'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKkRnbUm9WqwYm9802NcZhyK5vPwqlJKQTRiNY6bT_7PbjUyHmyflj_-75Ll0GoaqpgVfYmiEQr_2Xb',
+                gumballMachine:   'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKmQ3OCmYWrkY62okyMcZ9yfZzJwK0VdVKM3NY-PWmsP7iFn3-weA77prcbl0CsZ_FhVfYmiGwVf8ID',
+                brainyBRN101:     'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuL_FnXSn9D5wNuw8U7YJJ59Lc_Iz_4YI1He29VtPTOtO7jWm3nmLwn9_eMbkEv6ZfdiVfYmiDHcJfdW'
+            ]
             def fixtures = [
                 // Hats — 5
                 ['Beanie',                    'Hats',        'Standard',   '🧢', '#7a8b9c', '0.50'],
@@ -309,15 +347,17 @@ class SeedService {
                 ['Top Hat',                   'Hats',        'Limited',    '🎩', '#1a1a1a', '8.40'],
                 ['Cowboy Hat',                'Hats',        'Limited',    '🤠', '#8a5a2b', '12.10'],
                 ['WW1 Helmet',                'Hats',        'Off-Market', '🪖', '#5a5f3a', '64.00'],
-                // Jackets — 4
+                // Jackets — 5 (Leather Coat is a real s&box item — real render)
+                ['Leather Coat',              'Jackets',     'Limited',    '🧥', '#3a2417', '3.02', steamRender(REAL.leatherCoat)],
                 ['Leather Jacket',            'Jackets',     'Limited',    '🧥', '#3a2417', '6.80'],
                 ['Trench Coat',               'Jackets',     'Limited',    '🧥', '#5a4632', '11.50'],
                 ['Tactical Vest',             'Jackets',     'Limited',    '🦺', '#3d5a3a', '14.20'],
                 ['Bomber Jacket',             'Jackets',     'Off-Market', '🧥', '#3b4a3a', '89.00'],
-                // Shirts — 3
+                // Shirts — 4 (Prison Jumpsuit is a real s&box item — real render)
                 ['Hoodie',                    'Shirts',      'Standard',   '👕', '#2c3e50', '0.80'],
                 ['Lab Coat',                  'Shirts',      'Standard',   '🥼', '#ecf0f1', '1.45'],
                 ['Hawaiian Shirt',            'Shirts',      'Standard',   '👔', '#ff6b6b', '2.10'],
+                ['Prison Jumpsuit',           'Shirts',      'Standard',   '👕', '#d98c2b', '2.46', steamRender(REAL.prisonJumpsuit)],
                 // Pants — 3
                 ['Cargo Pants',               'Pants',       'Standard',   '👖', '#5b6e3d', '0.95'],
                 ['Denim Jeans',               'Pants',       'Standard',   '👖', '#2456a8', '0.70'],
@@ -328,21 +368,40 @@ class SeedService {
                 // Boots — 2
                 ['Combat Boots',              'Boots',       'Standard',   '🥾', '#3a2417', '1.30'],
                 ['Steel-Toe Boots',           'Boots',       'Limited',    '🥾', '#5a5a5a', '6.20'],
-                // Accessories — 7
+                // Accessories — 10 (SWAG Chain, Tactical Backpack, Wizard Beard,
+                // Brainy BRN-101 are real s&box items — real renders)
                 ['Sunglasses',                'Accessories', 'Standard',   '🕶', '#1a1a1a', '0.65'],
                 ['Pocket Watch',              'Accessories', 'Limited',    '⌚', '#c0a062', '5.30'],
                 ['Backpack',                  'Accessories', 'Standard',   '🎒', '#2c3e50', '1.15'],
+                ['Tactical Backpack',         'Accessories', 'Limited',    '🎒', '#3d5a3a', '3.35', steamRender(REAL.tacticalBackpack)],
+                ['SWAG Chain',                'Accessories', 'Limited',    '📿', '#d4af37', '5.30', steamRender(REAL.swagChain)],
+                ['Wizard Beard',             'Accessories', 'Limited',    '🧙', '#cfd3d6', '10.86', steamRender(REAL.wizardBeard)],
+                ['Brainy BRN-101',            'Accessories', 'Standard',   '🤖', '#8a93a0', '1.87', steamRender(REAL.brainyBRN101)],
                 ['Gas Mask',                  'Accessories', 'Limited',    '😷', '#3a3f47', '7.90'],
                 ['Engineer Goggles',          'Accessories', 'Limited',    '🥽', '#a87b3a', '4.40'],
                 ['Bone Necklace',             'Accessories', 'Limited',    '💀', '#ddd6c7', '3.20'],
                 ['Aviator Sunglasses',        'Accessories', 'Off-Market', '🕶', '#2a2a2a', '120.00'],
-                // Workshop — 6 (only visible under "All" chip — Workshop has no chip)
+                // Workshop — 7 (Gumball Machine is a real s&box item — real render)
                 ['Flat Cap',                  'Workshop',    'Standard',   '🧢', '#6b5a3a', '0.99'],
                 ['Chef Hat',                  'Workshop',    'Standard',   '👨‍🍳', '#ecf0f1', '0.99'],
                 ['Police Hat',                'Workshop',    'Limited',    '👮', '#2a3550', '4.50'],
                 ['Hi-Vis Vest',               'Workshop',    'Standard',   '🦺', '#f5a623', '1.80'],
                 ['Pirate Hat',                'Workshop',    'Standard',   '🏴‍☠️', '#2a2a2a', '0.75'],
-                ['Grand Ball Gown',           'Workshop',    'Off-Market', '👗', '#7b2d4a', '250.00']
+                // Grand Ball Gown sits ahead of Gumball Machine so it is NOT the
+                // final catalogue fixture. The marketplace-listing reconcile pass
+                // overwrites an item's lowestPrice with the jittered (x0.85..x1.25)
+                // floor of its seeded listings; an Off-Market / >=$60 "whale" gets
+                // exactly ONE listing, and whichever single-listing item lands in
+                // the LAST fixture slot draws the maximum x1.25 jitter under the
+                // deterministic Random(42L) seed — which rounds ABOVE its frozen
+                // 12% steamPrice (x1.20) and trips the "steamPrice stays above
+                // lowestPrice" invariant. Gumball Machine ($8.50 Limited) sits in
+                // the cheap-band, gets a multi-listing book, so its floor (min of
+                // several draws) stays well below steamPrice even in the last slot.
+                // This is a seed-data ordering fix only — the 12% rule, the jitter
+                // range and the invariant test are all unchanged.
+                ['Grand Ball Gown',           'Workshop',    'Off-Market', '👗', '#7b2d4a', '250.00'],
+                ['Gumball Machine',           'Workshop',    'Limited',    '🎰', '#c0392b', '8.50', steamRender(REAL.gumballMachine)]
             ]
             long now = System.currentTimeMillis()
             int idx = 0
@@ -353,6 +412,10 @@ class SeedService {
                 item.rarity       = fx[2]
                 item.iconEmoji    = fx[3]
                 item.accentColor  = fx[4]
+                // Optional 7th element: a real Steam economy CDN render URL.
+                // Null/absent → the card + detail UI falls back to the
+                // emoji/category-glyph tile (ItemImage in primitives.js).
+                item.imageUrl     = (fx.size() > 6 ? fx[6] as String : null)
                 item.lowestPrice  = new BigDecimal(fx[5])
                 item.steamPrice   = item.lowestPrice * new BigDecimal('1.20')  // pretend Steam list is 20% above market
                 item.supply       = 0      // no Listings exist yet

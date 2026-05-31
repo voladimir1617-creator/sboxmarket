@@ -444,6 +444,32 @@ class SteamInventoryControllerSpec extends Specification {
         resp.body.listingType == 'BUY_NOW'
     }
 
+    def "list persists the Steam item's real render URL onto the auto-created catalogue item"() {
+        // The Steam-listing path is where REAL renders enter the catalogue:
+        // listFromSteam copies the inventory row's iconUrl (already a full
+        // Steam economy CDN URL from SteamInventoryService.mapInventoryJson)
+        // onto the new Item.imageUrl so the card + detail view show the genuine
+        // render instead of the emoji fallback. Without this the field would be
+        // null and every freshly-listed Steam item would fall back to a glyph.
+        given:
+        def cdnUrl = 'https://steamcommunity-a.akamaihd.net/economy/image/tok_abc/330x192'
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+                .tap { it.iconUrl = cdnUrl; it.imageUrl = cdnUrl }
+        ]
+        steamInventoryService.inferCategory(_) >> 'Hats'
+        itemRepository.findByNameIgnoreCase('Wizard Hat') >> null
+        listingService.createListing(_) >> { args -> args[0].tap { it.id = 7011L } }
+
+        when:
+        def resp = controller.listFromSteam([assetId: '1001', price: '9.99'], req)
+
+        then: "the auto-created Item carries the Steam render URL as its imageUrl"
+        1 * itemRepository.save({ it.name == 'Wizard Hat' && it.imageUrl == cdnUrl }) >> { args -> args[0].tap { it.id = 90L } }
+        resp.statusCode.value() == 200
+        resp.body.itemId == 90L
+    }
+
     def "list reuses an existing catalogue item rather than creating a duplicate"() {
         given:
         def existing = new Item(id: 12L, name: 'Wizard Hat', category: 'Hats', rarity: 'Standard')

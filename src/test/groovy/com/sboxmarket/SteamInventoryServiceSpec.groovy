@@ -234,4 +234,63 @@ class SteamInventoryServiceSpec extends Specification {
         service.inferCategory([name: 'WIZARD HAT', type: '']) == 'Hats'
         service.inferCategory([name: '', type: 'PUFFY JACKET']) == 'Jackets'
     }
+
+    // ── real-render image URL (mapInventoryJson) ──────────────────
+
+    def "mapInventoryJson builds a real Steam economy CDN image URL the listing path persists"() {
+        // SteamInventoryController.listFromSteam / listBulkFromSteam copy this
+        // row's `iconUrl` straight onto the auto-created Item.imageUrl, so the
+        // exact CDN host + path here is the contract the real-listing render
+        // depends on. Pin it so a host refactor can't silently break listings.
+        given:
+        def json = [
+            assets: [[assetid: '9', classid: '77', instanceid: '0']],
+            descriptions: [[classid: '77', instanceid: '0', name: 'SWAG Chain',
+                            icon_url: 'tok_real_123', tradable: 1, marketable: 1]]
+        ]
+
+        when:
+        def rows = service.mapInventoryJson(json, '765')
+
+        then:
+        rows.size() == 1
+        rows[0].imageUrl == 'https://steamcommunity-a.akamaihd.net/economy/image/tok_real_123/330x192'
+        // iconUrl is the field the controller reads when persisting Item.imageUrl
+        rows[0].iconUrl == rows[0].imageUrl
+        rows[0].imageUrl instanceof String   // plain String, never a GStringImpl
+    }
+
+    def "mapInventoryJson prefers icon_url_large when present"() {
+        given:
+        def json = [
+            assets: [[assetid: '9', classid: '77', instanceid: '0']],
+            descriptions: [[classid: '77', instanceid: '0', name: 'Wizard Beard',
+                            icon_url: 'small_tok', icon_url_large: 'large_tok', tradable: 1]]
+        ]
+
+        when:
+        def rows = service.mapInventoryJson(json, '765')
+
+        then:
+        rows[0].imageUrl == 'https://steamcommunity-a.akamaihd.net/economy/image/large_tok/330x192'
+    }
+
+    def "mapInventoryJson leaves iconUrl/imageUrl null when the description carries no icon (graceful fallback)"() {
+        // No icon_url / icon_url_large -> the listing path stores a null
+        // imageUrl so the item degrades to the emoji/glyph tile, never a
+        // broken image.
+        given:
+        def json = [
+            assets: [[assetid: '1', classid: '5', instanceid: '0']],
+            descriptions: [[classid: '5', instanceid: '0', name: 'No Icon Item', tradable: 1]]
+        ]
+
+        when:
+        def rows = service.mapInventoryJson(json, '765')
+
+        then:
+        rows.size() == 1
+        rows[0].iconUrl == null
+        rows[0].imageUrl == null
+    }
 }

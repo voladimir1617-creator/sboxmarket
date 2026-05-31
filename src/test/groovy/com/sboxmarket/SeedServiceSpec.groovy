@@ -239,7 +239,7 @@ class SeedServiceSpec extends Specification {
         service.seed()
 
         then:
-        saved.size() == 32
+        saved.size() == 39
         saved.every { it.lowestPrice != null && it.lowestPrice.scale() == 2 }
         saved.every { it.lowestPrice > BigDecimal.ZERO }
         saved.every { it.rarity in ['Standard', 'Limited', 'Off-Market'] }
@@ -247,6 +247,42 @@ class SeedServiceSpec extends Specification {
         ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'].every { cat ->
             saved.any { it.category == cat }
         }
+    }
+
+    def "seeded catalogue attaches real Steam CDN renders to known s&box items and leaves the rest on the emoji fallback"() {
+        given:
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 0L          // empty -> catalogue seed fires
+        listingRepository.count() >> 0L
+        listingRepository.findActiveOrderByNewest() >> []
+        listingRepository.countAllSold() >> 0L
+        loadoutRepository.findAll() >> []
+        List<Item> saved = []
+        itemRepository.save(_) >> { Item it ->
+            if (it.id == null) it.id = (saved.size() + 1L)
+            if (!saved.contains(it)) saved << it
+            it
+        }
+        itemRepository.findAll() >> { saved }
+
+        when:
+        service.seed()
+
+        then: "the seven real s&box items carry a genuine Steam economy CDN render URL"
+        def withImage = saved.findAll { it.imageUrl != null }
+        withImage.size() == 7
+        withImage*.name as Set == [
+            'Leather Coat', 'Prison Jumpsuit', 'Tactical Backpack',
+            'SWAG Chain', 'Wizard Beard', 'Brainy BRN-101', 'Gumball Machine'
+        ] as Set
+        and: "every seeded image URL is a real Steam economy CDN URL (no fabricated/broken host)"
+        withImage.every {
+            it.imageUrl.startsWith('https://steamcommunity-a.akamaihd.net/economy/image/') &&
+            it.imageUrl.length() > 'https://steamcommunity-a.akamaihd.net/economy/image/'.length() + 20
+        }
+        and: "the remaining demo items degrade gracefully to the emoji/glyph fallback (no broken images)"
+        saved.findAll { it.imageUrl == null }.size() == saved.size() - 7
+        saved.findAll { it.imageUrl == null }.every { it.iconEmoji != null && !it.iconEmoji.isEmpty() }
     }
 
     def "seeded catalogue steamPrice stays a positive BigDecimal above lowestPrice"() {
