@@ -198568,3 +198568,89 @@ body .toolbar .view-btns button.active {
   color: rgb(255, 255, 255) !important;
 }
 /* end ship #1500 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #200000 — NAV + FOOTER final parity sweep.
+   Authoritative, last-wins block. Re-measured live against the csfloat
+   spec (header 70px, nav links 14px Roboto, active + "Database" in
+   accent blue rgb(35,123,255); footer columns muted rgb(158,167,177)
+   to white on hover, small uppercase section headers). Corrects:
+     1. nav-link font-size 15px -> 14px.
+     2. active link rgb(30,144,255) -> rgb(35,123,255).
+     3. "Database" route link neutral gray -> accent blue always.
+     4. footer column links (.65 white / blue) -> rgb(158,167,177),
+        white on hover (no blue).
+     5. footer section headers 14px/no-transform -> small uppercase.
+     6. steam Sign-in + nav icon/currency chips 8px -> 4px radii.
+   ===================================================================== */
+nav.nav .nav-link,
+.nav > .nav-links > .nav-link,
+.nav-inner > .nav-links > .nav-link {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+nav.nav .nav-link.active,
+nav.nav .nav-link[aria-current="page"],
+.nav > .nav-links > .nav-link.active,
+.nav > .nav-links > .nav-link[aria-current="page"] {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 500 !important;
+}
+nav.nav .nav-link.active:hover,
+nav.nav .nav-link[aria-current="page"]:hover {
+  color: rgb(35, 123, 255) !important;
+}
+nav.nav .nav-link[href$="/db"],
+nav.nav .nav-link[href$="/database"],
+nav.nav .nav-link[href*="/database"] {
+  color: rgb(35, 123, 255) !important;
+}
+nav.nav .nav-link[href$="/db"]:hover,
+nav.nav .nav-link[href$="/database"]:hover,
+nav.nav .nav-link[href*="/database"]:hover {
+  color: rgb(78, 150, 255) !important;
+}
+nav.nav .steam-btn,
+button.steam-btn,
+html body nav.nav .steam-btn {
+  border-radius: 4px !important;
+}
+nav.nav .nav-icon-btn {
+  border-radius: 4px !important;
+}
+nav.nav .nav-picker-chip {
+  border-radius: 4px !important;
+}
+html body footer.site-footer .site-footer-col a,
+html body footer.site-footer .site-footer-meta a,
+html body footer.site-footer a[href] {
+  color: rgb(158, 167, 177) !important;
+  font-size: 13px !important;
+}
+html body footer.site-footer .site-footer-col a:hover,
+html body footer.site-footer .site-footer-col a:focus-visible,
+html body footer.site-footer .site-footer-meta a:hover,
+html body footer.site-footer .site-footer-meta a:focus-visible {
+  color: rgb(255, 255, 255) !important;
+  text-decoration: none !important;
+}
+html body footer.site-footer .site-footer-title {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+}
+
+/* (7) nav bottom hairline — csfloat ships a subtle rgba(255,255,255,.06)
+   bottom border on the toolbar. An earlier `nav.nav, .nav { border: 0 }`
+   reset wiped sboxmarket's, leaving the header edge-less. Restore the
+   csfloat hairline; last-wins source order + matching specificity beats
+   the reset. Keep the other three sides borderless (border: 0 + only a
+   bottom edge). */
+html body nav.nav,
+nav.nav,
+.nav {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #200000 */
