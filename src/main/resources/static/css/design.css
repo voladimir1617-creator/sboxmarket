@@ -11247,8 +11247,18 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .full-page-mode .info-modal:has(.admin-shell),
 .full-page-mode .info-modal:has(.csr-shell),
 .full-page-mode .info-modal:has(.cart-grid) {
-  width: min(100%, 1600px) !important;
-  max-width: 1600px !important;
+  /* Was width: min(100%, 1600px) — the `100%` resolved against the
+     place-items:center modal-backdrop grid, which sizes this modal to its
+     CONTENT. The cart-grid's first column is minmax(0,1fr) (zero intrinsic
+     width), so the content collapsed to just the 320px summary + padding
+     (~440px), crushing the items column to a ~48px sliver where only
+     thumbnails + the × showed (names/prices/seller clipped). A viewport-
+     relative width can't collapse to content, so the 2-column cart gets
+     real room. 1040px caps it on wide screens so it stays a centered sheet
+     rather than sprawling; 94vw clamps before the .cart-grid media query
+     stacks it single-column at <=760px. */
+  width: min(94vw, 1040px) !important;
+  max-width: 1040px !important;
 }
 /* Hide the X close button — a full page doesn't need one; the nav handles
    navigation back out. Also kill the backdrop-absolute positioning it had. */
