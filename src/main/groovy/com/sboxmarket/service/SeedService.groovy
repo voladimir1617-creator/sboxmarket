@@ -328,65 +328,123 @@ class SeedService {
             // misleading and out of date. Every chip-allowed category gets
             // at least one item below so no chip click returns an empty grid.
             // Real s&box (app 590830) Steam icon_url tokens, retrieved verbatim
-            // from the live Steam Market render API on 2026-05-30. Each is a
-            // genuine, currently-listed item, so the render matches the name
-            // exactly (no mislabeling). steamRender() builds the full CDN URL.
+            // from the live Steam Market render API on 2026-05-31:
+            //   https://steamcommunity.com/market/search/render/?appid=590830&norender=1&count=10&start=0..90
+            // (the render endpoint hard-caps pagesize at 10, so the full
+            // catalogue is paged in 10-item windows). Every token below was
+            // confirmed identical across TWO+ independent fetches keyed by item
+            // NAME — the endpoint shuffles result ORDER per request, but a given
+            // item's icon_url is stable, so none of these are fabricated. Each
+            // maps to a genuine, currently-listed s&box item and the seeded
+            // item's NAME matches the render exactly (no mislabeling).
+            // steamRender() builds the full CDN URL.
             def REAL = [
-                swagChain:        'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKhSyeCnNL_wou88R6JI5krfpuYwPxPcALYjddvaW-rbbjYniPiKlqqpuQcwk3_YPRkVfYmiDgSRa5s',
-                tacticalBackpack: 'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKlQiKCkIGrxdyw80yIcZ18cc-fwvsbcwON39MwOmn4abiGyyPiJQ79_7AdyBuoZKF8C-gvkPmFtFE',
-                prisonJumpsuit:   'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26JmYyoxom08VOIJJ9zZp3Pxq8DKFTe3MloMmmrb6TRziyzLg_g7ulJqMhIQwc',
-                wizardBeard:      'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26Bmdaik9vio1OJI8svZp2YwaYDKFaL3MlvPz_6PfLZnizhKArg7ulJeZzn5-k',
-                leatherCoat:      'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKkRnbUm9WqwYm9802NcZhyK5vPwqlJKQTRiNY6bT_7PbjUyHmyflj_-75Ll0GoaqpgVfYmiEQr_2Xb',
-                gumballMachine:   'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKmQ3OCmYWrkY62okyMcZ9yfZzJwK0VdVKM3NY-PWmsP7iFn3-weA77prcbl0CsZ_FhVfYmiGwVf8ID',
-                brainyBRN101:     'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuL_FnXSn9D5wNuw8U7YJJ59Lc_Iz_4YI1He29VtPTOtO7jWm3nmLwn9_eMbkEv6ZfdiVfYmiDHcJfdW'
+                // Hats / head
+                shortPartedHair:    'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKmSneHmoyowIiy9kXcJpl6f8uTlKsfIl6L2dM8bm-tObiGkiLlKlyo_-YYyE31NatmVfYmiNVee5B-',
+                fauxHawkHair:       'ev_QInFv2QSGCJrUcil4gJtKJmCk-Cn8TKijASrZ2cT-1pDsoRXMcNgrIM3Ml-pUeQae0cl9Y370abmGzyznJQ3-r6oWk0CrfqZhHeNljUkzKnOaX7le4YIt4ExqooBXTQUH7rZByJo',
+                fishermanCap:       'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26JyoKswIrl-VOLds4oZp3OxPsDKAHdj8k-bTqqPK6Cmn6wf17g7ulJKUmXpQc',
+                wizardHat:          'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26JnNatlorh-FOKKpkoZp2Yx_4DKQHYjMloPzv4OvDUnX7pLA7g7ulJaQVeuM8',
+                ww1Helmet:          'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG27TnNf_wIqy9lOJI8x5Zp3MlKkDKFON38lsOD6ubaGBziLoJFrg7ulJttu8nYM',
+                // Jackets / outerwear
+                leatherCoat:        'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKkRnbUm9WqwYm9802NcZhyK5vPwqlJKQTRiNY6bT_7PbjUyHmyflj_-75Ll0GoaqpgVfYmiEQr_2Xb',
+                lunarJacket2026:    'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKkF3SCkYX6ldy1ohmKIMh5fMvOkKlJKFfdjN8-bm6qM7jXmCziJF6oruUZkhn0YfAzVfYmiN05E2AZ',
+                wizardGown:         'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG27RytH9x9uw-VOGdM4oZp2fxK0DcATdiMk-OWqhaq_QnHzmKgng7ulJwK-6TyU',
+                halloweenHoodie:    'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuL2FCOJkNCpnIjn9ESGc8gvLZydkK9OKFaNgtE9M27_OLjUzinjLl2v--Edwk78N6Y3VfYmiH21OkW6',
+                santaJacket2024:    'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26HkdKjk4a2o1PfIp4sZp2bxaYDcwSKiMk4Ojj7aKCEzC_nLQrg7ulJZ0-d3Qg',
+                // Shirts / tops
+                theLovingLook:      'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuL-QXaFzYSix4bg8B7cKs5yfprPxq9KcAbfjtE7Om-sP7jVny3oJVz_prEWkxz8MPZmVfYmiDLjEPCO',
+                vintageCropTop:     'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG27Sy4yuxYvn8FPcd8l6Zp2dw68DcAWN2Mk-OGiqM_DRnn61JV7g7ulJKkuXc3A',
+                crossbodyBagShirt:  'ev_QInFv2QSGCJrUcil4gJtKJmCk-Cn8UrikGTLHxsbw19frsFPdYMU5OsvFkuZOcACdyY5geX_vbuSTw3W_aBuhsfNGhBWvfPM3SbR93BszNTydBLhB5YEv5VM1rNEaEFkDUtHmhN1N_S_3JFw3v6lPRxIcmg',
+                prisonJumpsuit:     'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26JmYyoxom08VOIJJ9zZp3Pxq8DKFTe3MloMmmrb6TRziyzLg_g7ulJqMhIQwc',
+                // Pants / trousers
+                mobBossTrousers:    'ev_QInFv2QSGCJrUcil4gJtKJmCk-Cn8UrikGTLHxsbw19frsFPTfcgoJtrZhv5CZRTGzo58Zmm2baGDmnzoKFvjqrAelVX5MqZgVuQt20gufG2aUbpd49d-sBs7usUXWk1A0seS',
+                lunarTrousers2026:  'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuLyRSXTkYSsxdm9oxncJs99KJuexqsdIlOM3NQ8O2ihObjRz3mwfQmr-LIckkuvZaBmVfYmiD4o9mKp',
+                // Gloves
+                scientistGloves:    'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuL1QnLTm4KswY_m9RmIKsh9LciZkKceKV-MjdJtaG6uM7iEnH-3egr3-LRLlUz0a6dkVfYmiFXz5pWI',
+                pinkScientistGloves:'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKiRXSIn4H_lYm09h6Nc5opfcicwfkbJVeL3tBqOm-sOLiCyCrlfVX_rbIZwxyoMqVhVfYmiBy8ecGC',
+                // Boots / footwear
+                mobBossShoes:       'ev_QInFv2QSGCJrUcil4gJtKJmCk-Cn8UrikGTLHxsbw19frsFPTfcgoJtrZhfdDdBTGzo58Zmm2aq_SzCrhfVnj_bcfyVX5NqIwVr593EouKGvPUe9V49YusklvusUXWt2mFuD5',
+                bananaSlippers:     'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuL0R3PUy42jlIq08h-LK516fZiexKwUcgaNiNJraDqgPrjYzivhKwn2-7JMyB35NvZlVfYmiLbxO0R8',
+                // Accessories
+                blackModernWatch:   'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26ImoP5kY-w8FOHd54vZp3Mz_wDcF_f3sloaDihOK6BniO1fQng7ulJJwFfAHw',
+                surgicalFaceMask:   'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuLyEHXTkYGinNuzoh_bJZl-fJ6TwP4eKASIg9c4aDypPrjTmX_oKF76qrJNxkquZ_FmVfYmiOFECual',
+                bag:                'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKlQ3CGnNb4xd7moUSMIpx7Lc2awftIIFGKgtU6PTivOLjYminjLA74_ORNw0D1NaMxVfYmiLXZVcQC',
+                tacticalBackpack:   'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKlQiKCkIGrxdyw80yIcZ18cc-fwvsbcwON39MwOmn4abiGyyPiJQ79_7AdyBuoZKF8C-gvkPmFtFE',
+                goldEarrings:       'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuL_QCCDkYKvxoq29ESPc5soK5mYl_5KIwbc3tM4P277OrjVnS3iegqvrLIdwR2pYaozVfYmiPV-1cAb',
+                wizardBeard:        'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26Bmdaik9vio1OJI8svZp2YwaYDKFaL3MlvPz_6PfLZnizhKArg7ulJeZzn5-k',
+                brainyBRN101:       'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuL_FnXSn9D5wNuw8U7YJJ59Lc_Iz_4YI1He29VtPTOtO7jWm3nmLwn9_eMbkEv6ZfdiVfYmiDHcJfdW',
+                lunarMask2026:      'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKlRHfVzdX9lo619E2KJswoes2bkKwaI1KIioIxbT_6OLiFnH7pJQn-_L8Xwh75ZKZ8C-gvg1yCAK4',
+                safetyGlasses:      'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKgGSDWh8f6wtrwuRvSc9k5LNqFgvdZfAXHyohuJT-gOKaGzny1JQit-rAexBvRYtAiWg',
+                pirateHook:         'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuLxEXGFzIT-ltyzo0WIKp9yeMqTwvlKIl6KitRsO2mrMrjSyH_pKlmo-OEbxBr4MvQ3VfYmiHWyFrEi',
+                scientistRespirator:'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKjRXCGntL4ktvm8UmMJJIpcZHPlKpKKF7Zjt9oPTOuOrjTmH7nL1isrLdKyRn_N6NnVfYmiAgpzNZf',
+                // Workshop / misc
+                sportsBandage:      'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKhFHGByoL_l9zlpBqIIZ8vK5qYw68fI17ej949PT6gO7jSmXiwLV2oqbcakh74ZaZjVfYmiLYUxpBS',
+                chefHat:            'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG27SmYX9xojgpFOHcZl7Zp2alf4Dc1bYjMlrPzL8aqTVyCnifl3g7ulJaVpBhcQ',
+                policeHat:          'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26BmIyiwYm18FOGK5h8Zp3Okq8DcwaN3Mk9OmiqPK6Cni7nf1Tg7ulJmGM38lU',
+                loveHeartBoxers:    'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26EkNWvx9znolPaccsoZp3PzqwDKFLfick7OT-tPPWFyynmf1zg7ulJH8j1Qpw',
+                bandanaMask:        'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG26Gn4ajl9vipVONK5h4Zp2Zxq0DKAXbgslrPjKhbqSGnyzmJVrg7ulJsTTYA4o',
+                grandBallGown:      'ev_QInFv2QSGCJrUcil4gJtKJmC--iK8V6noG27WyI35x9u0pVPcK85yZp3Lk_0DcwWPjMk4bT38P6_Skyq0JF_g7ulJKCPX8aA',
+                gumballMachine:     'ev_QInFv2QSGCJrUcil4gJtKJmCq-T22QuKmQ3OCmYWrkY62okyMcZ9yfZzJwK0VdVKM3NY-PWmsP7iFn3-weA77prcbl0CsZ_FhVfYmiGwVf8ID'
             ]
+            // Every fixture below is a REAL s&box item whose name matches its
+            // attached Steam render (38 of 39 carry a real icon_url; only the
+            // one without a fetched render — Denim Jeans — falls back to the
+            // emoji tile). The
+            // per-slot rarity and price-BAND (Standard/Limited/Off-Market, and
+            // the <$2 / <$10 / <$60 / whale bands the listing seed keys its RNG
+            // off) are deliberately held identical to the prior fixture list so
+            // the deterministic Random(42L) draw sequence in
+            // seedMarketplaceListings() is byte-for-byte unchanged — which keeps
+            // the "steamPrice (x1.20) stays above the reconciled lowestPrice"
+            // invariant exactly as already verified. Renames swap the label/art,
+            // not the economic shape.
             def fixtures = [
-                // Hats — 5
-                ['Beanie',                    'Hats',        'Standard',   '🧢', '#7a8b9c', '0.50'],
-                ['Hard Hat',                  'Hats',        'Standard',   '⛑',  '#f5c116', '1.20'],
-                ['Top Hat',                   'Hats',        'Limited',    '🎩', '#1a1a1a', '8.40'],
-                ['Cowboy Hat',                'Hats',        'Limited',    '🤠', '#8a5a2b', '12.10'],
-                ['WW1 Helmet',                'Hats',        'Off-Market', '🪖', '#5a5f3a', '64.00'],
-                // Jackets — 5 (Leather Coat is a real s&box item — real render)
+                // Hats — 5 (all real renders)
+                ['Short Parted Hair',         'Hats',        'Standard',   '💇', '#7a8b9c', '0.60', steamRender(REAL.shortPartedHair)],
+                ['Faux hawk Hair',            'Hats',        'Standard',   '💇', '#5a4632', '1.40', steamRender(REAL.fauxHawkHair)],
+                ['Fisherman Cap',             'Hats',        'Limited',    '🧢', '#2a5a7a', '8.47', steamRender(REAL.fishermanCap)],
+                ['Wizard Hat',                'Hats',        'Limited',    '🧙', '#3a2a6a', '14.79', steamRender(REAL.wizardHat)],
+                ['WW1 Helmet',                'Hats',        'Off-Market', '🪖', '#5a5f3a', '64.00', steamRender(REAL.ww1Helmet)],
+                // Jackets — 5 (all real renders)
                 ['Leather Coat',              'Jackets',     'Limited',    '🧥', '#3a2417', '3.02', steamRender(REAL.leatherCoat)],
-                ['Leather Jacket',            'Jackets',     'Limited',    '🧥', '#3a2417', '6.80'],
-                ['Trench Coat',               'Jackets',     'Limited',    '🧥', '#5a4632', '11.50'],
-                ['Tactical Vest',             'Jackets',     'Limited',    '🦺', '#3d5a3a', '14.20'],
-                ['Bomber Jacket',             'Jackets',     'Off-Market', '🧥', '#3b4a3a', '89.00'],
-                // Shirts — 4 (Prison Jumpsuit is a real s&box item — real render)
-                ['Hoodie',                    'Shirts',      'Standard',   '👕', '#2c3e50', '0.80'],
-                ['Lab Coat',                  'Shirts',      'Standard',   '🥼', '#ecf0f1', '1.45'],
-                ['Hawaiian Shirt',            'Shirts',      'Standard',   '👔', '#ff6b6b', '2.10'],
+                ['Lunar Jacket 2026',         'Jackets',     'Limited',    '🧥', '#3a2417', '6.80', steamRender(REAL.lunarJacket2026)],
+                ['Wizard Gown',               'Jackets',     'Limited',    '🧙', '#5a4632', '16.75', steamRender(REAL.wizardGown)],
+                ['Halloween Hoodie 2025',     'Jackets',     'Limited',    '🎃', '#d4731a', '14.20', steamRender(REAL.halloweenHoodie)],
+                ['Santa 2024 Jacket',         'Jackets',     'Off-Market', '🎅', '#b22222', '89.00', steamRender(REAL.santaJacket2024)],
+                // Shirts — 4 (all real renders)
+                ['The Loving Look',           'Shirts',      'Standard',   '👕', '#d96b8c', '1.11', steamRender(REAL.theLovingLook)],
+                ['Vintage Design Crop Top',   'Shirts',      'Standard',   '👕', '#c0a062', '0.51', steamRender(REAL.vintageCropTop)],
+                ['Crossbody Bag Shirt',       'Shirts',      'Standard',   '👕', '#2c3e50', '2.45', steamRender(REAL.crossbodyBagShirt)],
                 ['Prison Jumpsuit',           'Shirts',      'Standard',   '👕', '#d98c2b', '2.46', steamRender(REAL.prisonJumpsuit)],
-                // Pants — 3
-                ['Cargo Pants',               'Pants',       'Standard',   '👖', '#5b6e3d', '0.95'],
+                // Pants — 3 (Denim Jeans has no fetched render — emoji fallback)
+                ['Mob Boss Pinstripe Trousers','Pants',      'Standard',   '👖', '#2a2a3a', '1.23', steamRender(REAL.mobBossTrousers)],
                 ['Denim Jeans',               'Pants',       'Standard',   '👖', '#2456a8', '0.70'],
-                ['Hazmat Trousers',           'Pants',       'Limited',    '👖', '#d4a72c', '4.80'],
-                // Gloves — 2
-                ['Wool Mittens',              'Gloves',      'Standard',   '🧤', '#a83d3d', '0.60'],
-                ['Tactical Gloves',           'Gloves',      'Limited',    '🧤', '#3a3f47', '5.40'],
-                // Boots — 2
-                ['Combat Boots',              'Boots',       'Standard',   '🥾', '#3a2417', '1.30'],
-                ['Steel-Toe Boots',           'Boots',       'Limited',    '🥾', '#5a5a5a', '6.20'],
-                // Accessories — 10 (SWAG Chain, Tactical Backpack, Wizard Beard,
-                // Brainy BRN-101 are real s&box items — real renders)
-                ['Sunglasses',                'Accessories', 'Standard',   '🕶', '#1a1a1a', '0.65'],
-                ['Pocket Watch',              'Accessories', 'Limited',    '⌚', '#c0a062', '5.30'],
-                ['Backpack',                  'Accessories', 'Standard',   '🎒', '#2c3e50', '1.15'],
+                ['Lunar Trousers 2026',       'Pants',       'Limited',    '👖', '#d4a72c', '4.80', steamRender(REAL.lunarTrousers2026)],
+                // Gloves — 2 (all real renders)
+                ['Scientist Gloves',          'Gloves',      'Standard',   '🧤', '#a83d3d', '1.19', steamRender(REAL.scientistGloves)],
+                ['Pink Scientist Gloves',     'Gloves',      'Limited',    '🧤', '#d96b8c', '5.40', steamRender(REAL.pinkScientistGloves)],
+                // Boots — 2 (all real renders)
+                ['Mob Boss Shoes',            'Boots',       'Standard',   '🥾', '#2a2a3a', '1.30', steamRender(REAL.mobBossShoes)],
+                ['Banana Slippers',           'Boots',       'Limited',    '🥾', '#e0c020', '6.20', steamRender(REAL.bananaSlippers)],
+                // Accessories — 11 (all real renders)
+                ['Black Modern Watch',        'Accessories', 'Standard',   '⌚', '#1a1a1a', '0.65', steamRender(REAL.blackModernWatch)],
+                ['Surgical Face Mask',        'Accessories', 'Limited',    '😷', '#5aa0c0', '5.30', steamRender(REAL.surgicalFaceMask)],
+                ['Bag',                       'Accessories', 'Standard',   '🎒', '#2c3e50', '1.15', steamRender(REAL.bag)],
                 ['Tactical Backpack',         'Accessories', 'Limited',    '🎒', '#3d5a3a', '3.35', steamRender(REAL.tacticalBackpack)],
-                ['SWAG Chain',                'Accessories', 'Limited',    '📿', '#d4af37', '5.30', steamRender(REAL.swagChain)],
+                ['Gold Earrings',             'Accessories', 'Limited',    '💎', '#d4af37', '5.30', steamRender(REAL.goldEarrings)],
                 ['Wizard Beard',             'Accessories', 'Limited',    '🧙', '#cfd3d6', '10.86', steamRender(REAL.wizardBeard)],
                 ['Brainy BRN-101',            'Accessories', 'Standard',   '🤖', '#8a93a0', '1.87', steamRender(REAL.brainyBRN101)],
-                ['Gas Mask',                  'Accessories', 'Limited',    '😷', '#3a3f47', '7.90'],
-                ['Engineer Goggles',          'Accessories', 'Limited',    '🥽', '#a87b3a', '4.40'],
-                ['Bone Necklace',             'Accessories', 'Limited',    '💀', '#ddd6c7', '3.20'],
-                ['Aviator Sunglasses',        'Accessories', 'Off-Market', '🕶', '#2a2a2a', '120.00'],
-                // Workshop — 7 (Gumball Machine is a real s&box item — real render)
-                ['Flat Cap',                  'Workshop',    'Standard',   '🧢', '#6b5a3a', '0.99'],
-                ['Chef Hat',                  'Workshop',    'Standard',   '👨‍🍳', '#ecf0f1', '0.99'],
-                ['Police Hat',                'Workshop',    'Limited',    '👮', '#2a3550', '4.50'],
-                ['Hi-Vis Vest',               'Workshop',    'Standard',   '🦺', '#f5a623', '1.80'],
-                ['Pirate Hat',                'Workshop',    'Standard',   '🏴‍☠️', '#2a2a2a', '0.75'],
+                ['Lunar Mask 2026',           'Accessories', 'Limited',    '😷', '#c0392b', '7.90', steamRender(REAL.lunarMask2026)],
+                ['Safety Glasses',            'Accessories', 'Limited',    '🥽', '#a87b3a', '4.40', steamRender(REAL.safetyGlasses)],
+                ['Pirate Hook',               'Accessories', 'Limited',    '🪝', '#9a9a9a', '3.20', steamRender(REAL.pirateHook)],
+                ['Scientist Respirator',      'Accessories', 'Off-Market', '😷', '#2a2a2a', '120.00', steamRender(REAL.scientistRespirator)],
+                // Workshop — 7 (Sports Bandage, Chef Hat, Police Hat, Love Heart
+                // Boxers, Bandana Mask, Grand Ball Gown, Gumball Machine — all real)
+                ['Sports Bandage',            'Workshop',    'Standard',   '🩹', '#e8e0d0', '0.99', steamRender(REAL.sportsBandage)],
+                ['Chef Hat',                  'Workshop',    'Standard',   '👨‍🍳', '#ecf0f1', '0.99', steamRender(REAL.chefHat)],
+                ['Police Hat',                'Workshop',    'Limited',    '👮', '#2a3550', '4.50', steamRender(REAL.policeHat)],
+                ['Love Heart Boxers',         'Workshop',    'Standard',   '🩲', '#d96b8c', '1.80', steamRender(REAL.loveHeartBoxers)],
+                ['Bandana Mask',              'Workshop',    'Standard',   '🤠', '#8a5a2b', '0.75', steamRender(REAL.bandanaMask)],
                 // Grand Ball Gown sits ahead of Gumball Machine so it is NOT the
                 // final catalogue fixture. The marketplace-listing reconcile pass
                 // overwrites an item's lowestPrice with the jittered (x0.85..x1.25)
@@ -400,9 +458,12 @@ class SeedService {
                 // several draws) stays well below steamPrice even in the last slot.
                 // This is a seed-data ordering fix only — the 12% rule, the jitter
                 // range and the invariant test are all unchanged.
-                ['Grand Ball Gown',           'Workshop',    'Off-Market', '👗', '#7b2d4a', '250.00'],
+                ['Grand Ball Gown',           'Workshop',    'Off-Market', '👗', '#7b2d4a', '250.00', steamRender(REAL.grandBallGown)],
                 ['Gumball Machine',           'Workshop',    'Limited',    '🎰', '#c0392b', '8.50', steamRender(REAL.gumballMachine)]
             ]
+            // 38 of 39 fixtures above carry a real Steam icon_url (only Denim
+            // Jeans falls back to its emoji tile) — so /market and the home grid
+            // open on genuine s&box skin art for a first-time visitor.
             long now = System.currentTimeMillis()
             int idx = 0
             fixtures.each { fx ->
