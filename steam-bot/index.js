@@ -6,9 +6,11 @@
  * Logs in a dedicated Steam bot account, then exposes a small token-authenticated
  * HTTP API the Spring Boot backend (SteamTradeBotService.groovy) calls to:
  *   - send a trade offer to a buyer for s&box (Steam app 590830) and auto-confirm it
+ *   - REQUEST a specific item FROM a seller (deposit/escrow leg) — the bot sends an
+ *     offer that receives the asset and gives nothing (addTheirItem)
  *   - poll the status of an offer (active / accepted / declined / expired / ...)
- *   - accept an incoming offer (e.g. when a seller deposits an item into bot escrow)
- *   - read the bot's own app-590830 inventory
+ *   - accept an incoming offer (alternative deposit path)
+ *   - read the bot's own app-590830 inventory (confirm an asset is now held)
  *
  * SECURITY: every credential comes from the environment. Nothing is hardcoded.
  * The HTTP API is protected by a shared bearer token (BOT_API_TOKEN); bind the
@@ -287,6 +289,70 @@ app.post('/offers/send', (req, res) => {
       });
     };
 
+    if (status === 'pending') {
+      confirmSentOffer(offer, (cerr) => respond(!cerr, cerr));
+    } else {
+      respond(true, null);
+    }
+  });
+});
+
+// POST /offers/request { partnerTradeUrl, assetIds: [..], message }
+// Creates + sends a trade offer that REQUESTS (receives, gives nothing) the
+// listed app-590830 assets FROM the partner — the seller→bot deposit/escrow
+// leg. Uses addTheirItem. The seller accepts the offer in their own Steam
+// client (their confirmation, not ours). Since the bot gives nothing, the
+// offer normally needs no mobile confirmation from us; we still handle a
+// 'pending' status defensively (e.g. if a future change adds bot-side items).
+app.post('/offers/request', (req, res) => {
+  if (!ready()) {
+    const e = classifyError(new Error('bot not ready / not logged in'));
+    return res.status(503).json({ ok: false, error: e.code, message: e.message });
+  }
+  const { partnerTradeUrl, assetIds, message } = req.body || {};
+  if (!partnerTradeUrl || !Array.isArray(assetIds) || assetIds.length === 0) {
+    return res.status(400).json({ ok: false, error: 'BAD_REQUEST',
+      message: 'partnerTradeUrl and non-empty assetIds[] are required' });
+  }
+
+  let offer;
+  try {
+    offer = manager.createOffer(partnerTradeUrl); // full trade URL (partner + token)
+  } catch (err) {
+    const e = classifyError(err);
+    return res.status(400).json({ ok: false, error: e.code, message: e.message });
+  }
+
+  // addTheirItem — the bot RECEIVES these assets from the partner and gives
+  // nothing. This is what makes the offer a deposit/escrow request.
+  const items = assetIds.map((id) => ({
+    appid: CONFIG.appId,
+    contextid: CONFIG.contextId,
+    assetid: String(id),
+    amount: 1,
+  }));
+  items.forEach((it) => offer.addTheirItem(it));
+  if (message) offer.setMessage(String(message));
+
+  offer.send((err, status) => {
+    if (err) {
+      const e = classifyError(err);
+      const http = e.code === 'RATE_LIMITED' ? 429 : 502;
+      return res.status(http).json({ ok: false, error: e.code, message: e.message });
+    }
+    // status is 'pending' (would need OUR confirmation — only if we were also
+    // giving items) or 'sent'. A pure receive offer is 'sent' immediately and
+    // simply waits for the seller to accept on their side.
+    const respond = (confirmed, confirmError) => {
+      res.json({
+        ok: true,
+        offerId: offer.id,
+        status: status || 'sent',
+        steamStatus: status,
+        confirmed: !!confirmed,
+        confirmError: confirmError ? classifyError(confirmError).message : null,
+      });
+    };
     if (status === 'pending') {
       confirmSentOffer(offer, (cerr) => respond(!cerr, cerr));
     } else {

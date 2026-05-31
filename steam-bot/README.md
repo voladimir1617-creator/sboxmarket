@@ -3,8 +3,15 @@
 A small Node.js service that logs in a **dedicated Steam bot account** and sends /
 receives / verifies **trade offers** for s&box (Steam **app id 590830**) on behalf of
 the sboxmarket marketplace. It replaces the old honor-system "Mark Sent" button with a
-bot-escrow model: the bot actually sends the Steam trade offer and the platform verifies
-acceptance via the trade-offer state instead of trusting a click.
+full **bot-escrow** model with two legs:
+
+1. **Deposit** (`/offers/request`) — when a seller lists a Steam item, the bot
+   requests that specific asset *from* the seller into its own inventory. The
+   listing only becomes buyable once the bot genuinely holds the item.
+2. **Delivery** (`/offers/send`) — when the item sells, the bot sends the held
+   asset to the buyer and the platform verifies acceptance via the trade-offer
+   state instead of trusting a click. (If the listing is cancelled / expires
+   unsold, the bot sends the held asset back to the seller.)
 
 The Spring Boot backend talks to this sidecar over a tiny token-authenticated HTTP API
 (`SteamTradeBotService.groovy` → here). The sidecar is the **only** component that holds
@@ -17,10 +24,26 @@ Steam credentials.
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/health` | GET | Liveness + login/ready status (no auth). |
-| `/offers/send` | POST | Create + send a trade offer giving app-590830 assets to a buyer's trade URL, then auto-confirm via identity secret. |
-| `/offers/:id` | GET | Normalized offer status: `active` / `accepted` / `declined` / `expired` / `canceled` / `in_escrow` / `needs_confirmation` / ... |
-| `/offers/incoming/:id/accept` | POST | Accept an incoming offer (e.g. a seller depositing an item into bot escrow) and confirm it. |
-| `/inventory` | GET | The bot's own app-590830 inventory. |
+| `/offers/send` | POST | Create + send a trade offer **giving** app-590830 assets to a buyer's trade URL, then auto-confirm via identity secret. (Delivery leg.) |
+| `/offers/request` | POST | Create + send a trade offer that **requests** (receives, gives nothing) app-590830 assets **from** a seller's trade URL. Returns the deposit `offerId`. (Deposit / escrow leg — uses `addTheirItem`.) |
+| `/offers/:id` | GET | Normalized offer status: `active` / `accepted` / `declined` / `expired` / `canceled` / `in_escrow` / `needs_confirmation` / ... Used to poll BOTH delivery and deposit offers. |
+| `/offers/incoming/:id/accept` | POST | Accept an incoming offer (alternative deposit path — if a seller initiates the trade) and confirm it. |
+| `/inventory` | GET | The bot's own app-590830 inventory — used to confirm a deposited asset is now genuinely held before the listing is made buyable. |
+
+### Deposit (escrow) request body / response
+
+`POST /offers/request`
+```json
+{ "partnerTradeUrl": "https://steamcommunity.com/tradeoffer/new/?partner=...&token=...",
+  "assetIds": ["12345678901"], "message": "sboxmarket escrow" }
+```
+```json
+{ "ok": true, "offerId": "44556677", "status": "sent", "confirmed": true }
+```
+The seller accepts the offer in their own Steam client (their mobile confirmation,
+not the bot's — the bot gives nothing). The backend then polls `GET /offers/:id`
+until `accepted` and confirms via `GET /inventory` that the asset is held before
+flipping the listing buyable.
 
 All endpoints except `/health` require `Authorization: Bearer <BOT_API_TOKEN>`.
 

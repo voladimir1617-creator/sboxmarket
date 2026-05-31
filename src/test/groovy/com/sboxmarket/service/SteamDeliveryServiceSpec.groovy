@@ -25,6 +25,7 @@ class SteamDeliveryServiceSpec extends Specification {
     SteamDeliveryAttemptRepository attemptRepository = Mock()
     SteamUserRepository steamUserRepository = Mock()
     NotificationService notificationService = Mock()
+    SteamEscrowService escrowService = Mock()
 
     def setup() {
         service = new SteamDeliveryService()
@@ -34,11 +35,16 @@ class SteamDeliveryServiceSpec extends Specification {
         service.attemptRepository = attemptRepository
         service.steamUserRepository = steamUserRepository
         service.notificationService = notificationService
+        service.steamEscrowService = escrowService
         service.pollerEnabled = true
         service.offerMessage = 'sboxmarket delivery'
         service.batchSize = 50
-        // By default the platform has no asset id for the sold item (honest
-        // limitation). Tests exercising the send path set this override.
+        // By default custody has no held asset (so most existing tests fall
+        // back to the explicit staging override below). The "real custody"
+        // test stubs heldAssetIdForListing to return a concrete id.
+        escrowService.heldAssetIdForListing(_) >> null
+        // Staging override path (explicit). Tests exercising the send path
+        // rely on this when there's no custody-held asset.
         service.testAssetIdOverride = '555'
     }
 
@@ -111,6 +117,33 @@ class SteamDeliveryServiceSpec extends Specification {
         // drives the EXISTING transition on the seller's behalf
         1 * tradeService.sellerMarkSent(1L, 7L, 'https://steamcommunity.com/tradeoffer/new/?partner=2&token=abc')
         1 * notificationService.safePush(2L, _, _, _, _, _)
+    }
+
+    def "send: delivery uses the REAL bot-held custody asset (not the staging override) and marks it delivered"() {
+        given:
+        def t = trade(state: SteamDeliveryService.STATE_AWAITING_SEND)
+
+        when:
+        service.processTrade(7L)
+
+        then:
+        1 * tradeRepository.findById(7L) >> Optional.of(t)
+        1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> []
+        1 * steamUserRepository.findById(2L) >> Optional.of(buyerWithUrl())
+        // Custody holds a concrete asset for this sold listing — it must take
+        // precedence over the staging override ('555'). Declared HERE (a
+        // feature-method interaction) rather than in `given:`, so it overrides
+        // the broad `heldAssetIdForListing(_) >> null` default from setup():
+        // a fixture-block stub otherwise out-prioritises a feature-block
+        // `given:` stub in Spock, which would leave this returning null and
+        // make delivery fall back to the '555' override.
+        1 * escrowService.heldAssetIdForListing(10L) >> '888'
+        // the bot is asked to send the CUSTODY asset 888, NOT the override 555
+        1 * bot.sendOffer('https://steamcommunity.com/tradeoffer/new/?partner=2&token=abc', ['888'], 'sboxmarket delivery') >>
+                SteamBotResult.success([ok: true, offerId: '987', status: 'sent'])
+        // once sent, custody is marked DELIVERED so return-to-seller won't claw it back
+        1 * escrowService.markDelivered(10L)
+        1 * tradeService.sellerMarkSent(1L, 7L, _ as String)
     }
 
     def "send: missing buyer trade URL does not send and records NO_TRADE_URL"() {

@@ -60,6 +60,44 @@ class SteamTradeBotServiceSpec extends Specification {
         r.sent
     }
 
+    def "requestItems posts to /offers/request (deposit leg) and maps the offer id"() {
+        when:
+        def r = service.requestItems('https://steamcommunity.com/tradeoffer/new/?partner=1&token=x', ['555'], 'deposit')
+
+        then:
+        1 * service.doRequest('POST', 'http://localhost:4000/offers/request', _) >> { String m, String url, String b ->
+            assert b.contains('partnerTradeUrl')
+            assert b.contains('555')
+            raw(200, [ok: true, offerId: '444', status: 'sent', confirmed: true])
+        }
+        r.ok
+        r.offerId == '444'
+        r.status == 'sent'
+    }
+
+    def "requestItems validates inputs without calling transport"() {
+        when:
+        def r1 = service.requestItems(null, ['1'], 'm')
+        def r2 = service.requestItems('url', [], 'm')
+
+        then:
+        0 * service.doRequest(_, _, _)
+        !r1.ok && r1.errorCode == 'BAD_REQUEST'
+        !r2.ok && r2.errorCode == 'BAD_REQUEST'
+    }
+
+    def "requestItems is disabled when base url is blank"() {
+        given:
+        service.baseUrl = ''
+
+        when:
+        def r = service.requestItems('https://steamcommunity.com/tradeoffer/new/?partner=1&token=x', ['555'], 'm')
+
+        then:
+        0 * service.doRequest(_, _, _)
+        !r.ok && r.errorCode == 'DISABLED'
+    }
+
     def "sendOffer validates inputs without calling transport"() {
         when:
         def r1 = service.sendOffer(null, ['1'], 'm')

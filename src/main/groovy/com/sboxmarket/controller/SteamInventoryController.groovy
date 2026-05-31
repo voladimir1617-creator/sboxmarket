@@ -40,6 +40,13 @@ class SteamInventoryController {
     @Autowired ItemRepository itemRepository
     @Autowired ListingService listingService
     @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
+    // Bot-escrow deposit leg. Optional so existing tests that wire this
+    // controller without it still construct; when absent OR the bot is
+    // unconfigured (steamEscrowService.escrowEnabled == false), the listing
+    // stays ACTIVE/buyable the legacy way and no deposit is requested. When
+    // present + enabled, listing a Steam item requests the asset into bot
+    // custody and holds the listing in PENDING_ESCROW until it's received.
+    @Autowired(required = false) com.sboxmarket.service.SteamEscrowService steamEscrowService
     // SellService.relist gates list-creation behind banGuard, but
     // /api/steam/list + /api/steam/list-bulk bypass SellService and
     // call listingService.createListing() directly — so without an
@@ -326,6 +333,13 @@ class SteamInventoryController {
             }
             if (maxDiscount.signum() == 0) maxDiscount = null
         }
+        // When bot-escrow is live, the listing is created NOT-yet-buyable
+        // (PENDING_ESCROW) so it can never be auto-sold (buy-order tryMatch
+        // gates on status='ACTIVE') before the bot actually holds the item.
+        // SteamEscrowService flips it to ACTIVE once the deposit is IN_CUSTODY.
+        // When the bot is unconfigured, it's plain ACTIVE (legacy behaviour).
+        String initialStatus = (steamEscrowService?.escrowEnabled)
+            ? com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW : 'ACTIVE'
         def listing = new Listing(
             item:         item,
             price:        price,
@@ -333,7 +347,7 @@ class SteamInventoryController {
             sellerAvatar: (user.displayName ?: 'US').take(2).toUpperCase(),
             condition:    '',
             rarityScore:  BigDecimal.ZERO,
-            status:       'ACTIVE',
+            status:       initialStatus,
             sellerUserId: uid,
             listingType:  resolvedType,
             description:  cleanDesc,
@@ -344,11 +358,27 @@ class SteamInventoryController {
             listing.expiresAt = System.currentTimeMillis() + (durationHours * 60L * 60L * 1000L)
         }
         def saved = listingService.createListing(listing)
+        // Bot-escrow DEPOSIT leg. When the bot is configured, request the
+        // seller's specific Steam asset into custody and hold the listing in
+        // PENDING_ESCROW until it's received (the listing only becomes buyable
+        // once IN_CUSTODY). When the bot is unconfigured, this is a no-op and
+        // the listing stays ACTIVE/buyable the legacy way. Best-effort — a
+        // deposit-request hiccup must not 500 the list call; the listing is
+        // already persisted and the deposit poller / re-list can recover.
+        try {
+            steamEscrowService?.requestDepositForListing(saved, assetId, name)
+        } catch (Exception e) {
+            log.warn("Escrow deposit request failed for listing ${saved.id}: ${e.message}")
+        }
+        // status already reflects the deposit hold (PENDING_ESCROW) when the
+        // bot is live, ACTIVE otherwise — so the response tells the seller the
+        // truth. escrowPending lets the UI render "waiting for your deposit".
         ResponseEntity.ok([
             listingId:    saved.id,
             itemId:       item.id,
             price:        saved.price,
             status:       saved.status,
+            escrowPending: (steamEscrowService?.escrowEnabled ?: false),
             listingType:  saved.listingType,
             expiresAt:    saved.expiresAt,
             buyNowPrice:  saved.buyNowPrice
@@ -461,6 +491,10 @@ class SteamInventoryController {
                         trendPercent: 0
                     ))
                 }
+                // PENDING_ESCROW when the bot is live (see single-list note),
+                // plain ACTIVE otherwise.
+                String initialStatus = (steamEscrowService?.escrowEnabled)
+                    ? com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW : 'ACTIVE'
                 def listing = new Listing(
                     item:         item,
                     price:        price,
@@ -468,13 +502,22 @@ class SteamInventoryController {
                     sellerAvatar: sellerAvatar,
                     condition:    '',
                     rarityScore:  BigDecimal.ZERO,
-                    status:       'ACTIVE',
+                    status:       initialStatus,
                     sellerUserId: uid,
                     listingType:  'BUY_NOW',
                     maxDiscount:  bulkMaxDiscount
                 )
                 def saved = listingService.createListing(listing)
-                results << [assetId: assetId, listingId: saved.id, itemId: item.id, price: saved.price]
+                // Bot-escrow DEPOSIT leg per item — same contract as the
+                // single-list path. No-op when the bot is unconfigured.
+                try {
+                    steamEscrowService?.requestDepositForListing(saved, assetId, name)
+                } catch (Exception e) {
+                    log.warn("Escrow deposit request failed for bulk listing ${saved.id}: ${e.message}")
+                }
+                results << [assetId: assetId, listingId: saved.id, itemId: item.id, price: saved.price,
+                            status: saved.status,
+                            escrowPending: (steamEscrowService?.escrowEnabled ?: false)]
             } catch (BadRequestException e) {
                 failed << [assetId: assetId, code: e.code ?: 'BAD_REQUEST', message: e.message]
             } catch (Exception e) {

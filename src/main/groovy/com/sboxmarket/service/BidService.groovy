@@ -75,6 +75,11 @@ class BidService {
     @Autowired(required = false) com.sboxmarket.repository.ItemRepository itemRepository
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
+    // Bot-escrow custody — on a no-bid auction expiry, return the bot-held
+    // item to the seller. Optional/gated: no-op when the bot is unconfigured,
+    // and required=false so Spock specs that build BidService via property map
+    // don't need to stub it.
+    @Autowired(required = false) SteamEscrowService steamEscrowService
     /**
      * Spring event publisher — drives AuctionEventBus SSE fan-out after
      * the transaction commits. `required = false` so Spock specs that
@@ -1126,6 +1131,15 @@ class BidService {
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
+            // Bot-escrow RETURN leg — an unsold auction's item is still in bot
+            // custody; send it back to the seller and flip custody → RETURNED.
+            // No-op when the bot is unconfigured / the item was never deposited.
+            // Best-effort so a return hiccup can't fail the settle.
+            try {
+                steamEscrowService?.returnToSeller(listing.id, "Auction expired unsold")
+            } catch (Exception e) {
+                log.warn("Escrow return-to-seller failed for expired auction ${listing.id}: ${e.message}")
+            }
             if (listing.sellerUserId != null) {
                 try {
                     notificationService.push(listing.sellerUserId,

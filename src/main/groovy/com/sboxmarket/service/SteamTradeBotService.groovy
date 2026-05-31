@@ -87,6 +87,29 @@ class SteamTradeBotService {
         return request('POST', '/offers/send', body)
     }
 
+    /**
+     * Send a trade offer that REQUESTS (receives, gives nothing) {@code assetIds}
+     * (app 590830) FROM {@code partnerTradeUrl} — the deposit/escrow leg, where
+     * the seller hands their item to the bot. Mirrors the sidecar's
+     * {@code POST /offers/request} which uses steam-tradeoffer-manager's
+     * {@code addTheirItem}. Returns the deposit offer id.
+     */
+    SteamBotResult requestItems(String partnerTradeUrl, List assetIds, String message) {
+        if (!enabled) return SteamBotResult.disabled()
+        if (partnerTradeUrl == null || partnerTradeUrl.trim().isEmpty()) {
+            return SteamBotResult.error('BAD_REQUEST', 'partnerTradeUrl is required')
+        }
+        if (assetIds == null || assetIds.isEmpty()) {
+            return SteamBotResult.error('BAD_REQUEST', 'assetIds must be non-empty')
+        }
+        Map body = [
+                partnerTradeUrl: partnerTradeUrl,
+                assetIds       : assetIds.collect { String.valueOf(it) },
+                message        : message ?: ''
+        ]
+        return request('POST', '/offers/request', body)
+    }
+
     /** Get the normalized status of an offer by id. */
     SteamBotResult getOfferStatus(String offerId) {
         if (!enabled) return SteamBotResult.disabled()

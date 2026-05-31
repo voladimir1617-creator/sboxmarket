@@ -46,6 +46,9 @@ class SellService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) WatchlistAlertService watchlistAlertService
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
+    // Bot-escrow custody — on cancel, if the item is held by the bot, send it
+    // back to the seller. Optional/gated: no-op when the bot is unconfigured.
+    @Autowired(required = false) SteamEscrowService steamEscrowService
 
     /**
      * Per-listing transaction wrapper for cancelAllActive (boss-QA cycle 33).
@@ -367,7 +370,11 @@ class SellService {
         if (listing.sellerUserId != sellerUserId) {
             throw new ForbiddenException("You can only cancel your own listings")
         }
-        if (listing.status != 'ACTIVE') {
+        // PENDING_ESCROW listings (item being deposited into / held by the bot
+        // but not yet activated) are cancellable too — the seller may pull the
+        // listing before/while the item is in custody. Everything else
+        // (SOLD / RELISTED / CANCELLED) is terminal for cancel.
+        if (listing.status != 'ACTIVE' && listing.status != SteamEscrowService.STATUS_PENDING_ESCROW) {
             throw new ListingNotAvailableException(listingId)
         }
         // If there's an active trade in escrow for this listing, cancel it
@@ -530,6 +537,31 @@ class SellService {
                 }
             } catch (Exception e) {
                 log.warn("CART fan-out failed for listing=${listingId} on seller-cancel: ${e.message}")
+            }
+        }
+
+        // Bot-escrow RETURN leg. If the bot is holding this listing's real
+        // Steam asset (IN_CUSTODY), send it back to the seller and flip custody
+        // → RETURNED. No-op when the bot is unconfigured or the item was never
+        // deposited. Isolated REQUIRES_NEW sub-tx + try/catch so a return
+        // hiccup can't poison this cancel tx (same rationale as the trade-
+        // cancel block above). The seller's in-platform inventory row below is
+        // still created — the RETURNED Steam offer is the real-item movement.
+        //
+        // Gate the WHOLE block on escrowEnabled so the disabled/legacy path
+        // (bot unconfigured — dev / test / CI, or the escrowService bean
+        // absent) never even opens the REQUIRES_NEW sub-tx. returnToSeller
+        // already self-gates to a no-op when escrow is off, but wrapping a
+        // no-op in runInIsolatedTx would still spin (and commit) an empty
+        // transaction on the cancel path — pointless work, and it perturbs
+        // the cancel-tx-isolation contract the existing specs pin.
+        if (steamEscrowService?.escrowEnabled) {
+            try {
+                runInIsolatedTx {
+                    steamEscrowService.returnToSeller(listingId, "Seller cancelled listing")
+                }
+            } catch (Exception e) {
+                log.warn("Escrow return-to-seller failed for listing ${listingId}: ${e.message}")
             }
         }
 

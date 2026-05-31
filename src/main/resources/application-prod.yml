@@ -221,6 +221,24 @@ steam:
   api-key:    ${STEAM_API_KEY:}
   realm:      ${STEAM_REALM}
   return-url: ${STEAM_RETURN_URL}
+  # Bot-escrow sidecar — see steam-bot/.env.example. When STEAM_BOT_BASE_URL
+  # is UNSET the entire deposit/delivery/escrow path is inert
+  # (SteamTradeBotService.enabled == false): listings are created ACTIVE the
+  # legacy way (no deposit required), nothing is scheduled, and nothing errors.
+  # So prod is safe to boot before the bot host is live. Set both to go live.
+  bot:
+    base-url:  ${STEAM_BOT_BASE_URL:}
+    api-token: ${BOT_API_TOKEN:}
+  delivery:
+    # Master switch for the buyer-delivery poller (independent of the bot
+    # enabled flag). test-asset-id is an EXPLICIT staging override only — real
+    # delivery resolves the bot-held asset from custody (SteamEscrowService).
+    enabled:       ${STEAM_DELIVERY_ENABLED:true}
+    test-asset-id: ${STEAM_DELIVERY_TEST_ASSET_ID:}
+  escrow:
+    # Master switch for the seller->bot deposit-confirm + return sweeps
+    # (independent of the bot enabled flag). Mirrors steam.delivery.enabled.
+    enabled: ${STEAM_ESCROW_ENABLED:true}
 
 # Email unsubscribe link HMAC secret. MUST be set in prod — the @Value
 # fallback in EmailService is a publicly-committed dev placeholder

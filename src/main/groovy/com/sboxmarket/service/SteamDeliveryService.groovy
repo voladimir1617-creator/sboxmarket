@@ -68,6 +68,11 @@ class SteamDeliveryService {
     @Autowired SteamDeliveryAttemptRepository attemptRepository
     @Autowired(required = false) SteamUserRepository steamUserRepository
     @Autowired(required = false) NotificationService notificationService
+    /** Custody store — the REAL bot-held asset id for a sold listing comes from
+     *  here (the deposit/escrow leg). Optional so existing unit specs that wire
+     *  this service field-by-field stay green without a stub; when absent (and
+     *  no test override), delivery records NO_ASSET_ID exactly as before. */
+    @Autowired(required = false) SteamEscrowService steamEscrowService
 
     /** Master switch for the scheduled poller (independent of the bot's own
      *  enabled flag). Lets ops freeze auto-delivery without unsetting the bot. */
@@ -190,6 +195,10 @@ class SteamDeliveryService {
         if (res.ok) {
             recordAttempt(trade.id, res.offerId, res.status ?: 'sent', 'SEND', true, null)
             log.info("SteamDelivery: sent offer ${res.offerId} for trade ${trade.id} (status ${res.status})")
+            // The held asset has been sent onward to the buyer — mark custody
+            // DELIVERED so the return-to-seller path never tries to claw it
+            // back. Best-effort; no-op when escrow is disabled / not custody.
+            try { steamEscrowService?.markDelivered(trade.listingId) } catch (Exception ignore) {}
             // Mark the trade as sent on the SELLER's behalf — drives
             // PENDING_SELLER_SEND -> PENDING_BUYER_CONFIRM via the EXISTING
             // public transition. Reuse the already-resolved partner trade URL as
@@ -311,21 +320,33 @@ class SteamDeliveryService {
     /**
      * Resolve the Steam ASSET id of the item the bot must give the buyer.
      *
-     * IMPORTANT (honest limitation): the platform does NOT currently persist the
-     * concrete Steam asset id of a sold item anywhere on Trade / Listing — the
-     * old honor-system flow had the human seller pick the item in Steam. A real
-     * bot-escrow model requires the bot to first RECEIVE the item from the
-     * seller into the bot's inventory (so the bot owns the asset id it then
-     * sends to the buyer). Until that deposit leg + an asset-id column exist,
-     * this returns the configured override (steam.delivery.test-asset-id, for a
-     * staging/demo item) or null. When null, sendOfferForTrade records a
-     * NO_ASSET_ID attempt and the trade falls through to the existing manual /
-     * sweeper flow. See DELIVERY-INTEGRATION-NOTES.md.
+     * Primary source (REAL, end-to-end): the bot-held asset from the custody
+     * store ({@link SteamEscrowService#heldAssetIdForListing}). The deposit/
+     * escrow leg has the bot RECEIVE the seller's specific 590830 asset before
+     * the listing ever becomes buyable, so by the time a trade exists the bot
+     * genuinely holds an asset id it can send onward. This is what makes
+     * auto-delivery real rather than mocked.
+     *
+     * Fallback (explicit staging ONLY): {@code steam.delivery.test-asset-id}
+     * — a demo item the bot already holds, for staging an end-to-end run
+     * without a real deposit. Left in deliberately and only as an override.
+     *
+     * When neither yields an id, sendOfferForTrade records a NO_ASSET_ID
+     * attempt and the trade falls through to the existing manual / sweeper
+     * flow. See DELIVERY-INTEGRATION-NOTES.md.
      */
     @Value('${steam.delivery.test-asset-id:}')
     String testAssetIdOverride
 
     private String resolveAssetId(Trade trade) {
+        // 1. Real custody-held asset for this sold listing.
+        try {
+            String held = steamEscrowService?.heldAssetIdForListing(trade?.listingId)
+            if (held != null && !held.trim().isEmpty()) return held.trim()
+        } catch (Exception e) {
+            log.debug("SteamDelivery: custody asset lookup failed for trade ${trade?.id}: ${e.message}")
+        }
+        // 2. Explicit staging override.
         return (testAssetIdOverride != null && !testAssetIdOverride.trim().isEmpty())
                 ? testAssetIdOverride.trim()
                 : null
