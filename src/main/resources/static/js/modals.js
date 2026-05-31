@@ -11,7 +11,7 @@ import {
   fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
-  depositFunds, withdrawFunds, cancelPendingWithdrawal, updateStallListing, setAwayMode,
+  depositFunds, withdrawFunds, cancelPendingWithdrawal, fetchConnectStatus, connectOnboard, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
   fetchBuyOrders, deleteBuyOrder, fetchAutoBids, fetchActiveBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey, revokeAllApiKeys,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
@@ -7090,6 +7090,12 @@ function ProfileTradesTab({ me, privacy }) {
             const isSeller = me && t.sellerUserId === me.id;
             const isBuyer  = me && t.buyerUserId === me.id;
             const meta = STATE_LABEL[t.state] || { label: t.state, color: '#8590b3', step: 0 };
+            // Automated delivery via the secure Steam bot. The backend sets
+            // botManaged / botDeliveryState on the trade once a bot takes the
+            // item into escrow. Until those fields reach the client this is
+            // falsy and the existing manual flow is used unchanged. When true,
+            // the seller is NEVER asked to send a Steam offer by hand.
+            const automated = t.botManaged === true || !!t.botDeliveryState;
             // Item thumbnail (decorative — the item name beside it is the
             // actionable text, so aria-hidden). 44px square, object-fit
             // contain, rounded, accentColor at ~10% as backdrop. Falls
@@ -7193,7 +7199,11 @@ function ProfileTradesTab({ me, privacy }) {
                   })()
                 ),
                 h('div', { className: 'trade-state', style: { color: meta.color } },
-                  meta.label,
+                  // Automated delivery relabels the seller-send / buyer-confirm
+                  // states so neither side reads them as "a human must act".
+                  automated && t.state === 'PENDING_SELLER_SEND' ? 'Delivering automatically'
+                    : automated && t.state === 'PENDING_BUYER_CONFIRM' ? 'Delivered — awaiting confirmation'
+                    : meta.label,
                   // Batch 560 — "Seller sent N ago" chip on PENDING_BUYER_CONFIRM
                   // rows. Batch 550 added the sent_at column; surfacing it
                   // here gives the buyer a concrete answer to "when did the
@@ -7292,7 +7302,9 @@ function ProfileTradesTab({ me, privacy }) {
                 // can send the offer); for a buyer this is the seller's
                 // (so the buyer can verify the incoming offer came from
                 // the right Steam account).
-                t.counterpartyTradeUrl && !['VERIFIED','CANCELLED'].includes(t.state) &&
+                // On the automated path the bot delivers, so the seller has no
+                // manual offer to send — hide the counterparty trade-URL block.
+                !automated && t.counterpartyTradeUrl && !['VERIFIED','CANCELLED'].includes(t.state) &&
                   h('div', { className: 'trade-counterparty-url' },
                     h('span', { className: 'trade-counterparty-label' },
                       isSeller ? 'Send Steam offer to buyer' : 'Seller Steam URL'),
@@ -7340,9 +7352,25 @@ function ProfileTradesTab({ me, privacy }) {
                       style: { textDecoration: 'none' }
                     }, '—')
                   ),
+                // Automated delivery banner — replaces every manual-offer
+                // instruction when the bot is handling the trade. Shown to both
+                // sides during the active escrow window.
+                automated && ['PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state) &&
+                  h('div', { className: 'trade-auto-banner' },
+                    h('span', { className: 'trade-auto-banner-icon' }, '🔒'),
+                    h('span', null,
+                      t.state === 'PENDING_SELLER_SEND'
+                        ? (isSeller
+                            ? 'Your item is in escrow. Our secure bot is delivering it to the buyer automatically — no action needed.'
+                            : 'The item is in escrow and being delivered automatically by our secure bot. It will arrive in your inventory shortly.')
+                        : (isSeller
+                            ? 'Delivered automatically. Waiting for the buyer to confirm receipt so your payout is released.'
+                            : 'Delivered by our secure bot. Confirm receipt once it lands in your inventory to release payment.'))
+                  ),
                 // Nudge the viewer to set their own URL if the counterparty
                 // can't contact them (common first-time seller friction).
-                !t.counterpartyTradeUrl && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state) &&
+                // Manual flow only — irrelevant when the bot delivers.
+                !automated && !t.counterpartyTradeUrl && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state) &&
                   h('div', { className: 'trade-counterparty-missing' },
                     (isSeller ? 'The buyer' : 'The seller') + ' has no Steam trade URL on file yet.'),
                 // Steam quick-action shortcuts (batch 285) — drops the
@@ -7350,7 +7378,7 @@ function ProfileTradesTab({ me, privacy }) {
                 // Seller in SEND state → open their inventory to pick
                 // the item; buyer in CONFIRM state → open the Steam
                 // offers inbox to verify the incoming offer.
-                isSeller && t.state === 'PENDING_SELLER_SEND' && h('div', {
+                !automated && isSeller && t.state === 'PENDING_SELLER_SEND' && h('div', {
                   style: { marginTop: 6, display: 'flex', gap: 8, fontSize: 11 }
                 },
                   h('a', {
@@ -7432,7 +7460,12 @@ function ProfileTradesTab({ me, privacy }) {
               h('div', { className: 'trade-actions' },
                 isSeller && t.state === 'PENDING_SELLER_ACCEPT' &&
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => onAccept(t.id) }, 'Accept'),
-                isSeller && t.state === 'PENDING_SELLER_SEND' &&
+                // Automated: bot delivers — no "Mark Sent" button. Calm status
+                // pill instead so the seller knows nothing is required of them.
+                isSeller && t.state === 'PENDING_SELLER_SEND' && automated &&
+                  h('span', { className: 'trade-auto-status' }, '🔒 Delivering automatically'),
+                // Manual fallback: seller marks the Steam offer as sent.
+                isSeller && t.state === 'PENDING_SELLER_SEND' && !automated &&
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => onSent(t.id) }, 'Mark Sent'),
                 isBuyer && t.state === 'PENDING_BUYER_CONFIRM' &&
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => onConfirm(t) }, 'Confirm'),
@@ -13991,6 +14024,47 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   const [totpCode, setTotpCode] = useState('');
   const [busy, setBusy]     = useState(false);
   const [error, setError]   = useState('');
+  // Cash-out / payout status (Stripe Connect). `null` = still loading;
+  // once resolved it's { payoutsEnabled, onboardingNeeded }. In dev with
+  // no Stripe keys the endpoint 404s / returns null → we treat that as
+  // "setup needed", which is harmless (the setup button still renders and
+  // the backend gates the actual withdrawal). `onboarding` flips true
+  // while we're redirecting to the Stripe-hosted flow.
+  const [connect, setConnect] = useState(null);
+  const [onboarding, setOnboarding] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (!me) return;
+    fetchConnectStatus().then(s => {
+      if (!alive) return;
+      // Normalise: a null response (endpoint off / dev) means setup is
+      // still needed. payoutsEnabled drives the "ready" branch.
+      setConnect(s
+        ? { payoutsEnabled: !!s.payoutsEnabled, onboardingNeeded: s.onboardingNeeded || !s.payoutsEnabled }
+        : { payoutsEnabled: false, onboardingNeeded: true });
+    });
+    return () => { alive = false; };
+  }, [me, wallet?.balance]);
+  // Kick off Stripe-hosted onboarding (identity verification + bank/card
+  // payout) and redirect the browser to the returned URL.
+  const startCashoutSetup = async () => {
+    setOnboarding(true);
+    setError('');
+    try {
+      const res = await connectOnboard();
+      // Backend returns the Stripe-hosted onboarding URL as `onboardingUrl`
+      // (both live + dev/simulated modes). Accept `url` too as a defensive
+      // fallback in case the contract ever changes.
+      const url = res && (res.onboardingUrl || res.url);
+      if (url) { window.location.href = url; return; }
+      // No URL back — surface a friendly message rather than the raw code.
+      setError((res && res.message) || 'Could not start cash-out setup. Please try again.');
+    } catch (_) {
+      setError('Could not start cash-out setup. Please try again.');
+    } finally {
+      setOnboarding(false);
+    }
+  };
   // History type filter. Values match the Transaction.type strings the
   // backend serializes — DEPOSIT / SALE / PURCHASE / WITHDRAW / REFUND /
   // ADJUSTMENT_CREDIT / ADJUSTMENT_DEBIT. 'ALL' = no filter.
@@ -14051,6 +14125,14 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       } else {
         const res = await withdrawFunds(num, dest, totpCode);
         if (res.code || res.error) {
+          // Seller hasn't finished Stripe Connect onboarding yet — don't
+          // dump the raw CONNECT_ONBOARDING_REQUIRED code. Point them at
+          // the "Set up cash-out" card and make sure it's showing.
+          if (res.code === 'CONNECT_ONBOARDING_REQUIRED') {
+            setConnect({ payoutsEnabled: false, onboardingNeeded: true });
+            setError('Finish setting up cash-out before you withdraw — use the “Set up cash-out” button above.');
+            return;
+          }
           // If 2FA required but missing, hint at the TOTP input instead
           // of just showing the raw message.
           if (res.code === 'TOTP_REQUIRED' || res.code === 'TOTP_INVALID') {
@@ -14874,6 +14956,23 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                         h('span', null, tab === 'deposit' ? 'Wallet credit' : 'Payout amount'),
                         h('strong', { style: { color: 'var(--accent)' } }, '$' + amt.toFixed(2))
                       ),
+                      // Cash-out setup (Stripe Connect) — withdraw tab only.
+                      // Show a "Set up cash-out" card until payouts are
+                      // enabled, then a small "✓ Cash-out ready" indicator.
+                      tab === 'withdraw' && connect && !connect.payoutsEnabled &&
+                        h('div', { className: 'cashout-setup-card' },
+                          h('div', { className: 'cashout-setup-title' }, 'Set up cash-out'),
+                          h('div', { className: 'cashout-setup-desc' },
+                            'Verify your identity and link a bank account or debit card to cash out your balance. Stripe handles identity verification and payouts securely.'),
+                          h('button', {
+                            className: 'btn btn-primary cashout-setup-btn',
+                            disabled: onboarding,
+                            onClick: startCashoutSetup
+                          }, onboarding ? 'Redirecting…' : 'Set up cash-out')
+                        ),
+                      tab === 'withdraw' && connect && connect.payoutsEnabled &&
+                        h('div', { className: 'cashout-ready', title: 'Your payout account is verified — withdrawals are paid out to it.' },
+                          '✓ Cash-out ready'),
                       // Batch 799 — concrete ETA date for withdrawals. "1-2
                       // business days" is abstract; showing an actual date
                       // ("arrives by Mon, Apr 22") cuts the "is this stuck?"

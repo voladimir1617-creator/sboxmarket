@@ -642,6 +642,30 @@ export async function confirmDeposit(sessionId) {
   });
 }
 
+// ── Cash-out / payouts (Stripe Connect) ─────────────────────────
+/** Payout-account status for the signed-in seller.
+ *  Shape: { payoutsEnabled: bool, onboardingNeeded: bool }.
+ *  Returns null on any non-2xx (anon, endpoint disabled, dev with no
+ *  Stripe keys) so the WalletModal can fall back to "setup needed"
+ *  gracefully instead of throwing. */
+export async function fetchConnectStatus() {
+  try {
+    const r = await fetch(`${API}/wallet/connect/status`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
+}
+
+/** Begin (or resume) Stripe-hosted Connect onboarding / KYC. Returns
+ *  the parsed body — `{ url }` on success (the client should redirect
+ *  the browser there) or `{ error, code }` on failure. Goes through
+ *  writeJson so a refusal surfaces a message the UI can show. */
+export async function connectOnboard() {
+  return writeJson(`${API}/wallet/connect/onboard`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+
 // ── Steam auth ──────────────────────────────────────────────────
 export async function fetchMe() {
   try {

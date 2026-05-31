@@ -197988,3 +197988,61 @@ html body .listing-grid .grid-card {
   background: rgb(38, 41, 48) !important;
 }
 /* END CSFLOAT-1:1 PARITY (wave-147c) */
+
+/* ============================================================
+   Cash-out setup (Stripe Connect) + automated escrow delivery
+   ── Wallet "Set up cash-out" card + "✓ Cash-out ready" pill on the
+      withdraw tab, and the trade-row automated-delivery banner / pill
+      shown when the secure bot is handling delivery. Tokenised to the
+      editorial system (blue accent, up=green).
+   ============================================================ */
+.cashout-setup-card {
+  margin: 12px 0 4px;
+  padding: 16px;
+  border: 1px solid color-mix(in oklab, var(--blue) 38%, var(--line));
+  background: color-mix(in oklab, var(--blue) 8%, var(--bg-2));
+  border-radius: var(--r-md, 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cashout-setup-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.cashout-setup-desc  { font-size: 13px; line-height: 1.45; color: var(--ink-3); }
+.cashout-setup-btn   { align-self: flex-start; margin-top: 2px; }
+.cashout-ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--up);
+}
+/* Trade-row automated-delivery banner (both sides) + the seller-side
+   status pill that replaces the manual "Mark Sent" button. */
+.trade-auto-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm, 6px);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  background: color-mix(in oklab, var(--blue) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--blue) 26%, var(--line));
+}
+.trade-auto-banner-icon { flex-shrink: 0; }
+.trade-auto-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-sm, 6px);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  background: color-mix(in oklab, var(--blue) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--blue) 30%, var(--line));
+}

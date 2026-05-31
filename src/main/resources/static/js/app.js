@@ -86,7 +86,12 @@ function PendingTradeReminder({ me }) {
         const rows = await r.json();
         const now = Date.now();
         const stuck = (Array.isArray(rows) ? rows : []).filter(t => {
-          const mine = (t.sellerUserId === me.id && (t.state === 'PENDING_SELLER_ACCEPT' || t.state === 'PENDING_SELLER_SEND'))
+          // On the automated (bot-delivered) path the seller isn't the
+          // blocker during PENDING_SELLER_SEND — the bot is delivering — so
+          // don't nudge them to "send the Steam offer". Falsy today (field
+          // not yet on the trade DTO) so manual trades still nudge as before.
+          const automated = t.botManaged === true || !!t.botDeliveryState;
+          const mine = (t.sellerUserId === me.id && (t.state === 'PENDING_SELLER_ACCEPT' || (t.state === 'PENDING_SELLER_SEND' && !automated)))
             || (t.buyerUserId === me.id && t.state === 'PENDING_BUYER_CONFIRM');
           if (!mine) return false;
           const age = now - (t.updatedAt || t.createdAt || now);
@@ -116,7 +121,7 @@ function PendingTradeReminder({ me }) {
   const t = visible[0];
   const isSeller = t.sellerUserId === me.id;
   const action = t.state === 'PENDING_SELLER_ACCEPT' ? 'accept the trade'
-               : t.state === 'PENDING_SELLER_SEND'   ? 'send the Steam offer'
+               : t.state === 'PENDING_SELLER_SEND'   ? 'deliver the item on Steam'
                :                                        'confirm receipt';
   return h('div', { className: 'pending-trade-nudge', role: 'status' },
     h('span', { className: 'pending-trade-nudge-icon' }, '⇄'),
