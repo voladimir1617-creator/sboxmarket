@@ -122243,8 +122243,12 @@ footer.site-footer .site-footer-bottom a:hover {
 .modal.item-page .item-rail-actions-buy,
 .modal.item-page .buy-btn,
 .modal-listing-row .buy-btn {
-  background: rgba(255, 255, 255, 0.12) !important;
-  background-color: rgba(255, 255, 255, 0.12) !important;
+  /* csfloat primary BUY CTA = solid accent blue (rgb(35,123,255)), white
+     label. The previous ship painted these translucent-white (a ghost
+     treatment), which read as a disabled/secondary button — csfloat's
+     buy action is its loudest, fully-saturated control. */
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
   color: rgb(255, 255, 255) !important;
   border: 0 none !important;
   border-radius: 8px !important;
@@ -122258,7 +122262,43 @@ footer.site-footer .site-footer-bottom a:hover {
   text-transform: none !important;
   box-shadow: none !important;
 }
+.item-rail-actions-buy:hover:not(:disabled),
+.modal.item-page .item-rail-actions-buy:hover:not(:disabled),
+.modal.item-page .buy-btn:hover:not(:disabled),
+.modal-listing-row .buy-btn:hover:not(:disabled) {
+  background: rgb(63, 142, 255) !important;
+  background-color: rgb(63, 142, 255) !important;
+}
+.item-rail-actions-buy:disabled,
+.modal.item-page .item-rail-actions-buy:disabled,
+.modal.item-page .buy-btn:disabled,
+.modal-listing-row .buy-btn:disabled {
+  background: rgba(35, 123, 255, 0.45) !important;
+  background-color: rgba(35, 123, 255, 0.45) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
 /* END CSFLOAT-1:1 PARITY ship #17 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #17b — unify the item-page bottom action-bar
+   primary CTA (.btn-accent) onto the SAME csfloat accent blue as the
+   rail/listing buy buttons (rgb(35,123,255)). It was rendering a darker
+   indigo (rgb(29,78,216)) derived from the global token, so the same
+   page showed two different "primary blue" shades. Scoped to
+   .modal.item-page so the site-wide .btn-accent is untouched.
+   ===================================================================== */
+.modal.item-page .modal-actions .btn-accent,
+.modal.item-page .modal-actions button.btn-accent {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.modal.item-page .modal-actions .btn-accent:hover:not(:disabled),
+.modal.item-page .modal-actions button.btn-accent:hover:not(:disabled) {
+  background: rgb(63, 142, 255) !important;
+  background-color: rgb(63, 142, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17b */
 
 /* =====================================================================
    CSFLOAT-1:1 PARITY ship #18 — secondary actions (cart / bargain pill)
@@ -130002,7 +130042,20 @@ label:has(> input[type="radio"] + *) {
 }
 .modal-stat-val.accent,
 .full-page-mode .modal-stat-val.accent {
-  color: #40a0fe !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* csfloat listing-price value: the first stat box (Listing Price) is the
+   one accent-blue number and reads a touch larger than the sibling stats,
+   but NOT the 28px/800 an earlier first-child override forced (that read
+   as a heavy, over-saturated headline). csfloat's price token is ~22px /
+   weight 500-600. Re-assert it here, after ship #1408, with matching
+   :first-child specificity so it wins the cascade. */
+.modal-stat-box:first-child .modal-stat-val,
+.full-page-mode .modal-stat-box:first-child .modal-stat-val,
+.site-root.full-page-mode .modal-stat-box:first-child .modal-stat-val {
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.2px !important;
 }
 .modal-stat-val .delta,
 .modal-stat-val .delta-chip,
