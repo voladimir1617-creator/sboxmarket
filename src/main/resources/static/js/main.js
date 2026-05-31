@@ -1,7 +1,11 @@
 // Entry point. Mounts <App/> wrapped in the error boundary.
 // Loaded as a module from index.html: <script type="module" src="/js/main.js"></script>
 import { h, createRoot } from './utils.js';
-import { ErrorBoundary, App } from './app.js';
+// ?v= cache-buster bumped with each app.js change so browsers re-fetch the
+// bundle instead of reusing a stale ES-module cache entry (a bare './app.js'
+// specifier is cached indefinitely; the live /market kept rendering an old
+// build — e.g. the removed market-stats band — until this query changed).
+import { ErrorBoundary, App } from './app.js?v=156';
 
 // Global safety nets — log to console AND forward to the server so ops
 // can see production crashes that never trip React's ErrorBoundary
