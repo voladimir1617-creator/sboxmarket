@@ -5,10 +5,12 @@ import com.sboxmarket.model.Listing
 import com.sboxmarket.model.Loadout
 import com.sboxmarket.model.LoadoutSlot
 import com.sboxmarket.model.Wallet
+import com.sboxmarket.model.PriceHistory
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.LoadoutRepository
 import com.sboxmarket.repository.LoadoutSlotRepository
+import com.sboxmarket.repository.PriceHistoryRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.SeedService
 import spock.lang.Specification
@@ -40,6 +42,7 @@ class SeedServiceSpec extends Specification {
     ListingRepository      listingRepository      = Mock()
     LoadoutRepository      loadoutRepository      = Mock()
     LoadoutSlotRepository  loadoutSlotRepository  = Mock()
+    PriceHistoryRepository priceHistoryRepository = Mock()
 
     @Subject
     SeedService service = new SeedService(
@@ -48,6 +51,20 @@ class SeedServiceSpec extends Specification {
         listingRepository    : listingRepository,
         loadoutRepository    : loadoutRepository,
         loadoutSlotRepository: loadoutSlotRepository
+    )
+
+    /** Second subject that ALSO wires the optional priceHistoryRepository,
+     *  so the price-history seed (inert on the bare `service` subject where
+     *  that bean is null, mirroring the @Autowired(required=false) field)
+     *  can be exercised in isolation without perturbing the other specs'
+     *  strict interaction counts. */
+    SeedService serviceWithHistory = new SeedService(
+        walletRepository      : walletRepository,
+        itemRepository        : itemRepository,
+        listingRepository     : listingRepository,
+        loadoutRepository     : loadoutRepository,
+        loadoutSlotRepository : loadoutSlotRepository,
+        priceHistoryRepository: priceHistoryRepository
     )
 
     // ── demo wallet ──────────────────────────────────────────────────
@@ -101,6 +118,14 @@ class SeedServiceSpec extends Specification {
         loadoutRepository.count() >> 5L
         // self-heal + name-prune scans see the existing curated loadouts
         loadoutRepository.findAll() >> publicLoadoutFixtureRows()
+        // The per-item price-history + recent-sales seeds iterate the live
+        // catalogue; on a populated restart both must be no-ops. findAll
+        // returns the existing items, and each item already has a SOLD row
+        // (recent-sales) so seedPerItemSales hits its idempotent skip path
+        // and writes nothing. (priceHistoryRepository is null on this
+        // subject, so seedPriceHistory short-circuits before any query.)
+        itemRepository.findAll() >> existingCatalogueRows()
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
 
         when:
         service.seed()
@@ -234,6 +259,10 @@ class SeedServiceSpec extends Specification {
         }
         // after catalogue seed, itemRepository.findAll() backs the later helpers
         itemRepository.findAll() >> { saved }
+        // Per-item recent-sales seed runs after the catalogue seed; stub it
+        // to the "already has a SOLD row" skip path so it adds no SOLD
+        // Listing rows that would pollute this catalogue-shape assertion.
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
 
         when:
         service.seed()
@@ -264,6 +293,7 @@ class SeedServiceSpec extends Specification {
             it
         }
         itemRepository.findAll() >> { saved }
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
 
         when:
         service.seed()
@@ -305,6 +335,7 @@ class SeedServiceSpec extends Specification {
             it
         }
         itemRepository.findAll() >> { saved }
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
 
         when:
         service.seed()
@@ -327,6 +358,10 @@ class SeedServiceSpec extends Specification {
         itemRepository.save(_) >> { Item it -> it }
         listingRepository.count() >> 0L
         listingRepository.countAllSold() >> 6L      // skip demo-sales so we inspect raw ACTIVE rows
+        // Per-item recent-sales seed runs after the listing seed; stub it to
+        // the "already has a SOLD row" skip path so the only rows captured
+        // in `saved` are the ACTIVE marketplace listings under test.
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
         loadoutRepository.findAll() >> []
         List<Listing> saved = []
         listingRepository.save(_) >> { Listing l -> l.id = (saved.size() + 1L); saved << l; l }
@@ -384,6 +419,162 @@ class SeedServiceSpec extends Specification {
         0 * listingRepository.save(_)
     }
 
+    // ── seeded price-history sanity ──────────────────────────────────
+
+    def "price-history seed plants a multi-day per-item series with scale-2 positive prices spanning >30 days"() {
+        given: "a fresh boot — priced catalogue, no existing history"
+        walletRepository.count() >> 1L
+        // skip the catalogue/listing/sales seeds so we isolate the history seed
+        itemRepository.count() >> 3L
+        listingRepository.count() >> 80L
+        listingRepository.countAllSold() >> 6L
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
+        loadoutRepository.findAll() >> []
+        def items = (1L..3L).collect { id ->
+            new Item(id: id, name: "Item${id}", category: 'Hats', rarity: 'Standard',
+                     lowestPrice: new BigDecimal("5.00"), steamPrice: new BigDecimal("6.00"))
+        }
+        itemRepository.findAll() >> items
+        List<PriceHistory> saved = []
+        // Identity-aware save (like JPA): a brand-new row is appended once;
+        // the final-pin step re-saves an already-managed row, which must NOT
+        // create a duplicate. So `saved` ends up holding exactly the distinct
+        // rows — one per seeded day.
+        priceHistoryRepository.save(_) >> { PriceHistory p ->
+            if (!saved.any { it.is(p) }) { p.id = (saved.size() + 1L); saved << p }
+            p
+        }
+        // findLatestByItem is called TWICE per item: once as the per-item
+        // idempotency gate (must be empty so the item gets seeded), then
+        // once at the end to pin the final point to the floor. A stateful
+        // stub keyed on what's been saved for that item models both: empty
+        // until the first row for the item lands, then the most-recent row.
+        priceHistoryRepository.findLatestByItem(_) >> { Long itemId ->
+            def rows = saved.findAll { it.item?.id == itemId }
+            rows.isEmpty() ? Optional.empty() : Optional.of(rows.last())
+        }
+
+        when:
+        serviceWithHistory.seed()
+
+        then: "a dense per-item series was written (one point per day across the window)"
+        // 90 days × 3 items = 270 points.
+        saved.size() == 3 * 90
+        and: "every point is a positive, currency-clean BigDecimal"
+        saved.every { it.price != null && it.price.scale() == 2 && it.price > BigDecimal.ZERO }
+        and: "every point carries an epoch-ms recordedAt and a non-null day label"
+        saved.every { it.recordedAt != null && it.recordedAt > 0L }
+        saved.every { it.dayLabel != null && !it.dayLabel.isEmpty() }
+        and: "the series spans more than 30 days so the 30-day delta + range chips compute"
+        long spanMs = saved*.recordedAt.max() - saved*.recordedAt.min()
+        spanMs > 30L * 86_400_000L
+        and: "volume is a non-negative daily trade count"
+        saved.every { it.volume != null && it.volume >= 0 }
+        and: "each item's newest point lands on its reconciled floor (chart right edge == card price)"
+        items.every { item ->
+            def rows = saved.findAll { it.item.is(item) }.sort { it.recordedAt }
+            rows.last().price == item.lowestPrice.setScale(2, java.math.RoundingMode.HALF_UP)
+        }
+    }
+
+    def "price-history seed is idempotent per item — skips an item that already has history"() {
+        given:
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 3L
+        listingRepository.count() >> 80L
+        listingRepository.countAllSold() >> 6L
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
+        loadoutRepository.findAll() >> []
+        itemRepository.findAll() >> [
+            new Item(id: 1L, name: 'A', category: 'Hats', rarity: 'Standard',
+                     lowestPrice: new BigDecimal("4.00"), steamPrice: new BigDecimal("4.80"))
+        ]
+        // The item already has a latest history row -> skip path, no writes.
+        priceHistoryRepository.findLatestByItem(_) >> Optional.of(
+            new PriceHistory(price: new BigDecimal("4.00"), dayLabel: 'y'))
+
+        when:
+        serviceWithHistory.seed()
+
+        then:
+        0 * priceHistoryRepository.save(_)
+    }
+
+    def "price-history seed is inert when the optional repository bean is absent"() {
+        given: "the bare subject (priceHistoryRepository null, like required=false)"
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 3L
+        listingRepository.count() >> 80L
+        listingRepository.countAllSold() >> 6L
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
+        loadoutRepository.findAll() >> []
+        itemRepository.findAll() >> existingCatalogueRows()
+
+        when:
+        service.seed()    // bare subject — priceHistoryRepository is null
+
+        then: "no NPE, and nothing is written to the (absent) history repo"
+        noExceptionThrown()
+        0 * priceHistoryRepository.save(_)
+    }
+
+    // ── seeded per-item recent-sales sanity ──────────────────────────
+
+    def "per-item sales seed inserts SOLD rows for items with no prior sales"() {
+        given: "a fresh boot — priced catalogue, no prior per-item sales"
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 4L
+        listingRepository.count() >> 80L     // skip the marketplace-listing seed
+        listingRepository.countAllSold() >> 6L  // skip backfillDemoSales
+        loadoutRepository.findAll() >> []
+        def items = (1L..4L).collect { id ->
+            new Item(id: id, name: "Item${id}", category: 'Hats', rarity: 'Standard',
+                     lowestPrice: new BigDecimal("3.00"), steamPrice: new BigDecimal("3.60"))
+        }
+        itemRepository.findAll() >> items
+        // No existing SOLD rows -> every item gets fresh sales.
+        listingRepository.findRecentSalesForItem(_, _) >> []
+        List<Listing> saved = []
+        listingRepository.save(_) >> { Listing l -> l.id = (saved.size() + 1L); saved << l; l }
+
+        when:
+        service.seed()
+
+        then: "every saved row is a SOLD listing referencing a seeded item"
+        saved.size() >= items.size() * 3      // >=3 per item
+        saved.size() <= items.size() * 6      // <=6 per item
+        saved.every { it.status == 'SOLD' }
+        saved.every { it.soldAt != null && it.soldAt > 0L }
+        saved.every { it.item != null && items.contains(it.item) }
+        and: "prices are positive, currency-clean, and sellerUserId is null (system rows)"
+        saved.every { it.price != null && it.price.scale() == 2 && it.price > BigDecimal.ZERO }
+        saved.every { it.sellerUserId == null }
+        saved.every { it.sellerName != null && !it.sellerName.isEmpty() }
+        and: "every item ends up with at least one SOLD row (Recent sales (N) is non-zero)"
+        items.every { item -> saved.any { it.item.is(item) } }
+    }
+
+    def "per-item sales seed skips an item that already has a SOLD row (idempotent)"() {
+        given:
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 2L
+        listingRepository.count() >> 80L
+        listingRepository.countAllSold() >> 6L
+        loadoutRepository.findAll() >> []
+        itemRepository.findAll() >> [
+            new Item(id: 1L, name: 'A', category: 'Hats', rarity: 'Standard',
+                     lowestPrice: new BigDecimal("2.00"), steamPrice: new BigDecimal("2.40"))
+        ]
+        // Item already has a recent sale -> skip path, no new SOLD rows.
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
+
+        when:
+        service.seed()
+
+        then:
+        0 * listingRepository.save(_)
+    }
+
     // ── seeded public-loadout sanity ─────────────────────────────────
 
     def "public-loadout seed skips when the catalogue is too small to fill slots"() {
@@ -412,6 +603,10 @@ class SeedServiceSpec extends Specification {
         }
         itemRepository.count() >> (long) items.size()
         itemRepository.findAll() >> items
+        // Per-item recent-sales seed iterates the catalogue too; stub it to
+        // the "already has a SOLD row" skip path so it issues no extra
+        // listing saves while this test inspects the loadout writes.
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
         loadoutRepository.findAll() >> []     // first boot — nothing yet
         List<Loadout> savedLoadouts = []
         loadoutRepository.save(_) >> { Loadout l ->
@@ -510,6 +705,9 @@ class SeedServiceSpec extends Specification {
         itemRepository.save(_) >> { Item it -> it }
         listingRepository.count() >> 0L
         listingRepository.countAllSold() >> 6L
+        // Skip the per-item recent-sales seed so `saved` holds only the
+        // ACTIVE marketplace listings whose avatar token this test pins.
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
         loadoutRepository.findAll() >> []
         List<Listing> saved = []
         listingRepository.save(_) >> { Listing l -> l.id = (saved.size() + 1L); saved << l; l }
@@ -532,6 +730,17 @@ class SeedServiceSpec extends Specification {
      *  fixture catalogue has at least one item per slot category. */
     private static String catFor(long id) {
         ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'][(int) ((id - 1L) % 7L)]
+    }
+
+    /** A small priced catalogue standing in for an already-populated DB —
+     *  backs `itemRepository.findAll()` so the per-item price-history and
+     *  recent-sales seeds have rows to iterate (and then skip, on a
+     *  populated restart). */
+    private static List<Item> existingCatalogueRows() {
+        (1L..6L).collect { id ->
+            new Item(id: id, name: "Item${id}", category: 'Hats', rarity: 'Standard',
+                     lowestPrice: new BigDecimal("3.00"), steamPrice: new BigDecimal("3.60"))
+        }
     }
 
     /** Five already-present curated public loadouts, deliberately

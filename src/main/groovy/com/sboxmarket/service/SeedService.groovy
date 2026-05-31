@@ -3,6 +3,7 @@ package com.sboxmarket.service
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.Loadout
 import com.sboxmarket.model.LoadoutSlot
+import com.sboxmarket.model.PriceHistory
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
@@ -34,6 +35,7 @@ class SeedService {
     @Autowired(required = false) LoadoutRepository loadoutRepository
     @Autowired(required = false) LoadoutSlotRepository loadoutSlotRepository
     @Autowired(required = false) ItemRepository itemRepository
+    @Autowired(required = false) PriceHistoryRepository priceHistoryRepository
 
     /**
      * First-boot bootstrap entry point — invoked once from the
@@ -71,6 +73,8 @@ class SeedService {
         seedCatalogueItems()
         seedMarketplaceListings()
         backfillDemoSales()
+        seedPriceHistory()
+        seedPerItemSales()
         backfillPublicLoadouts()
     }
 
@@ -525,6 +529,248 @@ class SeedService {
             log.info("Seeded ${picks.size()} demo SOLD listings so the home Latest Sales panel renders on a fresh boot")
         } catch (Exception e) {
             log.warn("Demo-sales backfill skipped: ${e.message}")
+        }
+    }
+
+    /**
+     * Day-1 launch seed for the per-item price-history chart. On a fresh
+     * boot `price_history` is empty, so every /item page renders
+     * "No data yet. Price history will appear after the next market sync."
+     * and the 30-day change chip stays blank — the chart only fills in
+     * organically as the market-sync writers tick
+     * {@code PriceHistoryService.record} once per day, which means
+     * weeks before any range tab (7D/1M/3M/1Y/ALL) shows a curve.
+     *
+     * This method plants a believable per-item historical series so
+     * the chart, the range delta and the 30-day range chips are all live
+     * on first boot. It reads the SAME shape the chart consumes
+     * (frontend fetchPriceHistory -> GET /api/items/{id}/history ->
+     * ItemService.getPriceHistory -> PriceHistoryRepository.findByItemIdSince,
+     * a 400-day window): one row per calendar day, fields {price (scale-2),
+     * volume, recordedAt (epoch millis), dayLabel ("MMM dd, yyyy")} —
+     * mirroring exactly how {@code PriceHistoryService.record} builds a row,
+     * so seeded points are indistinguishable from organically-recorded ones.
+     *
+     * SPAN: {@code HISTORY_DAYS} (90) calendar days ending today, ONE point
+     * per day (matching the service's daily-coalesce model — one logical
+     * point per UTC day). 90 days fully populates the 7D/1M/3M tabs and
+     * gives the 1Y/ALL tabs a real 90-day curve instead of an empty card,
+     * and spans well past 30 days so {@code load30dChange} (needs >=2
+     * points inside a 30-day window) computes a real percentage.
+     *
+     * SERIES: a gentle random-walk anchored on the item's reconciled
+     * {@code lowestPrice}. The walk starts ~8-22% away from today's floor
+     * (so the 90-day delta reads as a real move, up or down per item),
+     * drifts back toward the floor with small daily steps + noise, and is
+     * clamped to (0, lowestPrice*2.2] and never <= 0 — every price is
+     * setScale(2, HALF_UP) currency-clean. {@code volume} is a small daily
+     * trade count (0-6) so the chart's volume read-out looks alive.
+     *
+     * IDEMPOTENT: per item, skips if that item already has ANY price-history
+     * row ({@code findLatestByItem} present) — so a re-seed, or an item that
+     * has already started recording organically, is never double-written.
+     *
+     * DETERMINISTIC: seeded with {@code Random(42L + item.id)} so the whole
+     * catalogue's history is byte-for-byte reproducible across boots and
+     * stable for QA/screenshots — same convention as the other seed steps.
+     * Writes go through {@code PriceHistoryRepository.save} directly (NOT
+     * {@code recordPrice}, which always stamps {@code recordedAt = now} and
+     * so cannot backfill dated history) — read-only on PriceHistoryService.
+     */
+    private static final int HISTORY_DAYS = 90
+
+    private void seedPriceHistory() {
+        if (priceHistoryRepository == null || itemRepository == null) return
+        try {
+            def items = itemRepository.findAll()
+                    .findAll { it != null && it.id != null && it.lowestPrice != null && it.lowestPrice > BigDecimal.ZERO }
+            if (items.isEmpty()) {
+                log.info("Price-history seed skipped: no priced catalogue items")
+                return
+            }
+            long now = System.currentTimeMillis()
+            long dayMs = 86_400_000L
+            int itemsSeeded = 0
+            int pointsCreated = 0
+
+            items.each { item ->
+                // Idempotent per item: if this item already has any history
+                // row (seeded earlier, or recorded organically), leave it.
+                if (priceHistoryRepository.findLatestByItem(item.id).isPresent()) return
+
+                // Per-item deterministic RNG so each item's walk differs but
+                // the whole catalogue is reproducible across boots.
+                def rng = new Random(42L + item.id)
+                BigDecimal floor = item.lowestPrice
+
+                // Start the walk 8-22% off today's floor, random direction,
+                // so each item shows a real (not flat) 90-day move.
+                double startOffset = 0.08d + rng.nextDouble() * 0.14d   // 0.08..0.22
+                boolean startsHigh = rng.nextBoolean()
+                double level = floor.doubleValue() * (startsHigh ? (1.0d + startOffset) : (1.0d - startOffset))
+                if (level <= 0d) level = floor.doubleValue() * 0.5d
+
+                double floorD = floor.doubleValue()
+                double cap = floorD * 2.2d
+                double minLevel = floorD * 0.3d
+
+                // Oldest day first so recordedAt is strictly ascending — the
+                // chart query (findByItemIdSince) returns ASC and the
+                // frontend reads pts[0]=oldest, pts[last]=newest.
+                for (int d = HISTORY_DAYS - 1; d >= 0; d--) {
+                    // Mean-reverting drift toward the current floor plus a
+                    // little daily noise: a believable gentle walk, not a
+                    // straight line and not a spike field.
+                    double revert = (floorD - level) * 0.06d
+                    double noise = (rng.nextDouble() - 0.5d) * floorD * 0.05d
+                    level = level + revert + noise
+                    if (level > cap) level = cap
+                    if (level < minLevel) level = minLevel
+                    if (level <= 0d) level = floorD * 0.3d
+
+                    long recordedAt = now - (long) d * dayMs
+                    BigDecimal price = new BigDecimal(level).setScale(2, RoundingMode.HALF_UP)
+                    if (price <= BigDecimal.ZERO) price = new BigDecimal('0.01')
+
+                    priceHistoryRepository.save(new PriceHistory(
+                        item:       item,
+                        price:      price,
+                        volume:     rng.nextInt(7),          // 0-6 trades that day
+                        recordedAt: recordedAt,
+                        dayLabel:   dayLabel(recordedAt)
+                    ))
+                    pointsCreated++
+                }
+
+                // Land the final (today) point exactly on the reconciled
+                // floor so the chart's right edge agrees with the card price
+                // and the item-modal floor chip.
+                def latest = priceHistoryRepository.findLatestByItem(item.id).orElse(null)
+                if (latest != null) {
+                    latest.price = floor.setScale(2, RoundingMode.HALF_UP)
+                    priceHistoryRepository.save(latest)
+                }
+                itemsSeeded++
+            }
+
+            log.info("Seeded ${pointsCreated} price-history points across ${itemsSeeded} items " +
+                    "(${HISTORY_DAYS}-day daily series) so /item charts, the range delta and the " +
+                    "30-day change render on a fresh boot instead of \"No data yet\"")
+        } catch (Exception e) {
+            log.warn("Price-history seed skipped: ${e.message}", e)
+        }
+    }
+
+    /** Year-qualified "MMM dd, yyyy" day token (e.g. "Apr 01, 2026"),
+     *  byte-for-byte matching {@code PriceHistoryService.DAY_LABEL_PATTERN}
+     *  and its UTC timezone. CRITICAL that this matches: the service uses
+     *  {@code dayLabel} as the same-day COALESCE key — the first organic
+     *  {@code record()} after boot only overwrites today's seeded point
+     *  (instead of appending a duplicate same-day row) when the seeded
+     *  "today" label is identical to the one the service computes. A bare
+     *  "MMM dd" label would also have collided same-day rows across years
+     *  in the 400-day hydration window. UTC so the day boundary is
+     *  deployment-/timezone-independent, exactly as the service does. */
+    private static String dayLabel(long epochMillis) {
+        def fmt = new java.text.SimpleDateFormat("MMM dd, yyyy")
+        fmt.timeZone = TimeZone.getTimeZone('UTC')
+        fmt.format(new java.util.Date(epochMillis))
+    }
+
+    /**
+     * Day-1 launch seed for the per-item "Recent sales" panel. That panel
+     * (frontend fetchRecentSales -> GET /api/items/{id}/recent-sales ->
+     * ItemController.getRecentSales -> ListingRepository.findRecentSalesForItem)
+     * reads SOLD Listing rows for the item — NOT price-history — so on a
+     * fresh boot it shows
+     * "Recent sales (0)" for almost every item: {@code backfillDemoSales}
+     * only flips SIX listings to SOLD across the WHOLE catalogue, leaving
+     * the other ~33 items empty.
+     *
+     * This step gives each priced item a few recent SOLD rows so
+     * "Recent sales (N)" is non-zero everywhere. Rather than flip ACTIVE
+     * listings (which would shrink the item's live book and desync the
+     * supply/floor the marketplace-listing reconcile pass already set), it
+     * INSERTS dedicated SOLD rows — same data shape the home "Latest sales"
+     * feed and the per-item sales table consume.
+     *
+     * Per item: 3-6 SOLD rows, prices jittered +/-12% around the item's
+     * {@code lowestPrice} (scale-2, never <= 0), {@code soldAt} spread over
+     * the past ~21 days newest-first, with plausible seller handles +
+     * conditions drawn from the same pools the listing seed uses.
+     *
+     * IDEMPOTENT: per item, skips if that item already has ANY SOLD row
+     * (so the 6 items {@code backfillDemoSales} already sold, and any real
+     * sale, are never doubled). DETERMINISTIC: {@code Random(1000L + id)}.
+     */
+    private void seedPerItemSales() {
+        if (listingRepository == null || itemRepository == null) return
+        try {
+            def items = itemRepository.findAll()
+                    .findAll { it != null && it.id != null && it.lowestPrice != null && it.lowestPrice > BigDecimal.ZERO }
+            if (items.isEmpty()) {
+                log.info("Per-item sales seed skipped: no priced catalogue items")
+                return
+            }
+            long now = System.currentTimeMillis()
+            long dayMs = 86_400_000L
+            int itemsSeeded = 0
+            int rowsCreated = 0
+
+            items.each { item ->
+                // Idempotent per item: skip if any SOLD row already exists
+                // (backfillDemoSales picks, or a genuine sale). Uses the
+                // SAME query the /item "Recent sales" panel reads
+                // (findRecentSalesForItem -> status='SOLD' for this item)
+                // so the existence check is exactly the surface we seed for.
+                def existingSold = listingRepository.findRecentSalesForItem(
+                        item.id, org.springframework.data.domain.PageRequest.of(0, 1))
+                if (existingSold != null && !existingSold.isEmpty()) return
+
+                def rng = new Random(1000L + item.id)
+                BigDecimal lp = item.lowestPrice
+                int count = 3 + rng.nextInt(4)   // 3-6 recent sales
+
+                count.times { i ->
+                    // Price jitter +/-12% around the floor.
+                    BigDecimal jitter = new BigDecimal('0.88') +
+                            new BigDecimal(rng.nextInt(25)).divide(new BigDecimal('100'))
+                    BigDecimal price = (lp * jitter).setScale(2, RoundingMode.HALF_UP)
+                    if (price <= BigDecimal.ZERO) price = new BigDecimal('0.25')
+
+                    String handle = SEED_SELLERS[rng.nextInt(SEED_SELLERS.size())]
+                    String condition = SEED_CONDITIONS[rng.nextInt(SEED_CONDITIONS.size())]
+                    BigDecimal rarityScore = new BigDecimal(rng.nextInt(1000))
+                            .divide(new BigDecimal('1000')).setScale(4, RoundingMode.HALF_UP)
+
+                    // soldAt spread newest-first across the past ~21 days.
+                    long soldAt = now - (long) (i * 3 + rng.nextInt(3) + 1) * dayMs -
+                            (long) (rng.nextInt(24)) * 3600_000L
+                    long listedAt = soldAt - (long) (1 + rng.nextInt(5)) * dayMs
+
+                    listingRepository.save(new Listing(
+                        item:         item,
+                        price:        price,
+                        sellerName:   handle,
+                        sellerAvatar: initialsFor(handle),
+                        status:       'SOLD',
+                        condition:    condition,
+                        rarityScore:  rarityScore,
+                        listingType:  'BUY_NOW',
+                        sellerUserId: null,
+                        listedAt:     listedAt,
+                        soldAt:       soldAt,
+                        hidden:       false
+                    ))
+                    rowsCreated++
+                }
+                itemsSeeded++
+            }
+
+            log.info("Seeded ${rowsCreated} per-item SOLD listings across ${itemsSeeded} items " +
+                    "so every /item \"Recent sales (N)\" panel is non-zero on a fresh boot")
+        } catch (Exception e) {
+            log.warn("Per-item sales seed skipped: ${e.message}", e)
         }
     }
 
