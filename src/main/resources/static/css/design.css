@@ -198152,3 +198152,22 @@ html body .listing-grid .grid-card {
   }
 }
 /* END /market FINAL RAIL OVERRIDE */
+
+/* CART ROW LAYOUT — definitive (CARTROW-FIX marker).
+   The row declared a 4-col grid (56px 1fr auto auto) but renders 5 children
+   (thumb, info, price, "Save", "x"); the Save-hide rule used nth-of-type(1)
+   which did not match, so Save took col 4 and the x wrapped to a 2nd implicit
+   grid row (row height 121px, a gap below each item). Flex line is immune to
+   child count; hide the redundant per-row Save, keep the x. */
+body .cart-grid .cart-list .cart-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 12px 14px !important;
+}
+body .cart-grid .cart-list .cart-row .cart-info { flex: 1 1 auto !important; min-width: 0 !important; }
+body .cart-grid .cart-list .cart-row .cart-thumb { flex: 0 0 56px !important; }
+body .cart-grid .cart-list .cart-row .cart-price { flex: 0 0 auto !important; margin-left: auto !important; white-space: nowrap !important; }
+body .cart-grid .cart-list .cart-row > button.btn-ghost { flex: 0 0 auto !important; }
+body .cart-grid .cart-list .cart-row > button.btn-ghost:not(:last-child) { display: none !important; }
+/* END CART ROW LAYOUT */
