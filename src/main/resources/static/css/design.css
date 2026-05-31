@@ -1,4 +1,4 @@
-/* ─────────────────────────────────────────────────────────────
+﻿/* ─────────────────────────────────────────────────────────────
    SkinBox redesign — dark premium editorial
    Type: Roboto (ui) + JetBrains Mono (numbers) + Instrument Serif (accent)
    ───────────────────────────────────────────────────────────── */
@@ -138304,38 +138304,58 @@ button[data-copy*="trade"]:hover {
 }
 /* END CSFLOAT-1:1 PARITY ship #4200 */
 
-/* CSFLOAT-1:1 PARITY ship #4201 — 1280px sidebar-collapse breakpoint.
-   Measured csfloat at 1280 viewport: 4 cards/row, cardWidth 250px,
-   gap 15px, parent grid 1160 with 60px outer margins each side, sidebar
-   IS HIDDEN at this width. Match: hide sidebar between 1024-1599, pin
-   grid to 4 cols at 15px gap, and use 1160 inner width with 60px outer
-   gutters. */
+/* ship #4201 (REVISED) — desktop 1280–1599 keeps the csfloat-style LEFT
+   FILTER RAIL visible (240px) beside the grid, instead of hiding it.
+   csfloat's search page shows its filter rail at desktop widths; the old
+   "hide between 1024-1599" rule was the regression that made our /market
+   look rail-less. Sidebar stays a left column from 1100px up (the static
+   rail), collapsing to the mobile drawer below 1100 (handled in the
+   <=1099 bands further down). Grid auto-fills the remaining space. */
 @media (min-width: 1280px) and (max-width: 1599px) {
   main.layout > .sidebar,
   main.layout > aside.sidebar {
-    display: none !important;
+    display: block !important;
   }
   main.layout:has(> .sidebar),
   main.layout:has(> aside.sidebar) {
-    grid-template-columns: 1fr !important;
-    max-width: 1160px !important;
-    padding-left: 60px !important;
-    padding-right: 60px !important;
+    grid-template-columns: 240px minmax(0, 1fr) !important;
+    max-width: var(--maxw, 1600px) !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
     margin-left: auto !important;
     margin-right: auto !important;
   }
   .listing-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 15px !important;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+    gap: 16px !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #4201 */
+/* END ship #4201 (REVISED) */
 
-/* CSFLOAT-1:1 PARITY ship #4202 — 1024px tablet-landscape grid parity.
-   Measured csfloat at 1024 viewport: 5 cards/row, cardWidth 250px,
-   gap 20px, parent grid ~973 with ~15/36 outer margins, sidebar HIDDEN.
-   Pin to 5 cols at 20px gap with 24px outer gutters. */
-@media (min-width: 1024px) and (max-width: 1279px) {
+/* ship #4202 (REVISED) — 1100–1279 still shows the left filter rail
+   (240px) as a desktop column. The rail only collapses to the mobile
+   drawer below 1100px, so the >=1100 "rail visible" contract holds across
+   the whole 1100–1599 desktop range. Grid auto-fills the remaining space. */
+@media (min-width: 1100px) and (max-width: 1279px) {
+  main.layout > .sidebar,
+  main.layout > aside.sidebar {
+    display: block !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 240px minmax(0, 1fr) !important;
+    max-width: 100% !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  .listing-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+    gap: 16px !important;
+  }
+}
+/* 1024–1099 — below the rail breakpoint: hide the static rail (mobile
+   drawer takes over) and run a full-width 5-col grid like csfloat tablet. */
+@media (min-width: 1024px) and (max-width: 1099px) {
   main.layout > .sidebar,
   main.layout > aside.sidebar {
     display: none !important;
@@ -138352,7 +138372,7 @@ button[data-copy*="trade"]:hover {
     gap: 20px !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #4202 */
+/* END ship #4202 (REVISED) */
 
 /* CSFLOAT-1:1 PARITY ship #4203 — 768px tablet-portrait grid parity.
    Measured csfloat at 768: 3 cards/row standard at this breakpoint.
@@ -198046,3 +198066,71 @@ html body .listing-grid .grid-card {
   background: color-mix(in oklab, var(--blue) 12%, transparent);
   border: 1px solid color-mix(in oklab, var(--blue) 30%, var(--line));
 }
+
+/* ─────────────────────────────────────────────────────────────
+   /market FINAL RAIL OVERRIDE — single source of truth, wins by
+   source order. csfloat-style left filter rail: 240px column beside
+   the grid from 1100px up, collapsing to the existing mobile drawer
+   below 1100. Neutralises the layered ship #45 (350px !important) +
+   the old #4201/#4202 "hide between 1024–1599" regressions so the
+   rail is reliably visible at every desktop width incl. 1440.
+   ───────────────────────────────────────────────────────────── */
+@media (min-width: 1100px) {
+  main.layout > .sidebar,
+  main.layout > aside.sidebar {
+    display: block !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 240px minmax(0, 1fr) !important;
+    gap: 24px !important;
+  }
+}
+/* Below 1100: static rail hidden, mobile filter drawer takes over.
+   The :not(.mobile-drawer-open) guard preserves the tap-to-open drawer
+   (which sets display:block when the user opens filters on phones). */
+@media (max-width: 1099px) {
+  main.layout > .sidebar:not(.mobile-drawer-open),
+  main.layout > aside.sidebar:not(.mobile-drawer-open) {
+    display: none !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* END /market FINAL RAIL OVERRIDE */
+
+/* ─── /market FINAL RAIL OVERRIDE (wins by source order) ───
+   csfloat-style left filter rail: 240px column beside the grid from 1100px
+   up, collapsing to the mobile drawer below 1100. Neutralises the layered
+   ship #40 (sidebar width 350px !important) + ship #45 (350px grid track) +
+   the 1280-1599 "hide" band so the rail is reliably 240px and visible at
+   every desktop width incl. 1440. */
+@media (min-width: 1100px) {
+  main.layout > .sidebar,
+  main.layout > aside.sidebar {
+    display: block !important;
+    /* Pin the rail element to its 240px track (beats ship #40's 350px). */
+    width: 240px !important;
+    min-width: 240px !important;
+    max-width: 240px !important;
+    flex: 0 0 240px !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 240px minmax(0, 1fr) !important;
+    gap: 24px !important;
+  }
+}
+@media (max-width: 1099px) {
+  main.layout > .sidebar:not(.mobile-drawer-open),
+  main.layout > aside.sidebar:not(.mobile-drawer-open) {
+    display: none !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* END /market FINAL RAIL OVERRIDE */
