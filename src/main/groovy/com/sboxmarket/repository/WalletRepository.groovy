@@ -13,6 +13,15 @@ interface WalletRepository extends JpaRepository<Wallet, Long> {
 
     Wallet findByUsername(String username)
 
+    /** Resolve a wallet from its Stripe Connect connected-account id —
+     *  used by the `account.updated` webhook (StripeService) to flip
+     *  `payoutsEnabled` once Stripe reports the account cleared KYC.
+     *  Backed by the partial index `idx_wallets_stripe_connect_account_id`
+     *  (V72) so the webhook lookup never scans the wallets table. Returns
+     *  null when no wallet holds that account id (e.g. an account.updated
+     *  for an account we don't own — defensive, the webhook no-ops). */
+    Wallet findByStripeConnectAccountId(String stripeConnectAccountId)
+
     /** Single SUM aggregate instead of `findAll().sum { it.balance }`.
      *  Drops the admin-dashboard roundtrip from O(N) to O(1). */
     @Query("SELECT COALESCE(SUM(w.balance), 0) FROM Wallet w")

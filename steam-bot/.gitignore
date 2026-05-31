@@ -1,0 +1,9 @@
+# Steam bot sidecar — local ignores.
+#
+# The repo-root .gitignore already ignores `.env`, `*.env`, and `.env.*`
+# globally. That last pattern also swallows `.env.example`, which we WANT
+# tracked. Re-include ONLY that one template file here. We do NOT re-state the
+# ignore patterns (doing so alongside the negation caused git to mis-resolve and
+# un-ignore real secrets) — the root rules keep every real .env file ignored.
+
+!.env.example

@@ -1,0 +1,22 @@
+{
+  "name": "sboxmarket-steam-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Steam trade-offer bot sidecar for sboxmarket. Sends/receives/verifies trade offers for s&box (Steam app 590830) on behalf of the marketplace's bot-escrow flow.",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "steam-user": "^5.0.9",
+    "steamcommunity": "^3.48.0",
+    "steam-tradeoffer-manager": "^2.11.5",
+    "steam-totp": "^2.1.2"
+  }
+}

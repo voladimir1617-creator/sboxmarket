@@ -213,19 +213,88 @@ class StripeServiceSpec extends Specification {
         saved.amount == new BigDecimal("13.00")
     }
 
-    def "requestWithdrawal marks PENDING (not COMPLETED) when Stripe is live"() {
+    def "requestWithdrawal REJECTS in live mode when the wallet is NOT Connect-onboarded (CONNECT_ONBOARDING_REQUIRED) — never silently stubs a manual PENDING row"() {
+        // Real money-out rail: a live-mode withdrawal with no onboarded,
+        // payouts-enabled Stripe Connect account has nowhere to send the
+        // funds. The old behaviour wrote a PENDING WITHDRAW row with
+        // stripeReference='manual' that no payout API ever fulfilled.
+        // Now it rejects up front with a branchable code AND never debits
+        // the wallet or writes a tx.
+        given:
+        service.secretKey = 'sk_live_abc'              // isLive() == true
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"),
+            payoutsEnabled: false)                     // not onboarded
+        walletRepository.findById(500L) >> Optional.of(wallet)
+
+        when:
+        service.requestWithdrawal(500L, new BigDecimal("40"), 'acct_external')
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'CONNECT_ONBOARDING_REQUIRED'
+        // The wallet is untouched and no ledger row is written.
+        wallet.balance == new BigDecimal("100.00")
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+    }
+
+    def "requestWithdrawal in live mode with payouts ENABLED creates a real Stripe Transfer and records its id as the tx reference"() {
+        // Happy path for the real payout rail. An onboarded wallet
+        // (payoutsEnabled + stripeConnectAccountId) gets a real
+        // Transfer.create from the platform balance to the connected
+        // account; the Transfer id is stored on the tx, the wallet is
+        // debited, and the row is COMPLETED.
         given:
         service.secretKey = 'sk_live_abc'
-        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"))
+        service.currency = 'usd'
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"),
+            payoutsEnabled: true, stripeConnectAccountId: 'acct_seller_1')
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
-        transactionRepository.save(_) >> { Transaction t -> t }
+        def saved = null
+        transactionRepository.save(_) >> { Transaction t -> t.id = 1L; saved = t; t }
+
+        and: 'Stripe returns a real transfer id (Transfer has no setId, so mock getId)'
+        def fakeTransfer = Mock(com.stripe.model.Transfer) { getId() >> 'tr_live_99' }
+        GroovySpy(com.stripe.model.Transfer, global: true)
+        com.stripe.model.Transfer.create(_, _) >> fakeTransfer
 
         when:
         def tx = service.requestWithdrawal(500L, new BigDecimal("40"), 'acct_external')
 
-        then:
-        tx.status == 'PENDING'
+        then: 'wallet debited, tx COMPLETED, stripeReference is the real Transfer id'
+        wallet.balance == new BigDecimal("60.00")
+        tx.status == 'COMPLETED'
+        saved.stripeReference == 'tr_live_99'
+        saved.type == 'WITHDRAW'
+        saved.amount == new BigDecimal("40.00")
+    }
+
+    def "requestWithdrawal rolls back (rethrows) when the Stripe Transfer fails in live mode — balance is restored by the surrounding transaction"() {
+        // If Stripe rejects the Transfer, the method must rethrow so the
+        // @Transactional rolls back the wallet debit — never a debit with
+        // no payout. We assert the rethrow; the rollback itself is
+        // Spring's job (the in-memory mock wallet stays debited here since
+        // there's no real tx to roll back, so we only pin the throw + that
+        // NO tx row is persisted).
+        given:
+        service.secretKey = 'sk_live_abc'
+        service.currency = 'usd'
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"),
+            payoutsEnabled: true, stripeConnectAccountId: 'acct_seller_1')
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+
+        and: 'Stripe Transfer.create blows up'
+        GroovySpy(com.stripe.model.Transfer, global: true)
+        com.stripe.model.Transfer.create(_, _) >> { throw new RuntimeException('insufficient platform balance') }
+
+        when:
+        service.requestWithdrawal(500L, new BigDecimal("40"), 'acct_external')
+
+        then: 'rethrown so the transaction rolls back — and no WITHDRAW row is written'
+        thrown(IllegalStateException)
+        0 * transactionRepository.save({ Transaction t -> t.type == 'WITHDRAW' })
     }
 
     def "requestWithdrawal audit row carries the wallet owner as actor AND subject"() {

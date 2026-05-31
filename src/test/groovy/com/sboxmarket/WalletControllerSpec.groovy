@@ -1259,4 +1259,102 @@ class WalletControllerSpec extends Specification {
             new Transaction(id: 2L, status: 'PENDING')
         resp.statusCode.value() == 200
     }
+
+    // ─── POST /api/wallet/connect/onboard ───────────────────────────
+    // Stripe Connect payout onboarding (the KYC step). The controller
+    // reuses the withdraw path's auth + ban + freeze posture and
+    // delegates the Stripe work to StripeService.
+
+    def "connectOnboard() anon: 401 (never reaches StripeService)"() {
+        when:
+        controller.connectOnboard(reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * stripeService.createConnectOnboardingLink(_)
+    }
+
+    def "connectOnboard() happy path: returns the onboarding URL from StripeService"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.createConnectOnboardingLink(500L) >>
+            [onboardingUrl: 'https://connect.stripe.com/setup/acct_1', live: true, accountId: 'acct_1']
+
+        when:
+        def resp = controller.connectOnboard(reqFor(10L))
+
+        then:
+        resp.statusCode.value() == 200
+        resp.body.onboardingUrl == 'https://connect.stripe.com/setup/acct_1'
+        resp.body.accountId == 'acct_1'
+    }
+
+    def "connectOnboard() frozen wallet: WALLET_FROZEN, never starts onboarding"() {
+        given:
+        def user = verifiedUser()
+        def wallet = new Wallet(
+            id: 500L, username: 'steam_111', balance: new BigDecimal('100'),
+            currency: 'USD', frozen: true, frozenReason: 'fraud review'
+        )
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+
+        when:
+        controller.connectOnboard(reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WALLET_FROZEN'
+        0 * stripeService.createConnectOnboardingLink(_)
+    }
+
+    // ─── GET /api/wallet/connect/status ─────────────────────────────
+
+    def "connectStatus() anon: 401"() {
+        when:
+        controller.connectStatus(reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * stripeService.connectStatus(_)
+    }
+
+    def "connectStatus() happy path: forwards the StripeService status envelope"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.connectStatus(500L) >>
+            [live: true, hasAccount: true, payoutsEnabled: true, onboardingNeeded: false, accountId: 'acct_1']
+
+        when:
+        def resp = controller.connectStatus(reqFor(10L))
+
+        then:
+        resp.statusCode.value() == 200
+        resp.body.payoutsEnabled == true
+        resp.body.onboardingNeeded == false
+    }
+
+    def "connectStatus() new user with no real wallet yet: clean 'needs onboarding' envelope, never touches StripeService"() {
+        given: 'a signed-in user whose wallet resolves to the demo sentinel (id == 1)'
+        def user = verifiedUser()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> null
+        walletRepository.save(_) >> new Wallet(id: 1L)   // DEMO_WALLET_ID
+        stripeService.isLive() >> true
+
+        when:
+        def resp = controller.connectStatus(reqFor(10L))
+
+        then: 'reports onboardingNeeded without leaking the demo wallet or calling Stripe'
+        resp.body.onboardingNeeded == true
+        resp.body.payoutsEnabled == false
+        resp.body.hasAccount == false
+        0 * stripeService.connectStatus(_)
+    }
 }

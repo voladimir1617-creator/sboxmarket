@@ -34,6 +34,37 @@ class StripeService {
     @Value('${stripe.cancel-url}')       String cancelUrl
     @Value('${stripe.currency}')         String currency
 
+    /* ── Stripe Connect (Express) — real money-out rail ───────────────
+     * Sellers onboard onto a Stripe Connect Express account (which is
+     * also the KYC / identity step); withdrawals then move real money via
+     * a Stripe Transfer from the platform balance to that connected
+     * account. All four settings have safe @Value defaults so dev / CI
+     * (no env) still boots; prod overrides via the env vars named below.
+     */
+
+    /** Where Stripe sends the user back after they finish (or abandon)
+     *  the hosted Connect onboarding flow. Defaults under the app's
+     *  public URL so a fresh dev boot has a working return target; prod
+     *  sets STRIPE_CONNECT_RETURN_URL. The `connect=done` query lets the
+     *  SPA re-poll /api/wallet/connect/status on return. */
+    @Value('${stripe.connect.return-url:${app.public-url}/wallet?connect=done}')
+    String connectReturnUrl
+
+    /** Where Stripe sends the user if the onboarding AccountLink expired
+     *  or is otherwise stale and must be regenerated. The SPA hits
+     *  /api/wallet/connect/onboard again to mint a fresh link. Prod sets
+     *  STRIPE_CONNECT_REFRESH_URL. */
+    @Value('${stripe.connect.refresh-url:${app.public-url}/wallet?connect=refresh}')
+    String connectRefreshUrl
+
+    /** Two-letter ISO country for the connected account (Stripe requires
+     *  it at Account.create). Defaults to US; override per-deployment via
+     *  STRIPE_CONNECT_COUNTRY. A future enhancement could derive this
+     *  per-user, but a single platform-country default matches how the
+     *  rest of the money model (USD-only) is configured today. */
+    @Value('${stripe.connect.country:US}')
+    String connectCountry
+
     /** Rolling 24-hour deposit cap per wallet (batch 497). Defense against
      *  card-testing + stolen-card drain: even if an attacker obtains a
      *  valid card number, they can't push more than this past Stripe in
@@ -588,6 +619,176 @@ class StripeService {
         [id: tx.id, status: tx.status, newBalance: wallet.balance]
     }
 
+    /* ── STRIPE CONNECT ONBOARDING + KYC ─────────────────────────────
+     * Creates (or reuses) a Stripe Connect Express account for the
+     * wallet's owner and returns a hosted onboarding AccountLink URL.
+     * The Express onboarding flow IS Stripe's KYC / identity step — the
+     * user supplies their legal name, DOB, address, and a payout bank
+     * account / debit card, and Stripe verifies them. Once Stripe clears
+     * the account it fires `account.updated` with payouts_enabled=true,
+     * which our webhook mirrors onto wallet.payoutsEnabled.
+     *
+     * Idempotent on the account id: if the wallet already has a
+     * stripeConnectAccountId we DON'T create a second account — we just
+     * mint a fresh link for it (onboarding links are single-use + short-
+     * lived, so we generate one on every call). Stores the connected-
+     * account id on the wallet the first time so the destination is
+     * stable for the eventual Transfer.
+     */
+    @Transactional
+    Map createConnectOnboardingLink(Long walletId) {
+        def wallet = walletRepository.findById(walletId)
+                .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
+
+        if (!isLive()) {
+            // Dev mode (no real Stripe keys): do NOT pretend to onboard a
+            // real account. Mark the wallet as a SIMULATED connected
+            // account so the rest of the UI/flow is exercisable locally,
+            // but flag live=false and a non-acct_ reference so nothing
+            // downstream mistakes it for a real Stripe account. We DON'T
+            // flip payoutsEnabled here — local testers can still see the
+            // "onboarding required" state; an admin/dev can flip it via
+            // the DB if they want to exercise the payout-enabled branch.
+            if (!wallet.stripeConnectAccountId) {
+                wallet.stripeConnectAccountId = "dev_acct_${walletId}_${System.currentTimeMillis()}"
+                walletRepository.save(wallet)
+            }
+            log.info("[DEV MODE] simulated Connect onboarding for wallet ${walletId} (no real Stripe account created)")
+            return [onboardingUrl: connectRefreshUrl, live: false, simulated: true,
+                    accountId: wallet.stripeConnectAccountId]
+        }
+
+        // Create the Express connected account the first time. Express =
+        // Stripe-hosted onboarding + dashboard; `transfers` capability is
+        // what we need to push payouts to it. card_payments is NOT
+        // requested — sellers only RECEIVE money here, they don't charge
+        // cards. Email pre-fills the onboarding form when we have it.
+        String accountId = wallet.stripeConnectAccountId
+        if (!accountId) {
+            try {
+                def acctParamsBuilder = com.stripe.param.AccountCreateParams.builder()
+                    .setType(com.stripe.param.AccountCreateParams.Type.EXPRESS)
+                    .setCountry(connectCountry)
+                    .setCapabilities(
+                        com.stripe.param.AccountCreateParams.Capabilities.builder()
+                            .setTransfers(
+                                com.stripe.param.AccountCreateParams.Capabilities.Transfers.builder()
+                                    .setRequested(true)
+                                    .build())
+                            .build())
+                    .putMetadata("walletId", walletId.toString())
+                def ownerEmail = resolveOwnerEmail(wallet)
+                if (ownerEmail) acctParamsBuilder.setEmail(ownerEmail)
+                def account = com.stripe.model.Account.create(acctParamsBuilder.build())
+                accountId = account.id
+                wallet.stripeConnectAccountId = accountId
+                walletRepository.save(wallet)
+                log.info("Created Stripe Connect Express account ${accountId} for wallet ${walletId}")
+            } catch (Exception e) {
+                log.error("Stripe Connect account creation failed for wallet ${walletId}: ${e.message}")
+                throw new IllegalStateException("Could not start payout onboarding — Stripe error, try again", e)
+            }
+        }
+
+        // Mint a fresh onboarding AccountLink. These are single-use and
+        // expire quickly, so we generate one per call rather than caching.
+        try {
+            def linkParams = com.stripe.param.AccountLinkCreateParams.builder()
+                .setAccount(accountId)
+                .setRefreshUrl(connectRefreshUrl)
+                .setReturnUrl(connectReturnUrl)
+                .setType(com.stripe.param.AccountLinkCreateParams.Type.ACCOUNT_ONBOARDING)
+                .build()
+            def link = com.stripe.model.AccountLink.create(linkParams)
+            log.info("Generated Connect onboarding link for wallet ${walletId} (account ${accountId})")
+            return [onboardingUrl: link.url, live: true, simulated: false, accountId: accountId]
+        } catch (Exception e) {
+            log.error("Stripe Connect AccountLink creation failed for wallet ${walletId} (account ${accountId}): ${e.message}")
+            throw new IllegalStateException("Could not generate the onboarding link — Stripe error, try again", e)
+        }
+    }
+
+    /**
+     * Connect onboarding status for the wallet — drives the SPA's
+     * "Set up payouts" vs "Payouts enabled" UI. Returns the persisted
+     * mirror flags PLUS, in live mode when an account exists, a fresh
+     * Stripe re-read so the UI reflects ground truth even if an
+     * `account.updated` webhook was missed (e.g. webhook secret rotated).
+     * The fresh read also opportunistically syncs wallet.payoutsEnabled
+     * so a missed webhook self-heals on the next status poll.
+     */
+    @Transactional
+    Map connectStatus(Long walletId) {
+        def wallet = walletRepository.findById(walletId)
+                .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
+        boolean hasAccount = wallet.stripeConnectAccountId != null
+        boolean payoutsEnabled = Boolean.TRUE.equals(wallet.payoutsEnabled)
+
+        if (!isLive()) {
+            // Dev mode — report the persisted flags only; never call Stripe.
+            return [
+                live:              false,
+                hasAccount:        hasAccount,
+                payoutsEnabled:    payoutsEnabled,
+                onboardingNeeded:  !payoutsEnabled,
+                accountId:         wallet.stripeConnectAccountId,
+                simulated:         true
+            ]
+        }
+
+        // Live + an account exists → re-read Stripe for ground truth and
+        // self-heal the persisted flag if a webhook was missed.
+        if (hasAccount && wallet.stripeConnectAccountId?.startsWith('acct_')) {
+            try {
+                def account = com.stripe.model.Account.retrieve(wallet.stripeConnectAccountId)
+                boolean stripeSaysEnabled = Boolean.TRUE.equals(account.payoutsEnabled)
+                if (stripeSaysEnabled != payoutsEnabled) {
+                    wallet.payoutsEnabled = stripeSaysEnabled
+                    walletRepository.save(wallet)
+                    log.info("connectStatus self-healed wallet ${walletId} payoutsEnabled ${payoutsEnabled} → ${stripeSaysEnabled} from Stripe")
+                    payoutsEnabled = stripeSaysEnabled
+                }
+                return [
+                    live:             true,
+                    hasAccount:       true,
+                    payoutsEnabled:   payoutsEnabled,
+                    onboardingNeeded: !payoutsEnabled,
+                    chargesEnabled:   Boolean.TRUE.equals(account.chargesEnabled),
+                    detailsSubmitted: Boolean.TRUE.equals(account.detailsSubmitted),
+                    accountId:        wallet.stripeConnectAccountId,
+                    simulated:        false
+                ]
+            } catch (Exception e) {
+                // Stripe read failed — fall back to the persisted mirror
+                // rather than 500-ing a status poll.
+                log.warn("connectStatus Stripe re-read failed for wallet ${walletId}: ${e.message}")
+            }
+        }
+
+        [
+            live:             true,
+            hasAccount:       hasAccount,
+            payoutsEnabled:   payoutsEnabled,
+            onboardingNeeded: !payoutsEnabled,
+            accountId:        wallet.stripeConnectAccountId,
+            simulated:        false
+        ]
+    }
+
+    /** Resolve the wallet owner's email (for pre-filling Connect
+     *  onboarding). Best-effort — returns null on any miss. */
+    private String resolveOwnerEmail(Wallet w) {
+        if (w == null || steamUserRepository == null) return null
+        try {
+            def uname = w.username ?: ''
+            if (!uname.startsWith('steam_')) return null
+            def owner = steamUserRepository.findBySteamId64(uname.substring('steam_'.length()))
+            return owner?.email
+        } catch (Exception ignore) {
+            return null
+        }
+    }
+
     @Transactional
     Transaction requestWithdrawal(Long walletId, BigDecimal amount, String destinationRef) {
         def wallet = walletRepository.findById(walletId)
@@ -607,17 +808,93 @@ class StripeService {
             throw new IllegalStateException("Insufficient balance: have \$${wallet.balance}, need \$${amount}")
         }
 
+        // ── Connect-onboarding gate (live mode) ──────────────────────
+        // A real money-out movement REQUIRES an onboarded, payouts-enabled
+        // Stripe Connect account to send the funds to. If the user hasn't
+        // completed onboarding / KYC, REJECT with a clear, branchable code
+        // (CONNECT_ONBOARDING_REQUIRED) BEFORE touching the wallet balance
+        // — never silently stub a "manual" PENDING row that no payout API
+        // will ever fulfil (the old behaviour). The SPA maps this code to
+        // a "Set up payouts" call-to-action that hits
+        // /api/wallet/connect/onboard. In dev mode (no Stripe keys) we
+        // skip this gate and fall through to the clearly-simulated path
+        // below.
+        if (isLive() && !Boolean.TRUE.equals(wallet.payoutsEnabled)) {
+            throw new com.sboxmarket.exception.BadRequestException("CONNECT_ONBOARDING_REQUIRED",
+                "Set up payouts before withdrawing. Connect a payout account (a one-time identity + bank/debit-card setup) from the Wallet page, then try again.")
+        }
+
+        // Debit the wallet first (under the @Version optimistic lock that
+        // serializes concurrent withdrawals — see WalletController's
+        // race-loss handling). The Stripe Transfer is created AFTER the
+        // debit so that if Stripe rejects the payout the whole
+        // @Transactional rolls back and the balance is restored — there is
+        // never a debit with no corresponding payout.
         wallet.balance = wallet.balance - amount
         walletRepository.save(wallet)
+
+        // ── Real payout via Stripe Connect Transfer (live mode) ──────
+        // Move `amount` from the platform balance to the seller's
+        // connected account. The Transfer id is the authoritative
+        // money-movement reference we store on the tx. In the Express
+        // flow with automatic payouts (Stripe's default), this Transfer
+        // lands in the connected account's Stripe balance and Stripe's
+        // own scheduled payout then moves it to the seller's bank/card —
+        // so a separate Payout.create is NOT required and would in fact
+        // fail (it would have to run on the connected account, which we
+        // leave to Stripe's automatic schedule). We therefore create the
+        // Transfer only and leave the bank settlement to Stripe.
+        String stripeRef = destinationRef ?: "manual"
+        String txStatus
+        String txDescription
+        if (isLive()) {
+            try {
+                long amountCents = (amount * 100).longValue()
+                // Idempotency key bucketed by wallet + amount + minute so a
+                // fast double-submit that slipped past the @Version guard
+                // can't create two Transfers (mirrors createDepositSession).
+                def idemKey = "wd_${walletId}_${amountCents}_${System.currentTimeMillis().intdiv(60_000)}"
+                def reqOpts = RequestOptions.builder().setIdempotencyKey(idemKey).build()
+                def transferParams = com.stripe.param.TransferCreateParams.builder()
+                    .setAmount(amountCents)
+                    .setCurrency(currency.toLowerCase())
+                    .setDestination(wallet.stripeConnectAccountId)
+                    .putMetadata("walletId", walletId.toString())
+                    .putMetadata("type", "WITHDRAW")
+                    .build()
+                def transfer = com.stripe.model.Transfer.create(transferParams, reqOpts)
+                stripeRef = transfer.id
+                // The Transfer succeeded — funds have left the platform
+                // balance. Mark COMPLETED; Stripe handles the downstream
+                // bank settlement on its automatic payout schedule.
+                txStatus = "COMPLETED"
+                txDescription = "Withdrawal via Stripe Connect (transfer ${transfer.id} → ${wallet.stripeConnectAccountId})"
+                log.info("Stripe Connect transfer ${transfer.id} created for wallet ${walletId}: \$${amount} → ${wallet.stripeConnectAccountId}")
+            } catch (Exception e) {
+                // Transfer failed — let it propagate so the @Transactional
+                // rolls back the wallet debit (no money left, no orphan
+                // row). The controller surfaces a retryable error.
+                log.error("Stripe Connect transfer FAILED for wallet ${walletId} (\$${amount} → ${wallet.stripeConnectAccountId}): ${e.message}")
+                throw new IllegalStateException("Payout could not be created — Stripe error. Your balance was not charged; try again.", e)
+            }
+        } else {
+            // Dev mode (no Stripe keys): clearly mark the withdrawal as
+            // SIMULATED — it does NOT move real money. Same shape as
+            // devModeDeposit's "dev_…" marker so nothing downstream
+            // mistakes it for a real payout.
+            stripeRef = "dev_payout_${System.currentTimeMillis()}"
+            txStatus = "COMPLETED"
+            txDescription = "Withdrawal (dev-mode SIMULATED — no real payout)"
+        }
 
         def tx = new Transaction(
             walletId:        walletId,
             type:            "WITHDRAW",
-            status:          isLive() ? "PENDING" : "COMPLETED",
+            status:          txStatus,
             amount:          amount,
             currency:        currency.toUpperCase(),
-            stripeReference: destinationRef ?: "manual",
-            description:     "Withdrawal request" + (isLive() ? " (awaiting Stripe Connect payout)" : " (dev-mode instant)")
+            stripeReference: stripeRef,
+            description:     txDescription
         )
         transactionRepository.save(tx)
 
@@ -774,6 +1051,19 @@ class StripeService {
                 // handler idempotent under retry.
                 def disputeClosed = (Dispute) event.dataObjectDeserializer.object.orElse(null)
                 if (disputeClosed != null) handleChargebackClosed(disputeClosed)
+                break
+            case "account.updated":
+                // Stripe Connect onboarding progress. Fired whenever a
+                // connected account's state changes — including when the
+                // user finishes KYC and the account becomes able to
+                // receive payouts. We mirror `account.payouts_enabled`
+                // onto wallet.payoutsEnabled so requestWithdrawal's
+                // CONNECT_ONBOARDING_REQUIRED gate lifts the moment Stripe
+                // clears the seller. Idempotent: re-delivery of the same
+                // state is a no-op (handleAccountUpdated only saves on a
+                // real change).
+                def account = (com.stripe.model.Account) event.dataObjectDeserializer.object.orElse(null)
+                if (account != null) handleAccountUpdated(account)
                 break
             default:
                 // Unknown / not-yet-handled event type. Log + fall through
@@ -992,6 +1282,63 @@ class StripeService {
             }
         }
         log.info("Reconciled dashboard refund ${refundId} for deposit ${depositTx.id}: debited \$${debit} (amount=\$${amount})")
+    }
+
+    /**
+     * Stripe Connect `account.updated` handler. When a seller finishes
+     * (or makes progress in) Express onboarding, Stripe fires this with
+     * the updated connected-account object. We resolve the matching
+     * wallet by its stored connected-account id and mirror Stripe's
+     * `payouts_enabled` flag onto `wallet.payoutsEnabled` — the gate
+     * requestWithdrawal checks before creating a real Transfer.
+     *
+     * Idempotent: only saves when the flag actually changes, so a Stripe
+     * retry (or a burst of account.updated events that don't move the
+     * payouts flag) is a no-op. Tolerant of accounts we don't own
+     * (no matching wallet → log + return) so an unrelated account.updated
+     * never 500s the webhook into a retry loop.
+     */
+    @Transactional
+    void handleAccountUpdated(com.stripe.model.Account account) {
+        if (account == null) return
+        def accountId = account.id
+        if (!accountId) {
+            log.warn("account.updated received with no account id — ignoring")
+            return
+        }
+        def wallet = walletRepository.findByStripeConnectAccountId(accountId)
+        if (wallet == null) {
+            // Either an account.updated for an account we didn't create,
+            // or one whose wallet link hasn't persisted yet. Nothing to
+            // reconcile — no-op so Stripe gets a 200 and stops retrying.
+            log.info("account.updated for ${accountId} — no matching wallet, ignoring")
+            return
+        }
+        boolean stripeSaysEnabled = Boolean.TRUE.equals(account.payoutsEnabled)
+        boolean current = Boolean.TRUE.equals(wallet.payoutsEnabled)
+        if (stripeSaysEnabled == current) {
+            log.debug("account.updated for ${accountId}: payoutsEnabled already ${current} — no change")
+            return
+        }
+        wallet.payoutsEnabled = stripeSaysEnabled
+        walletRepository.save(wallet)
+        log.info("account.updated: wallet ${wallet.id} (account ${accountId}) payoutsEnabled ${current} → ${stripeSaysEnabled}")
+        // Tell the user their payouts just turned on so they know they can
+        // withdraw — only on the false→true edge (the enablement moment),
+        // and best-effort so a bell failure can't roll back the flag flip.
+        if (stripeSaysEnabled && notificationService != null) {
+            try {
+                def ownerId = resolveSteamOwnerId(wallet)
+                if (ownerId != null) {
+                    notificationService.safePush(ownerId, 'PAYOUTS_ENABLED',
+                        "Payouts enabled",
+                        "Your payout account is verified — you can now withdraw your balance from the Wallet page.",
+                        wallet.id, '/wallet')
+                }
+            } catch (Exception e) {
+                log.warn("PAYOUTS_ENABLED notify failed for wallet ${wallet.id}: ${e.message}")
+            }
+        }
     }
 
     /**

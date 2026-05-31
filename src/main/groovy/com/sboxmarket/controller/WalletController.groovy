@@ -624,6 +624,62 @@ class WalletController {
         // catch/remap here and propagate untouched. (2026-05-21)
     }
 
+    /* ── STRIPE CONNECT (payout onboarding / KYC) ────────────────────
+     * Real money-out requires the seller to onboard onto a Stripe Connect
+     * Express account (which is also the KYC / identity step). These two
+     * endpoints drive that flow; the actual Transfer happens later in
+     * StripeService.requestWithdrawal once payouts are enabled.
+     */
+
+    /** Start (or resume) Stripe Connect onboarding for the signed-in
+     *  user's wallet and return the hosted onboarding URL the SPA should
+     *  redirect to. Reuses the same auth + ban + freeze posture as the
+     *  withdraw path — onboarding is a precondition for moving money out,
+     *  so a banned / frozen user must not be able to start it. */
+    @PostMapping("/connect/onboard")
+    ResponseEntity<Map> connectOnboard(HttpServletRequest req) {
+        def user = currentUser(req)
+        if (user == null) throw new UnauthorizedException("Sign in to set up payouts")
+        // Ban guard — onboarding is the gateway to money-out; banned users
+        // must hit a 403 here just like they do on /withdraw.
+        banGuard?.assertNotBanned(user.id)
+        def wallet = currentWallet(req)
+        if (wallet == null) throw new UnauthorizedException("Sign in to set up payouts")
+        // Freeze gate — mirror /withdraw + /deposit: a staff-frozen wallet
+        // can't start payout onboarding either.
+        if (Boolean.TRUE.equals(wallet.frozen)) {
+            throw new com.sboxmarket.exception.BadRequestException("WALLET_FROZEN",
+                "Your wallet is frozen by staff" +
+                    (wallet.frozenReason ? ": ${wallet.frozenReason}" : '') +
+                    ". Open a support ticket to resolve.")
+        }
+        def result = stripeService.createConnectOnboardingLink(wallet.id)
+        ResponseEntity.ok(result)
+    }
+
+    /** Connect onboarding status for the signed-in user — drives the
+     *  Wallet page's "Set up payouts" vs "Payouts enabled" UI. Returns
+     *  payoutsEnabled + whether onboarding is still needed. Signed-in
+     *  only (payout state is account-specific). */
+    @GetMapping("/connect/status")
+    ResponseEntity<Map> connectStatus(HttpServletRequest req) {
+        def user = currentUser(req)
+        if (user == null) throw new UnauthorizedException("Sign in to view payout status")
+        def wallet = currentWallet(req)
+        if (wallet == null || wallet.id == DEMO_WALLET_ID) {
+            // No real wallet yet — report a clean "needs onboarding" state
+            // rather than leaking the demo wallet's payout flags.
+            return ResponseEntity.ok([
+                live:             stripeService.isLive(),
+                hasAccount:       false,
+                payoutsEnabled:   false,
+                onboardingNeeded: true,
+                accountId:        null
+            ])
+        }
+        ResponseEntity.ok(stripeService.connectStatus(wallet.id))
+    }
+
     @PostMapping("/confirm-deposit")
     ResponseEntity<Map> confirmDeposit(@RequestParam String sessionId, HttpServletRequest req) {
         // Completing a deposit credits a wallet — the session-wallet

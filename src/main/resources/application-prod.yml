@@ -203,6 +203,19 @@ stripe:
   webhook-secret:  ${STRIPE_WEBHOOK_SECRET}
   success-url:     ${STRIPE_SUCCESS_URL}
   cancel-url:      ${STRIPE_CANCEL_URL}
+  # Stripe Connect (Express) payout rail. The return/refresh URLs are
+  # where Stripe sends the seller back after the hosted onboarding flow
+  # (return = finished, refresh = link expired → mint a new one). They
+  # default under app.public-url in StripeService's @Value fallbacks, so
+  # these env vars are optional overrides; set them if onboarding should
+  # land somewhere other than `${APP_PUBLIC_URL}/wallet`. `country` is the
+  # two-letter ISO country the connected accounts are created in (default
+  # US). Activate Stripe Connect in the Stripe Dashboard before going live
+  # — see the operator runbook.
+  connect:
+    return-url:  ${STRIPE_CONNECT_RETURN_URL:${app.public-url}/wallet?connect=done}
+    refresh-url: ${STRIPE_CONNECT_REFRESH_URL:${app.public-url}/wallet?connect=refresh}
+    country:     ${STRIPE_CONNECT_COUNTRY:US}
 
 steam:
   api-key:    ${STEAM_API_KEY:}
