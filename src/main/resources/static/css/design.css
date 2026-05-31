@@ -130436,24 +130436,17 @@ div[style*="background: var(--bg-secondary)"][style*="borderRadius"] {
   font-weight: 500 !important;
 }
 .grid-card .grid-price-usd {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 18px !important;
-  height: 18px !important;
-  padding: 0 !important;
-  margin-left: 0 !important;
-  background-color: rgba(106, 197, 134, 0.18) !important;
-  color: rgb(106, 197, 134) !important;
-  border-radius: 4px !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  line-height: 1 !important;
-  letter-spacing: 0 !important;
-  vertical-align: middle !important;
-  align-self: center !important;
+  /* ship #1500b — hide the decorative green "$" USD pill. Live /market
+     audit found the price row rendering "$230.00" + this green boxed "$"
+     + the green "−23%" discount chip. csfloat's price row is just the
+     white price + a single green discount chip; the pill duplicated the
+     "$" already in the formatted price AND put a second green element next
+     to the discount chip, muddying the "green == discount only" signal the
+     brief requires. The pill is aria-hidden (decorative), so hiding it
+     removes no information. */
+  display: none !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #1422 */
+/* END CSFLOAT-1:1 PARITY ship #1422 + #1500b */
 
 /* CSFLOAT-1:1 PARITY ship #1423 — listed-time stripe parity at card bottom
    Measured csfloat .seller-details-wrapper: w 200, h 18, font 12px ink-3 (no
