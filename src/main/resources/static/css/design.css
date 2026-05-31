@@ -198224,3 +198224,347 @@ body .cart-grid .cart-list .cart-row .cart-price { flex: 0 0 auto !important; ma
 body .cart-grid .cart-list .cart-row > button.btn-ghost { flex: 0 0 auto !important; }
 body .cart-grid .cart-list .cart-row > button.btn-ghost:not(:last-child) { display: none !important; }
 /* END CART ROW LAYOUT */
+
+/* ════════════════════════════════════════════════════════════════
+   CSFLOAT-1:1 PARITY ship #1500 — MARKET toolbar + left rail final pass.
+   Authoritative block: appended at the very END of design.css so it wins
+   the cascade over every earlier .search-wrap / .price-chip / .sort-select
+   / .filter-option override layer (the file has dozens, e.g. ship #40-#58
+   pin the old rgba(193,206,255,0.04) Material fills + 6px/999px radii +
+   the wrong sidebar 350px width). Every rule here is body-scoped + last in
+   source + !important so the live render matches csfloat.com/search.
+   csfloat tokens (sampled live): surface rgb(38,41,48), hairline
+   rgba(255,255,255,0.08), accent blue rgb(35,123,255), muted text
+   rgb(158,167,177), 4px radius, Roboto.
+   ════════════════════════════════════════════════════════════════ */
+
+/* --- 0. Realign the active-blue token. A late :root (ship line ~31703)
+   reset --cta back to the old #3b82f6 (rgb 59,130,246) while --accent /
+   --blue moved to csfloat's rgb(35,123,255). Anything painted with
+   var(--cta) (price-chip.active, checkout fee-bar) read duller/greener.
+   Pull it onto csfloat blue. */
+:root {
+  --cta:      rgb(35, 123, 255) !important;
+  --cta-d:    rgb(28, 100, 210) !important;
+  --cta-soft: rgba(35, 123, 255, 0.14) !important;
+}
+
+/* --- 1. Search-input chrome: csfloat dark charcoal fill, 1px hairline,
+   4px radius, ~38px tall, muted placeholder, search icon left, "/" kbd
+   right. NOTE on specificity: an earlier parity ship (CSSOM idx ~24922)
+   uses `html body .toolbar .search-wrap[role="search"]` (0,4,2) + the
+   `> input.search-input` / `> .search-kbd` children — which OUT-SPECIFIES
+   a plain `body .search-wrap` and silently kept the old 6px /
+   rgba(193,206,255,0.04) / 44px Material chrome winning on the live page.
+   So every selector here is raised to `html body … [role="search"]` (and
+   `> input.search-input` etc.) to MATCH-or-exceed that specificity; being
+   later in source too, this block now wins cleanly. */
+html body .toolbar .search-wrap[role="search"],
+html body .toolbar > .search-wrap[role="search"],
+html body .search-wrap[role="search"],
+html body .toolbar .search-wrap,
+html body .search-wrap {
+  background: rgb(38, 41, 48) !important;
+  background-color: rgb(38, 41, 48) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 0 0 12px !important;
+  box-shadow: none !important;
+}
+html body .toolbar .search-wrap[role="search"]:hover,
+html body .search-wrap:hover { border-color: rgba(255, 255, 255, 0.14) !important; background-color: rgb(38, 41, 48) !important; }
+html body .toolbar .search-wrap[role="search"]:focus-within,
+html body .search-wrap:focus-within {
+  border-color: rgb(35, 123, 255) !important;
+  background-color: rgb(38, 41, 48) !important;
+}
+/* kill any decorative ::after underline the old wrap drew */
+html body .search-wrap::after { display: none !important; content: none !important; }
+html body .toolbar .search-wrap[role="search"] > input.search-input,
+html body .toolbar .search-wrap > input.search-input,
+html body .search-wrap input.search-input,
+html body .search-wrap .search-input {
+  background: transparent !important;
+  border: 0 !important;
+  height: 36px !important;
+  font-size: 14px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 0 8px !important;
+}
+html body .search-wrap input.search-input::placeholder,
+html body .search-wrap .search-input::placeholder { color: rgb(158, 167, 177) !important; }
+html body .toolbar .search-wrap[role="search"] > .search-icon,
+html body .search-wrap .search-icon {
+  color: rgb(158, 167, 177) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+/* "/" keyboard-hint chip on the right of the search field (csfloat shows a
+   slash kbd until the field is focused/typed). It was rendering 0×0 / 6px. */
+html body .toolbar .search-wrap[role="search"] > .search-kbd,
+html body .toolbar .search-wrap > .search-kbd,
+html body .search-wrap kbd.search-kbd,
+html body .search-wrap .search-kbd {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  margin-right: 8px !important;
+  min-width: 18px !important;
+  width: auto !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+  font-family: var(--mono), ui-monospace, monospace !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  color: rgb(158, 167, 177) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 4px !important;
+}
+html body .search-wrap:focus-within .search-kbd { display: none !important; }
+html body .search-wrap .search-clear {
+  color: rgb(158, 167, 177) !important;
+  margin-right: 6px !important;
+}
+html body .search-wrap .search-clear:hover { color: rgb(255, 255, 255) !important; }
+
+/* --- 2. Toolbar row rhythm: slim ~38px row, centred, consistent gap. */
+body .toolbar { align-items: center !important; gap: 10px !important; row-gap: 10px !important; }
+body .toolbar .sort-picker-chip,
+body .toolbar .sort-select,
+body .toolbar .discount-select,
+body .toolbar .deals-chip,
+body .toolbar .new-chip,
+body .toolbar .type-toggle,
+body .toolbar .toolbar-refresh,
+body .toolbar .view-btns { height: 36px !important; }
+body .toolbar .type-toggle { display: inline-flex !important; align-items: center !important; }
+
+/* --- 3. Sort + discount selects → compact 4px chips (parity safety net). */
+body .toolbar .sort-select,
+body .toolbar .discount-select,
+body select.sort-select,
+body select.discount-select {
+  background-color: rgb(38, 41, 48) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 13px !important;
+  letter-spacing: normal !important;
+}
+body select.sort-select:hover,
+body select.discount-select:hover { background-color: rgb(38, 41, 48) !important; border-color: rgba(255, 255, 255, 0.14) !important; }
+
+/* --- 4. Active-filter chips: small accent-tinted removable pills,
+   label + ✕, muted→blue on hover. */
+body .active-filters { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; margin-top: 10px !important; align-items: center !important; }
+body .active-filters .filter-chip,
+body .filter-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  background: rgb(38, 41, 48) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease !important;
+}
+body .active-filters .filter-chip strong,
+body .filter-chip strong { color: rgb(255, 255, 255) !important; font-weight: 600 !important; }
+body .active-filters .filter-chip:hover,
+body .filter-chip:hover {
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  background: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* the trailing ✕ glyph */
+body .active-filters .filter-chip > span:last-child,
+body .filter-chip > span[aria-hidden] {
+  opacity: 0.7 !important;
+  font-size: 11px !important;
+  margin-left: 2px !important;
+}
+body .filter-chip:hover > span[aria-hidden] { opacity: 1 !important; color: rgb(35, 123, 255) !important; }
+/* "Clear all" reads as a quiet text link, not a filled pill */
+body .active-filters .filter-chip.clear-all,
+body .filter-chip.clear-all {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(255, 255, 255, 0.25) !important;
+  text-underline-offset: 2px !important;
+}
+body .filter-chip.clear-all:hover { color: rgb(255, 255, 255) !important; background: transparent !important; }
+body .filter-chip.clear-all strong { color: inherit !important; font-weight: 500 !important; }
+
+/* --- 5. Left rail: width 240, charcoal card, tidy section rhythm.
+   Overrides ship #40's 350px + #49's flex-gap-15 + #41 bg. */
+body aside.sidebar,
+body .layout > .sidebar {
+  width: 240px !important;
+  background-color: rgb(30, 33, 39) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  align-self: start !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+/* grid track must follow the 240px rail (ship #45 set it to 350px) */
+body .layout:has(> .sidebar),
+body .layout:has(> aside.sidebar) {
+  grid-template-columns: 240px minmax(0, 1fr) !important;
+  gap: 24px !important;
+}
+@media (max-width: 1024px) {
+  body .layout:has(> .sidebar),
+  body .layout:has(> aside.sidebar) { grid-template-columns: 1fr !important; }
+}
+/* section headers: 11px uppercase muted, 0.06em tracking (ship #48 had
+   12px/700 white no-transform — push to csfloat's quiet eyebrow). */
+body .sidebar .filter-title,
+body details.filter-section > summary.filter-title {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: rgb(158, 167, 177) !important;
+  margin-bottom: 10px !important;
+}
+/* consistent section spacing + hairline dividers */
+body .sidebar .filter-section { padding: 14px 0 !important; }
+body .sidebar .filter-section:first-child { padding-top: 0 !important; }
+body .sidebar .filter-divider {
+  height: 1px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  margin: 2px 0 !important;
+  border: 0 !important;
+}
+
+/* category / availability rows: clean rows; selected = blue + left accent */
+body .sidebar .filter-option {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 7px 10px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  color: rgb(200, 206, 214) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  transition: background 120ms ease, color 120ms ease !important;
+}
+body .sidebar .filter-option:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .sidebar .filter-option.selected {
+  color: rgb(35, 123, 255) !important;
+  background: rgba(35, 123, 255, 0.10) !important;
+  font-weight: 500 !important;
+}
+body .sidebar .filter-option.selected::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important; top: 6px !important; bottom: 6px !important;
+  width: 2px !important;
+  background: rgb(35, 123, 255) !important;
+  border-radius: 2px !important;
+}
+body .sidebar .filter-option .filter-count {
+  margin-left: auto !important;
+  font-size: 11px !important;
+  color: rgb(158, 167, 177) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body .sidebar .filter-option.selected .filter-count { color: rgb(35, 123, 255) !important; }
+
+/* --- 6. Price-range inputs in the rail: match the search-input chrome.
+   Overrides ship #41 (Material fill) + #55/#56. */
+body .sidebar .price-inputs { display: flex !important; flex-direction: row !important; gap: 8px !important; }
+body .sidebar .price-input,
+body .sidebar input.price-input {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  height: 36px !important;
+  background-color: rgb(38, 41, 48) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 13px !important;
+  padding: 0 10px !important;
+}
+body .sidebar .price-input::placeholder { color: rgb(158, 167, 177) !important; }
+body .sidebar .price-input:hover { background-color: rgb(38, 41, 48) !important; border-color: rgba(255, 255, 255, 0.14) !important; }
+body .sidebar .price-input:focus { background-color: rgb(38, 41, 48) !important; border-color: rgb(35, 123, 255) !important; outline: none !important; }
+
+/* --- 7. Quick price chips: small ghost pills, 4px, blue when active.
+   Overrides ship #50 (999px pill) + #51. */
+body .sidebar .price-chips {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 6px !important;
+  margin-top: 8px !important;
+}
+body .sidebar .price-chip {
+  width: auto !important;
+  min-width: 0 !important;
+  height: 30px !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgb(38, 41, 48) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease !important;
+}
+body .sidebar .price-chip:hover {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .sidebar .price-chip.active {
+  background-color: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+
+/* --- 8. "Clear Filters" in rail reads as a quiet ghost link. */
+body .sidebar .btn-clear {
+  color: rgb(158, 167, 177) !important;
+  font-size: 12px !important;
+  background: transparent !important;
+}
+body .sidebar .btn-clear:hover { color: rgb(255, 255, 255) !important; background: rgba(255,255,255,0.05) !important; }
+
+/* --- 9. View-toggle: segmented control, active option blue-tinted. */
+body .toolbar .view-btns {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+body .toolbar .view-btns button { color: rgb(158, 167, 177) !important; }
+body .toolbar .view-btns button:hover { color: rgb(255, 255, 255) !important; background: rgba(255,255,255,0.05) !important; }
+body .toolbar .view-btns button.active {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* end ship #1500 */
