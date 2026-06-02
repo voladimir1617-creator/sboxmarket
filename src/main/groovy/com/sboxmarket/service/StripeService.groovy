@@ -81,6 +81,26 @@ class StripeService {
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     @Autowired(required = false) EmailService emailService
 
+    /** Cluster-wide webhook-event idempotency ledger (wave 147). Optional
+     *  so existing unit specs that build the service with
+     *  `new StripeService(...)` and no Spring context keep working — in
+     *  that case the per-JVM {@link #seenEventIds} set is the only gate
+     *  (single-process behaviour, identical to the pre-fix posture). When
+     *  wired (every prod boot wires it), the DB row is the AUTHORITATIVE
+     *  cross-pod gate and the in-memory set is a fast-path cache.
+     *
+     *  Without this, a Stripe webhook retry routed to a DIFFERENT pod than
+     *  the original sees an empty per-JVM `seenEventIds` and re-runs the
+     *  side-effecting handler — a re-delivered charge.dispute.created
+     *  re-spams every admin's bell, a re-delivered deposit/refund event
+     *  logs a duplicate audit row. (The money path is independently safe —
+     *  completeDeposit / the dispute + refund handlers are row-idempotent
+     *  on the tx status / stripeReference they set — so this gate is purely
+     *  about not RE-FIRING notifications + audit on a cross-pod retry.)
+     *  Same wave-112-style claim shape as
+     *  {@link com.sboxmarket.repository.FraudSignalClaimRepository}. */
+    @Autowired(required = false) com.sboxmarket.repository.ProcessedStripeEventRepository processedStripeEventRepository
+
     /** Last-webhook-received telemetry (batch 471). Surfaces in the
      *  admin Health tile so ops can spot silent Stripe outages —
      *  e.g. webhook secret rotated by mistake → no events arrive →
@@ -101,7 +121,15 @@ class StripeService {
      *  charge.dispute.created would re-spam every admin's inbox AND
      *  every retry of any deposit/refund event would log a duplicate
      *  audit row. Cap at 5000 with FIFO eviction so a long-running
-     *  container can't accumulate unbounded state. */
+     *  container can't accumulate unbounded state.
+     *
+     *  Wave 147 scope note: this set is PER-JVM and so is blind to
+     *  sibling pods — a Stripe retry routed to a different pod sees an
+     *  empty set here. The AUTHORITATIVE cross-pod gate is now the
+     *  {@link #processedStripeEventRepository} DB row (see
+     *  {@link #claimStripeEvent}); this set survives only as a fast-path
+     *  cache that short-circuits the DB round-trip on events THIS pod has
+     *  already handled this lifetime. */
     private static final int SEEN_EVENTS_CAP = 5000
     private final java.util.LinkedHashSet<String> seenEventIds = new java.util.LinkedHashSet<>()
 
@@ -153,6 +181,93 @@ class StripeService {
             seenEventIds.remove(oldest)
         }
         seenEventIds.add(eventId)
+    }
+
+    /** Cluster-wide webhook-event claim (wave 147). Attempts to record the
+     *  Stripe event id in the {@code processed_stripe_events} ledger BEFORE
+     *  the side-effecting handler runs. Returns {@code true} when THIS pod
+     *  won the claim (the caller proceeds to run the handler) and
+     *  {@code false} when the event has already been processed — by this
+     *  pod (fast-path {@link #seenEventIds} cache hit), by a prior delivery
+     *  (existence check), or by a sibling pod that raced us to the INSERT
+     *  (unique-constraint violation) — in which case the caller SKIPS the
+     *  handler and ACKs 200 so Stripe stops retrying.
+     *
+     *  This is the multi-pod-safe replacement for the old per-JVM-only
+     *  {@code seenEventIds.contains} gate: a Stripe retry routed to a
+     *  different pod than the original now hits the shared DB row instead
+     *  of an empty in-memory set, so a cross-pod retry no longer re-fires
+     *  the admin bells / audit rows the handlers emit.
+     *
+     *  Claim-then-skip ordering (NOT record-after-success): unlike the
+     *  legacy {@link #markProcessed} (which deliberately recorded only
+     *  AFTER a successful handler so a thrown handler's @Transactional
+     *  rollback didn't strand the id — BUG-1, batch 657), this claim is
+     *  taken UP FRONT. That's safe here precisely BECAUSE the claim row is
+     *  written inside the SAME @Transactional as the handler: if the
+     *  handler throws, the whole transaction — INCLUDING this claim row —
+     *  rolls back, so Stripe's retry finds no claim and genuinely re-runs
+     *  the event (the BUG-1 invariant is preserved by transactional
+     *  atomicity, not by deferring the write). And re-running is harmless:
+     *  completeDeposit / failTransaction / the dispute + refund handlers
+     *  are each idempotent on the tx status / stripeReference they set.
+     *
+     *  The DataIntegrityViolationException catch is what makes a true
+     *  cross-pod race (both pods pass the existence check, both INSERT)
+     *  resolve to "duplicate, skip" rather than a 500 — mirrors
+     *  {@code FraudAnalysisService.sweepAndPushFraudSignals}. The enclosing
+     *  {@link #handleWebhookEvent} is annotated
+     *  {@code noRollbackFor = DataIntegrityViolationException} so this
+     *  caught violation doesn't mark the surrounding transaction
+     *  rollback-only.
+     *
+     *  Degraded posture when the repo is unwired (unit tests / a boot
+     *  without the bean): fall back to the per-JVM {@link #seenEventIds}
+     *  set alone — identical to the single-process pre-fix behaviour. */
+    private boolean claimStripeEvent(String eventId, String eventType) {
+        if (eventId == null || eventId.isEmpty()) return true
+        // Fast-path: this pod already handled (and recorded) the event this
+        // lifetime — skip the DB round-trip entirely.
+        if (alreadyProcessed(eventId)) return false
+        // No DB ledger wired (unit test / context-less build) — degrade to
+        // the per-JVM set as the sole gate, then record so a second call in
+        // the same JVM dedupes. Single-process behaviour, identical to the
+        // pre-fix posture.
+        if (processedStripeEventRepository == null) {
+            markProcessed(eventId)
+            return true
+        }
+        // Cross-pod fast path: a sibling pod (or a prior delivery on any
+        // pod) already claimed this event id → skip. A transient DB error
+        // here fails OPEN — fall through to the authoritative INSERT, which
+        // the UNIQUE index still backstops; better to occasionally re-run
+        // an idempotent handler than to 500 a webhook on a read blip.
+        try {
+            if (processedStripeEventRepository.existsByEventId(eventId)) {
+                markProcessed(eventId)   // warm the local cache for next time
+                return false
+            }
+        } catch (Exception e) {
+            log.warn("Stripe event claim existence-check failed for ${eventId}: ${e.message}")
+        }
+        // Authoritative INSERT. Whichever pod's row lands first wins; a
+        // sibling pod racing the same id between the check above and this
+        // write trips the UNIQUE(event_id) constraint → caught as a
+        // duplicate (skip the handler), NOT a 500.
+        try {
+            processedStripeEventRepository.save(new com.sboxmarket.model.ProcessedStripeEvent(
+                eventId:     eventId,
+                eventType:   eventType,
+                processedAt: System.currentTimeMillis()))
+            markProcessed(eventId)
+            return true
+        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+            // Lost the cross-pod race — a sibling pod claimed the same id
+            // first. That pod owns the handler run; we skip cleanly.
+            log.info("Stripe webhook ${eventId} claimed by sibling pod between check and insert — treating as duplicate, skipping")
+            markProcessed(eventId)
+            return false
+        }
     }
 
     @PostConstruct
@@ -926,7 +1041,17 @@ class StripeService {
 
     /* ── WEBHOOK HANDLER ─────────────────────────────────
      * Called by StripeWebhookController when Stripe posts to /api/stripe/webhook. */
-    @Transactional
+    // noRollbackFor — claimStripeEvent (below) catches a
+    // DataIntegrityViolationException when a sibling pod's INSERT into
+    // processed_stripe_events lands first on a cross-pod webhook-retry race.
+    // Without this hint, Spring's DIVE translator marks this @Transactional
+    // rollback-only the moment the constraint trips — so even on the
+    // duplicate-skip path the transaction can't commit cleanly. The claim
+    // row is written inside THIS transaction by design (see
+    // claimStripeEvent's "claim-then-skip" note), so the violation is
+    // expected and benign. Same fix shape as
+    // FraudAnalysisService.sweepAndPushFraudSignals (V70) and waves 136-140.
+    @Transactional(noRollbackFor = [org.springframework.dao.DataIntegrityViolationException])
     void handleWebhookEvent(String payload, String sigHeader) {
         def event
         try {
@@ -940,23 +1065,38 @@ class StripeService {
         lastWebhookAt = System.currentTimeMillis()
         lastWebhookType = event.type
 
-        // Dedupe by Stripe event id (batch 476). Stripe retries webhooks
-        // on transient 5xx; without this, a retry of charge.dispute.created
-        // re-spams every admin, a retry of checkout.session.completed
-        // would re-credit the wallet (already row-idempotent at the tx
-        // status level, but the dedupe keeps the audit log clean too).
-        // Returns 200 to Stripe so they stop retrying.
+        // Dedupe by Stripe event id (batch 476; multi-pod-hardened wave
+        // 147). Stripe retries webhooks on transient 5xx (and on network
+        // failures); without dedupe, a retry of charge.dispute.created
+        // re-spams every admin and a retry of any deposit/refund event
+        // logs a duplicate audit row. The handlers are each independently
+        // row-idempotent on the tx status / stripeReference they set — so
+        // the MONEY path is safe with or without this gate — but the gate
+        // keeps the notification + audit side effects from re-firing.
+        // Returning early ACKs 200 so Stripe stops retrying.
         //
-        // Batch 657 fix: the event id is recorded (markProcessed below)
-        // only AFTER the switch completes WITHOUT throwing. Previously
-        // alreadyProcessed recorded it up front — so if completeDeposit
-        // then threw (Stripe timeout / DB hiccup), the @Transactional
-        // rolled back the wallet credit but the id stuck in seenEventIds,
-        // and Stripe's retry was wrongly skipped → the paid-for deposit
-        // never landed. Now a failed handler leaves the id un-recorded so
-        // the retry genuinely re-runs.
-        if (alreadyProcessed(event.id)) {
-            log.info("Stripe webhook ${event.id} already processed — skipping")
+        // Wave 147: the gate is now a DB-backed CLAIM
+        // (claimStripeEvent → processed_stripe_events) instead of the
+        // old per-JVM seenEventIds.contains check. The per-JVM set is
+        // blind to sibling pods, so a retry routed to a DIFFERENT pod than
+        // the original saw an empty set and re-ran the side-effecting
+        // handler — the exact multi-pod gap this fix closes. The DB row is
+        // the authoritative cross-pod gate; seenEventIds stays as a
+        // fast-path cache (see claimStripeEvent).
+        //
+        // Batch 657 invariant preserved: a handler that throws must NOT
+        // leave the event marked processed, or Stripe's retry is wrongly
+        // skipped and a paid-for deposit never lands. The claim row is
+        // written inside THIS @Transactional, so a thrown handler rolls
+        // the claim row back too — Stripe's retry then finds no claim and
+        // genuinely re-runs. (Previously the id was recorded only AFTER
+        // the switch succeeded; transactional atomicity now provides the
+        // same guarantee while letting the claim be taken up front, which
+        // is what makes it multi-pod safe.) Re-running a duplicate is
+        // harmless: completeDeposit / failTransaction / the dispute +
+        // refund handlers all short-circuit on the status they already set.
+        if (!claimStripeEvent(event.id, event.type)) {
+            log.info("Stripe webhook ${event.id} already processed (cross-pod claim) — skipping")
             return
         }
 
@@ -1076,12 +1216,19 @@ class StripeService {
                 log.debug("Ignoring Stripe event: ${event.type}")
         }
 
-        // Record the id ONLY now that the handler ran without throwing.
-        // If any case above threw, control never reaches here — the id
-        // stays un-recorded so Stripe's retry re-processes the event
-        // (BUG 1 fix). A retry of an already-applied event is harmless:
-        // completeDeposit / failTransaction / the dispute handlers all
-        // short-circuit on the tx status they already set.
+        // Wave 147: the durable cross-pod claim was already taken UP FRONT
+        // by claimStripeEvent (which also warmed the seenEventIds fast-path
+        // cache), and that claim row lives inside THIS @Transactional — so
+        // if any case above threw, control never reaches here AND the claim
+        // row rolls back with the rest of the transaction, leaving Stripe's
+        // retry free to genuinely re-process the event (BUG-1 invariant,
+        // batch 657, now upheld by transactional atomicity rather than by
+        // deferring the record). A retry of an already-applied event is
+        // harmless: completeDeposit / failTransaction / the dispute +
+        // refund handlers all short-circuit on the tx status they already
+        // set. The redundant markProcessed below is a cheap no-op (the id
+        // is already cached) kept only to make the success path's intent
+        // explicit at the bottom of the switch.
         markProcessed(event.id)
     }
 
