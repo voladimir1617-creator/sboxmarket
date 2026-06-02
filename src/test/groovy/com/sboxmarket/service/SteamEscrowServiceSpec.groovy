@@ -393,4 +393,173 @@ class SteamEscrowServiceSpec extends Specification {
         1 * bot.getOfferStatus('B') >> SteamBotResult.success([ok: true, status: 'active'])
         noExceptionThrown()
     }
+
+    // ── stale-deposit TIMEOUT sweeper ─────────────────────────────────────────
+    //
+    // pollDeposits only ever ADVANCES a row (accepted offer + asset held →
+    // IN_CUSTODY). A deposit the seller never accepts — or a row whose offer
+    // never got created — sits PENDING_DEPOSIT / listing PENDING_ESCROW forever
+    // with no auto-resolution. sweepStalePendingDeposits is the missing timeout
+    // leg: stale PENDING_DEPOSIT → FAILED (atomic claim) + listing
+    // PENDING_ESCROW → CANCELLED. Mirrors StripeService.sweepStalePendingDeposits.
+
+    def "sweep: stale PENDING_DEPOSIT is FAILED via atomic claim and its listing reverted PENDING_ESCROW -> CANCELLED"() {
+        given:
+        bot.enabled >> true
+        service.depositTimeoutHours = 24
+        def stale = new EscrowedItem(id: 7L, listingId: 10L, sellerUserId: 1L, assetId: '555',
+                custodyState: EscrowedItem.PENDING_DEPOSIT,
+                createdAt: System.currentTimeMillis() - (48L * 60L * 60L * 1000L))
+        def held = listing(status: SteamEscrowService.STATUS_PENDING_ESCROW)
+
+        when:
+        service.sweepStalePendingDeposits()
+
+        then:
+        // candidate loaded via the stale finder (cutoff is now - 24h)
+        1 * escrowRepository.findStalePendingDeposits(_ as Long, _) >> [stale]
+        // custody flipped to FAILED through the status-guarded conditional UPDATE,
+        // NOT a blind save — this pod wins the claim (returns 1)
+        1 * escrowRepository.claimTimeoutPendingDeposit(7L, { String r -> r.contains('24h') }, _ as Long) >> 1
+        // listing freed: PENDING_ESCROW -> CANCELLED (NOT re-activated — the
+        // bot never received the item, so it must not become buyable)
+        1 * listingRepository.findById(10L) >> Optional.of(held)
+        1 * listingRepository.save({ Listing l -> l.status == SteamEscrowService.STATUS_CANCELLED })
+        // seller told to re-list
+        1 * notificationService.safePush(1L, _, _, _, _, _)
+        // sweeper does NOT touch any bot network API (timed-out deposit = item
+        // never reached the bot; nothing to return/poll)
+        0 * bot.requestItems(_, _, _)
+        0 * bot.sendOffer(_, _, _)
+        0 * bot.getOfferStatus(_)
+        0 * bot.fetchBotInventory()
+        // and never falls through to a blind escrow save
+        0 * escrowRepository.save(_)
+    }
+
+    def "sweep: lost claim (sibling pod / last-second deposit) does NOT revert the listing or notify"() {
+        given:
+        bot.enabled >> true
+        service.depositTimeoutHours = 24
+        def stale = new EscrowedItem(id: 8L, listingId: 12L, sellerUserId: 2L, assetId: '666',
+                custodyState: EscrowedItem.PENDING_DEPOSIT,
+                createdAt: System.currentTimeMillis() - (48L * 60L * 60L * 1000L))
+
+        when:
+        service.sweepStalePendingDeposits()
+
+        then:
+        1 * escrowRepository.findStalePendingDeposits(_ as Long, _) >> [stale]
+        // claim returns 0 — a sibling pod already failed it, OR confirmDeposit
+        // promoted it to IN_CUSTODY between the read and the UPDATE
+        1 * escrowRepository.claimTimeoutPendingDeposit(8L, _, _ as Long) >> 0
+        // losing path bails BEFORE any listing revert or seller notification
+        0 * listingRepository.findById(_)
+        0 * listingRepository.save(_)
+        0 * notificationService.safePush(_, _, _, _, _, _)
+    }
+
+    def "sweep: a fresh PENDING_DEPOSIT (under the timeout) is left untouched"() {
+        given: "the finder is the threshold gate — a fresh row is simply not returned by the cutoff query"
+        bot.enabled >> true
+        service.depositTimeoutHours = 24
+
+        when:
+        service.sweepStalePendingDeposits()
+
+        then:
+        // empty candidate set (the fresh row created minutes ago is newer than
+        // the now-24h cutoff, so findStalePendingDeposits excludes it)
+        1 * escrowRepository.findStalePendingDeposits(_ as Long, _) >> []
+        // no claim attempted, no listing touched, no notification fired
+        0 * escrowRepository.claimTimeoutPendingDeposit(_, _, _)
+        0 * listingRepository.save(_)
+        0 * notificationService.safePush(_, _, _, _, _, _)
+    }
+
+    def "sweep: passes a cutoff of (now - depositTimeoutHours) to the finder"() {
+        given:
+        bot.enabled >> true
+        service.depositTimeoutHours = 24
+        Long captured = null
+        long before = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
+
+        when:
+        service.sweepStalePendingDeposits()
+        long after = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
+
+        then:
+        1 * escrowRepository.findStalePendingDeposits(_ as Long, _) >> { Long cutoff, p ->
+            captured = cutoff
+            []
+        }
+        // the cutoff is a 24h-ago timestamp (within the wall-clock bracket
+        // around the call), proving the configurable threshold is applied
+        captured != null
+        captured >= before
+        captured <= after
+    }
+
+    def "sweep: disabled mode (bot off) is a complete no-op — no finder, no claim, no bot call"() {
+        given:
+        bot.enabled >> false
+
+        expect:
+        !service.escrowEnabled
+
+        when:
+        service.sweepStalePendingDeposits()
+
+        then:
+        // gated exactly like pollDeposits: when the bot is unconfigured the
+        // whole sweeper short-circuits before touching the repo
+        0 * escrowRepository._
+        0 * listingRepository._
+        0 * notificationService._
+        0 * bot.requestItems(_, _, _)
+        0 * bot.sendOffer(_, _, _)
+        0 * bot.getOfferStatus(_)
+        0 * bot.fetchBotInventory()
+    }
+
+    def "sweep: master switch off (bot enabled) still no-ops"() {
+        given:
+        bot.enabled >> true
+        service.escrowSweepEnabled = false
+
+        when:
+        service.sweepStalePendingDeposits()
+
+        then:
+        0 * escrowRepository._
+        0 * listingRepository._
+        0 * notificationService._
+    }
+
+    def "sweep: per-row try/catch — one row whose listing revert throws can't abort the batch"() {
+        given:
+        bot.enabled >> true
+        service.depositTimeoutHours = 24
+        def long_ago = System.currentTimeMillis() - (48L * 60L * 60L * 1000L)
+        def r1 = new EscrowedItem(id: 21L, listingId: 31L, sellerUserId: 1L,
+                custodyState: EscrowedItem.PENDING_DEPOSIT, createdAt: long_ago)
+        def r2 = new EscrowedItem(id: 22L, listingId: 32L, sellerUserId: 2L,
+                custodyState: EscrowedItem.PENDING_DEPOSIT, createdAt: long_ago)
+        def good = listing(id: 32L, status: SteamEscrowService.STATUS_PENDING_ESCROW, sellerUserId: 2L)
+
+        when:
+        service.sweepStalePendingDeposits()
+
+        then:
+        1 * escrowRepository.findStalePendingDeposits(_ as Long, _) >> [r1, r2]
+        // both rows win their claim
+        1 * escrowRepository.claimTimeoutPendingDeposit(21L, _, _ as Long) >> 1
+        1 * escrowRepository.claimTimeoutPendingDeposit(22L, _, _ as Long) >> 1
+        // first row's listing lookup BLOWS UP — must be swallowed, not abort the loop
+        1 * listingRepository.findById(31L) >> { throw new RuntimeException("db blip") }
+        // second row still processed: listing reverted + seller notified
+        1 * listingRepository.findById(32L) >> Optional.of(good)
+        1 * listingRepository.save({ Listing l -> l.status == SteamEscrowService.STATUS_CANCELLED })
+        noExceptionThrown()
+    }
 }

@@ -31,6 +31,12 @@ import org.springframework.transaction.annotation.Transactional
  *      AND the bot's own inventory; once the asset is genuinely held the
  *      custody row flips PENDING_DEPOSIT → IN_CUSTODY and the listing flips
  *      PENDING_ESCROW → ACTIVE (now buyable).
+ *   2a. TIMEOUT — a scheduled safety sweeper gives up on deposits the seller
+ *      never completes: a PENDING_DEPOSIT row older than
+ *      {@code steam.escrow.deposit-timeout-hours} flips custody → FAILED and
+ *      its held listing PENDING_ESCROW → CANCELLED, so the seller's item is
+ *      never locked out of the market forever. The bot-escrow analogue of
+ *      StripeService.sweepStalePendingDeposits.
  *   3. DELIVER — handled by SteamDeliveryService, which resolves the held
  *      assetId from the custody row keyed by the trade's listingId.
  *   4. RETURN — when a listing is cancelled / expires / goes unsold, the bot
@@ -41,9 +47,9 @@ import org.springframework.transaction.annotation.Transactional
  * when STEAM_BOT_BASE_URL is set). When the bot is unconfigured (dev / test /
  * CI, or prod before the bot host is live), {@link #isEscrowEnabled()} is
  * false: {@link #requestDepositForListing} is a no-op (listings stay ACTIVE
- * and buyable the legacy way, no deposit required), the scheduled pollers
- * short-circuit, and the return path no-ops. So the entire escrow path is
- * inert and the marketplace keeps working exactly as before.
+ * and buyable the legacy way, no deposit required), the scheduled pollers +
+ * the timeout sweeper short-circuit, and the return path no-ops. So the entire
+ * escrow path is inert and the marketplace keeps working exactly as before.
  */
 @Service
 @Slf4j
@@ -54,6 +60,11 @@ class SteamEscrowService {
      *  query and rejected by PurchaseService.buy until custody confirms. */
     static final String STATUS_PENDING_ESCROW = 'PENDING_ESCROW'
     static final String STATUS_ACTIVE = 'ACTIVE'
+    /** Terminal listing state for a held listing whose deposit never completed
+     *  — the timeout sweeper reverts PENDING_ESCROW → CANCELLED so the seller's
+     *  item is no longer locked out of the market in a never-resolving hold.
+     *  Matches the {ACTIVE, SOLD, CANCELLED} listing state machine. */
+    static final String STATUS_CANCELLED = 'CANCELLED'
 
     @Autowired SteamTradeBotService steamTradeBotService
     @Autowired EscrowedItemRepository escrowRepository
@@ -74,6 +85,14 @@ class SteamEscrowService {
     /** Per-tick deposit-confirm candidate cap. */
     @Value('${steam.escrow.batch-size:50}')
     int batchSize = 50
+
+    /** Hours a deposit may sit in PENDING_DEPOSIT before the timeout sweeper
+     *  gives up on it: marks custody FAILED and reverts the held listing out of
+     *  PENDING_ESCROW so the seller's item is no longer locked out of the
+     *  market. 24h gives a seller a full day to accept the bot's deposit offer.
+     *  Mirrors the Stripe stale-deposit sweeper's bounded-window posture. */
+    @Value('${steam.escrow.deposit-timeout-hours:24}')
+    int depositTimeoutHours = 24
 
     /**
      * True only when the bot sidecar is configured. The whole escrow leg is
@@ -255,6 +274,92 @@ class SteamEscrowService {
     }
 
     // -----------------------------------------------------------------------
+    // 3. TIMEOUT — give up on deposits the seller never completed
+    // -----------------------------------------------------------------------
+
+    /**
+     * Production-safety sweeper for STUCK deposits. {@link #pollDeposits} only
+     * ever ADVANCES a row that has a depositOfferId AND whose offer Steam
+     * reports accepted; it has no give-up path. So a deposit the seller never
+     * accepts (offer sits {@code active} forever) — or a row whose offer never
+     * got created at all ({@code depositOfferId} null after a transient bot
+     * failure, which {@code findPendingDeposits} won't even return) — sits in
+     * PENDING_DEPOSIT / listing PENDING_ESCROW FOREVER, locking the seller's
+     * item out of the market with no auto-resolution.
+     *
+     * This is the missing timeout leg, the bot-escrow analogue of
+     * {@link com.sboxmarket.service.StripeService#sweepStalePendingDeposits}.
+     * For each PENDING_DEPOSIT row older than {@code deposit-timeout-hours}:
+     *   - custody PENDING_DEPOSIT → FAILED (atomic, status-guarded claim), and
+     *   - listing PENDING_ESCROW → CANCELLED (frees the item — a listing whose
+     *     deposit never landed must NOT become buyable, so we cancel rather
+     *     than re-activate), and
+     *   - the seller is notified to re-list.
+     *
+     * ── Disabled-mode safe ────────────────────────────────────────────────
+     * Gated on {@link #escrowSweepEnabled} AND {@link #isEscrowEnabled} exactly
+     * like {@link #pollDeposits}, so it is a complete no-op when the Steam bot
+     * is unconfigured (STEAM_BOT_BASE_URL unset — dev / test / CI, or prod
+     * before the bot host is live). It touches NO bot network APIs at all (a
+     * timed-out deposit means the asset never reached the bot — there's nothing
+     * to return), only the local custody + listing tables.
+     *
+     * NOT @Transactional — like StripeService.sweepStalePendingDeposits this
+     * runs per-row atomic conditional UPDATEs (multi-pod claim) rather than a
+     * shared outer tx, with a batch cap and per-row try/catch so one bad row
+     * can't abort the sweep.
+     */
+    @Scheduled(initialDelayString = '${steam.escrow.timeout-initial-delay-ms:60000}',
+               fixedDelayString = '${steam.escrow.timeout-interval-ms:3600000}')
+    void sweepStalePendingDeposits() {
+        if (!escrowSweepEnabled) return
+        if (!escrowEnabled) return
+        long timeoutMs = Math.max(1L, (long) depositTimeoutHours) * 60L * 60L * 1000L
+        long cutoff = System.currentTimeMillis() - timeoutMs
+        List<EscrowedItem> stale
+        try {
+            stale = escrowRepository.findStalePendingDeposits(cutoff,
+                    PageRequest.of(0, Math.max(1, batchSize))) ?: []
+        } catch (Exception e) {
+            log.warn("SteamEscrow: failed to load stale pending deposits: ${e.message}")
+            return
+        }
+        if (stale.isEmpty()) return
+        log.info("SteamEscrow: ${stale.size()} candidate stale PENDING_DEPOSIT row(s) past ${depositTimeoutHours}h; racing for claims")
+
+        int failed = 0
+        for (EscrowedItem e : stale) {
+            try {
+                // Multi-pod / out-of-band claim. Flips custody
+                // PENDING_DEPOSIT→FAILED only if the row is still
+                // PENDING_DEPOSIT — a sibling pod, or a last-second
+                // confirmDeposit that promoted the row to IN_CUSTODY, makes
+                // this UPDATE miss (0 rows) and we bail WITHOUT reverting the
+                // listing, so a just-deposited item is never wrongly failed.
+                int claimed = escrowRepository.claimTimeoutPendingDeposit(
+                        e.id,
+                        "deposit not completed within ${depositTimeoutHours}h — timed out".toString(),
+                        System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("SteamEscrow: timeout claim lost for escrow=${e.id} — sibling pod or last-second deposit")
+                    continue
+                }
+                failed++
+                // Free the seller's item: revert the held listing out of
+                // PENDING_ESCROW. Own try/catch (already inside the per-row
+                // one) — even if the listing flip hiccups the custody row is
+                // already FAILED, so the row won't be re-swept.
+                cancelHeldListing(e.listingId)
+                safeNotifySeller(e.sellerUserId, e.listingId,
+                        "Your listing didn't go live — we never received your item within ${depositTimeoutHours}h, so the listing was cancelled. Re-list and accept the bot's Steam trade offer to try again.")
+            } catch (Exception ex) {
+                log.warn("SteamEscrow: stale-deposit sweep failed on escrow=${e?.id}: ${ex.message}")
+            }
+        }
+        log.info("SteamEscrow: stale-deposit sweep failed ${failed} of ${stale.size()} candidate(s) (rest claimed by sibling pods or deposited last-second)")
+    }
+
+    // -----------------------------------------------------------------------
     // 4. RETURN — send the held asset back to the seller
     // -----------------------------------------------------------------------
 
@@ -395,6 +500,25 @@ class SteamEscrowService {
             }
         } catch (Exception e) {
             log.warn("SteamEscrow: could not activate listing ${listingId}: ${e.message}")
+        }
+    }
+
+    /** Flip a held listing PENDING_ESCROW -> CANCELLED (deposit timed out).
+     *  Only touches PENDING_ESCROW rows so a benign race (seller cancelled the
+     *  listing themselves, or a last-second activate flipped it ACTIVE) can't
+     *  be stomped — same status-guarded posture as holdListing/activateListing.
+     *  Runs in its own implicit auto-commit tx (the sweeper is NOT
+     *  @Transactional) so a failure here can't poison the per-row claim. */
+    private void cancelHeldListing(Long listingId) {
+        try {
+            def l = listingRepository.findById(listingId).orElse(null)
+            if (l != null && l.status == STATUS_PENDING_ESCROW) {
+                l.status = STATUS_CANCELLED
+                listingRepository.save(l)
+                log.info("SteamEscrow: listing ${listingId} reverted PENDING_ESCROW -> CANCELLED (deposit timed out)")
+            }
+        } catch (Exception e) {
+            log.warn("SteamEscrow: could not cancel held listing ${listingId}: ${e.message}")
         }
     }
 

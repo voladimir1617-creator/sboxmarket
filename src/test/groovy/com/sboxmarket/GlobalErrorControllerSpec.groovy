@@ -60,11 +60,31 @@ class GlobalErrorControllerSpec extends Specification {
         res.status == 404
         res.contentType.startsWith('application/json')
         res.contentAsString.contains('"status":404')
-        res.contentAsString.contains('"path":"/api/listings/99"')
+        // In production (verbose-errors off, the default) the raw request URI
+        // must NOT be echoed — that's how /error-dispatched 404s leak the
+        // scanned path. The JSON envelope omits the path field entirely.
+        !res.contentAsString.contains('"path"')
+        !res.contentAsString.contains('/api/listings/99')
         !res.contentAsString.toLowerCase().contains('whitelabel')
     }
 
-    def "JSON request returns clean envelope with status + error + safe message + path"() {
+    def "forced-JSON /api/** path echoes the request path only in verbose mode"() {
+        given:
+        def verbose = new GlobalErrorController(verboseErrors: true)
+        def req = new MockHttpServletRequest('GET', '/error')
+        req.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, 404)
+        req.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, '/api/listings/99')
+        def res = new MockHttpServletResponse()
+
+        when:
+        verbose.handleHtmlError(req, res)
+
+        then:
+        res.contentType.startsWith('application/json')
+        res.contentAsString.contains('"path":"/api/listings/99"')
+    }
+
+    def "JSON request returns clean envelope; path omitted in production (non-verbose)"() {
         given:
         def req = new MockHttpServletRequest('GET', '/error')
         req.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, 500)
@@ -78,11 +98,29 @@ class GlobalErrorControllerSpec extends Specification {
         Map body = response.body as Map
         body.status == 500
         body.error == 'Internal Server Error'
-        body.path == '/api/listings/something'
+        // Gated like GlobalExceptionHandler: the raw request URI is NOT
+        // returned to the client in prod (verbose-errors off, the default).
+        body.path == null
         body.timestamp != null
         // Safe-message copy must NOT contain a stack trace fragment / SQL bit
         !(body.message as String).contains('Exception')
         !(body.message as String).contains('SELECT')
+    }
+
+    def "JSON request echoes the request path only in verbose mode"() {
+        given:
+        def verbose = new GlobalErrorController(verboseErrors: true)
+        def req = new MockHttpServletRequest('GET', '/error')
+        req.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, 500)
+        req.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, '/api/listings/something')
+
+        when:
+        def response = verbose.handleJsonError(req)
+
+        then:
+        Map body = response.body as Map
+        body.status == 500
+        body.path == '/api/listings/something'
     }
 
     def "missing ERROR_STATUS_CODE attribute defaults to 500"() {

@@ -4,6 +4,7 @@ import groovy.util.logging.Slf4j
 import jakarta.servlet.RequestDispatcher
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.web.servlet.error.ErrorController
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -31,6 +32,15 @@ import java.time.Instant
 @Slf4j
 class GlobalErrorController implements ErrorController {
 
+    /**
+     * Mirrors GlobalExceptionHandler's gate: only echo the raw request URI
+     * back to the client when explicitly opted in. In prod (flag false) the
+     * path is omitted so /error-dispatched 404s and container errors don't
+     * leak the scanned path. Same config key as GlobalExceptionHandler.
+     */
+    @Value('${security.verbose-errors:false}')
+    boolean verboseErrors
+
     @RequestMapping(value = '/error', produces = MediaType.TEXT_HTML_VALUE)
     void handleHtmlError(HttpServletRequest req, HttpServletResponse res) {
         int status = resolveStatus(req)
@@ -41,7 +51,8 @@ class GlobalErrorController implements ErrorController {
         if (path.startsWith('/api/')) {
             res.setStatus(status)
             res.setContentType(MediaType.APPLICATION_JSON_VALUE)
-            res.writer.write(toJson(status, path))
+            // Same gate as handleJsonError: only echo the path when opted in.
+            res.writer.write(toJson(status, verboseErrors ? path : null))
             res.writer.flush()
             return
         }
@@ -60,9 +71,14 @@ class GlobalErrorController implements ErrorController {
             status   : status,
             error    : reasonFor(status),
             message  : safeMessage(status),
-            path     : path,
             timestamp: Instant.now().toString()
         ]
+        // Gate the raw request URI behind the same flag GlobalExceptionHandler
+        // uses (security.verbose-errors). In prod the path is omitted so
+        // /error-dispatched 404s / container errors don't leak the path.
+        if (verboseErrors) {
+            body.path = path
+        }
         return ResponseEntity.status(status).body(body)
     }
 
@@ -154,10 +170,13 @@ class GlobalErrorController implements ErrorController {
     }
 
     private static String toJson(int status, String path) {
+        // path is null in prod (verbose-errors off) — omit the field entirely
+        // so the JSON envelope never leaks the scanned request URI.
+        String pathPart = path != null ? ',"path":"' + escapeJson(path) + '"' : ''
         return '{"status":' + status +
             ',"error":"' + escapeJson(reasonFor(status)) + '"' +
             ',"message":"' + escapeJson(safeMessage(status)) + '"' +
-            ',"path":"' + escapeJson(path) + '"' +
+            pathPart +
             ',"timestamp":"' + Instant.now().toString() + '"}'
     }
 
