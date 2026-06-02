@@ -199145,3 +199145,118 @@ html body .csfloat-home-hero-art .csfloat-home-hero-stack {
   }
 }
 /* ===== END WAVE-INT2 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT3 (item-page polish) ===== */
+/* Item-page (/item/N full-page render on .modal.item-page) parity pass.
+   All four fixes verified live against /item/9 via computed styles before
+   shipping. Placed at EOF so source order wins ties; selectors carry
+   equal-or-higher specificity than the rules they override. CSS-only —
+   no markup/JS touched. */
+
+/* ── Gap 1 (P1): kill the duplicate bottom action bar ──────────────────
+   csfloat has NO bottom action bar — Buy / Make-offer / Add-to-cart /
+   Steam-Market all live in the right rail. Sboxmarket renders a second
+   copy as `.modal.item-page > .modal-actions` at page bottom because
+   several earlier rules force it visible (design.css:197289 flex, :197871
+   `> .modal-actions`, and the `body .modal-actions{display:flex!important}`
+   reset). The HIGHEST-specificity offender — the one that actually wins
+   the cascade — is
+     `.site-root.full-page-mode .modal-actions:has(.btn-accent + .btn)
+        { display: grid !important; }`
+   at specificity (0,4,0)!important (two classes + :has() whose argument
+   contributes a third class). A plain `html body .modal.item-page
+   .modal-actions` is only (0,3,2) and LOSES to it. So we go higher:
+   prepend `.site-root.full-page-mode` (the live page wrapper, confirmed
+   to be an ancestor of .modal.item-page) → (0,5,2), beating (0,4,0)
+   decisively; source-order-last seals it. The rail's own action group is
+   a different node, so the real CTAs remain reachable at every width
+   (on mobile the rail is in normal flow, so its Buy button still shows).
+   Verified live: computed display grid → none @1440 and @390.
+   Both the boosted pair (beats the :has grid rule) and the plain pair
+   (covers the case where the .site-root wrapper is absent, where the
+   :has rule also wouldn't apply) are listed for robustness. */
+html body .site-root.full-page-mode .modal.item-page .modal-actions,
+html body .site-root.full-page-mode .modal.item-page > .modal-actions,
+html body .modal.item-page .modal-actions,
+html body .modal.item-page > .modal-actions {
+  display: none !important;
+}
+
+/* ── Gap 3 (P2): image-hero proportions (widen image, narrow rail) ─────
+   Was grid-template-columns: minmax(0,1fr) minmax(340px,0.85fr) at
+   design.css:13046 → resolved to 653px image / 555px rail (≈1.18:1) at
+   1440. csfloat is image-hero with a ~340-380px rail. Pin the rail to a
+   320-380px track so the 1fr image track widens (~828px @1440). */
+html body .modal.item-page {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px) !important;
+}
+/* The preview panel self-capped at max-width:494px, so widening the grid
+   track alone just added empty space to its right. Lift the cap to a
+   hero width (760px target from the audit) and let it fill the track;
+   bump the artwork's max-height so the image grows with the panel.
+   object-fit:contain is preserved (the image element keeps it), so the
+   1:1 source never distorts — it scales up and stays centered.
+   Measured after: preview 760x520, image box 760x480 contain, rail 380
+   sticky, zero horizontal overflow @1440. */
+html body .modal.item-page > .modal-header > .modal-preview {
+  max-width: 760px !important;
+  width: 100% !important;
+  min-height: 520px !important;
+}
+html body .modal.item-page > .modal-header > .modal-preview img {
+  max-width: 100% !important;
+  max-height: 480px !important;
+}
+
+/* ── Gap 4 (P2): soften the price-chart area fill ──────────────────────
+   The chart polygon fills with url(#grad-varup) / url(#grad-vardown),
+   whose TOP gradient stop is stop-opacity="0.35" — reads as a heavy
+   block. The 0.35 is an SVG presentation attribute set in JS, but CSS
+   `stop-opacity` overrides presentation attributes (verified live:
+   computed went 0.35 → 0.14 with this rule, bottom stop stayed 0). So
+   this is fully CSS-fixable — NOT a JS follow-up. Target only the first
+   stop so the fade-to-transparent bottom stop is untouched. */
+html body .modal.item-page svg.chart linearGradient stop:first-child {
+  stop-opacity: 0.14 !important;
+}
+
+/* ── Gap 2 (P1): mobile stat-card overflow + squished rail ─────────────
+   At <=390px the right rail collapsed to 208px wide and was shoved to
+   left:96 because an external (non-design.css) `body{padding:0 60px}`
+   rule squeezed the page container to 260px on this route. Inside that,
+   .modal-stats was a 2-col grid (100px cells) while labels like
+   "Total supply · in circulation" are 183px → clipped past the rail's
+   overflow:hidden, and a stat-label spilled to x=405 on a 380px doc
+   (2px horizontal overflow).
+   Fixes (all scoped to the item-page route via :has so no other page
+   is affected): neutralise the inherited body side-padding, let the
+   page container + rail + preview span full width, collapse stats to a
+   single full-width column, and allow stat labels to wrap.
+   Measured after @390: body padding 60→12, rail 208→284 (left 96→48),
+   stats 1 column, "Total supply…" wraps (right 405→250), horizontal
+   overflow 2px → 0. */
+@media (max-width: 1100px) {
+  body:has(.modal.item-page) {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  html body .modal-backdrop.page-mode:has(.modal.item-page),
+  html body .modal.item-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  html body .modal.item-page > .modal-header > div:nth-child(2),
+  html body .modal.item-page > .modal-header > .modal-preview {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  html body .modal.item-page .modal-stats {
+    grid-template-columns: 1fr !important;
+  }
+  html body .modal.item-page .modal-stat-label {
+    white-space: normal !important;
+  }
+}
+/* ===== END WAVE-INT3 ===== */
