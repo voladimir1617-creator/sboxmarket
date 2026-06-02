@@ -1,7 +1,46 @@
-# csfloat parity roadmap (live diff, 2026-05)
+# csfloat parity roadmap (live diff, 2026-05 → updated 2026-06-01)
 
 Captured by driving csfloat.com/search and localhost:8082/market side-by-side at
 the same viewport. What actually differs, highest-impact first.
+
+> See `production_checklist.md` for the full DONE / REMAINING ledger (incl. backend
+> + ops). This file is the **visual/UX parity** view.
+
+## STATUS @ 2026-06-01
+
+✅ **Shipped & verified live this session:**
+- Real Steam item art on 38/39 seed items (market/home/db/item)
+- Card-grid void fixed (was `content-visibility:auto` collapsing cards)
+- Left filter rail restored at desktop, 240px (see §1 below)
+- 100% Roboto typography (was Geist + Fraunces)
+- csfloat card anatomy (`gc-*`): float bar, online row, USD chip, listed-time
+  stripe, hover magnifier, top + bottom rarity stripes
+- Card-signal dedup (legacy `grid-price-usd`/`grid-status`/`grid-zoom`/`grid-fresh`
+  hidden so each renders once)
+- Market grid 5 cards/row at 1440 (was 4), 228px cards
+- Mobile /market squeeze fixed (~250px clipped col → full-width 2-up)
+- Cart: 2-col layout + each row on one line
+- Item page = real full PAGE with sticky right rail (not a modal)
+- Item page real 90-pt price-history chart + recent sales
+
+🔧 **Remaining parity gaps (next laps), ranked:**
+
+P1
+- /db, /loadout, /help, /stall render as **centered modals, not full-bleed pages**
+  like csfloat — single biggest remaining look gap.
+- **Home hero is below-fold** — should land above-fold (being fixed this lap).
+- **DB thumbnails ~45% broken on cold load** — dead Steam-CDN seed hashes (data fix).
+- **Price-history chart line empty** — frame renders, no plotted points (being fixed this lap).
+- **/database route 404s** — only /db exists; add alias/redirect.
+- **Profile has no inventory/listings tab** — csfloat profile leads with listings.
+
+P2
+- **Tap targets** — some 32px chips below the 44px min (partially addressed mobile).
+
+(Backend/ops gaps — escrow sweeper, error-path leak, multi-pod webhook idempotency,
+structured JSON logging — tracked in `production_checklist.md`.)
+
+---
 
 ## 1. LEFT FILTER RAIL (the defining csfloat look) — ✅ FIXED (9c54f2a, 2026-05-30)
 - The rail was BUILT all along (app.js:6657 `<aside class="sidebar">` with Price
