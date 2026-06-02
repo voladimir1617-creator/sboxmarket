@@ -54,6 +54,16 @@ dependencies {
     // when unset, the SDK is a silent no-op so dev/CI aren't affected.
     implementation 'io.sentry:sentry-spring-boot-starter-jakarta:7.6.0'
 
+    // Structured (JSON) logging encoder for the `prod` profile. logback-spring.xml
+    // wires LogstashEncoder onto the console + rolling-file appenders so prod logs
+    // are machine-parseable (level/logger/thread/MDC `cid`) for Loki/ELK/Datadog.
+    // 7.4 is the last release line targeting logback 1.4.x (SLF4J 2.x) — it drops
+    // logback 1.2 support and is built against logback 1.3.x/Jackson 2.15.x, both
+    // ABI-compatible with the logback 1.4.14 + Jackson 2.15.x that Spring Boot
+    // 3.2.3 bundles. The 8.x line raises the floor to logback 1.5, which would
+    // mismatch 3.2.x, so we pin 7.4 deliberately.
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     // Spock 2.4-M6 restores @Autowired field injection into Groovy specs
