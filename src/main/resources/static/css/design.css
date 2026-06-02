@@ -199554,3 +199554,34 @@ svg.chart polyline {
    ===================================================================== */
 
 /* ===== END WAVE-INT6 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT7 (audit punch-list: small visual deltas) ===== */
+/* Market: listed-time stripe was vivid blue; csfloat timestamps are quiet muted
+   grey. (Keep the hairline + layout from gc-listed-stripe; only recolor.) */
+.grid-card .gc-listed-stripe { color: rgb(158, 167, 177) !important; }
+
+/* Market: the price line rendered "$230.00 $ ..." — the green gc-usd-chip is a
+   redundant 2nd dollar sign glued to a price that already starts with $.
+   csfloat shows the price once; hide the chip on grid cards. (The legacy
+   grid-price-usd is already hidden by an earlier wave.) */
+.grid-card .gc-usd-chip { display: none !important; }
+
+/* Market: decorative float bar ran warm(red)->cool(blue) left-to-right, the
+   inverse of the CS wear convention a CS-savvy user reads. Flip to cool->warm. */
+.grid-card .gc-float-bar {
+  background: linear-gradient(90deg,
+    rgb(76,201,134) 0%, rgb(140,201,76) 25%, rgb(240,188,76) 55%,
+    rgb(240,140,60) 80%, rgb(235,75,75) 100%) !important;
+}
+
+/* Item page: the "LISTING PRICE" eyebrow was blue/700 while its sibling panel
+   labels (STEAM REFERENCE / 30-DAY / TOTAL SUPPLY) are muted grey/500. Match. */
+html body .full-page-mode .modal-stat-box:first-child .modal-stat-label {
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-weight: 500 !important;
+}
+
+/* Home: hero h1 used font-weight:800, which isn't a loaded Roboto cut (link
+   ships 300;400;500;600;700;900) so it synth-bolds. Pin to 700 (a real cut). */
+.csfloat-home-hero h1, .csfloat-home-hero-inner h1 { font-weight: 700 !important; }
+/* ===== END WAVE-INT7 ===== */
