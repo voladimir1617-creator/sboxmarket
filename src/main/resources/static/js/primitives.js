@@ -172,8 +172,31 @@ export function ItemImage({ item, alt, variant = 'card' }) {
     alt: alt || item.name || '',
     loading: 'lazy',
     decoding: 'async',
+    // Steam's CDN (steamcommunity-a.akamaihd.net) returns 403 for hotlinked
+    // requests that carry a cross-origin `Referer` header — the dominant
+    // cause of the "~45% of /db thumbnails render as broken-image boxes on
+    // cold load" the audit flagged. The page origin differs from Steam's, so
+    // every thumbnail ships our referrer and a slice of them get bounced.
+    // `no-referrer` strips the header so the CDN serves the image; it's a
+    // no-op on hosts that don't gate on referrer, so it's safe for every
+    // consumer (cards, /db rows, modal hero) that shares this primitive.
+    referrerPolicy: 'no-referrer',
     draggable: false,
     className: `item-img ${loaded ? 'loaded' : 'loading'}`,
+    // ref-callback mount guard: an <img> whose src already 404'd on a prior
+    // render (browser HTTP cache remembers the failure) can mount in the
+    // `complete` state with naturalWidth 0 and fire NEITHER onLoad nor
+    // onError — React attaches the handlers after the cached result resolves.
+    // Without this, that image stays a broken-image box forever, which is
+    // exactly the cold-load failure mode the audit saw. Inspecting the node
+    // synchronously on attach lets us flip to the poster glyph immediately.
+    ref: (node) => {
+      if (!node) return;
+      if (node.complete) {
+        if (node.naturalWidth === 0 || node.naturalHeight === 0) setFailed(true);
+        else if (node.naturalWidth < 10 || node.naturalHeight < 10) setFailed(true);
+      }
+    },
     onLoad: (e) => {
       // Steam CDN sometimes returns 200 with a tiny/transparent pixel for
       // items whose source image was delisted — onError never fires, so
@@ -325,12 +348,14 @@ export function RarityBar({ score, compact }) {
 export function Sparkline({ data, color, height }) {
   const [hover, setHover] = useState(null);
   if (!data || data.length < 2) return null;
-  // Batch 1068 — default to the editorial ink-2 color so a caller that
-  // forgets `color` doesn't hit `undefined.replace` (previously NPE'd
-  // in the gradient-id expression below). Sparkline is also used inside
-  // the notification feed + profile chips, both of which may render
-  // before their color context is resolved.
-  const colorSafe = color || '#c8cfe0';
+  // Default to CSFloat's signature price-line blue (rgb(35,123,255)) so a
+  // caller that forgets `color` still draws the on-brand thin blue line
+  // instead of a muted gray that reads as "disabled". This also guards the
+  // gradient-id expression below from `undefined.replace`. The ItemModal
+  // passes an explicit trend color (var(--up)/var(--down)) for its red/green
+  // up-or-down semantics, so this default only affects color-less callers
+  // (notification feed, profile chips) — which should look like CSFloat.
+  const colorSafe = color || 'rgb(35,123,255)';
   // Keep the original index alongside the price so the dayLabel lookup
   // and min/max markers stay correct after we drop bad points. A single
   // NaN price (malformed history row, in-flight DTO) would otherwise

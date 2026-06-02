@@ -199101,3 +199101,47 @@ main.layout .listing-grid {
   .csfloat-home-rail-tab, .sort-select, .discount-select { min-height: 40px !important; }
 }
 /* ===== END WAVE-INT1 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT2 (home hero above-fold) =====
+   The home (/) hero consumed the full ~900px viewport (measured hero
+   height 772px at 1440x900), pushing the featured rail + preview cards
+   entirely below the fold. csfloat shows the hero headline AND the top
+   of the first featured card within the first viewport. Three things
+   drove the excess height, all in this file:
+     1. `.csfloat-home-hero-inner` padding 80px 32px 88px  (168px chrome)
+     2. ship #1203 pinned `.csfloat-home-hero-inner .csfloat-home-hero-art`
+        to `min-height:603px; padding:100px 80px 30px 0` !important — the
+        603px floor + 130px vertical padding was the real bottleneck.
+   Reduce both so the rail peeks above the fold. Target: hero <=620px at
+   1440x900. Selectors below match/beat the existing specificity:
+     - inner: `.csfloat-home-hero .csfloat-home-hero-inner` (0,2,0) > base
+       (0,1,0), and last in source order.
+     - art: `html body .csfloat-home-hero-inner .csfloat-home-hero-art`
+       (0,4,0) beats ship #1203's (0,2,0)!important.
+   The stack frame is already 275x473 (ship #1200) — a prominent card —
+   so we don't grow its height (that would fight the above-fold goal);
+   we nudge its width up modestly so it still reads large. */
+.csfloat-home-hero .csfloat-home-hero-inner {
+  padding: 48px 32px 52px;
+}
+/* Drop ship #1203's 603px min-height + 100/30 vertical padding so the
+   art row collapses to roughly the 473px stack height + small padding.
+   New art height ~= 473 + 24 + 20 = 517px; hero ~= 517 + 48 + 52 = 617px. */
+html body .csfloat-home-hero-inner .csfloat-home-hero-art {
+  min-height: 0 !important;
+  padding: 24px 80px 20px 0 !important;
+}
+/* Nudge the stack width up (275 -> 300) so the card reads a touch larger
+   without changing its fixed 473px height. Beats ship #1200's (0,2,0)!important. */
+html body .csfloat-home-hero-art .csfloat-home-hero-stack {
+  width: 300px !important;
+}
+@media (max-width: 768px) {
+  .csfloat-home-hero .csfloat-home-hero-inner {
+    padding: 32px 16px 40px;
+  }
+  html body .csfloat-home-hero-inner .csfloat-home-hero-art {
+    padding: 16px 0 16px 0 !important;
+  }
+}
+/* ===== END WAVE-INT2 ===== */
