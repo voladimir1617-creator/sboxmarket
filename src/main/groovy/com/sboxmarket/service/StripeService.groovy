@@ -101,6 +101,55 @@ class StripeService {
      *  {@link com.sboxmarket.repository.FraudSignalClaimRepository}. */
     @Autowired(required = false) com.sboxmarket.repository.ProcessedStripeEventRepository processedStripeEventRepository
 
+    /** Cluster-wide card-testing failure ledger (wave 148). Optional so
+     *  existing unit specs that build the service with `new StripeService(...)`
+     *  and no Spring context keep working — in that case the per-JVM
+     *  {@link #recentFailuresByWallet} map is the only counter (single-process
+     *  behaviour, identical to the pre-fix posture). When wired (every prod
+     *  boot wires it), the DB COUNT is the AUTHORITATIVE cross-pod source of
+     *  truth and the in-memory map is a fast-path cache.
+     *
+     *  Without this, the card-testing detector counted payment_intent.payment_failed
+     *  events in a PER-POD map — so an attacker spreading declines across pods
+     *  (Stripe webhook deliveries are load-balanced) accumulated only a
+     *  fraction of the count on any single pod, never crossed the per-pod
+     *  threshold, and the CARD_TESTING_DETECTED alert never fired. The DB row
+     *  + {@link com.sboxmarket.repository.WalletPaymentFailureRepository#countByWalletIdAndFailedAtAfter}
+     *  aggregate sums across every pod so the threshold sees the full
+     *  cross-pod failure volume. Same wave-147-style shape as
+     *  {@link #processedStripeEventRepository}. */
+    @Autowired(required = false) com.sboxmarket.repository.WalletPaymentFailureRepository walletPaymentFailureRepository
+
+    /** Cluster-wide alert-dedup claim (wave 148). Reuses the existing
+     *  fraud_signal_claims ledger (V70) so a CARD_TESTING_DETECTED alert
+     *  fans out to admins exactly ONCE per wallet per window CLUSTER-wide —
+     *  not once per pod. Without it, every pod that pushes a wallet over the
+     *  (now cross-pod) threshold would independently fan the bell to every
+     *  admin (N pods = N× the noise). The signature is
+     *  {@code card_test_alert:<walletId>:<windowBucket>}; whichever pod's
+     *  INSERT lands first wins the claim and the losers bail before the
+     *  fan-out (catching DataIntegrityViolationException on the UNIQUE index,
+     *  same as {@link #claimStripeEvent} and
+     *  FraudAnalysisService.sweepAndPushFraudSignals). Optional so context-less
+     *  unit specs degrade to the per-JVM {@link #cardTestAlertedAt} dedupe. */
+    @Autowired(required = false) com.sboxmarket.repository.FraudSignalClaimRepository fraudSignalClaimRepository
+
+    /** Used to run the card-test fraud-tracking DB writes (insert + count +
+     *  prune + alert-claim) in their own REQUIRES_NEW transaction (wave 148),
+     *  so a fraud-tracking failure — INCLUDING a caught exception that would
+     *  otherwise mark a transaction rollback-only — is fully CONTAINED and can
+     *  never poison the surrounding webhook transaction in handleWebhookEvent.
+     *  This is the deposit/withdraw-untouching, money-math-untouching
+     *  isolation the spec requires: a failure in fraud-COUNT must never break
+     *  Stripe webhook handling. By the time handlePaymentIntentFailed runs,
+     *  the payment_intent.payment_failed switch case has done NO money
+     *  mutation (a failed PI never credits a wallet), so this inner
+     *  transaction holds no money-row locks. Optional (same posture as
+     *  AuditService.transactionManager) — when unwired (unit tests / context-
+     *  less builds) the tracking work runs inline, which is the degraded
+     *  single-process behaviour the specs exercise. */
+    @Autowired(required = false) org.springframework.transaction.PlatformTransactionManager transactionManager
+
     /** Last-webhook-received telemetry (batch 471). Surfaces in the
      *  admin Health tile so ops can spot silent Stripe outages —
      *  e.g. webhook secret rotated by mistake → no events arrive →
@@ -133,15 +182,30 @@ class StripeService {
     private static final int SEEN_EVENTS_CAP = 5000
     private final java.util.LinkedHashSet<String> seenEventIds = new java.util.LinkedHashSet<>()
 
-    /** Card-testing detector (batch 501). Records timestamps of recent
-     *  payment_intent.payment_failed events keyed by walletId. When a
-     *  wallet accumulates >= CARD_TEST_THRESHOLD failures within
-     *  CARD_TEST_WINDOW_MS, fan out a CARD_TESTING_DETECTED notification
-     *  to every admin (deduped per wallet within the window so a single
-     *  attack doesn't spam the bell every retry). The map is bounded by
-     *  active-wallet count and prunes stale entries on every read. */
+    /** Card-testing detector (batch 501; multi-pod-hardened wave 148).
+     *  Records timestamps of recent payment_intent.payment_failed events
+     *  keyed by walletId. When a wallet accumulates >= CARD_TEST_THRESHOLD
+     *  failures within CARD_TEST_WINDOW_MS, fan out a CARD_TESTING_DETECTED
+     *  notification to every admin (deduped per wallet within the window so a
+     *  single attack doesn't spam the bell every retry).
+     *
+     *  Wave 148 scope note: these two maps are PER-JVM and so are blind to
+     *  sibling pods — an attacker spreading declines across pods kept any
+     *  single pod's list under the threshold, so the alert never fired. The
+     *  AUTHORITATIVE cross-pod count is now the
+     *  {@link #walletPaymentFailureRepository} DB aggregate (see
+     *  {@link #handlePaymentIntentFailed}); these maps survive only as a
+     *  fast-path cache. The map is bounded by active-attacker count and
+     *  prunes stale entries on every read. */
     private static final int  CARD_TEST_THRESHOLD  = 3
     private static final long CARD_TEST_WINDOW_MS  = 60L * 60L * 1000L
+    /** Retention horizon for the wallet_payment_failures ledger. A row older
+     *  than this can never contribute to the trailing CARD_TEST_WINDOW_MS
+     *  count, so it's safe to prune. 24h ≫ the 1h window gives a generous
+     *  margin while keeping the table bounded by active-attack volume rather
+     *  than uptime. Pruned best-effort on every failure (see
+     *  {@link #handlePaymentIntentFailed}). */
+    private static final long CARD_TEST_FAILURE_RETENTION_MS = 24L * 60L * 60L * 1000L
     private final java.util.concurrent.ConcurrentHashMap<Long, java.util.List<Long>> recentFailuresByWallet = new java.util.concurrent.ConcurrentHashMap<>()
     private final java.util.concurrent.ConcurrentHashMap<Long, Long> cardTestAlertedAt = new java.util.concurrent.ConcurrentHashMap<>()
 
@@ -1489,18 +1553,44 @@ class StripeService {
     }
 
     /**
-     * Card-testing detector (batch 501). Each `payment_intent.payment_failed`
-     * is recorded against the wallet id stamped in the PI metadata at
-     * Checkout-Session creation time. When a wallet's failure count in
-     * the trailing CARD_TEST_WINDOW_MS hits CARD_TEST_THRESHOLD, fan out
-     * a `CARD_TESTING_DETECTED` notification to every admin so they can
-     * preemptively freeze the wallet before the attacker finds a working
-     * card. Per-wallet alert dedupe so a single attack doesn't spam the
-     * bell on every retry attempt — re-arms after the window slides past.
+     * Card-testing detector (batch 501; multi-pod-hardened wave 148). Each
+     * `payment_intent.payment_failed` is recorded against the wallet id
+     * stamped in the PI metadata at Checkout-Session creation time. When a
+     * wallet's failure count in the trailing CARD_TEST_WINDOW_MS hits
+     * CARD_TEST_THRESHOLD, fan out a `CARD_TESTING_DETECTED` notification to
+     * every admin so they can preemptively freeze the wallet before the
+     * attacker finds a working card.
      *
-     * Metadata-only flow (no DB writes) keeps the hot path cheap; the
-     * map is bounded by active-attacker count, not platform user count,
-     * and stale entries get pruned on every read.
+     * WAVE 148 — cross-pod count. Pre-fix the failure COUNT lived ONLY in the
+     * per-JVM {@link #recentFailuresByWallet} map. On a multi-pod deploy
+     * Stripe load-balances webhook deliveries, so an attacker spreading
+     * declines across pods accumulated only a fraction of the count on any
+     * single pod, never crossed the per-pod threshold, and the alert never
+     * fired — distributed card-testing evaded detection. Now each failure
+     * INSERTs a {@link com.sboxmarket.model.WalletPaymentFailure} row and the
+     * threshold is evaluated against
+     * {@code countByWalletIdAndFailedAtAfter(walletId, cutoff)} — a DB
+     * aggregate summed across EVERY pod's rows, so it sees the full cross-pod
+     * volume. The in-memory map survives as a fast-path cache only (it short-
+     * circuits the alert path on a pod that has ALREADY alerted this window).
+     *
+     * CROSS-POD ALERT DEDUP. Even with a shared count, two pods that both
+     * push a wallet over the threshold in the same window would each fan the
+     * bell to every admin (N pods = N× the noise). The alert is therefore
+     * gated behind a cluster-wide claim in the existing fraud_signal_claims
+     * ledger (V70), signature {@code card_test_alert:<walletId>:<windowBucket>}:
+     * whichever pod's INSERT wins fans out, the losers bail (catching the
+     * UNIQUE-index DataIntegrityViolationException, same shape as
+     * {@link #claimStripeEvent} / FraudAnalysisService.sweepAndPushFraudSignals).
+     * The per-JVM {@link #cardTestAlertedAt} map is the fast-path layer in
+     * front of that claim.
+     *
+     * FAILURE ISOLATION. Every DB op here (insert, count, prune, claim) is
+     * wrapped so a fraud-tracking failure can NEVER break Stripe webhook
+     * handling — a transient DB error degrades the count to the in-memory
+     * fast-path rather than 500-ing the webhook. (Note: handleWebhookEvent
+     * calls this OUTSIDE any money mutation; this method touches neither the
+     * fee/money math nor the deposit/withdraw paths — only the fraud COUNT.)
      */
     void handlePaymentIntentFailed(com.stripe.model.PaymentIntent pi) {
         if (pi == null) return
@@ -1514,23 +1604,55 @@ class StripeService {
         catch (NumberFormatException ignored) { return }
         long now = System.currentTimeMillis()
         long windowStart = now - CARD_TEST_WINDOW_MS
+
+        // ── Fast-path cache (per-JVM) ─────────────────────────────────────
         // Append + prune in one critical section per wallet. The list is
-        // small (a single attack rarely exceeds 20 attempts before we
-        // alert and admins act), so an O(n) prune is fine.
-        def updated = recentFailuresByWallet.compute(walletId, { _, existing ->
+        // small (a single attack rarely exceeds 20 attempts before we alert
+        // and admins act), so an O(n) prune is fine. This is now a CACHE in
+        // front of the DB count, not the source of truth.
+        def cached = recentFailuresByWallet.compute(walletId, { _, existing ->
             def list = existing ?: new java.util.ArrayList<Long>()
             list.add(now)
             list.removeIf { (it as Long) < windowStart }
             list
         })
-        log.warn("payment_intent.payment_failed wallet=${walletId} pi=${pi.id} reason=${pi.lastPaymentError?.code ?: 'unknown'} (${updated.size()} failures in last ${CARD_TEST_WINDOW_MS / 60_000L}min)")
-        if (updated.size() < CARD_TEST_THRESHOLD) return
-        // Per-wallet alert dedupe — only fire once per window.
+
+        // ── Authoritative cross-pod count (DB, isolated tx) ───────────────
+        // INSERT this failure, then COUNT this wallet's failures in the
+        // window across ALL pods, then best-effort prune old rows. All three
+        // run inside trackFailureAndCount's REQUIRES_NEW transaction so a
+        // fraud-tracking failure — even one that would mark a transaction
+        // rollback-only — is fully contained and can never break the
+        // surrounding webhook transaction. On any DB error we fall back to
+        // the per-JVM cache size (degraded single-process behaviour) rather
+        // than throwing. When the repo is unwired (unit test / context-less
+        // build) the cache size IS the count — identical to the pre-fix
+        // posture.
+        long dbCount = trackFailureAndCount(walletId, now, windowStart)
+        long failureCount = (dbCount >= 0L) ? dbCount : (long) cached.size()
+
+        log.warn("payment_intent.payment_failed wallet=${walletId} pi=${pi.id} reason=${pi.lastPaymentError?.code ?: 'unknown'} (${failureCount} failures in last ${CARD_TEST_WINDOW_MS / 60_000L}min, cross-pod)")
+        if (failureCount < CARD_TEST_THRESHOLD) return
+
+        // ── Per-wallet alert dedupe (per-JVM fast-path) ───────────────────
+        // Only fire once per window on THIS pod — short-circuits the cluster
+        // claim round-trip for the common single-pod case.
         def lastAlertedAt = cardTestAlertedAt.get(walletId)
         if (lastAlertedAt != null && lastAlertedAt > windowStart) return
+
+        // ── Cluster-wide alert claim (cross-pod dedup) ────────────────────
+        // Reuse the fraud_signal_claims ledger (V70) so the bell fans out
+        // exactly ONCE per wallet per window across the whole cluster. Bucket
+        // the window so the signature is stable for the duration of one
+        // attack window. Loser pods (and re-deliveries) bail before the
+        // fan-out. Fully isolated: a claim DB error fails OPEN to the per-JVM
+        // dedupe (better to occasionally double-alert on a DB blip than to
+        // miss a card-testing alert), and never breaks the webhook.
+        if (!claimCardTestAlert(walletId, now)) return
         cardTestAlertedAt.put(walletId, now)
+
         // Fan out to admins. Same shape as chargeback fan-out — role-
-        // indexed query, per-row try/catch, kind="CARD_TESTING_DETECTED".
+        // indexed query, per-row safePush, kind="CARD_TESTING_DETECTED".
         if (notificationService != null && steamUserRepository != null) {
             try {
                 def reason = pi.lastPaymentError?.code ?: 'unknown'
@@ -1539,7 +1661,7 @@ class StripeService {
                 steamUserRepository.findByRole('ADMIN').each { admin ->
                     notificationService.safePush(admin.id, 'CARD_TESTING_DETECTED',
                         "⚠ Card-testing on wallet ${walletId}",
-                        "${updated.size()} declined deposit attempts in the last ${CARD_TEST_WINDOW_MS / 60_000L}min " +
+                        "${failureCount} declined deposit attempts in the last ${CARD_TEST_WINDOW_MS / 60_000L}min " +
                             "(latest: ${reason}). Consider freezing the wallet via the Users tab before the attacker finds a working card.",
                         walletId,
                         '/admin?tab=users')
@@ -1548,6 +1670,124 @@ class StripeService {
                 log.warn("CARD_TESTING_DETECTED admin fan-out failed for wallet ${walletId}: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Cluster-wide claim for the CARD_TESTING_DETECTED alert (wave 148).
+     * Returns {@code true} when THIS pod won the right to fan out the alert
+     * for {@code walletId} in the current window, {@code false} when a
+     * sibling pod (or a prior delivery on any pod) already alerted this
+     * window — in which case the caller suppresses the duplicate fan-out.
+     *
+     * Reuses the existing {@link com.sboxmarket.repository.FraudSignalClaimRepository}
+     * (V70 fraud_signal_claims) rather than adding a second claim table — the
+     * signature {@code card_test_alert:<walletId>:<windowBucket>} namespaces
+     * the card-test alert away from the fraud sweeper's signatures. Same
+     * "existence check then authoritative INSERT, catch DataIntegrityViolation
+     * as a lost race" shape as {@link #claimStripeEvent}.
+     *
+     * Degraded posture when the repo is unwired (unit test / context-less
+     * build): return {@code true} so the per-JVM {@link #cardTestAlertedAt}
+     * dedupe is the sole gate — identical to the single-process pre-fix
+     * behaviour. A transient DB error also fails OPEN (return {@code true}):
+     * better to occasionally double-alert on a DB blip than to silently
+     * swallow a card-testing alert, and the UNIQUE index still backstops a
+     * true duplicate on the INSERT.
+     */
+    private boolean claimCardTestAlert(Long walletId, long now) {
+        if (fraudSignalClaimRepository == null) return true
+        long windowBucket = now.intdiv(CARD_TEST_WINDOW_MS)
+        String signature = "card_test_alert:${walletId}:${windowBucket}".toString()
+        try {
+            if (fraudSignalClaimRepository.existsBySignature(signature)) return false
+        } catch (Exception e) {
+            // Fail open — fall through to the authoritative INSERT, which the
+            // UNIQUE index still backstops.
+            log.warn("Card-test alert claim existence-check failed for wallet ${walletId}: ${e.message}")
+        }
+        try {
+            // INSERT inside its own REQUIRES_NEW transaction so a UNIQUE-index
+            // DataIntegrityViolation on a cross-pod race is fully contained —
+            // it can't mark the surrounding webhook transaction rollback-only.
+            runIsolated {
+                fraudSignalClaimRepository.save(new com.sboxmarket.model.FraudSignalClaim(
+                    signature: signature, claimedAt: now))
+            }
+            return true
+        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+            // Lost the cross-pod race — a sibling pod claimed this wallet's
+            // window first and owns the fan-out. Suppress the duplicate.
+            log.info("Card-test alert for wallet ${walletId} claimed by sibling pod — suppressing duplicate fan-out")
+            return false
+        } catch (Exception e) {
+            // Any other DB error: fail open so we don't lose the alert.
+            log.warn("Card-test alert claim insert failed for wallet ${walletId}: ${e.message}")
+            return true
+        }
+    }
+
+    /**
+     * Record this failure + return the authoritative cross-pod windowed count
+     * (wave 148). INSERTs a {@link com.sboxmarket.model.WalletPaymentFailure}
+     * row, COUNTs this wallet's failures strictly after {@code windowStart}
+     * across ALL pods, and best-effort prunes rows older than
+     * {@link #CARD_TEST_FAILURE_RETENTION_MS}. All three statements run inside
+     * ONE REQUIRES_NEW transaction (see {@link #runIsolated}) so a
+     * fraud-tracking failure — including a caught exception that would
+     * otherwise mark a transaction rollback-only — is fully contained and can
+     * never poison the surrounding webhook transaction.
+     *
+     * Returns the cross-pod count, or {@code -1} when the count is
+     * unavailable (repo unwired, or a DB error) so the caller falls back to
+     * the per-JVM fast-path cache size. NEVER throws — the spec requires a
+     * fraud-tracking failure to never break Stripe webhook handling.
+     */
+    private long trackFailureAndCount(Long walletId, long now, long windowStart) {
+        if (walletPaymentFailureRepository == null) return -1L
+        long count = -1L
+        try {
+            count = runIsolated {
+                walletPaymentFailureRepository.save(new com.sboxmarket.model.WalletPaymentFailure(
+                    walletId: walletId, failedAt: now))
+                long c = walletPaymentFailureRepository.countByWalletIdAndFailedAtAfter(walletId, windowStart)
+                // Best-effort retention prune (point 3) — drop rows older than
+                // the retention horizon so the table stays bounded by
+                // active-attack volume, not uptime. Inside the same isolated
+                // tx; a prune failure rolls back only this isolated tx (its
+                // own catch below degrades the count), never the webhook.
+                try {
+                    walletPaymentFailureRepository.deleteByFailedAtBefore(now - CARD_TEST_FAILURE_RETENTION_MS)
+                } catch (Exception pe) {
+                    log.warn("Card-test failure retention prune failed: ${pe.message}")
+                }
+                c
+            }
+        } catch (Exception e) {
+            // Degrade to the in-memory fast-path count — never 500 the webhook
+            // on a fraud-tracking DB blip.
+            log.warn("Card-test failure tracking DB op failed for wallet ${walletId}: ${e.message}")
+            return -1L
+        }
+        return count
+    }
+
+    /**
+     * Run {@code work} in a fresh REQUIRES_NEW transaction so its DB effects
+     * (and any rollback-marking) are isolated from the caller's transaction
+     * (wave 148; same mechanism as AuditService's deferred-write template).
+     * When no {@link #transactionManager} is wired (unit tests / context-less
+     * builds), runs {@code work} inline — the degraded single-process posture
+     * the specs exercise. Propagates whatever {@code work} throws so the
+     * caller can distinguish a lost-race DataIntegrityViolation from other
+     * errors.
+     */
+    private <T> T runIsolated(groovy.lang.Closure<T> work) {
+        if (transactionManager == null) {
+            return work.call()
+        }
+        def tt = new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+        tt.propagationBehavior = org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        return (T) tt.execute({ status -> work.call() } as org.springframework.transaction.support.TransactionCallback)
     }
 
     @Transactional
