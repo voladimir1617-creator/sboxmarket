@@ -1065,7 +1065,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         ),
         h('div', { className: 'chart-wrap' },
           slicedHistory && slicedHistory.length >= 2
-            ? h(Sparkline, { data: slicedHistory, color: trendUp ? 'var(--up)' : trendFlat ? 'var(--ink-3)' : 'var(--down)', height: 150 })
+            ? h(Sparkline, { data: slicedHistory, color: trendUp ? 'var(--up)' : trendFlat ? 'var(--ink-3)' : 'var(--down)', height: 150, showAxes: true })
             : h('div', { className: 'chart-empty', style: { height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 } },
                 'Price history will appear here after the next market sync.')
         ),

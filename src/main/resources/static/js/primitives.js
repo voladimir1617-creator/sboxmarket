@@ -345,7 +345,7 @@ export function RarityBar({ score, compact }) {
  * tooltip follows the mouse along the x axis and snaps to the nearest
  * data point. Pure inline SVG — no external chart lib.
  */
-export function Sparkline({ data, color, height }) {
+export function Sparkline({ data, color, height, showAxes }) {
   const [hover, setHover] = useState(null);
   if (!data || data.length < 2) return null;
   // Default to CSFloat's signature price-line blue (rgb(35,123,255)) so a
@@ -370,11 +370,18 @@ export function Sparkline({ data, color, height }) {
   const min = Math.min(...prices), max = Math.max(...prices);
   const range = max - min || 1;
   const W = 600, H = height || 140;
-  const padTop = H * 0.09, bandH = H * 0.82;
+  // When axis labels are enabled (item-page variant only — see `showAxes`
+  // below) reserve a strip at the bottom of the viewBox so the date ticks
+  // sit *below* the plotted line instead of overlapping it / getting
+  // clipped at the SVG edge. Small inline sparklines (cards, bid chart,
+  // notification feed) pass no `showAxes`, so they keep the full band and
+  // gain zero axis chrome.
+  const axisH = showAxes ? 16 : 0;
+  const padTop = H * 0.09, bandH = H * 0.82 - axisH;
 
   const pts = series.map((d, i) => {
     const x = (i / (series.length - 1)) * W;
-    const y = H - ((d.price - min) / range) * bandH - padTop;
+    const y = H - axisH - ((d.price - min) / range) * bandH - padTop;
     return { x, y, price: d.price, label: d.label };
   });
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
@@ -384,6 +391,26 @@ export function Sparkline({ data, color, height }) {
   const gradId = 'grad-' + String(colorSafe).replace(/[^a-z0-9]/gi, '');
   const minIdx = prices.indexOf(min);
   const maxIdx = prices.indexOf(max);
+
+  // ── Static axis labels (CSFloat parity) ────────────────────────────
+  // Opt-in via `showAxes` so only the large item-page price chart gets
+  // them; the shared inline sparklines (cards, bid-progression chart,
+  // notification feed) stay clean. The caller that owns the item-page
+  // chart (modals.js) must pass `showAxes: true` — tracked as a follow-up
+  // since that file is outside this component's ownership.
+  //
+  // X ticks: first / middle / last date, anchored start/middle/end so the
+  // outer two never clip at the SVG edges. Colour + font come from the
+  // existing `svg.chart text` parity CSS (fill rgb(158,167,177), Roboto);
+  // we also set them inline so any wrapper the CSS selector doesn't cover
+  // still renders muted, not default black.
+  const AXIS_FILL = 'rgb(158,167,177)';
+  const dateLabel = (p) => (p && p.label) ? p.label : '';
+  const xTicks = showAxes ? [
+    { x: 0,     anchor: 'start',  text: dateLabel(pts[0]) },
+    { x: W / 2, anchor: 'middle', text: dateLabel(pts[Math.floor((pts.length - 1) / 2)]) },
+    { x: W,     anchor: 'end',    text: dateLabel(pts[pts.length - 1]) }
+  ].filter(t => t.text) : [];
 
   const onMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -448,11 +475,37 @@ export function Sparkline({ data, color, height }) {
         stroke: 'var(--line, var(--border))', strokeOpacity: 0.5, strokeWidth: 1
       })),
       h('polygon',  { points: area,     fill: `url(#${gradId})` }),
-      h('polyline', { points: polyline, fill: 'none', stroke: colorSafe, strokeWidth: '2.2',
+      // CSFloat parity: a thin (~1.6px) line, not a heavy 2.2px stroke.
+      h('polyline', { points: polyline, fill: 'none', stroke: colorSafe, strokeWidth: '1.6',
                       strokeLinejoin: 'round', strokeLinecap: 'round' }),
       // Min / max dots so the viewer can spot the extremes at a glance
-      h('circle', { cx: pts[minIdx].x, cy: pts[minIdx].y, r: 4, fill: 'var(--down)', stroke: 'var(--bg)',  strokeWidth: 2 }),
-      h('circle', { cx: pts[maxIdx].x, cy: pts[maxIdx].y, r: 4, fill: 'var(--up)',   stroke: 'var(--bg)',  strokeWidth: 2 }),
+      // (r3 to sit proportionate to the slimmer line, CSFloat-style).
+      h('circle', { cx: pts[minIdx].x, cy: pts[minIdx].y, r: 3, fill: 'var(--down)', stroke: 'var(--bg)',  strokeWidth: 2 }),
+      h('circle', { cx: pts[maxIdx].x, cy: pts[maxIdx].y, r: 3, fill: 'var(--up)',   stroke: 'var(--bg)',  strokeWidth: 2 }),
+      // X-axis date ticks (item-page variant only) — sit in the reserved
+      // `axisH` strip at the bottom so they never overlap the plotted line.
+      xTicks.map((t, i) => h('text', {
+        key: 'xt' + i,
+        className: 'axis-tick',
+        x: t.x, y: H - 3,
+        'text-anchor': t.anchor,
+        fill: AXIS_FILL, fontSize: 10
+      }, t.text)),
+      // Y-axis price extremes (item-page variant only) — max near the top
+      // band edge, min near the band floor, hugging the left gutter. Kept
+      // out of the small sparklines by the same `showAxes` gate.
+      showAxes && h('text', {
+        className: 'axis-tick',
+        x: 4, y: padTop + 9,
+        'text-anchor': 'start',
+        fill: AXIS_FILL, fontSize: 10
+      }, fmt(max)),
+      showAxes && h('text', {
+        className: 'axis-tick',
+        x: 4, y: padTop + bandH - 2,
+        'text-anchor': 'start',
+        fill: AXIS_FILL, fontSize: 10
+      }, fmt(min)),
       // Hover crosshair + point
       hoverPt && h('line', {
         x1: hoverPt.x, x2: hoverPt.x, y1: 0, y2: H,

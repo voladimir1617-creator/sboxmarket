@@ -25,6 +25,11 @@ const ROUTES = [
   { name: 'market',        pattern: /^\/search\/?$/                                 },
   { name: 'cart',          pattern: /^\/cart\/?$/                                   },
   { name: 'database',      pattern: /^\/db\/?$/                                     },
+  // `/db` is the canonical path (paths.database() emits it), but the
+  // human-readable `/database` SEO URL and any external links pointing at
+  // it must resolve to the SAME 'database' route instead of 404ing. Alias
+  // only — paths.database() is unchanged, so internal nav still uses /db.
+  { name: 'database',      pattern: /^\/database\/?$/                               },
   { name: 'item',          pattern: /^\/item\/(\d+)\/?$/,          keys: ['id']     },
   // /stall/:id must be a numeric user id (matches Long PK on User row).
   // Pre-fix the regex matched any string, so `/stall/abc` mounted the

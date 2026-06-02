@@ -8730,6 +8730,18 @@ export function App() {
                 h('span', null, 'Savings vs Steam'),
                 h('span', { className: 'mono' }, privacy ? '$•••••' : ('↓ ' + fmt(cartSavings)))
               ),
+              // Buyer fee — csfloat parity. csfloat's cart summary
+              // prominently states the buyer pays no fee; the wallet is
+              // debited exactly the subtotal (Total below == Subtotal), so
+              // this is a display-only clarity row. Reuses the Savings row's
+              // `cart-summary-savings` treatment so the value renders in the
+              // same canonical positive-green (the design.css rule keys on
+              // that row class) with a neutral grey label. No fee math is
+              // touched — buyer genuinely pays 0.
+              h('div', { className: 'cart-summary-row cart-summary-savings' },
+                h('span', null, 'Buyer fee'),
+                h('span', { className: 'mono' }, 'Free')
+              ),
               // Total is the bare subtotal — the server debits exactly the
               // item price with no buyer fee, so this matches the Confirm
               // button and the single-item Buy modal.
