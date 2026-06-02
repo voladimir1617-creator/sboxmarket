@@ -199341,3 +199341,120 @@ html body .full-page-mode .info-modal:has(.cart-grid) .cart-grid {
   }
 }
 /* ===== END WAVE-INT4 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT5 (search/chips/home-void) ===== */
+
+/* ---------------------------------------------------------------------
+   GAP 1 — Market search lens overlaps placeholder text.
+   Live markup: div.toolbar > div.search-wrap[role=search] > input.search-input
+   + span.search-icon (abs). Pre-fix the input computed padding-left:8px while
+   the lens sat at left:16px (icon right edge ~376 > input text start ~365),
+   so "Search s&box skins…" rendered UNDER the magnifier.
+   Fix: nudge the lens to left:12px and pad the input 36px on the left so the
+   placeholder/value text starts clear to the RIGHT of the lens. High
+   specificity (html body .toolbar … input.search-input) so it beats the
+   ship #129105 / #7901 chain that currently wins. */
+html body .toolbar .search-wrap > .search-icon,
+html body .toolbar .search-wrap span.search-icon,
+html body .search-wrap .search-icon,
+.search-icon {
+  left: 12px !important;
+}
+html body .toolbar .search-wrap[role="search"] > input.search-input[type],
+html body .toolbar .search-wrap[role="search"] > input.search-input,
+html body .toolbar .search-wrap[role="search"] input.search-input,
+html body .toolbar .search-wrap > input.search-input,
+html body .toolbar .search-wrap input.search-input,
+html body .toolbar input.search-input,
+html body .search-wrap .search-input,
+.search-input {
+  /* override ship #129105's `html body .toolbar .search-wrap[role="search"]
+     > input.search-input { padding: 0 8px !important }` (specificity 0,4,3).
+     The `[type]` variant above is 0,5,3 so the 36px left-pad reliably wins
+     and the placeholder/value text clears the lens. Set both longhand and
+     the full shorthand so neither the `padding` shorthand nor `padding-left`
+     longhand from the loser can leak back in. */
+  padding: 0 36px 0 36px !important;
+  padding-left: 36px !important;
+  padding-right: 36px !important;
+}
+
+/* ---------------------------------------------------------------------
+   GAP 2 — Left-rail price-preset chips clip on one overflowing row.
+   The four chips (<$2.00, $2.00–$5.00, $5.00–$10.00, >$10.00) live in
+   .filter-section .price-chips, which a later ship pinned to
+   display:flex / flex-wrap:nowrap — so the two middle chips clipped
+   (scrollWidth 56/59 > clientWidth 45). Restore the intended 2×2 grid so
+   every chip gets its own cell and fits inside the ~206px rail content
+   width with no clipping. Prefixed html body to outrank
+   `body .sidebar .price-chips` (0,2,1) and `.filter-section .price-chips`
+   (0,2,0). */
+html body .sidebar .filter-section .price-chips,
+html body .sidebar [class*="chips"].price-chips:has(.price-chip),
+html body .filter-section .price-chips:has(.price-chip),
+html body .sidebar .price-chips:has(.price-chip),
+html body .filter-section .price-chips,
+html body .sidebar .price-chips,
+html body .price-chips,
+html body .cf-range-presets,
+.price-chips,
+.cf-range-presets {
+  /* override ship's `.sidebar [class*="chips"]:has(.price-chip)
+     { display:flex !important }` (specificity 0,3,0). The selectors above
+     reach 0,3,2 / 0,4,1 so the 2×2 grid wins and the four preset chips each
+     get their own cell instead of clipping on one nowrap flex row. */
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+}
+html body .filter-section .price-chip,
+html body .sidebar .price-chip,
+html body .price-chips .price-chip,
+html body .cf-range-presets button,
+.price-chip {
+  min-width: 0 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+}
+
+/* ---------------------------------------------------------------------
+   GAP 3 — Home "A trade clears in six clean steps" left-column void.
+   Pre-fix .csfloat-home-journey-inner was a left-aligned two-col flex at
+   max-width 1310px: the left .details column was 530px wide but only 172px
+   tall (just the heading) while the right step-timeline ran 923px, leaving
+   a ~530×750 blank gutter on the left. The left column is already
+   position:sticky but sticky cannot fill a horizontal void beside a short
+   heading. Lowest-risk visual fix that reads cleanest: cap the inner to a
+   single centered column so the heading sits directly above the steps with
+   no side gutter. Overrides ship #6800/#6801 (equal specificity + later +
+   !important). Mobile (<=880px) already stacks, so this is desktop-only and
+   introduces no new horizontal overflow. */
+html body .csfloat-home-journey .csfloat-home-journey-inner {
+  max-width: 820px !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 36px !important;
+  align-items: stretch !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-left {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  position: static !important;
+  align-self: flex-start !important;
+}
+/* FAQ list was rendering full-bleed (~1200px) inside its centered inner;
+   cap + center it so the rows read as a tidy column rather than a wide
+   band with a left bias. */
+html body .csfloat-home-faq .csfloat-home-faq-list,
+.csfloat-home-faq-list {
+  max-width: 760px !important;
+  margin: 0 auto !important;
+}
+
+/* ===== END WAVE-INT5 ===== */
