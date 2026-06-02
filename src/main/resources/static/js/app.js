@@ -4126,6 +4126,14 @@ export function App() {
       }
       return;
     }
+    // csfloat-parity (#5): a fresh add fires a confirmation toast so the
+    // grid/rail quick-add buttons give the same feedback the item page
+    // already did. Gated on !alreadyHad so re-clicking an item that's
+    // already in the cart stays silent (no badge change, no toast). The
+    // badge increments instantly via the optimistic setCart above.
+    if (!alreadyHad && typeof showToast === 'function') {
+      showToast(`Added ${listing.item?.name || 'item'} to cart`, 'ok');
+    }
     // Mirror to the server cart for cross-device sync. Anonymous users
     // stay localStorage-only, no behaviour change. Best-effort: if the
     // server rejects (CART_FULL) we revert the local add so the count
@@ -4506,6 +4514,12 @@ export function App() {
 
   // wallet load
   const loadWallet = useCallback(async () => {
+    // Anon users have no wallet — the endpoints return 401, which
+    // fetchWallet swallows to null (not the __error sentinel), so the
+    // /wallet route would otherwise spin forever. Skip the guaranteed-401
+    // fetch and clear state; the WalletModal's own `!me` early-return
+    // renders the Sign-in gate. Re-runs after sign-in via the `me` dep.
+    if (!me) { setWallet(null); setTransactions([]); return; }
     try {
       const [w, tx] = await Promise.all([fetchWallet(), fetchTransactions()]);
       setWallet(w);
@@ -4519,7 +4533,7 @@ export function App() {
       // tab-focus refetch) doesn't blow away a working wallet view.
       setWallet(prev => (prev && !prev.__error) ? prev : { __error: true });
     }
-  }, []);
+  }, [me]);
   useEffect(() => { loadWallet(); }, [loadWallet]);
 
   // Tab-focus refresh (batch 424). Stripe deposits + admin-approved
@@ -7542,7 +7556,17 @@ export function App() {
        otherwise → WalletModal. Spinner/error are wrapped in an
        InfoModal so the page stays closeable in every state. */
     routeName === 'wallet' && (
-      (wallet && !wallet.__error)
+      // Anon users: mount WalletModal directly so its own `!me`
+      // early-return renders the Sign-in gate instead of a spinner that
+      // never resolves (fetchWallet 401 → null, never the __error
+      // sentinel). Only once signed in do we run the
+      // null→spinner / __error→error / else→WalletModal logic.
+      !me
+        ? h(WalletModal, {
+            wallet: null, transactions: [], me,
+            onClose: () => { setWalletPrefillAmount(null); navigate(paths.market()); }
+          })
+        : (wallet && !wallet.__error)
         ? h(WalletModal, {
             wallet, transactions, me,
             onClose: () => { setWalletPrefillAmount(null); navigate(paths.market()); },
@@ -9154,10 +9178,12 @@ export function App() {
               setPreselectedBuyItem(item);
               navigate(paths.buyorders());
             },
-            onAddToCart: (listing) => {
-              addToCart(listing);
-              showToast(`Added ${listing.item?.name} to cart`, 'ok');
-            },
+            // addToCart now fires its own "Added … to cart" confirmation
+            // toast (see definition) so every entry point — grid, rails,
+            // table, and this item page — gives identical feedback. Passing
+            // the raw handler avoids the double-toast the old inline wrapper
+            // produced.
+            onAddToCart: addToCart,
             cartHas: (id) => cart.some(x => x.id === id),
             // Watchlist heart on the item action panel was a dead button - no
             // onClick wired. Pass the same toggleStar/watchlist that GridCard

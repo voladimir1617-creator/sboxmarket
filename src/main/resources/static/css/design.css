@@ -198654,3 +198654,450 @@ nav.nav,
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #200000 */
+
+/* ===== CSFLOAT PARITY WAVE-PAR1 (design.css owner) ===== */
+/* Appended at EOF so last-wins source order beats every earlier ship #.
+   Scope: home, market grid, cards, item page, cart, nav, footer.
+   csfloat tokens used verbatim:
+     body bg          rgb(21,23,28)
+     card surface     rgb(38,41,48)
+     accent blue      rgb(35,123,255)  (#237bff)
+     muted text       rgb(158,167,177)
+     online/usd green rgb(76,201,134)
+     card radius      4px
+   NOTE: a parallel agent owns cards.js and renders the gc-* classes below.
+   Rules are written to be harmless if a given class is absent (no layout
+   shift on empty cards) and to keep the real Steam item render dominant. */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CARD ANATOMY — gc-* classes (csfloat-tasteful, subtle)
+   ───────────────────────────────────────────────────────────────────── */
+
+/* gc-float-bar — decorative rarity-spectrum bar under the image, 4px tall,
+   full width, 2px radius, with a 2px white thumb positioned via left %.
+   csfloat shows this under the thumbnail; here it's pure ornament. */
+/* cards.js renders .gc-float-bar INSIDE .grid-thumb, which is
+   `display:grid; place-items:center`. A bare `.gc-float-bar{height:4px}` got
+   stretched by the grid track (measured 8px). Scope under .grid-card .grid-thumb
+   (specificity 0,3,0) and pin it to the bottom edge as an absolute overlay strip
+   so the grid can't resize it and it reads as the csfloat under-image bar.
+   align-self/justify-self belt-and-braces for the stretch case. */
+.grid-card .grid-thumb .gc-float-bar,
+.gc-float-bar {
+  position: absolute !important;
+  left: 8px !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  width: auto !important;
+  height: 4px !important;
+  min-height: 0 !important;
+  max-height: 4px !important;
+  margin: 0 !important;
+  align-self: end !important;
+  justify-self: stretch !important;
+  z-index: 2 !important;
+  border-radius: 2px !important;
+  background: linear-gradient(
+    90deg,
+    rgb(235, 87, 87) 0%,
+    rgb(242, 153, 74) 22%,
+    rgb(242, 201, 76) 44%,
+    rgb(111, 207, 151) 70%,
+    rgb(86, 204, 242) 100%
+  ) !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+}
+.grid-card .grid-thumb .gc-float-bar .gc-float-thumb,
+.gc-float-bar .gc-float-thumb {
+  position: absolute !important;
+  top: 50% !important;
+  width: 2px !important;
+  height: 8px !important;
+  margin-left: -1px !important;          /* center the 2px thumb on its left % */
+  transform: translateY(-50%) !important;
+  background: rgb(255, 255, 255) !important;
+  border-radius: 1px !important;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.6) !important;
+  pointer-events: none !important;
+}
+
+/* gc-online-row — green dot + "Online" + optional verified check + count.
+   11-12px, muted, gap 6px. Mirrors csfloat's seller-presence line. */
+.gc-online-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-top: 6px !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+}
+.gc-online-row .gc-online-dot {
+  flex: 0 0 auto !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: rgb(76, 201, 134) !important;
+  box-shadow: 0 0 0 2px rgba(76, 201, 134, 0.18) !important;
+}
+/* offline variant — grey dot, no halo */
+.gc-online-row .gc-online-dot.offline {
+  background: rgb(110, 118, 129) !important;
+  box-shadow: none !important;
+}
+.gc-online-row .gc-online-verified {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  color: rgb(35, 123, 255) !important;   /* blue verified check */
+}
+.gc-online-row .gc-online-verified svg {
+  width: 12px !important;
+  height: 12px !important;
+  display: block !important;
+}
+.gc-online-row .gc-online-count {
+  font-variant-numeric: tabular-nums !important;
+  color: rgb(158, 167, 177) !important;
+}
+
+/* gc-usd-chip — small green "$" chip after the price. ~16px rounded
+   square, green-tint bg, green mono text, 11px. (This is the NEW chip the
+   agent renders; the legacy .grid-price-usd stays hidden via ship #1500b.) */
+.gc-usd-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 auto !important;
+  border-radius: 4px !important;
+  background: rgba(76, 201, 134, 0.14) !important;
+  color: rgb(76, 201, 134) !important;
+  font-family: var(--mono, ui-monospace, "JetBrains Mono", monospace) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  vertical-align: middle !important;
+}
+
+/* gc-listed-stripe — bottom-of-card stripe with a hairline above,
+   blue text 11px, e.g. "Listed 2h ago". */
+.gc-listed-stripe {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-top: 8px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  font-weight: 500 !important;
+  color: rgb(35, 123, 255) !important;    /* blue listed text */
+}
+
+/* gc-magnifier — small zoom <button> bottom-right of the card image. 24px
+   semi-dark circle, magnifier glyph, fades in on hover. cards.js renders it as a
+   real button inside .grid-thumb (display:grid), so a bare `.gc-magnifier` lost
+   its absolute positioning to the grid layout (measured position:relative).
+   Scope under .grid-card .grid-thumb (specificity 0,3,0) so absolute wins; also
+   neutralize the UA button chrome. It IS interactive (navigates to the item),
+   so unlike the spec's "decorative" note we keep pointer-events:auto. */
+.grid-card .grid-thumb button.gc-magnifier,
+.grid-card .grid-thumb .gc-magnifier,
+.gc-magnifier {
+  position: absolute !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  top: auto !important;
+  left: auto !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  background: rgba(15, 17, 21, 0.72) !important;
+  color: rgb(220, 226, 233) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  opacity: 0 !important;
+  transform: translateY(2px) !important;
+  transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  align-self: end !important;
+  justify-self: end !important;
+  z-index: 4 !important;
+}
+.grid-card .grid-thumb .gc-magnifier svg,
+.gc-magnifier svg {
+  width: 13px !important;
+  height: 13px !important;
+  display: block !important;
+}
+.grid-card:hover .gc-magnifier,
+.grid-thumb:hover .gc-magnifier {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+.grid-card .gc-magnifier:hover,
+.gc-magnifier:hover {
+  background: rgba(35, 123, 255, 0.85) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(35, 123, 255, 0.9) !important;
+}
+
+/* gc-rarity-top / gc-rarity-bottom — 2-3px rarity-colored stripes top+bottom
+   of the image. cards.js renders these inside .grid-thumb with an authoritative
+   tier-suffix class (gc-rarity-top--Limited / --Off-Market / --Standard), so we
+   tint off the suffix directly (most reliable) AND keep a :has() fallback in
+   case a payload omits the suffix. .grid-thumb is display:grid, so these stripes
+   are grid items — pin them as overlay strips at the very top/bottom edge of the
+   thumb (grid-area:1/1) and lock height so the grid track can't stretch them. */
+.grid-card .grid-thumb .gc-rarity-top,
+.grid-card .grid-thumb .gc-rarity-bottom {
+  display: block !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 3px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
+  background: rgb(35, 123, 255) !important;   /* Standard / default → blue */
+}
+.grid-card .grid-thumb .gc-rarity-top {
+  top: 0 !important;
+  bottom: auto !important;
+  border-radius: 4px 4px 0 0 !important;
+}
+.grid-card .grid-thumb .gc-rarity-bottom {
+  bottom: 0 !important;
+  top: auto !important;
+  border-radius: 0 0 4px 4px !important;
+}
+/* Limited → pink/magenta. NOTE the suffix selectors are scoped under
+   `.grid-card .grid-thumb` so they match the (0,3,0) specificity of the base
+   strip rule above — an unscoped `.gc-rarity-top--Limited` (0,1,0) would LOSE to
+   it and every stripe would stay blue. :has()/parent-class kept as a fallback. */
+.grid-card .grid-thumb .gc-rarity-top--Limited,
+.grid-card .grid-thumb .gc-rarity-bottom--Limited,
+.grid-card:has(.rarity-Limited) .grid-thumb .gc-rarity-top,
+.grid-card:has(.rarity-Limited) .grid-thumb .gc-rarity-bottom,
+.grid-card.rarity-Limited .grid-thumb .gc-rarity-top,
+.grid-card.rarity-Limited .grid-thumb .gc-rarity-bottom {
+  background: rgb(235, 75, 130) !important;
+}
+/* Off-Market → gold/amber */
+.grid-card .grid-thumb .gc-rarity-top--Off-Market,
+.grid-card .grid-thumb .gc-rarity-bottom--Off-Market,
+.grid-card:has(.rarity-Off-Market) .grid-thumb .gc-rarity-top,
+.grid-card:has(.rarity-Off-Market) .grid-thumb .gc-rarity-bottom,
+.grid-card.rarity-Off-Market .grid-thumb .gc-rarity-top,
+.grid-card.rarity-Off-Market .grid-thumb .gc-rarity-bottom {
+  background: rgb(240, 188, 76) !important;
+}
+/* Standard → blue (explicit, scoped to match base specificity) */
+.grid-card .grid-thumb .gc-rarity-top--Standard,
+.grid-card .grid-thumb .gc-rarity-bottom--Standard {
+  background: rgb(35, 123, 255) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   MEASURED DELTAS
+   ───────────────────────────────────────────────────────────────────── */
+
+/* (1) Card hover — image scales 1.04 (target the <img>, not the card),
+   card lifts subtly, border tints blue rgba(35,123,255,.5). 160ms.
+   The card image renders as .item-img (primitives.js); .item-image is the
+   alt class name, both covered. Keep overflow clipped so the scale crops. */
+.grid-card {
+  border-radius: 4px !important;          /* csfloat card radius */
+  overflow: hidden !important;
+}
+.grid-card .grid-thumb {
+  overflow: hidden !important;
+}
+.grid-card .grid-thumb .item-img,
+.grid-card .grid-thumb .item-image,
+.grid-card .grid-thumb img {
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  will-change: transform !important;
+}
+.grid-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(35, 123, 255, 0.5) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5),
+              0 0 0 1px rgba(35, 123, 255, 0.18) inset !important;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 160ms ease,
+              box-shadow 160ms ease !important;
+}
+.grid-card:hover .grid-thumb .item-img,
+.grid-card:hover .grid-thumb .item-image,
+.grid-card:hover .grid-thumb img {
+  transform: scale(1.04) !important;
+}
+
+/* (2) Buttons (.btn-accent / primary CTAs) — csfloat blue rgb(35,123,255),
+   4px, white 600, hover translateY(-1px) + soft blue halo. Earlier ships
+   set #1d4ed8 / var(--cta-d); pin to the exact csfloat blue here. */
+.btn-accent,
+.btn-primary,
+button.btn-accent,
+button.btn-primary {
+  background: rgb(35, 123, 255) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+  transition: background-color 140ms ease, transform 160ms ease, box-shadow 160ms ease !important;
+}
+.btn-accent:hover,
+.btn-primary:hover,
+button.btn-accent:hover,
+button.btn-primary:hover {
+  background: rgb(64, 142, 255) !important;
+  border-color: rgb(64, 142, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  transform: translateY(-1px) !important;
+  filter: none !important;
+  box-shadow: 0 6px 18px rgba(35, 123, 255, 0.35),
+              0 0 0 1px rgba(35, 123, 255, 0.25) !important;
+}
+.btn-accent:active,
+.btn-primary:active,
+button.btn-accent:active,
+button.btn-primary:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 1px 3px rgba(35, 123, 255, 0.35) !important;
+}
+.btn-accent:disabled,
+.btn-primary:disabled,
+button.btn-accent:disabled,
+button.btn-primary:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* (3) Search input focus-within — exact csfloat focus ring (18% blue). */
+.search-wrap:focus-within,
+.nav-search:focus-within,
+.toolbar .search-wrap:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in oklab, rgb(35, 123, 255) 18%, transparent) !important;
+}
+.search-wrap:focus-within .search-input,
+.nav-search:focus-within .search-input {
+  border-color: color-mix(in oklab, rgb(35, 123, 255) 50%, rgba(255, 255, 255, 0.12)) !important;
+}
+
+/* (4) Home hero — the floating featured item card gets rarity stripes
+   top + bottom on the hero card specifically (csfloat's hero featured
+   card carries the rarity accent). Covers the hero-stack + preview card
+   families used on home. The stripes are drawn as ::before (top) and
+   ::after (bottom) so no extra markup is needed. */
+.csfloat-hero-stack-card,
+.csfloat-home-preview-card {
+  position: relative !important;
+}
+.csfloat-hero-stack-card::before,
+.csfloat-home-preview-card::before,
+.csfloat-hero-stack-card::after,
+.csfloat-home-preview-card::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 3px !important;
+  background: rgb(35, 123, 255) !important;
+  z-index: 4 !important;
+  pointer-events: none !important;
+}
+.csfloat-hero-stack-card::before,
+.csfloat-home-preview-card::before {
+  top: 0 !important;
+  border-radius: 4px 4px 0 0 !important;
+}
+.csfloat-hero-stack-card::after,
+.csfloat-home-preview-card::after {
+  bottom: 0 !important;
+  border-radius: 0 0 4px 4px !important;
+}
+.csfloat-hero-stack-card.rarity-Limited::before,
+.csfloat-hero-stack-card.rarity-Limited::after,
+.csfloat-home-preview-card.rarity-Limited::before,
+.csfloat-home-preview-card.rarity-Limited::after {
+  background: rgb(235, 75, 130) !important;
+}
+.csfloat-hero-stack-card.rarity-Off-Market::before,
+.csfloat-hero-stack-card.rarity-Off-Market::after,
+.csfloat-home-preview-card.rarity-Off-Market::before,
+.csfloat-home-preview-card.rarity-Off-Market::after {
+  background: rgb(240, 188, 76) !important;
+}
+
+/* (5) Price = white; green ONLY on discount chip + USD chip + savings.
+   Pin the price (and its ::first-letter) white across grid + item page;
+   keep .grid-discount / .gc-usd-chip / savings green. */
+.grid-card .grid-price,
+.grid-price,
+.item-detail-price,
+.listing-price {
+  color: rgb(255, 255, 255) !important;
+}
+.grid-card .grid-price::first-letter,
+.grid-price::first-letter {
+  color: rgb(255, 255, 255) !important;
+}
+.grid-discount,
+.grid-card .grid-discount {
+  color: rgb(76, 201, 134) !important;
+}
+
+/* ===== END WAVE-PAR1 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT1 (integration: dedup + grid + mobile) ===== */
+/* The card-anatomy pass added csfloat-spec gc-* elements ON TOP OF the legacy
+   grid-* equivalents, so every card rendered each signal TWICE. Hide the four
+   legacy duplicates; keep the gc-* ones (csfloat anatomy). Audit-confirmed. */
+.grid-card .grid-price-usd { display: none !important; }
+.grid-card .grid-status     { display: none !important; }
+.grid-card .grid-zoom       { display: none !important; }
+.grid-card .grid-fresh      { display: none !important; }
+
+/* M1 — csfloat ~5 cards/row at 1440 (240px rail + ~1006px feed). The prior
+   override raised min track to 220px -> only 4 fit; 186px -> 5 fit. */
+main.layout .listing-grid {
+  grid-template-columns: repeat(auto-fill, minmax(186px, 1fr)) !important;
+  gap: 16px !important;
+}
+
+/* P0 mobile (<=768px): shell shrink-wrapped to card min-content + margin:0 auto
+   centered it -> ~250px column, 2nd card clipped. Force full-width + 2-up. */
+@media (max-width: 768px) {
+  #root, .site-root { width: 100% !important; max-width: 100% !important; }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+  main.layout .listing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .csfloat-home-faq-q { min-height: 44px; display: flex; align-items: center; padding: 8px 0; }
+  .grid-star, .steam-market-link.compact, .loadout-card-share { width: 40px !important; height: 40px !important; }
+  .type-toggle-btn, .offer-tab, .cf-rarity-legend-item,
+  .csfloat-home-rail-tab, .sort-select, .discount-select { min-height: 40px !important; }
+}
+/* ===== END WAVE-INT1 ===== */

@@ -18,6 +18,22 @@ function formatRemaining(ms) {
   return `${sec}s`;
 }
 
+// ── Decorative float position (csfloat-style) ──
+// s&box items have no float/wear value, but csfloat's card anatomy puts a
+// gradient "float bar" with a thumb under every image. We reproduce the
+// VISUAL by hashing a stable item identifier (id, else name) into a 0-100
+// position so the same item always lands the thumb in the same spot across
+// reloads. Purely cosmetic — never read as a real wear figure.
+function floatPercent(seed) {
+  const str = String(seed == null ? '' : seed);
+  if (!str) return 50; // neutral midpoint when we have nothing to hash
+  let hashAcc = 0;
+  for (let i = 0; i < str.length; i++) {
+    hashAcc = (hashAcc * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return hashAcc % 101; // 0-100 inclusive
+}
+
 export function AuctionCountdown({ expiresAt, className }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -135,6 +151,14 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       // describing a visual that no longer renders.
       title: item.rarity ? `${item.rarity} rarity` : undefined
     },
+      // CSFloat-1:1 — thin rarity-colored hairline along the TOP edge of the
+      // image. csfloat caps each card image with a rarity stripe top+bottom;
+      // we mirror that. Class carries the tier (e.g. gc-rarity-top--Limited)
+      // so the stylesheet can color it; guarded so rarity-less payloads skip.
+      item.rarity && h('div', {
+        className: `gc-rarity-top gc-rarity-top--${item.rarity}`,
+        'aria-hidden': 'true'
+      }),
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
       // CSFloat-1:1 — decorative magnifier-zoom cue at the bottom-right
@@ -208,7 +232,40 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         title: starred ? 'Remove from watchlist' : 'Add to watchlist',
         'aria-label': starred ? `Remove ${item?.name || 'item'} from watchlist` : `Add ${item?.name || 'item'} to watchlist`,
         'aria-pressed': !!starred
-      }, starred ? '♥' : '♡')
+      }, starred ? '♥' : '♡'),
+      // CSFloat-1:1 — functional magnifier overlay, bottom-right of the
+      // image (zoom cue). Unlike the decorative `grid-zoom` glyph above,
+      // this is a real button: clicking it navigates to the item page via
+      // the SAME target as the card body (the existing `handleClick`, which
+      // runs the SPA onClick / falls through to the /item/:id anchor). We
+      // stopPropagation so the click isn't double-handled by the parent
+      // anchor, then invoke handleClick ourselves to keep one code path.
+      item?.id && h('button', {
+        className: 'gc-magnifier',
+        type: 'button',
+        title: 'View item',
+        'aria-label': `View ${item?.name || 'item'}`,
+        onClick: e => { e.stopPropagation(); handleClick(e); }
+      },
+        h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+          h('circle', { cx: 11, cy: 11, r: 7 }),
+          h('line', { x1: 21, y1: 21, x2: 16.65, y2: 16.65 })
+        )
+      ),
+      // CSFloat-1:1 — decorative float bar under the image: a gradient track
+      // with a white thumb positioned by a deterministic hash of the item
+      // (id, else name). s&box has no float/wear, so this is purely the
+      // csfloat-style visual; the inline `left:X%` is the only positioning.
+      // aria-hidden — it carries no real value for assistive tech.
+      h('div', { className: 'gc-float-bar', 'aria-hidden': 'true' },
+        h('div', { className: 'gc-float-thumb', style: { left: floatPercent(item?.id ?? item?.name) + '%' } })
+      ),
+      // CSFloat-1:1 — matching rarity hairline along the BOTTOM edge of the
+      // image (pairs with `gc-rarity-top`). Same tier-suffixed class + guard.
+      item.rarity && h('div', {
+        className: `gc-rarity-bottom gc-rarity-bottom--${item.rarity}`,
+        'aria-hidden': 'true'
+      })
     ),
     h('div', { className: 'grid-body' },
       h('div', { className: 'grid-name' },
@@ -293,6 +350,10 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             // visual signal that the listed price is in USD; mirrors
             // csfloat's "$675.00 [$]" badge pairing.
             h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Price is in US dollars (USD) — every listing on SkinBox uses one currency' }, '$'),
+            // CSFloat-1:1 — decorative green USD marker chip immediately after
+            // the price number (mirrors csfloat's "$" pill). aria-hidden — the
+            // figure itself is already announced; this is a pure visual cue.
+            h('span', { className: 'gc-usd-chip', 'aria-hidden': 'true', title: 'USD' }, '$'),
             h(SteamMarketLink, { item, compact: true }),
             // Boss QA cycle 2 N4 — bumped the discount-chip threshold
             // from 5% to 10%. With seed data sitting at 7-8% under
@@ -363,8 +424,41 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             fresh && h('span', { className: 'grid-fresh-dot' }),
             fresh ? 'Just listed' : 'Listed ' + timeAgo(listing.listedAt)
           );
+        })(),
+        // CSFloat-1:1 — seller-presence row under the price area: green dot
+        // + Online/Offline + a count. csfloat surfaces seller presence here;
+        // we reuse the SAME presence flag as the `grid-status` row above
+        // (real `sellerLastSeenAt` within a 15-min window, else a stable
+        // deterministic-seed fallback so it doesn't flicker across reloads).
+        // The count is the watcher count when we have one; omitted otherwise
+        // so a card with no watchers shows "● Online" with no trailing "0".
+        (() => {
+          const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
+          let isOnline;
+          if (listing.sellerLastSeenAt) {
+            isOnline = (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS;
+          } else {
+            const seed = listing.sellerUserId ? Number(String(listing.sellerUserId).slice(-6)) || 0 : (listing.id || 0);
+            isOnline = (seed % 5) < 2;
+          }
+          return h('div', {
+            className: `gc-online-row${isOnline ? ' is-online' : ''}`,
+            title: isOnline ? 'Seller is online' : 'Seller is offline'
+          },
+            h('span', { className: 'gc-online-dot', 'aria-hidden': 'true' }),
+            isOnline ? 'Online' : 'Offline',
+            watcherCount > 0 && h('span', { className: 'gc-online-count' }, ' ' + watcherCount)
+          );
         })()
       )
+    ),
+    // CSFloat-1:1 — bottom stripe spanning the card: "Listed {relativeTime}".
+    // Direct child of the card (after grid-body) so it reads as a footer
+    // strip. Uses the listing's listed/created time; omitted entirely when
+    // we have no timestamp (and for auctions, which carry their own
+    // countdown rather than a listed-age line).
+    !isAuction && listing.listedAt && h('div', { className: 'gc-listed-stripe' },
+      'Listed ' + timeAgo(listing.listedAt)
     )
   );
 }
