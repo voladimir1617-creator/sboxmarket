@@ -4,6 +4,7 @@ import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.Loadout
 import com.sboxmarket.model.LoadoutSlot
+import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.model.PriceHistory
 import com.sboxmarket.repository.ItemRepository
@@ -11,6 +12,7 @@ import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.LoadoutRepository
 import com.sboxmarket.repository.LoadoutSlotRepository
 import com.sboxmarket.repository.PriceHistoryRepository
+import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.SeedService
 import spock.lang.Specification
@@ -43,6 +45,7 @@ class SeedServiceSpec extends Specification {
     LoadoutRepository      loadoutRepository      = Mock()
     LoadoutSlotRepository  loadoutSlotRepository  = Mock()
     PriceHistoryRepository priceHistoryRepository = Mock()
+    SteamUserRepository    steamUserRepository    = Mock()
 
     @Subject
     SeedService service = new SeedService(
@@ -65,6 +68,20 @@ class SeedServiceSpec extends Specification {
         loadoutRepository     : loadoutRepository,
         loadoutSlotRepository : loadoutSlotRepository,
         priceHistoryRepository: priceHistoryRepository
+    )
+
+    /** Third subject that ALSO wires the optional steamUserRepository so
+     *  the demo-seller seed (inert on the bare `service` subject where that
+     *  bean is null, mirroring the @Autowired(required=false) field) can be
+     *  exercised in isolation. Kept separate so the demo-seller writes don't
+     *  perturb the strict interaction counts the other specs pin. */
+    SeedService serviceWithSellers = new SeedService(
+        walletRepository      : walletRepository,
+        itemRepository        : itemRepository,
+        listingRepository     : listingRepository,
+        loadoutRepository     : loadoutRepository,
+        loadoutSlotRepository : loadoutSlotRepository,
+        steamUserRepository   : steamUserRepository
     )
 
     // ── demo wallet ──────────────────────────────────────────────────
@@ -573,6 +590,121 @@ class SeedServiceSpec extends Specification {
 
         then:
         0 * listingRepository.save(_)
+    }
+
+    // ── seeded demo-seller (stall) sanity ────────────────────────────
+    //
+    // The demo-seller seed is what makes /stall/{id} reachable: it creates
+    // real SteamUser rows for a subset of the SEED_SELLERS handles and
+    // re-points a portion of the already-seeded ACTIVE listings at those
+    // user ids (matching on the listing's existing sellerName). Without it
+    // every seeded listing has sellerUserId=null and no backing user, so
+    // publicStall's findById always misses → "Stall not found".
+
+    def "demo-seller seed creates real SteamUser accounts and attaches active listings to them by name"() {
+        given: "a fresh boot — catalogue + listings already seeded, no demo sellers yet"
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 32L            // skip catalogue seed
+        listingRepository.count() >> 80L         // skip marketplace-listing seed
+        listingRepository.countAllSold() >> 6L   // skip demo-sales backfill
+        // per-item recent-sales seed iterates the catalogue; stub the skip path
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
+        itemRepository.findAll() >> []
+        loadoutRepository.findAll() >> []
+        // No demo account exists yet -> the seed runs.
+        steamUserRepository.findBySteamId64(_) >> null
+        List<SteamUser> savedUsers = []
+        steamUserRepository.save(_) >> { SteamUser u ->
+            u.id = (savedUsers.size() + 1L); savedUsers << u; u
+        }
+        // A book where the FIRST four handles (the account set) own listings
+        // and a non-account handle (VaultRunner) plus an already-owned row
+        // and a SOLD row are present — only the unowned ACTIVE account-handle
+        // rows should be claimed.
+        def item = new Item(id: 1L, name: 'Hat', category: 'Hats', rarity: 'Standard',
+                            lowestPrice: new BigDecimal('3.00'), steamPrice: new BigDecimal('3.60'))
+        def book = [
+            new Listing(id: 1L, item: item, price: new BigDecimal('3.00'), sellerName: 'BoneTender',  status: 'ACTIVE', sellerUserId: null),
+            new Listing(id: 2L, item: item, price: new BigDecimal('3.10'), sellerName: 'BoneTender',  status: 'ACTIVE', sellerUserId: null),
+            new Listing(id: 3L, item: item, price: new BigDecimal('3.20'), sellerName: 'AtlasTrades', status: 'ACTIVE', sellerUserId: null),
+            new Listing(id: 4L, item: item, price: new BigDecimal('3.30'), sellerName: 'PixelPusher', status: 'ACTIVE', sellerUserId: null),
+            new Listing(id: 5L, item: item, price: new BigDecimal('3.40'), sellerName: 'GhostlyDeals',status: 'ACTIVE', sellerUserId: null),
+            new Listing(id: 6L, item: item, price: new BigDecimal('3.50'), sellerName: 'VaultRunner', status: 'ACTIVE', sellerUserId: null), // not in account set -> stays anon
+            new Listing(id: 7L, item: item, price: new BigDecimal('3.60'), sellerName: 'BoneTender',  status: 'SOLD',   sellerUserId: null), // SOLD -> not claimed
+            new Listing(id: 8L, item: item, price: new BigDecimal('3.70'), sellerName: 'BoneTender',  status: 'ACTIVE', sellerUserId: 999L) // already owned -> not re-claimed
+        ]
+        listingRepository.findAll() >> book
+        List<Listing> savedListings = []
+        listingRepository.save(_) >> { Listing l -> savedListings << l; l }
+
+        when:
+        serviceWithSellers.seed()
+
+        then: "six real seller accounts were created with synthetic 7656119xxxxxxxxxx ids"
+        savedUsers.size() == 6
+        savedUsers.every { it.steamId64 != null && it.steamId64.startsWith('765611900000000') }
+        savedUsers*.steamId64.unique().size() == 6           // ids are distinct
+        savedUsers.every { it.displayName != null && !it.displayName.isEmpty() }
+        savedUsers.every { it.avatarUrl != null && it.avatarUrl.startsWith('https://') }
+        savedUsers.every { it.role == 'USER' && it.banned == false }
+        savedUsers.every { it.createdAt != null && it.createdAt > 0L }
+        and: "the account handles are the documented BoneTender..TradeHaven subset of SEED_SELLERS"
+        savedUsers*.displayName as Set ==
+            ['BoneTender','AtlasTrades','PixelPusher','GhostlyDeals','EmberWolf','TradeHaven'] as Set
+        and: "only the unowned ACTIVE listings whose name matches an account handle were attached"
+        // ids 1,2,3,4,5 (BoneTender x2, AtlasTrades, PixelPusher, GhostlyDeals)
+        savedListings.size() == 5
+        savedListings.every { it.status == 'ACTIVE' }
+        savedListings.every { it.sellerUserId != null }
+        savedListings*.id as Set == [1L, 2L, 3L, 4L, 5L] as Set
+        and: "the anon (non-account-handle), SOLD, and already-owned rows were left untouched"
+        !savedListings*.id.contains(6L)   // VaultRunner — not in account set
+        !savedListings*.id.contains(7L)   // SOLD
+        !savedListings*.id.contains(8L)   // already owned by user 999
+        and: "each attached listing points at the user id seeded for its handle"
+        def idByHandle = savedUsers.collectEntries { [(it.displayName): it.id] }
+        savedListings.every { it.sellerUserId == idByHandle[it.sellerName] }
+        and: "BoneTender (two listings) ends up owning both of its rows"
+        savedListings.findAll { it.sellerUserId == idByHandle['BoneTender'] }.size() == 2
+    }
+
+    def "demo-seller seed is idempotent — skips entirely when the sentinel account already exists"() {
+        given: "the first demo account is already present (a prior boot seeded it)"
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 32L
+        listingRepository.count() >> 80L
+        listingRepository.countAllSold() >> 6L
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
+        itemRepository.findAll() >> []
+        loadoutRepository.findAll() >> []
+        // Probe finds an existing account -> the whole seed short-circuits.
+        steamUserRepository.findBySteamId64(_) >> new SteamUser(id: 1L, steamId64: '76561190000000001')
+
+        when:
+        serviceWithSellers.seed()
+
+        then: "no new users, and no listing re-pointing"
+        0 * steamUserRepository.save(_)
+        and: "it never even scans the listing book to attach"
+        0 * listingRepository.findAll()
+    }
+
+    def "demo-seller seed is inert when the optional SteamUser repository bean is absent"() {
+        given: "the bare subject (steamUserRepository null, like required=false)"
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 32L
+        listingRepository.count() >> 80L
+        listingRepository.countAllSold() >> 6L
+        listingRepository.findRecentSalesForItem(_, _) >> [new Listing(status: 'SOLD')]
+        itemRepository.findAll() >> existingCatalogueRows()
+        loadoutRepository.findAll() >> []
+
+        when:
+        service.seed()    // bare subject — steamUserRepository is null
+
+        then: "no NPE, and nothing is written to the (absent) user repo"
+        noExceptionThrown()
+        0 * steamUserRepository.save(_)
     }
 
     // ── seeded public-loadout sanity ─────────────────────────────────

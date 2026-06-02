@@ -4,12 +4,14 @@ import com.sboxmarket.model.Listing
 import com.sboxmarket.model.Loadout
 import com.sboxmarket.model.LoadoutSlot
 import com.sboxmarket.model.PriceHistory
+import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.LoadoutRepository
 import com.sboxmarket.repository.LoadoutSlotRepository
 import com.sboxmarket.repository.PriceHistoryRepository
+import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.WalletRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,6 +38,7 @@ class SeedService {
     @Autowired(required = false) LoadoutSlotRepository loadoutSlotRepository
     @Autowired(required = false) ItemRepository itemRepository
     @Autowired(required = false) PriceHistoryRepository priceHistoryRepository
+    @Autowired(required = false) SteamUserRepository steamUserRepository
 
     /**
      * First-boot bootstrap entry point — invoked once from the
@@ -72,10 +75,143 @@ class SeedService {
         }
         seedCatalogueItems()
         seedMarketplaceListings()
+        seedDemoSellers()
         backfillDemoSales()
         seedPriceHistory()
         seedPerItemSales()
         backfillPublicLoadouts()
+    }
+
+    /**
+     * Real seller ACCOUNTS for the public stall pages. The handles here are
+     * a subset of {@link #SEED_SELLERS} — the same display names the
+     * marketplace-listing seed already stamped onto {@code Listing.sellerName}
+     * — so seeding a backing {@code SteamUser} per handle keeps names
+     * consistent end-to-end (the listing row's `sellerName` and the stall
+     * hero's `displayName` agree).
+     *
+     * Each entry is `[handle, steamId64, avatarUrl]`. The steamId64 values
+     * sit in a fixed, clearly-synthetic block of the real 64-bit Steam
+     * community-id range (76561190000000001 …) reserved here for demo
+     * accounts — high enough to never collide with a genuine logged-in
+     * Steam user (whose ids Valve issues sequentially from the low end of
+     * the 7656119xxxxxxxxxx space), and stable across boots so a fresh
+     * seed always produces the same stall ids for QA + screenshots.
+     */
+    private static final List<List<String>> SEED_SELLER_ACCOUNTS = [
+        ['BoneTender',   '76561190000000001', 'https://avatars.fastly.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'],
+        ['AtlasTrades',  '76561190000000002', 'https://avatars.fastly.steamstatic.com/b5bd56c1aa4644a474a2e4972be27ef9e82e517e_full.jpg'],
+        ['PixelPusher',  '76561190000000003', 'https://avatars.fastly.steamstatic.com/c5d4097dde9e95d7e289ddc5a533c95a0e3c4e91_full.jpg'],
+        ['GhostlyDeals', '76561190000000004', 'https://avatars.fastly.steamstatic.com/9f0b9b3b6c3b2c8e1e7d6a5c4b3a2d1e0f9e8d7c_full.jpg'],
+        ['EmberWolf',    '76561190000000005', 'https://avatars.fastly.steamstatic.com/8e7d6c5b4a3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f_full.jpg'],
+        ['TradeHaven',   '76561190000000006', 'https://avatars.fastly.steamstatic.com/7d6c5b4a3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8e_full.jpg']
+    ]
+
+    /** Sentinel steamId64 of the FIRST demo seller — used as the idempotency
+     *  probe. If this account already exists, the whole demo-seller seed has
+     *  already run (or a real BoneTender-equivalent owns the id) so we skip. */
+    private static final String SEED_SELLER_PROBE_STEAMID = '76561190000000001'
+
+    /**
+     * Day-1 launch seed that makes the public seller-stall pages
+     * (/stall/{id}) reachable. PROBLEM this fixes: every Listing the
+     * marketplace seed creates carries a display-name-only seller
+     * (`sellerName` set, `sellerUserId = null`) and there are NO backing
+     * {@code SteamUser} rows — so {@code ListingController.publicStall}'s
+     * `steamUserRepository.findById(userId)` always misses and the page
+     * renders the branded "Stall not found" empty state. The rich stall
+     * hero (avatar, sold/active stats, listings grid, recent sales) was
+     * built but unreachable.
+     *
+     * This seeds a small crowd of REAL seller accounts
+     * ({@link #SEED_SELLER_ACCOUNTS}) and then attaches a portion of the
+     * already-seeded ACTIVE listings to them by matching the listing's
+     * existing `sellerName` to the account handle — so each seeded seller
+     * owns the listings already branded with their name, and a visit to
+     * /stall/{their id} renders a populated grid for the exact shape the
+     * controller queries ({@code SteamUser} by id +
+     * {@code Listing.sellerUserId = id}, status ACTIVE, not hidden).
+     *
+     * Listings whose `sellerName` is one of the FOUR seed handles NOT in
+     * the account set (VaultRunner, NeonArc, CrateDigger, FrostByte) stay
+     * anonymous (`sellerUserId = null`), preserving the existing
+     * "crowd of mixed real + system sellers" pattern.
+     *
+     * IDEMPOTENT: skips entirely if the sentinel demo account already
+     * exists (re-seed / restart safe). Attaches only to listings that are
+     * still ACTIVE and still unowned (`sellerUserId == null`) so it never
+     * fights a real seller's listing or double-attaches on a partial
+     * re-run. DETERMINISTIC: account ids + handles are fixed constants;
+     * attachment is a stable name→id mapping, no RNG.
+     *
+     * Inert when the optional {@code steamUserRepository} /
+     * {@code listingRepository} beans are absent (mirrors the
+     * required=false fields), exactly like {@code seedPriceHistory}.
+     */
+    private void seedDemoSellers() {
+        if (steamUserRepository == null || listingRepository == null) return
+        try {
+            // Idempotency probe — if the first demo account exists, the
+            // whole set has already been seeded (or the id is taken by a
+            // real account); skip without touching anything.
+            if (steamUserRepository.findBySteamId64(SEED_SELLER_PROBE_STEAMID) != null) return
+
+            long now = System.currentTimeMillis()
+            long dayMs = 86_400_000L
+
+            // 1) Seed the SteamUser rows. handle -> persisted id.
+            def idByHandle = [:]
+            SEED_SELLER_ACCOUNTS.eachWithIndex { acct, i ->
+                String handle = acct[0]
+                String steamId = acct[1]
+                String avatar = acct[2]
+                // Spread joinedAt over the past ~30-210 days so the stall
+                // hero's "Member since" reads like a real, aged crowd
+                // rather than every account created at the same instant.
+                long joinedAt = now - (long) ((i + 1) * 35) * dayMs
+                def u = new SteamUser(
+                    steamId64:    steamId,
+                    displayName:  handle,
+                    avatarUrl:    avatar,
+                    profileUrl:   "https://steamcommunity.com/profiles/${steamId}".toString(),
+                    createdAt:    joinedAt,
+                    lastLoginAt:  now - (long) (i + 1) * 3600_000L,
+                    lastSeenAt:   now - (long) (i + 1) * 3600_000L,
+                    lastSyncedAt: now - (long) (i + 1) * 1800_000L,
+                    role:         'USER',
+                    banned:       false
+                )
+                def saved = steamUserRepository.save(u)
+                idByHandle[handle] = saved.id
+            }
+
+            // 2) Attach a portion of the seeded ACTIVE listings to these
+            //    accounts by matching the listing's existing sellerName to
+            //    an account handle. Only ACTIVE + still-unowned rows are
+            //    claimed so we never fight a real seller's listing nor
+            //    double-attach on a partial re-run.
+            int attached = 0
+            def perSeller = [:].withDefault { 0 }
+            def all = listingRepository.findAll()
+            all.each { l ->
+                if (l == null) return
+                if (l.status != 'ACTIVE') return
+                if (l.sellerUserId != null) return
+                def uid = idByHandle[l.sellerName]
+                if (uid == null) return
+                l.sellerUserId = uid
+                listingRepository.save(l)
+                attached++
+                perSeller[l.sellerName] = perSeller[l.sellerName] + 1
+            }
+
+            log.info("Seeded ${idByHandle.size()} real demo seller accounts and attached " +
+                    "${attached} active listings to them (per-seller: ${perSeller}) so " +
+                    "/stall/{id} renders a populated stall on a fresh boot instead of " +
+                    "\"Stall not found\"")
+        } catch (Exception e) {
+            log.warn("Demo-seller seed skipped: ${e.message}", e)
+        }
     }
 
     /** Synthetic seller handles for seed Listings. Distinct from the
