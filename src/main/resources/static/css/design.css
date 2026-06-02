@@ -199458,3 +199458,99 @@ html body .csfloat-home-faq .csfloat-home-faq-list,
 }
 
 /* ===== END WAVE-INT5 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT6 (gate title + polish) ===== */
+
+/* ---------------------------------------------------------------------
+   GAP 1 — Sign-in gate title ("Sign in required") rendered at 29px.
+   The SignInNeededEmptyState (info-modal.js) renders a flat .empty-inline
+   with bare children: child1 = .empty-icon disc (inline 72x72 / r18),
+   child2 = the title <div> (inline `font-size:15px; font-weight:600`),
+   child3 = the body <div> (inline `font-size:13px; max-width:360px`),
+   child4 = the Steam .btn-accent.
+
+   ROOT CAUSE of the 29px (verified live via getComputedStyle + matched-
+   rule enumeration): ship #18602 (this file, ~L165424) targets
+     `.modal.info-modal .info-modal-body .empty-inline
+        > div[style*="font-weight: 600"][style*="font-size: 15"]`
+   and pins it to `font-size:29px !important`. That rule was authored for
+   the empty-CART headline (a deliberately LARGE message), but the sign-in
+   gate title carries the SAME inline `font-weight:600; font-size:15px`
+   and lives in the SAME `.modal.info-modal .info-modal-body .empty-inline`
+   chain, so it gets swept up to 29px. (Ship #20802 already carved the
+   SELL modal back to 18px via `:has(.sell-source-tabs)` — same over-reach,
+   different surface. The auth gate was never carved out.) The #18602
+   selector is specificity 0,6,1, so a plain `.empty-inline > div` rule
+   (0,2,1) cannot win — it has to be beaten on specificity.
+
+   FIX: scope ONLY the sign-in gate by its unique signature — its body
+   sibling's inline `max-width: 360px` (cart uses 380, sell uses 420, so
+   neither matches) — via `:has()` on the wrapper, mirroring #18602's full
+   ancestor chain plus the `:has()` discriminator. That lands at 0,7,1+
+   (strictly > 0,6,1) and is later in the cascade, so csfloat's auth-gate
+   title spec (Roboto 18px / 24px / 500 white) wins WITHOUT regressing the
+   intentionally-large cart-empty headline. Body sibling pinned to 14px to
+   match. The `:nth-of-type` lines are a low-specificity baseline for any
+   gate rendered OUTSIDE the info-modal chain (e.g. inside .modal-body);
+   the icon disc is :nth-of-type(1) so the text rules never touch it
+   (verified live: icon stays 72x72 / 64px-rendered). */
+.modal.info-modal .info-modal-body .empty-inline:has(> div[style*="max-width: 360"]) > div[style*="font-weight: 600"][style*="font-size: 15"],
+.modal.info-modal .info-modal-body .empty-inline:has(> div[style*="maxWidth: 360"]) > div[style*="fontWeight: 600"][style*="fontSize: 15"] {
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  margin: 0 0 6px !important;
+}
+.modal.info-modal .info-modal-body .empty-inline:has(> div[style*="max-width: 360"]) > div[style*="font-size: 13"][style*="max-width: 360"],
+.modal.info-modal .info-modal-body .empty-inline:has(> div[style*="maxWidth: 360"]) > div[style*="fontSize: 13"][style*="maxWidth: 360"] {
+  font-size: 14px !important;
+}
+.empty-inline > div:nth-of-type(2) {
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+}
+.empty-inline > div:nth-of-type(3) {
+  font-size: 14px !important;
+}
+
+/* ---------------------------------------------------------------------
+   GAP 2 — item-page price-history line was computing strokeWidth 2px.
+   primitives.js already emits the polyline with attr stroke-width="1.6"
+   (the thin csfloat line), but the WAVE rule
+   `body .chart-wrap svg.chart polyline { stroke-width: 2 !important }`
+   (specificity 0,2,3) was overriding it on the item page, where the DOM
+   nests .chart-wrap > .sparkline-wrap > svg.chart > polyline. Win the
+   cascade with a higher-specificity selector (html body .chart-wrap
+   .sparkline-wrap … = 0,4,3) plus the plain fallbacks, so the 1.6px
+   csfloat line wins. Verified after: computed strokeWidth ~1.6px. */
+html body .chart-wrap .sparkline-wrap svg.chart polyline,
+html body .sparkline-wrap svg.chart polyline,
+.sparkline-wrap svg.chart polyline,
+svg.chart polyline {
+  stroke-width: 1.6px !important;
+}
+
+/* ---------------------------------------------------------------------
+   GAP 3 — free-look pass at 1440 across /market, /item/9, and /.
+   No CSS-fixable token mismatch found; the following were MEASURED LIVE
+   and are already on-spec, so they are intentionally left untouched
+   (documented here so the converging surface is auditable, not edited):
+     - body background ............. rgb(21, 23, 28)            [token OK]
+     - font-family ................. Roboto, "Helvetica Neue"… [token OK]
+     - card surface ................ rgb(38, 41, 48)            [token OK]
+     - card border-radius .......... 4px                        [token OK]
+     - market card price ........... rgb(255,255,255) 22px/500  [token OK]
+     - discount chip ............... rgb(76,201,134) on green   [token OK]
+     - item-page buy CTA ........... bg rgb(35,123,255), 4px br [token OK]
+     - market grid ................. 5 columns, 16px gap        [layout OK]
+     - filter rail ................. 240px wide                 [layout OK]
+     - top nav ..................... 70px tall                  [layout OK]
+     - card images ................. visible (no broken/clipped)[asset  OK]
+     - horizontal overflow @1440 ... none on /market /item /home[layout OK]
+   ===================================================================== */
+
+/* ===== END WAVE-INT6 ===== */
