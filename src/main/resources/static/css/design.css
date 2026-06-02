@@ -199260,3 +199260,84 @@ html body .modal.item-page svg.chart linearGradient stop:first-child {
   }
 }
 /* ===== END WAVE-INT3 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT4 (cart modal width) =====
+   BUG (cart audit, desktop 1440): the populated cart renders inside an
+   InfoModal card titled "Cart (N)" that computed to only 440px wide, but
+   the inner .cart-grid was 700px (a `352px 320px` + 28px-gap track from the
+   "CART48-FIX" min-width:700px hack at ~design.css:11270), so the Order-
+   summary panel spilled ~286px past the right edge of the modal card and
+   the modal had a big empty void bottom-left.
+
+   ROOT CAUSE (confirmed live): /cart is a FULL-PAGE route — `.full-page-mode`
+   is on `.site-root`, which directly wraps `.modal-backdrop`. Rule 11208
+   (`.full-page-mode .modal-backdrop`) is SUPPOSED to make that backdrop a
+   normal-flow `position:static; display:block` page region, but it LOSES:
+   the later rule `.modal-backdrop:has(.info-modal)` (~design.css:132147,
+   same 0,2,0 specificity, both !important → later wins the tie) re-forces
+   the backdrop back to `position:fixed; display:grid; place-items:center`.
+   A centered grid child sizes to its CONTENT, and the cart-grid's first
+   track is `minmax(0,1fr)` (zero intrinsic width), so the modal collapsed
+   to ~440px while the 700px min-width hack stretched only the grid → the
+   286px overflow. The 11260 width rule (`width:min(94vw,1040px)`) matched
+   but couldn't win against the centered-grid content sizing.
+
+   FIX (mirror the item page's `.modal-backdrop.page-mode` handling — make
+   the cart a normal-flow, full-width capped page block, not a centered
+   content-sized grid child):
+     1. Out-specify 132147 on the cart backdrop (html body = 0,2,0 PLUS
+        .full-page-mode + .modal-backdrop + :has(.cart-grid) → 0,4,2, beats
+        the 0,2,0 !important rule) and put it back to static/block/no-grid.
+     2. Force the cart modal box itself to the page width. `width:100%`
+        (NOT 96vw) resolves against the now-static block backdrop, so it is
+        ~1040px on desktop (capped by max-width) and exactly fills the
+        page's padded content column on mobile — 96vw is resolved against
+        the VIEWPORT and ignored the 60px body side-padding, which pushed
+        the modal 44px past a 390px viewport (verified). margin:0 auto
+        keeps it a centered sheet on wide screens.
+     3. Drop the dependency on the .cart-grid{min-width:700px} hack — set it
+        back to fluid (min-width:0; width:100%) so the items column fills the
+        now-wide modal and the 320px summary sits INSIDE the card. The
+        2-column track is re-asserted ONLY >=761px; <=760px stays 1fr so the
+        cart stacks single-column on phones with no crushed column / overflow.
+   Also neutralises the dead `.info-modal-panel:has(.cart-grid){max-width:460px}`
+   at ~design.css:131127 (targets a class that never renders) by simply not
+   depending on it — these INT4 rules out-specify and win regardless.
+
+   Verified live over /cart (force-loaded /css/design.css):
+     desktop 1440: modal 440->1040px, cart-grid 700->990px (==modal body,
+       no spill), items col 352->642px, summary 320px inside (right 1210 <
+       modal right 1235), page overflow none (scrollWidth <= innerWidth).
+     mobile 390: single-column (grid 1fr), summary inside, modal fits the
+       padded column, no horizontal overflow (was +44px). */
+html body .full-page-mode .modal-backdrop:has(.cart-grid) {
+  position: static !important;
+  inset: auto !important;
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  display: block !important;
+  place-items: initial !important;
+  padding: 0 !important;
+  z-index: auto !important;
+}
+html body .full-page-mode .info-modal:has(.cart-grid) {
+  width: 100% !important;
+  max-width: 1040px !important;
+  margin: 0 auto !important;
+}
+html body .full-page-mode .info-modal:has(.cart-grid) .cart-grid {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+@media (min-width: 761px) {
+  html body .full-page-mode .info-modal:has(.cart-grid) .cart-grid {
+    grid-template-columns: minmax(0, 1fr) 320px !important;
+  }
+}
+@media (max-width: 760px) {
+  html body .full-page-mode .info-modal:has(.cart-grid) .cart-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* ===== END WAVE-INT4 ===== */

@@ -3380,7 +3380,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   // Allowlist is inlined (rather than referencing TAB_TITLES, which is
   // declared below the anon guard) so the effect is self-contained.
   useEffect(() => {
-    const VALID = ['personal','transactions','buyorders','autobids','trades','offers','reviews','support','developers'];
+    const VALID = ['personal','listings','transactions','buyorders','autobids','trades','offers','reviews','support','developers'];
     if (initialTab && VALID.includes(initialTab)) setTab(initialTab);
   }, [initialTab]);
 
@@ -3470,6 +3470,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   // "Profile · Sign in required" on a page they asked to be Support.
   const TAB_TITLES = {
     personal:     'Profile',
+    listings:     'Listings',
     transactions: 'Transactions',
     buyorders:    'Buy Orders',
     autobids:     'Active Bids',
@@ -3481,6 +3482,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   };
   const modalTitle = TAB_TITLES[initialTab] || 'Profile';
   const signInWhat = initialTab === 'support' ? 'your support tickets'
+                   : initialTab === 'listings' ? 'your listings'
                    : initialTab === 'trades' ? 'your trades'
                    : initialTab === 'transactions' ? 'your transactions'
                    : initialTab === 'buyorders' ? 'your buy orders'
@@ -3531,6 +3533,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
 
   const TABS = [
     { id: 'personal',     label: 'Personal Info' },
+    // CSFloat-1:1 — a user's profile LEADS with their listings/inventory,
+    // so the Listings tab sits right after Personal Info (ahead of the
+    // money/activity tabs). Reuses the same /api/listings/my-stall feed
+    // the MyStall page uses; no new backend. (batch: profile-parity)
+    { id: 'listings',     label: 'Listings' },
     { id: 'transactions', label: 'Transactions' },
     { id: 'buyorders',    label: 'Buy Orders' },
     { id: 'autobids',     label: 'Active Bids' },
@@ -3884,6 +3891,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         // without triggering a Steam sync round-trip (onSync does both).
         refreshProfile: () => fetchProfile().then(setProfile)
       }),
+      tab === 'listings'    && h(ProfileListingsTab, { me }),
       tab === 'transactions' && h(ProfileTransactionsTab, { transactions, privacy }),
       tab === 'buyorders'   && h(ProfileBuyOrdersTab, null),
       tab === 'autobids'    && h(ProfileAutoBidsTab, null),
@@ -5410,6 +5418,138 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
         ))
       );
     })()
+  );
+}
+
+// CSFloat-1:1 — a user's profile leads with their listings. This tab
+// surfaces the signed-in seller's *active* listings right on the profile
+// (csfloat shows a user's stall/inventory front-and-centre) without
+// forcing a hop to /me/stall. It reuses the exact /api/listings/my-stall
+// feed the MyStall page consumes — no new backend. Full inline edit /
+// relist / cancel still lives in MyStallModal; this tab is a read-first
+// glance with a one-click "Manage in your stall" deep-link.
+//
+// State model mirrors the sibling tabs:
+//   data === null            → still loading (spinner, like ProfileOffersTab)
+//   err   === true           → fetch failed (error card + Retry)
+//   data  === []             → no active listings (empty-inline + CTA,
+//                              like ProfileBuyOrdersTab)
+// `total` feeds the same "Showing most recent N of M" overflow banner
+// the MyStall Active tab uses for prolific sellers past the display cap.
+function ProfileListingsTab({ me }) {
+  const [data, setData]   = useState(null);   // null = loading; [] = empty; [...] = rows
+  const [total, setTotal] = useState(0);
+  const [err, setErr]     = useState(false);
+
+  // Race-guarded load (mirrors the ProfileOffersTab / fetchProfile `alive`
+  // pattern): a stale resolve after the modal closes or after `me` flips
+  // to a different user must not write this tab's state. We fetch the
+  // my-stall endpoint directly (rather than fetchMyStallWithTotal, which
+  // swallows non-2xx into an empty array) so a genuine failure surfaces a
+  // Retry affordance instead of masquerading as "no listings".
+  const aliveRef = useRef(true);
+  const load = useCallback(async () => {
+    setErr(false);
+    setData(null);
+    try {
+      const res = await fetch('/api/listings/my-stall', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const items = await res.json();
+      if (!aliveRef.current) return;
+      const rows = Array.isArray(items) ? items : [];
+      const totalHeader = res.headers.get('X-Total-Count');
+      const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
+      setData(rows);
+      setTotal(Number.isFinite(parsed) ? parsed : rows.length);
+    } catch (_) {
+      if (!aliveRef.current) return;
+      setErr(true);
+    }
+  }, []);
+  useEffect(() => {
+    aliveRef.current = true;
+    load();
+    return () => { aliveRef.current = false; };
+  }, [load, me?.id]);
+
+  // Error card — recoverable, mirrors the "Retry" affordance used by
+  // other self-fetching panels. Distinct from the empty state so a
+  // network blip never reads as "you have no listings".
+  if (err) return h('div', { className: 'empty-inline' },
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      'Couldn’t load your listings'),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+      'Something went wrong fetching your active listings. Check your connection and try again.'),
+    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+  );
+
+  // Loading — single spinner, identical to ProfileOffersTab's null guard.
+  if (data === null) return h('div', { className: 'spinner' });
+
+  // Empty — no active listings. CTA routes to the inventory so the seller
+  // can list an item (matches the prompt's empty-state copy). Uses the
+  // same empty-inline shell + MaterialIcon as ProfileBuyOrdersTab.
+  if (data.length === 0) return h('div', { className: 'empty-inline' },
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'storefront', size: 26 })),
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      'No active listings'),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+      'List an item from your inventory and it’ll show up here and on your public stall.'),
+    h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+      h('a', { className: 'btn btn-accent', href: '/sell' }, '+ List an item'),
+      h('a', { className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)' },
+        href: '/me/stall' }, 'Open your stall')
+    )
+  );
+
+  // Cap the rendered grid to match the MyStall Active display ceiling
+  // (the endpoint already returns the most-recent 500). The overflow
+  // banner explains the cap and points power-sellers at the full stall.
+  const DISPLAY_CAP = 500;
+  const shown = data.slice(0, DISPLAY_CAP);
+  return h('div', null,
+    // Header strip: live count + a manage deep-link to the full stall
+    // (inline edit / relist / cancel / analytics all live there).
+    h('div', {
+      style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }
+    },
+      h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
+        h('strong', { style: { color: 'var(--text-primary)' } }, total),
+        ' active listing', total === 1 ? '' : 's'),
+      h('a', {
+        className: 'btn btn-ghost',
+        style: { marginLeft: 'auto', border: '1px solid var(--border)', padding: '6px 12px', fontSize: 12 },
+        href: '/me/stall',
+        title: 'Open your full stall to edit prices, relist, or cancel listings.'
+      }, 'Manage in your stall')
+    ),
+    // Overflow banner — mirrors the MyStall Active "Showing most recent
+    // 500 of N" copy when a prolific seller crosses the display cap.
+    total > DISPLAY_CAP && h('div', {
+      style: {
+        padding: '8px 12px', marginBottom: 12, fontSize: 12,
+        color: 'var(--text-muted)',
+        background: 'var(--bg-elevated, rgba(255,255,255,0.02))',
+        border: '1px solid var(--border)', borderRadius: 6
+      }
+    }, `Showing most recent ${DISPLAY_CAP} of ${total} — open your stall to see them all.`),
+    // Grid of listing cards — reuses GridCard + the .listing-grid layout
+    // the marketplace and watchlist use. Cards deep-link to /item/:id via
+    // the SPA router (same as the Recently-viewed rail). `meId` lets the
+    // card show the "You're winning" auction chip consistently.
+    h('div', {
+      className: 'listing-grid',
+      style: { gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }
+    },
+      shown.map(l => h(GridCard, {
+        key: l.id,
+        listing: l,
+        meId: me?.id,
+        onClick: () => { if (l?.item?.id) navigate('/item/' + l.item.id); }
+      }))
+    )
   );
 }
 

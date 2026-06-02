@@ -195,6 +195,11 @@ export function ItemImage({ item, alt, variant = 'card' }) {
       if (node.complete) {
         if (node.naturalWidth === 0 || node.naturalHeight === 0) setFailed(true);
         else if (node.naturalWidth < 10 || node.naturalHeight < 10) setFailed(true);
+        // Cached-SUCCESS case: an image already decoded at mount fires neither
+        // onLoad nor onError, so without this the card stayed opacity:0
+        // ("loading") forever — the market grid rendered ~37/38 blank cards on
+        // cold/cached load. Reveal a valid cached image immediately.
+        else setLoaded(true);
       }
     },
     onLoad: (e) => {
