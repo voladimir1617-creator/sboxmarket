@@ -36639,21 +36639,21 @@ hr.csfloat {
   background-position: 0 0;
 }
 
-/* CSFloat-1:1: bring-your-own font hosting fallback. */
-@font-face {
-  font-family: "Roboto";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: local("Roboto"), local("Inter");
-}
-@font-face {
-  font-family: "Roboto Mono";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: local("Roboto Mono"), local("JetBrains Mono"), local("ui-monospace");
-}
+/* WAVE-INT12 — REMOVED two broken @font-face blocks that lived here.
+   They declared `font-family:"Roboto"` / `"Roboto Mono"` with
+   `font-weight: 400 700` (a VARIABLE range) and `src: local("Roboto"),
+   local("Inter")` — i.e. NO url(), local-only. On any machine without
+   Roboto/Inter INSTALLED (≈ every Windows visitor) neither local()
+   resolved, so the face entered "error" state. Worse: because it was a
+   variable range covering 400–700 AND was declared after fonts.css (which
+   loads first), the browser PREFERRED this local-only face over the proper
+   self-hosted faces in /css/fonts.css and then failed to load it — so all
+   UI text silently fell back to Arial/Helvetica. That is the canonical
+   "fonts didn't load → every size/line-height/underline looks off" bug.
+   /css/fonts.css already self-hosts Roboto 300–900 + Roboto Mono 400–700
+   via url() (9 / 6 unicode-range subsets each), so these blocks were pure
+   harm. Do NOT re-add a local-only @font-face for a family that fonts.css
+   already serves. */
 
 /* CSFloat-1:1: line-numbered code block. */
 .csfloat-code-block {
