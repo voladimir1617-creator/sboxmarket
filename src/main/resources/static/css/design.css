@@ -128394,6 +128394,19 @@ body footer.site-footer li {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 13px !important;
 }
+/* The Roboto pin above includes `footer span`, which also matches the
+   Material-Symbols icon spans in the footer (the trust-badge `lock` and the
+   `mail` social link). At specificity (0,1,3) with !important it beat the
+   global icon rule `body span.mi` (0,1,2), so those two icons fell back to
+   Roboto and rendered as the literal LIGATURE TEXT "lock" / "mail" instead
+   of glyphs. Restore the icon font on footer icon spans with a two-class
+   selector (0,2,2) so it outranks the footer pin and the glyphs paint. */
+body footer.site-footer .material-symbols-rounded,
+body footer.site-footer .material-symbols-outlined,
+body footer.site-footer .material-icons,
+body footer.site-footer .mi {
+  font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons", sans-serif !important;
+}
 body footer.site-footer .site-footer-title {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 13px !important;
