@@ -1,9 +1,0 @@
-<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Redirecting</title>
-<script>
-  try {
-    // We can't set localStorage for another origin, so the workaround is
-    // to use a URL hash flag the page recognises. For now, just redirect.
-    window.location.replace('http://localhost:8082/?_test_dismiss=1');
-  } catch (e) { document.title = 'failed: ' + e; }
-</script></head><body>Redirecting…</body></html>

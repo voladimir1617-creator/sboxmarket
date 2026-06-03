@@ -30,6 +30,13 @@ gradle.properties
 *.output
 .tmp_*
 
+# Scratch/working files use a leading-underscore convention: _ship_*.py
+# helper scripts, _qa_boss/ prompts, _runlog*.txt logs, _append_*.css
+# snippets, _jarup/ extracted jars, _screens/ captures. ~296 had been
+# committed into the repo root; removed in one sweep and ignored here at
+# root level so they never creep back via a bulk `git add .`.
+/_*
+
 # Editor / patch backups (e.g. WatchlistAlertService.groovy.orig)
 *.orig
 
