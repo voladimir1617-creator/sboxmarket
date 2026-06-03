@@ -1003,14 +1003,24 @@ class StripeService {
                 "Set up payouts before withdrawing. Connect a payout account (a one-time identity + bank/debit-card setup) from the Wallet page, then try again.")
         }
 
-        // Debit the wallet first (under the @Version optimistic lock that
-        // serializes concurrent withdrawals — see WalletController's
-        // race-loss handling). The Stripe Transfer is created AFTER the
-        // debit so that if Stripe rejects the payout the whole
-        // @Transactional rolls back and the balance is restored — there is
-        // never a debit with no corresponding payout.
+        // Debit the wallet first, then FLUSH so the @Version optimistic-lock
+        // UPDATE executes (and takes the row write-lock) BEFORE the Stripe
+        // Transfer — never at outer-tx commit, which is AFTER the Transfer.
+        // This flush is load-bearing for money safety: if a concurrent wallet
+        // write (another withdrawal, or a buy crediting this seller) bumped
+        // @Version, the flush throws ObjectOptimisticLockingFailureException
+        // HERE, before any money moves, so the @Transactional rolls back a
+        // debit that never paired with a payout (controller maps it to
+        // WITHDRAW_RACE). Without the early flush the version check fired only
+        // at commit — AFTER Transfer.create — so a race-loss would roll back
+        // the debit while the real money had ALREADY left the platform,
+        // restoring the balance AND keeping the payout (free money out the
+        // door, deliberately triggerable by racing a wallet credit). The
+        // Transfer is still created after the (now durable) debit so a Stripe
+        // rejection also rolls the debit back — never an orphan payout.
         wallet.balance = wallet.balance - amount
         walletRepository.save(wallet)
+        walletRepository.flush()
 
         // ── Real payout via Stripe Connect Transfer (live mode) ──────
         // Move `amount` from the platform balance to the seller's
@@ -2176,6 +2186,17 @@ class StripeService {
             if (session.amountTotal != null && session.amountTotal != expectedCents) {
                 log.error("confirm-deposit refused: session amount=${session.amountTotal} != tx amount=${expectedCents}")
                 throw new IllegalStateException("Amount mismatch")
+            }
+            // Currency must be USD. The amount check above is a bare cents
+            // equality with no currency dimension, and the wallet ledger is
+            // dollars. We only ever create USD sessions, so this rejects only
+            // a tampered/future non-USD session whose minor-unit total happens
+            // to equal expectedCents while representing a different real value
+            // (e.g. a zero-decimal currency). Defense-in-depth beside the
+            // amount / payment_status guards.
+            if (session.currency != null && !'usd'.equalsIgnoreCase(session.currency as String)) {
+                log.error("confirm-deposit refused: session currency=${session.currency} != usd")
+                throw new IllegalStateException("Currency mismatch")
             }
         }
 
