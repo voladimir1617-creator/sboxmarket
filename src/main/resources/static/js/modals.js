@@ -7106,7 +7106,13 @@ function ProfileTradesTab({ me, privacy }) {
   // (confirmTrade state is now declared above the early returns.)
   const onConfirm = (trade) => setConfirmTrade(trade);
   const runConfirm = async () => {
-    if (!confirmTrade) return;
+    // Synchronous re-entrancy latch on the escrow-RELEASE action (the most
+    // financially-irreversible click in the app): the `busy` state is async, so
+    // a rapid double-click could fire two tradeConfirm POSTs before the button
+    // disables. Set busyRef synchronously here; it's re-synced to `busy` on the
+    // next render and cleared when the finally's setBusy(false) re-renders.
+    if (!confirmTrade || busyRef.current) return;
+    busyRef.current = true;
     const id = confirmTrade.id;
     const itemName = confirmTrade.itemName;
     const price = confirmTrade.price;
