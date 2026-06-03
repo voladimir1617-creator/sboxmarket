@@ -157,3 +157,31 @@ Each was checked live or in-code this session (measured, not assumed):
   once" (proven by `ConcurrentBuyIntegrationSpec`), no negative balance, exact fee
   reconciliation (`sellerNet + fee == price`), atomic per-row cart with deferred
   side-effects, self-purchase guarded, and server-side pricing (no client-supplied amount).
+
+## Wave 151 — security & correctness hardening (2026-06-03)
+Dimension-rotation audits + a live visual sweep. All committed; dev suite green for
+touched specs. Findings fixed this wave:
+- **Withdrawal fund-loss closed (HIGH).** Added the missing `transfer.reversed` Stripe
+  webhook handler: a settled payout that Stripe later reverses now re-credits the wallet
+  exactly once (atomic `claimReverseWithdrawal` COMPLETED→REVERSED claim; full-reversal
+  only, partial left for manual ops). Was silent permanent fund loss. `StripeTransferReversedSpec`
+  (6 cases) proves once-only / idempotent. The debit path itself was already overdraw-proof.
+- **DoS vector closed.** The auction SSE stream (`GET /api/bids/stream/{id}`) was in no
+  rate-limit list — an anon script could exhaust async connections. Now in GUARDED_ENUMS.
+- **PII-in-logs (prod root = INFO, so these shipped to the aggregator).** ClientError now
+  strips URL query strings (was logging unsubscribe HMAC / Stripe session_id / email
+  tokens on a render crash); Unsubscribe masks the email at all 4 sites; RateLimit logs
+  only the first breach per window (was flooding + re-writing the client IP per request).
+- **Prod config fail-fast.** `APP_PUBLIC_URL` added to ProdConfigValidator REQUIRED_VARS
+  + localhost-rejection — a hand-rolled prod boot can no longer ship localhost email/Stripe
+  links. CSV date-range export bounds now computed in UTC to match the UTC export cells.
+- **Visual (home).** Fixed FAQ stair-step (row-reverse+flex-start → flex-end) + centered
+  list → left-aligned column; footer `lock`/`mail` icons rendered as literal ligature text
+  (footer Roboto pin out-specified the icon-font rule) → restored. design.css?v=182.
+- **a11y (invisible, no csfloat-parity impact).** /notifications feed rows made
+  keyboard-reachable; staff-panel error modal got role=dialog triad.
+- **Verified non-bugs (left as-is):** Database nav link is permanently brand-blue =
+  intentional measured csfloat parity (ship #5501); mobile uses a body-scroller
+  architecture (content reachable on touch — the empty full-page screenshot is a
+  Playwright/body-scroll artifact, not a user bug). Config/deploy + non-visual a11y audits
+  came back essentially clean (one fix each, above).
