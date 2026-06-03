@@ -720,30 +720,41 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
 // Conventions:
 //   - Empty input -> caller state is null -> no bound on that side.
 //   - `to` is treated as inclusive end-of-day (23:59:59.999) so picking
-//     "Mar 31" on the right does the right thing for tax-quarter
-//     exports without forcing the user to think in UTC.
+//     "Mar 31" on the right captures the whole final day.
+//   - Bounds are computed in **UTC**, not the browser's local zone. The
+//     CSV cells these filters slice are formatted in UTC (the controllers
+//     pin SimpleDateFormat to UTC), and the server filters UTC epoch-millis
+//     columns raw. Building the window in local time shifted the boundary
+//     by the viewer's offset, so a seller west of UTC exporting "Mar 1–31"
+//     for taxes got Mar 1 08:00 → Apr 1 07:59 UTC — trades that settled in
+//     the first/last hours of a day landed in the wrong month. Date.UTC()
+//     keeps the picked calendar day aligned with the UTC row contents.
 //   - A clear button surfaces only when at least one bound is set.
 export function DateRangeFilter({ from, to, onChange, compact }) {
+  // Read back with UTC getters so the round-trip (input string -> UTC
+  // epoch -> input string) is stable; mixing local getters here with the
+  // UTC builders below would show the previous day in the box for users
+  // behind UTC.
   const toIsoDay = (ms) => {
     if (ms == null) return '';
     const d = new Date(Number(ms));
     if (isNaN(d.getTime())) return '';
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   };
   const fromStartOfDay = (s) => {
     if (!s) return null;
     const [y, m, d] = s.split('-').map(Number);
     if (!y || !m || !d) return null;
-    return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+    return Date.UTC(y, m - 1, d, 0, 0, 0, 0);
   };
   const fromEndOfDay = (s) => {
     if (!s) return null;
     const [y, m, d] = s.split('-').map(Number);
     if (!y || !m || !d) return null;
-    return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+    return Date.UTC(y, m - 1, d, 23, 59, 59, 999);
   };
   const inputStyle = {
     border:  '1px solid var(--border)',
