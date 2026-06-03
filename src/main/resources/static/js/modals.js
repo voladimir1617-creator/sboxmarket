@@ -379,6 +379,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   const [offerAmt, setOfferAmt]   = useState('');
   const [offerErr, setOfferErr]   = useState('');
   const [offerBusy, setOfferBusy] = useState(false);
+  // Synchronous re-entrancy latch for the offer POST. A ref (not state) so a
+  // fast double-click on "Send Offer" can't fire two POST /api/offers before
+  // React commits setOfferBusy(true) and disables the button. Every other money
+  // submit already has this (buyingRef / checkoutRef / submittingRef / busyRef);
+  // make-offer was the lone gap.
+  const offerBusyRef = useRef(false);
   // Optional buyer-supplied note alongside the offer ("brand new acct,
   // fast pay") — gives the seller context before they accept/reject. Capped
   // at 280 chars to match the V43 column width and the server-side guard.
@@ -2141,6 +2147,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 // here (a sub-cent offer would also round to $0.00 server-side).
                 if (!Number.isFinite(amt) || amt < 0.01) { setOfferErr('Enter an offer of at least $0.01.'); return; }
                 if (amt >= ask) { setOfferErr('Offer must be below the asking price.'); return; }
+                if (offerBusyRef.current) return;   // synchronous double-submit guard
+                offerBusyRef.current = true;
                 setOfferBusy(true);
                 try {
                   const res = await onMakeOffer(cheapestBuyNow?.id, parseFloat(offerAmt), offerMsg);
@@ -2149,7 +2157,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                   setOfferAmt('');
                   setOfferMsg('');
                   onClose();
-                } finally { setOfferBusy(false); }
+                } finally { offerBusyRef.current = false; setOfferBusy(false); }
               }
             }, offerBusy ? '...' : 'Send Offer');
           })()
