@@ -626,6 +626,20 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
       } catch (_) {}
     };
   }, []);
+  // Synchronous re-entrancy latch shared by every ReasonDrawer consumer (admin
+  // force-release / force-cancel / withdrawal-reject / dispute-action / ban,
+  // plus review replies / moderation notes). `busy` is async state, so a rapid
+  // double-click — or Ctrl+Enter then Enter-on-button — could fire two POSTs
+  // before it re-renders; for the money actions that risks a double payout/
+  // refund. This ref latches synchronously and resets when the consumer's
+  // onSubmit promise settles (matches submittingRef/busyRef on the customer
+  // money path). Sync consumers reset on the next microtask — a harmless no-op.
+  const submittingRef = useRef(false);
+  const guardedSubmit = (val) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    Promise.resolve(onSubmit(val)).finally(() => { submittingRef.current = false; });
+  };
   const trimmed  = (text || '').trim();
   const canSubmit = trimmed.length > 0 && trimmed.length <= maxLen && !busy;
   return h('div', {
@@ -661,7 +675,7 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
       onChange: (e) => setText(e.target.value),
       onKeyDown: (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && canSubmit) {
-          e.preventDefault(); onSubmit(trimmed);
+          e.preventDefault(); guardedSubmit(trimmed);
         }
       },
       'aria-label': title,
@@ -688,7 +702,7 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
           className: 'btn btn-primary',
           style: { padding: '5px 12px', fontSize: 11 },
           disabled: !canSubmit,
-          onClick: () => onSubmit(trimmed)
+          onClick: () => guardedSubmit(trimmed)
         }, busy ? 'Sending…' : cta)
       )
     )
