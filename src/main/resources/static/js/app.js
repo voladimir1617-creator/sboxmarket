@@ -8493,9 +8493,9 @@ export function App() {
         h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, position: 'relative', zIndex: 1 } }, nfHeading),
         h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 18px', position: 'relative', zIndex: 1 } },
           nfBody),
-        h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', position: 'relative', zIndex: 1 } },
-          h('a', { className: 'btn btn-accent', href: paths.market() }, 'Back to Market'),
-          h('a', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, href: paths.help() }, 'Help Center')
+        h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', position: 'relative', zIndex: 1 } },
+          h('a', { className: 'btn btn-accent', style: { whiteSpace: 'nowrap' }, href: paths.market() }, 'Back to Market'),
+          h('a', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', whiteSpace: 'nowrap' }, href: paths.help() }, 'Help Center')
         ),
         // Batch 1021 — recovery rail. A user who lands on /item/99999 (dead
         // link from an old share, expired stall URL, etc.) gets their last
