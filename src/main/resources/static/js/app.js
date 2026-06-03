@@ -4669,9 +4669,16 @@ export function App() {
         //     auction page. Escape while typing in the bid input is already
         //     handled by the input/textarea focus guard above at the top of this
         //     handler.)
+        //   • the full-size image lightbox (.item-lightbox) on /item — a
+        //     role=dialog overlay with NO `.modal-backdrop` class, so the
+        //     stacked-backdrop count above doesn't see it. It has its own
+        //     Escape→close useEffect (modals.js); without this guard Escape BOTH
+        //     closed the lightbox AND fell through to Escape→/market, bouncing
+        //     the user off the item page when they only meant to close the zoom.
         if (document.querySelector('.cart-confirm-backdrop') ||
             document.querySelectorAll('.modal-backdrop').length > 1 ||
-            document.querySelector('.item-offer-drawer')) return;
+            document.querySelector('.item-offer-drawer') ||
+            document.querySelector('.item-lightbox')) return;
         if (shortcutsOpen)        setShortcutsOpen(false);
         // /item/{id} is a real page (per `feedback_pages_not_popups.md`) — pressing
         // Escape used to call `setSelected(null)` which left routeName='item' but
