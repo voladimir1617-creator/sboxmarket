@@ -46,9 +46,13 @@ function LazyStaffPanel({ which, me, onClose }) {
     return () => { alive = false; };
   }, [which]);
   if (err) return h('div', { className: 'modal-backdrop', onClick: onClose },
-    h('div', { className: 'modal sm', onClick: e => e.stopPropagation() },
+    h('div', { className: 'modal sm', onClick: e => e.stopPropagation(),
+      // Dialog semantics to match every other modal shell in the app
+      // (presignin, cart-confirm, InfoModal): without these a screen reader
+      // never announces this overlay as a modal.
+      role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'staff-panel-error-title' },
       h('div', { className: 'modal-header' },
-        h('h3', null, 'Staff panel failed to load'),
+        h('h3', { id: 'staff-panel-error-title' }, 'Staff panel failed to load'),
         h('button', { className: 'modal-close', onClick: onClose, 'aria-label': 'Close' }, '✕')),
       h('div', { style: { padding: 22 } },
         h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 } },
