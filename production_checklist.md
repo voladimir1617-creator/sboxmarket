@@ -73,4 +73,12 @@ Each was checked live or in-code this session (measured, not assumed):
 - _None outstanding._ All 10 prior P1s were verified closed on 2026-06-02 — see "all 10 prior P1 parity/prod gaps re-verified CLOSED" under DONE above.
 
 ### P2 — polish
-- **Tap targets** — some 32px chips are below the 44px minimum (partially addressed on mobile)
+- **Tap targets** — re-measured live at 390px on 2026-06-02 (opacity / pointer-events /
+  ancestor-aware, not just bounding-box): the card-overlay icons (magnifier / star / cart)
+  are correctly `opacity:0` hover-only and are NOT shown on touch, so the earlier
+  "tiny-target" count was a measurement artifact (bounding-box counts hidden elements).
+  The genuinely-tappable small controls are all 36–44px chrome — nav logo, search box,
+  sort/discount selects, type toggles, refresh, per-card "View on Steam" — and are wide
+  enough to hit reliably. Left at csfloat-compact sizing to preserve 1:1 parity rather
+  than force-bumped to 44px (which would deviate from csfloat and risk overlap on the
+  2-up mobile grid). Considered acceptable for launch.
