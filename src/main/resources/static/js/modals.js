@@ -7046,6 +7046,11 @@ function ProfileTradesTab({ me, privacy }) {
   // a named confirmation. Accept is the step that debits the buyer's
   // wallet and opens escrow, so silent success was misleading.
   const onAccept = async (id) => {
+    // onAccept DEBITS the buyer's wallet + opens escrow — money-moving, so it
+    // gets the same synchronous re-entrancy latch as runConfirm / checkout /
+    // withdraw (the async `busy` state alone leaves a rapid-double-click window).
+    if (busyRef.current) return;
+    busyRef.current = true;
     const t = trades.find(x => x.id === id);
     setBusy(true);
     try {
@@ -7079,6 +7084,8 @@ function ProfileTradesTab({ me, privacy }) {
     // toast but gave the seller nothing to retry — they'd have to
     // re-click Mark Sent and re-paste. Now the drawer stays open on
     // error so the seller can fix the URL in place.
+    if (busyRef.current) return;
+    busyRef.current = true;
     const t = trades.find(x => x.id === id);
     setBusy(true);
     try {
@@ -7157,6 +7164,8 @@ function ProfileTradesTab({ me, privacy }) {
     // (line 6293) so the seller gets symmetric feedback on every step.
     const t = trades.find(x => x.id === id);
     if (!confirm('Cancel this trade? The buyer will be refunded.')) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const res = await tradeCancel(id, 'User cancelled');
