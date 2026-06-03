@@ -1331,9 +1331,12 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     );
   }
   if (tab === 'view' && viewing) {
-    const isOwner = me && viewing.loadout.ownerUserId === me.id;
+    const isOwner = me && viewing.loadout?.ownerUserId === me.id;
     const SLOT_NAMES = ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories','Wild'];
-    const slotsBySlot = Object.fromEntries(viewing.slots.map(s => [s.slot, s]));
+    // Defensive: every live path supplies `slots`, but a slots-less body that
+    // isn't flagged __notFound must not crash the page with `.map of undefined`.
+    // Mirrors the Array.isArray(viewing?.slots) guards used elsewhere here.
+    const slotsBySlot = Object.fromEntries((Array.isArray(viewing.slots) ? viewing.slots : []).map(s => [s.slot, s]));
     const redirectedFrom = viewing.__redirectedFrom;
 
     return h(InfoModal, { title: viewing.loadout.name, onClose },
@@ -1935,7 +1938,13 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
     // from the Discover search box. This input filters the ITEM pool for
     // a specific clothing slot, so a screen-reader user heard the wrong
     // thing. Name it after what it actually does.
-    h('input', { className: 'price-input', autoFocus: true, 'aria-label': `Filter ${slot} items`, placeholder: 'Filter…', value: q, onChange: e => setQ(e.target.value), style: { width: '100%', marginBottom: 6 } }),
+    h('input', { className: 'price-input', autoFocus: true, 'aria-label': `Filter ${slot} items`, placeholder: 'Filter…', value: q,
+      onChange: e => setQ(e.target.value),
+      // Escape closes JUST the picker (matches the rename drawer). stopPropagation
+      // keeps the InfoModal's document-level Escape from closing the whole
+      // /loadout page when the user only meant to back out of item-pick.
+      onKeyDown: e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } },
+      style: { width: '100%', marginBottom: 6 } }),
     h('div', { className: 'loadout-picker-list' },
       // Audit fix — when the catalogue pool fetch failed, `allItems` is
       // empty for every slot. Without a hint the list rendered blank and
