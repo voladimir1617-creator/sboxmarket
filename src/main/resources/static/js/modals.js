@@ -1624,7 +1624,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             },
               h('div', { className: 'similar-thumb' }, h(ItemImage, { item: it, variant: 'thumb' })),
               h('div', { className: 'similar-name' }, it.name),
-              h('div', { className: 'similar-price' }, fmt(it.lowestPrice || 0))
+              // Unlisted items have lowestPrice 0 → "$0.00" read as free; show "—".
+              h('div', { className: 'similar-price' }, parseFloat(it.lowestPrice) > 0 ? fmt(it.lowestPrice) : '—')
             ))
           )
         )
@@ -2241,7 +2242,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               ),
               h('div', { className: 'recently-viewed-name' }, it.name),
               h('div', { className: 'recently-viewed-price' },
-                it.lowestPrice != null ? fmt(it.lowestPrice) : '—')
+                // lowestPrice 0.00 (not null) for unlisted items rendered "$0.00"
+                // (reads as free) — require > 0, else "—".
+                (it.lowestPrice != null && parseFloat(it.lowestPrice) > 0) ? fmt(it.lowestPrice) : '—')
             ))
           )
         );
