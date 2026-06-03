@@ -611,4 +611,37 @@ class NotificationServiceSpec extends Specification {
         n.userId == 5L
         n.kind == 'SALE'
     }
+
+    // ── per-user row cap (write-path trim) ──────────────────────────
+
+    def "push trims a user back to the cap, deleting older than their Nth-newest"() {
+        given: "the user is over the cap; the newest CAP rows oldest is the cutoff"
+        notificationRepository.save(_) >> { Notification n -> n.id = 1L; n }
+        notificationRepository.countByUser(10L) >> (NotificationService.MAX_NOTIFICATIONS_PER_USER + 1L)
+        // recent-first; the LAST of the newest-CAP is the cutoff
+        def newest = (0..<NotificationService.MAX_NOTIFICATIONS_PER_USER).collect {
+            new Notification(id: (it + 1) as Long, userId: 10L, createdAt: 9000L - it)
+        }
+        Long expectedCutoff = newest.last().createdAt
+        notificationRepository.findForUser(10L, { it.pageSize == NotificationService.MAX_NOTIFICATIONS_PER_USER }) >> newest
+
+        when:
+        service.push(10L, 'SALE', 'over cap')
+
+        then: "everything older than the Nth-newest is purged in one set-based delete"
+        1 * notificationRepository.deleteForUserOlderThan(10L, expectedCutoff) >> 25
+    }
+
+    def "push does NOT trim a user under the cap (cheap COUNT, no fetch/delete)"() {
+        given:
+        notificationRepository.save(_) >> { Notification n -> n.id = 1L; n }
+        notificationRepository.countByUser(10L) >> 10L
+
+        when:
+        service.push(10L, 'SALE', 'under cap')
+
+        then: "under the cap → no newest-N read and no delete"
+        0 * notificationRepository.findForUser(_, _)
+        0 * notificationRepository.deleteForUserOlderThan(_, _)
+    }
 }

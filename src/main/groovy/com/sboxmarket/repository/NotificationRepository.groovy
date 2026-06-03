@@ -23,6 +23,24 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.userId = :uid AND n.read = false")
     Long countUnread(@Param("uid") Long uid)
 
+    /** Total notifications a user owns (read + unread) — the cap gate for
+     *  the per-user write-path trim (NotificationService.trimToCapForUser).
+     *  Indexed on user_id, so cheap to call per push. */
+    @Query("SELECT COUNT(n) FROM Notification n WHERE n.userId = :uid")
+    long countByUser(@Param("uid") Long uid)
+
+    /** Bulk-delete a user's notifications older than `cutoff` (epoch ms).
+     *  Drives the per-user row cap: once a user exceeds the cap we purge
+     *  everything older than their Nth-newest row in one set-based DELETE
+     *  — no Hibernate session pressure, no window function. The previous
+     *  retention sweep only removed READ rows >180d and never bounded
+     *  UNREAD growth, so an attacker who can trigger notifications to a
+     *  victim could grow the table without limit. This caps it regardless
+     *  of read-state. Returns rows removed. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM Notification n WHERE n.userId = :uid AND n.createdAt < :cutoff")
+    int deleteForUserOlderThan(@Param("uid") Long uid, @Param("cutoff") Long cutoff)
+
     /** Bulk-flip every UNREAD notification for a user to read in a
      *  single UPDATE. Drives "Mark all read" from the bell.
      *

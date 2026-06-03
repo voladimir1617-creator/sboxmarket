@@ -139,8 +139,45 @@ class NotificationService {
         )
         // Defer the save until after the caller's transaction commits, so a
         // failing save() can't mark the caller's transaction rollback-only.
-        deferOrRun { notificationRepository.save(n) }
+        // The post-commit trim bounds per-user growth (the retention sweep
+        // only removes READ rows >180d and never caps UNREAD, so an attacker
+        // who can trigger notifications to a victim could grow the table
+        // without limit).
+        deferOrRun {
+            notificationRepository.save(n)
+            trimToCapForUser(userId)
+        }
         n
+    }
+
+    /** Hard cap on notifications retained per user. The bell renders at most
+     *  100 (listFor), so 500 is generous history headroom while bounding the
+     *  table on heavy / attacked accounts. Static (not @Value) so unit specs
+     *  that build the service without a Spring context never see a 0 cap that
+     *  would make PageRequest.of(0, 0) throw. */
+    static final int MAX_NOTIFICATIONS_PER_USER = 500
+
+    /** Trim a user's notifications back to MAX_NOTIFICATIONS_PER_USER after a
+     *  push. Cheap path for normal users: an indexed COUNT that returns early
+     *  under the cap. Only an over-cap user pays the bounded "newest N" read +
+     *  one set-based delete of everything older than their Nth-newest row.
+     *  Keeps the newest CAP regardless of read-state (ties on the cutoff ms
+     *  keep a few extra — harmless). Best-effort: never throws into the push. */
+    private void trimToCapForUser(Long userId) {
+        if (userId == null) return
+        try {
+            long cnt = notificationRepository.countByUser(userId)
+            if (cnt <= MAX_NOTIFICATIONS_PER_USER) return
+            def newest = notificationRepository.findForUser(
+                userId, org.springframework.data.domain.PageRequest.of(0, MAX_NOTIFICATIONS_PER_USER))
+            if (newest.size() < MAX_NOTIFICATIONS_PER_USER) return
+            Long cutoff = newest.last().createdAt
+            if (cutoff == null) return
+            int removed = notificationRepository.deleteForUserOlderThan(userId, cutoff)
+            if (removed > 0) log.debug("Trimmed {} over-cap notifications for user {}", removed, userId)
+        } catch (Exception e) {
+            log.warn("Notification trim failed for user ${userId}: ${e.message}")
+        }
     }
 
     /**
