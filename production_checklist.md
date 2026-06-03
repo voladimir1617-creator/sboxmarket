@@ -28,6 +28,36 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
   EVERY deep route on mobile (was ~250px squeezed; now full-width). Verified live.
 - Mobile home featured rail: stacked 7 cards (~2900px) → compact swipeable
   horizontal rail (~440px), contained (no page overflow).
+- Desktop /market card overlap: cards were a fixed 228px in 188px grid tracks
+  (grid-item min-width:auto), overlapping ~24px + clipping the 5th card; cards
+  now fill their 1fr track → clean 5-up grid, 16px gaps.
+
+### Frontend hardening + money-idempotency audit (2026-06-03)
+Three read-only frontend audit agents + one backend money agent; integrated the
+real findings (each verified, committed):
+- Re-entrancy latches added to every money/state submit that set its busy flag
+  only AFTER the await (double-click window): offer accept/counter/raise, Place
+  Bid, Place Buy Order, list-item (sell), leave-review. (checkout/withdraw/
+  trade-accept already had them.) Pattern: a synchronous busyRef checked before
+  setBusy, auto-reset via the per-render sync.
+- Stall price-edit (saveEdit) wrapped in try/catch — a network throw was silently
+  swallowed (form stayed open, no feedback); now toasts the error.
+- Escape over-navigation: the app-level + InfoModal Escape guards omitted the
+  avatar user-menu dropdown, so Escape with it open bounced off the page; added
+  #user-menu-panel to both whitelists.
+- Item 30-day-change pill rendered "▼ $0.00 (NaN%)" for a sold-out item (history
+  but no current floor); now gated on a finite current floor.
+- **Server money-idempotency VERIFIED** (backend agent): acceptOffer, placeBid,
+  createBuyOrder, counter/raiseOffer, leaveReview are all server-side idempotent /
+  race-safe (status checks + @Version optimistic locks + pessimistic findByIdForUpdate
+  + UNIQUE constraints) — a double submit cannot double-debit / duplicate escrow.
+  The client latches above are defense-in-depth on already-safe paths.
+  One NON-money gap noted: the Steam /list path has no duplicate-asset DB guard
+  (Listing has no assetId column), so in escrow-OFF (legacy) mode two concurrent
+  /list calls could create two ACTIVE listings for one asset — but it moves no
+  money (caught at buy/deposit), is mitigated by escrow custody in production, and
+  is now client-latched. A proper fix needs an assetId column + migration; left
+  as a known low-priority item (cost/risk >> value).
 
 ### Visual / csfloat parity
 - Real Steam item art renders on 38/39 seed items — market, home, /db, item page all show real skin imagery
