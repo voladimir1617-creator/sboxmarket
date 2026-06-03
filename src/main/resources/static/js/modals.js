@@ -1021,9 +1021,17 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             onClick: (e) => { e.stopPropagation(); onClose && onClose(); }
           }, 'Open Profile')
         ),
-        listings[0] && listings[0].listingType === 'AUCTION' && h('div', { 'data-auction-panel': 'true' },
-          h(AuctionBidPanel, { listing: listings[0], me, wallet, onPlaced: onRefresh })
-        ),
+        (() => {
+          // Render the bid panel whenever ANY auction listing exists for this
+          // item — NOT just when listings[0] is an auction. Listings come back
+          // price-ascending, so a cheaper BUY_NOW would otherwise occupy
+          // listings[0] and hide a perfectly biddable auction (un-biddable
+          // dead-end on the most common mixed-listing case).
+          const auctionListing = (listings || []).find(l => l.listingType === 'AUCTION');
+          return auctionListing && h('div', { 'data-auction-panel': 'true' },
+            h(AuctionBidPanel, { listing: auctionListing, me, wallet, onPlaced: onRefresh })
+          );
+        })(),
         h('h2', { className: 'modal-section-title' },
           h('div', { className: 'section-title-dot' }),
           'Price History',

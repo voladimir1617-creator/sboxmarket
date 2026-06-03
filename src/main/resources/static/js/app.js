@@ -6409,75 +6409,31 @@ export function App() {
            aria-required-children. The section already carries an aria-label, so
            screen readers still announce the region; the cards stay links. */
         h('div', { className: 'csfloat-home-preview-row' },
-          ((homeFeatured.length > 0) ? homeFeatured : listings).slice(0, 6).map((l, i) => {
+          /* Boss QA — home featured rail now reuses the canonical /market
+             GridCard component (same as the cart "Trending right now" rail,
+             cards.js GridCard) so the featured tiles inherit every grid-card
+             affordance — rarity stripes (top+bottom), the float bar, the
+             magnifier zoom, the USD chip, seller online row, view-count chip,
+             watchlist ♥, add-to-cart, and the "Listed X ago" footer stripe.
+             Previously these were bespoke `.csfloat-home-preview-card` tiles
+             that rendered a much simpler anatomy and had visually drifted from
+             the marketplace grid. The hero stack above stays a distinct
+             marketing surface; only this preview rail is aligned. GridCard is a
+             flex column with no fixed width, so it fills each
+             `grid-auto-columns: minmax(180px,1fr)` track in the scroller cleanly. */
+          ((homeFeatured.length > 0) ? homeFeatured : listings).slice(0, 6).map((l) => {
             if (!l || !l.item) return null;
-            const rarity = l.item.rarity || 'Standard';
-            const rarityClass = rarity.replace(/[^A-Za-z]/g, '');
-            /* Discount vs the Steam Market reference. The API returns
-               `steamPrice` on item — `avgPrice` / `storePrice` were
-               never populated, so `pct` was permanently null and the
-               green deal chip below never rendered. Same `steamRefPrice`-
-               style miss fixed elsewhere in this file (heroTabs sort,
-               csfloat-band cards). */
-            const ref = Number(l.item.steamPrice || 0);
-            const price = Number(l.price || 0);
-            const pct = (ref > 0 && price > 0) ? Math.round(((price - ref) / ref) * 100) : null;
-            // V61 ship: real presence from `l.sellerLastSeenAt` (epoch
-            // ms), bumped by PresenceFilter on every authenticated
-            // request. Falls back to the deterministic-seed pattern
-            // when sellerLastSeenAt is null (system seed listings) so
-            // those rows stay visually consistent with the rails on
-            // either side. 15-minute Online window — same threshold as
-            // the GridCard status row in cards.js.
-            const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
-            const onlineSeed = l.sellerUserId
-              ? Number(String(l.sellerUserId).slice(-6)) || 0
-              : (l.id || 0);
-            const isOnline = l.sellerLastSeenAt
-              ? (Date.now() - Number(l.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
-              : (onlineSeed % 5) < 2;
-            return h('a', {
-              key: l.id,
-              className: 'csfloat-home-preview-card rarity-' + rarityClass,
-              href: '/item/' + l.item.id,
-              onClick: (e) => { e.preventDefault(); navigate('/item/' + l.item.id); }
-            },
-              h('div', { className: 'csfloat-home-preview-card-head' },
-                h('div', { className: 'csfloat-home-preview-card-name' }, l.item.name),
-                h('div', { className: 'csfloat-home-preview-card-sub' }, rarity)
-              ),
-              h('div', { className: 'csfloat-home-preview-card-img' },
-                h(ItemImage, { item: l.item, variant: 'card' }),
-                h('span', { className: 'csfloat-home-preview-card-zoom', 'aria-hidden': 'true' },
-                  h(MaterialIcon, { name: 'search', size: 14 })
-                )
-              ),
-              h('div', { className: 'csfloat-home-preview-card-price-row' },
-                h('span', { className: 'csfloat-home-preview-card-price' }, fmt(price),
-                  h('span', { className: 'csfloat-home-preview-card-usd', 'aria-hidden': 'true' }, '$')
-                ),
-                /* Boss QA cycle 2 N4 — bumped threshold from -5 to -10
-                   so the green deal chip only fires on a real bargain.
-                   Seed data has 7-8% deltas across the board, which
-                   meant every card was stamped with a chip and the
-                   indicator stopped meaning anything. */
-                (pct != null && pct <= -10) && h('span', {
-                  className: 'csfloat-home-preview-card-pct down'
-                }, '−' + Math.abs(pct) + '%')
-              ),
-              h('div', { className: 'csfloat-home-preview-card-status' },
-                h('span', { className: 'csfloat-home-preview-card-dot' + (isOnline ? ' online' : '') }),
-                h('span', { className: 'csfloat-home-preview-card-status-label' }, isOnline ? 'Online' : 'Offline'),
-                /* Was `#<listing id>` — the raw DB id read to users as a
-                   leaderboard rank it isn't. Show the actual seller name
-                   instead (CSFloat cards surface the seller), falling
-                   back silently when the listing has no seller (system
-                   "SkinBox Store" rows). */
-                l.sellerName
-                  ? h('span', { className: 'csfloat-home-preview-card-rank', title: 'Seller: ' + l.sellerName }, l.sellerName)
-                  : null
-              )
-            );
+            return h(GridCard, {
+              key: 'home-feat-' + l.item.id,
+              listing: l,
+              watcherCount: watcherCounts[l.item.id] || 0,
+              onClick: () => navigate('/item/' + l.item.id),
+              starred: Array.isArray(watchlist) ? watchlist.includes(l.item.id) : false,
+              onToggleStar: toggleStar,
+              meId: me?.id,
+              onAddToCart: addToCart,
+              cartHas: (id) => cart.some(c => c.id === id)
+            });
           }),
           h('a', {
             className: 'csfloat-home-preview-tail',
