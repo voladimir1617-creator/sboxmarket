@@ -7287,7 +7287,7 @@ export function App() {
                     : 'Only auctions are active. Flip the filter to All to see them, or list your own Buy-Now item.';
                 } else if (hasClientFilters) {
                   title = 'No listings match your filters';
-                  sub   = `Try clearing Deals / New / Under ${currencySymbol()}X / discount threshold to broaden the view.`;
+                  sub   = 'Try clearing the Deals, New, price, or discount filters to broaden the view.';
                 } else if (hasQueryFilters) {
                   title = 'No listings match your filters';
                   sub   = 'Try a broader search, clear the filters, or list one of your own items.';

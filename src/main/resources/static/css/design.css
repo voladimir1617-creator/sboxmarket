@@ -161449,6 +161449,14 @@ html body .grid-card {
 }
 html body a.grid-card:hover,
 html body .grid-card:hover {
+  /* -15px is the MEASURED csfloat card-hover lift (cited at ship #6900, line
+     ~143322: "measured on csfloat home: .item-card.hover-enabled lifts -15px").
+     z-index:1 floats the lifted card above its neighbours — exactly csfloat's
+     behaviour — so the large lift doesn't clip the row above. Kept consistent
+     with the -15px .grid-card:focus-visible state (#15202). (An earlier pass
+     pulled this to -4px on the assumption the grid should be subtler than the
+     home cards; reverted — that diverged from the only measurement we have and
+     desynced hover from focus.) */
   transform: translateY(-15px) !important;
   z-index: 1 !important;
 }
