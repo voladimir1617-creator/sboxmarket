@@ -133314,7 +133314,7 @@ main.changelog {
   letter-spacing: normal !important;
 }
 .changelog-intro code {
-  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, monospace !important;
   font-size: 12px !important;
   background: rgba(255, 255, 255, 0.06) !important;
   padding: 1px 6px !important;
@@ -133406,7 +133406,7 @@ main.changelog {
   margin-bottom: 0 !important;
 }
 .changelog-list li code {
-  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, monospace !important;
   font-size: 12px !important;
   background: rgba(255, 255, 255, 0.06) !important;
   padding: 1px 6px !important;
@@ -133596,7 +133596,7 @@ main.changelog {
   line-height: 18px !important;
 }
 .profile-id span[style*="JetBrains"] {
-  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, monospace !important;
   font-size: 12px !important;
   color: rgb(200, 207, 215) !important;
 }
@@ -134273,7 +134273,7 @@ body .auctions-ending-soon-count,
 body .trending-rail-count,
 body .rail-count {
   margin-left: auto !important;
-  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, monospace !important;
   font-size: 10.5px !important;
   font-weight: 500 !important;
   line-height: 16px !important;
@@ -144791,7 +144791,7 @@ body .order-id-chip {
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important;
   font-size: 12px !important;
   font-weight: 500 !important;
   line-height: 1 !important;
@@ -144842,7 +144842,7 @@ body .order-success-dialog .countdown,
 body .purchase-success-dialog .countdown,
 body .order-confirmation-dialog .countdown,
 body .trade-countdown {
-  font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important;
   font-size: 13px !important;
   font-weight: 500 !important;
   color: #9ea7b1 !important;
@@ -151788,7 +151788,7 @@ button.btn-copy:not(.failed) .icon-error,
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55) !important;
   padding: 14px !important;
   z-index: 9500 !important;
-  font-family: 'Inter', 'Roboto', system-ui, sans-serif !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9901 */
 
@@ -153387,7 +153387,7 @@ button[data-action="refund"]:hover {
   border: 1px solid rgba(255, 255, 255, 0.10) !important;
   -webkit-backdrop-filter: blur(6px) !important;
   backdrop-filter: blur(6px) !important;
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
@@ -156908,7 +156908,7 @@ body .modal-seller-info .modal-seller-sales {
   display: inline-flex !important;
   align-items: center !important;
   gap: 3px !important;
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
   font-size: 11px !important;
   font-weight: 500 !important;
   line-height: 1 !important;
@@ -156924,7 +156924,7 @@ body .modal-seller-info .modal-seller-sales {
 .price-converted::before,
 .fx-equivalent::before {
   content: "≈" !important;
-  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, monospace !important;
   font-weight: 400 !important;
   color: var(--ink-3, rgba(255, 255, 255, 0.4)) !important;
   margin-right: 1px !important;
@@ -156948,7 +156948,7 @@ body .modal-seller-info .modal-seller-sales {
 .price[data-anchor="USD"]::after,
 .item-price[data-anchor="USD"]::after {
   display: inline-block !important;
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
   font-size: 9px !important;
   font-weight: 600 !important;
   line-height: 1 !important;
@@ -157051,7 +157051,7 @@ body .modal-seller-info .modal-seller-sales {
   display: inline-flex !important;
   align-items: center !important;
   gap: 4px !important;
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
   font-size: 10px !important;
   font-weight: 500 !important;
   line-height: 1 !important;
@@ -168291,7 +168291,7 @@ html body .recent-sales-row .recent-sales-time {
    price quote" while the seller's reads as "your committed reply".
    Mirrors the price chrome on csfloat .raised-button-style amounts. */
 .item-offer-thread .item-offer-bubble .item-offer-amt {
-  font-family: "JetBrains Mono", "Roboto Mono", ui-monospace, monospace !important;
+  font-family: "Roboto Mono", "JetBrains Mono", ui-monospace, monospace !important;
   font-size: 16px !important;
   font-weight: 700 !important;
   letter-spacing: -0.01em !important;
@@ -176724,7 +176724,7 @@ body .settings-row:has(.toggle-switch:not(.off)) > .toggle-switch::before {
   right: calc(100% + 12px) !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
   font-size: 11px !important;
   font-weight: 500 !important;
   letter-spacing: 0.4px !important;
