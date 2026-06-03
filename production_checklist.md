@@ -212,3 +212,34 @@ of #172 done — boot-half still needs live Steam/Stripe secrets behind the tunn
   email anti-abuse (offer-email per-recipient cooldown + per-user notif row cap).
 - **Open (operator-gated):** #172 boot-half — boot the prod jar behind the tunnel with
   real Steam + Stripe live secrets and smoke-test the live money path.
+
+### ⚠ OPERATOR DECISION before real-money launch — chargeback exposure (instant settlement/payout vs. chargeback latency)
+A cross-flow money audit (the angle single-flow audits structurally miss) confirmed the
+code invariants are sound — every wallet debit serializes on Wallet @Version (no cross-flow
+double-spend, no negative balance), deposit double-credit is closed, auction-settle returns
+the item cleanly on insufficient funds, and the dispute hold (`countActiveDisputedDeposits`)
+gates EVERY flow that *starts* a spend (buy, bid, offer, withdraw, buy-order). There is no
+code bug here. BUT two inherent marketplace risks remain that are a BUSINESS decision, not a
+code fix, because the realistic chargeback lands days AFTER a trade settles and the only
+true mitigations (clearance/settlement holds) directly contradict the site's "instant
+cash-out" promise:
+  1. **Spend-then-chargeback → delivered goods + paid seller.** A buyer funds with a
+     chargeback-able card, buys a P2P listing, accepts the Steam trade (item delivered, seller
+     credited via TradeService.release — which by design does NOT re-check the buyer's dispute
+     state because the chargeback hasn't been filed yet), then charges back days later. The
+     dispute hold then freezes the buyer's *future* outflows, but the goods are gone and the
+     seller's wallet was already credited. Platform eats the chargeback.
+  2. **Sale proceeds withdrawn before clearance → collusion drain.** Seller is credited at
+     trade release and can withdraw via Stripe Connect immediately (instant cash-out); a
+     colluding/2-account buyer then charges back the funding deposit. Money has already left
+     the platform (real Transfer) and is unrecoverable; AdminService.clearDisputeHold already
+     documents this as accepted post-hoc-reconcile risk.
+Code-level mitigations already present: per-spend dispute holds, deposit daily cap + card-
+testing detector (FraudAnalysisService), Stripe idempotency, escrow. To reduce residual
+exposure WITHOUT killing instant-payout, the operator should decide among: (a) Stripe Radar
+rules / 3DS on deposits (config, no code change); (b) a fraud-score-gated short hold ONLY on
+high-risk first deposits before they're spendable on irreversible goods; (c) a withdrawal
+clearance delay on SALE proceeds for new/low-trust sellers (tiered, not blanket — preserves
+instant cash-out for trusted accounts); (d) accept the chargeback float as cost-of-business
+with monitoring. This is a risk-appetite call for launch — flagged, not silently changed,
+because (c)/blanket holds would contradict the "instant cash-out" product positioning.
