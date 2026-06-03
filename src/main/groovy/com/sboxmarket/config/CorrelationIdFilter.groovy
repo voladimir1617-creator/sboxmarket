@@ -99,15 +99,22 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         // is the audit posture we want. `interest-cohort=()` is the
         // FLoC opt-out — keeps our user list out of Chrome's
         // cohort assignment.
+        //
+        // NOTE: `ambient-light-sensor`, `battery` and `document-domain` are
+        // intentionally NOT listed. Current Chrome no longer recognises those
+        // Permissions-Policy tokens (the first two sensor/battery APIs were
+        // removed / flag-gated, and document.domain relaxation is already
+        // disabled by default via origin-keyed agent clusters), so emitting
+        // them produced an "Unrecognized feature" console warning on EVERY
+        // page load while providing zero real protection. Motion/sensor
+        // access is still denied via the recognised accelerometer / gyroscope
+        // / magnetometer tokens below.
         resp.setHeader("Permissions-Policy", String.join(', ',
             "accelerometer=()",
-            "ambient-light-sensor=()",
             "autoplay=()",
-            "battery=()",
             "bluetooth=()",
             "camera=()",
             "display-capture=()",
-            "document-domain=()",
             "encrypted-media=()",
             "fullscreen=(self)",
             "geolocation=()",
