@@ -5,6 +5,7 @@ import com.sboxmarket.controller.SteamInventoryController
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.ItemRepository
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.ListingService
 import com.sboxmarket.service.SteamInventoryService
@@ -49,6 +50,7 @@ class SteamInventoryControllerSpec extends Specification {
     SteamSyncService      steamSyncService      = Mock()
     SteamUserRepository   steamUserRepository   = Mock()
     ItemRepository        itemRepository        = Mock()
+    ListingRepository     listingRepository     = Mock()
     ListingService        listingService        = Mock()
     TextSanitizer         textSanitizer         = Mock()
 
@@ -58,6 +60,7 @@ class SteamInventoryControllerSpec extends Specification {
         steamSyncService     : steamSyncService,
         steamUserRepository  : steamUserRepository,
         itemRepository       : itemRepository,
+        listingRepository    : listingRepository,
         listingService       : listingService,
         textSanitizer        : textSanitizer
     )
@@ -930,5 +933,79 @@ class SteamInventoryControllerSpec extends Specification {
         thrown(com.sboxmarket.exception.ForbiddenException)
         0 * steamInventoryService.fetchInventory(_)
         0 * listingService.createListing(_)
+    }
+
+    // ── double-list → double-sell guard ───────────────────────────
+    //   A seller must not be able to create two LIVE listings for the SAME
+    //   physical asset (with escrow disabled both go ACTIVE → both could sell
+    //   → paid twice for one undeliverable copy). Guard keys on assetId.
+
+    def "list rejects a SECOND live listing of the same asset (ALREADY_LISTED)"() {
+        given: "the asset is owned + tradable, but a live listing for it already exists"
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(7L, '1001', _) >> true
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5'], req)
+
+        then: "rejected before any catalogue/listing write"
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'ALREADY_LISTED'
+        0 * listingService.createListing(_)
+    }
+
+    def "list persists the Steam assetId onto the created listing"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5'], req)
+
+        then: "the assetId is recorded so the duplicate guard can see it next time"
+        1 * listingService.createListing({ it.assetId == '1001' }) >> { args -> args[0].tap { it.id = 8200L } }
+    }
+
+    def "list-bulk reports ALREADY_LISTED for an already-listed asset without aborting the batch"() {
+        given: "both owned + tradable; only 1001 already has a live listing"
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true),
+            asset(assetId: '2002', classId: '501', name: 'Cargo Pants', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> { args -> new Item(id: 12L, name: args[0] as String) }
+        listingService.createListing(_) >> { args -> args[0].tap { it.id = 8300L } }
+        listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(7L, '1001', _) >> true
+        listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(7L, '2002', _) >> false
+
+        when:
+        def body = controller.listBulkFromSteam([assetIds: ['1001', '2002'], price: '5'], req).body
+
+        then: "2002 lists; 1001 lands in failed[] as ALREADY_LISTED"
+        body.ok.size() == 1
+        body.ok[0].assetId == '2002'
+        body.failed.size() == 1
+        body.failed[0].assetId == '1001'
+        body.failed[0].code == 'ALREADY_LISTED'
+    }
+
+    def "list-bulk collapses a duplicate assetId in the payload to a single listing"() {
+        given: "the same asset id appears twice in the request; no prior live listing"
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+        listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(_, _, _) >> false
+
+        when: "['1001','1001'] is de-duplicated up front by the .unique() on the id list"
+        def body = controller.listBulkFromSteam([assetIds: ['1001', '1001'], price: '5'], req).body
+
+        then: "exactly one listing is created — the duplicate never reaches the loop"
+        1 * listingService.createListing(_) >> { args -> args[0].tap { it.id = 8301L } }
+        body.ok.size() == 1
+        body.failed.size() == 0
     }
 }

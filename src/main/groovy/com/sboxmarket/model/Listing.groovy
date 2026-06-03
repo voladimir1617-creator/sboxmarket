@@ -80,6 +80,18 @@ class Listing {
     @Column
     Long sellerUserId
 
+    /** The Steam inventory asset id this listing was created from (the unique
+     *  per-copy id, NOT the item/class id — a seller may legitimately own two
+     *  copies of the same item with different assetIds). Used to forbid a
+     *  seller from creating two LIVE listings for the SAME physical asset,
+     *  which — when the escrow bot is disabled and listings go straight to
+     *  ACTIVE — would let both sell and pay the seller twice for one
+     *  undeliverable item (double-sell). Null for seed/system listings and
+     *  legacy rows created before this column. Nullable so ddl-auto=update /
+     *  the migration add it to existing rows without a backfill. */
+    @Column(name = "asset_id")
+    String assetId
+
     /** SteamUser.id of the buyer who purchased the listing (null if still ACTIVE). */
     @Column
     Long buyerUserId

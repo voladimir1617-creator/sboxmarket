@@ -21,6 +21,20 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
 
     List<Listing> findByStatus(String status)
 
+    /**
+     * Double-list guard: does this seller already have a LIVE listing for this
+     * exact Steam asset? Used by SteamInventoryController.list[Bulk]FromSteam
+     * to reject a second listing of the SAME physical asset (which, with the
+     * escrow bot disabled, would go straight to ACTIVE and let both sell —
+     * paying the seller twice for one undeliverable copy). Keys on assetId (the
+     * unique per-copy id), NOT itemId — a seller may legitimately own two
+     * different copies of the same item. Callers pass the "live" status set
+     * (ACTIVE + PENDING_ESCROW); terminal CANCELLED/SOLD rows are ignored, so a
+     * returned-then-relisted asset is fine. assetId is required (never matches
+     * the NULL legacy/seed rows).
+     */
+    boolean existsBySellerUserIdAndAssetIdAndStatusIn(Long sellerUserId, String assetId, Collection<String> statuses)
+
     /** Public marketplace "cheapest first" query — excludes hidden rows
      *  so vacation-mode / per-listing Hide doesn't leak into the grid. */
     @Query("""

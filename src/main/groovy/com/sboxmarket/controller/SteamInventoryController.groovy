@@ -3,6 +3,7 @@ package com.sboxmarket.controller
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.repository.ItemRepository
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
@@ -38,6 +39,7 @@ class SteamInventoryController {
     @Autowired SteamSyncService steamSyncService
     @Autowired SteamUserRepository steamUserRepository
     @Autowired ItemRepository itemRepository
+    @Autowired ListingRepository listingRepository
     @Autowired ListingService listingService
     @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
     // Bot-escrow deposit leg. Optional so existing tests that wire this
@@ -239,6 +241,20 @@ class SteamInventoryController {
             throw new BadRequestException("NOT_TRADABLE", "This item is not tradable on Steam right now.")
         }
 
+        // Double-list → double-sell guard. Forbid a second LIVE listing for the
+        // SAME physical asset: with the escrow bot disabled a listing goes
+        // straight to ACTIVE, so two listings of one asset could both sell and
+        // pay the seller twice for one undeliverable copy. Keys on assetId (the
+        // unique per-copy id) so owning two different copies of the same item
+        // is still fine; only ACTIVE / PENDING_ESCROW count (terminal rows and
+        // a returned-then-relisted asset are allowed).
+        if (listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(
+                uid, assetId,
+                ['ACTIVE', com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW])) {
+            throw new BadRequestException("ALREADY_LISTED",
+                "You already have an active listing for this item. Cancel it before listing it again.")
+        }
+
         def name = (steamItem.name ?: '').toString()
         // Indexed lookup via the `idx_items_name` functional index on
         // `LOWER(name)` — O(log N) instead of the previous full scan.
@@ -354,6 +370,7 @@ class SteamInventoryController {
             rarityScore:  BigDecimal.ZERO,
             status:       initialStatus,
             sellerUserId: uid,
+            assetId:      assetId,
             listingType:  resolvedType,
             description:  cleanDesc,
             buyNowPrice:  buyNowPrice,
@@ -482,6 +499,17 @@ class SteamInventoryController {
                         message: 'Not tradable on Steam right now']
                     return
                 }
+                // Double-list guard (mirrors the single-list path): reject a
+                // second LIVE listing of the same asset from a prior request.
+                // (Same-batch duplicate ids are already removed by the
+                // `.unique()` on assetIds above, so the DB check is enough.)
+                if (listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(
+                        uid, assetId,
+                        ['ACTIVE', com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW])) {
+                    failed << [assetId: assetId, code: 'ALREADY_LISTED',
+                        message: 'You already have an active listing for this item']
+                    return
+                }
                 def name = (steamItem.name ?: '').toString()
                 def item = itemRepository.findByNameIgnoreCase(name)
                 if (item == null) {
@@ -511,6 +539,7 @@ class SteamInventoryController {
                     rarityScore:  BigDecimal.ZERO,
                     status:       initialStatus,
                     sellerUserId: uid,
+                    assetId:      assetId,
                     listingType:  'BUY_NOW',
                     maxDiscount:  bulkMaxDiscount
                 )
