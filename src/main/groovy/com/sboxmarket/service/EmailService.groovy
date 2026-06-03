@@ -83,6 +83,18 @@ class EmailService {
         }
     }
 
+    /** Make a caller-supplied URL absolute so the email CTA is clickable.
+     *  Callers (BidService, BuyOrderService, WatchlistAlertService, etc.) pass a
+     *  RELATIVE path like "/item/42" or "/wallet"; templates printed it verbatim,
+     *  so the recipient saw a dead "open the item: /item/42" with no host. Prefix
+     *  relative paths with publicUrl; already-absolute (http) or null/blank values
+     *  pass through unchanged (and if publicUrl isn't configured we leave the path
+     *  as-is rather than emit a "null/..." link). */
+    private String absUrl(String u) {
+        if (u && u.startsWith('/') && publicUrl) return publicUrl + u
+        return u
+    }
+
     // ── Per-bucket mute check ───────────────────────────────────────
 
     /** The set of buckets a user can opt out of via the Profile UI.
@@ -471,7 +483,7 @@ Hi ${displayName ?: 'there'},
 
 ${coreLine}
 
-Listings move fast. See the item${itemUrl ? ': ' + itemUrl : '.'}
+Listings move fast. See the item${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
 
 You can manage or cancel your active alerts from the Watchlist page.
 
@@ -515,7 +527,7 @@ ${sellerName} — a seller you follow — just listed ${itemName ?: 'a new item'
     price != null ? ' for \$' + price.toPlainString() : ''
 }.
 
-Take a look${itemUrl ? ': ' + itemUrl : '.'}
+Take a look${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
 
 You're getting this because you followed the seller. Unfollow from the
 seller's stall page or turn off email notifications in Profile → Settings.
@@ -539,7 +551,7 @@ You've been outbid on ${itemName ?: 'an auction you were winning'}.
 Current top bid: \$${(newTopBid ?: BigDecimal.ZERO).toPlainString()}
 
 You can place a new bid or set an auto-bid cap from the item detail
-page${itemUrl ? ': ' + itemUrl : '.'}
+page${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
 
 If you've already set an auto-bid that hasn't been exhausted, our bot
 may have re-raised on your behalf since this email was sent — check the
@@ -708,7 +720,7 @@ Your standing buy order for ${itemName ?: 'an item'} just auto-filled.
 Paid:         ${usd(fillPrice)}
 Your cap was: ${usd(maxCap)}
 
-The seller has been notified to send the Steam trade offer. Track the trade from Profile → Trades, or open the item${itemUrl ? ': ' + itemUrl : '.'}
+The seller has been notified to send the Steam trade offer. Track the trade from Profile → Trades, or open the item${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
 
 If anything looks off (wrong price, wrong item) open a dispute from the trade row and staff will review.
 
@@ -843,7 +855,7 @@ Your cap was: \$${(maxCap ?: BigDecimal.ZERO).toPlainString()}
 If you still want the item, re-create the buy order from:
 ${publicUrl}/profile?tab=buyorders
 
-Or open the item directly${itemUrl ? ': ' + itemUrl : '.'}
+Or open the item directly${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
 
 You're getting this because buy-order results are part of your trade pipeline. Mute the "Trade activity" bucket in Profile → Email notifications to stop these.
 
@@ -898,7 +910,7 @@ ${itemName ?: 'An auction'} you're watching / have bid on is ending in about ${m
 
 Current top bid: \$${(topBid ?: BigDecimal.ZERO).toPlainString()}
 
-If you want to raise your bid or confirm your auto-bid cap, open the item now${itemUrl ? ': ' + itemUrl : '.'}
+If you want to raise your bid or confirm your auto-bid cap, open the item now${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
 
 Anti-snipe rules: a bid in the final 30 seconds extends the close by another 30 seconds so nobody wins purely on timing. A single last-second click still has a fair chance.
 
@@ -920,7 +932,7 @@ You won the auction for ${itemName ?: 'an item'} at ${usd(finalPrice)}.
 
 The seller has been notified and will send the Steam trade offer within
 the escrow window (typically 8 days). You can track the trade from
-Profile → Trades${itemUrl ? ' or open the item: ' + itemUrl : '.'}
+Profile → Trades${itemUrl ? ' or open the item: ' + absUrl(itemUrl) : '.'}
 
 — The SkinBox team
 """.stripIndent()
@@ -945,7 +957,7 @@ The buyer confirmed receipt of ${itemName ?: 'your item'} and funds have
 been released from escrow. Your wallet was credited ${usd(netCredit)}
 (sale price minus the 2% platform fee).
 
-You can cash out to Stripe from your wallet at any time${walletUrl ? ': ' + walletUrl : '.'}
+You can cash out to Stripe from your wallet at any time${walletUrl ? ': ' + absUrl(walletUrl) : '.'}
 
 Payouts typically clear in 1-2 business days.
 
@@ -1226,7 +1238,7 @@ A fresh listing just matched your saved search "${presetName}".
 
   · ${itemName ?: 'New item'}${price != null ? ' — \$' + price.toPlainString() : ''}
 
-View the listing${itemUrl ? ': ' + itemUrl : '.'}
+View the listing${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
 
 You're getting this because you saved this search on SkinBox. Manage or
 delete the preset from the marketplace search bar's Saved Searches
