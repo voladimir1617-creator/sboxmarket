@@ -42,8 +42,15 @@ export function InfoModal({ title, onClose, children, wide }) {
         // or a .cart-confirm-backdrop — let ITS own handler take Escape rather
         // than closing the whole page out from under it. A bare full-page modal
         // has exactly one .modal-backdrop, so Escape still closes it normally.
+        // Also bail for any open global-nav dropdown (mini-cart, currency /
+        // language pickers, notifications bell): they render with NO
+        // .modal-backdrop (so the count check above misses them) but have their
+        // own Escape→close handlers, so without this Escape on an InfoModal
+        // route (/profile, /wallet, /offers, …) closed the whole page instead of
+        // just the open dropdown. Mirrors the app-level Escape guard in app.js.
         if (document.querySelectorAll('.modal-backdrop').length > 1 ||
-            document.querySelector('.cart-confirm-backdrop')) return;
+            document.querySelector('.cart-confirm-backdrop') ||
+            document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown')) return;
         e.stopPropagation();
         onClose();
         return;
