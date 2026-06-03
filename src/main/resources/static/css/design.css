@@ -199734,3 +199734,39 @@ html body .grid-card .grid-footer .grid-price {
   backdrop-filter: none !important;
 }
 /* ===== END WAVE-INT9 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT10 (remove broken /sell pseudo-toolbar) =====
+   BUG (/sell, every viewport): ships #6501 / #6503 / #6504 synthesised the
+   inventory toolbar entirely from CSS pseudo-content on the GENERIC .empty-inline
+   class and the page H1:
+     • .empty-inline::before  = "Refresh inventory  ·  Last synced: just now"
+       (absolute, top:-56px, left:0, ~280px wide)
+     • .empty-inline::after   = "Tradable  All  Marketable"
+       (absolute, top:-56px, left:50% centred)
+     • h1#info-modal-h-sell-items::after = a hardcoded "0 ITEMS" pill
+   This is fundamentally broken in our layout:
+     1. The toolbar relied on `.empty-inline{margin-top:96px}` (ship #6501) to
+        reserve a row, but a later global `.empty-inline` reset its margin-top to
+        0 (computed:0 confirmed live), so the toolbar collapsed UP onto the
+        "Steam Inventory" title — overlapping garble.
+     2. Even with the margin restored, the ::before (left, ~280px) and the
+        centred ::after mathematically overlap inside the ~390px empty-state
+        card (they were sized for csfloat's WIDE full-page inventory panel, not
+        our narrow centred card).
+     3. The toolbar is non-functional (pointer-events:none CSS text), the count
+        is hardcoded "0 ITEMS" (never updates), and the whole thing only renders
+        in the EMPTY state — when the user actually has items the real grid
+        replaces .empty-inline and the "toolbar" vanishes. So it can never be
+        anything but broken decoration.
+   FIX: drop the three broken pseudo decorations (content:none) and neutralise
+   the dead reserved-space margin. Keep ship #6500's clean "Steam Inventory"
+   page title (h1::before) — that one is correct and renders fine. Result: a
+   clean "Steam Inventory" heading above the inventory / sign-in card, no
+   overlap. A real, functional toolbar (live Refresh + working filter tabs +
+   live count) would need JS in the sell component — out of scope for CSS. */
+.empty-inline::before,
+.empty-inline::after,
+body h1#info-modal-h-sell-items::after {
+  content: none !important;
+}
+/* ===== END WAVE-INT10 ===== */
