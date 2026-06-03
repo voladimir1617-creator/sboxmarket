@@ -3108,6 +3108,12 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
             onClick: async () => {
               if (!hasTradeUrl) return;
               if (!confirm(`Buy Now at ${fmt(view.buyNowPrice)}? Closes the auction instantly and transfers the item to you.`)) return;
+              // Synchronous re-entrancy latch — mirror the bid submit (line ~2805).
+              // The blocking confirm() above already serialises clicks, but latch
+              // anyway so every money submit in this component is guarded the same
+              // way. busyRef auto-resets via the per-render sync after setBusy(false).
+              if (busyRef.current) return;
+              busyRef.current = true;
               setBusy(true);
               try {
                 const { buyNowAuction } = await import('./api.js');
