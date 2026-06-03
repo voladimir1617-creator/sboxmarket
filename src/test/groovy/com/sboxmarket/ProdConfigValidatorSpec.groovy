@@ -45,6 +45,7 @@ class ProdConfigValidatorSpec extends Specification {
             STEAM_REALM:                'https://skinbox.market',
             STEAM_RETURN_URL:           'https://skinbox.market/auth/steam/return',
             APP_UNSUBSCRIBE_SECRET:     'a-real-random-prod-secret-9912ff',
+            APP_PUBLIC_URL:             'https://skinbox.market',
         ]
     }
 
@@ -140,6 +141,24 @@ class ProdConfigValidatorSpec extends Specification {
         violations.size() == 1
         violations[0].contains('APP_UNSUBSCRIBE_SECRET')
         violations[0].toLowerCase().contains('refusing to start')
+    }
+
+    def "APP_PUBLIC_URL pointing at localhost → refuse to start"() {
+        given: 'a present-but-localhost public URL (copy-pasted from local-prod); everything else valid'
+        Map<String, String> env = validEnv()
+        env.APP_PUBLIC_URL = badUrl
+        stubEnv(env)
+
+        when:
+        List<String> violations = validator.findViolations()
+
+        then: 'flagged as a localhost URL, refusing to start — and NOT as missing'
+        violations.size() == 1
+        violations[0].contains('APP_PUBLIC_URL')
+        violations[0].toLowerCase().contains('refusing to start')
+
+        where:
+        badUrl << ['http://localhost:8080', 'http://127.0.0.1:8082', 'https://localhost']
     }
 
     def "the dev placeholder constant matches the value committed in EmailService"() {

@@ -66,7 +66,15 @@ class ProdConfigValidator {
      *  with no default and that the app cannot meaningfully run without.
      *  (STEAM_API_KEY, ACTUATOR_PORT, COOKIE_SECURE, SWAGGER_ENABLED, LOG_FILE,
      *  SPRING_DATASOURCE_DRIVER all HAVE defaults in the yaml, so they're not
-     *  here.) */
+     *  here.)
+     *
+     *  APP_PUBLIC_URL is the one exception that DOES have a default
+     *  (`http://localhost:${server.port}` in application.yml). It's listed
+     *  anyway because that default is actively dangerous in prod: EmailService
+     *  absolutizes every email CTA against it and StripeService uses it for the
+     *  Stripe Connect onboarding return/refresh URLs, so an unset value ships
+     *  `http://localhost:8080` links in real mail and breaks seller onboarding.
+     *  Better to fail-fast than to send customers broken localhost links. */
     static final List<String> REQUIRED_VARS = [
         'SPRING_DATASOURCE_URL',
         'SPRING_DATASOURCE_USERNAME',
@@ -81,6 +89,7 @@ class ProdConfigValidator {
         'STEAM_REALM',
         'STEAM_RETURN_URL',
         'APP_UNSUBSCRIBE_SECRET',
+        'APP_PUBLIC_URL',
     ].asImmutable()
 
     @Autowired
@@ -117,6 +126,16 @@ class ProdConfigValidator {
         if (stripeKey != null && stripeKey.startsWith(STRIPE_TEST_KEY_PREFIX)) {
             violations.add("STRIPE_SECRET_KEY is a Stripe TEST key (starts with '${STRIPE_TEST_KEY_PREFIX}') " +
                 '— refusing to start (no real charges would be processed in production)'.toString())
+        }
+
+        // A present-but-localhost APP_PUBLIC_URL (e.g. copy-pasted from the
+        // local-prod env file) passes the presence check above but is just as
+        // broken in prod as an unset one — every absolutized email link and the
+        // Stripe Connect onboarding URLs would point at the operator's box.
+        String publicUrl = environment.getProperty('APP_PUBLIC_URL')
+        if (publicUrl != null && (publicUrl.contains('localhost') || publicUrl.contains('127.0.0.1'))) {
+            violations.add("APP_PUBLIC_URL points at localhost ('${publicUrl}') — refusing to start " +
+                '(email CTAs and Stripe onboarding return URLs would be unreachable localhost links)'.toString())
         }
 
         return violations
