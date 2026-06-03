@@ -92,6 +92,65 @@ class TotpService {
         String.format('%0' + DIGITS + 'd', otp)
     }
 
+    // ── Brute-force lockout for the verify path (shared) ────────────
+    //
+    // A 6-digit TOTP is a 1,000,000 space; the /withdraw rate limit alone
+    // (~172k attempts/day) would land a valid code in ~48h without an
+    // attempt cap. ProfileController already enforces this on /2fa/disable +
+    // /2fa/regenerate-codes (wave #149) via its own private counter, but the
+    // money-out gate (WalletController.withdraw) was NOT covered — a hijacked
+    // session could brute-force the withdraw TOTP. These shared lockout
+    // helpers let the withdraw gate enforce the same per-user cap.
+
+    /** Consecutive failed verifications before a per-user lockout kicks in. */
+    static final int MAX_2FA_FAILS = 5
+    /** Lockout duration once the fail cap is hit. */
+    static final long LOCKOUT_MS = 15L * 60_000L
+
+    /** Per-user [consecutiveFails, lockedUntilEpochMs]. LRU-capped + wrapped
+     *  in synchronizedMap (the withdraw gate is hit from any web thread). */
+    private final java.util.Map<Long, long[]> twoFaFails =
+        java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<Long, long[]>(256, 0.75f, true) {
+                @Override protected boolean removeEldestEntry(java.util.Map.Entry<Long, long[]> e) {
+                    return size() > 8192
+                }
+            } as java.util.LinkedHashMap<Long, long[]>)
+
+    /** Ms remaining on a per-user 2FA lockout, or 0 if not locked. Call
+     *  BEFORE verify so a locked user is rejected without consuming a code. */
+    long lockoutRemainingMs(Long userId) {
+        if (userId == null) return 0L
+        synchronized (twoFaFails) {
+            long[] st = twoFaFails.get(userId)
+            if (st == null) return 0L
+            long rem = st[1] - System.currentTimeMillis()
+            return rem > 0 ? rem : 0L
+        }
+    }
+
+    /** Record a failed 2FA attempt; locks the user for LOCKOUT_MS once
+     *  MAX_2FA_FAILS consecutive fails are reached (counter then resets so a
+     *  post-lockout burst re-locks rather than firing on every attempt). */
+    void recordFail(Long userId) {
+        if (userId == null) return
+        synchronized (twoFaFails) {
+            long[] st = twoFaFails.get(userId)
+            if (st == null) { st = [0L, 0L] as long[]; twoFaFails.put(userId, st) }
+            st[0]++
+            if (st[0] >= MAX_2FA_FAILS) {
+                st[1] = System.currentTimeMillis() + LOCKOUT_MS
+                st[0] = 0L
+            }
+        }
+    }
+
+    /** Clear a user's 2FA fail state on a successful verification. */
+    void clearFails(Long userId) {
+        if (userId == null) return
+        synchronized (twoFaFails) { twoFaFails.remove(userId) }
+    }
+
     // ── Backup / recovery codes ─────────────────────────────────────
 
     /** Number of backup codes to mint at enrollment / regeneration. Ten is

@@ -510,11 +510,24 @@ class WalletController {
                 throw new com.sboxmarket.exception.BadRequestException("TOTP_REQUIRED",
                     "Two-factor code required for withdrawals")
             }
+            // Brute-force lockout BEFORE verify (a 6-digit code is a 1M space;
+            // the per-user /api/wallet rate limit alone allows ~172k guesses/day
+            // — without a cap a hijacked session brute-forces the withdraw 2FA
+            // gate in ~48h and drains to the daily cap). Checked first so a
+            // locked attacker can't keep guessing AND a guess while locked never
+            // consumes a code. Shares TotpService's per-user counter.
+            long lockMs = totpService.lockoutRemainingMs(user.id)
+            if (lockMs > 0) {
+                throw new com.sboxmarket.exception.BadRequestException("TOTP_LOCKED",
+                    "Too many invalid 2FA codes. Try again in ${(long) Math.ceil(lockMs / 60000.0d)} minute(s).".toString())
+            }
             def step = totpService.verify(user.totpSecret, code, user.lastTotpStep)
             if (step < 0) {
+                totpService.recordFail(user.id)
                 throw new com.sboxmarket.exception.BadRequestException("TOTP_INVALID",
                     "Invalid or reused 2FA code")
             }
+            totpService.clearFails(user.id)
             user.lastTotpStep = step
             steamUserRepository.save(user)
         }
