@@ -1,7 +1,7 @@
 # Production Readiness Checklist
 
 Verified state of the csfloat-parity + production hardening work, captured so it
-survives context compaction. Last updated 2026-06-01.
+survives context compaction. Last updated 2026-06-02.
 
 Status legend: ✅ shipped & verified live (Playwright/curl this session, in git) ·
 🔧 still open, ranked P0 (ship-blocker) / P1 (parity or prod gap) / P2 (polish).
@@ -37,6 +37,17 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 ### Infra / ops
 - HikariCP connection pool (max 40) + Actuator metrics exposed on a private port — prod config
 - Test suite green, ~4174 tests
+
+### 2026-06-02 — comprehensive adversarial-review hardening + prod artifact verified
+- Every money-touching UI was adversarially reviewed + hardened, and EVERY money submit now carries a synchronous re-entrancy latch (no rapid-double-click double-POST):
+  - **Sell:** fixed a real sub-cent→$0.00 free-listing exploit — `0.004` passed the `<=0` checks then rounded to $0.00 in `NUMERIC(10,2)`, creating a free, instantly-buyable listing. Added a `$0.01` floor client-side AND on both server Steam first-list paths (+ Spock test rows).
+  - **Cart checkout / single-buy confirm / withdraw / trade accept+release+cancel+mark-sent / admin money actions** (via the shared `ReasonDrawer`): all latched against double-submit.
+  - **Withdraw `$1` minimum + offer/bid amount validation** surfaced client-side (were opaque server rejects / unvalidated).
+- **Account security:** 2FA enroll no longer leaks the TOTP secret to a third-party QR service (`api.qrserver.com`) — replaced with an on-device `otpauth://` deep-link + manual secret, so the seed never leaves the browser. Abandoning enrollment now calls `/2fa/cancel`, so it can no longer wedge email verification (which gates withdrawals).
+- **Item page:** biddable auctions on mixed listings, coherent seeded auction bid history, single-buy confirm step, cold deep-link no-flash guard, and a complete Escape-overlay guard (confirm dialog / stacked InfoModal modal / inline drawer aware) — verified live with real key presses.
+- **Loadout builder** verified at csfloat parity; guarded a latent slots-less render crash + scoped the item-picker Escape to the picker.
+- **Prod fat jar:** `./gradlew bootJar` → `build/libs/sboxmarket-1.0.0.jar` (87MB) builds AND boots + serves HTTP 200 + real API data on the H2 profile — the deployable artifact is verified runnable, not just packaged.
+- Full suite green after the floor change; console clean (0 errors/0 warnings) across a full route sweep; no horizontal overflow at 1440 or 390.
 
 ---
 
