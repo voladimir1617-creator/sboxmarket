@@ -425,7 +425,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // True only when there's enough history to compute a real 30-day
   // delta. Without it the pill below fabricated a "+$0.00 (0.0%)" that
   // read as a confident "no change" on brand-new, zero-history items.
-  const hasChange30dData = change30dBase != null;
+  // Require a finite CURRENT floor too: a recently sold-out item can have
+  // 30-day history (change30dBase) but no live lowestPrice, which made
+  // change30d/changePct compute to the literal "NaN" → the pill rendered
+  // "▼ $0.00 (NaN%)". No current price means no real delta, so hide the pill.
+  const hasChange30dData = change30dBase != null && Number.isFinite(parseFloat(item.lowestPrice));
   const change30d = change30dBase != null
     ? (parseFloat(item.lowestPrice) - change30dBase).toFixed(2)
     : '0.00';
