@@ -2340,7 +2340,9 @@ function RecentlyViewedRail({ watchlist, onToggleStar, currentItemId }) {
         ),
         h('div', { className: 'recently-viewed-name' }, it.name),
         h('div', { className: 'recently-viewed-price' },
-          it.lowestPrice != null ? fmt(it.lowestPrice) : '—')
+          // Unlisted/sold-out items come back lowestPrice 0.00 (not null), so a
+          // `!= null` guard still rendered "$0.00" (reads as free). Require > 0.
+          (it.lowestPrice != null && parseFloat(it.lowestPrice) > 0) ? fmt(it.lowestPrice) : '—')
       ))
     )
   );

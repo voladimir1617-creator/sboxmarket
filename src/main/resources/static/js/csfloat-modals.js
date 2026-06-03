@@ -756,7 +756,8 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                   h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' } }, it.name),
                   h('div', { style: { fontSize: 10, color: 'var(--text-muted)' } }, it.category + ' · ' + it.rarity)
                 ),
-                h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(it.lowestPrice))
+                h('div', { style: { fontSize: 12, fontWeight: 700, color: (parseFloat(it.lowestPrice) > 0 ? 'var(--accent)' : 'var(--text-muted)'), fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } },
+                  parseFloat(it.lowestPrice) > 0 ? fmt(it.lowestPrice) : '—')
               ))
         )
       ),
@@ -767,7 +768,9 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
           h('div', { className: 'db-thumb', style: { width: 48, height: 48 } }, h(ItemImage, { item: picked, variant: 'mini' })),
           h('div', { style: { flex: 1, minWidth: 0 } },
             h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, picked.name),
-            h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Floor · ', h('strong', { style: { color: 'var(--accent)' } }, fmt(picked.lowestPrice)))
+            h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Floor · ', parseFloat(picked.lowestPrice) > 0
+              ? h('strong', { style: { color: 'var(--accent)' } }, fmt(picked.lowestPrice))
+              : h('strong', { style: { color: 'var(--text-muted)' } }, 'no active listings'))
           ),
           !preselectedItem && h('button', {
             className: 'btn btn-ghost',
@@ -1977,7 +1980,8 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
       },
         h('span', { style: { fontSize: 16 } }, ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[it.category] || '—'),
         h('span', { style: { fontSize: 12, flex: 1, minWidth: 0 } }, it.name),
-        h('span', { style: { fontSize: 11, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(it.lowestPrice))
+        h('span', { style: { fontSize: 11, color: (parseFloat(it.lowestPrice) > 0 ? 'var(--accent)' : 'var(--text-muted)'), fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } },
+          parseFloat(it.lowestPrice) > 0 ? fmt(it.lowestPrice) : '—')
       ))
     ),
     h('button', { className: 'loadout-add-btn', style: { marginTop: 6 }, onClick: () => setOpen(false) }, 'Cancel')
