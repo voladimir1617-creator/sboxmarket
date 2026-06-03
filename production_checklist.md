@@ -243,3 +243,47 @@ clearance delay on SALE proceeds for new/low-trust sellers (tiered, not blanket 
 instant cash-out for trusted accounts); (d) accept the chargeback float as cost-of-business
 with monitoring. This is a risk-appetite call for launch — flagged, not silently changed,
 because (c)/blanket holds would contradict the "instant cash-out" product positioning.
+
+---
+
+## Session waves 157–164 (2026-06-03) — withdraw 2FA lockout + visual/SEO certification
+
+Backend / security:
+- ✅ **Wave 157** — Withdraw 2FA brute-force lockout. `/api/wallet/withdraw` verified a
+  6-digit TOTP with no attempt cap (~172k guesses/day via the rate limit alone). Added a
+  shared per-user lockout to `TotpService` (MAX_2FA_FAILS=5 → 15-min lock, LRU map) wired
+  into the withdraw gate (check before verify, record on TOTP_INVALID, clear on success).
+  New `WalletControllerWithdraw2faLockoutSpec` (3 cases). Full suite green (213 suites, 0
+  failures). app boots clean.
+- ✅ **Wave 158** — Dropped 3 unrecognised Permissions-Policy tokens (ambient-light-sensor,
+  battery, document-domain) that logged an "Unrecognized feature" console warning on every
+  page load. Clean console verified live.
+
+Frontend (csfloat-parity / production polish), all verified live via Playwright DOM+screenshot:
+- ✅ **Wave 159 (WAVE-INT9)** — Footer bleed-through behind EVERY full-page route (/db, /sell,
+  /wallet, /profile, /loadout, /watchlist): the InfoModal backdrop was a translucent fixed
+  overlay (ship #2113) so the footer collapsed up under the nav and showed through. Made the
+  full-page overlay backdrop opaque (var(--bg)). /cart untouched (own static rescue).
+- ✅ **Wave 160 (WAVE-INT10)** — Removed a broken CSS-pseudo-content "inventory toolbar"
+  (ships #6501/#6503/#6504) that hung off the GLOBAL `.empty-inline` → leaked a garbled,
+  overlapping, non-functional Refresh/filter/0-ITEMS toolbar onto every empty state app-wide.
+- ✅ **Wave 161** — 404 page "Help Center" button text wrapped/overflowed (flex row too narrow,
+  no wrap). Added flex-wrap + white-space:nowrap so buttons stack cleanly.
+- ✅ **Waves 162–164** — "$0.00 reads as free" for sold-out/unlisted items (API returns
+  lowestPrice 0.00, not null). Gated every price render with `> 0 ? fmt : '—'/'Not listed'`
+  and hid the fake "-100%" 30-day pill on the item hero, recently-viewed rail(s), similar /
+  "you might also like" rail, and buy-order/loadout pickers. (DB table + search-suggest were
+  already gated.) Verified live: zero "$0.00" across all rails; live-priced items unchanged.
+
+Comprehensive validation this session (no defects found / certified clean):
+- Visual sweep: home, market, item-detail (buy-now / sold-out / live-auction / multi-listing),
+  db, cart, watchlist, loadout, profile, help, item-not-found, 404 — desktop + mobile.
+  Interactions: price-history range toggle, currency dropdown, auction bid panel (countdown +
+  min-bid = current + increment) all correct.
+- SEO/crawl: robots.txt (Allow public + Disallow all private surfaces, prod Sitemap ref),
+  sitemap.xml, per-item OG/Twitter/product meta (og:price/availability) + single canonical.
+- Trust/PWA/observability: security.txt RFC-9116 valid + unexpired; all 7 legal pages +
+  status/changelog 200; favicon + all manifest icons resolve; NO actuator/debug endpoint
+  exposure (/actuator/* 404; /env,/heapdump,/jolokia just hit the SPA HTML fallback).
+- No dev-login/session-impersonation backdoor (the /simulate/* admin endpoints are
+  requireAdmin-gated QA seeders only).
