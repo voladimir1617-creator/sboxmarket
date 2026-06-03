@@ -119180,6 +119180,28 @@ svg.chart, .sparkline-wrap > svg {
   flex: initial !important;
 }
 
+/* Mobile featured rail — the wrapping grid above collapses to a single column
+   on phones, stacking all 7 featured cards vertically (~2900px, ~40% of the
+   page). csfloat shows featured items as a compact, swipeable horizontal rail.
+   Restore that on phones: cards flow in a row that scrolls WITHIN the rail
+   (overflow-x on the rail only — width:100% keeps it from ever overflowing the
+   page), ~1.25 cards peeking to signal swipeability, snap for a clean stop.
+   Result: the section is ~one card tall instead of seven. */
+@media (max-width: 640px) {
+  .csfloat-home-preview-row {
+    grid-auto-flow: column !important;
+    grid-template-columns: none !important;
+    grid-auto-columns: 78% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scroll-snap-type: x proximity !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .csfloat-home-preview-row > * {
+    scroll-snap-align: start !important;
+  }
+}
+
 /* Recently Viewed rail header — was missing styles so the section
    title smashed against the Clear button. Mirror the .just-listed-head
    editorial pattern: dot + label flush left, Clear floated right. */
