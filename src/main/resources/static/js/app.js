@@ -4675,10 +4675,19 @@ export function App() {
         //     Escape→close useEffect (modals.js); without this guard Escape BOTH
         //     closed the lightbox AND fell through to Escape→/market, bouncing
         //     the user off the item page when they only meant to close the zoom.
+        //   • ANY open global-nav dropdown — the header mini-cart
+        //     (.csfloat-cart-popover-container), the currency / language pickers
+        //     (.nav-picker-panel), and the notifications bell (.notif-dropdown).
+        //     Each renders with NO `.modal-backdrop` but has its OWN
+        //     Escape→close useEffect, and each opens on keyboard focus too — so
+        //     without this bail Escape BOTH closed the dropdown AND fell through
+        //     to Escape→/market, throwing the user off /item (or any non-market
+        //     route) when they only meant to dismiss the dropdown. a11y fix.
         if (document.querySelector('.cart-confirm-backdrop') ||
             document.querySelectorAll('.modal-backdrop').length > 1 ||
             document.querySelector('.item-offer-drawer') ||
-            document.querySelector('.item-lightbox')) return;
+            document.querySelector('.item-lightbox') ||
+            document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown')) return;
         if (shortcutsOpen)        setShortcutsOpen(false);
         // /item/{id} is a real page (per `feedback_pages_not_popups.md`) — pressing
         // Escape used to call `setSelected(null)` which left routeName='item' but
