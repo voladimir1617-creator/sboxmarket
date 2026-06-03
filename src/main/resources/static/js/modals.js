@@ -429,7 +429,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // 30-day history (change30dBase) but no live lowestPrice, which made
   // change30d/changePct compute to the literal "NaN" → the pill rendered
   // "▼ $0.00 (NaN%)". No current price means no real delta, so hide the pill.
-  const hasChange30dData = change30dBase != null && Number.isFinite(parseFloat(item.lowestPrice));
+  // NOTE: must be `> 0`, not just `Number.isFinite(...)`. A sold-out / delisted
+  // item comes back with lowestPrice 0.00 (finite!), which slipped past the
+  // finite check and computed (0 - base)/base = a fake "-100.0%" crash pill.
+  // Require a positive live floor so the pill hides (→ "no data") when nothing
+  // is currently listed, matching the Listing-price "Not listed" treatment.
+  const hasChange30dData = change30dBase != null && parseFloat(item.lowestPrice) > 0;
   const change30d = change30dBase != null
     ? (parseFloat(item.lowestPrice) - change30dBase).toFixed(2)
     : '0.00';
@@ -708,7 +713,13 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             // active listing is what the buyer pays before fees.
             h('div', { className: 'modal-stat-box' },
               h('div', { className: 'modal-stat-label' }, 'Listing price'),
-              h('div', { className: 'modal-stat-val accent' }, fmt(item.lowestPrice))
+              // A sold-out / delisted item comes back with lowestPrice 0.00
+              // (NOT null), so an ungated fmt() rendered "$0.00" — reading as
+              // a free item. Mirror the search-suggest guard: only show a
+              // price when there's a live listing, else an honest "Not listed".
+              (parseFloat(item.lowestPrice) > 0)
+                ? h('div', { className: 'modal-stat-val accent' }, fmt(item.lowestPrice))
+                : h('div', { className: 'modal-stat-val', style: { color: 'var(--text-muted)' } }, 'Not listed')
             ),
             // I2 Boss-QA: "Steam Price" relabelled "Steam reference"
             // so the relationship to Listing price is obvious — it's a
