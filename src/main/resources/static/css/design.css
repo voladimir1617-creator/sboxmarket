@@ -199703,3 +199703,34 @@ html body .grid-card .grid-footer .grid-price {
   background: rgba(193,206,255,0.14) !important;
 }
 /* ===== END WAVE-INT8 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT9 (full-page overlay footer bleed-through) =====
+   BUG (visual, every full-page route — desktop + mobile): /db, /sell, /wallet,
+   /profile, /loadout, /watchlist render their page content inside the shared
+   InfoModal. Ship #2113 (`.modal-backdrop:has(.info-modal){position:fixed}`,
+   ~design.css:132182) re-forces that backdrop into a FIXED, centered,
+   SEMI-TRANSPARENT overlay (it was added so a short /sell-logged-out sign-in
+   card centers). Because the overlay is out of flow, `.site-footer` collapses
+   up to directly under the nav (top ~150px) and then SHOWS THROUGH the
+   translucent backdrop around the centered content — the footer ("Powered by
+   stripe", the ACCOUNT / RESOURCES columns, the Facepunch line) is clearly
+   readable ghosting behind the /db table and behind the /sell sign-in card.
+   The cart was rescued individually (WAVE-INT4, position:static) but no other
+   full-page route was, so the bleed shipped on every one of them.
+
+   FIX (kill the bleed WITHOUT disturbing the fragile position cascade): make
+   the full-page overlay backdrop OPAQUE (page background) so nothing shows
+   through behind the centered content. Position stays exactly as #2113 set it
+   (centered overlay) — this is a single background change, minimal blast
+   radius. Same (0,2,0) specificity as #2113 but appended LAST so it wins the
+   tie; the cart rescue's higher specificity (`html body … :has(.cart-grid)`,
+   0,3,2) still beats this rule, so the in-flow cart stays untouched. Genuine
+   secondary dialogs use .cart-confirm-backdrop / .shortcuts-backdrop (not
+   .modal-backdrop), so they are unaffected. */
+.full-page-mode .modal-backdrop:has(.info-modal),
+.full-page-mode .modal-backdrop:has(.presignin-modal) {
+  background: var(--bg) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+/* ===== END WAVE-INT9 ===== */
