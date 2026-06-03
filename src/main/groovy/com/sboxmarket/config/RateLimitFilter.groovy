@@ -173,6 +173,11 @@ class RateLimitFilter extends OncePerRequestFilter {
         '/api/items/',
         '/api/offers/thread/',
         '/api/bids/listing/',
+        // SSE auction stream (GET /api/bids/stream/{id}) opens a long-lived
+        // SseEmitter — a held async connection. It was in no guarded list, so an
+        // anonymous script could open streams unthrottled and exhaust the server's
+        // async connections (DoS). Cap the open-rate per IP like the other enums.
+        '/api/bids/stream/',
         '/api/reviews/user/',
         // Steam inventory fetch makes an outbound HTTP call per request.
         // Without a cap, a logged-in attacker can proxy-DoS Steam through
