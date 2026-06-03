@@ -4642,6 +4642,25 @@ export function App() {
         };
         document.addEventListener('keydown', onTarget);
       } else if (e.key === 'Escape') {
+        // An open overlay dialog owns Escape — let ITS own handler close just the
+        // dialog instead of this app-level handler navigating away. This handler
+        // and each dialog's handler both listen on document (bubble phase) and
+        // THIS one is registered first, so without the guard Escape on a dialog
+        // over /item/:id would fall through to the routeName==='item' branch below
+        // and bounce the user to /market. Bail when:
+        //   • a confirm dialog is open (.cart-confirm-backdrop — buy/cart confirm), or
+        //   • an overlay sits ON TOP of the item page: the item renders a
+        //     persistent `.modal-backdrop.page-mode` (modals.js:503) and an
+        //     offer/report/alert/trade overlay adds a SECOND, plain
+        //     `.modal-backdrop` — so BOTH being present means an overlay is open.
+        // The two-backdrop test is load-bearing: InfoModal full-page routes
+        // (/db, /loadout, /help, /stall, /wallet…) render a LONE plain
+        // `.modal-backdrop` with no page-mode sibling, so they are NOT treated as
+        // overlays and Escape→/market still works there (verified: /db has plain
+        // backdrop only, /item bare has page-mode backdrop only).
+        if (document.querySelector('.cart-confirm-backdrop') ||
+            (document.querySelector('.modal-backdrop.page-mode') &&
+             document.querySelector('.modal-backdrop:not(.page-mode)'))) return;
         if (shortcutsOpen)        setShortcutsOpen(false);
         // /item/{id} is a real page (per `feedback_pages_not_popups.md`) — pressing
         // Escape used to call `setSelected(null)` which left routeName='item' but
