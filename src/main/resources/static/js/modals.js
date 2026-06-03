@@ -2901,8 +2901,14 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
   const [err, setErr]       = useState('');
+  // Synchronous re-entrancy latch — filing a dispute freezes escrow + opens an
+  // irreversible DISPUTED state + notifies staff; a double-click must not file
+  // twice. Async `busy` alone leaves a window; gate on a ref. Synced each render.
+  const busyRef = useRef(busy); busyRef.current = busy;
   const submit = async () => {
     if (!reason) { setErr('Pick a reason first'); return; }
+    if (busyRef.current) return;
+    busyRef.current = true;
     setErr(''); setBusy(true);
     try {
       // Compose reason + note into one server-side string (the trade
@@ -5994,6 +6000,10 @@ function ProfileBuyOrdersTab() {
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState('ACTIVE');
   const [busy, setBusy] = useState(false);
+  // Synchronous re-entrancy latch for saveEdit (updates a buy order's
+  // maxPrice × quantity = escrow). Async `busy` alone leaves a double-click
+  // window; gate on a ref checked-and-set before the await. Synced each render.
+  const busyRef = useRef(busy); busyRef.current = busy;
   // Edit state: which row is being edited, the in-flight draft values.
   // Null = no edit open. Only one row editable at a time — keeps the
   // UI simple and mirrors the MyStall inline-edit pattern.
@@ -6007,10 +6017,12 @@ function ProfileBuyOrdersTab() {
   };
   const cancelEdit = () => { setEditing(null); setEditMax(''); setEditQty(''); };
   const saveEdit = async (o) => {
+    if (busyRef.current) return;
     const maxPrice = parseFloat(editMax);
     const quantity = parseInt(editQty, 10);
     if (!(maxPrice > 0)) { toast('Max price must be positive', 'err'); return; }
     if (!(quantity >= 1)) { toast('Quantity must be at least 1', 'err'); return; }
+    busyRef.current = true;
     setBusy(true);
     try {
       const { updateBuyOrder } = await import('./api.js');
@@ -10023,6 +10035,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // row shows a spinner while OTHER rows' quick-sell buttons stay clickable
   // (a slow network shouldn't freeze the whole grid).
   const [quickSellBusy, setQuickSellBusy] = useState(null);
+  // Synchronous re-entrancy latch — quick-sell one-click LISTS an item at the
+  // best bid (creates a real listing). `quickSellBusy` is async useState, so a
+  // double-click could fire two listFromSteam/relistItem POSTs. Mirror the key
+  // into a ref checked-and-set before the await. Synced each render so the
+  // finally's setQuickSellBusy(null) re-render clears it.
+  const quickSellBusyRef = useRef(null); quickSellBusyRef.current = quickSellBusy;
   const toggleBulk = (assetId) => {
     setBulkSelected(prev => {
       const next = new Set(prev);
@@ -10225,9 +10243,10 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // three clicks (row → chip → List) collapse to one.
   const quickSell = async (kind, row, bestBid) => {
     const key = kind === 'steam' ? `steam:${row.assetId}` : `int:${row.id}`;
-    if (quickSellBusy) return;
+    if (quickSellBusyRef.current) return;
     if (!(Number.isFinite(bestBid) && bestBid > 0)) return;
     const price = Number(bestBid.toFixed(2));
+    quickSellBusyRef.current = key;
     setQuickSellBusy(key);
     try {
       const res = kind === 'steam'
