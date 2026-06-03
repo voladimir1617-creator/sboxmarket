@@ -490,7 +490,17 @@ class SteamAuthService {
             return null
         }
         def text = conn.inputStream.getText('UTF-8')
-        def profile = new XmlSlurper().parseText(text)
+        // Harden the XML parse against XXE (defense in depth). The body comes
+        // from a fixed Steam host today so this isn't currently reachable, but
+        // auth code is exactly where a not-reachable-yet entity-expansion / file-
+        // read primitive must never exist if the fetch is ever MITM'd or the URL
+        // builder changes. disallow-doctype-decl rejects any DOCTYPE outright;
+        // Steam profile XML has none, so legitimate parsing is unaffected.
+        def slurper = new XmlSlurper()
+        slurper.setFeature('http://apache.org/xml/features/disallow-doctype-decl', true)
+        slurper.setFeature('http://xml.org/sax/features/external-general-entities', false)
+        slurper.setFeature('http://xml.org/sax/features/external-parameter-entities', false)
+        def profile = slurper.parseText(text)
         [
             displayName: profile.steamID?.text() ?: null,
             avatarUrl  : profile.avatarFull?.text() ?: profile.avatarMedium?.text() ?: null,
