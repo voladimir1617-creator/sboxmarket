@@ -593,6 +593,20 @@ class StripeService {
             )
         }
 
+        // Lock the wallet row BEFORE the irreversible Stripe refund so the
+        // post-refund clawback debit can never lose a @Version race. Without
+        // this the debit's optimistic-lock UPDATE flushed only at commit —
+        // AFTER Refund.create — so a concurrent wallet write would throw
+        // OptimisticLockingFailureException and roll the WHOLE refund back,
+        // leaving the card refunded with NO wallet debit and NO REFUND row
+        // (money out of Stripe, untracked). The pessimistic lock serializes
+        // concurrent wallet writes for the (admin-rare) refund's duration so
+        // the clamp-debit below always commits. Loading it here also means a
+        // missing wallet aborts BEFORE the refund, not after. Mirrors the
+        // deposit-cap path's findByIdForUpdate.
+        def wallet = walletRepository.findByIdForUpdate(tx.walletId)
+                .orElseThrow { new NoSuchElementException("Wallet not found") }
+
         String refundId = 'dev'
         if (isLive() && tx.stripeReference?.startsWith('cs_')) {
             try {
@@ -611,9 +625,8 @@ class StripeService {
             }
         }
 
-        // Debit the wallet and record the refund as its own transaction.
-        def wallet = walletRepository.findById(tx.walletId)
-                .orElseThrow { new NoSuchElementException("Wallet not found") }
+        // Debit the wallet (loaded + pessimistically locked above, before the
+        // Stripe refund) and record the refund as its own transaction.
         // The Stripe refund above has already moved money out of the
         // platform's Stripe balance. If the wallet has since been drained
         // below the refund amount we must NOT throw — that would leave

@@ -346,7 +346,10 @@ class StripeServiceSpec extends Specification {
         )
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("200"))
         transactionRepository.findById(1L) >> Optional.of(depositTx)
-        walletRepository.findById(500L) >> Optional.of(wallet)
+        // refundDeposit reads the wallet via the LOCKING finder (pessimistic
+        // write lock) so the post-refund clawback can't lose a @Version race
+        // and roll back the irreversible Stripe refund (2026-06-02 fix).
+        walletRepository.findByIdForUpdate(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction t -> t.id = 2L; t }
 
@@ -369,7 +372,7 @@ class StripeServiceSpec extends Specification {
         )
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("200"))
         transactionRepository.findById(_) >> Optional.of(depositTx)
-        walletRepository.findById(_) >> Optional.of(wallet)
+        walletRepository.findByIdForUpdate(_) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction t -> t }
 
@@ -393,7 +396,7 @@ class StripeServiceSpec extends Specification {
         )
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("200.00"))
         transactionRepository.findById(_) >> Optional.of(depositTx)
-        walletRepository.findById(_) >> Optional.of(wallet)
+        walletRepository.findByIdForUpdate(_) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         def savedRefund = null
         transactionRepository.save(_) >> { Transaction t -> t.id = 2L; savedRefund = t; t }
@@ -456,7 +459,7 @@ class StripeServiceSpec extends Specification {
         )
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("10"))
         transactionRepository.findById(_) >> Optional.of(depositTx)
-        walletRepository.findById(_) >> Optional.of(wallet)
+        walletRepository.findByIdForUpdate(_) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         def savedRefund = null
         transactionRepository.save(_) >> { Transaction t -> t.id = 2L; savedRefund = t; t }
@@ -515,7 +518,7 @@ class StripeServiceSpec extends Specification {
         )
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("200.00"))
         transactionRepository.findById(1L) >> Optional.of(depositTx)
-        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.findByIdForUpdate(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         def savedRefund = null
         transactionRepository.save(_) >> { Transaction t -> t.id = 99L; savedRefund = t; t }
