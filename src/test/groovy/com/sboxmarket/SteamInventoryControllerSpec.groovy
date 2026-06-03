@@ -393,6 +393,8 @@ class SteamInventoryControllerSpec extends Specification {
         null        | 'INVALID_PRICE'
         '0'         | 'INVALID_PRICE'
         '-5'        | 'INVALID_PRICE'
+        '0.004'     | 'INVALID_PRICE'   // sub-cent → would round to $0.00 in NUMERIC(10,2); floored at $0.01
+        '0.009'     | 'INVALID_PRICE'
         'abc'       | 'INVALID_PRICE'
         '100000.01' | 'PRICE_TOO_HIGH'
     }

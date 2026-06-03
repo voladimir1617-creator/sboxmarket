@@ -10178,7 +10178,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const submit = async () => {
     setError('');
     const p = parseFloat(price);
-    if (!p || p <= 0) { setError('Enter a valid price'); return; }
+    // Floor at $0.01 — matches the relist DTO @DecimalMin("0.01") and the
+    // server PRICE_TOO_LOW guard. Without this a sub-cent price (e.g. 0.004)
+    // passed `<= 0` and rounded to $0.00 in NUMERIC(10,2) → a free, instantly
+    // buyable listing.
+    if (!p || p < 0.01) { setError('Price must be at least $0.01.'); return; }
     // Cap inline — matches the $100k server limit (PRICE_TOO_HIGH) and
     // submitBulk, so a fat-fingered price fails here instead of on a
     // server round-trip. `p` is shared by the buy-now price and the
@@ -10573,7 +10577,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     const ids = Array.from(bulkSelected);
     if (ids.length === 0) return;
     const p = parseFloat(bulkPrice);
-    if (!p || p <= 0) { toast('Enter a price for the bulk listing.', 'err'); return; }
+    if (!p || p < 0.01) { toast('Price must be at least $0.01.', 'err'); return; }
     if (p > 100000) { toast('Price must not exceed $100,000.', 'err'); return; }
     // Optional auto-accept percent, same 1..50 range as the single-list
     // form. Empty / 0 / out-of-range silently drops the opts field so
@@ -11134,9 +11138,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                   }
                 }
               },
-                h('div', { className: 'inventory-thumb' }, h(ItemImage, { item: l.item, variant: 'thumb' })),
-                h('div', { className: 'inventory-name' }, l.item.name),
-                h('div', { className: 'inventory-floor' }, 'Floor ' + fmt(l.item.lowestPrice)),
+                h('div', { className: 'inventory-thumb' }, h(ItemImage, { item: l.item || {}, variant: 'thumb' })),
+                h('div', { className: 'inventory-name' }, l.item?.name || 'Item'),
+                h('div', { className: 'inventory-floor' }, 'Floor ' + fmt(l.item?.lowestPrice || 0)),
                 // Batch 551 — buy-order demand chip on the internal
                 // (platform) inventory grid, mirroring the Steam tab.
                 // Relist-at-best-bid is the single fastest path to a
@@ -14319,6 +14323,10 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   // is safe at rest; in-flight Stripe checkout redirects away from the
   // page before Esc could fire.
   const panelRef = useRef(null);
+  // Synchronous re-entrancy guard (matches buyConfirmBusyRef / trades busyRef):
+  // the `busy` state flag is async, leaving a rapid-double-click window that
+  // could fire two withdrawal/deposit POSTs. This ref latches synchronously.
+  const submittingRef = useRef(false);
   useDialogA11y(panelRef, onClose);
   const [dest, setDest]     = useState('');
   const [totpCode, setTotpCode] = useState('');
@@ -14393,9 +14401,14 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   const amt = parseFloat(amount) || 0;
 
   const submit = async () => {
+    if (submittingRef.current) return;
     setError('');
     const num = parseFloat(amount);
     if (!num || num <= 0) { setError('Enter a valid amount'); return; }
+    // Withdrawals have a $1.00 server floor (@DecimalMin on WithdrawRequest);
+    // mirror it client-side so a sub-$1 amount gets an actionable message
+    // instead of the generic "Request body failed validation".
+    if (tab === 'withdraw' && num < 1) { setError('Minimum withdrawal is $1.00'); return; }
     if (num > 10000) { setError('Maximum per transaction is $10,000'); return; }
     // A withdrawal with no payout destination creates a PENDING row that
     // staff can never fulfill — block it client-side before submit.
@@ -14403,6 +14416,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       setError('Enter a payout destination (Stripe Connect ID or bank reference).');
       return;
     }
+    submittingRef.current = true;
     setBusy(true);
     try {
       if (tab === 'deposit') {
@@ -14456,6 +14470,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       setError(e.message || 'Request failed');
     } finally {
       setBusy(false);
+      submittingRef.current = false;
     }
   };
 

@@ -209,7 +209,12 @@ class SteamInventoryController {
         } catch (NumberFormatException ignored) {
             throw new BadRequestException("INVALID_PRICE", "price must be a valid number")
         }
-        if (price <= BigDecimal.ZERO) throw new BadRequestException("INVALID_PRICE", "price must be positive")
+        // Floor at $0.01 — the relist path enforces @DecimalMin("0.01") via
+        // SellListingRequest; this first-list path validated by hand and only
+        // rejected <= 0, so a sub-cent price (e.g. 0.004) rounded to $0.00 in
+        // listings.price NUMERIC(10,2), creating a free, instantly-buyable
+        // listing. Match the relist floor.
+        if (price < new BigDecimal("0.01")) throw new BadRequestException("INVALID_PRICE", "price must be at least \$0.01")
         // Mirror the DTO-layer cap used on /api/listings/sell and the
         // rest of the trading surface so a user can't list a Steam item
         // at $1,000,000,000 by bypassing the frontend form.
@@ -430,7 +435,9 @@ class SteamInventoryController {
         catch (NumberFormatException ignored) {
             throw new BadRequestException("INVALID_PRICE", "price must be a valid number")
         }
-        if (price <= BigDecimal.ZERO) throw new BadRequestException("INVALID_PRICE", "price must be positive")
+        // Floor at $0.01 (matches the single-list path + relist DTO) — a
+        // sub-cent bulk price would round to $0.00 per row in NUMERIC(10,2).
+        if (price < new BigDecimal("0.01")) throw new BadRequestException("INVALID_PRICE", "price must be at least \$0.01")
         if (price > new BigDecimal("100000")) {
             throw new BadRequestException("PRICE_TOO_HIGH", "price must not exceed \$100,000")
         }
