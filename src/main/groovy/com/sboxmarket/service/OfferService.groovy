@@ -79,6 +79,37 @@ class OfferService {
      *  the cap is purely on the live queue the buyer is juggling. */
     static final long MAX_PENDING_PER_BUYER = 100L
 
+    /** Per-(buyer→seller→listing) cooldown for OFFER_RECEIVED *emails*.
+     *  A buyer can cheaply loop cancel→re-offer (or repeatedly raise) on one
+     *  listing; because EmailService's 60s dedupe is keyed on subject+body
+     *  (which carry the changing amount) every re-offer would otherwise mail
+     *  the seller again — napalming their inbox, bounded only by the 20/10s
+     *  rate limit (~2/s). Throttle the EMAIL to once per window per
+     *  (buyer,seller,listing); the in-app bell still fires every time. Keyed
+     *  on the triple — NOT the recipient — so a DIFFERENT buyer's legit offer
+     *  to the same seller is never suppressed. Mirrors
+     *  WatchlistAlertService.shouldSendEmail (LRU-capped synchronizedMap). */
+    static final long OFFER_EMAIL_DEDUP_WINDOW_MS = 5L * 60_000L
+    private final java.util.Map<String, Long> lastOfferEmailAt =
+        java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<String, Long>(256, 0.75f, true) {
+                @Override protected boolean removeEldestEntry(java.util.Map.Entry<String, Long> e) {
+                    return size() > 8192
+                }
+            } as java.util.LinkedHashMap<String, Long>)
+
+    private boolean shouldEmailOffer(Long buyerUserId, Long sellerUserId, Long listingId) {
+        if (buyerUserId == null || sellerUserId == null) return true
+        String key = "${buyerUserId}:${sellerUserId}:${listingId}".toString()
+        long now = System.currentTimeMillis()
+        synchronized (lastOfferEmailAt) {
+            Long last = lastOfferEmailAt.get(key)
+            if (last != null && (now - last) < OFFER_EMAIL_DEDUP_WINDOW_MS) return false
+            lastOfferEmailAt.put(key, now)
+            return true
+        }
+    }
+
     @Transactional
     Offer makeOffer(Long buyerUserId, String buyerName, Long listingId, BigDecimal amount,
                     String message = null) {
@@ -271,7 +302,10 @@ class OfferService {
             try {
                 if (emailService != null && steamUserRepository != null) {
                     def seller = steamUserRepository.findById(listing.sellerUserId).orElse(null)
-                    if (emailService.canSendTo(seller, 'TRADES')) {
+                    // Cooldown the email (not the bell) so a buyer looping
+                    // cancel→re-offer on this listing can't napalm the seller.
+                    if (emailService.canSendTo(seller, 'TRADES')
+                            && shouldEmailOffer(buyerUserId, listing.sellerUserId, listing.id)) {
                         emailService.sendOfferReceived(
                             seller.email, seller.displayName, buyerName,
                             listing.item?.name, amount, listing.price, cleanMessage)
@@ -484,7 +518,10 @@ class OfferService {
             try {
                 if (emailService != null && steamUserRepository != null) {
                     def seller = steamUserRepository.findById(original.sellerUserId).orElse(null)
-                    if (emailService.canSendTo(seller, 'TRADES')) {
+                    // Same cooldown as makeOffer — a buyer repeatedly raising on
+                    // one listing must not re-mail the seller every time.
+                    if (emailService.canSendTo(seller, 'TRADES')
+                            && shouldEmailOffer(original.buyerUserId, original.sellerUserId, listing.id)) {
                         emailService.sendOfferReceived(
                             seller.email, seller.displayName, original.buyerName,
                             original.itemName, amount, listing.price, cleanMessage)
