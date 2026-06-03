@@ -2421,7 +2421,9 @@ function RecentlyViewedPills({ kind, privacy }) {
       style: { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }
     },
       rows.map(it => {
-        const priceVal = it.lowestPrice != null ? parseFloat(it.lowestPrice) : null;
+        // Unlisted items have lowestPrice 0 (not null); treat as no-price so the
+        // pill omits it rather than rendering "$0.00" (reads as free).
+        const priceVal = (it.lowestPrice != null && parseFloat(it.lowestPrice) > 0) ? parseFloat(it.lowestPrice) : null;
         return h('a', {
           key: 'rv-pill-' + it.id,
           href: '/item/' + it.id,
