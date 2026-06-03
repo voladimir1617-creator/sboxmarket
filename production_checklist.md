@@ -1,7 +1,7 @@
 # Production Readiness Checklist
 
 Verified state of the csfloat-parity + production hardening work, captured so it
-survives context compaction. Last updated 2026-06-02.
+survives context compaction. Last updated 2026-06-03.
 
 Status legend: ✅ shipped & verified live (Playwright/curl this session, in git) ·
 🔧 still open, ranked P0 (ship-blocker) / P1 (parity or prod gap) / P2 (polish).
@@ -9,6 +9,25 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 ---
 
 ## ✅ DONE (verified live)
+
+### Typography + mobile layout wave (2026-06-03)
+- **Self-hosted all fonts** (Roboto, Roboto Mono, Material Symbols) under /fonts via
+  /css/fonts.css — dropped the Google Fonts CDN. The CDN dependency silently fell
+  back to Arial when slow/blocked/offline, shifting every size/line-height/underline
+  ("looks weird") and leaking visitor IPs. 16 woff2, valid + 200 + CSP-permitted.
+- Standalone pages (changelog, status, 8 legal/*) were on the STALE Geist/Fraunces
+  bundle and never linked fonts.css → rendered in Arial; migrated to Roboto. CSP
+  tightened: style-src/font-src dropped fonts.googleapis/​gstatic (self only).
+- Added Roboto weight-800 faces (variable-font subset) — dozens of fontWeight:800
+  badges were faux-synthesizing. JS inline stacks led with unloaded fonts
+  ('JetBrains Mono', 'Inter') → led with the self-hosted Roboto Mono / Roboto.
+- **Mobile /market overlap (REAL fix).** The prior "#root width:100%" entry below
+  was futile — root cause was `body { padding: 0 60px }` (a desktop gutter, no media
+  query) shrinking body's content box to ~250px on phones, so cards (fixed 228px)
+  overlapped. Fixed: 16px mobile gutter + cards fill their 1fr cell. This repaired
+  EVERY deep route on mobile (was ~250px squeezed; now full-width). Verified live.
+- Mobile home featured rail: stacked 7 cards (~2900px) → compact swipeable
+  horizontal rail (~440px), contained (no page overflow).
 
 ### Visual / csfloat parity
 - Real Steam item art renders on 38/39 seed items — market, home, /db, item page all show real skin imagery
