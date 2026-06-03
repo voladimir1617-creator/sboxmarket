@@ -8412,6 +8412,12 @@ function ProfileOffersTab() {
   const [data, setData] = useState(null);
   const [tab, setTab]   = useState('incoming');
   const [busy, setBusy] = useState(false);
+  // Synchronous re-entrancy latch (matches the trades busyRef / buyConfirmBusyRef
+  // / wallet submittingRef). doAccept/doCounter/doRaise set setBusy AFTER their
+  // await, so a rapid double-click fires the money action twice before the
+  // disabled state lands. busyRef gates it synchronously; it auto-resets because
+  // `busyRef.current = busy` re-syncs on every render after setBusy(false).
+  const busyRef = useRef(busy); busyRef.current = busy;
   const [counterFor, setCounterFor] = useState(null);
   const [counterAmt, setCounterAmt] = useState('');
   // Batch 645 — sort dropdown. Heavy sellers with dozens of pending
@@ -8481,6 +8487,8 @@ function ProfileOffersTab() {
   const findOffer = (id) => (data?.incoming || []).find(o => o.id === id)
     || (data?.outgoing || []).find(o => o.id === id) || null;
   const doAccept = async (id) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     const o = findOffer(id);
     setBusy(true);
     try {
@@ -8522,6 +8530,8 @@ function ProfileOffersTab() {
   const doCounter = async (id) => {
     const amt = parseFloat(counterAmt);
     if (!amt || amt <= 0) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     const o = findOffer(id);
     setBusy(true);
     try {
@@ -8539,6 +8549,8 @@ function ProfileOffersTab() {
   const doRaise = async (id) => {
     const amt = parseFloat(counterAmt);
     if (!amt || amt <= 0) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     const o = findOffer(id);
     setBusy(true);
     try {
