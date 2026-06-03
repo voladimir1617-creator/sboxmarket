@@ -1,4 +1,4 @@
-# csfloat parity roadmap (live diff, 2026-05 → updated 2026-06-01)
+# csfloat parity roadmap (live diff, 2026-05 → updated 2026-06-02)
 
 Captured by driving csfloat.com/search and localhost:8082/market side-by-side at
 the same viewport. What actually differs, highest-impact first.
@@ -6,39 +6,56 @@ the same viewport. What actually differs, highest-impact first.
 > See `production_checklist.md` for the full DONE / REMAINING ledger (incl. backend
 > + ops). This file is the **visual/UX parity** view.
 
-## STATUS @ 2026-06-01
+## STATUS @ 2026-06-02
 
-✅ **Shipped & verified live this session:**
-- Real Steam item art on 38/39 seed items (market/home/db/item)
-- Card-grid void fixed (was `content-visibility:auto` collapsing cards)
-- Left filter rail restored at desktop, 240px (see §1 below)
-- 100% Roboto typography (was Geist + Fraunces)
-- csfloat card anatomy (`gc-*`): float bar, online row, USD chip, listed-time
-  stripe, hover magnifier, top + bottom rarity stripes
-- Card-signal dedup (legacy `grid-price-usd`/`grid-status`/`grid-zoom`/`grid-fresh`
-  hidden so each renders once)
-- Market grid 5 cards/row at 1440 (was 4), 228px cards
-- Mobile /market squeeze fixed (~250px clipped col → full-width 2-up)
-- Cart: 2-col layout + each row on one line
-- Item page = real full PAGE with sticky right rail (not a modal)
-- Item page real 90-pt price-history chart + recent sales
+✅ **All six 2026-06-01 P1s RESOLVED — re-verified live this session (1440 + 390):**
+- `/db`, `/loadout`, `/help`, `/stall` are **full-bleed pages** (`.full-page-mode`,
+  e.g. /db main = 1310px ≈ 91% of 1440, 0 overflow) — no longer centered modals.
+- **Home hero is above-fold** (WAVE-INT2 padding/art-height pull-up; verified).
+- **DB thumbnails** render real Steam item art (38/39 seed items, all surfaces).
+- **Price-history chart** plots a solid csfloat-blue line (ad5ca14) + recent sales.
+- **`/database`** → 302 redirect to `/db` (SEO alias in router.js) — not a 404.
+- **Profile leads with a Listings tab.**
 
-🔧 **Remaining parity gaps (next laps), ranked:**
+✅ **Also shipped earlier (still holding):**
+- csfloat card anatomy (`gc-*`), card-signal dedup, 5-up grid @1440, Roboto,
+  left filter rail @ desktop (350px — MEASURED from csfloat .advanced-search),
+  mobile 2-up + bottom nav (Market/Database/Sell/Watchlist/Profile), cart layout.
 
-P1
-- /db, /loadout, /help, /stall render as **centered modals, not full-bleed pages**
-  like csfloat — single biggest remaining look gap.
-- **Home hero is below-fold** — should land above-fold (being fixed this lap).
-- **DB thumbnails ~45% broken on cold load** — dead Steam-CDN seed hashes (data fix).
-- **Price-history chart line empty** — frame renders, no plotted points (being fixed this lap).
-- **/database route 404s** — only /db exists; add alias/redirect.
-- **Profile has no inventory/listings tab** — csfloat profile leads with listings.
+✅ **2026-06-02 session adds:**
+- **Auctions biddable on mixed listings** — bid panel binds to the AUCTION listing
+  explicitly (was `listings[0]`, hidden by a cheaper BUY_NOW).
+- **Coherent auction bid history** — `SeedService.seedAuctionBids` backfills n Bid
+  rows per auction (bidCount == rows, max == currentBid, WINNING/OUTBID); read
+  endpoint still anonymises third-party bidders to "Bidder #N" by design.
+- **Single-item buy confirm step** (csfloat-style review dialog; frozen fee model,
+  Trade-Protection line display-only, total == listing price).
+- **Cold deep-link /item/:id guard** — seed `modalLoading` from the URL so the
+  first paint is the spinner, not a one-frame "Item not found" flash.
+- **Empty-state copy** — removed a literal `$X` placeholder.
+- Home featured rail uses the canonical `GridCard`.
 
-P2
-- **Tap targets** — some 32px chips below the 44px min (partially addressed mobile).
+🔬 **Measured-value discipline (do NOT "fix" these — they're correct):**
+Three audit/agent suggestions this session were caught as would-be REGRESSIONS by
+cross-checking in-repo `measured:` ship comments before acting:
+- **Card radius = 4px** (not 12px). wave-147c measured the inner `.item-card` div;
+  the 12px belongs to the transparent mat-mdc host, not the visible surface.
+- **Left rail = 350px** (ship #40: "csfloat measured .advanced-search 350px").
+- **Card hover lift = `translateY(-15px)`** (ship #6900 measured; z-index:1 floats
+  it above neighbours) — consistent with the `-15px` focus-visible state.
+> Rule: trust in-repo `measured:` citations over roadmap/audit guesses; an audit is
+> good at finding a *difference* but often wrong about which direction is csfloat.
 
-(Backend/ops gaps — escrow sweeper, error-path leak, multi-pod webhook idempotency,
-structured JSON logging — tracked in `production_checklist.md`.)
+🔧 **Remaining (low-impact polish / judgment calls — verify against csfloat live
+before acting):** card "1 listing" supply fallback; sort-dropdown optgroups;
+~20 lines of dead `.grid-card:hover` cascade (safe-removal plan in hand, deferred
+— high-downside/low-upside in a 199k-line file). Money path audited SAFE end-to-end
+(withdraw / escrow-delivery / buy-trade-release — Wave 148, all concerns SAFE).
+
+(Backend/ops gaps now largely closed — escrow sweeper, error-path leak gate,
+multi-pod webhook idempotency, structured JSON logging all shipped; remaining
+go-live items are operator-gated: live Steam bot creds + Stripe Connect activation
++ prod-jar-behind-tunnel. Tracked in `production_checklist.md`.)
 
 ---
 
