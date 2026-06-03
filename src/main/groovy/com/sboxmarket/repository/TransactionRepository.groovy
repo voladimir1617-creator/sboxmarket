@@ -270,6 +270,36 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     """)
     int claimCancelPendingWithdrawal(@Param('id') Long id)
 
+    /**
+     * Atomic claim for a Stripe `transfer.reversed` reconciliation. Flips a
+     * COMPLETED withdrawal to REVERSED in a single conditional UPDATE so the
+     * webhook handler ({@link com.sboxmarket.service.StripeService#handleTransferReversed})
+     * re-credits the wallet EXACTLY ONCE. Returns 1 = this delivery owns the
+     * re-credit, 0 = a sibling pod / a redelivered event already reconciled it
+     * (the caller MUST bail without re-crediting).
+     *
+     * Without this, the bug was the inverse of every other money path: a
+     * settled payout that Stripe later reverses (closed bank account, Connect
+     * clawback) returned the funds to the platform balance, but nothing
+     * re-credited the user's wallet — silent permanent fund loss. There was no
+     * `transfer.reversed` webhook case at all. This claim is the once-only
+     * guard for the new handler; same conditional-UPDATE shape as
+     * claimCancelPendingWithdrawal / claimExpirePending. Matches both the
+     * legacy `WITHDRAW` and canonical `WITHDRAWAL` type spellings.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+           SET t.status      = 'REVERSED',
+               t.updatedAt   = :now,
+               t.description = CONCAT(COALESCE(t.description, ''),
+                                      ' — REVERSED (Stripe payout returned; wallet re-credited)')
+         WHERE t.id     = :id
+           AND t.status = 'COMPLETED'
+           AND t.type   IN ('WITHDRAW', 'WITHDRAWAL')
+    """)
+    int claimReverseWithdrawal(@Param('id') Long id, @Param('now') long now)
+
     /** Sum of withdrawal amounts the wallet has requested within a
      *  rolling window — drives the daily withdrawal cap enforced at
      *  the /api/wallet/withdraw controller (batch 357). Includes

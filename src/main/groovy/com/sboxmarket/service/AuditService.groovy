@@ -65,6 +65,7 @@ class AuditService {
     static final String SESSION_LOGOUT_ALL  = 'SESSION_LOGOUT_ALL'
     static final String USER_FORCE_LOGOUT   = 'USER_FORCE_LOGOUT'
     static final String WITHDRAW_SELF_CANCELLED = 'WITHDRAW_SELF_CANCELLED'
+    static final String WITHDRAW_REVERSED   = 'WITHDRAW_REVERSED'
     static final String CHARGEBACK_OPENED   = 'CHARGEBACK_OPENED'
     static final String DISPUTE_CLEARED     = 'DISPUTE_CLEARED'
     static final String REVIEW_DELETED_STAFF = 'REVIEW_DELETED_STAFF'

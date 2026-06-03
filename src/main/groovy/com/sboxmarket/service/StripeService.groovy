@@ -811,6 +811,88 @@ class StripeService {
         [id: tx.id, status: tx.status, newBalance: wallet.balance]
     }
 
+    /**
+     * Reconcile a Stripe `transfer.reversed` webhook for a withdrawal payout.
+     *
+     * When a settled Connect Transfer is later reversed — closed/invalid bank
+     * account, a Connect-account clawback, or a Stripe risk action — the money
+     * returns to the platform balance. Pre-fix there was NO handler for this
+     * event, so the user's wallet (debited at request time) was never
+     * re-credited: silent, permanent fund loss. This is the inverse of the
+     * deposit side, which already reconciles dashboard refunds/chargebacks.
+     *
+     * Idempotency: an atomic conditional claim (COMPLETED→REVERSED) guarantees
+     * the wallet is re-credited EXACTLY ONCE even under Stripe event redelivery
+     * or multi-pod concurrency — same proven shape as cancelPendingWithdrawal.
+     *
+     * Conservative on amount: only auto-credits a confirmed FULL reversal
+     * (amountReversed >= amount). Partial reversals are rare for payouts and
+     * automated partial-credit math would complicate the once-only guard, so
+     * the safe choice is to refuse to guess — log + leave the row COMPLETED for
+     * manual ops reconciliation rather than over- or under-credit.
+     */
+    @Transactional
+    void handleTransferReversed(com.stripe.model.Transfer transfer) {
+        if (transfer?.id == null) {
+            log.warn("transfer.reversed with null transfer/id — ignoring")
+            return
+        }
+        def tx = transactionRepository.findByStripeReference(transfer.id)
+        if (tx == null) {
+            // Not one of our withdrawals (or a transfer we don't track). No-op.
+            log.warn("transfer.reversed for transfer ${transfer.id} — no matching withdrawal tx; ignoring")
+            return
+        }
+        def type = (tx.type ?: '').toUpperCase()
+        if (type != 'WITHDRAW' && type != 'WITHDRAWAL') {
+            log.warn("transfer.reversed matched tx ${tx.id} of type ${tx.type} (not a withdrawal) — ignoring")
+            return
+        }
+        // Only auto-reconcile a confirmed FULL reversal. amount / amountReversed
+        // are Stripe cents (Long). If we can't confirm it's full, leave it.
+        Long amt = transfer.amount
+        Long rev = transfer.amountReversed
+        if (amt != null && rev != null && rev < amt) {
+            log.warn("transfer.reversed for ${transfer.id} is PARTIAL (${rev}/${amt} cents) on tx ${tx.id} — leaving COMPLETED for manual reconciliation")
+            return
+        }
+        // Atomic once-only claim: COMPLETED → REVERSED (also stamps updatedAt +
+        // description). 0 ⇒ a redelivered event or sibling pod already
+        // reconciled — bail BEFORE re-crediting so the wallet can't be credited
+        // twice for one reversal.
+        int claimed = transactionRepository.claimReverseWithdrawal(tx.id, System.currentTimeMillis())
+        if (claimed == 0) {
+            log.info("transfer.reversed for ${transfer.id} (tx ${tx.id}) already reconciled — no re-credit")
+            return
+        }
+        def wallet = walletRepository.findById(tx.walletId).orElse(null)
+        if (wallet == null) {
+            // The claim flipped the row to REVERSED but we can't find the wallet
+            // to credit. Throw so @Transactional rolls the claim back and Stripe
+            // retries — never leave a REVERSED row with no matching credit.
+            throw new IllegalStateException("transfer.reversed: wallet ${tx.walletId} not found for tx ${tx.id} — rolling back for retry")
+        }
+        // Re-credit exactly what requestWithdrawal debited.
+        wallet.balance = wallet.balance + (tx.amount ?: BigDecimal.ZERO)
+        walletRepository.save(wallet)
+        // NOTE: do NOT re-save `tx` — the conditional claim above already
+        // persisted status/updatedAt/description, and the managed `tx` instance
+        // is intentionally left untouched so its stale COMPLETED snapshot can't
+        // clobber the claim's write on flush.
+        Long ownerUserId = null
+        try {
+            def uname = wallet.username ?: ''
+            if (uname.startsWith('steam_')) {
+                ownerUserId = steamUserRepository?.findBySteamId64(uname.substring('steam_'.length()))?.id
+            }
+        } catch (Exception ignore) {}
+        try {
+            auditService?.log(AuditService.WITHDRAW_REVERSED, ownerUserId, ownerUserId, tx.id,
+                "Stripe payout reversed (transfer ${transfer.id}) — \$${tx.amount} re-credited to wallet ${wallet.username}")
+        } catch (Exception ignore) {}
+        log.warn("WITHDRAW REVERSED: transfer ${transfer.id} returned — re-credited \$${tx.amount} to wallet ${tx.walletId} (tx ${tx.id})")
+    }
+
     /* ── STRIPE CONNECT ONBOARDING + KYC ─────────────────────────────
      * Creates (or reuses) a Stripe Connect Express account for the
      * wallet's owner and returns a hosted onboarding AccountLink URL.
@@ -1291,6 +1373,18 @@ class StripeService {
                 // real change).
                 def account = (com.stripe.model.Account) event.dataObjectDeserializer.object.orElse(null)
                 if (account != null) handleAccountUpdated(account)
+                break
+            case "transfer.reversed":
+                // A withdrawal payout that already settled was reversed by
+                // Stripe (closed bank account / Connect clawback / risk action).
+                // The funds return to the platform balance, so we must
+                // re-credit the user's wallet — otherwise they silently lose
+                // the money (the debit happened at request time). No try/catch:
+                // a transient DB failure must propagate to a 500 so Stripe
+                // retries; handleTransferReversed is idempotent via the atomic
+                // COMPLETED→REVERSED claim, so re-delivery is safe.
+                def reversed = (com.stripe.model.Transfer) event.dataObjectDeserializer.object.orElse(null)
+                if (reversed != null) handleTransferReversed(reversed)
                 break
             default:
                 // Unknown / not-yet-handled event type. Log + fall through
