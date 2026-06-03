@@ -31701,7 +31701,15 @@ body::after {
   --ink-3: oklch(0.74 0.010 260);
   --ink-4: oklch(0.66 0.012 260);
   --cta: #3b82f6;
-  --accent: #1ea5ff;
+  /* wave-169: was #1ea5ff (the data-accent="blue" THEME color, L103), which
+     made this duplicate :root block override L45's #237bff — so the :root
+     default --accent was cyan. nav-widgets.js force-sets data-accent="mono"
+     (--accent:#237bff, L102) at boot, but BEFORE that IIFE runs the first paint
+     resolved var(--accent) (86 declarations: buttons, chips, focus borders,
+     hovers) to cyan, then snapped to blue → an accent-color FOUC on every load,
+     and a hard dependency on the JS running. Match #237bff so the token is
+     correct at the :root layer with zero FOUC and no JS dependency. */
+  --accent: #237bff;
   --accent-2: #4dc8ff;
   --accent-dim: rgba(30,165,255,0.12);
   --accent-border: rgba(30,165,255,0.3);
