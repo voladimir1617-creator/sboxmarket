@@ -49,6 +49,19 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 - **Prod fat jar:** `./gradlew bootJar` → `build/libs/sboxmarket-1.0.0.jar` (87MB) builds AND boots + serves HTTP 200 + real API data on the H2 profile — the deployable artifact is verified runnable, not just packaged.
 - Full suite green after the floor change; console clean (0 errors/0 warnings) across a full route sweep; no horizontal overflow at 1440 or 390.
 
+### 2026-06-02 — all 10 prior P1 parity/prod gaps re-verified CLOSED
+Each was checked live or in-code this session (measured, not assumed):
+- **Full-bleed pages** — /db, /loadout, /help, /stall all render with `.full-page-mode` (verified live), not centered modals.
+- **Home hero above the fold** — hero `<h1>` top = 70px at 1440×900 (verified live).
+- **DB thumbnails** — /db cold load: 29/29 images render, 0 broken (verified live); matches the real-Steam-art entry above.
+- **Price-history chart** — real 90-point line renders (see item-page entry above).
+- **PENDING_ESCROW timeout sweeper** — `SteamEscrowService` runs a `@Scheduled` escrow-timeout sweep (`steam.escrow.timeout-initial-delay-ms`).
+- **GlobalErrorController** — prod omits the request `path` from the JSON envelope and serves only safe/generic messages (no stack trace, no internal path); HTML + JSON both escaped.
+- **Multi-pod webhook idempotency + card-test fraud counters** — moved to DB-backed cross-pod stores: V230 `processed_stripe_events` (Stripe event dedup) + V240 `wallet_payment_failures` (card-test counter); cross-pod claim specs cover both.
+- **Structured JSON logging** — `logback-spring.xml` ships `net.logstash.logback.encoder.LogstashEncoder` (one JSON object per line) on stdout.
+- **/database route** — redirects to /db (verified live, full page — no 404).
+- **Profile listings tab** — profile leads with a `listings` / "Listings" tab (`modals.js`).
+
 ---
 
 ## 🔧 REMAINING (ranked)
@@ -57,16 +70,7 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 - _None outstanding._ (Items below are parity/prod-hardening, not launch blockers.)
 
 ### P1 — parity + production gaps
-- **Full-bleed pages:** /db, /loadout, /help, /stall render as centered modals, not full-bleed pages like csfloat
-- **Home hero below the fold** — should be above-fold (being fixed this lap)
-- **DB thumbnails ~45% broken on cold load** — dead Steam-CDN seed hashes; data fix needed
-- **Price-history chart line empty** — chart frame renders but the line has no points (being fixed this lap)
-- **PENDING_ESCROW timeout sweeper missing** — stuck escrows never expire (being fixed this lap)
-- **GlobalErrorController JSON path leak** — error responses leak internal paths (being fixed this lap)
-- **Webhook idempotency + card-test fraud counters are in-memory / per-pod** — breaks under multi-pod scale-out; needs shared store (Redis/DB)
-- **No structured JSON logging** — add `logback-spring.xml` for log aggregation
-- **/database route 404s** — only /db exists; add alias/redirect
-- **Profile has no inventory/listings tab** — csfloat profile leads with the user's listings
+- _None outstanding._ All 10 prior P1s were verified closed on 2026-06-02 — see "all 10 prior P1 parity/prod gaps re-verified CLOSED" under DONE above.
 
 ### P2 — polish
 - **Tap targets** — some 32px chips are below the 44px minimum (partially addressed on mobile)

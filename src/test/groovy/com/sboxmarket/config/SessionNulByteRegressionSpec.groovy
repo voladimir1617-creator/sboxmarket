@@ -38,8 +38,7 @@ import spock.lang.Subject
  * are intentionally NOT exercised here — they target Postgres-only
  * behaviour and the unit-test datasource is H2.  Their migration
  * lives at `src/main/resources/db/migration/V60__spring_session_full_nul_check.sql`
- * and is verified at deploy time by the Flyway log + `\d` introspection
- * documented in `_qa_boss/BOSS_PROMPT_HOTFIX_500_REDUX.md`.
+ * and is verified at deploy time by the Flyway log + `\d` introspection.
  */
 class SessionNulByteRegressionSpec extends Specification {
 
