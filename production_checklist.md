@@ -88,6 +88,13 @@ Each was checked live or in-code this session (measured, not assumed):
   2-up mobile grid). Considered acceptable for launch.
 
 ### Operator decisions before real-money go-live (not code bugs)
+- **Flyway migrations confirmed Postgres-portable** (2026-06-02): dev runs H2 with
+  `MODE=PostgreSQL`, so all 77 migrations apply under Postgres semantics on every
+  integration-test boot (the green suite validates the full apply end to end); prod uses
+  real Postgres + Flyway `baseline-on-migrate`. A source scan found no MySQL-isms (the
+  `DOUBLE` / backtick matches are all inside `--` comments). Residual H2-PgMode-vs-real-
+  Postgres edge differences can only be settled by the actual prod boot (task #172), but
+  the baseline is sound — no migration rewrite needed pre-launch.
 - **No segregated platform/revenue wallet.** The 2% trade fee and the Trade-Protection
   fee are captured by *withholding* — escrow holds the full price and the seller is paid
   `price − fee`; the fee itself never lands in any wallet (documented in
