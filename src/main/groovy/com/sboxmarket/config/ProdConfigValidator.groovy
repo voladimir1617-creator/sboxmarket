@@ -62,6 +62,13 @@ class ProdConfigValidator {
      *  prod silently processes zero real charges. */
     static final String STRIPE_TEST_KEY_PREFIX = 'sk_test_'
 
+    /** The publicly-committed dev fallback for the Stripe webhook signing
+     *  secret (application.yml). If this is what's live in prod, anyone with
+     *  the source can forge `checkout.session.completed` events that pass
+     *  Webhook.constructEvent and credit wallets — refuse to start. Mirrors
+     *  the sk_test_ / DEV_UNSUBSCRIBE_PLACEHOLDER guards. */
+    static final String STRIPE_WEBHOOK_PLACEHOLDER = 'whsec_replace_me'
+
     /** Every env var that application-prod.yml templates as a bare `${VAR}`
      *  with no default and that the app cannot meaningfully run without.
      *  (STEAM_API_KEY, ACTUATOR_PORT, COOKIE_SECURE, SWAGGER_ENABLED, LOG_FILE,
@@ -126,6 +133,13 @@ class ProdConfigValidator {
         if (stripeKey != null && stripeKey.startsWith(STRIPE_TEST_KEY_PREFIX)) {
             violations.add("STRIPE_SECRET_KEY is a Stripe TEST key (starts with '${STRIPE_TEST_KEY_PREFIX}') " +
                 '— refusing to start (no real charges would be processed in production)'.toString())
+        }
+
+        String webhookSecret = environment.getProperty('STRIPE_WEBHOOK_SECRET')
+        if (webhookSecret != null && webhookSecret == STRIPE_WEBHOOK_PLACEHOLDER) {
+            violations.add("STRIPE_WEBHOOK_SECRET is the committed placeholder " +
+                "'${STRIPE_WEBHOOK_PLACEHOLDER}' — refusing to start (an attacker with the " +
+                'source could forge Stripe webhook events and credit wallets)'.toString())
         }
 
         // A present-but-localhost APP_PUBLIC_URL (e.g. copy-pasted from the

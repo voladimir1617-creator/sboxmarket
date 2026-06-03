@@ -161,6 +161,21 @@ class ProdConfigValidatorSpec extends Specification {
         badUrl << ['http://localhost:8080', 'http://127.0.0.1:8082', 'https://localhost']
     }
 
+    def "STRIPE_WEBHOOK_SECRET equal to the committed placeholder → refuse to start"() {
+        given: 'the webhook secret left at the published placeholder; everything else valid'
+        Map<String, String> env = validEnv()
+        env.STRIPE_WEBHOOK_SECRET = ProdConfigValidator.STRIPE_WEBHOOK_PLACEHOLDER
+        stubEnv(env)
+
+        when:
+        List<String> violations = validator.findViolations()
+
+        then: 'flagged as the forgeable-webhook placeholder, refusing to start — not as missing'
+        violations.size() == 1
+        violations[0].contains('STRIPE_WEBHOOK_SECRET')
+        violations[0].toLowerCase().contains('refusing to start')
+    }
+
     def "the dev placeholder constant matches the value committed in EmailService"() {
         expect: 'guard against the constant drifting from EmailService.groovy:64'
         ProdConfigValidator.DEV_UNSUBSCRIBE_PLACEHOLDER == 'dev-only-do-not-use-in-production-7f3a9c'
