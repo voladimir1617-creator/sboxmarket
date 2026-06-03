@@ -4687,7 +4687,7 @@ export function App() {
             document.querySelectorAll('.modal-backdrop').length > 1 ||
             document.querySelector('.item-offer-drawer') ||
             document.querySelector('.item-lightbox') ||
-            document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown')) return;
+            document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown, #user-menu-panel')) return;
         if (shortcutsOpen)        setShortcutsOpen(false);
         // /item/{id} is a real page (per `feedback_pages_not_popups.md`) — pressing
         // Escape used to call `setSelected(null)` which left routeName='item' but

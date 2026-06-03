@@ -50,7 +50,7 @@ export function InfoModal({ title, onClose, children, wide }) {
         // just the open dropdown. Mirrors the app-level Escape guard in app.js.
         if (document.querySelectorAll('.modal-backdrop').length > 1 ||
             document.querySelector('.cart-confirm-backdrop') ||
-            document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown')) return;
+            document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown, #user-menu-panel')) return;
         e.stopPropagation();
         onClose();
         return;
