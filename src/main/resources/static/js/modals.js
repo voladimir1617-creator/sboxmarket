@@ -17,7 +17,7 @@ import {
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, fetchTradesWithTotal, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
   fetchTradeMessages, postTradeMessage,
-  setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
+  setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, cancel2fa, disable2fa,
   regenerate2faBackupCodes, fetch2faRecoveryStatus,
   fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, fetchMyAuthoredReviews, fetchPendingReviews, deleteReview, replyToReview, fetchBuyOrderCountForItem,
@@ -5300,17 +5300,23 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
         ),
         enrolling && h('div', { className: 'twofa-enroll' },
           h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 } },
-            'Scan the QR below in Google Authenticator, Authy, or 1Password — OR paste the secret manually:'),
-          h('div', { style: { display: 'flex', gap: 14, alignItems: 'center' } },
-            h('img', {
-              alt: '2FA QR',
-              style: { width: 160, height: 160, background: 'white', borderRadius: 6, padding: 4 },
-              src: 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(twofaUrl)
-            }),
+            'Add this to Google Authenticator, Authy, or 1Password — tap “Add to authenticator app” on mobile, or enter the secret key manually:'),
+          // SECURITY: previously the QR was rendered by sending the otpauth URL
+          // (which embeds this very secret) to a THIRD-PARTY image service
+          // (api.qrserver.com) — leaking the TOTP seed off-device into their
+          // logs. Replaced with an on-device deep-link + the manual secret, so
+          // the seed never leaves the browser. (A locally-generated QR is the
+          // ideal follow-up for scan-with-another-phone convenience.)
+          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
             h('div', null,
-              h('div', { style: { fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Secret'),
-              h('div', { className: 'mono', style: { fontSize: 12, color: 'var(--accent)', wordBreak: 'break-all', userSelect: 'all' } }, twofaSecret)
-            )
+              h('div', { style: { fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Secret key'),
+              h('div', { className: 'mono', style: { fontSize: 14, color: 'var(--accent)', wordBreak: 'break-all', userSelect: 'all' } }, twofaSecret)
+            ),
+            h('a', {
+              href: twofaUrl,
+              className: 'btn btn-ghost',
+              style: { border: '1px solid var(--border)', alignSelf: 'flex-start', fontSize: 12 }
+            }, '📱 Add to authenticator app')
           ),
           h('div', { className: 'wallet-input-label', style: { marginTop: 14 } }, '6-digit code from your app'),
           h('input', {
@@ -5345,7 +5351,12 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           }),
           twofaErr && h('div', { className: 'wallet-error' }, twofaErr),
           h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
-            h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: () => setEnrolling(false) }, 'Cancel'),
+            h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: async () => {
+              // Tell the server to drop the staged secret — else email verify/resend
+              // stays wedged with TWOFA_IN_PROGRESS. Best-effort; clear the UI either way.
+              try { await cancel2fa(); } catch (_) {}
+              setEnrolling(false); setTwofaSecret(''); setTwofaUrl(''); setTwofaCode(''); setTwofaErr('');
+            } }, 'Cancel'),
             h('button', { className: 'btn btn-accent', disabled: twofaBusy || twofaCode.length !== 6, onClick: finishEnroll }, 'Confirm & Enable')
           )
         )

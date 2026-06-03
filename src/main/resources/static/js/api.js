@@ -1907,6 +1907,11 @@ export async function resendEmailVerification() {
 export async function enroll2fa() {
   return writeJson(`${API}/profile/2fa/enroll`, { method: 'POST', credentials: 'same-origin' });
 }
+export async function cancel2fa() {
+  // Drops a staged-but-unconfirmed TOTP secret (totp_pending token). Without it,
+  // abandoning enrollment wedges email verify/resend with TWOFA_IN_PROGRESS.
+  return writeJson(`${API}/profile/2fa/cancel`, { method: 'POST', credentials: 'same-origin' });
+}
 export async function confirm2fa(code) {
   return writeJson(`${API}/profile/2fa/confirm`, {
     method: 'POST', credentials: 'same-origin',
