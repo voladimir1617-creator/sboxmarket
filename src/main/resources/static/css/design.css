@@ -199585,3 +199585,40 @@ html body .full-page-mode .modal-stat-box:first-child .modal-stat-label {
    ships 300;400;500;600;700;900) so it synth-bolds. Pin to 700 (a real cut). */
 .csfloat-home-hero h1, .csfloat-home-hero-inner h1 { font-weight: 700 !important; }
 /* ===== END WAVE-INT7 ===== */
+
+/* ===== WAVE-INT8 fine-delta csfloat tells (corrected) ===== */
+/* The original WAVE-INT8 also tried to round cards to 12px on the premise that
+   csfloat's mat-mdc-card is 12px. That was WRONG for the visible card: an
+   earlier, deliberately-measured block (wave-147c, ~line 198071) records that
+   csfloat's real corner is 4px on the inner .item-card div — the 12px belongs
+   to the transparent host, not the surface a user sees. The 12px override was a
+   regression (and correctly lost the cascade to the measured 4px), so it's
+   removed here and the 4px stands. The hover-timing delta (→300ms) was likewise
+   unverified against a live measurement, so the existing timing is left intact.
+   Only the two safe, csfloat-faithful deltas remain: a semibold (600) card
+   price and a thin translucent scrollbar. */
+
+/* Grid price weight: base rule (~197817) ships 500; csfloat's card price reads
+   semibold. Same selector, later in source → wins. Size (22px) untouched. */
+html body .grid-card .grid-footer .grid-price {
+  font-weight: 600 !important;
+}
+
+/* Scrollbar: ours was 10px opaque (line ~14325); csfloat is a thin translucent
+   thumb on a transparent track, brightening on hover. */
+::-webkit-scrollbar {
+  width: 12px !important;
+  height: 12px !important;
+}
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(193,206,255,0.07) !important;
+  border-radius: 8px !important;
+  border: none !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(193,206,255,0.14) !important;
+}
+/* ===== END WAVE-INT8 ===== */

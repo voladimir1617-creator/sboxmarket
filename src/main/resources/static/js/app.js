@@ -3628,7 +3628,20 @@ export function App() {
 
   // item detail
   const [selected, setSelected]         = useState(null);
-  const [modalLoading, setModalLoading] = useState(false);
+  // Cold deep-link guard: when the very first URL is already /item/:id, seed
+  // modalLoading=true so the FIRST render lands on the stable loading spinner
+  // branch (`selected || modalLoading`) instead of momentarily satisfying the
+  // not-found guard (`!modalLoading && !selected`). React effects only run
+  // AFTER the first paint, so without this the data-fetch effect below hasn't
+  // flipped modalLoading yet on mount — the page flashed the "Item not found"
+  // panel for one frame, then the spinner, then the ItemModal (three mounts).
+  // Seeding here collapses that to spinner → ItemModal. In-app navigation is
+  // unaffected: the effect sets modalLoading=true synchronously-enough that the
+  // initial value only matters on the cold mount path. Matches how useRoute()
+  // itself seeds its first value from window.location (router.js ~L247).
+  const [modalLoading, setModalLoading] = useState(
+    () => /^\/item\/\d+\/?$/.test((window.location.pathname || ''))
+  );
 
   // wallet
   const [wallet, setWallet]             = useState(null);

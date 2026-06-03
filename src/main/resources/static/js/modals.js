@@ -40,6 +40,25 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   const cheapestBuyNow = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id) || null;
   const auctionOnly    = !cheapestBuyNow && !!(listings[0] && listings[0].listingType === 'AUCTION');
   const [offerOpen, setOfferOpen] = useState(false);
+  // CSFloat-1:1 — single-listing "Buy Now" is a two-step flow on csfloat:
+  // the click opens a confirm dialog showing the item + price breakdown,
+  // and only the "Confirm purchase" button actually fires the purchase.
+  // Our three direct buy buttons (top rail, Active Listings row, sticky
+  // action bar) all used to call onBuy() straight away — too direct.
+  // `buyConfirm` holds the pending { listingId, price, item } while the
+  // dialog is open; null = closed. Confirm calls the SAME onBuy() the
+  // direct buttons used, so nothing about what executes changes — we are
+  // only inserting a review step in front of it.
+  const [buyConfirm, setBuyConfirm] = useState(null);
+  const [buyConfirmBusy, setBuyConfirmBusy] = useState(false);
+  // Open the confirm dialog instead of buying immediately. `listingItem`
+  // is the listing's own item when present (Active Listings rows carry
+  // l.item); falls back to the modal's main `item` so the dialog always
+  // has an image + name to render.
+  const requestBuy = (listingId, price, listingItem) => {
+    if (!listingId) return;
+    setBuyConfirm({ listingId, price, item: listingItem || item });
+  };
   const [thread, setThread] = useState(null);
   const [chartRange, setChartRange] = useState('30D');
   // Auto-clamp the active range to what the data can actually support.
@@ -450,7 +469,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // on the inner drawer's own focus management).
   const panelRef = useRef(null);
   const innerOpenRef = useRef(false);
-  innerOpenRef.current = !!(offerOpen || reportTarget || alertOpen);
+  // Include buyConfirm so the item panel's Escape / backdrop close is
+  // suppressed while the buy-confirm dialog is the topmost surface — the
+  // dialog owns its own Escape via its useDialogA11y trap.
+  innerOpenRef.current = !!(offerOpen || reportTarget || alertOpen || buyConfirm);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const dialogClose = useCallback(() => {
@@ -458,8 +480,23 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     if (typeof onCloseRef.current === 'function') onCloseRef.current();
   }, []);
   useDialogA11y(panelRef, dialogClose, !isPageMode);
+  // Buy-confirm dialog a11y — its own ref + close callback so Escape,
+  // focus-trap and restore-focus work independently of the item panel's
+  // trap. Busy-guarded so a click during the purchase POST can't tear
+  // the dialog down mid-flight. Only armed while the dialog is open.
+  const buyConfirmRef = useRef(null);
+  const buyConfirmBusyRef = useRef(false);
+  buyConfirmBusyRef.current = buyConfirmBusy;
+  const closeBuyConfirm = useCallback(() => {
+    if (buyConfirmBusyRef.current) return;
+    setBuyConfirm(null);
+  }, []);
+  useDialogA11y(buyConfirmRef, closeBuyConfirm, !!buyConfirm);
   const handleBackdropClick = (e) => {
      if (isPageMode) return;
+     // Don't dismiss the item panel when the buy-confirm dialog is open —
+     // a click on its backdrop should close the dialog, not the page.
+     if (innerOpenRef.current) return;
      if (document.querySelector('.site-root.full-page-mode')) return;
      onClose && onClose();
   };
@@ -620,7 +657,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     // ("Sign in required") was less actionable than a
                     // direct redirect to the OpenID handshake.
                     if (!me) { signInWithSteam(); return; }
-                    onBuy(cheap.id, cheap.price);
+                    requestBuy(cheap.id, cheap.price, cheap.item);
                   },
                   disabled: !!youOwn,
                   title: youOwn ? 'You are the seller of the cheapest listing' : null
@@ -1494,7 +1531,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                               title: !hasTradeUrl
                                 ? 'Add your Steam trade URL in Profile before buying'
                                 : undefined,
-                              onClick: () => onBuy(l.id, l.price)
+                              onClick: () => requestBuy(l.id, l.price, l.item)
                             }, 'Buy');
                           })(),
                   me && me.id !== l.sellerUserId && h('button', {
@@ -1645,7 +1682,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 return h('button', {
                   className: 'btn btn-accent',
                   disabled: !cheapestBuyNow || broke,
-                  onClick: () => cheapestBuyNow && onBuy(cheapestBuyNow.id, cheapestBuyNow.price),
+                  onClick: () => cheapestBuyNow && requestBuy(cheapestBuyNow.id, cheapestBuyNow.price, cheapestBuyNow.item),
                   'aria-label': cheapestBuyNow ? `Buy for ${fmt(cheapestBuyNow.price)}` : 'Out of stock',
                   title: broke ? 'Deposit funds first — your wallet is short' : null
                 },
@@ -2209,7 +2246,122 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         h(ItemImage, { item, variant: 'hero' })
       ),
       h('div', { className: 'item-lightbox-cap' }, item?.name || 'Item')
-    )
+    ),
+    // CSFloat-1:1 — Buy Now confirm step. Reuses the cart checkout's
+    // `cart-confirm-*` styling so the single-item dialog matches the
+    // cart confirm dialog 1:1. Renders only while `buyConfirm` is set;
+    // the three buy buttons open it via requestBuy(), and "Confirm
+    // purchase" calls the SAME onBuy() the direct buttons used to call —
+    // the fee model is untouched, this only inserts a review step.
+    buyConfirm && (() => {
+      const bc = buyConfirm;
+      const price = parseFloat(bc.price) || 0;
+      // Trade Protection display line. Reuses the exact 2%-of-price
+      // expression already used by the trade confirm modal (`(price) *
+      // 0.02`) — no new fee math is introduced. Trade Protection is an
+      // optional opt-in add-on enabled AFTER purchase on the trade row,
+      // so it is shown here as an informational estimate and is NOT
+      // added to the charged total — matching this app's frozen model
+      // where the buyer is debited exactly the listing price (see the
+      // cart confirm dialog: "Total charged to wallet" == subtotal).
+      const tradeProtection = price * 0.02;
+      const confirmItem = bc.item || item;
+      return h('div', {
+        className: 'cart-confirm-backdrop',
+        // Higher than the item modal (modal-backdrop is z-index 200) so
+        // the confirm sits above the page it was launched from.
+        style: { zIndex: 240 },
+        onClick: () => closeBuyConfirm()
+      },
+        h('div', {
+          ref: buyConfirmRef,
+          className: 'cart-confirm-panel',
+          style: { maxWidth: 460 },
+          onClick: (e) => e.stopPropagation(),
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-labelledby': 'buy-confirm-title'
+        },
+          h('div', { className: 'cart-confirm-title', id: 'buy-confirm-title' }, 'Confirm purchase'),
+          h('div', { className: 'cart-confirm-sub' },
+            'Review your purchase. Your wallet is charged the listing price and an escrow trade opens with the seller.'),
+          // Item row — image + name, mirroring csfloat's confirm dialog
+          // which shows what you're about to buy at the top.
+          h('div', {
+            style: {
+              display: 'flex', alignItems: 'center', gap: 12,
+              margin: '4px 0 14px', padding: '10px 12px',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)', borderRadius: 8
+            }
+          },
+            h('div', { style: { width: 48, height: 48, flexShrink: 0 } },
+              h(ItemImage, { item: confirmItem, variant: 'thumb' })),
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', {
+                style: {
+                  fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }
+              }, confirmItem?.name || 'Item'),
+              confirmItem?.category && h('div', {
+                style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }
+              }, confirmItem.category)
+            )
+          ),
+          // Price breakdown — item price, Trade Protection (2%) line, and
+          // the total. Uses the same cart-confirm row classes for visual
+          // parity with the cart checkout summary.
+          h('div', { style: { margin: '0 0 6px' } },
+            h('div', { className: 'cart-confirm-row' },
+              h('div', { style: { flex: 1 } }, 'Item price'),
+              h('div', { className: 'cart-confirm-amt' }, fmt(price))
+            ),
+            h('div', { className: 'cart-confirm-row' },
+              h('div', { style: { flex: 1 } },
+                'Trade Protection (2%)',
+                h('span', {
+                  style: { color: 'var(--text-muted)', fontSize: 11, marginLeft: 6, fontWeight: 500 }
+                }, '· optional, add after purchase')
+              ),
+              h('div', { className: 'cart-confirm-amt', style: { color: 'var(--text-muted)' } }, fmt(tradeProtection))
+            )
+          ),
+          h('div', { className: 'cart-confirm-total' },
+            h('div', null,
+              h('div', { className: 'cart-confirm-total-label' }, 'Total charged to wallet'),
+              h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.')
+            ),
+            h('div', { className: 'cart-confirm-total-amt' }, fmt(price))
+          ),
+          h('div', { className: 'cart-confirm-actions' },
+            h('button', {
+              className: 'btn btn-ghost',
+              style: { border: '1px solid var(--border)' },
+              onClick: () => closeBuyConfirm(),
+              disabled: buyConfirmBusy
+            }, 'Cancel'),
+            h('button', {
+              className: 'btn btn-accent',
+              disabled: buyConfirmBusy,
+              onClick: async () => {
+                if (buyConfirmBusy) return;
+                setBuyConfirmBusy(true);
+                try {
+                  // Fire the EXISTING purchase function the direct buy
+                  // buttons used. We only inserted a confirm step in
+                  // front — nothing about what executes is changed.
+                  await onBuy(bc.listingId, bc.price);
+                } finally {
+                  setBuyConfirmBusy(false);
+                  setBuyConfirm(null);
+                }
+              }
+            }, buyConfirmBusy ? 'Confirming…' : `Confirm purchase · ${fmt(price)}`)
+          )
+        )
+      );
+    })()
   );
 }
 

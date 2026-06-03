@@ -1,11 +1,13 @@
 package com.sboxmarket.service
 
+import com.sboxmarket.model.Bid
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.Loadout
 import com.sboxmarket.model.LoadoutSlot
 import com.sboxmarket.model.PriceHistory
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.Wallet
+import com.sboxmarket.repository.BidRepository
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.LoadoutRepository
@@ -39,6 +41,7 @@ class SeedService {
     @Autowired(required = false) ItemRepository itemRepository
     @Autowired(required = false) PriceHistoryRepository priceHistoryRepository
     @Autowired(required = false) SteamUserRepository steamUserRepository
+    @Autowired(required = false) BidRepository bidRepository
 
     /**
      * First-boot bootstrap entry point — invoked once from the
@@ -76,6 +79,7 @@ class SeedService {
         seedCatalogueItems()
         seedMarketplaceListings()
         seedDemoSellers()
+        seedAuctionBids()
         backfillDemoSales()
         seedPriceHistory()
         seedPerItemSales()
@@ -211,6 +215,217 @@ class SeedService {
                     "\"Stall not found\"")
         } catch (Exception e) {
             log.warn("Demo-seller seed skipped: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Day-1 launch seed for AUCTION bid HISTORY. PROBLEM this fixes:
+     * {@code seedMarketplaceListings()} stamps each AUCTION listing with a
+     * denormalised {@code bidCount} (0–7) and a {@code currentBid} but
+     * creates ZERO backing {@code Bid} rows. So an item page reads the
+     * header off {@code listing.bidCount} ("5 bids") while the bid-history
+     * list — served by {@code BidService.historyFor} →
+     * {@code BidRepository.findByListing} (an actual {@code Bid}-row query)
+     * — comes back EMPTY. A demo-grade inconsistency that breaks the 1:1
+     * csfloat illusion, where an auction's history always matches its count.
+     *
+     * This method gives every seeded AUCTION a coherent bid history and then
+     * makes the listing's denormalised fields AUTHORITATIVE over those rows
+     * (the same end-state {@code BidService.placeBid} converges to):
+     *   - {@code bidCount}          = the number of {@code Bid} rows created
+     *   - {@code currentBid}        = the HIGHEST bid amount
+     *   - {@code currentBidderId}   = that top bid's bidder id
+     *   - {@code currentBidderName} = that top bid's bidder name
+     * so the header count, the "current bid" chip and the history list all
+     * agree no matter which one the UI reads.
+     *
+     * PER AUCTION: it honours the already-seeded {@code bidCount} as the row
+     * count. An auction seeded with {@code bidCount == 0} (no {@code currentBid})
+     * is a brand-new, no-bid auction — already coherent (header "0 bids",
+     * empty list) — so it gets NO rows. For {@code bidCount == n > 0} it
+     * creates exactly {@code n} rows with:
+     *   - AMOUNTS strictly ascending, the LAST one landing exactly on the
+     *     auction's {@code currentBid} (so max(amount) == currentBid), the
+     *     earlier ones stepped down by a fixed increment from there — i.e.
+     *     the history reads like a real climb to the current top bid.
+     *   - TIMESTAMPS walking backward from ~now, oldest first, all inside
+     *     the [listedAt, now] window so a bid never predates its listing.
+     *   - BIDDERS drawn round-robin from the six demo seller accounts
+     *     ({@link #SEED_SELLER_ACCOUNTS}), EXCLUDING the auction's own seller
+     *     (a seller can't bid on their own lot). The top (winning) row's
+     *     bidder is promoted onto the listing's {@code currentBidder*} fields.
+     *   - STATUS: the single highest row is WINNING; every lower row is
+     *     OUTBID — mirroring the live {@code placeBid} demotion so the
+     *     Profile Active-Bids tab and the history badges read correctly.
+     *
+     * IDEMPOTENT: fires only when {@code bidRepository.count() == 0}. This
+     * seed is the sole creator of {@code Bid} rows on a fresh boot, so once
+     * any bid exists (seeded here, or a real {@code placeBid}) it never runs
+     * again — it cannot double-seed or fight live bids. Mirrors the
+     * {@code seedMarketplaceListings()} {@code count() > 0} guard.
+     *
+     * DETERMINISTIC: {@code Random(7L)} so the whole bid book is byte-for-
+     * byte reproducible across boots for QA + screenshots — same convention
+     * as the other seed steps. Inert when the optional {@code bidRepository}
+     * / {@code listingRepository} / {@code steamUserRepository} beans are
+     * absent (mirrors the required=false fields), like {@code seedDemoSellers}.
+     */
+    private void seedAuctionBids() {
+        if (bidRepository == null || listingRepository == null || steamUserRepository == null) return
+        try {
+            // Idempotency probe — this seed is the only creator of Bid rows
+            // on a fresh boot, so any existing bid means we (or a real
+            // placeBid) already ran. Skip without touching anything.
+            if (bidRepository.count() > 0) return
+
+            // Resolve the six demo seller accounts to (id, displayName) so we
+            // can attribute bids to real SteamUser ids — the same accounts
+            // seedDemoSellers() created, looked up by their fixed steamId64s
+            // so this works whether or not any listing was attached to them.
+            def bidders = []   // list of [id, displayName]
+            SEED_SELLER_ACCOUNTS.each { acct ->
+                def u = steamUserRepository.findBySteamId64(acct[1])
+                if (u != null && u.id != null) bidders << [u.id, u.displayName]
+            }
+            if (bidders.isEmpty()) {
+                log.info("Auction-bid seed skipped: no demo bidder accounts resolved")
+                return
+            }
+
+            def rng = new Random(7L)
+            long now = System.currentTimeMillis()
+            long hourMs = 3600_000L
+
+            int auctionsSeeded = 0
+            int bidsCreated = 0
+
+            listingRepository.findAll().each { l ->
+                if (l == null || l.id == null) return
+                if (l.listingType != 'AUCTION') return
+
+                // Honour the already-seeded bidCount as the authoritative row
+                // count. 0 (or null) → a coherent no-bid auction; leave it.
+                int n = (l.bidCount ?: 0)
+                if (n <= 0) return
+
+                // Eligible bidders = demo accounts that are NOT this auction's
+                // own seller (a seller cannot bid on their own lot). Match on
+                // BOTH the attached seller id (set by seedDemoSellers) and the
+                // seller display name (covers anonymous listings whose
+                // sellerUserId is null but whose sellerName is a demo handle).
+                def eligible = bidders.findAll { b ->
+                    (l.sellerUserId == null || b[0] != l.sellerUserId) &&
+                    (l.sellerName == null || b[1] != l.sellerName)
+                }
+                if (eligible.isEmpty()) return   // every demo bidder IS the seller — skip
+
+                // The top bid must equal the listing's currentBid so the
+                // "current bid" chip agrees with max(amount). If a row count
+                // was seeded without a currentBid (shouldn't happen — the
+                // listing seed only sets bidCount>0 alongside currentBid),
+                // synthesize a floor below ask so the history is still sane.
+                BigDecimal top = l.currentBid
+                if (top == null || top <= BigDecimal.ZERO) {
+                    top = (l.price ?: new BigDecimal('1.00')) * new BigDecimal('0.70')
+                    top = top.setScale(2, RoundingMode.HALF_UP)
+                    if (top <= BigDecimal.ZERO) top = new BigDecimal('0.10')
+                }
+
+                // Build n strictly-ascending amounts ending exactly on `top`.
+                // Step down from the top by a per-auction increment so the
+                // lowest (oldest) bid sits ~30% below the top across the
+                // whole climb — a believable bid war, not n identical rows.
+                BigDecimal step = (top * new BigDecimal('0.30'))
+                        .divide(new BigDecimal(Math.max(1, n)), 2, RoundingMode.HALF_UP)
+                if (step <= BigDecimal.ZERO) step = new BigDecimal('0.01')
+
+                // Timestamps: oldest first, walking backward from a few
+                // minutes ago, all inside [listedAt, now] so a bid never
+                // predates its own listing. Spread across the listing's age
+                // (capped to ~the last 24h of it) for a natural cadence.
+                long listedAt = (l.listedAt != null && l.listedAt < now) ? l.listedAt : (now - 24L * hourMs)
+                long lastBidAt = now - (5L + rng.nextInt(55)) * 60_000L   // 5–60 min ago
+                if (lastBidAt <= listedAt) lastBidAt = (now + listedAt) / 2L
+                long windowMs = lastBidAt - listedAt
+                if (windowMs < n * 60_000L) windowMs = n * 60_000L        // ensure room for n steps
+
+                // Round-robin bidders, but make sure two ADJACENT bids aren't
+                // the same person where the pool allows it — start at a random
+                // offset for variety across auctions.
+                int offset = rng.nextInt(eligible.size())
+
+                Bid topRow = null
+                BigDecimal topAmount = null
+                Long topBidderId = null
+                String topBidderName = null
+
+                for (int i = 0; i < n; i++) {
+                    // i = 0 is the OLDEST / lowest bid; i = n-1 is the newest /
+                    // highest and must equal `top`.
+                    BigDecimal amount = (i == n - 1)
+                            ? top
+                            : (top - step * new BigDecimal(n - 1 - i)).setScale(2, RoundingMode.HALF_UP)
+                    if (amount <= BigDecimal.ZERO) amount = new BigDecimal('0.01')
+                    // Strict ceiling on every non-final row: a tiny-priced lot
+                    // can round a lower step up to (or past) `top`, which would
+                    // let an earlier bid meet/beat the winning bid and break the
+                    // "max(amount) == currentBid" invariant. Pin such rows just
+                    // under the top by one cent so the winner stays unique.
+                    if (i < n - 1 && amount >= top) {
+                        amount = (top - new BigDecimal('0.01')).setScale(2, RoundingMode.HALF_UP)
+                        if (amount <= BigDecimal.ZERO) amount = new BigDecimal('0.01')
+                    }
+
+                    def b = eligible[(offset + i) % eligible.size()]
+                    Long bidderId = b[0] as Long
+                    String bidderName = b[1] as String
+
+                    // Oldest→newest ascending timestamps inside the window.
+                    long createdAt = listedAt + (long) ((double) (i + 1) / (n + 1) * windowMs)
+                    if (createdAt >= now) createdAt = now - (long) (n - i) * 1000L
+
+                    def bid = new Bid(
+                        listingId:    l.id,
+                        bidderUserId: bidderId,
+                        bidderName:   bidderName,
+                        amount:       amount,
+                        maxAmount:    null,
+                        kind:         'MANUAL',
+                        // Highest row WINNING, the rest demoted to OUTBID —
+                        // matches the live placeBid end-state so the Profile
+                        // Active-Bids tab and history badges read correctly.
+                        status:       (i == n - 1) ? 'WINNING' : 'OUTBID',
+                        createdAt:    createdAt
+                    )
+                    bidRepository.save(bid)
+                    bidsCreated++
+
+                    if (i == n - 1) {
+                        topRow = bid
+                        topAmount = amount
+                        topBidderId = bidderId
+                        topBidderName = bidderName
+                    }
+                }
+
+                // Make the listing's denormalised auction fields AUTHORITATIVE
+                // over the rows we just wrote, so the header count, the
+                // "current bid" chip and the history list can never disagree.
+                if (topRow != null) {
+                    l.bidCount          = n
+                    l.currentBid        = topAmount
+                    l.currentBidderId   = topBidderId
+                    l.currentBidderName = topBidderName
+                    listingRepository.save(l)
+                    auctionsSeeded++
+                }
+            }
+
+            log.info("Seeded ${bidsCreated} auction Bid rows across ${auctionsSeeded} auctions " +
+                    "so every auction's bidCount matches its bid history (highest bid == currentBid) " +
+                    "on a fresh boot instead of \"N bids\" over an empty list")
+        } catch (Exception e) {
+            log.warn("Auction-bid seed skipped: ${e.message}", e)
         }
     }
 
