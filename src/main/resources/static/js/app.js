@@ -5465,18 +5465,44 @@ export function App() {
     // whether item.id stringifies to an integer — `Object.values()` sorts
     // integer-string keys in numeric order, which silently broke price/recent
     // sort by re-ordering deduped rows by item.id instead of by API order.
+    const withItem = pool.filter(l => l?.item);
     const byItem = new Map();
-    pool.filter(l => l?.item).forEach(l => {
+    withItem.forEach((l, idx) => {
       const current = byItem.get(l.item.id);
       if (!current || effPrice(l) < effPrice(current.listing)) {
-        byItem.set(l.item.id, { listing: l, count: 1 });
+        // Representative = the CHEAPEST listing of the item (its price / date /
+        // discount is exactly what the card renders). Capture ITS index in the
+        // API-sorted pool too — see the re-sort below.
+        byItem.set(l.item.id, { listing: l, idx });
       }
     });
     const counts = new Map();
     pool.forEach(l => { if (l?.item) counts.set(l.item.id, (counts.get(l.item.id) || 0) + 1); });
-    return Array.from(byItem.values())
-      .map(e => ({ ...e.listing, __listingCount: counts.get(e.listing.item.id) || 1 }));
-  }, [listings, listingTypeFilter, dealsOnly, minDiscountPct, newOnly, affordableOnly, hideMine, me?.id, wallet?.balance]);
+    // Order the deduped rows so the visible sequence matches what each card
+    // actually SHOWS. The backend sorts per-LISTING; dedup then keeps an
+    // item's cheapest listing as the representative, but Map insertion froze
+    // the row at the FIRST-seen listing's slot — so under a price sort an item
+    // whose dearest listing sorted high but whose floor is low rendered ABOVE
+    // a pricier floor (a $13.16 floor above a $15.58 floor), and auctions
+    // (shown at currentBid, but sorted by the backend on their raw `price`)
+    // interleaved by the wrong number.
+    //   • Price sorts → re-sort by the representative's EFFECTIVE price (the
+    //     exact value the card prints: a buy-now floor or an auction's current
+    //     bid), so the column is strictly monotonic.
+    //   • Every other sort (newest / discount / rarity / ending_soon / …) →
+    //     order by the representative's index in the API-sorted pool; the
+    //     backend already applied that ordering to the listings, and the
+    //     representative carries its own position.
+    const rows = Array.from(byItem.values());
+    if (sort === 'price_desc' || sort === 'price_asc') {
+      const dir = sort === 'price_asc' ? 1 : -1;
+      const ep = (l) => { const v = effPrice(l); return isFinite(v) ? v : 0; };
+      rows.sort((a, b) => dir * (ep(a.listing) - ep(b.listing)) || (a.idx - b.idx));
+    } else {
+      rows.sort((a, b) => a.idx - b.idx);
+    }
+    return rows.map(e => ({ ...e.listing, __listingCount: counts.get(e.listing.item.id) || 1 }));
+  }, [listings, sort, listingTypeFilter, dealsOnly, minDiscountPct, newOnly, affordableOnly, hideMine, me?.id, wallet?.balance]);
 
   // Bulk-fetch watcher counts for the visible item ids whenever the
   // marketplace grid recomputes. One round-trip, debounced by the dedup
