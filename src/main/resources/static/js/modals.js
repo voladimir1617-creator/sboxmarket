@@ -997,7 +997,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           ? h('div', { style: { padding: 8, color: 'var(--text-muted)', fontStyle: 'italic' } }, 'Loading…')
           : buyOrderRows.length === 0
             ? h('div', { style: { padding: 8, color: 'var(--text-muted)' } }, 'No active buy orders for this item right now.')
-            : h('table', { style: { width: '100%', borderCollapse: 'collapse', fontFamily: 'JetBrains Mono, monospace' } },
+            : h('table', { style: { width: '100%', borderCollapse: 'collapse', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } },
                 h('thead', null,
                   h('tr', { style: { color: 'var(--text-muted)', fontSize: 10, letterSpacing: 0.4 } },
                     h('th', { style: { textAlign: 'left',  padding: '6px 4px', fontWeight: 700 } }, '#'),
@@ -1907,7 +1907,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 className: 'wallet-amount-input',
                 style: {
                   flex: 1, background: 'transparent', border: 'none',
-                  padding: '8px 0', fontSize: 14, fontFamily: 'JetBrains Mono, monospace'
+                  padding: '8px 0', fontSize: 14, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace"
                 },
                 type: 'number', step: '0.01', min: '0.01', max: '100000',
                 inputMode: 'decimal',
@@ -2568,7 +2568,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
               style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }
             },
               h('span', { style: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Details (optional)'),
-              h('span', { style: { fontSize: 10, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' } },
+              h('span', { style: { fontSize: 10, color: 'var(--text-muted)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } },
                 `${note.length}/${MAX_NOTE}`)
             ),
             h('textarea', {
@@ -3073,7 +3073,7 @@ export function AffiliateModal({ onClose }) {
           value: 'affiliate@skinbox.market',
           className: 'price-input',
           'aria-label': 'Affiliate program contact email — click to select',
-          style: { width: 220, fontSize: 12.5, fontFamily: 'JetBrains Mono, monospace' },
+          style: { width: 220, fontSize: 12.5, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" },
           onClick: e => e.target.select()
         }),
         h('a', {
@@ -3788,7 +3788,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         ),
         h('div', { className: 'profile-id' },
           'Steam ID · ',
-          h('span', { style: { fontFamily: 'JetBrains Mono, monospace' } }, me.steamId64),
+          h('span', { style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, me.steamId64),
           // Member-since chip — pulled from the profile's createdAt so
           // veterans get a subtle tenure signal (and brand-new users get
           // a nudge that they're fresh). Rendered next to Steam ID so
@@ -5077,7 +5077,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             'aria-label': 'Steam trade URL',
             placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
             value: tradeUrlDraft,
-            style: { flex: 1, minWidth: 240, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 },
+            style: { flex: 1, minWidth: 240, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12 },
             onChange: e => setTradeUrlDraft(e.target.value)
           }),
           h('button', { className: 'btn btn-accent', disabled: tradeUrlBusy, onClick: () => saveTradeUrl(tradeUrlDraft.trim()) }, tradeUrlBusy ? 'Saving…' : 'Save'),
@@ -8616,7 +8616,7 @@ function ProfileOffersTab() {
           return h('div', {
             style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2 },
             title: 'Platform fee is 2%. Final payout lands in your wallet after buyer confirms receipt.'
-          }, 'You\'d net ', h('span', { style: { color: 'var(--green)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, fmt(net)));
+          }, 'You\'d net ', h('span', { style: { color: 'var(--green)', fontWeight: 700, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(net)));
         })()
       ),
       h('div', { className: 'offer-status-col' },
@@ -10333,7 +10333,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             '—', h('b', null, pickedCompeting.count),
             ' other seller', pickedCompeting.count === 1 ? '' : 's', ' · floor ',
             h('span', {
-              style: { color: 'var(--accent)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }
+              style: { color: 'var(--accent)', fontWeight: 700, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" }
             }, fmt(pickedCompeting.floor))
           )
         )
@@ -10490,12 +10490,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // USD — render them with a fixed '$', NOT fmt() (which multiplies by
           // the selected-currency FX rate and would show e.g. "€90.16" under a
           // USD field, misleading a EUR seller about what they net). (wave-146)
-          h('div', { style: { color: 'var(--text-primary)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, '$' + p.toFixed(2)),
+          h('div', { style: { color: 'var(--text-primary)', fontWeight: 700, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, '$' + p.toFixed(2)),
           h('div', { style: { color: 'var(--text-muted)' } }, 'Platform fee (2%)'),
-          h('div', { style: { color: 'var(--red)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, '−$' + fee.toFixed(2)),
+          h('div', { style: { color: 'var(--red)', fontWeight: 700, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, '−$' + fee.toFixed(2)),
           h('div', { style: { color: 'var(--text-muted)', fontWeight: 700 } },
             isAuction ? 'Minimum you\'ll receive' : "You'll receive"),
-          h('div', { style: { color: 'var(--accent)', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } }, '$' + net.toFixed(2)),
+          h('div', { style: { color: 'var(--accent)', fontWeight: 800, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, '$' + net.toFixed(2)),
           isAuction && h('div', {
             style: { gridColumn: '1 / -1', fontSize: 10, color: 'var(--text-muted)', marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 6 }
           },
@@ -12246,11 +12246,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                   h('div', { style: { minWidth: 0, overflow: 'hidden' } },
                     h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, row.itemName || `#${row.itemId}`),
                     h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
-                h('div', { style: { textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 } }, fmt(row.price)),
-                h('div', { style: { textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
+                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600 } }, fmt(row.price)),
+                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
                   row.floorDelta == null ? '—' : (parseFloat(row.floorDelta) >= 0 ? '+' : '') + fmt(row.floorDelta)),
-                h('div', { style: { textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-secondary)' } }, Number(row.viewCount || 0).toLocaleString()),
-                h('div', { style: { textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? row.itemSales30d : '—')
+                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-secondary)' } }, Number(row.viewCount || 0).toLocaleString()),
+                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? row.itemSales30d : '—')
               ))
             )
     ),
@@ -12338,7 +12338,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 h('span', { className: 'mystall-sold-total' }, maskEarn(soldTotal)),
                 h('span', { className: 'mystall-sold-hint' },
                   '· Net after 2% fee ',
-                  h('span', { style: { color: 'var(--accent)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, maskEarn(soldNet))
+                  h('span', { style: { color: 'var(--accent)', fontWeight: 700, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, maskEarn(soldNet))
                 ),
                 h('span', { style: { marginLeft: 'auto' } },
                   h(DateRangeFilter, {
@@ -12544,7 +12544,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 Number(l.item?.viewCount) >= 10 && h('span', {
                   style: {
                     marginLeft: 8, fontSize: 10, color: 'var(--text-muted)',
-                    fontFamily: 'JetBrains Mono, monospace'
+                    fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace"
                   },
                   title: `${Number(l.item.viewCount).toLocaleString()} lifetime item-detail opens. High views with no watchers means people look but don't star — check the price, description, or condition.`
                 }, '· ', Number(l.item.viewCount).toLocaleString(), ' views'),
@@ -13109,8 +13109,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         })()
       ),
       h('div', { style: { textAlign: 'right', marginRight: 14 } },
-        h('div', { style: { fontSize: 14, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, fmt(offer.amount)),
-        h('div', { style: { fontSize: 11, color: 'var(--text-muted)', textDecoration: 'line-through', fontFamily: 'JetBrains Mono, monospace' } }, fmt(offer.askingPrice)),
+        h('div', { style: { fontSize: 14, fontWeight: 800, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(offer.amount)),
+        h('div', { style: { fontSize: 11, color: 'var(--text-muted)', textDecoration: 'line-through', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(offer.askingPrice)),
         h('div', { style: { fontSize: 10, fontWeight: 700, color: pctOff > 0 ? 'var(--green)' : 'var(--text-muted)' } }, pctOff > 0 ? `−${pctOff}%` : '')
       ),
       offer.status === 'PENDING'
@@ -13860,7 +13860,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                     style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
                   }),
                   h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
-                  priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, fmt(priceVal))
+                  priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(priceVal))
                 );
                 })
               )
@@ -14888,7 +14888,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                               title: 'Copy transaction reference — quote this in a support ticket to speed up review',
                               style: {
                                 marginTop: 2, padding: 0, background: 'none', border: 'none',
-                                color: 'var(--text-muted)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace',
+                                color: 'var(--text-muted)', fontSize: 10, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace",
                                 cursor: 'pointer', letterSpacing: 0.3, textAlign: 'left'
                               },
                               onClick: async (e) => {

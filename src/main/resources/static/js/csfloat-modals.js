@@ -750,7 +750,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                   h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' } }, it.name),
                   h('div', { style: { fontSize: 10, color: 'var(--text-muted)' } }, it.category + ' · ' + it.rarity)
                 ),
-                h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, fmt(it.lowestPrice))
+                h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(it.lowestPrice))
               ))
         )
       ),
@@ -1971,7 +1971,7 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
       },
         h('span', { style: { fontSize: 16 } }, ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[it.category] || '—'),
         h('span', { style: { fontSize: 12, flex: 1, minWidth: 0 } }, it.name),
-        h('span', { style: { fontSize: 11, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, fmt(it.lowestPrice))
+        h('span', { style: { fontSize: 11, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(it.lowestPrice))
       ))
     ),
     h('button', { className: 'loadout-add-btn', style: { marginTop: 6 }, onClick: () => setOpen(false) }, 'Cancel')

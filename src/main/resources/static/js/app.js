@@ -1556,7 +1556,7 @@ function MarketStatsStrip() {
      Bumped label to 11px / 0.08em tracking, value to 16px. Dropped the
      "Marketplace at a glance" lede that read as another data label. */
   const labelStyle = { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 };
-  const valueStyle = { fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' };
+  const valueStyle = { fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", whiteSpace: 'nowrap' };
   const Stat = (label, value) => h('div', {
     style: {
       display: 'flex', flexDirection: 'column', gap: 4,
@@ -2434,7 +2434,7 @@ function RecentlyViewedPills({ kind, privacy }) {
             style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
           }),
           h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
-          priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, privacy ? '$•••••' : fmt(priceVal))
+          priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, privacy ? '$•••••' : fmt(priceVal))
         );
       })
     )
@@ -2477,7 +2477,7 @@ export class ErrorBoundary extends React.Component {
           padding: '48px 32px', maxWidth: 560, margin: '60px auto',
           background: 'var(--bg-card, #111827)', border: '1px solid var(--border, #1f2937)',
           borderRadius: 14, color: 'var(--text-primary, #e5e7eb)',
-          fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontSize: 15, lineHeight: 1.55,
+          fontFamily: "'Roboto', system-ui, -apple-system, sans-serif", fontSize: 15, lineHeight: 1.55,
           textAlign: 'center', boxShadow: '0 8px 28px rgba(0,0,0,0.35)'
         }
       },
@@ -2511,7 +2511,7 @@ export class ErrorBoundary extends React.Component {
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             background: 'rgba(0,0,0,0.35)', padding: 14, borderRadius: 8,
             marginTop: 14, textAlign: 'left', fontSize: 11,
-            fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-muted, #9ca3af)',
+            fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-muted, #9ca3af)',
             maxHeight: 260, overflow: 'auto'
           }
         }, stack)
@@ -8988,7 +8988,7 @@ export function App() {
                 style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }
               },
                 'Balance after: ',
-                h('span', { style: { color: 'var(--text-primary)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } },
+                h('span', { style: { color: 'var(--text-primary)', fontWeight: 700, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } },
                   fmt(after))
               );
             })()

@@ -527,7 +527,7 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
     h('td', null, h(RarityBadge, { rarity: item.rarity })),
     h('td', { className: 'center' },
       disc > 0
-        ? h('span', { style: { color: 'var(--green)', fontWeight: 700, fontSize: 12, fontFamily: 'JetBrains Mono, monospace' } }, `−${disc}%`)
+        ? h('span', { style: { color: 'var(--green)', fontWeight: 700, fontSize: 12, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, `−${disc}%`)
         : h('span', { style: { color: 'var(--text-muted)', fontSize: 11 } }, '—')
     ),
     h('td', { className: 'center' },

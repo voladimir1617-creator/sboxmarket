@@ -880,7 +880,7 @@ function SeverityChip({ severity }) {
     style: {
       fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 4,
       background: cfg.bg, color: cfg.fg, letterSpacing: 0.5,
-      fontFamily: 'JetBrains Mono, monospace', minWidth: 40, textAlign: 'center'
+      fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", minWidth: 40, textAlign: 'center'
     }
   }, cfg.label);
 }
@@ -916,7 +916,7 @@ function ApiKeyLookupPanel() {
     h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' } },
       h('input', {
         className: 'price-input',
-        style: { flex: 1, minWidth: 240, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 },
+        style: { flex: 1, minWidth: 240, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12 },
         placeholder: 'sbx_live_…',
         value: q,
         onChange: e => setQ(e.target.value),
@@ -1432,7 +1432,7 @@ function AdminSimulatorTab() {
             style: {
               width: 80, padding: '8px 12px', fontSize: 13, fontWeight: 700,
               background: 'var(--bg-input)', border: '1px solid var(--border)',
-              color: 'var(--text-primary)', borderRadius: 6, fontFamily: 'JetBrains Mono, monospace'
+              color: 'var(--text-primary)', borderRadius: 6, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace"
             }
           }),
           h('button', {
@@ -3774,7 +3774,7 @@ function CsrLookupTab() {
               : h('div', { className: 'db-thumb', style: { width: 44, height: 44 } }, (u.displayName || 'U').substring(0,2).toUpperCase()),
             h('div', { style: { flex: 1 } },
               h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, u.displayName || 'Player'),
-              h('div', { style: { fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' } }, u.steamId64 + ' · ' + u.role + (u.banned ? ' · 🚫 BANNED' : '')),
+              h('div', { style: { fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, u.steamId64 + ' · ' + u.role + (u.banned ? ' · 🚫 BANNED' : '')),
               // Rating chip (batch 489). Single-glance trust signal
               // alongside the banned/chargeback signals further down.
               u.rating && u.rating.count > 0 && h('div', {
@@ -3783,7 +3783,7 @@ function CsrLookupTab() {
             ),
             h('div', { style: { textAlign: 'right' } },
               h('div', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Balance'),
-              h('div', { style: { fontSize: 16, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, fmt(u.balance || 0))
+              h('div', { style: { fontSize: 16, fontWeight: 800, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(u.balance || 0))
             ),
             h('button', { className: 'btn btn-accent', style: { marginLeft: 10, padding: '8px 14px' }, disabled: busy, onClick: () => giveCredit(u) }, '+ Goodwill')
           ),
