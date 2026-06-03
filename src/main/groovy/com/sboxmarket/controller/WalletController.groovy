@@ -550,12 +550,17 @@ class WalletController {
         def cleanDest = textSanitizer.cleanShort(body.destination as String) ?: ''
         try {
             def tx = stripeService.requestWithdrawal(wallet.id, amount, cleanDest)
-            // Force flush BEFORE the method returns so the Wallet @Version
-            // check fires inside this catch — not at outer-tx commit time
-            // (after the method has returned), where a 500 would escape
-            // the controller. Spring's flush-mode-AUTO does flush before
-            // the findById below, so this is belt-and-braces; explicit is
-            // safer since AUTO behaviour can vary across Hibernate
+            // Belt-and-braces flush. The PRIMARY @Version check now fires
+            // INSIDE requestWithdrawal, which flushes the debit BEFORE
+            // Transfer.create so a race-loss aborts before any money moves
+            // (see StripeService.requestWithdrawal — do NOT remove that inner
+            // flush in favour of this one: by the time control returns here,
+            // Transfer.create has already run, and a rollback would restore
+            // the balance while the payout had already left). This secondary
+            // flush forces any remaining pending @Version UPDATE to surface
+            // inside this catch (→ WITHDRAW_RACE) rather than escaping as a
+            // 500 at outer-tx commit. Spring's flush-mode-AUTO also flushes
+            // before the findById below; explicit is safer across Hibernate
             // versions and entity-type queries.
             walletRepository.flush()
             def reloaded = walletRepository.findById(wallet.id)
