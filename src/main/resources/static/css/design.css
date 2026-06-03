@@ -199116,6 +199116,15 @@ main.layout .listing-grid {
    centered it -> ~250px column, 2nd card clipped. Force full-width + 2-up. */
 @media (max-width: 768px) {
   #root, .site-root { width: 100% !important; max-width: 100% !important; }
+  /* The #root width:100% above was historically futile on non-home routes:
+     `body { padding: 0 60px }` (a desktop gutter, no media query) meant body's
+     CONTENT box was only ~250px on a 390px phone, so #root (width:100% OF that
+     box) stayed 250px — squishing /market until its grid columns shrank to
+     85px while cards kept their fixed ~228px and OVERLAPPED. Home escapes via a
+     higher-specificity mobile body rule (16px); other routes fell through to
+     the 60px base. Reduce the gutter to a phone-appropriate 16px globally here
+     (home's own more-specific rule still wins → home unchanged). */
+  body { padding-left: 16px !important; padding-right: 16px !important; }
   main.layout:has(> .sidebar),
   main.layout:has(> aside.sidebar) {
     width: 100% !important;
@@ -199124,6 +199133,15 @@ main.layout .listing-grid {
   }
   main.layout .listing-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  /* Cards carry a fixed ~228px width (the desktop track size); in the 2 narrow
+     phone columns that overflowed the cell and the right card overlapped the
+     left. Force every grid child to fill its 1fr cell so the 2-up grid is
+     clean. */
+  main.layout .listing-grid > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
   }
   .csfloat-home-faq-q { min-height: 44px; display: flex; align-items: center; padding: 8px 0; }
   .grid-star, .steam-market-link.compact, .loadout-card-share { width: 40px !important; height: 40px !important; }
