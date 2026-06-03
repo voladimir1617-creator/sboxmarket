@@ -12874,6 +12874,16 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   const [incoming, setIn]   = useState(null);
   const [outgoing, setOut]  = useState(null);
   const [busy, setBusy]     = useState(false);
+  // Synchronous re-entrancy latch for the money/state-mutating handlers
+  // below (accept / reject / cancel / counter / raise). `setBusy` is async
+  // (React batches it), so a rapid double-click fires two POSTs before the
+  // first render disables the button — accepting an offer debits the buyer's
+  // wallet and opens a trade, so a double-accept is real money. `busyRef`
+  // is checked-and-set BEFORE the await so the second click bails instantly.
+  // Mirrors the ProfileOffersTab twin (busyRef) + handleBuy/checkout latches.
+  // Kept in sync with `busy` each render so it auto-resets after a handler
+  // finishes (the finally's setBusy(false) re-render clears it).
+  const busyRef = useRef(busy); busyRef.current = busy;
   // Counter-offer inline state. `counterFor` is the offer id being
   // countered; `counterAmt` is the typed amount. Mirrors the thread-view
   // inline counter UX so sellers can counter straight from the offers
@@ -12942,7 +12952,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                           || (outgoing || []).find(x => x.id === id);
 
   const handleAccept = async (id) => {
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     const o = findOffer(id);
     setBusy(true);
     try {
@@ -12963,7 +12974,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // rejection note without blowing away an in-progress counter draft.
   // (useState pair hoisted above the anon-guard early return.)
   const confirmReject = async (id) => {
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     const o = findOffer(id);
     setBusy(true);
     try {
@@ -12980,7 +12992,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     } finally { setBusy(false); }
   };
   const handleCancel = async (id) => {
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     const o = findOffer(id);
     setBusy(true);
     try {
@@ -13002,10 +13015,11 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     } finally { setBusy(false); }
   };
   const handleCounter = async (id, mode) => {
-    if (busy) return;
+    if (busyRef.current) return;
     const amt = parseFloat(counterAmt);
     if (!Number.isFinite(amt) || amt <= 0) { toast('Enter an amount above $0', 'err'); return; }
     const o = findOffer(id);
+    busyRef.current = true;
     setBusy(true);
     try {
       // Incoming = seller countering a buyer's offer → /counter.
