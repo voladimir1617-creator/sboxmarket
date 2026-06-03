@@ -140,8 +140,12 @@ class OfferService {
             def trimmed = textSanitizer.clean(message, MESSAGE_MAX_LEN)
             if (trimmed) cleanMessage = trimmed
         }
-        if (amount == null || amount <= BigDecimal.ZERO) {
-            throw new BadRequestException("INVALID_OFFER", "Offer must be greater than 0")
+        if (amount == null || amount < new BigDecimal("0.01")) {
+            // Floor at $0.01 — an accepted offer becomes listing.price, so a
+            // sub-cent offer would round to $0.00 in NUMERIC(10,2) (a free item
+            // if the seller accepts). Mirrors the sell/relist $0.01 floor + the
+            // client-side offer floor; defense-in-depth on the direct-API path.
+            throw new BadRequestException("INVALID_OFFER", "Offer must be at least \$0.01")
         }
         // Defense-in-depth cap mirroring the DTO layer. Keeps services
         // safe when invoked directly from another service or test.
@@ -373,8 +377,8 @@ class OfferService {
     @Transactional
     Offer buyerRaise(Long buyerUserId, Long originalOfferId, BigDecimal amount, String message = null) {
         banGuard.assertNotBanned(buyerUserId)
-        if (amount == null || amount <= BigDecimal.ZERO) {
-            throw new BadRequestException("INVALID_RAISE", "Raise amount must be greater than 0")
+        if (amount == null || amount < new BigDecimal("0.01")) {
+            throw new BadRequestException("INVALID_RAISE", "Raise amount must be at least \$0.01")
         }
         // Optional buyer note attached to the raise — same 280-char rule
         // as the initial makeOffer path. Empty/whitespace collapses to null.
@@ -500,8 +504,8 @@ class OfferService {
      */
     @Transactional
     Offer counterOffer(Long sellerUserId, Long originalOfferId, BigDecimal amount, String message = null) {
-        if (amount == null || amount <= BigDecimal.ZERO) {
-            throw new BadRequestException("INVALID_COUNTER", "Counter must be greater than 0")
+        if (amount == null || amount < new BigDecimal("0.01")) {
+            throw new BadRequestException("INVALID_COUNTER", "Counter must be at least \$0.01")
         }
         // Optional seller note attached to the counter ("can't go lower —
         // already 30% below median"). Same 280-char rule as makeOffer.
