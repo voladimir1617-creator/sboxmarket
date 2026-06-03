@@ -145160,7 +145160,12 @@ body .csfloat-home-faq-item[open] {
 body .csfloat-home-faq-q {
   display: flex !important;
   align-items: center !important;
-  justify-content: flex-start !important;
+  /* row-reverse runs the main axis right->left, so flex-start packed the
+     chevron+text group against the RIGHT edge — every row hugged the right
+     with a different width, producing a broken stair-step. flex-end packs
+     at the reversed main-end = the LEFT edge, giving a clean left-aligned
+     [chevron] [question] row (csfloat puts the ringed chevron on the left). */
+  justify-content: flex-end !important;
   gap: 20px !important;
   padding: 0 !important;
   font-family: 'Roboto', 'Helvetica Neue', sans-serif !important;
@@ -199512,7 +199517,12 @@ html body .csfloat-home-journey .csfloat-home-journey-left {
 html body .csfloat-home-faq .csfloat-home-faq-list,
 .csfloat-home-faq-list {
   max-width: 760px !important;
-  margin: 0 auto !important;
+  /* Left-align the question column under the section title and the
+     "View full FAQ" link (both sit at the inner's left edge). margin:0 auto
+     centered the 760px list inside the 1200px inner, leaving it floating
+     ~220px right of the title — a disjointed look. Keep the readable
+     760px cap but anchor it left. */
+  margin: 0 !important;
 }
 
 /* ===== END WAVE-INT5 ===== */
