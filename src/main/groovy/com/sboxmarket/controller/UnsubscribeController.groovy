@@ -90,7 +90,7 @@ class UnsubscribeController {
             return page('Missing email or token — open the link from your email again.', false)
         }
         if (!emailService.verifyUnsubscribeToken(lower, token)) {
-            log.warn("Unsubscribe: invalid token for email={}", lower)
+            log.warn("Unsubscribe: invalid token for email={}", EmailService.maskEmail(lower))
             return page('That unsubscribe link has expired or is malformed. Sign in and toggle email preferences from /settings.', false)
         }
         // Normalize the optional per-bucket selector. Only honour values
@@ -117,7 +117,7 @@ class UnsubscribeController {
         if (users.isEmpty()) {
             // No user matches — still succeed idempotently so we don't
             // leak whether an email is registered (enumeration guard).
-            log.info("Unsubscribe: no account matches email={} (returning success)", lower)
+            log.info("Unsubscribe: no account matches email={} (returning success)", EmailService.maskEmail(lower))
             return page(bucket
                 ? "Preferences saved. You're unsubscribed from ${bucket.toLowerCase()} emails."
                 : 'Preferences saved. You\'re unsubscribed from email notifications.', true)
@@ -148,9 +148,9 @@ class UnsubscribeController {
                 steamUserRepository.save(u)
                 if (bucket != null) {
                     log.info("Unsubscribe: muted bucket={} for uid={} email={} (mutedEmailKinds='{}')",
-                        bucket, u.id, lower, u.mutedEmailKinds)
+                        bucket, u.id, EmailService.maskEmail(lower), u.mutedEmailKinds)
                 } else {
-                    log.info("Unsubscribe: flipped emailNotificationsEnabled=false for uid={} email={}", u.id, lower)
+                    log.info("Unsubscribe: flipped emailNotificationsEnabled=false for uid={} email={}", u.id, EmailService.maskEmail(lower))
                 }
             } catch (Exception e) {
                 log.warn("Unsubscribe: save failed for uid={}: {}", u?.id, e.message)

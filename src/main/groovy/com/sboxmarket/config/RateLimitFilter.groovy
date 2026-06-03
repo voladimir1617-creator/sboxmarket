@@ -356,7 +356,15 @@ class RateLimitFilter extends OncePerRequestFilter {
             resp.setHeader('X-RateLimit-Remaining', '0')
             resp.setHeader('X-RateLimit-Reset', String.valueOf(Math.max(1, ((WINDOW_MS - (now - bucket.windowStart)) / 1000L) as long)))
             resp.writer.write('{"code":"RATE_LIMITED","message":"Too many requests. Please slow down."}')
-            log.warn("Rate limit hit: key=${key}, count=${current}, budget=${budget}")
+            // Log only the FIRST breach in this window (count just crossed
+            // budget). Logging every over-budget request flooded the WARN
+            // stream during exactly the sustained-abuse scenario where the
+            // log is most needed, and re-wrote the client IP (PII) on every
+            // line. One line per key per window keeps the IP available for
+            // ops to block the abuser without the flood.
+            if (current == budget + 1) {
+                log.warn("Rate limit hit: key=${key}, budget=${budget}")
+            }
             return
         }
         // Surface the current rate-limit headroom on every guarded

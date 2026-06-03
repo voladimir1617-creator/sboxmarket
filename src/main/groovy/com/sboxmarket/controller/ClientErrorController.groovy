@@ -40,7 +40,7 @@ class ClientErrorController {
     ResponseEntity<Map> report(@RequestBody(required = false) Map body, HttpServletRequest req) {
         def message = clip((body?.message as String), MAX_MESSAGE)
         def stack   = clip((body?.stack   as String), MAX_STACK)
-        def url     = clip((body?.url     as String), MAX_URL)
+        def url     = clip(stripQuery(body?.url as String), MAX_URL)
         def ua      = clip((body?.userAgent as String) ?: req.getHeader('User-Agent'), MAX_UA)
         if (!message && !stack) {
             // Nothing to log. 204 rather than 400 so a crashing client
@@ -51,6 +51,24 @@ class ClientErrorController {
         def uid = uidRaw instanceof Long ? uidRaw : null
         log.warn("CLIENT-ERROR uid=${uid ?: 'anon'} url=${url ?: '-'} ua='${ua ?: '-'}' msg='${message ?: '-'}' stack=${stack ?: '-'}")
         ResponseEntity.ok([received: true])
+    }
+
+    /**
+     * Drop the query string and fragment before logging the page URL.
+     * The React ErrorBoundary posts `location.href`, and several app URLs
+     * carry secrets in the query string — the unsubscribe link
+     * (?email=&t=<HMAC>), the Stripe deposit return (?session_id=cs_live_…),
+     * and email-verification links. A render crash on any of those pages
+     * would otherwise write the live token/email straight into ops logs
+     * (which ship to the aggregator at INFO+). Keep only scheme+host+path,
+     * which is all that's useful for triaging where the crash happened.
+     */
+    private static String stripQuery(String url) {
+        if (url == null) return null
+        int cut = url.length()
+        int q = url.indexOf('?'); if (q >= 0 && q < cut) cut = q
+        int h = url.indexOf('#'); if (h >= 0 && h < cut) cut = h
+        cut < url.length() ? url.substring(0, cut) + '?…' : url
     }
 
     private static String clip(String s, int max) {

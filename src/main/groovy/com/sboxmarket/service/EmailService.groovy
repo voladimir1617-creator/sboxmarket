@@ -1526,7 +1526,11 @@ Thanks for your patience.
      *  search, Elastic snapshot, etc). Falls back to the raw value if
      *  the address doesn't contain `@` so an admin can still grep for
      *  a malformed token. */
-    private static String maskEmail(String e) {
+    // Public + static so other anonymous, log-writing surfaces (e.g.
+    // UnsubscribeController) can reuse the same masking instead of logging
+    // raw addresses — keeps one source of truth for how a PII email is
+    // redacted before it hits the aggregator.
+    static String maskEmail(String e) {
         if (!e) return e
         int at = e.indexOf('@')
         if (at <= 0) return e
