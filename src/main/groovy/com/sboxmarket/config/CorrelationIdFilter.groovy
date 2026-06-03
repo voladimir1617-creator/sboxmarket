@@ -39,8 +39,14 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         // tester flagged as broken. It also beacons back to cloudflareinsights.com
         // so the host needs to be in connect-src too.
         "script-src 'self' https://unpkg.com https://static.cloudflareinsights.com",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com",
+        // All fonts (Roboto, Roboto Mono, Material Symbols) are self-hosted
+        // same-origin under /fonts via /css/fonts.css — the Google Fonts CDN
+        // was dropped (reliability + privacy). So style-src/font-src no longer
+        // allow fonts.googleapis.com / fonts.gstatic.com: 'self' covers
+        // everything we serve, and a stray re-introduced Google Fonts <link>
+        // now fails the CSP loudly instead of silently re-adding the dependency.
+        "style-src 'self' 'unsafe-inline'",
+        "font-src 'self'",
         // img-src includes every Steam CDN variant we have seen serving
         // avatar + item art, plus api.qrserver.com for the 2FA enrollment
         // QR code. Without api.qrserver.com the browser's CSP blocks the
