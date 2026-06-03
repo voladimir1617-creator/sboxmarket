@@ -17,7 +17,7 @@
 //          → { tradeId, protected, protection }
 //   POST /api/trades/{id}/protection
 //          → TradeProtection | { error, code }
-import { h, useState, useEffect, fmt, toast } from './utils.js';
+import { h, useState, useEffect, useRef, fmt, toast } from './utils.js';
 import { MaterialIcon } from './primitives.js';
 import { fetchTradeProtectionQuote, fetchTradeProtection, enableTradeProtection } from './api.js';
 
@@ -234,6 +234,13 @@ export function TradeProtectionPanel({ trade, me, onChanged }) {
   const [fee, setFee] = useState(() => computeFee(trade.price));
   const [loadingFee, setLoadingFee] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Synchronous re-entrancy latch — enabling Trade Protection charges the
+  // buyer a 2% / $0.25-min fee, so a double-click must not bill twice. The
+  // `busy` useState is async (a rapid second click fires before the button
+  // disables), so gate onEnable on a ref checked-and-set before the await.
+  // Kept in sync with `busy` each render so the finally's setBusy(false)
+  // re-render auto-clears it. Mirrors the offerBusyRef / handleBuy latches.
+  const busyRef = useRef(busy); busyRef.current = busy;
   const [error, setError] = useState('');
 
   // Resolve protection state — only when the trade object didn't already
@@ -275,6 +282,8 @@ export function TradeProtectionPanel({ trade, me, onChanged }) {
   }, [showOptIn, trade.price]);
 
   const onEnable = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError('');
     try {
