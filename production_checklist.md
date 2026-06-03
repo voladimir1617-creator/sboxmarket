@@ -83,3 +83,16 @@ Each was checked live or in-code this session (measured, not assumed):
   enough to hit reliably. Left at csfloat-compact sizing to preserve 1:1 parity rather
   than force-bumped to 44px (which would deviate from csfloat and risk overlap on the
   2-up mobile grid). Considered acceptable for launch.
+
+### Operator decisions before real-money go-live (not code bugs)
+- **No segregated platform/revenue wallet.** The 2% trade fee and the Trade-Protection
+  fee are captured by *withholding* — escrow holds the full price and the seller is paid
+  `price − fee`; the fee itself never lands in any wallet (documented in
+  `TradeProtectionService`). Platform revenue is therefore reconstructable by summing
+  transaction deltas, not by reading a balance. This is correct as a closed-system money
+  model, but confirm it matches your real-money accounting / Stripe-payout reconciliation
+  before launch. Surfaced by the 2026-06-02 money-execution audit, which otherwise found
+  the full checkout→wallet→listing→escrow path correct: optimistic-lock "sold exactly
+  once" (proven by `ConcurrentBuyIntegrationSpec`), no negative balance, exact fee
+  reconciliation (`sellerNet + fee == price`), atomic per-row cart with deferred
+  side-effects, self-purchase guarded, and server-side pricing (no client-supplied amount).
