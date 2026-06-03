@@ -4217,8 +4217,15 @@ export function App() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [cartConfirmOpen, cartBusy]);
+  const checkoutRef = React.useRef(false);
   const doCheckout = async () => {
     if (cart.length === 0) return;
+    // Synchronous in-flight latch — a rapid double-click on Confirm must not fire
+    // two checkout POSTs before React commits cartBusy=true (the disabled attr is
+    // async). Matches buyingRef / busyRef / submittingRef on every other money
+    // submit; closes the same re-entrancy window on the cart spend path.
+    if (checkoutRef.current) return;
+    checkoutRef.current = true;
     setCartBusy(true);
     try {
       const ids = cart.map(x => x.id);
@@ -4305,7 +4312,7 @@ export function App() {
       } else {
         showToast('Checkout failed', 'err');
       }
-    } finally { setCartBusy(false); }
+    } finally { setCartBusy(false); checkoutRef.current = false; }
   };
 
   // Watchlist — server-side for signed-in users (cross-device sync via
