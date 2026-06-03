@@ -11533,7 +11533,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     const original = (stall || []).find(l => l.id === id);
     const itemName = original?.item?.name || null;
     const oldPrice = original ? parseFloat(original.price) : null;
-    const res = await updateStallListing(id, patch);
+    let res;
+    try {
+      res = await updateStallListing(id, patch);
+    } catch (e) {
+      // Without this catch a network throw rejected silently — the edit form
+      // stayed open with no feedback and the seller assumed the price changed.
+      toast('Could not update the listing — network error. Please try again.', 'err');
+      return;
+    }
     if (res && res.error) { toast(res.error, 'err'); return; }
     setEditing(null);
     load();
