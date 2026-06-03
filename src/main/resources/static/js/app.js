@@ -4642,25 +4642,29 @@ export function App() {
         };
         document.addEventListener('keydown', onTarget);
       } else if (e.key === 'Escape') {
-        // An open overlay dialog owns Escape — let ITS own handler close just the
-        // dialog instead of this app-level handler navigating away. This handler
-        // and each dialog's handler both listen on document (bubble phase) and
-        // THIS one is registered first, so without the guard Escape on a dialog
-        // over /item/:id would fall through to the routeName==='item' branch below
-        // and bounce the user to /market. Bail when:
-        //   • a confirm dialog is open (.cart-confirm-backdrop — buy/cart confirm), or
-        //   • an overlay sits ON TOP of the item page: the item renders a
-        //     persistent `.modal-backdrop.page-mode` (modals.js:503) and an
-        //     offer/report/alert/trade overlay adds a SECOND, plain
-        //     `.modal-backdrop` — so BOTH being present means an overlay is open.
-        // The two-backdrop test is load-bearing: InfoModal full-page routes
-        // (/db, /loadout, /help, /stall, /wallet…) render a LONE plain
-        // `.modal-backdrop` with no page-mode sibling, so they are NOT treated as
-        // overlays and Escape→/market still works there (verified: /db has plain
-        // backdrop only, /item bare has page-mode backdrop only).
+        // Bail (let the open UI's own handler take Escape) when ANY dismissable
+        // overlay or inline drawer is open, so Escape never navigates out from
+        // under it. Detect:
+        //   • a confirm dialog (.cart-confirm-backdrop — buy/cart/dispute/refund/
+        //     mark-sent), or
+        //   • ANY stacked dialog: more than one .modal-backdrop in the DOM means a
+        //     dialog sits over a page (or another dialog). This covers BOTH an
+        //     offer/report/alert/trade overlay over the item page's persistent
+        //     `.modal-backdrop.page-mode` AND a confirm-receipt / leave-review
+        //     modal stacked over an InfoModal full-page route (/profile, /offers,
+        //     …), which each render their own plain `.modal-backdrop`. A bare page
+        //     has exactly ONE backdrop, so Escape→/market still works there.
+        //   • the inline make-offer drawer (.item-offer-drawer) on /item, which
+        //     renders in the page body with NO backdrop of its own and is only
+        //     present while open. (The auction bid form is deliberately NOT
+        //     included — it's a PERMANENT page section, always present on auction
+        //     items, so keying off it would disable Escape→/market on every
+        //     auction page. Escape while typing in the bid input is already
+        //     handled by the input/textarea focus guard above at the top of this
+        //     handler.)
         if (document.querySelector('.cart-confirm-backdrop') ||
-            (document.querySelector('.modal-backdrop.page-mode') &&
-             document.querySelector('.modal-backdrop:not(.page-mode)'))) return;
+            document.querySelectorAll('.modal-backdrop').length > 1 ||
+            document.querySelector('.item-offer-drawer')) return;
         if (shortcutsOpen)        setShortcutsOpen(false);
         // /item/{id} is a real page (per `feedback_pages_not_popups.md`) — pressing
         // Escape used to call `setSelected(null)` which left routeName='item' but

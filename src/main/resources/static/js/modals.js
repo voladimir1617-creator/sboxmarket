@@ -2000,7 +2000,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         // upfront with a clear "View / raise it instead" route so the
         // user doesn't type a price, hit Send, and bounce off a 400.
         const myLive = cheapestBuyNow ? myOffersByListing[cheapestBuyNow.id] : null;
-        return h('div', { style: { padding: '14px 30px', background: 'var(--bg-secondary)', borderRadius: 8, margin: '10px 30px' } },
+        return h('div', { className: 'item-offer-drawer', style: { padding: '14px 30px', background: 'var(--bg-secondary)', borderRadius: 8, margin: '10px 30px' } },
         myLive && h('div', {
           style: {
             margin: '0 0 10px', padding: '10px 12px',
@@ -2119,6 +2119,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               title: whyDisabled,
               onClick: async () => {
                 setOfferErr('');
+                // Validate the typed amount before the POST. `min="0.01"` on the
+                // input does NOT block free-typed/pasted values like -5, and the
+                // disabled-state covers atOrAboveAsk only — so guard both bounds
+                // here (a sub-cent offer would also round to $0.00 server-side).
+                if (!Number.isFinite(amt) || amt < 0.01) { setOfferErr('Enter an offer of at least $0.01.'); return; }
+                if (amt >= ask) { setOfferErr('Offer must be below the asking price.'); return; }
                 setOfferBusy(true);
                 try {
                   const res = await onMakeOffer(cheapestBuyNow?.id, parseFloat(offerAmt), offerMsg);

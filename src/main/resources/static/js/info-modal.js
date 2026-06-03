@@ -37,6 +37,13 @@ export function InfoModal({ title, onClose, children, wide }) {
     });
     const onKey = (e) => {
       if (e.key === 'Escape' && typeof onClose === 'function') {
+        // If a child dialog is stacked on top of this full-page modal — a second
+        // .modal-backdrop (e.g. the trades confirm-receipt / leave-review modal)
+        // or a .cart-confirm-backdrop — let ITS own handler take Escape rather
+        // than closing the whole page out from under it. A bare full-page modal
+        // has exactly one .modal-backdrop, so Escape still closes it normally.
+        if (document.querySelectorAll('.modal-backdrop').length > 1 ||
+            document.querySelector('.cart-confirm-backdrop')) return;
         e.stopPropagation();
         onClose();
         return;
