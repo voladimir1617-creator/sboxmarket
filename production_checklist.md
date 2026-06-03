@@ -185,3 +185,30 @@ touched specs. Findings fixed this wave:
   architecture (content reachable on touch — the empty full-page screenshot is a
   Playwright/body-scroll artifact, not a user bug). Config/deploy + non-visual a11y audits
   came back essentially clean (one fix each, above).
+
+## Waves 152–156 + prod-artifact cert (2026-06-03, same session)
+Exhaustive money + security verification sweep. Fixes committed; full `./gradlew test`
+suite GREEN; prod jar (`build/libs/sboxmarket-1.0.0.jar`, 84M) assembles clean (build-half
+of #172 done — boot-half still needs live Steam/Stripe secrets behind the tunnel).
+- **transfer.reversed fund-loss** (HIGH) fixed + `StripeTransferReversedSpec` (above).
+- **STRIPE_WEBHOOK_SECRET placeholder** now fail-fast in prod (was: an operator who left
+  `whsec_replace_me` could be forged-webhook-credited). +spec.
+- **Bid amount/maxAmount** now setScale(2,HALF_UP) like every other money input (was a
+  sub-cent fairness gap). +bid specs green.
+- **XXE**: Steam profile XmlSlurper hardened (disallow-doctype + external entities).
+- **Money flows all freshly adversarially audited, no remaining HIGH:** withdrawal,
+  deposit (webhook replay can't double-credit), buy+cart (sold-once, no partial-charge),
+  auction/bid (TOCTOU closed), sell-settlement, offer. Buyer-fee-Free + 2%/2% withholding
+  invariants confirmed intact.
+- **Security surface certified:** CSRF (double-submit + constant-time, sound exemptions),
+  SQL/JPQL injection impossible (zero createQuery/native — all Spring Data parameterized),
+  SSRF (every outbound host is a compile-time constant; trade URLs format-pinned, never
+  fetched), admin/CSR authz (per-method requireAdmin/requireCsr, self-target guards,
+  CSR↔admin boundary), security headers (CSP/XFO=DENY/nosniff/Permissions-Policy/HSTS-on-TLS),
+  notification IDOR (none), no secrets tracked in git, no TODO/FIXME in money/security svcs.
+- **SEO/OG**: per-item dynamic og/twitter meta + sitemap.xml + robots.txt all 200/valid.
+- **Spawned for focused follow-up (schema/hot-path, deferred from this session):**
+  (1) Steam double-list→double-sell guard (persist assetId + uniqueness); (2) notification/
+  email anti-abuse (offer-email per-recipient cooldown + per-user notif row cap).
+- **Open (operator-gated):** #172 boot-half — boot the prod jar behind the tunnel with
+  real Steam + Stripe live secrets and smoke-test the live money path.
