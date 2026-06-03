@@ -287,3 +287,46 @@ Comprehensive validation this session (no defects found / certified clean):
   exposure (/actuator/* 404; /env,/heapdump,/jolokia just hit the SPA HTML fallback).
 - No dev-login/session-impersonation backdoor (the /simulate/* admin endpoints are
   requireAdmin-gated QA seeders only).
+
+Session waves 170–176 (whole-website grind — find→fix→verify→commit):
+- ✅ **Wave 170** (f04c970) — Escape over-navigated off full-page routes. The App-level
+  Escape handler's catch-all `routeName !== 'market' → navigate(/market)` fired on EVERY
+  destination route (/db, /wallet, /profile, /cart, /sell, /watchlist, /offers, /buy-orders,
+  …). Guarded it + the InfoModal shell's own Escape with `.site-root.full-page-mode`. /item
+  stays exempt (its explicit branch fires first). Also hid the misleading hover "ESC" hint on
+  full-page routes. Verified live: Esc on /db /watchlist stays put; /item still → /market.
+- ✅ **Wave 172** (cdccefe) — **HEADLINE: Roboto never loaded → all UI text fell back to
+  Arial sitewide** (the operator's "ALL THE SIZING/UNDERLINES ARE OFF"). design.css declared
+  variable `@font-face Roboto/Roboto Mono {font-weight:400 700; src: local("Roboto"),
+  local("Inter")}` — local-only, no url(). On any machine without Roboto/Inter installed it
+  entered "error" state, and being a variable range declared AFTER fonts.css it SHADOWED the
+  proper self-hosted faces → Arial everywhere. Removed the two dead blocks (fonts.css already
+  self-hosts Roboto 300–900 + Mono 400–700 via url()). Verified live: document.fonts zero
+  errors (was 2), static faces now "loaded", check('700 16px Roboto')=true, canvas width ≠
+  Arial, hero/nav/cards render in real Roboto. **Lesson: never add a local-only @font-face for
+  a family fonts.css already serves.**
+- ✅ **Wave 173** (ba3127a) — market price-sort on item-aggregated rows. Dedup kept the
+  cheapest listing as representative but Map-insertion froze the row at the first-seen
+  (dearest) listing's slot → a $13.16 floor rendered above a $15.58 floor under "High→Low",
+  and auctions interleaved by raw `price` not currentBid. Re-sort deduped rows by the
+  representative's EFFECTIVE price for price sorts (else by pool index). Verified live: 37-row
+  column strictly monotonic incl. auctions for both price_desc/asc; newest unaffected.
+- ✅ **Waves 174–176** (0395a59 / e7c5f40 / e181b9f) — synchronous re-entrancy latches on the
+  money/state-mutating submits the audit flagged as async-only (double-click window):
+  OffersModal accept/reject/cancel/counter (wallet debit), Trade-Protection enable (fee
+  charge), quick-sell (creates listing), buy-order saveEdit (escrow), dispute submit. busyRef
+  checked-and-set before the await, mirroring the proven offerBusyRef/handleBuy pattern.
+- Verify-first NON-bugs (correctly NOT shipped, no churn): (a) OG-route shell served with
+  `max-age=3600` looked like deploys wouldn't reach users — but main.js/design.css are
+  no-cache and revalidate fresh, so JS/CSS content is always current (proven: app.js?v=195
+  loaded under a v=179 shell). (b) mobile home "black void" in fullPage screenshot = Playwright
+  body-as-scroller artifact; body scrolls fine (confirmed FAQ reachable). (c) CSS motion audit
+  flagged .cf-feebar-cta/.chart-controls/.seg/.subnav missing transitions — all DEAD selectors
+  (0 JS refs; live .csfloat-subnav-tab already has its transition). Reverted the dead-CSS edit.
+- Money paths adversarially RE-CONFIRMED SAFE this session (no defects): withdraw/payout/deposit
+  (flush-before-Stripe-transfer, @Version TOCTOU, idempotency key, IDOR via principal); and
+  offer-accept + trade-payout (escrow single-release via Trade.@Version, accept debits exact
+  offer amount with balance re-check, exact-by-subtraction fees, single-supply race via
+  Listing.@Version, IDOR via principal, state guards, trade-protection double-pay row-locked).
+  Only a P3 non-money wart noted (acceptOffer→buy rollback-only poisoning yields 500 vs 409 on
+  a rare concurrent-buy race; no money loss — left as-is, fix would restructure money-path tx).
