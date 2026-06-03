@@ -199111,6 +199111,16 @@ main.layout .listing-grid {
   grid-template-columns: repeat(auto-fill, minmax(186px, 1fr)) !important;
   gap: 16px !important;
 }
+/* Cards are grid items with the default min-width:auto, so their min-content
+   (~228px, driven by the card's internal signals) OVERFLOWED the ~188px 1fr
+   track and overlapped the next card by ~24px at 1440 (the 5th card was clipped
+   past the 1006px feed). min-width:0 lets each card shrink to its track; width
+   100% fills it — a clean 5-up grid with real 16px gaps. Unscoped so it holds
+   at every breakpoint (the mobile @media block carries the same rule). */
+main.layout .listing-grid > * {
+  min-width: 0 !important;
+  width: 100% !important;
+}
 
 /* P0 mobile (<=768px): shell shrink-wrapped to card min-content + margin:0 auto
    centered it -> ~250px column, 2nd card clipped. Force full-width + 2-up. */
