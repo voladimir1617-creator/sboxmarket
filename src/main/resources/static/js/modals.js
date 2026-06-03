@@ -9001,6 +9001,9 @@ function ProfileReviewsTab({ me }) {
   const [editGivenStars, setEditGivenStars] = useState(5);
   const [editGivenComment, setEditGivenComment] = useState('');
   const [editGivenBusy, setEditGivenBusy] = useState(false);
+  // Sync re-entrancy latch — the old `if (editGivenBusy) return` read async state,
+  // so a same-tick double-click slipped through and PATCHed the review twice.
+  const editGivenBusyRef = useRef(editGivenBusy); editGivenBusyRef.current = editGivenBusy;
   const loadReceived = useCallback(async () => {
     if (!me) return;
     const [list, sum] = await Promise.all([
@@ -9141,12 +9144,13 @@ function ProfileReviewsTab({ me }) {
     setEditGivenComment('');
   };
   const saveEditGiven = async (r) => {
-    if (editGivenBusy) return;
+    if (editGivenBusyRef.current) return;
     const stars = parseInt(editGivenStars, 10);
     if (!Number.isFinite(stars) || stars < 1 || stars > 5) {
       toast('Pick a rating between 1 and 5', 'err');
       return;
     }
+    editGivenBusyRef.current = true;
     setEditGivenBusy(true);
     try {
       const { leaveReview } = await import('./api.js');
