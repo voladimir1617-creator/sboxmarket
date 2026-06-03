@@ -172,6 +172,14 @@ class BidService {
         if (amount == null || amount <= BigDecimal.ZERO) {
             throw new BadRequestException("INVALID_BID", "Bid amount must be positive")
         }
+        // Normalize money inputs to 2dp (HALF_UP) up front — every other money
+        // path does this (OfferService, WalletController). Without it a client
+        // could POST sub-cent precision (e.g. 20.049) to nominally clear the
+        // min-increment / out-rank a 2dp bid while the value persists rounded
+        // to the same cent — a fairness gap. Rounding before all comparisons
+        // makes the increment check, soft-close, and the eventual debit agree.
+        amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
+        if (maxAmount != null) maxAmount = maxAmount.setScale(2, java.math.RoundingMode.HALF_UP)
         // Auto-bid ceiling sanity. `PlaceBidRequest` bounds maxAmount above
         // ($100k) but not below — a negative or sub-`amount` cap is
         // contradictory (an auto-raise ceiling beneath your own bid can
