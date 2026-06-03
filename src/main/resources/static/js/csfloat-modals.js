@@ -517,6 +517,10 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   });
   const [qty, setQty]         = useState('1');
   const [busy, setBusy]       = useState(false);
+  // Sync re-entrancy latch — submit() calls setBusy AFTER its await(createBuyOrder),
+  // so a double-click escrows funds into TWO standing orders. Auto-resets via the
+  // per-render busyRef sync after setBusy(false).
+  const busyRef = useRef(busy); busyRef.current = busy;
   const [err, setErr]         = useState('');
   // Audit fix — `load()` awaited fetchBuyOrdersWithTotal() with no
   // catch, so a rejected fetch left `orders` at `null` forever and the
@@ -623,6 +627,8 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       setErr('Quantity is capped at 100 per buy order.');
       return;
     }
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     const itemName = picked.name;
     try {
@@ -2554,6 +2560,10 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   const [amount, setAmount]   = useState('');
   const [maxAmount, setMax]   = useState('');
   const [busy, setBusy]       = useState(false);
+  // Sync re-entrancy latch — submit() calls setBusy AFTER its await(placeBid),
+  // so a rapid double-click fires the bid twice before the disable lands.
+  // Auto-resets via the per-render busyRef sync after setBusy(false).
+  const busyRef = useRef(busy); busyRef.current = busy;
   const [err, setErr]         = useState('');
   const [now, setNow]         = useState(Date.now());
   // Mirror of the server-side listing state. Refreshed every 8s so
@@ -2775,6 +2785,8 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       if (!(cap > 0)) { setErr('Auto-bid cap must be a positive amount, or leave it blank.'); return; }
       if (cap <= a) { setErr(`Your auto-bid cap (${fmt(cap)}) must be above your bid (${fmt(a)}) — that's the ceiling the proxy-bidder raises toward.`); return; }
     }
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const res = await placeBid(listing.id, a, maxAmount ? parseFloat(maxAmount) : null);
