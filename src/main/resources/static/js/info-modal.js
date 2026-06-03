@@ -50,7 +50,15 @@ export function InfoModal({ title, onClose, children, wide }) {
         // just the open dropdown. Mirrors the app-level Escape guard in app.js.
         if (document.querySelectorAll('.modal-backdrop').length > 1 ||
             document.querySelector('.cart-confirm-backdrop') ||
-            document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown, #user-menu-panel')) return;
+            document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown, #user-menu-panel') ||
+            // Full-page-mode routes (/db, /sell, /wallet, /profile, /cart, /loadout,
+            // /watchlist, /offers, /buy-orders) render the InfoModal AS the page, not
+            // a dismissable dialog. Escape must NOT navigate away from a destination
+            // page reached via nav — that's the "Escape over-navigates off the page"
+            // anti-pattern (pressing Esc on /db jumped to /market). The user leaves
+            // via the nav/back. Genuine popped modals (non-full-page routes, or
+            // stacked dialogs caught by the >1 / dropdown checks above) still close.
+            document.querySelector('.site-root.full-page-mode')) return;
         e.stopPropagation();
         onClose();
         return;

@@ -199778,3 +199778,14 @@ body h1#info-modal-h-sell-items::after {
   content: none !important;
 }
 /* ===== END WAVE-INT10 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT11 (no "ESC" hint on full-page routes) =====
+   `.info-modal::after { content:"ESC" }` (design.css ~156085, fades in on hover)
+   advertises Escape-to-close. On full-page-mode routes (/db, /wallet, /profile,
+   /cart, /loadout, /watchlist, /sell, /offers, /buy-orders) the InfoModal IS the
+   destination page, and as of wave-169 (info-modal.js guard) Escape no longer
+   navigates there — so the hint is misleading + not a real affordance (csfloat's
+   equivalent pages show no ESC pill). Hide it on full-page routes; genuine popped
+   dialogs keep it. (0,2,1) out-specifies the base `.info-modal::after` (0,1,1). */
+.full-page-mode .info-modal::after { content: none !important; }
+/* ===== END WAVE-INT11 ===== */

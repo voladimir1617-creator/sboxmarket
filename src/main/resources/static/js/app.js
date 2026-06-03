@@ -4704,7 +4704,18 @@ export function App() {
         // so the URL matches what the user sees.
         else if (routeName === 'item') navigate(paths.market());
         else if (selected)        setSelected(null);
-        else if (routeName !== 'market') navigate(paths.market());
+        // Full-page-mode routes (/profile, /wallet, /cart, /sell, /db, /loadout,
+        // /watchlist, /offers, /buy-orders, /settings, /support, /help, /faq, …)
+        // are destination PAGES reached via the nav — not dismissable popups.
+        // Escape must NOT bounce them to /market (the "Escape over-navigates off
+        // the page" anti-pattern: pressing Esc on /db jumped to /market). They
+        // leave via the nav / browser back. The InfoModal shell that renders these
+        // routes has a matching guard (info-modal.js) so its own onClose doesn't
+        // navigate either. /item is intentionally EXEMPT — it's handled by the
+        // explicit `routeName === 'item'` branch above (Escape→/market is the
+        // deliberate choice there per feedback_pages_not_popups.md), and that
+        // branch fires first so this guarded catch-all never sees it.
+        else if (routeName !== 'market' && !document.querySelector('.site-root.full-page-mode')) navigate(paths.market());
       } else if (e.key === 'v' && routeName === 'market') {
         // Grid ↔ Table view toggle. Scoped to /market so pressing `v`
         // on a modal-heavy page (profile / wallet / cart) doesn't
