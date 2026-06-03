@@ -6922,6 +6922,10 @@ function ProfileTradesTab({ me, privacy }) {
   useDialogA11y(refundPanelRef, refundClose, !!refundTrade);
   const submitReview = async () => {
     if (!reviewTrade) return;
+    // reviewBusyRef already exists (a11y close-guard); gate the submit on it too
+    // so a double-click can't POST the review twice (setReviewBusy is async).
+    if (reviewBusyRef.current) return;
+    reviewBusyRef.current = true;
     setReviewBusy(true); setReviewErr('');
     try {
       const res = await leaveReview(reviewTrade.id, reviewStars, reviewText);
@@ -9898,6 +9902,10 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const [picking, setPicking]     = useState(null);    // { kind: 'steam'|'internal', item: {...} }
   const [price, setPrice]         = useState('');
   const [busy, setBusy]           = useState(false);
+  // Sync re-entrancy latch — submit() calls setBusy AFTER its await (list/relist),
+  // so a rapid double-click lists the SAME item twice. Auto-resets via the
+  // per-render busyRef sync after setBusy(false).
+  const busyRef = useRef(busy); busyRef.current = busy;
   const [error, setError]         = useState('');
   const [syncing, setSyncing]     = useState(false);
   // Listing-type + auction duration. Default to BUY_NOW so the form shape
@@ -10279,6 +10287,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       }
       opts.maxDiscount = pct / 100;
     }
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       let res;
