@@ -614,3 +614,46 @@ images, no horizontal overflow.
 VERSIONS: design.css?v=206 (index.html), app.js?v=202, modals.js synced. The
 dev-login in SteamAuthController remains UNCOMMITTED (QA scaffolding) — revert
 before any final/clean state, never ship.
+
+## COMPLETE MONEY-PATH VERIFICATION + GREEN SUITE (same session)
+
+After the seed unblock + scroll fixes, exercised EVERY core flow end-to-end on
+the live app (fresh DB, dev-login QA). Fee model intact throughout — 2% seller,
+Buyer fee Free, Trade Protection 2% floored $0.25, net + fee == price:
+
+- BUY → P2P ESCROW → PAYOUT: buy → tradeOpened:true, Trade PENDING_SELLER_ACCEPT;
+  seller accept → sent → buyer confirm → VERIFIED → seller credited price−2%
+  (e.g. $0.52 → $0.51, SALE tx "-$0.01 fee"). ✓
+- CANCEL → REFUND: cancel a PENDING trade → buyer refunded the FULL escrowed
+  amount ($0.54 back; REFUND tx; balance restored). No money loss. ✓
+- SELL: platform-inventory item → sell form (Listed $0.46, Platform fee 2%
+  −$0.01, You'll receive $0.45) → List for Sale → active listing created. ✓
+- WITHDRAW: correctly gated — "Add an email before withdrawing", balance
+  untouched on a blocked request (no debit). Clean copy, not a raw error. ✓
+- BID (auction): bid → 200 WINNING, currentBid updates, prior bids OUTBID,
+  no fund hold until won. ✓
+- OFFER: make offer → PENDING, shows on Outgoing tab; Incoming empty-state
+  correct; tab badges accurate. ✓
+- TRADE PROTECTION: quote 2% floored at $0.25 min (price $0.54 → $0.25,
+  $50 → $1.00); frontend MIN_FEE mirrors backend quote() exactly. ✓
+- CART/CHECKOUT: 2 items subtotal $1.19, Buyer fee FREE, Total $1.19 (= subtotal),
+  "Savings vs Steam" display, Checkout button shows correct total. ✓
+
+TRADE-CARD UI (now reachable post-WAVE-INT18) — both states render correctly
+desktop AND mobile (after WAVE-INT19): PENDING (Awaiting seller accept, dots-only
+stepper, Dispute/Cancel/Report/Chat + Add-Protection panel) and VERIFIED
+(funds released, Leave Review / Request refund). Chat correctly 400s TRADE_CLOSED
+on terminal trades.
+
+CONTENT-CARD MOBILE SWEEP (390): trade card FIXED (was the only broken one);
+/db, /sell, /loadout, /offers, /watchlist, /item, /wallet all render clean — 0
+broken images, no horizontal overflow. Desktop trade card unaffected by the
+mobile @media (no regression).
+
+FULL TEST SUITE: ./gradlew test → BUILD SUCCESSFUL in 1m 3s, 0 failures
+(~4174 tests). The SeedService steamId-shift + wallet-seeding change is certified
+suite-safe (only SeedServiceSpec exercises real seed — 30/30; SteamEscrow/
+SteamDelivery specs use independent fixtures; AdminServiceSpec mocks the repo).
+
+VERSIONS: design.css?v=209, app.js?v=202, modals.js synced. dev-login in
+SteamAuthController still UNCOMMITTED (QA only) — revert before any final state.
