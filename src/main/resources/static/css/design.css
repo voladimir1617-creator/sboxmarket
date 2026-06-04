@@ -7643,6 +7643,9 @@ body:has(.shortcuts-backdrop) {
   border-radius: var(--r-md);
   background: var(--bg-1);
   margin-bottom: 10px;
+  /* Same inherited-center trap as .help-step: the answer (.help-faq-a) is a
+     block that would centre under the left-aligned question. Pin left. */
+  text-align: left;
 }
 .help-faq-q {
   font-size: 14.5px; font-weight: 600; color: var(--ink);
@@ -7665,6 +7668,9 @@ body:has(.shortcuts-backdrop) {
   background: var(--bg-1);
   margin-top: 32px;
   display: flex; gap: 14px; align-items: center; justify-content: space-between;
+  /* Inherited-center trap again: the left text block's two lines would centre
+     against each other. Pin left so "Still need a hand?" + subtext read flush. */
+  text-align: left;
 }
 .help-shortcuts {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
