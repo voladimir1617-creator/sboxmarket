@@ -7520,7 +7520,11 @@ function ProfileTradesTab({ me, privacy }) {
                       }, thumb, t.itemName || ('Trade #' + t.id))
                     : h('span', { style: { display: 'inline-flex', alignItems: 'center' } },
                         thumb, t.itemName || ('Trade #' + t.id)),
-                  h('span', { className: 'trade-role' }, isSeller ? 'You are selling' : 'You are buying'),
+                  // marginLeft separates the role from the item name — both are
+                  // adjacent flex items in .trade-title (no gap on the row), so
+                  // without it the name butted directly into the label
+                  // ("Crop TopYou are buying").
+                  h('span', { className: 'trade-role', style: { marginLeft: 8 } }, isSeller ? 'You are selling' : 'You are buying'),
                   // Counterparty identity chip (batch 400) — avatar + name
                   // next to the role so a long trade list is scannable by
                   // person, not just by item. Clickable to the seller's
@@ -7554,6 +7558,11 @@ function ProfileTradesTab({ me, privacy }) {
                       t.counterpartyAvatarUrl && h('img', {
                         src: t.counterpartyAvatarUrl,
                         alt: '',
+                        // Hide the avatar if the URL fails to load so a dead
+                        // image (e.g. a stale Steam avatar 404) collapses to
+                        // just the name instead of showing the UA broken-image
+                        // glyph next to the counterparty.
+                        onError: (e) => { e.target.style.display = 'none'; },
                         style: { width: 16, height: 16, borderRadius: '50%', verticalAlign: 'middle', marginRight: 6 }
                       }),
                       t.counterpartyName,
