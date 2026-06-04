@@ -330,3 +330,34 @@ Session waves 170–176 (whole-website grind — find→fix→verify→commit):
   Listing.@Version, IDOR via principal, state guards, trade-protection double-pay row-locked).
   Only a P3 non-money wart noted (acceptOffer→buy rollback-only poisoning yields 500 vs 409 on
   a rare concurrent-buy race; no money loss — left as-is, fix would restructure money-path tx).
+
+Session waves 177-178 + full money + frontend-security clearance:
+- ✅ **Wave 178** (e2aeb12) — sanitize item.imageUrl + item.accentColor before they hit the
+  item-not-found floating-thumbnail CSS `background` string (app.js ~8528). React doesn't escape
+  style VALUES; source is admin/SCMM catalogue (not seller free-text) + CSS can't run JS, so
+  defense-in-depth + robustness (a bad sync value can't break the CSS). Image→clean http(s) only,
+  accent→6-digit hex, stale #1ea5ff fallback corrected to #237bff. Byte-identical for valid data.
+- **ALL SIX money paths adversarially cleared this session — zero money-loss defects:**
+  (1) withdraw/deposit, (2) offer-accept/trade-payout, (3) sell/listing-creation,
+  (4) auction/bid/buy-order, (5) cart multi-item checkout, (6) dispute-resolution/delivery.
+  Escrow releases/refunds exactly once (Trade.@Version + pessimistic-locked idempotent
+  Trade-Protection state machine + per-trade REQUIRES_NEW); no double-pay/charge/negative;
+  buyer refunds full price (never eats 2%); IDOR-safe (actor from principal); CSR has no
+  trade-money path (capped goodwill credits only). Cart partial-failure charges only successes.
+- **Frontend render layer adversarially cleared (XSS/output-encoding):** no stored/reflected XSS,
+  no javascript:/data: URL sinks, no open redirect, no eval/Function/string-setTimeout, no unsafe
+  JSON.parse/postMessage/SVG injection. All user text via h() auto-escaped children; linkify/
+  highlight build React children with http(s)-locked URLs; trade URL regex-validated client+server;
+  post-login return is same-origin → internal router. The one P3 (CSS-injection) fixed in wave 178.
+- Real follow-ups flagged for focused sessions (standalone repro + fix direction): sell double-list
+  TOCTOU (Postgres partial-unique-index migration + dedupe), buy-order silent-fill buyer notification.
+  Non-money P3s left as-is (by-design / non-actionable): cart client-supplied listingIds (money-safe),
+  frozen-wallet noisy multi-fail, dispute @Version-vs-atomic-claim (functionally safe), null-seller-
+  wallet manual-payout limbo (intended + logged).
+- App recovered from an external (non-crash) process death mid-session — clean bootRun restart,
+  OG-shell template refreshed to current index.html. NOTE for future: OG routes (/item, /market,
+  /db, /faq, /help, /loadout, /affiliate, /profile, /wallet, …) serve the STARTUP-time index.html
+  template (OpenGraphController loads it once at boot); the referenced /js + /css revalidate fresh
+  (no-cache) so JS/CSS content is always current, but index.html's own inline bytes only refresh on
+  app restart. Don't be fooled by a stale design.css?v=/main.js?v= in an OG-route shell — the
+  content is current.
