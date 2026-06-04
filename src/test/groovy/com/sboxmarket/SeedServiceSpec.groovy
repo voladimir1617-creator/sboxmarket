@@ -642,7 +642,10 @@ class SeedServiceSpec extends Specification {
 
         then: "six real seller accounts were created with synthetic 7656119xxxxxxxxxx ids"
         savedUsers.size() == 6
-        savedUsers.every { it.steamId64 != null && it.steamId64.startsWith('765611900000000') }
+        // Synthetic-but-VALID demo ids: above the SteamID64 base 76561197960265728
+        // so the trade-URL ownership check (partner = steamId64 − base) is positive.
+        savedUsers.every { it.steamId64 != null && it.steamId64.startsWith('765611990000000') }
+        savedUsers.every { Long.parseLong(it.steamId64) > 76561197960265728L }
         savedUsers*.steamId64.unique().size() == 6           // ids are distinct
         savedUsers.every { it.displayName != null && !it.displayName.isEmpty() }
         savedUsers.every { it.avatarUrl != null && it.avatarUrl.startsWith('https://') }
