@@ -70,12 +70,28 @@ class WalletController {
         if (userId != null) {
             def user = steamUserRepository.findById(userId).orElse(null)
             if (user != null) {
-                def w = walletRepository.findByUsername("steam_" + user.steamId64)
+                def uname = "steam_" + user.steamId64
+                def w = walletRepository.findByUsername(uname)
                 if (w == null) {
-                    w = walletRepository.save(new Wallet(
-                        username: "steam_" + user.steamId64,
-                        balance : BigDecimal.ZERO
-                    ))
+                    // TOCTOU race: the profile/wallet page fires several wallet
+                    // endpoints in parallel (/api/wallet, /api/wallet/transactions,
+                    // spend-summary). On a user's FIRST-EVER wallet access the row
+                    // doesn't exist yet, so every concurrent request misses the
+                    // find above and races the INSERT against the WALLETS(username)
+                    // unique index — the losers threw DataIntegrityViolationException
+                    // and 500'd the page. Catch the loser's violation and re-read the
+                    // winner's committed row. (currentWallet runs without an active
+                    // tx on the read paths — self-invoked, so its @Transactional is
+                    // bypassed — so the failed save rolls back on its own and the
+                    // re-find sees the committed wallet.)
+                    try {
+                        w = walletRepository.save(new Wallet(
+                            username: uname,
+                            balance : BigDecimal.ZERO
+                        ))
+                    } catch (org.springframework.dao.DataIntegrityViolationException race) {
+                        w = walletRepository.findByUsername(uname)
+                    }
                 }
                 return w
             }
