@@ -200108,3 +200108,28 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   }
 }
 /* ===== END WAVE-INT19 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT20 (mobile 44px tap target on primary CTAs) =====
+   A read-only design/a11y audit + live measurement (390px & 360px) found the
+   primary money CTAs — the marketplace card Buy/Bid buttons (.buy-btn) and the
+   .btn-accent / .btn-primary action family (Checkout, Withdraw, Confirm, List)
+   plus the item-detail .item-rail-actions-buy — all compute to 40px tall on
+   mobile (height:40px, min-height:0), 4px under the 44px touch-target minimum.
+   The toolbar chips/deals-chip/view-btns already got an explicit mobile 44px
+   bump (design.css ~120005) but this primary button family was skipped. These
+   are the highest-traffic controls in the app, so they should clear 44px on
+   touch. min-height (not height) so a wrapping label can still grow; used
+   height = max(min-height, height) makes this 44px even over the 40px height.
+   `html body` + appended-last wins the cascade; scoped to <=600px so desktop
+   density is unchanged. */
+@media (max-width: 600px) {
+  html body .buy-btn,
+  html body .btn.btn-accent,
+  html body .btn-accent,
+  html body .btn.btn-primary,
+  html body .btn-primary,
+  html body .item-rail-actions-buy {
+    min-height: 44px !important;
+  }
+}
+/* ===== END WAVE-INT20 ===== */
