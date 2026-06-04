@@ -307,11 +307,17 @@ class PurchaseService {
         if (notificationService != null) {
             // Batch 631: safePush so a bell-push failure can't roll back
             // the purchase — the money movement already succeeded above.
+            // Deep-link the buyer to where their item actually is: a P2P
+            // purchase opens an escrow Trade (Profile › Trades); a system/house
+            // listing (sellerUserId == null) has no trade and the item lands in
+            // the buyer's Platform Inventory (Sell page). Pointing a system-
+            // listing buyer at the empty Trades tab is the same mismatch the
+            // success toast had.
             notificationService.safePush(buyerUserId, 'ITEM_PURCHASED',
                 "Purchased ${listing.item.name}",
                 "Paid \$${listing.price.toPlainString()} from balance",
                 listing.id,
-                '/profile?tab=trades')
+                listing.sellerUserId != null ? '/profile?tab=trades' : '/sell')
             // For P2P trades, the seller notification is sent by
             // TradeService.open() as TRADE_REQUESTED — don't duplicate
             // it here with a premature TRADE_VERIFIED.

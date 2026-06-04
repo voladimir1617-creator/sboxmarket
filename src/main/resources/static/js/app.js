@@ -5260,9 +5260,18 @@ export function App() {
       // response shape is missing the fields (backwards-compat).
       const boughtName = res?.itemName;
       const boughtPrice = res?.price != null ? parseFloat(res.price) : null;
+      const priceStr = boughtPrice != null && !isNaN(boughtPrice) ? ` for ${fmt(boughtPrice)}` : '';
+      // A P2P purchase opens an escrow trade (Profile › Trades); a system/house
+      // listing has no trade (res.tradeOpened === false) — its item is delivered
+      // straight to the buyer's Platform Inventory (Sell page), so don't send
+      // them to an empty Trades tab. Defaults to the trade copy when the flag is
+      // absent (older buy responses; P2P is the common case).
+      const tail = res?.tradeOpened === false
+        ? 'added to your Platform Inventory (Sell page)'
+        : 'trade opened, see Profile › Trades';
       const toastCopy = boughtName
-        ? `Bought "${boughtName}"${boughtPrice != null && !isNaN(boughtPrice) ? ` for ${fmt(boughtPrice)}` : ''} — trade opened, see Profile › Trades`
-        : 'Purchase complete — trade opened, see Profile › Trades';
+        ? `Bought "${boughtName}"${priceStr} — ${tail}`
+        : `Purchase complete — ${tail}`;
       showToast(toastCopy, 'ok');
       await loadWallet();
       load();

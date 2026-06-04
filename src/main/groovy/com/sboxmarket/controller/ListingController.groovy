@@ -1137,7 +1137,13 @@ class ListingController {
             newBalance   : result.newBalance,
             listingId    : id,
             itemName     : boughtListing?.item?.name,
-            price        : boughtListing?.price
+            price        : boughtListing?.price,
+            // P2P listings (real seller) open an escrow Trade; system/house
+            // listings (sellerUserId == null) don't — the item is delivered
+            // straight to the buyer's Platform Inventory. The frontend uses
+            // this to point the success toast at the right place (Trades vs
+            // the Sell page) instead of always saying "see Trades".
+            tradeOpened  : (boughtListing?.sellerUserId != null)
         ])
     }
 
