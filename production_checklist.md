@@ -657,3 +657,40 @@ SteamDelivery specs use independent fixtures; AdminServiceSpec mocks the repo).
 
 VERSIONS: design.css?v=209, app.js?v=202, modals.js synced. dev-login in
 SteamAuthController still UNCOMMITTED (QA only) — revert before any final state.
+
+## DEEP READ-ONLY AUDIT FLEET (same session) — money + security
+
+Ran 4 focused read-only audit agents over the deepest-risk code (areas not
+fully re-read manually this session). Only 2 real findings, both fixed:
+
+- Trade unhappy-path money (TradeService / TradeProtectionService: auto-release
+  sweep, dispute, cancel, adminRelease, protected-trade refund): NO DEFECTS.
+  Double-credit / missed-refund / wrong-amount / state-holes / multi-pod race
+  all guarded by Trade@Version optimistic lock + TradeProtection PESSIMISTIC_WRITE
+  lock + atomic txns (hardened across waves 105/113/115/129/146).
+- Auction/bid + buy-order money (BidService settle/auto-bid/sweeps, BuyOrderService
+  tryMatch/fill/cancel): NO DEFECTS. Winner charged second-price (never maxBid),
+  losing bids never pre-charged, buy-order over-fill blocked by findByIdForUpdate
+  pessimistic lock held across the REQUIRES_NEW per-fill tx, maxPrice re-checked
+  server-side, cancel-vs-fill race closed by the shared row lock.
+- Frontend money-submit re-entrancy (app.js / modals.js / csfloat-modals.js /
+  trade-protection.js): every money handler has a synchronous ref latch EXCEPT
+  two → FIXED in 6306f27: (1) cancel-pending-withdrawal button (had no latch;
+  now captures the button + .disabled before the await) and (2) MyStall bulk
+  price adjust (now uses the already-declared bulkAdjustBusyRef). All others
+  (buyingRef/checkoutRef/submittingRef/busyRef/quickSellBusyRef/offerBusyRef…)
+  confirmed correct; CSRF injected globally; no swallowed money errors; no
+  optimistic-balance-before-confirm.
+- IDOR / object-level authorization (Trade/Offer/BuyOrder/Listing/Wallet/Cart/
+  Watchlist/Review/Profile + Bid/ApiKey/Support/Loadout/SavedSearch/SellerFollow/
+  UserBlock): NO DEFECTS. Owner always resolved from session, never from the
+  request; ownership checked before every mutate/private-read; no mass-assignment
+  of owner/role/balance; 404-not-403 anti-enumeration is intentional.
+
+Two product-decision items flagged (NOT defects, NOT changed — fee model is frozen):
+- Profile "Total Purchased"/"Net" count cancelled+refunded purchases (gross, not
+  net) — spawned as a separate task (needs gross-vs-net decision + careful REFUND
+  typing). Balance itself is correct.
+- Trade Protection fee kept on a SELLER-FAULT auto-cancel (buyer made whole via
+  escrow refund, protection cover never paid) — documented intentional revenue
+  model; a fairness/product call, not a correctness bug.
