@@ -415,3 +415,35 @@ routes audited at 1440 + 390. Final regression sweep: 14 routes, 0 overflow, 0 c
 
 VERSIONS after this session: app.js?v=200, main.js?v (index.html script) unchanged shell,
 design.css?v=195. Bare modules (primitives.js, modals.js) synced no-bump (no-cache revalidate).
+
+## Authenticated-UI QA session (Waves 193-195) — money pages via local dev-login
+
+The auth-gated pages (profile/wallet/sell/offers/mystall/buyorders/notifications) were
+NEVER visually QA'd because localhost has no Steam login. Technique used: temporarily
+added a strictly prod-guarded dev-login to SteamAuthController (mirrors the /return
+session establishment: invalidate → getSession(true) → set SESSION_USER_ID +
+SESSION_EPOCH for a seed user; returns 404 when profile==prod), hit
+/api/auth/steam/dev-login to mint a session, QA'd every auth page at 1440, then
+REVERTED the dev-login (never committed — git checkout; verified it 404s after rebuild).
+Re-add the same endpoint to QA auth pages again; it must never ship.
+
+Real bugs this unlocked (all committed; dev-login itself was NOT):
+- **Wave 193 (125580e) — wallet first-access 500 (P1, money page).** GET
+  /api/wallet/transactions threw a WALLETS(username) unique-violation: the profile/
+  wallet page fires several wallet endpoints in parallel, so on a user's FIRST wallet
+  access every concurrent request misses currentWallet's findByUsername and races the
+  INSERT; losers 500'd. ANY brand-new user opening profile/wallet hit this. Fixed:
+  catch DataIntegrityViolationException + re-read the winner (currentWallet is self-
+  invoked so its @Transactional is bypassed on the read path — failed save rolls back
+  on its own). Verified: 4 concurrent wallet calls on a fresh DB all 200.
+- **Waves 194 (d4b3c47) + 195 (976170a) — auth-page center-inheritance, same class as
+  188-192.** /notifications rows (.notif-feed-title/-body/-time + text column) and
+  /me/stall + /offers rows (.stall-row/.offer-row item names) inherited .info-modal-body
+  text-align:center, floating the text in the middle of each flex row. Pinned left;
+  prices/action buttons (flex, pushed right) unaffected. Verified live.
+
+CONFIRMED CLEAN (authenticated, 1440): wallet deposit flow, sell (Steam-inv empty
+state), offers/buyorders empty states, profile hero + earnings (flex space-between,
+not center-floated), buy-orders trade-URL gate. Profile Listings/Offers tabs reuse the
+now-fixed .stall-row/.offer-row. NOTE: the seed test user has empty Trades/Reviews/
+Active-Bids tabs — a data-rich user is needed to QA those row components.
