@@ -23,7 +23,13 @@ const MI_SVG_FALLBACK = {
   cloud_off: (s, col) => h('svg',
     { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: col, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, style: { display: 'block' } },
     h('path', { d: 'M22.6 17A5 5 0 0 0 18 10h-1.3a8 8 0 0 0-7-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3' }),
-    h('path', { d: 'M1 1l22 22' }))
+    h('path', { d: 'M1 1l22 22' })),
+  // 'lock' IS in the subset (used for the locked state); only the open padlock
+  // (s.locked ? 'lock' : 'lock_open' toggle) is missing — open shackle on the right.
+  lock_open: (s, col) => h('svg',
+    { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: col, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, style: { display: 'block' } },
+    h('rect', { x: 4, y: 11, width: 16, height: 10, rx: 2 }),
+    h('path', { d: 'M8 11V7a4 4 0 0 1 7.8-1.2' }))
 };
 
 /**
