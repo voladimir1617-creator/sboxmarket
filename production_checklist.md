@@ -361,3 +361,21 @@ Session waves 177-178 + full money + frontend-security clearance:
   (no-cache) so JS/CSS content is always current, but index.html's own inline bytes only refresh on
   app restart. Don't be fooled by a stale design.css?v=/main.js?v= in an OG-route shell — the
   content is current.
+- **Auth + session layer adversarially cleared (no P1/P2 bypass / account-takeover):** Steam
+  OpenID return is signature-verified via check_authentication on the RAW query string, and
+  openid.signed is confirmed to cover BOTH claimed_id AND identity (the classic forgery defense),
+  SteamID host-pinned to steamcommunity.com, nonce replay-guarded, return_to config-pinned.
+  Session ID is invalidated+regenerated on login (fixation-proof, mirrored in ApiKeyAuthFilter).
+  `next` sanitized to a same-origin relative path (no open redirect). Session cookie
+  HttpOnly+Secure+SameSite=Lax. CSRF = constant-time double-submit cookie (CsrfFilter) + CORS
+  credentialed-allowlist; exemptions sound (Stripe HMAC webhook, login redirect, bearer API).
+  Principal resolved ONLY from session (grep: zero param/body/header userId, no impersonation
+  endpoint); admin/CSR roles from DB role column. 2FA gate server-side on withdraw with 2-layer
+  brute-force lockout; TOTP secret @JsonIgnore. Logout truly invalidates; sessionEpoch +
+  SessionEpochFilter cut off other devices AND banned users on next /api request.
+  • FUTURE-SCALING P3 (NOT a localhost defect — deploy target is single-instance): the OpenID
+    nonce set + 2FA-fail counters + epoch cache are IN-MEMORY per-instance, so a multi-replica
+    deployment weakens (never breaks — OpenID signature check is stateless + holds per instance;
+    daily withdrawal cap bounds blast radius) replay/brute-force guards. When/if scaling
+    horizontally, back the nonce store + 2FA-fail counters with a shared store (Postgres/Redis).
+  • Confirm prod keeps SECURITY_VERBOSE_ERRORS=false + SWAGGER_ENABLED=false (already defaulted).
