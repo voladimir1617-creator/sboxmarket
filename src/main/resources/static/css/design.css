@@ -200052,3 +200052,59 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   align-items: start !important;
 }
 /* ===== END WAVE-INT18 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT19 (mobile /profile/trades card reflow) =====
+   The trade card was unreachable on phones until WAVE-INT18 made the page
+   scrollable. Now visible at 390px, the desktop 3-column .trade-row grid
+   (1fr auto auto = trade-main | trade-side | trade-actions) collapsed
+   trade-main to 0px (measured `0px 90px 100px` on a 242px card): the item
+   name wrapped one-word-per-line ("Vintage / Design / Crop / Top"), the
+   action buttons crammed/overlapped the right edge, and the 6-node progress
+   stepper crushed to 16px so its phase labels overlapped into illegible mush.
+
+   FIX: on phones stack .trade-row into a single column (every child full
+   width), lay the action buttons out as a full-width wrapping row, and render
+   the stepper as a compact DOTS-ONLY progress bar — the per-phase text labels
+   (Seller/Accepts/Sends/Receives/Verified/Buyer) are redundant with the
+   "Awaiting seller accept" / "Verified · funds released" status line shown
+   directly above the stepper, and six labels cannot fit a phone row without
+   overlapping.
+
+   NOTE on specificity: the desktop grid ship is `body .trade-list > .trade-row`
+   = (0,2,1) !important. A bare `html body .trade-row` is only (0,1,2) and LOSES
+   (2 classes > 1 class). So every row-scoped rule here is anchored under
+   `.trade-list >` to reach (0,2,2)/(0,3,2) and out-specify the ship. */
+@media (max-width: 600px) {
+  html body .trade-list > .trade-row {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  html body .trade-list > .trade-row .trade-main,
+  html body .trade-list > .trade-row .trade-side,
+  html body .trade-list > .trade-row .trade-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  /* Price/date block left-aligns inline instead of a cramped narrow column. */
+  html body .trade-list > .trade-row .trade-side {
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+  /* Action buttons: full-width wrapping row of equal-share buttons. */
+  html body .trade-list > .trade-row .trade-actions {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+  }
+  html body .trade-list > .trade-row .trade-actions > * {
+    flex: 1 1 auto !important;
+  }
+  /* Dots-only stepper — drop labels + the dead bottom space they reserved.
+     (0,3,2) beats the `.trade-progress-stepper.six-node` (0,2,0) ship.) */
+  html body .trade-list > .trade-row .trade-progress-stepper {
+    padding: 12px 2px 14px !important;
+  }
+  html body .trade-list > .trade-row .trade-phase-label {
+    display: none !important;
+  }
+}
+/* ===== END WAVE-INT19 ===== */
