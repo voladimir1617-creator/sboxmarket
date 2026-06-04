@@ -136452,6 +136452,19 @@ body .full-page-mode .notif-feed-title {
   letter-spacing: 0 !important;
   text-transform: none !important;
   margin: 0 0 2px !important;
+  /* The /notifications page renders inside .info-modal-body (text-align:center
+     by default). The row's text column inherited that, floating each title/
+     body/time centered between the left icon and the right dot/X. Pin left so
+     the text reads flush after the icon, csfloat-style. */
+  text-align: left !important;
+}
+/* Text column = flex:1 so it takes the middle space; left-aligned so its
+   stacked title/body/time start right after the icon (not centered). */
+body .notif-feed-row > div:not(.notif-feed-icon):not(.notif-feed-dot),
+body .full-page-mode .notif-feed-row > div:not(.notif-feed-icon):not(.notif-feed-dot) {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  text-align: left !important;
 }
 body .notif-feed-body,
 body .full-page-mode .notif-feed-body {
@@ -136468,6 +136481,7 @@ body .full-page-mode .notif-feed-body {
   margin: 0 !important;
   max-height: none !important;
   overflow: visible !important;
+  text-align: left !important;
 }
 body .notif-feed-row .notif-feed-body,
 body .full-page-mode .notif-feed-row .notif-feed-body {
@@ -136485,6 +136499,7 @@ body .full-page-mode .notif-feed-time {
   letter-spacing: 0 !important;
   text-transform: none !important;
   margin-top: 4px !important;
+  text-align: left !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #3501 */
 
