@@ -8517,6 +8517,19 @@ export function App() {
             const size    = 36 + ((hash >> 12) % 42);    // 36..78px
             const opacity = 0.20 + ((hash >> 17) % 25) / 100;  // 0.20..0.45
             const rot     = ((hash >> 20) % 25) - 12;    // -12..12 deg
+            // Sanitize catalogue values before they land in a CSS `background`
+            // STRING — React escapes text/attributes but NOT style values. The
+            // source is admin/SCMM-controlled (not seller free-text) and CSS
+            // can't execute JS, so this is defense-in-depth + robustness: a
+            // malformed accentColor/imageUrl from a bad sync can't break the CSS
+            // rule or smuggle a stray url(). Image must be a clean http(s) URL
+            // with no CSS-breaking chars; accent must be a 6-digit hex (the form
+            // the `+22` alpha suffix assumes); else fall back to the gradient /
+            // the brand accent.
+            const safeImg = /^https?:\/\/[^\s"'()]+$/i.test(item.imageUrl || '') ? item.imageUrl : '';
+            const safeAccent = /^#?[0-9a-fA-F]{6}$/.test(item.accentColor || '')
+              ? (item.accentColor[0] === '#' ? item.accentColor : '#' + item.accentColor)
+              : '#237bff';
             return h('div', {
               key: 'nf-' + (item.id || i),
               style: {
@@ -8525,7 +8538,7 @@ export function App() {
                 width: size, height: size,
                 opacity, transform: `rotate(${rot}deg)`,
                 borderRadius: 6,
-                background: `url(${item.imageUrl || ''}) center/cover no-repeat, radial-gradient(circle, ${item.accentColor || '#1ea5ff'}22, transparent)`
+                background: `url(${safeImg}) center/cover no-repeat, radial-gradient(circle, ${safeAccent}22, transparent)`
               }
             });
           })
