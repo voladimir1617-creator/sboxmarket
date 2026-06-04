@@ -694,3 +694,32 @@ Two product-decision items flagged (NOT defects, NOT changed — fee model is fr
 - Trade Protection fee kept on a SELLER-FAULT auto-cancel (buyer made whole via
   escrow refund, protection cover never paid) — documented intentional revenue
   model; a fairness/product call, not a correctness bug.
+
+## Withdrawal/payout audit + 5th & 6th audit + design a11y (same session)
+
+- WITHDRAWAL/PAYOUT money audit: live path SAFE — requestWithdrawal debits +
+  flush()es BEFORE the irreversible Stripe Transfer, guarded by Wallet@Version
+  + minute-bucketed Stripe idempotency key + rollback-on-failure + a
+  transfer.reversed re-credit handler. No double-payout / debit-without-payout /
+  daily-cap bypass. FINDING (architecture, flagged via spawn_task, NOT a money
+  leak): payouts execute synchronously at request time (status→COMPLETED, no
+  PENDING since V72), so the admin approve/reject + user-cancel withdrawal
+  workflow (+ the wallet "Cancel pending" button) is unreachable dead code —
+  needs a product decision (re-introduce manual payout review for fraud safety,
+  OR delete the dead approval UI/endpoints) + give rejectWithdrawal the atomic
+  claim cancelPendingWithdrawal already has.
+- DESIGN/A11Y audit: contrast 4.67–16.5:1 (AA pass), focus-visible, alt text,
+  ARIA labels, type scale all clean. Fixed (WAVE-INT20 / 0b2cdb6): primary money
+  CTAs (.buy-btn/.btn-accent/.btn-primary/.item-rail-actions-buy) were 40px on
+  mobile → bumped to 44px min-height. Flagged (spawn_task): grid-card hover-only
+  overlay buttons (heart 32px / cart 40h / zoom 24px) need touch-device
+  verification before resizing.
+
+SESSION STATE: 9 commits (P2P seed unblock, WAVE-INT18 full-page scroll,
+trade-card desktop+mobile, 2 money-submit latches, 44px CTAs, + logs). 6 deep
+read-only audits (trade/auction/buyorder/frontend/IDOR/withdrawal money +
+design a11y) — money & security layers confirmed robust. Every customer flow +
+surface verified desktop+mobile; full test suite GREEN; integration smoke test
+passing; src↔build consistent (design.css?v=210). dev-login still UNCOMMITTED
+(QA only — revert before any final/prod state). 3 items flagged for product
+decision (purchase-stat gross/net, card-overlay tap targets, withdrawal flow).
