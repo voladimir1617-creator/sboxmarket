@@ -199789,3 +199789,38 @@ body h1#info-modal-h-sell-items::after {
    dialogs keep it. (0,2,1) out-specifies the base `.info-modal::after` (0,1,1). */
 .full-page-mode .info-modal::after { content: none !important; }
 /* ===== END WAVE-INT11 ===== */
+
+/* ===== WAVE-INT14 — unify home content column (alignment fix) =====
+   Every home section had a DIFFERENT inner max-width — hero/rail/preview 2100px,
+   tiles 1280, metrics 1100, faq 880→1200, journey 1180 — each centered on its
+   own, so scrolling down the content's LEFT EDGE jumped 60→315→405→355px (a
+   346px spread at 1920w). That is the "alignment is off everywhere" report.
+   Force ONE shared centered content column so every section lines up edge-to-
+   edge down the page. Vertical padding is preserved (only left/right unified). */
+body .csfloat-home-hero-inner,
+body .csfloat-home-rail-inner,
+body .csfloat-home-preview-inner,
+body .csfloat-home-tiles-inner,
+body .csfloat-home-metrics-inner,
+body .csfloat-home-faq-inner,
+body .csfloat-home-journey-inner {
+  max-width: min(94vw, 1280px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+/* ===== END WAVE-INT14 ===== */
+
+/* WAVE-INT14b — the featured rail's inner had max-width:none from a
+   compound-class rule (.csfloat-home-rail .csfloat-home-rail-inner) that beat
+   the WAVE-INT14 list above, so the rail stayed full-width (left 60) while every
+   other home section sat in the 1280 column (left 315). Match its specificity to
+   pull the rail into the same column; the card track keeps its own horizontal
+   scroll inside the narrower box. */
+body .csfloat-home-rail .csfloat-home-rail-inner {
+  max-width: min(94vw, 1280px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+/* ===== END WAVE-INT14b ===== */
