@@ -133565,6 +133565,26 @@ main.changelog {
 }
 /* END CSFLOAT-1:1 PARITY ship #2500 */
 
+/* MOBILE FIX — profile hero badge/name overlap at phone widths. The ship above
+   forces .profile-hero { grid-template-columns: 96px 1fr auto !important }, which
+   beats the base mobile rule (~line 8199, no !important). So on a phone the
+   3-column desktop grid stays and the content column collapses (measured 64px in
+   a 192px-wide hero) — the name "BoneTender" piled on top of the Verified /
+   Good standing / KYC Approved badges into an unreadable jumble. Stack to a
+   single column at <=768px so the avatar sits on its own row and the name +
+   badges block gets the hero's full width to wrap cleanly. html body … (0,1,2)
+   outranks the ship's .profile-hero (0,1,0), so it wins despite both !important.
+   Desktop (>768) keeps the csfloat 3-column hero untouched. */
+@media (max-width: 768px) {
+  /* Must out-specify `body .profile-hero-split > .profile-hero` (0,2,1, the
+     ship that pins 80px 1fr auto !important) — so match the same child path
+     with html prepended (0,2,2). A bare .profile-hero selector loses to it. */
+  html body .profile-hero-split > .profile-hero {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
+
 /* CSFLOAT-1:1 PARITY ship #2501 — profile avatar.
    Measure: csfloat profile avatar = 96x96 round (50% radius),
    2px solid rgba(255,255,255,0.12) ring, no inner gradient fill,
