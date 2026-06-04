@@ -133583,6 +133583,19 @@ main.changelog {
     grid-template-columns: 1fr !important;
     gap: 14px !important;
   }
+  /* Same class of bug on the 4-up stat strips: the base mobile rule (~line
+     8196) collapses these to 1fr 1fr, but a later csfloat ship redefines
+     them to repeat(4,1fr) with NO media query, so source-order wins and the
+     four cards stay 4-across at ~68px on a phone (labels wrap to 2 lines —
+     "PAST/24H", "1/purchase"). Restore the 2×2 phone layout; html body …
+     (0,1,2) + !important beats the bare ship selector (0,1,0). Covers the
+     wallet activity strip, the wallet 7-day summary, and the MyStall sold
+     summary — all 4-card strips. */
+  html body .wallet-spend-strip,
+  html body .wallet-7d-summary,
+  html body .mystall-sold-summary {
+    grid-template-columns: 1fr 1fr !important;
+  }
 }
 
 /* CSFLOAT-1:1 PARITY ship #2501 — profile avatar.
