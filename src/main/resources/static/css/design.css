@@ -199836,3 +199836,17 @@ body .csfloat-home-rail .csfloat-home-rail-inner {
   max-width: 1360px !important;
 }
 /* ===== END WAVE-INT15 ===== */
+
+/* ===== WAVE-INT14c — zero home SECTION horizontal padding =====
+   The lower sections (tiles/metrics/faq/journey) carried extra horizontal
+   padding on the SECTION wrapper that hero/rail/preview didn't, so their -inner
+   couldn't reach the shared 1280 max-width (1262 vs 1280 → a 9px left-edge drift
+   at 1440). Zero section h-padding so every -inner reaches 1280 and the column is
+   pixel-aligned; the -inner keeps its own 24px side padding for gutters. */
+body .csfloat-home-hero, body .csfloat-home-rail, body .csfloat-home-preview,
+body .csfloat-home-tiles, body .csfloat-home-metrics, body .csfloat-home-faq,
+body .csfloat-home-journey {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+/* ===== END WAVE-INT14c ===== */
