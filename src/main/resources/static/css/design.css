@@ -199850,3 +199850,33 @@ body .csfloat-home-journey {
   padding-right: 0 !important;
 }
 /* ===== END WAVE-INT14c ===== */
+
+/* ===== WAVE-INT16 — un-collapse EVERY full-page route (whole-site fix) =====
+   The full-page modal-backdrop is a justify-items:center grid that content-sizes
+   its cell, so the modal's `width:100%` resolved to CONTENT → every non-home
+   full-page route (help/faq/support/settings/notifications/wallet/profile/cart/
+   loadout/etc.) collapsed to a ~440px sliver in wide viewports. Force the
+   full-page backdrop to a block container (max specificity, end of file) so the
+   modal's existing `width:100%` fills it and its per-route max-width caps+centers
+   it. Genuine popups (no .full-page-mode) keep the centering grid. */
+html body .site-root.full-page-mode .modal-backdrop {
+  display: block !important;
+  place-items: normal !important;
+}
+html body .site-root.full-page-mode .modal-backdrop > .info-modal,
+html body .site-root.full-page-mode .modal-backdrop > .item-modal {
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+/* ===== END WAVE-INT16 ===== */
+
+/* ===== WAVE-INT16b — tidy reading width for content/form full-page routes =====
+   After un-collapsing (INT16), content/form routes (help/faq/support/settings/
+   notifications/affiliate/404) filled ~94vw, which looks sparse (e.g. help steps
+   spread icon-left / text-center). Cap them to a column. Wide APP routes keep
+   their own sheets — excluded via :not(:has(<wide trigger>)). */
+html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not(:has(.db-table)):not(:has(.db-controls)):not(:has(.stall-hero)):not(:has(.loadout-grid)):not(:has(.wallet-tabs)):not(:has(.profile-tabs)):not(:has(.mystall-tabs)):not(:has(.admin-shell)):not(:has(.csr-shell)):not(:has(.cart-grid)) {
+  max-width: 940px !important;
+}
+/* ===== END WAVE-INT16b ===== */
