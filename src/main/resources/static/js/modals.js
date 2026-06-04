@@ -11737,6 +11737,13 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     setBulkAdjustOpen(true);
   };
   const submitBulkAdjust = async () => {
+    // Synchronous re-entry guard (mirrors the buyingRef/submittingRef money
+    // pattern) — a rapid double-click must not fire two bulk-adjust passes,
+    // which would COMPOUND the percent (two −10% ≈ −19%). The async
+    // `bulkAdjustBusy` state alone leaves a pre-re-render window; the ref is
+    // checked + set synchronously before any await. Set AFTER validation so a
+    // rejected (non-numeric / >50%) submit doesn't leave the latch stuck.
+    if (bulkAdjustBusyRef.current) return;
     setBulkAdjustErr('');
     const pct = parseFloat(bulkAdjustPct);
     if (!isFinite(pct) || pct === 0) {
@@ -11747,6 +11754,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       setBulkAdjustErr('Max ±50% per pass');
       return;
     }
+    bulkAdjustBusyRef.current = true;
     setBulkAdjustBusy(true);
     try {
       const res = await bulkAdjustStall(pct);
@@ -15035,16 +15043,33 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                             canCancel && h('button', {
                               className: 'btn btn-ghost',
                               style: { marginTop: 6, padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
-                              onClick: async () => {
+                              onClick: async (e) => {
+                                // Synchronous re-entry guard — this is a money
+                                // action (cancelling a PENDING withdrawal credits
+                                // the wallet back), so a double-click must not fire
+                                // two cancel POSTs. Capture the button + latch it
+                                // via .disabled BEFORE the await (e.currentTarget is
+                                // nulled after the first await; the blocking confirm
+                                // serialises clicks only up to the await). Mirrors
+                                // the buyingRef/submittingRef latch on every other
+                                // money submit.
+                                const btn = e.currentTarget;
+                                if (btn.disabled) return;
                                 if (!confirm(`Cancel pending withdrawal for ${fmt(tx.amount)}? Your balance will be credited back.`)) return;
+                                btn.disabled = true;
                                 const amt = parseFloat(tx.amount);
-                                const res = await cancelPendingWithdrawal(tx.id);
-                                if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel withdrawal', 'err'); return; }
-                                await onRefresh();
-                                // Batch 921 — cite the amount + id so a
-                                // user cancelling one of several pending
-                                // withdrawals sees which row just reverted.
-                                toast(`Withdrawal #${tx.id} cancelled — ${fmt(amt)} restored to your wallet.`, 'ok');
+                                try {
+                                  const res = await cancelPendingWithdrawal(tx.id);
+                                  if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel withdrawal', 'err'); btn.disabled = false; return; }
+                                  await onRefresh();
+                                  // Batch 921 — cite the amount + id so a
+                                  // user cancelling one of several pending
+                                  // withdrawals sees which row just reverted.
+                                  toast(`Withdrawal #${tx.id} cancelled — ${fmt(amt)} restored to your wallet.`, 'ok');
+                                } catch (err) {
+                                  btn.disabled = false;
+                                  toast('Could not cancel withdrawal', 'err');
+                                }
                               }
                             }, '✕ Cancel')
                           )
