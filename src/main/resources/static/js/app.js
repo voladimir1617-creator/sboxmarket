@@ -2684,7 +2684,7 @@ function CookieBanner() {
     setVisible(false);
   };
 
-  // Collapsed pill state — tiny 🍪 puck, no chrome, expands on hover.
+  // Collapsed pill state — tiny cookie-icon puck, no chrome, expands on hover.
   if (collapsed && !hovered) {
     return h('button', {
       type: 'button',
@@ -2699,7 +2699,7 @@ function CookieBanner() {
         // wallet / settings) or the High Contrast toggle in /settings
         // on mobile. Right edge is consistently free of fixed UI.
         position: 'fixed', right: 16, bottom: 16,
-        width: 36, height: 36,
+        width: 40, height: 40,
         padding: 0, margin: 0,
         background: 'var(--bg-1)',
         border: '1px solid var(--line-2)',
@@ -2714,7 +2714,19 @@ function CookieBanner() {
         backdropFilter: 'blur(8px) saturate(140%)',
         WebkitBackdropFilter: 'blur(8px) saturate(140%)'
       }
-    }, '🍪');
+    },
+      // Inline SVG cookie — the self-hosted Material Symbols subset does NOT
+      // include the `cookie` glyph (verified: the ligature falls back to the
+      // literal text "cookie"), and a 🍪 emoji is emoji-as-UI slop. A small
+      // vector biscuit-with-chips renders identically everywhere, no font dep.
+      h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': true, style: { display: 'block' } },
+        h('circle', { cx: 12, cy: 12, r: 9, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 }),
+        h('circle', { cx: 9,    cy: 9,    r: 1.1, fill: 'currentColor' }),
+        h('circle', { cx: 14.5, cy: 8.5,  r: 1.1, fill: 'currentColor' }),
+        h('circle', { cx: 8.5,  cy: 14,   r: 1.1, fill: 'currentColor' }),
+        h('circle', { cx: 14,   cy: 14.5, r: 1.3, fill: 'currentColor' }),
+        h('circle', { cx: 11.5, cy: 12,   r: 1,   fill: 'currentColor' })
+      ));
   }
 
   return h('div', {
