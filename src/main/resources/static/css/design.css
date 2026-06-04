@@ -136503,6 +136503,18 @@ body .full-page-mode .notif-feed-time {
 }
 /* END CSFLOAT-1:1 PARITY ship #3501 */
 
+/* Auth-page list rows inherit .info-modal-body's text-align:center, which
+   center-floated the item name / auction badge in the middle of each flex row
+   (My Stall, Offers) — same trap as the notifications feed above. Pin the row
+   text left so names read flush after the thumbnail; price + action buttons are
+   flex items pushed right and are unaffected. */
+body .stall-row,
+body .full-page-mode .stall-row,
+body .offer-row,
+body .full-page-mode .offer-row {
+  text-align: left !important;
+}
+
 /* CSFLOAT-1:1 PARITY ship #3502 — /notifications unread dot + row tint
    csfloat measured: unread row gets a flat rgba(35,123,255,0.06)
    background overlay (no border-glow, no shadow), and the unread dot
