@@ -12695,7 +12695,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
 }
 .mobile-filters-fab:hover { transform: translateY(-1px); }
 .mobile-filters-fab:active { transform: translateY(0); }
-.mobile-filters-fab .material-icon { color: #fff; }
+.mobile-filters-fab .material-icon,
+.mobile-filters-fab .material-symbols-rounded { color: #fff; }
 .mobile-filters-backdrop {
   position: fixed;
   inset: 0;
@@ -155260,12 +155261,17 @@ body div[style*="sticky"][style*="rgba(30,165,255"] > span b {
     font-size: 0 !important;
   }
   body .mobile-filters-fab .material-icon,
-  body .mobile-filters-fab .material-symbols-outlined {
+  body .mobile-filters-fab .material-symbols-outlined,
+  body .mobile-filters-fab .material-symbols-rounded {
     color: #fff !important;
     font-size: 26px !important;
     line-height: 1 !important;
   }
-  body .mobile-filters-fab > span:not(.material-icon):not(.material-symbols-outlined),
+  /* The MaterialIcon component renders class "material-symbols-rounded mi".
+     The hide-the-label rule must EXCLUDE that class (and the .mi marker) or it
+     display:none's the icon glyph itself — the bug that left this FAB a blank
+     blue circle on mobile. Only the text label (classless span / .label) hides. */
+  body .mobile-filters-fab > span:not(.material-icon):not(.material-symbols-outlined):not(.material-symbols-rounded):not(.mi),
   body .mobile-filters-fab > .label {
     display: none !important;
   }
