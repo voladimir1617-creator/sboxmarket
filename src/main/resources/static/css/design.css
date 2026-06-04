@@ -200012,3 +200012,43 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
 .modal.item-page > .recently-viewed { min-width: 0 !important; max-width: 100% !important; }
 .modal.item-page .recently-viewed-rail { min-width: 0 !important; }
 /* ===== END WAVE-INT17 ===== */
+
+/* ===== CSFLOAT PARITY WAVE-INT18 (full-page InfoModal content unreachable below the fold) =====
+   BUG (functional, EVERY full-page route — /profile, /wallet, /db, /loadout,
+   /watchlist, /offers, /buy-orders … at any viewport shorter than the page):
+   ship #2113 (design.css:132202) forces `.modal-backdrop:has(.info-modal)` to a
+   FIXED, viewport-height (inset:0), `display:grid; place-items:center` overlay
+   with NO overflow — added so a SHORT logged-out sign-in card centers. But the
+   same rule applies to full-page routes whose content is TALLER than the
+   viewport. There, place-items:center centers the over-tall modal so its top is
+   pushed ABOVE the scroll origin (scrollTop 0) and its bottom BELOW the fixed
+   viewport, and with overflow:visible the backdrop cannot scroll — so everything
+   past the fold is physically unreachable. Concretely: on /profile/trades the
+   Trades list (and its Confirm-receipt / Leave-review / Request-refund / Dispute
+   buttons) sits at ~1135px in a 900px viewport with the whole document able to
+   scroll only ~19px — a buyer literally cannot reach the controls to confirm a
+   trade or a seller to accept one. Measured live: backdrop position:fixed,
+   clientHeight 900, scrollHeight 1517, overflow-y:visible.
+
+   FIX (keep #2113's centered opaque overlay look; just let it scroll):
+     • overflow-y: auto      → the fixed viewport-height backdrop becomes
+                               scrollable when its content overflows.
+     • align-items: start    → top-align the modal so its top sits at the
+                               scroll origin instead of being clipped above it
+                               (grid/flex center-alignment clips the overflowing
+                               top — the canonical "can't scroll up to it" trap).
+                               justify-items stays `center` (inherited from the
+                               #2113 place-items shorthand) so horizontal
+                               centering — and the short sign-in card's look — is
+                               preserved; a short card simply sits near the top
+                               (4vh padding) instead of dead-center, which matches
+                               how csfloat renders page-level sign-in prompts.
+   Specificity `.full-page-mode .modal-backdrop:has(.info-modal)` = (0,3,0) beats
+   #2113's `.modal-backdrop:has(.info-modal)` (0,2,0); scoped to full-page-mode so
+   genuine centered secondary dialogs are untouched. */
+.full-page-mode .modal-backdrop:has(.info-modal),
+.full-page-mode .modal-backdrop:has(.presignin-modal) {
+  overflow-y: auto !important;
+  align-items: start !important;
+}
+/* ===== END WAVE-INT18 ===== */
