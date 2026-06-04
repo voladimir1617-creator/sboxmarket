@@ -447,3 +447,63 @@ state), offers/buyorders empty states, profile hero + earnings (flex space-betwe
 not center-floated), buy-orders trade-URL gate. Profile Listings/Offers tabs reuse the
 now-fixed .stall-row/.offer-row. NOTE: the seed test user has empty Trades/Reviews/
 Active-Bids tabs — a data-rich user is needed to QA those row components.
+
+## Data-rich auth QA session (Waves 197-199) — seed user with deposit/purchase/sale/bids
+
+Re-entered via the persisted dev-login session (endpoint /api/auth/steam/dev-login,
+prod-guarded; SteamAuthController stays uncommitted) as BoneTender (uid 1) — now a
+data-rich seed user: $500 dev-deposit, a $0.46 purchase, 4 active listings, 1 sale
+($69.12), auto-bids, 10 notifications. This populated the row components the prior
+session couldn't reach. Three real visual/UX bugs found + fixed (frontend only — no
+Groovy touched, so the Spock suite is unaffected):
+
+- **Wave 197 (2fd3477) — profile-tab tables: columns didn't line up under headers.**
+  Every profile-tab table (Transactions/Active Bids/Buy Orders/Support/Developers)
+  puts className 'db-row' on its tbody <tr>, but .db-row is the /database GRID row
+  (display:grid + 9-col template). On a real <table> that made the body row a grid
+  while <thead><tr> stayed a table-row, so body columns sized independently of the
+  header — the header spread full-width while the data bunched left under nothing.
+  Three scoped CSS rules (html body .profile-tabs ~ div table.db-table …, so /database
+  in .db-table-scroll is untouched — verified still grid-on-grid): tbody tr.db-row →
+  display:table-row; text cells → text-align:left (the .info-modal-body center default
+  had leaked in); table → table-layout:auto. Transactions: Description column marked
+  width:100% (th+td) so it's the flexible column — ID/Type/Amount/Status shrink to
+  content, Description gets the room (2 lines, not 5). Active Bids (Listing=col-2)
+  is correct unmarked. Verified at 1440: all 5 columns header-aligned per column.
+- **Wave 198 (4b2991a) — /profile/listings 404.** router.js profile :tab pattern
+  enumerated every tab EXCEPT 'listings'. The tab bar renders a "Listings" tab and
+  every tab click runs navigate('/profile/'+id), so clicking Listings (or deep-linking
+  /profile/listings) matched no route → ProfileModal unmounted, SPA 404 rendered.
+  Added 'listings' to the router pattern + the app.js ?tab= allow-set. Audited every
+  other tabbed route (mystall/offers/wallet/watchlist) — all their tab IDs are covered;
+  profile/listings was the only gap. Verified: opens on the Listings tab (4 cards).
+- **Wave 199 (e4a194a) — MyStall analytics header: 2 of 5 column labels oversized.**
+  The SellModal fee-card rules (#19104/#19105) target div[style*="grid-template-
+  columns: 1fr auto"] — a SUBSTRING match — and the analytics table grid is
+  "1fr auto auto auto auto", which contains that substring. So the fee-card styling
+  leaked in: VIEWS + 30D SOLD (nth-last-child 1/2) rendered 18px/600 vs 14px for the
+  others, plus card bg/border on the rows. Fixed the analytics grid first track to
+  minmax(0,1fr) (header + rows) — the inline style no longer contains "1fr auto", so
+  the rules stop matching; also improves long-name overflow. SellModal's own 2-col
+  grid is untouched. Verified: all 5 headers now 11px/700. Swept the JS — analytics
+  was the only multi-col victim of that substring selector.
+
+DIAGNOSED, NOT A BUG: "purchase succeeded but Trades tab empty." The bought listing
+(#23, CrateDigger) is a SYSTEM listing (sellerUserId=null) — by design PurchaseService
+opens no escrow Trade for those (no counterparty), so /api/trades:[] and "No trades
+yet" are correct. The P2P path is sound (real-seller buys correctly return
+TRADE_URL_MISSING until the buyer sets a Steam trade URL). The real defect is the
+success toast ("trade opened, see Trades") + ITEM_PURCHASED notification path
+(/profile?tab=trades) lying for system listings — flagged via spawn_task (dev-seed
+artifact: ~39% of seed listings are the 4 deliberately-anonymous handles
+VaultRunner/NeonArc/CrateDigger/FrostByte; prod listings are all P2P).
+
+CONFIRMED CLEAN (data-rich, 1440): home, item detail (/item/20), public stall
+(/stall/2), Loadout Lab, cart+checkout (fee model intact: Buyer fee Free), wallet
+withdraw (verified-email gate), MyStall active/sold/analytics, profile transactions/
+listings/auto-bids, offers, settings, buy-orders, notifications (badge 10 = 10 real
+unread, categorized — an earlier "0" reading was a stale eval on the wrong response
+shape, not an app bug).
+
+VERSIONS after this session: design.css?v=202, app.js?v=201 (main.js import). Bare
+modules (router.js, modals.js) synced no-bump (no-cache revalidate).
