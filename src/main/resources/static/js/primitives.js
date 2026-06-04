@@ -2,14 +2,41 @@
 import { h, useState, useEffect, useRef, fmt, timeAgo } from './utils.js';
 
 /**
- * Renders a Google Material Symbols Rounded glyph. The font file is loaded
- * once in index.html via Google Fonts — we just inject a span with the
- * codepoint name. Consistent line-weight icons beat the mixed emoji set we
- * had in the user menu previously.
+ * Inline-SVG fallbacks for glyphs the SELF-HOSTED Material Symbols subset
+ * (/fonts/material-symbols.woff2) does not contain. Without these, the icon
+ * ligature leaks as literal text ("error_outline", "verified_user", …) —
+ * verified missing via canvas measureText against the loaded font (the name
+ * measured at N×em wide instead of one glyph). Drawn as 24×24 / 1.8-stroke
+ * outlines to match the inline Icon set. Add a glyph here the moment the
+ * subset proves to lack it rather than swapping every call site.
+ */
+const MI_SVG_FALLBACK = {
+  error_outline: (s, col) => h('svg',
+    { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: col, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, style: { display: 'block' } },
+    h('circle', { cx: 12, cy: 12, r: 9 }),
+    h('line', { x1: 12, y1: 7.5, x2: 12, y2: 13 }),
+    h('circle', { cx: 12, cy: 16.4, r: 1, fill: col, stroke: 'none' })),
+  verified_user: (s, col) => h('svg',
+    { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: col, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, style: { display: 'block' } },
+    h('path', { d: 'M12 3 5 6v5c0 4.6 3.1 7.7 7 9 3.9-1.3 7-4.4 7-9V6l-7-3Z' }),
+    h('path', { d: 'm8.8 11.7 2.2 2.2 4.3-4.4' })),
+  cloud_off: (s, col) => h('svg',
+    { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: col, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, style: { display: 'block' } },
+    h('path', { d: 'M22.6 17A5 5 0 0 0 18 10h-1.3a8 8 0 0 0-7-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3' }),
+    h('path', { d: 'M1 1l22 22' }))
+};
+
+/**
+ * Renders a Material Symbols Rounded glyph (self-hosted icon subset, declared
+ * in fonts.css). We inject a span with the codepoint name; the font's ligature
+ * table turns it into the glyph. For the handful of names the subset omits, an
+ * inline SVG fallback renders instead so the raw name never shows as text.
  *
  * Usage: h(MaterialIcon, { name: 'storefront', size: 18, fill: true })
  */
 export function MaterialIcon({ name, size, fill, className, color }) {
+  const fb = MI_SVG_FALLBACK[name];
+  if (fb) return fb(size || 24, color || 'currentColor');
   return h('span', {
     className: `material-symbols-rounded mi ${className || ''}`,
     style: {
