@@ -182855,6 +182855,43 @@ html body .profile-panel .db-table thead tr th {
 html body .profile-panel .db-table thead tr th.right {
   text-align: right !important;
 }
+/* Profile-tab .db-table data cells have no default text-align, so the
+   .info-modal-body text-align:center default leaked into the classless text
+   cells (the Transactions table's ID/Type/Description, and the same columns in
+   Listings/Trades/Offers) — they centered while their left headers and the
+   .right/.center columns (Amount, Status) stayed put, so nothing lined up under
+   its header. Scope to the profile tab tables only (they follow .profile-tabs);
+   /database lives in .db-table-scroll with no .profile-tabs sibling, untouched.
+   .right / .center / .num cells keep their explicit alignment. */
+html body .profile-tabs ~ div table.db-table tbody td:not(.right):not(.center):not(.num) {
+  text-align: left !important;
+}
+/* PRIMARY structural fix for the same tables: every profile-tab table
+   (Transactions, Active Bids, Buy Orders, Support, Developers) puts
+   className 'db-row' on its tbody <tr>, but .db-row is the /database grid-row
+   style (display:grid + a 9-column template). On a real <table> that turns the
+   body row into a grid while the <thead><tr> stays a table-row, so the body
+   columns size themselves independently of the header columns — the header
+   spreads full-width while the data bunches left, lining up under nothing.
+   Reset these body rows to table-row so the shared table column model (header
+   and body share widths) applies. Scoped to .profile-tabs ~ div; /database
+   (which uses .db-row grid on BOTH its thead and tbody rows, inside
+   .db-table-scroll) has no .profile-tabs sibling and is untouched. */
+html body .profile-tabs ~ div table.db-table tbody tr.db-row {
+  display: table-row;
+}
+/* With the rows back to table-row, .db-table's global `table-layout: fixed`
+   takes over column sizing — and with no width on the 2nd column it let that
+   one column absorb ALL the slack (Transactions: TYPE ballooned to ~920px while
+   DESCRIPTION was crushed to 100px and wrapped to 5 lines, STATUS clipped off
+   the right edge). These profile-tab tables hold variable-length text in
+   different columns per tab (Description / Subject / Listing), so no single
+   fixed width fits them all. Let the columns size to their content instead —
+   the long text column naturally gets the room, the short ones shrink. Mobile
+   already switches .db-table to auto; this matches that at desktop too. */
+html body .profile-tabs ~ div table.db-table {
+  table-layout: auto;
+}
 /* END CSFLOAT-1:1 PARITY ship #127865 */
 
 /* csfloat-1:1 ship #127866 — settings api-key bulk Revoke-all row: 1px hairline divider above + 10px top padding (csfloat /profile danger-action separator canonical — visually segregates the destructive bulk action from the table that owns the per-row revokes) */

@@ -5969,7 +5969,13 @@ function ProfileTransactionsTab({ transactions, privacy }) {
       h('thead', null, h('tr', null,
         h('th', null, 'ID'),
         h('th', null, 'Type'),
-        h('th', null, 'Description'),
+        // width:100% on the description column makes it the flexible one that
+        // absorbs the table's slack (table-layout:auto), so ID/Type/Amount/
+        // Status shrink to their content and Description gets the room it needs
+        // instead of wrapping to 5 lines while Type balloons. Set on the <th>
+        // AND the <td> so the column resolves wide regardless of which row the
+        // sizer samples.
+        h('th', { style: { width: '100%' } }, 'Description'),
         h('th', { className: 'right' }, 'Amount'),
         h('th', { className: 'right' }, 'Status')
       )),
@@ -5977,7 +5983,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
         visibleTx.map(tx => h('tr', { key: tx.id, className: 'db-row' },
           h('td', { className: 'db-rank' }, '#' + tx.id),
           h('td', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' } }, tx.type),
-          h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, tx.description || tx.stripeReference),
+          h('td', { style: { fontSize: 11, color: 'var(--text-muted)', width: '100%' } }, tx.description || tx.stripeReference),
           (() => {
             // Signed + coloured amount so a credit and a debit of the
             // same value are visually distinct — parity with the
