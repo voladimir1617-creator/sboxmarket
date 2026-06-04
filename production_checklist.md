@@ -549,3 +549,17 @@ profile transactions (table goes mobile-card). No horizontal overflow on any.
 VERSIONS after the mobile sweep: design.css?v=205, app.js?v=201. The dev-login
 in SteamAuthController remains UNCOMMITTED (QA scaffolding) — revert before any
 final/clean state, never ship.
+
+## CORRECTION (same session) — system-listing purchases DO deliver (no money loss)
+
+Followed the buy further: the bought system-listing item ("Vintage Design Crop
+Top", $0.46) IS delivered — it lands in the buyer's PLATFORM INVENTORY (Sell
+Items page → Platform Inventory tab; help-modal.js:147 documents "Listings you
+buy appear in your Platform Inventory, ready to relist"). Verified: BoneTender's
+Platform Inventory shows 2 items incl. the Vintage Design Crop Top. So the
+earlier "delivers nothing / pay-for-nothing" framing in the spawn_task flag is
+WRONG — the money path is sound (buyer pays → item delivered to platform
+inventory). The ONLY real defect is the success toast + ITEM_PURCHASED notif
+pointing to "Profile › Trades" (empty for system listings) instead of "Sell ›
+Platform Inventory". Lower severity: messaging-accuracy, not money integrity.
+(P2P purchases correctly open a Trade, so "see Trades" is right for those.)
