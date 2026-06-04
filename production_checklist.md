@@ -507,3 +507,45 @@ shape, not an app bug).
 
 VERSIONS after this session: design.css?v=202, app.js?v=201 (main.js import). Bare
 modules (router.js, modals.js) synced no-bump (no-cache revalidate).
+
+## Mobile (390) sweep (Waves 200-201) — same data-rich BoneTender session
+
+The desktop fixes above (Waves 197-199) were verified at 1440 only. The grind
+requires 390 too, and mobile turned out under-tested (prior 390 sweeps were
+anonymous, so the auth surfaces' real data never rendered). Two real mobile bugs,
+both the SAME root pattern: a later (csfloat-parity) rule defeating the base
+mobile reflow, so a desktop multi-column grid never collapsed on phones.
+
+- **Wave 200 (91cd128) — profile hero name/badges overlapped into a jumble.**
+  At 390 the .profile-hero kept its desktop 3-col grid (avatar+content+actions);
+  the content column collapsed to ~64px so "BoneTender" piled on top of the
+  Verified / Good standing / KYC Approved badges — unreadable. Cause: two ships
+  pin the grid !important, incl. `body .profile-hero-split > .profile-hero` (0,2,1),
+  which beats the base mobile rule (line 8199, no !important). Fix: <=768px media
+  query stacks to 1 column via `html body .profile-hero-split > .profile-hero`
+  (0,2,2, out-specifies the ship). Verified: 390 single-col 0 overlaps; 1440
+  unchanged 3-col.
+- **Wave 201 (2db3d20) — wallet/stall 4-up stat strips stayed 4-across on phones.**
+  .wallet-spend-strip / .wallet-7d-summary / .mystall-sold-summary: base mobile
+  rule (line 8196) collapses to 1fr 1fr but a later ship redefines repeat(4,1fr)
+  with no media query (source-order wins), so 4 cards stayed at ~68px and every
+  label wrapped to 2 lines. Fix: same <=768px block forces 1fr 1fr (2×2) via
+  `html body .<strip>` (0,1,2 + !important). Verified: 390 → 2 cols at 141px,
+  no overflow; 1440 untouched.
+
+Both mobile fixes live in ONE new `@media (max-width: 768px)` block appended
+right after the profile-hero ship #2500 (~line 133566). PATTERN for future
+mobile work: a phone layout that won't reflow is almost always a later
+no-media / !important csfloat-parity ship out-ranking the base @media rule —
+fix by re-asserting the mobile layout at higher specificity inside a max-width
+media query, NOT by editing the desktop ship.
+
+CONFIRMED CLEAN at 390 (data-rich): home (h1 30px, no overflow), /market
+(toolbar + bottom-nav), /db (card-style rows fit), item detail (/item/20 — buy
++ bid panels stack), public stall (/stall/2 — hero 2-col stats + stacked
+actions, cards ellipsis-truncate), wallet withdraw, MyStall sold/analytics,
+profile transactions (table goes mobile-card). No horizontal overflow on any.
+
+VERSIONS after the mobile sweep: design.css?v=205, app.js?v=201. The dev-login
+in SteamAuthController remains UNCOMMITTED (QA scaffolding) — revert before any
+final/clean state, never ship.
