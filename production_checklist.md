@@ -379,3 +379,39 @@ Session waves 177-178 + full money + frontend-security clearance:
     daily withdrawal cap bounds blast radius) replay/brute-force guards. When/if scaling
     horizontally, back the nonce store + 2FA-fail counters with a shared store (Postgres/Redis).
   • Confirm prod keeps SECURITY_VERBOSE_ERRORS=false + SWAGGER_ENABLED=false (already defaulted).
+
+## Visual/icon grind session (Waves 183-190) — localhost 1:1-csfloat fidelity
+
+Eight verified, committed UI fixes (find→fix→prove-with-pixels→commit), all anon-accessible
+routes audited at 1440 + 390. Final regression sweep: 14 routes, 0 overflow, 0 console errors.
+
+- **Wave 183 (daad1a4)** /item recently-viewed rail forced a 109px horizontal scrollbar
+  (grid-column:1/-1 sized to the card row's min-content) — min-width:0 lets it shrink; rail's
+  own overflow-x scrolls. Only route with overflow; now all routes overflow-free.
+- **Wave 184 (cfef588)** cookie-consent pill 🍪 emoji → inline SVG biscuit (emoji-as-UI slop;
+  tried MaterialIcon('cookie') first but the subset lacks it — eyes caught the literal text).
+- **Wave 185 (f7ff8eb) + 187 (6254dd6)** SYSTEMIC: self-hosted Material Symbols subset
+  (/fonts/material-symbols.woff2) is MISSING 4 glyphs the code references — error_outline,
+  verified_user, cloud_off, lock_open — so MaterialIcon rendered the literal LIGATURE TEXT
+  ("error_outline" etc.) in error/empty/badge states sitewide. Fix once in MaterialIcon
+  (primitives.js): inline-SVG fallback map for those names. Canvas measureText vs the loaded
+  font is the ONLY reliable detector (the .mi class clips width to 24px so a width-scan can't
+  tell glyph from clipped text; document.fonts.check only says the family loaded, not the glyph).
+  Verified all 83 unique MaterialIcon names (literal + dynamic name:x.icon/ternary): exactly
+  those 4 missing, all now fallback'd, stillBroken=[]. ADD A FALLBACK whenever a new icon name
+  proves absent — don't assume a name is in the subset.
+- **Wave 186 (f0aa087)** SYSTEMIC class-name mismatch: the mobile /market "Filters" FAB rendered
+  as a BLANK blue circle. CSS referenced .material-icon/.material-symbols-outlined but the
+  MaterialIcon component renders "material-symbols-rounded mi" — so the label-hide rule
+  `>span:not(.material-icon):not(.material-symbols-outlined)` display:none'd the icon itself, and
+  the sizing rule missed it. Added .material-symbols-rounded(+.mi) to both selectors.
+- **Waves 188 (427eb8c) / 189 (deeb510) / 190 (21090e0)** SYSTEMIC alignment: `.info-modal-body`
+  sets text-align:center (deliberate, to center page titles) and EVERY full-page-route content
+  block must override to left. Three blocks forgot: .help-step (number/icon left, title/body
+  center-floated with a big gap), .help-faq-a + .help-contact, and the ENTIRE /faq Q&A (FaqModal
+  wrapper). Fixed each (text-align:left). When auditing a full-page route, check content blocks
+  override the inherited center — affiliate/support/stall centering is INTENTIONAL (landing/auth
+  gate/seller header), left alone.
+
+VERSIONS after this session: app.js?v=200, main.js?v (index.html script) unchanged shell,
+design.css?v=195. Bare modules (primitives.js, modals.js) synced no-bump (no-cache revalidate).
