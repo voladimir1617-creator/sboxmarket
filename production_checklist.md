@@ -563,3 +563,54 @@ inventory). The ONLY real defect is the success toast + ITEM_PURCHASED notif
 pointing to "Profile › Trades" (empty for system listings) instead of "Sell ›
 Platform Inventory". Lower severity: messaging-accuracy, not money integrity.
 (P2P purchases correctly open a Trade, so "see Trades" is right for those.)
+
+## SESSION (continued) — P2P escrow unblock + full-page scroll fix + money-path proof
+
+Three shipped fixes + end-to-end money-path verification on a fresh DB.
+
+- **fbded32 — two seed gaps blocked EVERY P2P escrow buy on a fresh DB.**
+  (1) Seed-seller steamId64s sat BELOW the SteamID64 base (76561197960265728),
+  so the trade-URL ownership check (partner = steamId64 − base) went negative
+  and `setTradeUrl` always 400'd TRADE_URL_NOT_YOURS → no P2P buy could start.
+  Shifted the block 7656119000000000x → 7656119900000000x (positive accountid).
+  (2) Seed sellers had no payout wallet, so escrow credit 400'd
+  SELLER_WALLET_MISSING. Seed a guarded zero-balance `steam_<id>` wallet per
+  demo seller. SeedServiceSpec 30/30 green (assertion hardened to require every
+  id > base).
+- **f92a8dc (WAVE-INT18) — full-page InfoModal content unreachable below the fold.**
+  Ship #2113 forces `.modal-backdrop:has(.info-modal)` to a fixed, viewport-tall,
+  place-items:center overlay with overflow:visible — fine for a short sign-in
+  card, but on every GENERIC-info-modal route taller than the viewport (/profile,
+  /db, /loadout, /watchlist, /offers, /buy-orders, /sell) the over-tall modal
+  centered out of reach and the backdrop couldn't scroll. On /profile/trades the
+  Trades list + its Confirm-receipt / Leave-review / Request-refund buttons sat at
+  ~1135px in a 900px viewport with the doc scrollable only ~19px → buyer literally
+  could not confirm a trade. Fix: full-page-mode info-modal backdrops get
+  overflow-y:auto + align-items:start (0,3,0 beats #2113's 0,2,0). Routes with a
+  SPECIFIC modal class (wallet-modal, cart) were already position:static and
+  untouched. Verified live: /profile (1481px), /db (2371px), /sell, /loadout all
+  scroll top→bottom, no clip. design.css ?v=205→206.
+- **497f044 — trade-card polish (now-reachable surface).** (1) item name butted
+  into the role label ("Crop TopYou are buying") — added marginLeft to .trade-role.
+  (2) counterparty avatar showed the UA broken-image glyph on a dead URL — added
+  onError hide. (Seed avatars: 4/6 fake hashes 404; the shared Avatar primitive
+  already shows an initials chip everywhere else, e.g. stall hero "EM".)
+
+MONEY PATHS VERIFIED END-TO-END on the fresh DB (fee model intact throughout —
+2% seller, buyer Free, net + fee == price):
+- BUY (P2P escrow): buy EmberWolf's $0.52 listing → tradeOpened:true, Trade #1
+  PENDING_SELLER_ACCEPT; walked accept→sent→buyer-confirm→VERIFIED; seller
+  credited $0.51 (= 0.52 − 2% $0.01), SALE tx "Sold … (-$0.01 fee)" COMPLETED.
+- SELL: platform-inventory item → sell form (Listed $0.46, Platform fee 2% −$0.01,
+  You'll receive $0.45) → List for Sale → active listing created (mine 78→79).
+- WITHDRAW: form present + correctly gated — "Add an email before withdrawing"
+  with balance untouched (no debit on a blocked request). Clean user-facing copy.
+
+BELOW-FOLD VISUAL SWEEP (newly reachable via WAVE-INT18) — /db rows #13–#30
+(+ sticky pager clears last row), /sell platform inventory, /loadout gallery
+(Plague Doctor / WW1 Trench Soldier / OG Streetwear cards): all clean, 0 broken
+images, no horizontal overflow.
+
+VERSIONS: design.css?v=206 (index.html), app.js?v=202, modals.js synced. The
+dev-login in SteamAuthController remains UNCOMMITTED (QA scaffolding) — revert
+before any final/clean state, never ship.
