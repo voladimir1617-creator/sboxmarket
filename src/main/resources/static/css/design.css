@@ -7605,6 +7605,11 @@ body:has(.shortcuts-backdrop) {
   align-items: center;
   padding: 16px 0;
   border-bottom: 1px dashed var(--line);
+  /* The /help page inherits text-align:center from the page shell; without this
+     the step title + body (grid column 3) center in their wide cell, leaving a
+     big gap from the left-pinned number/icon (cols 1-2) — disjointed and
+     inconsistent with the left-aligned intro block. Pin the step text left. */
+  text-align: left;
 }
 .help-steps .help-step:last-child { border-bottom: 0; }
 .help-step-num {
