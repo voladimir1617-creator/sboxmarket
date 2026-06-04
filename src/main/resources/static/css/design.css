@@ -199824,3 +199824,15 @@ body .csfloat-home-rail .csfloat-home-rail-inner {
   margin-right: auto !important;
 }
 /* ===== END WAVE-INT14b ===== */
+
+/* ===== WAVE-INT15 — widen the db database full-page sheet =====
+   The shared full-page width cap is 1040px (chosen for the cart's 2-col sheet),
+   but the Item Database page is a filters-sidebar + multi-column DATA TABLE; at
+   1040 the table's right columns (Sold, …) scrolled off inside the modal and it
+   looked clipped. db is a wide data surface (csfloat's is too) — give it a wider
+   sheet so the filters + full table fit with no inner horizontal scroll. */
+.full-page-mode .info-modal:has(.db-table) {
+  width: min(96vw, 1360px) !important;
+  max-width: 1360px !important;
+}
+/* ===== END WAVE-INT15 ===== */
