@@ -9170,7 +9170,7 @@ export function App() {
         if (route.params?.tab) return route.params.tab;
         try {
           const q = new URLSearchParams(window.location.search).get('tab');
-          const allowed = new Set(['personal','transactions','buyorders','autobids','trades','offers','reviews','support','developers']);
+          const allowed = new Set(['personal','listings','transactions','buyorders','autobids','trades','offers','reviews','support','developers']);
           return q && allowed.has(q) ? q : undefined;
         } catch { return undefined; }
       })()

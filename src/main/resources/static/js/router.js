@@ -40,7 +40,7 @@ const ROUTES = [
   { name: 'loadouts',      pattern: /^\/loadout\/?$/                                },
   { name: 'loadout',       pattern: /^\/loadout\/(\d+)\/?$/,       keys: ['id']     },
   { name: 'profile',       pattern: /^\/profile\/?$/                                },
-  { name: 'profile',       pattern: /^\/profile\/(personal|transactions|buyorders|autobids|trades|offers|reviews|support|developers)\/?$/, keys: ['tab'] },
+  { name: 'profile',       pattern: /^\/profile\/(personal|listings|transactions|buyorders|autobids|trades|offers|reviews|support|developers)\/?$/, keys: ['tab'] },
   { name: 'wallet',        pattern: /^\/wallet\/?$/                                 },
   { name: 'wallet',        pattern: /^\/wallet\/(deposit|withdraw|history)\/?$/, keys: ['tab'] },
   { name: 'watchlist',     pattern: /^\/watchlist\/?$/                              },
