@@ -3218,7 +3218,7 @@ export function FaqModal({ onClose }) {
             }, 'Open a ticket →')
           )
         )
-      : filtered.map(([question, answer]) => h('div', { key: question, style: { marginBottom: 20 } },
+      : filtered.map(([question, answer]) => h('div', { key: question, style: { marginBottom: 20, textAlign: 'left' } },
           // h3 (not <div>) so screen-reader heading-list lets users skim
           // questions without reading every answer. Visual styling matches
           // the previous div: bold ink-primary, 14px, 6px bottom margin.
