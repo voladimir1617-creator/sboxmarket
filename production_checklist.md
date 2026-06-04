@@ -723,3 +723,36 @@ surface verified desktop+mobile; full test suite GREEN; integration smoke test
 passing; src↔build consistent (design.css?v=210). dev-login still UNCOMMITTED
 (QA only — revert before any final/prod state). 3 items flagged for product
 decision (purchase-stat gross/net, card-overlay tap targets, withdrawal flow).
+
+## BACKEND COMPLETELY DONE — certification (same session)
+
+Operator asked to drive the backend to done. Result: comprehensively audited
+robust + fully test-covered + full suite green.
+
+DEEP READ-ONLY AUDITS this session (9 total) — money & security & lifecycle all robust:
+- Trade unhappy-path money (auto-release/dispute/cancel/protection refund) — clean.
+- Auction/bid + buy-order money (settle/auto-bid/fill/cancel races) — clean.
+- Withdrawal/payout/Stripe — live path clean (flush-before-transfer, @Version,
+  idempotency key, rollback, transfer.reversed); flagged the dead synchronous-
+  payout-vs-admin-approval architecture (product decision).
+- Frontend money-submit re-entrancy — 2 latch gaps FIXED (6306f27).
+- IDOR / object-level authorization (16 controllers + services) — clean.
+- Input validation / HTTP-contract / NPE (36 controllers + 7 DTOs + GlobalExceptionHandler)
+  — clean (null-guards, parse try/catch, pagination clamps, bulk caps, no stack leaks).
+- Scheduled jobs / data lifecycle (all @Scheduled sweeps) — clean (bounded batches,
+  per-row isolation, atomic multi-pod claims, terminal-flag narrowing, fixedDelay).
+- Listing/item integrity & concurrency — clean (Listing@Version + saveAndFlush blocks
+  double-sell; one finding: same-user Steam-asset double-list TOCTOU, low-sev, NOT
+  prod-exploitable with escrow bot on; flagged for a portable-constraint fix).
+- Design/a11y — clean except 44px CTA fix (0b2cdb6).
+
+TEST COVERAGE: service-layer logic 44/44 (added SteamBotResultSpec, d781dde — the
+last uncovered service-package class: pins the Steam-bot status state machine +
+@CompileStatic Map-subscript/coercion gotcha, 33 cases). Controllers 36/36 referenced.
+
+FULL SUITE: ./gradlew test -> 4256 tests, 0 failures, 0 errors, 214 suites. GREEN.
+
+Backend is production-grade at the code level. Remaining = operator-gated: #172
+(build prod jar, boot prod profile, verify behind tunnel) + revert the uncommitted
+dev-login first. Flagged product decisions: withdrawal-approval workflow,
+purchase-stat gross/net, Steam-asset double-list constraint, card-overlay tap targets.
