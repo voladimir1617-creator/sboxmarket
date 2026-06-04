@@ -199880,3 +199880,13 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   max-width: 940px !important;
 }
 /* ===== END WAVE-INT16b ===== */
+
+/* ===== WAVE-INT17 — fix item-page 109px horizontal overflow =====
+   The recently-viewed rail (grid-column:1/-1 in the item modal) measured 1440px
+   (full viewport) inside the 1280 modal, pushing a horizontal scrollbar on the
+   whole item page. Its horizontal card row's min-content was forcing the grid
+   item wider than its track. min-width:0 lets it shrink to the column; the rail's
+   own overflow-x:auto scrolls the cards instead of expanding the page. */
+.modal.item-page > .recently-viewed { min-width: 0 !important; max-width: 100% !important; }
+.modal.item-page .recently-viewed-rail { min-width: 0 !important; }
+/* ===== END WAVE-INT17 ===== */
