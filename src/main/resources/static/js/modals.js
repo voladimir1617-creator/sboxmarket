@@ -12316,7 +12316,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                   title: 'Download the per-listing analytics for every active listing in your stall (capped at 500 rows) as CSV — useful for offline rank-sorting / pivot-table work in Excel.'
                 }, '⇣ CSV')
               ),
-              h('div', { style: { display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
+              h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
                 h('div', null, 'Item'),
                 h('div', { style: { textAlign: 'right' } }, 'My Price'),
                 h('div', { style: { textAlign: 'right' } }, 'vs Floor'),
@@ -12324,7 +12324,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 h('div', { style: { textAlign: 'right' } }, '30d Sold')),
               analytics.map(row => h('div', {
                 key: row.listingId,
-                style: { display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
+                style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
               },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
                   row.imageUrl && h('img', { src: row.imageUrl, alt: '', style: { width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' } }),
