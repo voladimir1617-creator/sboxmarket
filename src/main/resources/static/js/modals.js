@@ -2771,11 +2771,19 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
   const [reason, setReason] = useState(REASONS[0]);
   const [note, setNote]     = useState(`Trade #${trade.id} · item ${trade.itemName || '—'}`);
   const [busy, setBusy]     = useState(false);
+  // Batch 1078 — synchronous re-entrancy latch; async setBusy can't stop
+  // a same-frame double-click, and reportUser (SupportController#reportUser
+  // -> SupportService.create) has no dedupe, so a double-click filed TWO
+  // user-report tickets + doubled the admin/CSR bell fan-out. Synced to
+  // busy each render; auto-resets after the finally's setBusy(false).
+  const busyRef = useRef(busy); busyRef.current = busy;
   const [err, setErr]       = useState('');
   const counterparty = trade.counterpartyName ||
     (trade.__isSeller ? `buyer #${trade.buyerUserId || '?'}` : `seller #${trade.sellerUserId || '?'}`);
   const submit = async () => {
     if (!trade.__target) { setErr('Missing counterparty id'); return; }
+    if (busyRef.current) return;
+    busyRef.current = true;
     setErr(''); setBusy(true);
     try {
       const { reportUser } = await import('./api.js');
@@ -9514,6 +9522,15 @@ function ProfileSupportTab() {
   const [form, setForm] = useState({ subject: '', category: 'OTHER', body: '' });
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
+  // Batch 1078 — synchronous re-entrancy latch shared by submitCreate +
+  // submitReply. async setBusy alone can't stop a same-frame double-
+  // click (both handlers capture busy===false from the same render).
+  // Neither submit has a confirm() or parent latch, and
+  // SupportService.create has no per-category dedupe, so a double-clicked
+  // "Open ticket" filed TWO tickets + doubled the admin/CSR bell fan-out;
+  // a double-clicked reply double-posted the message. Synced to busy each
+  // render; auto-resets after the finally's setBusy(false) re-renders.
+  const busyRef = useRef(busy); busyRef.current = busy;
   // Status filter — mirrors the backend's ticket lifecycle. 'ALL' = no
   // filter; default is 'OPEN' which excludes RESOLVED tickets so the
   // active queue is front and centre.
@@ -9584,6 +9601,8 @@ function ProfileSupportTab() {
 
   const submitCreate = async () => {
     if (!form.subject.trim() || !form.body.trim()) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const res = await createSupportTicket(form);
@@ -9606,6 +9625,8 @@ function ProfileSupportTab() {
 
   const submitReply = async () => {
     if (!reply.trim() || !viewing?.ticket) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const res = await replySupportTicket(viewing.ticket.id, reply);
