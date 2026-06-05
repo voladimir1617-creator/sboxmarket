@@ -796,3 +796,24 @@ optional 2% Trade Protection, buyer fee Free, total=price, "seller minus 2%"); C
 closes modal w/o over-navigation; mobile market/item no h-overflow, lazy-load works,
 steam icon 14px; 0 unlabeled icon buttons on market; no TODO/lorem/coming-soon leaks;
 db table names not clipped.
+
+## WATCHLIST DANGLING-REF FIX (live-found via browser)
+
+dcd7ba5 — Drove /watchlist and caught a real count defect: nav badge "4" vs page
+"3 items". Root cause traced live: GET /api/watchlist returned [20,25,30,41] but
+item 41 no longer exists (/api/items/41 → {notFound}, /api/listings/item/41 → []).
+The badge counts watchlist.length (4); the page can't render a card for a
+non-existent item so it silently dropped 41 (3) — counts disagreed and the user
+couldn't see/clean the phantom. Fixed at WatchlistService.list() (the single
+source GET/star/unstar/bulkMerge all funnel through) by filtering ids to existing
+catalogue items; catalogueRepository @Autowired(required=false) so it degrades to
+no-op unwired; createdAt-ASC order preserved; add()'s cap reads the raw repo so
+dangling rows can't escape the cap. +3 specs (24 green) + WatchlistControllerSpec
+34 green. Verified live post-restart: /api/watchlist → [20,25,30], badge "3",
+heading "Watchlist · 3 items", tab "All · 3", 3 cards — all consistent.
+
+Also confirmed clean this pass: buy-confirm modal fee math (item + optional 2% TP,
+buyer fee Free, total=price, seller −2%); cart checkout (subtotal sum, buyer fee
+Free, accessible remove buttons); auction bid UI (current bid / countdown / min /
+auto-bid cap, "1 item" pluralization live); loadout lab (no overflow / collapse /
+unlabeled buttons); db table (names not clipped).
