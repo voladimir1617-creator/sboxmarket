@@ -1800,7 +1800,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               const isRestockSeed = existingTarget != null && existingTarget >= 99999;
               const seed = (existingTarget != null && !isRestockSeed)
                 ? existingTarget.toFixed(2)
-                : (parseFloat(item.lowestPrice) * 0.85).toFixed(2);
+                : ((parseFloat(item.lowestPrice) || 0) * 0.85).toFixed(2);
               setAlertTarget(seed);
               setAlertErr('');
               setAlertOpen(o => !o);
@@ -2058,7 +2058,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           inputMode: 'decimal',
           enterKeyHint: 'send',
           'aria-label': 'Offer amount in USD',
-          placeholder: (parseFloat(item.lowestPrice) * 0.85).toFixed(2),
+          placeholder: (ask > 0 ? ask * 0.85 : 0).toFixed(2),
           value: offerAmt,
           onChange: e => setOfferAmt(e.target.value),
           // Batch 823 — Esc closes the offer drawer. Before this the

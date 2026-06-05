@@ -1232,7 +1232,7 @@ function FindSellerBar() {
             // seller has reviews so new sellers don't show a "0.00★"
             // deterrent.
             s.ratingCount > 0 && h('span', { style: { marginLeft: 6 } },
-              '· ★ ', Number(s.ratingAverage).toFixed(1),
+              '· ★ ', Number(s.ratingAverage || 0).toFixed(1),
               ' (', s.ratingCount, ')'))
         ),
         h('span', { style: { fontSize: 11, opacity: .5 } }, '→')
