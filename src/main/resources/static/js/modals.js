@@ -14608,10 +14608,13 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
     setError('');
     const num = parseFloat(amount);
     if (!num || num <= 0) { setError('Enter a valid amount'); return; }
-    // Withdrawals have a $1.00 server floor (@DecimalMin on WithdrawRequest);
-    // mirror it client-side so a sub-$1 amount gets an actionable message
-    // instead of the generic "Request body failed validation".
-    if (tab === 'withdraw' && num < 1) { setError('Minimum withdrawal is $1.00'); return; }
+    // Both deposit and withdraw have a $1.00 server floor (@DecimalMin on
+    // DepositRequest / WithdrawRequest); mirror it client-side for BOTH so a
+    // sub-$1 amount gets an actionable inline message instead of a generic
+    // "Request body failed validation" server round-trip. Pre-fix (batch 1080)
+    // only the withdraw side mirrored it — a sub-$1 deposit (e.g. $0.50)
+    // passed the client and bounced off the server's @DecimalMin instead.
+    if (num < 1) { setError(tab === 'withdraw' ? 'Minimum withdrawal is $1.00' : 'Minimum deposit is $1.00'); return; }
     if (num > 10000) { setError('Maximum per transaction is $10,000'); return; }
     // A withdrawal with no payout destination creates a PENDING row that
     // staff can never fulfill — block it client-side before submit.
