@@ -42,7 +42,11 @@ Found ZERO new defects; the few suspicious things were all verified intentional
   text; zero entity-binding so no mass-assignment surface).
 - **Verified-intentional (NOT bugs, left as-is)**: permanently-blue "Database" nav
   link (csfloat mirror, design.css:141418); Escape→/market on the item modal;
-  balance-pill "$" icon next to the $-amount.
+  balance-pill "$" icon next to the $-amount; wallet "Purchases −$1.65 (gross
+  cash-flow ledger)" vs profile "Total Purchased $1.11 (net of purchase-reversing
+  refunds)" — reconciles exactly: $1.65 gross − $0.54 refunded = $1.11, per the
+  documented refund-netting in ProfileService.groovy:86-96 (buy-then-cancel must
+  not inflate lifetime spend). Two correctly-different metrics, not a discrepancy.
 
 ### PROD JAR booted end-to-end on real PostgreSQL (2026-06-05) — task #172
 First time the actual production artifact (bootJar, SPRING_PROFILES_ACTIVE=prod)
