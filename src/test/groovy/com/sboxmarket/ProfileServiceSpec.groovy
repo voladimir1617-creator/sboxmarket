@@ -123,6 +123,53 @@ class ProfileServiceSpec extends Specification {
         result.counts.activeAutoBids == 0
     }
 
+    def "buildProfile nets purchase-reversing refunds out of Total Purchased + Net"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '111', displayName: 'Alice')
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: new BigDecimal("42.50"), currency: 'USD')
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.sumByWalletAndType(500L, 'PURCHASE', false) >> new BigDecimal("30")
+        transactionRepository.sumByWalletAndType(500L, 'SALE',     false) >> new BigDecimal("50")
+        transactionRepository.sumByWalletAndType(500L, 'DEPOSIT',  true)  >> new BigDecimal("100")
+        // $12 of those purchases was later refunded (trade cancel / protection
+        // payout, carrying a listingId) — the wallet was made whole, so it must
+        // NOT count toward lifetime spend or the net line.
+        transactionRepository.sumRefundedPurchases(500L) >> new BigDecimal("12")
+        transactionRepository.countByWalletAndType(500L, 'PURCHASE') >> 2L
+        transactionRepository.countByWalletAndType(500L, 'SALE')     >> 1L
+        listingRepository.sumActiveListingPriceBySeller(10L) >> BigDecimal.ZERO
+        listingRepository.sumOwnedInventoryValueBy(10L)      >> BigDecimal.ZERO
+
+        when:
+        def result = service.buildProfile(10L)
+
+        then:
+        result.stats.totalPurchased == new BigDecimal("18")   // 30 gross - 12 refunded
+        result.stats.net            == new BigDecimal("32")   // 50 sold - 18 net purchased
+    }
+
+    def "buildProfile clamps Total Purchased at zero if refunds somehow exceed purchases"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '111')
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: BigDecimal.ZERO, currency: 'USD')
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.sumByWalletAndType(500L, 'PURCHASE', false) >> new BigDecimal("5")
+        transactionRepository.sumByWalletAndType(500L, 'SALE',     false) >> BigDecimal.ZERO
+        transactionRepository.sumByWalletAndType(500L, 'DEPOSIT',  true)  >> BigDecimal.ZERO
+        transactionRepository.sumRefundedPurchases(500L) >> new BigDecimal("9")  // pathological over-refund
+        listingRepository.sumActiveListingPriceBySeller(10L) >> BigDecimal.ZERO
+        listingRepository.sumOwnedInventoryValueBy(10L)      >> BigDecimal.ZERO
+
+        when:
+        def result = service.buildProfile(10L)
+
+        then:
+        result.stats.totalPurchased == BigDecimal.ZERO        // clamped, not -4
+        result.stats.net            == BigDecimal.ZERO        // 0 sold - 0 net purchased
+    }
+
     def "buildProfile returns zeroes when the user has no wallet and no history"() {
         given:
         def user = new SteamUser(id: 10L, steamId64: '111')

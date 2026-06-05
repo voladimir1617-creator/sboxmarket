@@ -111,6 +111,16 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
         @Param('requireCompleted') boolean requireCompleted
     )
 
+    /** Sum of COMPLETED REFUND amounts that REVERSE A PURCHASE — i.e. refunds
+     *  that carry a listingId (trade cancellations via TradeService.refundBuyer
+     *  and Trade-Protection payouts), as opposed to DEPOSIT refunds which carry
+     *  no listingId. ProfileService subtracts this from the gross PURCHASE sum
+     *  so a cancelled+refunded purchase no longer inflates "Total Purchased" or
+     *  the "Net" line — the wallet balance was already made whole, the lifetime
+     *  stat must reflect that too. */
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.walletId = :walletId AND t.type = 'REFUND' AND t.status = 'COMPLETED' AND t.listingId IS NOT NULL")
+    BigDecimal sumRefundedPurchases(@Param('walletId') Long walletId)
+
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.walletId = :walletId AND t.type = :type")
     long countByWalletAndType(@Param('walletId') Long walletId, @Param('type') String type)
 

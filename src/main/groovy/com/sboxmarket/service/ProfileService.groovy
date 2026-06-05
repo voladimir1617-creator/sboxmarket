@@ -83,7 +83,17 @@ class ProfileService {
         // fetch (post-login + /me refresh) so the old N-rows-per-view pull
         // scales badly — a user with years of trading history would walk
         // thousands of rows just to render the totals line.
-        def totalPurchased = transactionRepository.sumByWalletAndType(walletId, 'PURCHASE', false) ?: BigDecimal.ZERO
+        // Net of purchase-reversing refunds: a cancelled / protection-covered
+        // purchase writes a REFUND (carrying the listingId) that restores the
+        // wallet balance, so the lifetime "Total Purchased" + "Net" stats must
+        // subtract it too — otherwise a buy-then-cancel inflates spend/loss
+        // forever (e.g. buy $0.54 then cancel → balance made whole, yet Total
+        // Purchased wrongly stayed $0.54). DEPOSIT refunds carry no listingId
+        // and are NOT subtracted (they don't reverse a purchase). `.max(ZERO)`
+        // is defensive against any pathological over-refund.
+        def grossPurchased    = transactionRepository.sumByWalletAndType(walletId, 'PURCHASE', false) ?: BigDecimal.ZERO
+        def refundedPurchases = transactionRepository.sumRefundedPurchases(walletId) ?: BigDecimal.ZERO
+        def totalPurchased = (grossPurchased - refundedPurchases).max(BigDecimal.ZERO)
         def totalSold      = transactionRepository.sumByWalletAndType(walletId, 'SALE',     false) ?: BigDecimal.ZERO
         def totalDeposited = transactionRepository.sumByWalletAndType(walletId, 'DEPOSIT',  true)  ?: BigDecimal.ZERO
         def purchaseCount  = transactionRepository.countByWalletAndType(walletId, 'PURCHASE')
