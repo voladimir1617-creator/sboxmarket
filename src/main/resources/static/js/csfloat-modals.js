@@ -2415,7 +2415,7 @@ export function NotificationsModal({ onClose, me }) {
                   } catch (_) { toast('Could not mark unread — try again.', 'err'); }
                   await load();
                 }
-              }, '—'),
+              }, '📥'),
               // Per-row dismiss. Hardest-to-mis-click target so use a
               // tiny ✕ with generous padding. stopPropagation so the
               // outer row's open() doesn't fire.
