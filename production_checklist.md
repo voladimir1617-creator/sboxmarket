@@ -10,6 +10,31 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 
 ## ✅ DONE (verified live)
 
+### Rate-limit GDPR/CSV exports + 4 more clean audits (2026-06-05) — wave 173
+Fresh adversarial code-audit lenses on top of wave 172's. Found + fixed ONE real
+prod-abuse defect; 4 more lenses came back clean.
+- **FIX (committed 1ed367a): GET /api/profile/export (GDPR JSON) + per-user CSV
+  exports were unrate-limited.** RateLimitFilter's GET branch only consults
+  GUARDED_ENUMS/GUARDED_READS, never GUARDED_PREFIXES — so the /api/profile,
+  /api/wallet, /api/watchlist, /api/buy-orders prefixes there only protected
+  WRITE methods (the exact gap batch 1068 fixed for the admin CSVs). The GDPR
+  export fans out ~15 repo queries across nearly every table in one read-only tx
+  (several unbounded), so one authed user could hammer it to exhaust DB
+  connections + Tomcat threads. Added the export GETs to GUARDED_ENUMS (40/10s
+  MAX_ENUM): /api/profile/export (+bids/offers/trades.csv),
+  /api/wallet/transactions.csv, /api/listings/my-stall/ (.csv exports),
+  /api/watchlist/export.csv, /api/buy-orders/export.csv. +3 RateLimitFilterSpec
+  regression tests (export caps at 40; per-user CSVs cap at 40; /api/profile/me
+  stays unrestricted — proves the fix is surgical). Spec green: 32/32.
+- **Clean audits (no real defects, evidence-backed):** search/filter SQLi + ORDER
+  BY injection (all @Query bound, zero native queries, sort keys whitelisted);
+  Stripe webhook idempotency/signature/replay (raw-body constructEvent +
+  claimStripeEvent UNIQUE-index dedup before the handler switch + per-handler
+  status guards + amount re-read from the verified session); SSE stream lifecycle
+  (all 3 emitter hooks deregister, 10-min timeout, per-emitter broadcast catch,
+  COW/ConcurrentHashMap, MAX_PER_LISTING=200, single-pod by design).
+- Session audit tally: 9 fresh adversarial lenses, 1 real fix, 8 clean.
+
 ### Exhaustive live verification sweep (2026-06-05) — wave 172
 After the prod-boot work, drove the running dev app (:8082, logged in via dev-login)
 through the full customer surface in a real browser + 3 fresh read-only code audits.
