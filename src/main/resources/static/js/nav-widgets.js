@@ -139,6 +139,27 @@ const KIND_ICONS = {
   WATCHLIST_PRICE_DROP: '↓',
 };
 
+// Autoplay-policy gesture gate (batch 1079). Chrome refuses to start or
+// resume an AudioContext before the document has received a user-
+// activation gesture, and calling resume() pre-gesture logs a console
+// warning ("The AudioContext was not allowed to start...") on every
+// auto-ding fired by an incoming-notification poll before the user has
+// clicked anything. Track the first gesture with a passive one-shot
+// capture listener (stored on window so a re-import can't desync it);
+// the auto-ding path bails quietly until then — it could not have
+// produced sound anyway. The Settings "Test sound" button passes
+// force=true and is itself a gesture, so it stays exempt.
+if (typeof window !== 'undefined' && !window.__sbAudioGestureHooked) {
+  window.__sbAudioGestureHooked = true;
+  const _markAudioGesture = () => {
+    window.__sbAudioGestured = true;
+    ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
+      window.removeEventListener(ev, _markAudioGesture, true));
+  };
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
+    window.addEventListener(ev, _markAudioGesture, true));
+}
+
 // Short, subtle two-tone ding triggered by the Settings "Notification
 // sounds" toggle. Pure Web Audio — no external asset shipped. Guards:
 //   - first call primes a single AudioContext and reuses it;
@@ -157,6 +178,12 @@ export async function playNotifyDing(opts) {
     if (!force && localStorage.getItem('sb_sounds') === 'false') return { ok: false, reason: 'muted' };
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return { ok: false, reason: 'no-audio-api' };
+    // Autoplay gate (batch 1079). Don't create OR resume the context before
+    // a user gesture — both are blocked by Chrome's autoplay policy and
+    // resume() logs a console warning. The auto-ding can't make sound
+    // pre-gesture anyway, so bail quietly; force=true (Settings "Test
+    // sound") is itself a click gesture and stays exempt.
+    if (!force && window.__sbAudioGestured !== true) return { ok: false, reason: 'no-gesture' };
     const ctx = (playNotifyDing._ctx = playNotifyDing._ctx || new Ctx());
     // AudioContext.resume() returns a Promise — the previous fire-and-
     // forget call returned synchronously and immediately checked state,
