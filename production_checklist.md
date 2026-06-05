@@ -840,3 +840,27 @@ cache-consistency (1f51db3) · grid-card Steam icon 0px→14px on every card
 est-value chip dash (e2f0c96) · 8-site em-dash placeholder sweep incl. labelled
 ✕ cancel-listing button (7482505) · manage-stall ⚙ (1c0412d) · watchlist
 dangling-ref filter + tests (dcd7ba5) · settings toggle a11y (caa680a).
+
+## SESSION CAPSTONE — comprehensive live sweep complete
+
+Final fixes (all live-verified, no-cache modules):
+- e5d9ebf Notifications mark-as-unread: '—' → documented 📥 inbox glyph (9 rows).
+- d2ddc33 Withdraw daily-cap banner '—'→'ⓘ' (deposit twin missed earlier) +
+  follow-mute toggle degenerate '—':'—' ternary → 🔕/🔔 by state + aria-label.
+
+The stray-em-dash-placeholder class is now eliminated app-wide (deposit + withdraw
+caps, est-value/watcher/trades/demand chips, MyStall cancel button, manage-stall,
+notifications mark-unread, follow-mute). All legit "no data" value fallbacks
+(price/date/count → '—') left intact.
+
+COMPREHENSIVE ROUTE SWEEP (desktop 1440 + mobile 390, dev-login): home, market,
+item (buy-now + auction), wallet (deposit + withdraw), sell (steam + platform),
+mystall, public stall, db, cart, watchlist, loadout, profile, offers, settings,
+notifications, help — all clean (no h-overflow, no collapsed icons, no unlabeled
+icon buttons, no stray dashes). FUNCTION verified: buy-confirm fee math, cart
+checkout fee math + accessible remove buttons, auction bid UI, offers, search
+(?q= URL-synced) + category filter (?category= URL-synced), settings toggles
+(role=switch + keyboard). 0 console errors across home/market/item.
+
+FULL SUITE: 214 suites, 4261 tests, 0 failures (incl. +3 watchlist filter specs).
+App live on :8082. Dev-login scaffolding remains UNCOMMITTED (revert before prod).
