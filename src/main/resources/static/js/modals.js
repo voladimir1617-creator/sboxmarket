@@ -15131,7 +15131,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                 title: 'Rolling 24-hour deposit cap — guards against card-testing and stolen-card drain.'
               },
                 h('span', { style: { fontSize: 14 } },
-                  wallet.dailyDepositRemaining > 0 ? '—' : '⚠'),
+                  wallet.dailyDepositRemaining > 0 ? 'ⓘ' : '⚠'),
                 h('div', { style: { flex: 1 } },
                   wallet.dailyDepositRemaining > 0
                     ? h('span', null,
