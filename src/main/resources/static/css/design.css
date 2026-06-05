@@ -185749,6 +185749,30 @@ body .profile-stats > .profile-stat {
 body .profile-stats > .profile-stat:last-child {
   border-right: 0 !important;
 }
+/* batch 1076 — mobile reflow for the #128116 stats grid. The rule above is
+   `body .profile-stats` (body-specificity + !important) with
+   grid-template-columns: repeat(4, 1fr), which OVERRODE the plain
+   `.profile-stats` mobile media queries (design.css:1510/8134/8202/8359)
+   that were meant to drop the column count on phones. Worse, `1fr` can't
+   shrink below each cell's min-content (24px padding + 22px values + a
+   "Total Purchased" label ≈ 112px), so the 4 columns forced a ~450px grid
+   inside a ~320px container with `overflow:hidden` — clipping "Total Sold"
+   and "Total Purchased" off the right edge so mobile users never saw two
+   of their four key stats. Re-assert the reflow at matching specificity:
+   2 columns on phones, minmax(0,1fr) so the cells can shrink below
+   min-content and never re-overflow. Left-column cells keep a hairline
+   divider; right-column cells drop it. */
+@media (max-width: 640px) {
+  body .profile-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  body .profile-stats > .profile-stat {
+    border-right: 0 !important;
+  }
+  body .profile-stats > .profile-stat:nth-child(odd) {
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+}
 body .profile-stats > .profile-stat > .profile-stat-label {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 12px !important;
