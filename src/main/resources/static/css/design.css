@@ -119650,6 +119650,20 @@ h2.auctions-ending-soon-head {
   justify-content: center !important;
 }
 
+/* Owner QA — grid-card Steam icon was collapsing to 0px width.
+   The compact Steam link is display:flex; its child <svg> carries a
+   viewBox ("0 0 24 24"), which gives the SVG a min-content width of 0
+   (a viewBox makes the SVG infinitely scalable). As a flex item with the
+   default flex-shrink:1, the icon shrank to 0px wide even though it has a
+   width="13" attribute — so every card showed an empty 32px bordered box
+   instead of the Steam logo. Pin the icon: flex:none stops the shrink and
+   an explicit 14px square renders it centered in the 32px tap target. */
+.steam-market-link.compact svg {
+  flex: 0 0 auto !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
 /* Boss QA G3 — final wrap-up for the footer bottom row. The meta
    strip ("All prices in USD · Stripe-secured · Steam OpenID auth ·
    Catalog updated …") was being squeezed in the last cell of a
