@@ -291,7 +291,15 @@ class ListingController {
                 }
             }
         }
-        ResponseEntity.ok(listing)
+        // Mirror the marketplace-list cache (line 176): same 10s private window
+        // so the single-listing view and the grid stay CONSISTENT — previously
+        // the list was cached 10s but this was uncached, so right after a bid
+        // the grid showed a stale currentBid while this endpoint showed the
+        // fresh one (a jarring divergence). `private` (varies by viewer via the
+        // hidden-listing owner/admin gate above), and the live auction view is
+        // kept fresh by the SSE bus + the buy-path PRICE_CHANGED re-validation,
+        // so a ≤10s display lag here carries no money risk.
+        ResponseEntity.ok().header('Cache-Control', 'private, max-age=10').body(listing)
     }
 
     @GetMapping("/stats")
