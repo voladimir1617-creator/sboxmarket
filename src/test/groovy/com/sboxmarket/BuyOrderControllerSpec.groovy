@@ -83,7 +83,12 @@ class BuyOrderControllerSpec extends Specification {
         authedSession(100L)
         1 * buyOrderService.listForBuyer(100L) >> [o]
         1 * itemRepository.findAllById([42L]) >> [item]
-        1 * buyOrderService.countAheadInQueue(42L, new BigDecimal('45.00'), 1700L) >> 2L
+        // Batched queue rank: 2 orders ahead of mine (45.00 @ 1700) — one
+        // priced higher (50.00) + one same-price-but-earlier (45.00 @ 1600).
+        1 * buyOrderService.activeQueueRowsForItems([42L]) >> [
+            [42L, new BigDecimal('50.00'), 1L] as Object[],
+            [42L, new BigDecimal('45.00'), 1600L] as Object[]
+        ]
         1 * buyOrderService.countForBuyer(100L) >> 1L
 
         when:
@@ -109,7 +114,7 @@ class BuyOrderControllerSpec extends Specification {
         1 * buyOrderService.listForBuyer(100L) >> [o]
         // no itemRepository.findAllById call — itemIds is empty
         0 * itemRepository.findAllById(_)
-        0 * buyOrderService.countAheadInQueue(_, _, _)
+        0 * buyOrderService.activeQueueRowsForItems(_)   // empty itemIds → not called
         1 * buyOrderService.countForBuyer(100L) >> 1L
 
         when:
@@ -129,7 +134,7 @@ class BuyOrderControllerSpec extends Specification {
         authedSession(100L)
         1 * buyOrderService.listForBuyer(100L) >> [o]
         1 * itemRepository.findAllById([42L]) >> [item]
-        0 * buyOrderService.countAheadInQueue(_, _, _)  // status gate
+        1 * buyOrderService.activeQueueRowsForItems([42L]) >> []  // fetched once; per-row status gate skips ranking
         1 * buyOrderService.countForBuyer(100L) >> 1L
 
         when:
@@ -148,7 +153,7 @@ class BuyOrderControllerSpec extends Specification {
         authedSession(100L)
         1 * buyOrderService.listForBuyer(100L) >> [o]
         1 * itemRepository.findAllById([42L]) >> [item]
-        1 * buyOrderService.countAheadInQueue(42L, new BigDecimal('60'), 1L) >> 0L
+        1 * buyOrderService.activeQueueRowsForItems([42L]) >> []  // 0 ahead → queuePosition 1
         1 * buyOrderService.countForBuyer(100L) >> 1L
 
         when:

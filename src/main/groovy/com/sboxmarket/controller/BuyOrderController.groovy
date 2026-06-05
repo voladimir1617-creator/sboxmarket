@@ -43,6 +43,18 @@ class BuyOrderController {
         if (!itemIds.isEmpty()) {
             itemRepository.findAllById(itemIds).each { byId[it.id] = it }
         }
+        // Batched queue positions (was an N+1: one countAheadInQueue COUNT per
+        // ACTIVE row, ~200 join-COUNTs for a buyer at the active-order cap).
+        // Pull every ACTIVE non-banned order on the buyer's item set in ONE
+        // query, group by item, and rank each row in memory under the engine's
+        // `maxPrice DESC, createdAt ASC` priority — identical result to the
+        // per-row SQL, constant query count regardless of order count.
+        def queueByItem = [:].withDefault { [] }
+        if (!itemIds.isEmpty()) {
+            buyOrderService.activeQueueRowsForItems(itemIds).each { r ->
+                queueByItem[(Long) r[0]] << [mp: (BigDecimal) r[1], ts: (Long) (r[2] ?: 0L)]
+            }
+        }
         def out = rows.collect { o ->
             def floor = o.itemId != null ? byId[o.itemId]?.lowestPrice : null
             def gap = (floor != null && o.maxPrice != null) ? (floor - o.maxPrice) : null
@@ -54,8 +66,14 @@ class BuyOrderController {
             // hides the chip cleanly.
             Long queuePosition = null
             if (o.status == 'ACTIVE' && o.itemId != null && o.maxPrice != null) {
-                long ahead = buyOrderService.countAheadInQueue(
-                    o.itemId, o.maxPrice, o.createdAt ?: 0L)
+                BigDecimal myMax = o.maxPrice
+                long myTs = o.createdAt ?: 0L
+                // "ahead" = strictly-better-priced OR same-price-but-earlier,
+                // matching countAheadInQueue's WHERE exactly (compareTo via
+                // Groovy >/== on BigDecimal). +1 → user-facing position.
+                long ahead = queueByItem[o.itemId].count { row ->
+                    row.mp > myMax || (row.mp == myMax && row.ts < myTs)
+                } as long
                 queuePosition = ahead + 1L
             }
             [

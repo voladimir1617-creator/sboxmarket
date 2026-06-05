@@ -152,6 +152,24 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
         @Param("createdAt") Long createdAt
     )
 
+    /** Batched queue-rank source: every ACTIVE, quantity>0 buy order
+     *  (non-banned buyer) on the given item ids, as [itemId, maxPrice,
+     *  createdAt] rows. Lets the "My Buy Orders" tab compute every order's
+     *  queue position in ONE query + in-memory rank instead of a per-row
+     *  countAheadInQueue (which was an N+1 — up to ~200 COUNT-with-join
+     *  queries for a buyer at the 200-active-order cap). Same non-banned
+     *  filter as countAheadInQueue / findMatching so the ranks agree. */
+    @Query("""
+        SELECT b.itemId, b.maxPrice, b.createdAt
+          FROM BuyOrder b, SteamUser u
+         WHERE b.status = 'ACTIVE'
+           AND b.quantity > 0
+           AND b.itemId IN :itemIds
+           AND b.buyerUserId = u.id
+           AND (u.banned IS NULL OR u.banned = false)
+    """)
+    List<Object[]> activeQueueRowsForItems(@Param("itemIds") Collection<Long> itemIds)
+
     /** ACTIVE buy orders idle since the cutoff — drives the 30-day
      *  auto-expire sweep (batch 286). Sorted by updatedAt ASC so the
      *  oldest get processed first if the candidate set is large. */

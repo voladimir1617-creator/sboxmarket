@@ -416,6 +416,17 @@ class BuyOrderService {
         buyOrderRepository.countAheadInQueue(itemId, maxPrice, createdAt ?: 0L)
     }
 
+    /** Batched queue-rank source for the "My Buy Orders" tab — one query for
+     *  all the buyer's item ids instead of a per-row countAheadInQueue (N+1).
+     *  Returns [itemId, maxPrice, createdAt] for every ACTIVE non-banned order
+     *  on those items; the caller ranks each of its own orders in memory with
+     *  the same maxPrice DESC, createdAt ASC priority. Empty in → empty out
+     *  (avoids an `IN ()` query). */
+    List<Object[]> activeQueueRowsForItems(Collection<Long> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) return []
+        buyOrderRepository.activeQueueRowsForItems(itemIds)
+    }
+
     @Transactional
     BuyOrder cancel(Long buyerUserId, Long orderId) {
         // Authorisation pre-check on an unlocked read — we need to verify
