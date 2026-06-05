@@ -11923,7 +11923,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         },
         title: 'How your stall looks to buyers — exposed on the public stall hero. Improving both metrics lifts offer acceptance.'
       },
-        h('span', { style: { fontSize: 14 } }, '—'),
+        h('span', { style: { fontSize: 14 } }, 'ⓘ'),
         h('span', { style: { color: 'var(--text-secondary)' } }, 'Buyer-visible stats ·'),
         timeLabel && h('span', null,
           'Typically responds in ',
@@ -11998,7 +11998,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       title: 'Gross revenue shown (listing price the buyer paid). ' +
              'Net-of-fee credits land in your Wallet transaction history.'
     },
-      h('span', { style: { fontSize: 14 } }, '—'),
+      h('span', { style: { fontSize: 14 } }, 'ⓘ'),
       h('span', { style: { color: 'var(--text-secondary)' } }, 'Your earnings ·'),
       h('span', null,
         'Lifetime: ',
@@ -12633,7 +12633,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     background: 'rgba(30,165,255,0.10)', border: '1px solid rgba(30,165,255,0.35)'
                   },
                   title: `${stallWatcherCounts[l.item.id]} buyer${stallWatcherCounts[l.item.id] === 1 ? '' : 's'} have starred this item — they're watching for a deal`
-                }, '—', stallWatcherCounts[l.item.id]),
+                }, '★ ', stallWatcherCounts[l.item.id]),
                 // Item view-count chip (batch 864) — shows sellers how
                 // much detail-page traffic their listing is pulling.
                 // Pairs with the watcher chip: high views + low watchers
@@ -12675,7 +12675,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     title: closesDeal
                       ? `${demand.count} buy order${demand.count === 1 ? '' : 's'} · best bid ${fmt(best)} already meets your ${fmt(priced)} ask — selling at current price will auto-match.`
                       : `${demand.count} buy order${demand.count === 1 ? '' : 's'} on this item · best bid ${fmt(best)}. Drop your price to ≤ ${fmt(best)} to auto-match.`
-                  }, '—', demand.count, best > 0 ? ` · ${fmt(best)}` : '');
+                  }, '⇄ ', demand.count, best > 0 ? ` · ${fmt(best)}` : '');
                 })()
               ),
               editing === l.id
@@ -12899,8 +12899,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                   h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
+                    title: 'Cancel listing',
+                    'aria-label': 'Cancel listing',
                     onClick: () => doCancel(l)
-                  }, '—')
+                  }, '✕')
                 )
           ));
           })()
@@ -13192,7 +13194,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                   border: '1px solid rgba(30,165,255,0.25)', fontWeight: 700
                 },
                 title: `This buyer has completed ${trades} verified trade${trades === 1 ? '' : 's'} on SkinBox — tangible history beats low-ball optics.`
-              }, '—', trades, ' ', trades === 1 ? 'trade' : 'trades'),
+              }, '✓ ', trades, ' ', trades === 1 ? 'trade' : 'trades'),
               revCount >= 3 && offer.buyerReviewAvg != null && h('span', {
                 style: {
                   padding: '2px 7px', borderRadius: 10,
@@ -15282,7 +15284,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                   display: 'flex', gap: 10, alignItems: 'flex-start'
                 }
               },
-                h('span', { style: { fontSize: 16 } }, '—'),
+                h('span', { style: { fontSize: 16 } }, '⚠'),
                 h('div', { style: { flex: 1 } },
                   h('div', { style: { fontWeight: 700, marginBottom: 4 } }, 'Wallet frozen by staff'),
                   h('div', { style: { fontWeight: 500, lineHeight: 1.5 } },

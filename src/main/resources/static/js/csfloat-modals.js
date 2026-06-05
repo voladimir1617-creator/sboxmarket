@@ -3048,7 +3048,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       style: { background: 'rgba(30,165,255,0.12)', border: '1px solid rgba(30,165,255,0.4)', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 },
       title: 'The proxy-bidder will auto-raise your bid up to this cap whenever someone outbids you.'
     },
-      h('span', { className: 'auction-status-icon' }, '—'),
+      h('span', { className: 'auction-status-icon' }, 'ⓘ'),
       h('span', { style: { flex: 1 } },
         h('strong', null, 'Your auto-bid cap · '),
         fmt(yourAutoCap),
