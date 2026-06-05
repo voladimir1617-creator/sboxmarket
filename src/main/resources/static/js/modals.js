@@ -806,7 +806,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 title: `${Number(item.supply).toLocaleString()} ${item.name || 'items'} have been minted on the Steam Workshop`
               },
                 Number(item.supply).toLocaleString(),
-                h('span', { className: 'modal-stat-unit' }, ' items')
+                h('span', { className: 'modal-stat-unit' }, Number(item.supply) === 1 ? ' item' : ' items')
               )
             )
           ),
@@ -5431,7 +5431,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
 
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Steam Inventory Size'),
-      h('div', { className: 'profile-row-value mono' }, (profile?.user?.steamInventorySize ?? 0) + ' items')
+      h('div', { className: 'profile-row-value mono' }, (profile?.user?.steamInventorySize ?? 0) + ((profile?.user?.steamInventorySize ?? 0) === 1 ? ' item' : ' items'))
     ),
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Last Steam Sync'),
