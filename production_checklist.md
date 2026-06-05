@@ -1107,3 +1107,35 @@ absolute + prod-validated (ProdConfigValidator rejects localhost/placeholder);
 every template var has a Groovy-Elvis fallback. 11th clean audit lens.
 
 App live on :8082; dev-login scaffolding remains UNCOMMITTED.
+
+## WAVE 177 — Playwright programmatic visual+console battery (1440 + 390)
+
+Chrome extension was offline this session; drove a fresh Playwright Chromium
+instead and verified visuals PROGRAMMATICALLY (computed styles, bounding
+boxes, font-load state, console) — robust to the screenshot-file-retrieval
+gap and high-signal for the defects that matter.
+
+APPLIED:
+- 4822fcf — AudioContext autoplay-warning fix (see batch 1079 above). Found
+  via the console battery: the notification auto-ding created+resumed an
+  AudioContext before any user gesture, logging Chrome's "AudioContext was
+  not allowed to start" warning on every pre-gesture ding. Now gesture-gated.
+
+VERIFIED CLEAN (no defects):
+- Fonts: Roboto self-hosted + actually loaded at 400/500/600/700/900 +
+  Roboto Mono + Material Symbols Rounded (document.fonts.check true; renders
+  distinctly from the monospace sentinel). Matches csfloat's Material Roboto;
+  the canonical font-fallback-to-Arial trap is NOT present.
+- Desktop 1440: home / market / wallet / item-detail(/item/24) / item-not-
+  found — overflowX 0, no NaN/undefined/$NaN/[object Object]/Invalid Date in
+  visible text, no broken images, prices all $X.XX. Console 0 warn / 0 err
+  after the audio fix.
+- Mobile 390: item-detail + profile — overflowX 0. profile-stats grid reflows
+  to 2 columns with no cell clipping (confirms the 637d35c fix live). The
+  "wide" elements are intentional horizontal-scroll rails (.similar-strip
+  scrollW 960/280; .profile-tabs scrollW 1019/288) — both overflow-x:auto and
+  scrollable, so all content is reachable (not clipped).
+- /item/{id} routes on itemId; market cards link /item/{itemId} consistently
+  (a stray /item/{listingId} correctly renders a clean "Item not found").
+
+App live on :8082; dev-login scaffolding remains UNCOMMITTED.
