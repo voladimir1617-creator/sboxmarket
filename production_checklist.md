@@ -32,8 +32,25 @@ prod-abuse defect; 4 more lenses came back clean.
   claimStripeEvent UNIQUE-index dedup before the handler switch + per-handler
   status guards + amount re-read from the verified session); SSE stream lifecycle
   (all 3 emitter hooks deregister, 10-min timeout, per-emitter broadcast catch,
-  COW/ConcurrentHashMap, MAX_PER_LISTING=200, single-pod by design).
-- Session audit tally: 9 fresh adversarial lenses, 1 real fix, 8 clean.
+  COW/ConcurrentHashMap, MAX_PER_LISTING=200, single-pod by design); N+1 on hot
+  consumer read paths (market/item/stall/search all batch-load via JOIN FETCH +
+  GROUP BY + IN :ids); auth/session/CSRF (session-fixation invalidate+rotate on
+  login, logout invalidate + sessionEpoch filter, CSRF double-submit constant-time
+  enabled in prod with money endpoints protected, cookie HttpOnly always +
+  Secure/SameSite in prod, open-redirect sanitizeNext same-origin + return_to
+  pinning, role from DB by session uid); frontend stored-XSS (zero
+  dangerouslySetInnerHTML, all user strings render as escaped React text children;
+  the Steam URL href fields are non-exploitable — tradeUrl is server-enforced to
+  the strict steamcommunity.com/tradeoffer regex at ProfileController:36/704 and
+  profileUrl is sourced from Steam's GetPlayerSummaries API, not user input, so
+  neither can carry a javascript: payload).
+- **Spun off (real but minor, isolated to a worktree session):** AdminService
+  dispute/withdrawal-queue N+1 — per-row dispute-count query inside the row map
+  (admin-only, capped 200); fix is two bulk GROUP BY queries (countActive/
+  countLifetime DisputesByWalletIds). Flagged via spawn_task to avoid disrupting
+  the live :8082 + shipping untested backend; not a hot consumer path.
+- Session audit tally: 11 fresh adversarial lenses, 1 real fix (rate-limit), 10
+  clean/verified-safe, 1 minor N+1 spun off.
 
 ### Exhaustive live verification sweep (2026-06-05) — wave 172
 After the prod-boot work, drove the running dev app (:8082, logged in via dev-login)
