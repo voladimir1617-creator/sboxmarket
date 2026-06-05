@@ -6907,6 +6907,18 @@ function ProfileTradesTab({ me, privacy }) {
     if (!refundTrade) return;
     const trimmed = (refundReason || '').trim();
     if (!trimmed) { toast('Please describe what went wrong.', 'err'); return; }
+    // Batch 1078 — synchronous re-entrancy latch. async setRefundBusy
+    // alone can't stop a same-frame double-click (both handlers capture
+    // refundBusy===false from the same render). Unlike Mark-Sent, this
+    // submit calls createSupportTicket directly — no parent latch, no
+    // confirm() to serialize it — and SupportService.create has no
+    // per-trade dedupe, so a fast double-click filed TWO REFUND tickets
+    // and doubled the admin/CSR bell fan-out. refundBusyRef already
+    // exists (a11y close-guard, re-synced to refundBusy each render);
+    // gate the submit on it too, exactly as submitReview does. Auto-
+    // resets via that per-render sync after setRefundBusy(false).
+    if (refundBusyRef.current) return;
+    refundBusyRef.current = true;
     setRefundBusy(true);
     try {
       const trade = refundTrade;
