@@ -7970,7 +7970,7 @@ export function App() {
                 },
                 title: 'This is your own stall — jump to MyStall to edit prices, cancel listings, or toggle away-mode.'
               },
-                h('span', { className: 'stall-share-icon' }, '—'),
+                h('span', { className: 'stall-share-icon' }, '⚙'),
                 'Manage stall'
               ),
               // Follow/unfollow — subscribes the viewer to NEW_LISTING
