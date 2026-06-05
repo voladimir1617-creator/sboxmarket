@@ -4377,8 +4377,11 @@ function FollowingListRow() {
           onClick: () => toggleMute(r.sellerUserId, !!r.notificationsMuted),
           title: r.notificationsMuted
             ? 'New-listing pings muted — click to re-enable'
-            : 'Mute new-listing pings (you stay following)'
-        }, r.notificationsMuted ? '—' : '—'),
+            : 'Mute new-listing pings (you stay following)',
+          'aria-label': r.notificationsMuted
+            ? 'New-listing pings muted — click to re-enable'
+            : 'Mute new-listing pings'
+        }, r.notificationsMuted ? '🔕' : '🔔'),
         h('button', {
           className: 'btn btn-ghost',
           style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
@@ -15210,7 +15213,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                 title: 'Rolling 24-hour cap — prevents draining the full wallet on a compromised account.'
               },
                 h('span', { style: { fontSize: 14 } },
-                  wallet.dailyWithdrawRemaining > 0 ? '—' : '⚠'),
+                  wallet.dailyWithdrawRemaining > 0 ? 'ⓘ' : '⚠'),
                 h('div', { style: { flex: 1 } },
                   wallet.dailyWithdrawRemaining > 0
                     ? h('span', null,
