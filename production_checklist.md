@@ -1165,3 +1165,27 @@ VERIFIED CLEAN:
   $1 min / $10k max / destination-required / TOTP / CONNECT_ONBOARDING copy.
 
 App live on :8082; dev-login scaffolding remains UNCOMMITTED.
+
+## WAVE 179 — core money-flow live verification (buy / cart / sell)
+
+Completed the interactive money-flow coverage (all math exact, no NaN, no
+overflow; verified live then closed WITHOUT executing any purchase/listing
+— demo balance untouched at $47.99):
+
+- BUY (single-item confirm, item #24): Item price $1.02 | Trade Protection
+  (2%) $0.02 shown "optional, add after purchase" (NOT in total) | Total
+  charged $1.02 (price only, no buyer fee) | "Seller receives price minus
+  2% platform fee". Matches the frozen money model exactly.
+- CART (multi-item checkout, 2 items): $0.60 + $10.50 = Subtotal $11.10 |
+  Buyer fee Free | Total $11.10. Line items sum exact; no buyer fee.
+- SELL (list modal, platform item): Listed price $1.02 | Platform fee (2%)
+  −$0.02 | You'll receive $1.00 — net + fee == price exactly. Plus Floor /
+  −5% / +5% quick chips, Steam reference, last-sold. (The proceeds preview
+  IS present — a prior code-only grep missed its sub-component; confirmed
+  live before flagging, so no false fix.)
+
+Combined with wave-178 (deposit $1-floor fix + withdraw email-gate), all
+four customer money entry/exit flows (buy / sell / deposit / withdraw) are
+verified correct and on the frozen 2%-seller-fee / no-buyer-fee model.
+
+App live on :8082; dev-login scaffolding remains UNCOMMITTED.
