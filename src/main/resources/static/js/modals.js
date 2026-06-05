@@ -3331,9 +3331,26 @@ export function SettingsModal({ onClose, me }) {
   // Mono-uppercase 11px to match the existing rail / sidebar headings
   // (`.just-listed-head`, `.filter-title`) elsewhere on the site.
   const Section = (title) => h('h2', { className: 'settings-section-heading' }, title);
-  const Toggle = (on, onChange) => h('div', {
+  // Accessible switch: role+aria-checked expose the on/off state to screen
+  // readers, aria-label names it (the visible Row label sits in a sibling
+  // node so it isn't the control's accessible name), and tabIndex + the
+  // Enter/Space key handler make it keyboard-operable — a bare onClick <div>
+  // is mouse-only and invisible to assistive tech. The .toggle-switch
+  // :focus-visible ring already exists in design.css, awaiting a focusable
+  // host. The sibling away-mode toggle already shipped role:'switch'.
+  const Toggle = (on, onChange, label) => h('div', {
     className: `toggle-switch ${on ? '' : 'off'}`,
-    onClick: onChange
+    role: 'switch',
+    'aria-checked': on ? 'true' : 'false',
+    'aria-label': label,
+    tabIndex: 0,
+    onClick: onChange,
+    onKeyDown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        onChange(e);
+      }
+    }
   });
 
   const resetLocal = () => {
@@ -3399,7 +3416,7 @@ export function SettingsModal({ onClose, me }) {
       h('option', { value: 'JPY' }, 'JPY · ¥')
     )),
     me && Section('Notifications & sound'),
-    me && Row('Sale notifications', 'Toast when someone buys', Toggle(notifs, () => setNotifs(v => !v))),
+    me && Row('Sale notifications', 'Toast when someone buys', Toggle(notifs, () => setNotifs(v => !v), 'Sale notifications')),
     // Batch 819 — Sound-effects row now includes a "Send test
     // notification" button so users can hear the ding before deciding
     // whether to enable it. Bypasses the mute flag via `{force:true}`
@@ -3449,7 +3466,7 @@ export function SettingsModal({ onClose, me }) {
             transition: 'color 200ms ease'
           }
         }, soundTestStatus?.text || ' '),
-        Toggle(sounds, () => setSounds(v => !v))
+        Toggle(sounds, () => setSounds(v => !v), 'Sound effects')
       )),
     // Mute per-category — hide alerts you don't care about from the bell
     // and the Notifications page without silencing everything else.
@@ -3479,12 +3496,12 @@ export function SettingsModal({ onClose, me }) {
     Section('Privacy'),
     Row('Hide $ amounts',
       'Mask wallet balance, earnings, profile and stall totals as "$•••••" — useful for streaming or screenshotting. Item prices stay visible.',
-      Toggle(privacy, () => setPrivacy(v => !v))),
+      Toggle(privacy, () => setPrivacy(v => !v), 'Hide dollar amounts')),
     Section('Accessibility & appearance'),
     Row('Reduce motion',      'Disable animations for card hover + ticker scroll',
-      Toggle(reduceMotion, () => setRM(v => !v))),
+      Toggle(reduceMotion, () => setRM(v => !v), 'Reduce motion')),
     Row('High contrast',      'Boost text / border contrast for readability',
-      Toggle(highContrast, () => setHC(v => !v))),
+      Toggle(highContrast, () => setHC(v => !v), 'High contrast')),
     Row('Accent colour',      'Editorial mono-primary palette — near-white chrome with blue reserved for CTAs and live indicators. No theme picker.',
       h('span', { style: { color: 'var(--text-muted)', fontSize: 12 } }, 'Dark · mono')
     ),
