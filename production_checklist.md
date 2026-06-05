@@ -1139,3 +1139,29 @@ VERIFIED CLEAN (no defects):
   (a stray /item/{listingId} correctly renders a clean "Item not found").
 
 App live on :8082; dev-login scaffolding remains UNCOMMITTED.
+
+## WAVE 178 — interactive money-flow check (deposit/withdraw) via Playwright
+
+Exercised the core customer money flows live (logged-in as jbin1315):
+
+APPLIED:
+- 0200922 — mirror the $1.00 deposit floor client-side (batch 1080). The
+  wallet submit mirrored its $1 server floor (DepositRequest @DecimalMin
+  1.00 / WithdrawRequest @DecimalMin 1.00) for WITHDRAW only; a sub-$1
+  DEPOSIT passed the client and bounced off the server as a generic
+  validation round-trip. Generalized the floor check to both tabs. Verified
+  live: $0.50 deposit -> inline "Minimum deposit is $1.00", no server call,
+  balance unchanged.
+
+VERIFIED CLEAN:
+- Deposit modal: balance/spend-history/daily-cap render correctly; numeric
+  input; on-click validation rejects negative/zero/NaN ("Enter a valid
+  amount") and >$10k ("Maximum per transaction is $10,000"); submittingRef
+  synchronous re-entrancy latch present; deep-linkable /wallet/deposit.
+  Console 0/0.
+- Withdraw tab: renders clean (no NaN), amount + destination inputs, daily
+  cap, and a clear email-verification GATE ("Add an email before
+  withdrawing → Open Profile") — proper precondition UX. Code path enforces
+  $1 min / $10k max / destination-required / TOTP / CONNECT_ONBOARDING copy.
+
+App live on :8082; dev-login scaffolding remains UNCOMMITTED.
