@@ -756,3 +756,43 @@ Backend is production-grade at the code level. Remaining = operator-gated: #172
 (build prod jar, boot prod profile, verify behind tunnel) + revert the uncommitted
 dev-login first. Flagged product decisions: withdrawal-approval workflow,
 purchase-stat gross/net, Steam-asset double-list constraint, card-overlay tap targets.
+
+---
+
+## VISUAL-FIDELITY WAVE (live-browser, 1440 + 390) — eyes-on-pixels sweep
+
+Drove the running app in Chrome (dev-login user 1) across home / market / item /
+wallet / sell / mystall / public-stall / db, desktop + mobile. Read the actual
+pixels, not just console-clean. 8 commits, each fix verified live:
+
+- 1f51db3 GET /api/listings/{id} now carries `private, max-age=10` to match the
+  grid list (was uncached) — kills the post-bid fresh-vs-stale currentBid divergence.
+- af1d85b **Grid-card Steam icon was 0px wide on EVERY card** — the compact Steam
+  link is a flex container; its <svg> has a viewBox (→ min-content width 0) and the
+  default flex-shrink collapsed it despite width=13. Pinned flex:none + 14px. Verified
+  0px→14px across all 38 cards; icon now visible (was an empty bordered box). v210→211.
+- 861319f Pluralize item-count units ("1 items"→"1 item"): item-detail Total-supply
+  + profile Steam-inventory-size.
+- 16515f8 Wallet deposit-cap banner leading glyph '—'→'ⓘ' (healthy state; bad state
+  already had '⚠').
+- e2f0c96 Sell-inventory "est. value" chip: dropped stray leading '— '.
+- 7482505 **Systemic stray-em-dash placeholder sweep (8 sites)** — '—' had been left
+  as a stand-in for status icons / count-chip glyphs / an action button across seller
+  + auction surfaces: auto-bid info banner→ⓘ, MyStall buyer-stats→ⓘ, earnings→ⓘ,
+  wallet-frozen error→⚠, watcher chip "—1"→"★ 1", verified-trades→"✓ N", buy-order
+  demand→"⇄ N", and the destructive **Cancel-listing button** (red, bare '—', NO
+  accessible name) → '✕' + title + aria-label="Cancel listing".
+- 1c0412d Public-stall "Manage stall" owner button icon '—'→'⚙' (last instance).
+
+VERIFIED CORRECT-BY-DESIGN (no churn — measured-comment / parity decisions left intact):
+- Nav "Database" permanently accent-blue (csfloat signature, ship #5501 measured).
+- Wallet deposit presets = flat brand-blue text links, not chips (ship #128435 measured).
+- /sell Steam-tab "—" badge = count-unavailable (rate-limited) indicator.
+- Item-rail buy/cart 40px = csfloat Material button height; 44px ship scoped elsewhere.
+
+VERIFIED CLEAN: font is self-hosted Roboto (genuinely loaded, not Arial fallback —
+correct for csfloat/Angular-Material); buy-confirm modal fee math exact (item price +
+optional 2% Trade Protection, buyer fee Free, total=price, "seller minus 2%"); Cancel
+closes modal w/o over-navigation; mobile market/item no h-overflow, lazy-load works,
+steam icon 14px; 0 unlabeled icon buttons on market; no TODO/lorem/coming-soon leaks;
+db table names not clipped.
