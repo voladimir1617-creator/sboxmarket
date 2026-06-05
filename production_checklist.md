@@ -10,6 +10,40 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 
 ## ✅ DONE (verified live)
 
+### Exhaustive live verification sweep (2026-06-05) — wave 172
+After the prod-boot work, drove the running dev app (:8082, logged in via dev-login)
+through the full customer surface in a real browser + 3 fresh read-only code audits.
+Found ZERO new defects; the few suspicious things were all verified intentional
+(no churn). Recorded so future sessions don't re-tread it.
+- **Every money flow, math verified correct**: single Buy (buyer pays list price,
+  2% fee is seller-side), multi-item Cart ($0.60+$10.50=$11.10, buyer fee Free,
+  8-day escrow), Deposit (presets + dev-mode credit), Withdraw (no withdrawal fee,
+  email-gated, Stripe Connect, $5k/day cap), Sell (Steam + Platform inventory),
+  Auction Bid (min = current + $0.05 increment; +$0.50/+$5/+10% chips off the
+  floor; auto-bid cap), Offer/Bargain (85%-of-ask default, -5/-10/-15/-20% chips,
+  must-be-below-ask). No NaN/undefined anywhere.
+- **15+ routes render clean** (home, market, item, cart, wallet, sell, loadout,
+  watchlist, buy-orders, offers, profile, settings, db, support, notifications):
+  no horizontal overflow, Roboto loaded, no `NaN`/`undefined`/`[object Object]`
+  literals, 0 console errors. Desktop 1440 + mobile 390 both clean.
+- **Error/edge states graceful**: /item/999999 → "Item not found" + recovery links;
+  empty search → "0 listings found … No listings match your filters" empty state.
+- **Keyboard**: Escape closes the nested buy-confirm modal in place (stays on
+  /item); on the bare item modal Escape→/market is the documented intended close
+  (feedback_pages_not_popups.md); offer drawer + lightbox + nav dropdowns are all
+  in the Escape bail-list so they close without over-navigating.
+- **3 fresh adversarial code audits — all clean**: (a) React hooks/effects in
+  app.js (every interval/listener has cleanup, dep arrays correct, money paths use
+  synchronous ref latches checkoutRef/buyingRef before await); (b) read-path IDOR
+  (every private GET enforces ownership/role with same-404 anti-enumeration;
+  collection endpoints derive from session uid; public resources intentionally
+  open); (c) controller input-validation / mass-assignment (7 DTOs capped, 43
+  Map-binder handlers re-derive owner + re-cap money at $100k + clamp counts + cap
+  text; zero entity-binding so no mass-assignment surface).
+- **Verified-intentional (NOT bugs, left as-is)**: permanently-blue "Database" nav
+  link (csfloat mirror, design.css:141418); Escape→/market on the item modal;
+  balance-pill "$" icon next to the $-amount.
+
 ### PROD JAR booted end-to-end on real PostgreSQL (2026-06-05) — task #172
 First time the actual production artifact (bootJar, SPRING_PROFILES_ACTIVE=prod)
 ran against a real Postgres 16.4 (throwaway local cluster on :5433), not the H2
