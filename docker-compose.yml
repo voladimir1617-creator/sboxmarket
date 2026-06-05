@@ -55,6 +55,15 @@ services:
       SMTP_AUTH: ${SMTP_AUTH:-true}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       APP_EMAIL_FROM: ${APP_EMAIL_FROM:-onboarding@resend.dev}
+      # HMAC secret that signs one-click email unsubscribe links. application-prod.yml
+      # references ${APP_UNSUBSCRIBE_SECRET} with NO default, so emailService (and the
+      # apiKeyService -> apiKeyAuthFilter chain that injects it) fails to construct
+      # without it: a bare `docker compose up` smoke boot dies at startup with
+      # "Could not resolve placeholder 'APP_UNSUBSCRIBE_SECRET'". Provide a local
+      # dummy so the smoke boot works; a real deploy MUST override this via
+      # deploy/skinbox.env with a strong random secret (rotating it invalidates any
+      # outstanding unsubscribe links).
+      APP_UNSUBSCRIBE_SECRET: ${APP_UNSUBSCRIBE_SECRET:-local-dev-unsubscribe-secret-change-me}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://skinbox.market}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}
