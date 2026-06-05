@@ -158,6 +158,14 @@ class SellService {
                    BigDecimal buyNowPrice = null, BigDecimal maxDiscount = null) {
         banGuard.assertNotBanned(sellerUserId)
         sellerName = textSanitizer.cleanShort(sellerName)
+        // HALF_UP-normalize the money inputs to whole cents up front so the
+        // range checks + the buyNowPrice-vs-startingBid comparison below — and
+        // the persisted listing price — all agree on the same 2dp value.
+        // Mirrors the offer/deposit/withdraw/bid boundary-normalization pattern
+        // (the DTO intentionally caps magnitude but not scale). maxDiscount is a
+        // percent, not a money amount, so it is left untouched.
+        if (newPrice != null)    newPrice    = newPrice.setScale(2, java.math.RoundingMode.HALF_UP)
+        if (buyNowPrice != null) buyNowPrice = buyNowPrice.setScale(2, java.math.RoundingMode.HALF_UP)
         // Defensive: validation belongs in the DTO but we keep it here too for
         // callers that bypass the HTTP boundary (e.g. the offer-accept flow).
         if (newPrice == null || newPrice <= BigDecimal.ZERO) {

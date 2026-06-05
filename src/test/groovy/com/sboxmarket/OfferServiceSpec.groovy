@@ -92,6 +92,25 @@ class OfferServiceSpec extends Specification {
         offer.askingPrice == new BigDecimal("50.00")
     }
 
+    def "makeOffer normalizes a sub-cent amount to whole cents (HALF_UP)"() {
+        // The CreateOfferRequest DTO caps magnitude but not scale, so a
+        // {"amount": 40.999} body reaches the service at 3dp. It must round
+        // to whole cents before persist (the value becomes listing.price on
+        // accept) so the stored/charged amount is 2dp-clean and every floor/
+        // below-ask guard agrees with what persists — mirrors the deposit/
+        // withdraw boundary-normalization pinned in StripeServiceSpec.
+        given:
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        offerRepository.save(_) >> { Offer o -> o.id = 1L; o }
+
+        when:
+        def offer = service.makeOffer(10L, 'Alice', 100L, new BigDecimal("40.999"))
+
+        then: 'HALF_UP → 41.00 at scale 2'
+        offer.amount == new BigDecimal("41.00")
+        offer.amount.scale() == 2
+    }
+
     def "makeOffer refuses a buyer whose wallet is frozen (batch 510)"() {
         given:
         def buyer = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice')

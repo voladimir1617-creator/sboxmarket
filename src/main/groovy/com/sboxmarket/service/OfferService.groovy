@@ -114,6 +114,15 @@ class OfferService {
     Offer makeOffer(Long buyerUserId, String buyerName, Long listingId, BigDecimal amount,
                     String message = null) {
         banGuard.assertNotBanned(buyerUserId)
+        // Normalize sub-cent input to whole cents up front (HALF_UP) so every
+        // floor/cap/below-ask guard below — and the persisted offer.amount —
+        // agree on the same 2dp value. Mirrors the deposit/withdraw/bid
+        // boundary-normalization pattern (the DTO intentionally caps magnitude
+        // but not scale, per StripeServiceSpec/WalletControllerSpec); without
+        // this the guards ran against a raw 3dp value while the value that
+        // ultimately persists (NUMERIC(10,2)) is rounded — the same disagreement
+        // the withdraw() path was fixed for.
+        if (amount != null) amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
         if (buyerUserId != null
                 && offerRepository.countPendingByBuyer(buyerUserId) >= MAX_PENDING_PER_BUYER) {
             throw new BadRequestException("OFFER_CAP",
@@ -411,6 +420,8 @@ class OfferService {
     @Transactional
     Offer buyerRaise(Long buyerUserId, Long originalOfferId, BigDecimal amount, String message = null) {
         banGuard.assertNotBanned(buyerUserId)
+        // HALF_UP-normalize to whole cents up front (see makeOffer rationale).
+        if (amount != null) amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
         if (amount == null || amount < new BigDecimal("0.01")) {
             throw new BadRequestException("INVALID_RAISE", "Raise amount must be at least \$0.01")
         }
@@ -541,6 +552,8 @@ class OfferService {
      */
     @Transactional
     Offer counterOffer(Long sellerUserId, Long originalOfferId, BigDecimal amount, String message = null) {
+        // HALF_UP-normalize to whole cents up front (see makeOffer rationale).
+        if (amount != null) amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
         if (amount == null || amount < new BigDecimal("0.01")) {
             throw new BadRequestException("INVALID_COUNTER", "Counter must be at least \$0.01")
         }
