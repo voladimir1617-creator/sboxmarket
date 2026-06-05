@@ -10911,7 +10911,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             estValue > 0 && h('div', {
               className: 'sell-summary-chip accent',
               title: 'Sum of the floor price across every tradable, catalogued asset (stacks counted by quantity). A rough "what\'s this inventory worth?" number — actual sale prices can land above or below.'
-            }, '—', h('span', { className: 'sell-summary-num' }, fmt(estValue)), ' est. value'),
+            }, h('span', { className: 'sell-summary-num' }, fmt(estValue)), ' est. value'),
             liquidCount > 0 && h('div', {
               className: 'sell-summary-chip ok',
               title: `${liquidCount} stack${liquidCount === 1 ? '' : 's'} have a standing buy order — the total is the wallet credit if one copy of each were Quick Sold right now (before the 2% platform fee). Stacks of multiple copies may go further if buy-order depth allows.`
@@ -11203,7 +11203,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           intEstValue > 0 && h('div', {
             className: 'sell-summary-chip accent',
             title: 'Sum of the floor price across every platform-inventory item. Actual sale prices can land above or below.'
-          }, '—', h('span', { className: 'sell-summary-num' }, fmt(intEstValue)), ' est. value'),
+          }, h('span', { className: 'sell-summary-num' }, fmt(intEstValue)), ' est. value'),
           intLiquidCount > 0 && h('div', {
             className: 'sell-summary-chip ok',
             title: `${intLiquidCount} item${intLiquidCount === 1 ? '' : 's'} have a standing buy order — the total is the exact wallet credit if every row were Quick Sold right now (before the 2% platform fee).`
