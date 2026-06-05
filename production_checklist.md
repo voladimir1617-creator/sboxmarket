@@ -1,7 +1,7 @@
 # Production Readiness Checklist
 
 Verified state of the csfloat-parity + production hardening work, captured so it
-survives context compaction. Last updated 2026-06-03.
+survives context compaction. Last updated 2026-06-05.
 
 Status legend: ✅ shipped & verified live (Playwright/curl this session, in git) ·
 🔧 still open, ranked P0 (ship-blocker) / P1 (parity or prod gap) / P2 (polish).
@@ -9,6 +9,36 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 ---
 
 ## ✅ DONE (verified live)
+
+### PROD JAR booted end-to-end on real PostgreSQL (2026-06-05) — task #172
+First time the actual production artifact (bootJar, SPRING_PROFILES_ACTIVE=prod)
+ran against a real Postgres 16.4 (throwaway local cluster on :5433), not the H2
+dev DB. This is the only way to exercise Flyway + Hibernate ddl-auto:validate,
+which never run in dev/test (H2 + ddl-auto:update masks schema drift). Found and
+fixed TWO real prod-only blockers, then verified a clean serving boot:
+- **V251 migration** — ddl-auto:validate refused to start: missing column
+  `listings.soft_close_extensions` (the anti-snipe soft-close cap field, batch
+  111). The entity carried it but no migration ever created it; H2 auto-added it
+  in dev, hiding the drift. V251 creates it (idempotent IF NOT EXISTS + backfill).
+- **docker-compose APP_UNSUBSCRIBE_SECRET** — after V251, apiKeyAuthFilter ->
+  apiKeyService -> emailService failed: "Could not resolve placeholder
+  'APP_UNSUBSCRIBE_SECRET'". That secret is templated with no default and the
+  compose inline env defaults omitted it, so a bare `docker compose up` smoke
+  boot 500s at startup. Added a local dummy default (real deploy overrides via
+  deploy/skinbox.env, already documented there). Both fixes committed (e7bd6f1).
+- **Verified clean serving boot** (java -jar, prod profile, :8083 -> Postgres):
+  Flyway applied/validated all 79 migrations; ddl-auto:validate passed; ALL beans
+  wired; ProdConfigValidator passed with proper config (and separately CONFIRMED
+  it correctly REFUSES a test `sk_test_` Stripe key + a localhost APP_PUBLIC_URL
+  — fail-fast guard works); HTTP 200 on /, /market, /item/1, /api/listings (real
+  JSON from Postgres) + /api/items + sitemap.xml + robots.txt; prod security
+  headers present (locked-down CSP, X-Frame DENY, nosniff, Referrer-Policy);
+  **dev-login -> 404 in prod** (security guard verified live + proves the stashed
+  dev-login scaffolding is NOT in the shipped jar). Browser render under the
+  strict prod CSP: React mounted, Inter font loaded, 10 listing cards + real
+  prices, **0 console errors / 0 warnings**.
+- **Only remaining #172 sub-item:** "behind a tunnel" (Cloudflare) — genuinely
+  needs operator infra; everything locally provable is proven.
 
 ### Typography + mobile layout wave (2026-06-03)
 - **Self-hosted all fonts** (Roboto, Roboto Mono, Material Symbols) under /fonts via
