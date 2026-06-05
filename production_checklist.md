@@ -817,3 +817,26 @@ buyer fee Free, total=price, seller −2%); cart checkout (subtotal sum, buyer f
 Free, accessible remove buttons); auction bid UI (current bid / countdown / min /
 auto-bid cap, "1 item" pluralization live); loadout lab (no overflow / collapse /
 unlabeled buttons); db table (names not clipped).
+
+## SETTINGS TOGGLE A11Y + FULL-SUITE CERT
+
+caa680a — /settings toggles were a bare onClick <div> (0 role=switch/checkbox on
+the page): mouse-only, not tab-reachable, no aria-checked/label — invisible to
+screen readers. design.css already had a .toggle-switch:focus-visible ring waiting
+for a focusable host; the sibling away-toggle already used role:'switch'. Made the
+shared Toggle helper accessible (role=switch, aria-checked←state, aria-label
+threaded per call site, tabIndex=0, Enter/Space handler). Verified live: 5
+switches expose role/state/name, tab-reachable, Space flips state.
+
+FULL TEST SUITE (this session, after the WatchlistService.list() service-layer
+change): ./gradlew test → 214 suites, 4261 tests, 0 failures, 0 errors. GREEN.
+(+3 from WatchlistServiceSpec dangling-ref filter cases.) The watchlist filter is
+no-op when catalogueRepository is unwired (unit specs) and active in the Spring
+context — no integration spec regressed.
+
+SESSION TALLY (visual-fidelity + data-integrity grind, all live-verified):
+cache-consistency (1f51db3) · grid-card Steam icon 0px→14px on every card
+(af1d85b) · "1 item" pluralization (861319f) · deposit-cap ⓘ glyph (16515f8) ·
+est-value chip dash (e2f0c96) · 8-site em-dash placeholder sweep incl. labelled
+✕ cancel-listing button (7482505) · manage-stall ⚙ (1c0412d) · watchlist
+dangling-ref filter + tests (dcd7ba5) · settings toggle a11y (caa680a).
