@@ -192063,35 +192063,18 @@ body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.15)"] {
 /* END CSFLOAT-1:1 PARITY ship #128680 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128681 — re-label the inline good-standing
-   pill text. The JS emits the literal "Good standing" text node inside
-   the span. csfloat's equivalent pill reads simply "Verified". Hide
-   the JS-emitted text via font-size:0 on the span content and inject
-   "Verified" via ::before, so we don't have to touch modals.js.
-   The ::before resets font-size to the canonical 14 and inherits the
-   pill's color/weight from the parent rule above.
-*/
-body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.12)"],
-body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.12)"],
-body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.15)"],
-body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.15)"] {
-  font-size: 0 !important;
-  position: relative !important;
-}
-body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.12)"]::before,
-body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.12)"]::before,
-body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.15)"]::before,
-body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.15)"]::before {
-  content: "Verified" !important;
-  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  line-height: normal !important;
-  letter-spacing: normal !important;
-  color: rgb(158, 167, 177) !important;
-  display: inline-block !important;
-}
-/* END CSFLOAT-1:1 PARITY ship #128681 */
+   CSFLOAT-1:1 PARITY ship #128681 — REMOVED (batch 1075). It tried to
+   re-label the account-standing pill to "Verified" by zeroing the
+   JS-emitted "Good standing" text (font-size:0) and injecting "Verified"
+   via ::before. A LATER ship re-set this same pill's font-size to 12px
+   (selector `span[style*="padding: 2px 8px"]`, equal specificity but
+   later in source), which un-hid the original text — so the pill rendered
+   BOTH labels mashed together as "VerifiedGood standing" on every user's
+   own profile. "Verified" was also redundant with the adjacent green
+   "KYC Approved" pill, and "Good standing" is the honest label (it
+   mirrors the span's own title="No flags on this account — good
+   standing"). Dropping the ::before relabel leaves the pill reading a
+   clean "Good standing". */
 
 /* ---------------------------------------------------------------------
    CSFLOAT-1:1 PARITY ship #128682 — inject "KYC Approved" pill below
