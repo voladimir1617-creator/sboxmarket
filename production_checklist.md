@@ -32,14 +32,32 @@ Found ZERO new defects; the few suspicious things were all verified intentional
   /item); on the bare item modal Escape→/market is the documented intended close
   (feedback_pages_not_popups.md); offer drawer + lightbox + nav dropdowns are all
   in the Escape bail-list so they close without over-navigating.
-- **3 fresh adversarial code audits — all clean**: (a) React hooks/effects in
+- **5 fresh adversarial code audits — all clean**: (a) React hooks/effects in
   app.js (every interval/listener has cleanup, dep arrays correct, money paths use
   synchronous ref latches checkoutRef/buyingRef before await); (b) read-path IDOR
   (every private GET enforces ownership/role with same-404 anti-enumeration;
   collection endpoints derive from session uid; public resources intentionally
   open); (c) controller input-validation / mass-assignment (7 DTOs capped, 43
   Map-binder handlers re-derive owner + re-cap money at $100k + clamp counts + cap
-  text; zero entity-binding so no mass-assignment surface).
+  text; zero entity-binding so no mass-assignment surface); (d) escrow/trade state
+  machine (double-release blocked by @Version; pay-and-refund blocked by the
+  pessimistic-lock protection arbiter findByTradeIdForUpdate + reverseClaim;
+  double-refund blocked by runInIsolatedTx; refund amount = exact debit; every
+  transition status-guarded); (e) frontend money display (every price/fee/total
+  routes through NaN-guarded fmt() or an inline guard; no cents/dollars unit errors;
+  net+fee==total holds).
+
+### Documented residuals (the only known-open items — both gated, not defects)
+1. **Cloudflare tunnel** for #172's "behind a tunnel" sub-item — needs operator
+   infra (a named tunnel + DNS). Everything locally provable is proven.
+2. **Real-Postgres WRITE-path integration tests** — the 4262-test suite runs on H2
+   (PostgreSQL mode); this session proved the Flyway SCHEMA + READ queries on real
+   Postgres 16.4, but authed money WRITES (buy/deposit/withdraw) were not exercised
+   on the prod engine (dev-login is correctly 404 in prod; Docker/Testcontainers is
+   unavailable in this environment). Risk is low — the write LOGIC is DB-agnostic
+   JPA (save/@Version/pessimistic locks, all well-supported on Postgres) and is
+   covered by the H2-PostgreSQL-mode suite. Recommended home: a Testcontainers
+   Postgres profile in CI that re-runs the money-path specs against real Postgres.
 - **Verified-intentional (NOT bugs, left as-is)**: permanently-blue "Database" nav
   link (csfloat mirror, design.css:141418); Escape→/market on the item modal;
   balance-pill "$" icon next to the $-amount; wallet "Purchases −$1.65 (gross
