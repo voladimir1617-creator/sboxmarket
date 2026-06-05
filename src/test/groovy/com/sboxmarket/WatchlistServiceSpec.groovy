@@ -3,6 +3,7 @@ package com.sboxmarket
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.model.WatchlistItem
+import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.WatchlistItemRepository
 import com.sboxmarket.service.WatchlistService
 import com.sboxmarket.service.security.BanGuard
@@ -316,5 +317,49 @@ class WatchlistServiceSpec extends Specification {
         0 * repository.findExistingItemIds(_, _)
         0 * repository.countByUser(_)
         0 * repository.save(_)
+    }
+
+    // ── Dangling-reference filter (badge == page) ─────────────────────
+    // A starred id whose catalogue Item no longer exists (deleted, or a
+    // stale/seed id) must NOT escape list(): it would inflate the nav
+    // badge (which counts watchlist.length) while the watchlist page
+    // silently drops it (it cannot render a card for a non-existent item),
+    // so badge and page disagree. list() is the single source every
+    // list-returning endpoint funnels through (GET, star, unstar,
+    // bulkMerge), so the filter lives there.
+
+    def "list drops starred ids whose catalogue item no longer exists"() {
+        given:
+        ItemRepository catalogue = Mock()
+        def svc = new WatchlistService(repository: repository, banGuard: banGuard, catalogueRepository: catalogue)
+        repository.findItemIdsByUser(10L) >> [20L, 25L, 30L, 41L]
+        // Item 41 was deleted / never existed → absent from the lookup.
+        catalogue.findAllById([20L, 25L, 30L, 41L]) >> [[id: 20L], [id: 25L], [id: 30L]]
+
+        expect:
+        svc.list(10L) == [20L, 25L, 30L]   // 41 filtered; createdAt-ASC order preserved
+    }
+
+    def "list returns the raw set unfiltered when no catalogue repo is wired"() {
+        given:
+        // The default @Subject service has catalogueRepository == null.
+        repository.findItemIdsByUser(10L) >> [20L, 25L, 41L]
+
+        expect:
+        service.list(10L) == [20L, 25L, 41L]
+    }
+
+    def "list short-circuits an empty set without touching the catalogue"() {
+        given:
+        ItemRepository catalogue = Mock()
+        def svc = new WatchlistService(repository: repository, banGuard: banGuard, catalogueRepository: catalogue)
+        repository.findItemIdsByUser(10L) >> []
+
+        when:
+        def out = svc.list(10L)
+
+        then:
+        out == []
+        0 * catalogue.findAllById(_)
     }
 }

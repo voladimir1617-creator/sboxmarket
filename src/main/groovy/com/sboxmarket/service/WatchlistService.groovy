@@ -33,6 +33,10 @@ class WatchlistService {
 
     @Autowired WatchlistItemRepository repository
     @Autowired BanGuard banGuard
+    /** Catalogue repo — used by list() to drop dangling references (starred
+     *  ids whose Item no longer exists). Optional so unit specs that don't
+     *  exercise the filter can leave it unset (null → no filtering). */
+    @Autowired(required = false) com.sboxmarket.repository.ItemRepository catalogueRepository
 
     /** Star an item. Idempotent — if the user already has it, no-op +
      *  return false so the caller can short-circuit a redundant write.
@@ -103,10 +107,25 @@ class WatchlistService {
         n
     }
 
-    /** Item ids the user has starred, oldest-first. */
+    /** Item ids the user has starred, oldest-first.
+     *
+     *  Dangling references are filtered out: a starred id whose catalogue
+     *  Item no longer exists (deleted, or a stale/seed id) would otherwise
+     *  inflate the nav badge (which counts watchlist.length) while the
+     *  watchlist page silently drops it — the page can't render a card for
+     *  a non-existent item — so the badge and the page disagree. This is
+     *  the single source every list-returning endpoint funnels through
+     *  (GET /api/watchlist, star, unstar, bulkMerge), so filtering here
+     *  keeps badge == page everywhere. The createdAt-ASC order from the
+     *  repo is preserved so the client's "Added" sort stays stable. The
+     *  per-user cap check in add() reads the raw repository directly, so
+     *  this view-level filter never lets dangling rows escape the cap. */
     List<Long> list(Long userId) {
         if (userId == null) return []
-        repository.findItemIdsByUser(userId)
+        def ids = repository.findItemIdsByUser(userId)
+        if (ids.isEmpty() || catalogueRepository == null) return ids
+        def existing = catalogueRepository.findAllById(ids).collect { it.id } as Set
+        ids.findAll { existing.contains(it) }
     }
 
     /**
