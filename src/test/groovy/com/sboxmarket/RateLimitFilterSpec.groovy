@@ -634,4 +634,84 @@ class RateLimitFilterSpec extends Specification {
         // the 40 already spent. With the fix the bucket survives.
         postFlood.status == 429
     }
+
+    def "GET /api/profile/export (GDPR JSON) is enumeration-guarded (batch 1073 — export-DoS audit)"() {
+        // Same GET-skips-GUARDED_PREFIXES gap batch 1068 closed for admin
+        // CSVs: /api/profile is in GUARDED_PREFIXES but the GET branch never
+        // consults it, so the GDPR export was uncapped. ProfileService.exportData
+        // fans out ~15 repository queries across nearly every table in ONE
+        // read-only transaction (several unbounded), so an authenticated user
+        // could hammer it to exhaust DB connections + Tomcat threads. Now in
+        // GUARDED_ENUMS → 40/10s, generous for a real "export my data" click,
+        // a hard cliff for an abuse loop.
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when: "50 consecutive GETs to the GDPR export from one signed-in user"
+        (1..50).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(getAs('/api/profile/export', '203.0.113.70', 9L), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then: "first 40 pass (MAX_ENUM), next 10 return 429"
+        allowed == 40
+        blocked == 10
+    }
+
+    def "per-user CSV exports are enumeration-guarded (batch 1073)"() {
+        // The per-user CSV exports (wallet ledger, profile bids/offers/trades,
+        // my-stall, watchlist, buy-orders) share the same GET gap — lower
+        // amplification than the JSON export (single-table, <=5000 rows) but
+        // the same class. Sweep each from its own IP so the test is
+        // order-independent.
+        given:
+        def paths = [
+            '/api/wallet/transactions.csv',
+            '/api/profile/bids.csv',
+            '/api/profile/offers.csv',
+            '/api/profile/trades.csv',
+            '/api/listings/my-stall/sold.csv',
+            '/api/watchlist/export.csv',
+            '/api/buy-orders/export.csv'
+        ]
+
+        when: "each export path independently hits 429 after 40 rapid GETs"
+        def results = paths.collect { p ->
+            int allowed = 0
+            int blocked = 0
+            def ip = '10.73.0.' + (paths.indexOf(p) + 1)
+            (1..50).each {
+                def resp = new MockHttpServletResponse()
+                filter.doFilter(get(p, ip), resp, chain)
+                if (resp.status == 429) blocked++ else allowed++
+            }
+            [p: p, allowed: allowed, blocked: blocked]
+        }
+
+        then: "every export surface caps at MAX_ENUM (40), next 10 blocked"
+        results.every { it.allowed == 40 && it.blocked == 10 }
+    }
+
+    def "GET /api/profile/me stays unrestricted — batch 1073 scope was surgical"() {
+        // Confirm the export fix did NOT broaden to the whole /api/profile
+        // prefix: the cheap own-data session reads (/me, security-activity)
+        // must stay unlimited like /api/auth/steam/me. Only the heavy export
+        // paths were added to GUARDED_ENUMS.
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when:
+        (1..60).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(getAs('/api/profile/me', '10.73.9.9', 9L), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        allowed == 60
+        blocked == 0
+    }
 }

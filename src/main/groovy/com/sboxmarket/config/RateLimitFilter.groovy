@@ -217,7 +217,27 @@ class RateLimitFilter extends OncePerRequestFilter {
         // with the per-user-id bucket key, this bounds a single compromised
         // admin session to ~14k rows per minute instead of unbounded.
         '/api/admin/',
-        '/api/csr/'
+        '/api/csr/',
+        // Heavy per-user GET exports (batch 1073 — rate-limit coverage audit).
+        // Same GET-skips-GUARDED_PREFIXES gap that batch 1068 closed for the
+        // admin CSVs: these are GETs, so the `/api/profile`, `/api/wallet`,
+        // `/api/watchlist`, `/api/buy-orders` entries in GUARDED_PREFIXES never
+        // see them. The GDPR JSON export is the worst — ProfileService.exportData
+        // fans out ~15 repository queries across nearly EVERY table in one
+        // read-only transaction (several unbounded: trades/offers/buy-orders/
+        // bids/reviews-from), so an authenticated user could hammer it at line
+        // rate to exhaust DB connections + Tomcat threads. The per-user CSVs are
+        // lower-amplification (single-table, ≤5000 rows) but the same class.
+        // 40/10s (MAX_ENUM) is generous for a human clicking "export my data"
+        // (a once-in-a-while action) but a hard cliff for an abuse loop.
+        '/api/profile/export',          // GDPR JSON — heaviest, multi-table fan-out
+        '/api/profile/bids.csv',
+        '/api/profile/offers.csv',
+        '/api/profile/trades.csv',
+        '/api/wallet/transactions.csv',
+        '/api/listings/my-stall/',      // my-stall sold/analytics/active .csv exports
+        '/api/watchlist/export.csv',
+        '/api/buy-orders/export.csv'
     ]
 
     private static class Bucket {
