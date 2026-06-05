@@ -117419,6 +117419,14 @@ h1.modal-h1,
 .csfloat-home-hero-stack .stack-front {
   transform: rotate(-7deg);
   z-index: 3;
+  /* batch 1077 — animate the hover lift. The :hover rule below changes THIS
+     element's transform (rotate/translateY/scale), but .stack-front had no
+     transition (computed `all 0s`), so the home hero's signature hover snapped
+     instantly instead of easing — read as broken/janky ("animations off").
+     The parent .csfloat-home-hero-feature transitions transform, but hover
+     targets this child, so the parent's transition never applied here. 220ms
+     matches the parent's cadence; animates both into and out of hover. */
+  transition: transform 220ms ease;
 }
 .csfloat-home-hero-stack .stack-back .csfloat-home-hero-feature-img,
 .csfloat-home-hero-stack .stack-mid  .csfloat-home-hero-feature-img {
