@@ -10,6 +10,26 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 
 ## ✅ DONE (verified live)
 
+### Hover/animation fidelity — hero fix + snap-audit (2026-06-05) — wave 175
+Targeted the "animations off" pain via a hover-transition-coverage audit (find
+:hover rules that change transform/box-shadow on elements whose `transition`
+doesn't cover that property → instant snap instead of ease).
+- **FIX (committed c68ae2a): home hero card hover snapped.** The signature
+  interaction — hovering the tilted card stack lifts the front card
+  (`:hover .stack-front { transform: rotate(-4deg) translateY(-4px) scale(1.02) }`)
+  — applied instantly because `.stack-front` had no transition (`all 0s`). The
+  parent .csfloat-home-hero-feature transitions transform (220ms) but :hover
+  targets the child, so the parent's transition never applied. Added
+  `transition: transform 220ms ease` to `.stack-front`. Verified live:
+  `.stack-front` transition is now `transform 0.22s`. design.css ?v 213→214.
+- **Audit candidates verified FALSE-POSITIVE (no fix — would be churn):** the
+  other ~10 flagged :hover rules (.buy-btn, .btn-ghost, .user-chip, .wallet-btn,
+  .nav-logo, generic `body button:hover`) are not real snaps — the buy button's
+  hover `transform` is `none !important` (no lift), and the rest are either
+  `transform:none` resets or imperceptible box-shadow snaps (soft shadows). A
+  blanket transition change there is high-blast-radius with ambiguous intent, so
+  left as-is. (Recorded so a future hover-snap audit doesn't re-flag them.)
+
 ### Live visual sweep — 2 real CSS fixes (2026-06-05) — wave 174
 Logged-in eyes-on-pixels sweep across desktop (1440) + mobile (390) + tablet
 (768). Two real visual defects found + fixed (CSS-only), both verified live:
