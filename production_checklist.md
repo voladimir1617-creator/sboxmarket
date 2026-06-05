@@ -864,3 +864,32 @@ checkout fee math + accessible remove buttons, auction bid UI, offers, search
 
 FULL SUITE: 214 suites, 4261 tests, 0 failures (incl. +3 watchlist filter specs).
 App live on :8082. Dev-login scaffolding remains UNCOMMITTED (revert before prod).
+
+## ADVERSARIAL AUDIT ROUND (2 parallel read-only agents) — integrated
+
+Fanned out two deep read-only auditors (frontend defects + backend money-correctness).
+Both independently concluded the app is exhaustively hardened. Integrated the real
+findings; declined one with rationale:
+
+APPLIED:
+- 50f3202 — 3 NaN-display guards (the only frontend findings): StallsRail rating
+  `Number(ratingAverage).toFixed(1)`→'NaN' when count>0/avg null (+'|| 0', matches
+  siblings); offer-drawer placeholder re-anchored on `ask` (was the weaker
+  lowestPrice → 'NaN'); price-alert seed `(parseFloat(lowestPrice)||0)*0.85`.
+- 36e825f — backend money boundary-normalization: offer (makeOffer/buyerRaise/
+  counterOffer) + listing (relist) entry points stored amount/price verbatim while
+  deposit/withdraw/bid HALF_UP-round at the boundary. DTOs intentionally cap
+  magnitude not scale (accept-and-round design pinned by StripeServiceSpec/
+  WalletControllerSpec), so a 3dp body had guards running on the raw value while
+  NUMERIC(10,2) rounds on persist — the same guard-vs-persisted disagreement the
+  withdraw() path was already fixed for. Added HALF_UP at each entry + OfferServiceSpec
+  rounding test. Full suite 214 suites / 4262 tests / 0 failures.
+
+DECLINED (with rationale): the backend agent's `@Digits(fraction=2)` DTO idea —
+it would REJECT sub-cent input, contradicting the deliberate, tested accept-and-round
+design (StripeServiceSpec deposit 50.999→51.00, WalletControllerSpec withdraw 1.001).
+The boundary-normalization above is the design-consistent fix instead.
+
+CONVERGENCE: exhaustive manual UI sweep + two deep adversarial audits all confirm
+the app is production-grade. No further real defects found solo. Remaining = #172
+(prod jar + Postgres boot + tunnel), infra-gated.
