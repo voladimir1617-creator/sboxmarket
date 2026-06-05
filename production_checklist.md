@@ -1064,3 +1064,46 @@ The boundary-normalization above is the design-consistent fix instead.
 CONVERGENCE: exhaustive manual UI sweep + two deep adversarial audits all confirm
 the app is production-grade. No further real defects found solo. Remaining = #172
 (prod jar + Postgres boot + tunnel), infra-gated.
+
+## WAVE 176 — frontend re-entrancy (double-submit) audit + email-template audit
+
+Fresh lens: every money/mutation submit must have a SYNCHRONOUS latch (async
+`busy` state alone leaves a same-frame double-click window — both handlers
+capture busy===false from the same render). Swept all submit handlers across
+modals.js / csfloat-modals.js / staff-modals.js.
+
+APPLIED (real gaps — async-only, no confirm(), no parent latch, backend has
+no dedupe so a fast double-click double-fired):
+- 7d6defa — submitRefund (buyer "Request refund" drawer). Calls
+  createSupportTicket directly; SupportService.create has no per-trade dedupe
+  and fans a bell push to every ADMIN/CSR → double-click filed TWO REFUND
+  tickets + doubled staff fan-out. Gated on the pre-existing refundBusyRef.
+- 2ff8206 — submitCreate + submitReply (ProfileSupportTab) and reportUser
+  (ReportCounterpartyDrawer). Same no-dedupe create path. Added one shared
+  busyRef to the support tab (gates create+reply) and one to the report drawer.
+
+SELF-CORRECTED (verify-before-fixing, applied retroactively):
+- 9c79308 MarkSentDrawer latch — REVERTED by ba1ab64. On closer trace the
+  child onSubmit calls submitMarkSent, whose parent body ALREADY sets
+  busyRef.current=true synchronously before its first await; the child's weak
+  async guard could never let a second POST through. The fix was redundant and
+  its commit msg asserted a 409/double-email that cannot occur. Net zero change.
+
+VERIFIED-SAFE (no fix — confirmed already guarded, did NOT churn):
+- reportListing — ListingService dedupes server-side (findByListingIdAndReporter
+  UserId → ALREADY_REPORTED).
+- Admin money (approve withdrawal / refund / CSR goodwill) + submitBulk —
+  native confirm()/prompt() blocks the JS thread + captures focus, serializing
+  any double-click.
+- submitBulkAdjust, Sell submit, quickSell, BuyOrders, trade-protection, escrow
+  buyerConfirm/runConfirm, parent submitMarkSent, submitReview, ConfirmModal —
+  all already hold synchronous ref-latches.
+- EmailPrefToggle / EmailBucketMutes — idempotent optimistic toggles (same-frame
+  double-click produces identical PUTs).
+
+EMAIL-TEMPLATE AUDIT (parallel read-only agent) — NO REAL DEFECTS. All money
+values in emails are scale-2 BigDecimal or usd()-formatted; links are absUrl()-
+absolute + prod-validated (ProdConfigValidator rejects localhost/placeholder);
+every template var has a Groovy-Elvis fallback. 11th clean audit lens.
+
+App live on :8082; dev-login scaffolding remains UNCOMMITTED.
