@@ -2646,18 +2646,6 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
   const [url, setUrl]   = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr]   = useState('');
-  // Batch 1078 — synchronous re-entrancy latch. The async `busy` state
-  // alone can't stop a same-frame double-click: both handlers captured
-  // `busy===false` from the same render, so both fire before React
-  // re-renders. A fast double-click on "Mark sent" then sent two
-  // concurrent requests — the loser 409s with a confusing "Trade cannot
-  // be marked sent in state PENDING_BUYER_CONFIRM" toast, and (the
-  // trade-sent email rides EmailService's async pool, not the tx that
-  // rolls back on the @Version loss) could double-email the buyer. The
-  // ref is checked+set synchronously so the second click returns at
-  // once. Auto-resets via the per-render sync after setBusy(false),
-  // matching busyRef across the other money submits in this file.
-  const busyRef = useRef(busy); busyRef.current = busy;
   // Live validation regex matches the server-side check.
   const URL_RE = /^https:\/\/steamcommunity\.com\/tradeoffer\/[A-Za-z0-9_?&=/\-]+$/;
   const trimmed = (url || '').trim();
@@ -2683,8 +2671,7 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
     // submitMarkSent twice before React tore down the drawer.
     const value = override != null ? override : trimmed;
     if (override == null && !valid) { setErr('That doesn\'t look like a Steam trade-offer URL.'); return; }
-    if (busyRef.current) return;
-    busyRef.current = true;
+    if (busy) return;
     setBusy(true);
     try { await onSubmit(value); }
     finally { setBusy(false); }
