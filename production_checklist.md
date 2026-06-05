@@ -10,6 +10,29 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 
 ## ✅ DONE (verified live)
 
+### Live visual sweep — 2 real CSS fixes (2026-06-05) — wave 174
+Logged-in eyes-on-pixels sweep across desktop (1440) + mobile (390) + tablet
+(768). Two real visual defects found + fixed (CSS-only), both verified live:
+- **Profile pill "VerifiedGood standing" (committed 4c95257).** On every
+  signed-in user's /profile the account-standing pill rendered two labels
+  mashed together. Ship #128681 had relabeled it to "Verified" (font-size:0 on
+  the JS text + ::before "Verified"), but a later ship re-set the pill's
+  font-size to 12px (un-hiding the original text) so BOTH rendered. Dropped the
+  dead ::before relabel → clean "Good standing" (also de-duplicates the adjacent
+  green "KYC Approved" pill). Verified: ::before now none.
+- **Mobile profile stat cards clipped (committed 637d35c).** On phones the
+  4-col stat grid (Balance/Portfolio/Total Sold/Total Purchased) overflowed +
+  clipped — "Total Sold" + "Total Purchased" were off-screen. Ship #128116's
+  `body .profile-stats { repeat(4,1fr) !important }` (body-specificity) had
+  overridden the plain `.profile-stats` mobile media queries, and 1fr couldn't
+  shrink below the cells' min-content. Added a matching-specificity
+  @media(max-width:640px) → 2 cols with minmax(0,1fr). Verified live at 390px:
+  2×2 grid, all four stats within viewport, no clip. (design.css ?v 211→213.)
+- **Verified-clean (no defect):** wallet 4-stat row reflows fine on mobile
+  (flex-wrap, not a fixed grid); /db item-name truncation works (text-overflow
+  ellipsis + clickable rows); settings toggles render correctly (the "..." was
+  a screenshot artifact); every route at 390 has zero horizontal overflow.
+
 ### Rate-limit GDPR/CSV exports + 4 more clean audits (2026-06-05) — wave 173
 Fresh adversarial code-audit lenses on top of wave 172's. Found + fixed ONE real
 prod-abuse defect; 4 more lenses came back clean.
