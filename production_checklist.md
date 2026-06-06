@@ -1831,3 +1831,28 @@ delivery-bot double-delivery/return). SHIPPED 1 fix, FLAGGED 1 HIGH:
     blast-radius (a botched revert strands ALL deliveries), multi-file with
     external-call ordering, and UNTESTABLE in dev (escrowEnabled=false → path
     inert). Full fix spec captured in the spawned task.
+
+WAVE 175 — frontend resilience: null-deref crash + silent-error-as-empty
+(three fresh adversarial JS agents generalizing this session's confirmed bugs).
+SHIPPED 2 fixes:
+  • 637ed56 — MyStall render crash guard. MyStallModalInner dereferenced
+    l.item.name/.id UNGUARDED on the my-stall listings (12659/12682/12713/
+    12719; 12699 was already half-guarded with l.item?.viewCount), so a single
+    null-item listing threw into the ErrorBoundary and wedged the ENTIRE My
+    Stall modal unrecoverably — same class as the WatchlistModal fix (7166d3e).
+    Filtered null-item rows at the source. PROVEN LIVE: injected null/missing-
+    item rows into /api/listings/my-stall + forced a re-render → 4 valid rows,
+    bad rows dropped, zero console errors, no crash.
+  • d2ec353 — 4 money tabs (BuyOrders/AutoBids/Trades/Offers) showed a false
+    "you have nothing" empty-state on an HTTP 500 because the fetch helpers
+    collapse non-2xx → []. Now each mirrors ProfileListingsTab (explicit err
+    state + raw fetch + throw-on-!ok + Retry card; refresh-in-place to avoid
+    spinner flash; Offers' silent tab-focus refresh keeps last-good on error).
+    Supersedes the profile-tab spawn_task from last session. Verified at code
+    level (node --check + served-content + static consistency across all 4 +
+    proven-pattern equivalence + Offers happy path live); error-path LIVE
+    render blocked by a Chromium in-session memory-cache quirk (the harness
+    kept running the pre-edit module), documented in the commit.
+  Discarded (verify-before-fixing): a buy-order fmt(need-bal) "finding" already
+  guarded by if(bal>=need)return null; and a cart-total float-drift "finding"
+  (sub-cent, server-authoritative at checkout) — both churn, not fixed.
