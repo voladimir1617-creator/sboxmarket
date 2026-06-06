@@ -2411,7 +2411,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
 //
 // `enabled` lets a caller suppress the hook (e.g. ItemModal in
 // page mode where the dialog is actually a routed page).
-function useDialogA11y(panelRef, onClose, enabled = true) {
+export function useDialogA11y(panelRef, onClose, enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     if (typeof onClose !== 'function') return;

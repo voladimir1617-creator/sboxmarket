@@ -15,7 +15,7 @@ import { GridCard, ListingRow } from './cards.js';
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
-  SellItemsModal, MyStallModal, OffersModal, WatchlistModal
+  SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
 } from './modals.js';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
@@ -2970,6 +2970,7 @@ export function PreSigninModal({ onClose, onAccept }) {
     try { return localStorage.getItem('sb_marketing_opt_in') === '1'; } catch { return false; }
   });
   const [err,       setErr]       = useState('');
+  const panelRef = React.useRef(null);
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -2980,27 +2981,26 @@ export function PreSigninModal({ onClose, onAccept }) {
     onAccept(email.trim(), marketing);
   };
 
-  // Batch 830 — Escape closes pre-signin modal.
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      e.stopPropagation();
-      if (typeof onClose === 'function') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Full dialog a11y via the shared useDialogA11y hook (the same keyboard
+  // contract every other dialog surface uses): Escape-to-close with
+  // stopPropagation (never over-navigates the SPA), Tab/Shift+Tab focus trap,
+  // initial focus into the panel on open, and focus restore to the trigger on
+  // close. Replaces the prior Escape-ONLY handler — keyboard / screen-reader
+  // users could previously Tab out to the page behind this sign-in gateway,
+  // and focus never moved into the dialog on open.
+  useDialogA11y(panelRef, onClose, true);
 
   return h('div', { className: 'modal-backdrop', onClick: onClose },
     h('div', {
       className: 'modal presignin-modal',
+      ref: panelRef,
+      tabIndex: -1,
       onClick: e => e.stopPropagation(),
-      // Batch 830 — PreSigninModal completes the a11y pass: had
-      // role=dialog + aria-labelledby already; adds aria-modal and
-      // an Escape handler at the parent component level (see useEffect
-      // above). Without aria-modal, screen readers didn't know to
-      // trap user attention inside the dialog while Steam handoff was
-      // pending.
+      // a11y: role=dialog + aria-modal + aria-labelledby, plus the shared
+      // useDialogA11y hook (above) for Escape / focus-trap / initial-focus /
+      // focus-restore. tabIndex=-1 lets the hook's fallback focus land on the
+      // panel if it ever has no focusable children (it always has the close
+      // button + email input, so the fallback is belt-and-braces).
       role: 'dialog',
       'aria-modal': 'true',
       'aria-labelledby': 'presignin-title'
