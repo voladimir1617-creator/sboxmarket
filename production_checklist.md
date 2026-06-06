@@ -1978,3 +1978,21 @@ pure churn. Agent's other 10 patterns (stale closures, useEffect deps, setState-
 after-unmount, list keys, derived-money memos, checkout re-entrancy) all verified
 safe — aliveRef-guarded async, correct deps, stable id keys, correct memo deps,
 synchronous re-entrancy latches. Frontend state-management is sound.
+
+WAVE 181 — SHIPPED a flagged HIGH (was deferred, now fixed): double-list TOCTOU.
+  • f365472 — two concurrent /api/steam/list[-bulk] POSTs for the same asset
+    could both pass the check-then-insert (no DB unique backstop; V250's index
+    is intentionally non-unique) → one asset listed twice → double-sell. Closed
+    it with a PESSIMISTIC_WRITE lock on the seller's SteamUser row inside
+    createListing (the shared INSERT choke point), re-checking the duplicate
+    under the lock → ALREADY_LISTED. Chosen over the originally-flagged partial-
+    unique migration: zero schema change, no dedupe-migration, no dev-ddl-auto/
+    prod-Flyway split, far lower blast radius, multi-pod-safe. Per-seller (no
+    cross-seller contention); covers /list + /list-bulk + any future caller;
+    null-assetId system listings skip it; no deadlock (seller row isn't write-
+    locked elsewhere in listing/buy paths; tryMatch fan-out is afterCommit). +2
+    specs; full suite GREEN. KEEP WORKING turned a deferral into a better, lower-
+    risk shipped fix. Remaining flagged HIGH (escrow custody double-send) stays
+    deferred — it's the Steam DELIVERY BOT path (escrowEnabled=false → INERT in
+    the current deployment, zero current-prod impact), untestable E2E anywhere,
+    and a multi-file send-ordering change best done by whoever enables the bot.
