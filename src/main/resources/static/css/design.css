@@ -200199,3 +200199,16 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   }
 }
 /* ===== END WAVE-INT20 ===== */
+
+/* Mobile fix — hide the grid/table view toggle on phones. The table (list)
+   view is an 8-column dense data grid that is a desktop-only affordance; at
+   phone widths its columns collapse and the row content overlaps into an
+   illegible mash, so app.js forces the grid view at/below 768px regardless of
+   the stored preference. With the table view unreachable on mobile, the toggle
+   would only offer a no-op (or a broken view), so we hide it — matching
+   csfloat, which shows cards (no view switcher) on mobile. The preference is
+   preserved and the toggle reappears on a wide viewport. */
+@media (max-width: 768px) {
+  .view-btns { display: none !important; }
+}
+/* ===== END WAVE183 mobile view-toggle hide ===== */

@@ -3293,6 +3293,25 @@ export function App() {
     setViewRaw(v);
     try { localStorage.setItem('sb_market_view', v); } catch (_) {}
   };
+  // Mobile guard — the dense 8-column table view is a desktop affordance.
+  // Crammed into a phone width its columns collapse toward 0px and the row
+  // content (name / price / supply / action) overlaps into an illegible mash
+  // (verified at 380px: "vs Steam", "Trend", "Listed" cells rendered 0px
+  // wide, "$230.00" + "1 supply" + "Buy" stacked on top of each other).
+  // csfloat shows cards on mobile, so at/below the 768px breakpoint we force
+  // the grid regardless of the stored preference — which is preserved, so a
+  // user who likes the table still gets it back on a wide viewport. The
+  // toggle itself is hidden on mobile via CSS (.view-btns) to match.
+  const [isNarrowView, setIsNarrowView] = useState(() => {
+    try { return window.innerWidth <= 768; } catch { return false; }
+  });
+  useEffect(() => {
+    const onResize = () => {
+      try { setIsNarrowView(window.innerWidth <= 768); } catch (_) {}
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   // Pagination — marketplace serves 100 listings per page (ListingController
   // caps the limit). When the first page returns a full 100, we expose a
   // "Load more" button that fetches the next page and appends. `hasMore`
@@ -7449,7 +7468,7 @@ export function App() {
                       h('div', { className: 'empty-state-sub' },
                         'None of the first ' + listings.length + ' listings match your filters — load more to keep looking.')
                     )
-                  : view === 'grid'
+                  : (isNarrowView ? 'grid' : view) === 'grid'
                   ? h('div', { className: 'listing-grid' },
                       dedupedListings.map(l => h(GridCard, {
                         key: 'item-' + l.item.id,

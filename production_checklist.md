@@ -2018,3 +2018,43 @@ because wrong, but because the fix is disproportionate for the severity):
   session (where the test rewiring IS the task), unlike the lightly-mocked
   double-list (clean inline). Tree clean; suite GREEN (reverts restored the
   committed-green state).
+
+WAVE 183 — mobile visual sweep (390px), eyes-on-pixels. SHIPPED a real /sell
+defect the overflow probe was blind to:
+  • 439baab — fix(sell,mobile): the page-mode inventory toolbar
+    (.full-page-mode .sell-source-tabs: Steam/Platform tabs + "Prices updated"
+    freshness chip + "Sync Steam" button) was a single NON-wrapping flex row. At
+    390px the tabs overran the chip and the Sync button clipped off the right
+    edge (unreachable). No horizontal page-scroll fired (button was CLIPPED, not
+    expanding the page) so the scrollWidth probe read "clean" — only a screenshot
+    caught it. Fix: @media (max-width:560px){ .full-page-mode .sell-source-tabs{
+    flex-wrap:wrap; row-gap } } → flex:1 spacer fills line 1 after the two tabs,
+    chip+Sync drop to a clean line 2; active-tab underline (::after on the
+    button) unaffected. design.css ?v=215→216 (belt-and-braces; design.css is
+    served no-cache so reload picked it up live). Verified live at 390:
+    flex-wrap=wrap, Sync button fully on-screen (right edge 312 < 380 vw, not
+    clipped), tabs no longer overlapping the chip. Continuing the 390 sweep on
+    the remaining routes.
+
+WAVE 183 (cont.) — SHIPPED a SECOND, worse mobile defect found in the same 390
+sweep: the marketplace LIST/TABLE view was illegible on phones.
+  • The grid/table toggle persists to localStorage (sb_market_view). With it set
+    to "table", /search renders an 8-column data table (Item / Availability / vs
+    Steam / Trend / Seller / Listed / Price / Action). At 380px those columns
+    collapse toward 0px ("vs Steam", "Trend", "Listed" measured 0px wide) and the
+    row content overlaps into a mash — item name clipped to "Gran/Ball/Gow",
+    "$230.00"+"1 supply"+"Buy" stacked on each other. The overflow probe read
+    "clean" (table 274px, no page scroll) — only a screenshot exposed it. And it
+    STICKS: once a user taps list view, the broken table is what they get every
+    visit.
+  • Fix (csfloat-faithful: cards on mobile, no view switcher): app.js adds a
+    reactive isNarrowView state (window.innerWidth <= 768, the established mobile
+    breakpoint, + a resize listener) and the render ternary uses
+    (isNarrowView ? 'grid' : view) — forcing the grid below 768px regardless of
+    the stored pref, which is PRESERVED so the table returns on a wide viewport.
+    design.css hides the now-unreachable .view-btns toggle ≤768px. main.js
+    app.js?v=202→203 (module-registry bust), design.css ?v=216→217.
+  • Verified LIVE at 380px with sb_market_view='table' (worst case): table NOT
+    rendered, grid rendered with all 34 listings as cards, toggle hidden, 0
+    console errors. Screenshot confirms clean 2-col card grid. Resize > 768px
+    restores the table + toggle (state-driven, reactive).
