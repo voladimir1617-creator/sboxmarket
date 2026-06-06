@@ -1812,3 +1812,22 @@ migrations, perf, a11y — verified clean. Full Spock suite GREEN. App
 production-ready.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+WAVE 174 — fraud-control matrix uniformity + escrow custody-race triage
+(two fresh adversarial agents: ban/freeze enforcement completeness +
+delivery-bot double-delivery/return). SHIPPED 1 fix, FLAGGED 1 HIGH:
+  • 67c382f — TradeProtection.enable now gates the protection fee behind the
+    deposit dispute-hold (countActiveDisputedDeposits), the lone wallet-debit
+    path that omitted it; +1 spec. Ban/freeze matrix otherwise certified
+    UNIFORM across all 12 money entry points (settle re-checks all 3 gates;
+    seller-ban on every auto-purchase path; escrow credits trapped behind the
+    gated withdraw).
+  • FLAGGED (spawn_task, HIGH) — EscrowedItem custody machine has no @Version
+    and no conditional-UPDATE claim on the two IN_CUSTODY→{DELIVERED,RETURNED}
+    transitions, so a delivery racing a trade-cancel can sendOffer the SAME
+    held asset to BOTH buyer and seller (item loss). Correct fix = claim-
+    before-send on both transitions (mirror claimTimeoutPendingDeposit) with
+    revert-on-failure; deferred for a dedicated session because it's high-
+    blast-radius (a botched revert strands ALL deliveries), multi-file with
+    external-call ordering, and UNTESTABLE in dev (escrowEnabled=false → path
+    inert). Full fix spec captured in the spawned task.
