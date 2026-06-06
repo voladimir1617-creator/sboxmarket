@@ -1323,3 +1323,35 @@ Audit tally this run: 7 clean lenses (email, XSS, IDOR, param-fuzz,
 React-effects, Stripe-webhook, auction-settlement) + TradeProtection + TOTP +
 OG + security-headers + crawlability + error/CSRF, on top of 5 shipped fixes.
 Withdrawal-payout audit still in flight. App live on :8082; dev-login UNCOMMITTED.
+
+## WAVE 185 — withdrawal-payout audit: REAL double-refund money bug FIXED + approve hardening
+
+The withdrawal-payout audit agent surfaced a genuine money-critical defect that
+survived wave 127. Both findings fixed + verified (AdminServiceSpec 145 green):
+
+APPLIED:
+- 493ccca (MONEY-CRITICAL) — AdminService.rejectWithdrawal was non-atomic
+  read-check-credit. Wave 127 made the USER-side cancelPendingWithdrawal atomic
+  (claimCancelPendingWithdrawal) but left the symmetric ADMIN-side reject
+  unguarded — the cancel path's OWN comment names rejectWithdrawal as the racer.
+  Transaction has no @Version, so a reject racing a self-cancel (or two
+  rejects, or reject-vs-approve) DOUBLE-REFUNDED the wallet (both read PENDING,
+  both credit). Added claimRejectWithdrawal (conditional UPDATE PENDING→FAILED);
+  reject now credits ONLY when the claim wins (==1), else throws NOT_PENDING
+  without re-crediting. New race spec locks it (claim→0 ⇒ 0 wallet saves).
+- ab9b90a (consistency/integrity) — approveWithdrawal was the last non-atomic
+  withdrawal state-flip → double-approve duplicate notifications + reject-then-
+  approve could overwrite a refunded FAILED row back to COMPLETED. Added
+  claimApproveWithdrawal; the whole state machine (request/approve/reject/
+  cancel/transfer-reversed) is now uniformly atomic. (Non-money: Transfer fires
+  at request time.)
+
+Also certified clean this turn (direct reads): PurchaseService.buy (preconds
+before debit, @Version on Wallet+Listing, seller-wallet pre-resolve, deferOrRun
+after-commit fan-outs) — exemplary. TradeProtection claim (pessimistic lock +
+status gate + cancel-race prevention). TOTP verify (MAX_2FA_FAILS=5 lockout
+before verify). Auction settlement (agent: @Version single-settle, no escrow
+leak). OG/security-headers/robots/sitemap/error-CSRF all excellent.
+
+This is the session's most significant find — a relentless-grind win on a real
+double-refund. App live on :8082; dev-login remains UNCOMMITTED.
