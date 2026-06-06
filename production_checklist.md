@@ -1264,3 +1264,33 @@ VERIFIED CLEAN (no fixes — exhaustive certification):
 
 Run tally: 5 real fixes + 1 self-revert; clean audits = email, XSS, IDOR,
 read-param-fuzz, React-effects (5 lenses). App live on :8082; dev-login UNCOMMITTED.
+
+## WAVE 183 — Stripe-webhook + security-headers + robots/sitemap (all clean)
+
+VERIFIED CLEAN (no fixes — certification of the highest-stakes surfaces):
+- Stripe webhook / deposit / refund / chargeback (agent, the real-money path):
+  NO REAL DEFECTS. Signature verified (Webhook.constructEvent is the
+  unconditional first step; prod refuses placeholder/missing secret).
+  Idempotency at TWO layers — transactional processed_stripe_events UNIQUE
+  claim (cross-pod) + per-row PENDING->COMPLETED status gate (money backstop,
+  covers payment_intent/checkout.session not just disputes). Amount/currency
+  re-verified against the freshly-retrieved Stripe session (paid + walletId +
+  amountTotal + USD); credits the SERVER-stored tx.amount, never a client
+  field. Refund/chargeback deduped on refundId, balance-clamped (no negative),
+  cumulative-refund capped, pessimistic-locked before the Stripe call. Credit
+  + status-flip atomic in one @Transactional; sync /confirm-deposit converges
+  on the same completeDeposit with Wallet @Version resolving the race.
+- Security response headers (live): tight CSP (no script unsafe-inline/eval;
+  self fonts; scoped img/connect/frame allowlists), frame-ancestors 'none' +
+  X-Frame-Options DENY, exhaustive Permissions-Policy (incl interest-cohort=()),
+  nosniff, Referrer-Policy strict-origin-when-cross-origin, correct
+  cache-control. (HSTS off is correct on dev HTTP; prod enables via SECURITY_HSTS.)
+- robots.txt: public surfaces Allowed, all private/api routes Disallowed
+  (/api /admin /csr /profile /wallet /cart /sell /offers /buy-orders /watchlist
+  /notifications /settings /support), Sitemap -> prod domain.
+- sitemap.xml: 68 URLs (items/stalls/loadouts/market/legal); ZERO private
+  routes leaked; dev domain is just APP_PUBLIC_URL (prod = skinbox.market).
+
+Run audit tally: 6 clean lenses (email, XSS, IDOR, param-fuzz, React-effects,
+Stripe-webhook) + OG + security-headers + crawlability, on top of 5 shipped
+fixes. App live on :8082; dev-login remains UNCOMMITTED.
