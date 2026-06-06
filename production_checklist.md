@@ -1219,3 +1219,25 @@ VERIFIED CLEAN:
   ized); category <script> -> 200; ZERO 500s.
 
 App live on :8082; dev-login scaffolding remains UNCOMMITTED.
+
+## WAVE 181 — auction/bid flow + 768 tablet breakpoint (final coverage)
+
+VERIFIED CLEAN:
+- Auction bid (item 34 "Chef Hat", live auction): countdown renders, current
+  bid + min-bid shown, no NaN. Typed a below-minimum $0.10 bid + clicked
+  Place Bid -> rejected inline "Minimum bid is $0.81" (current $0.76 + $0.05
+  increment, matches the documented rule). No mutation. Completes all 7 core
+  money flows verified this session (buy/cart/sell/deposit/withdraw/offer/bid).
+- 768px tablet breakpoint (the zone where max-width:640 mobile rules stop):
+  market page overflow 0 (the wide elements are the intentional pulse-ticker
+  marquee, clipped); profile page overflow 0, stats grid = desktop 4-col
+  (165.75px x4, right 707 < 768). Responsive coverage now spans 390/768/1440.
+- Buy-order create form @390: 288px, fits, responsive width:100% input (the
+  .buyorder-form input has NO min-width floor, so it's not subject to the
+  wallet overflow — confirmed in CSS + live).
+
+Session real-fix tally (this run): refund + support-create/reply/report-user
+re-entrancy latches (7d6defa, 2ff8206), AudioContext autoplay warning
+(4822fcf), deposit $1 client floor (0200922), wallet mobile-modal overflow
+(edb62f0). 1 self-revert (mark-sent). Audits clean: email, XSS, IDOR,
+param-fuzz. App live on :8082; dev-login remains UNCOMMITTED.
