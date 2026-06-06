@@ -2163,3 +2163,35 @@ checks; all CLEAN with proof, no code changes warranted):
     183-186 mobile media-query fixes (/me/stall flex-wrap:nowrap, single-row);
     desktop marketplace 1440 csfloat-faithful; .grid-card hover lift wired
     (translateY(-3px) + 0 14px 36px shadow + accent border, 360ms eased).
+
+WAVE 188 — mobile sweep completion + P2P escrow authorization audit.
+  • Mobile clip-probe sweep COMPLETE (refined probe excludes horizontal-scroll
+    rails to avoid carousel false-positives). All customer routes verified clean
+    at 390 after the wave 183-186 fixes: home, /search, /db, /cart, /watchlist,
+    /settings, /wallet (+withdraw), /offers, /notifications, /buy-orders,
+    /profile (+transactions +trades +autobids). 768 tablet spot-checked clean
+    (/search, /loadout, /profile/transactions desktop-table at 758 with amount
+    visible). Sort dropdown opens within viewport (no off-screen overflow).
+    Card rarity bar = 2px solid per-item top border (csfloat-faithful, not a
+    gradient). Home content provably renders (5003px, clip-clean) — the all-black
+    full-page screenshot is this app's body-scroll-container capture artifact,
+    not missing content.
+  • P2P TRADE / ESCROW authorization + state-machine → CERTIFIED CLEAN (read-
+    only adversarial audit). State machine PENDING_SELLER_ACCEPT → _SEND →
+    _BUYER_CONFIRM → VERIFIED (+ DISPUTED/CANCELLED). Money moves only in
+    release() (seller, price−fee) and refundBuyer()/protection autoClaim (buyer).
+    Proven guards: seller CANNOT self-release (buyerConfirm requires buyer
+    participant; release() protected, only via buyerConfirm/adminRelease/sweeper);
+    mark-sent seller-only + state-gated; the "keep item AND get refund" double-
+    spend routes are explicitly closed (buyer can't cancel from
+    PENDING_BUYER_CONFIRM; can't cancel from DISPUTED unless admin;
+    reverseClaim + alreadyPaidByProtection close the protection double-pay); no
+    blind transitions (every mutator checks legal predecessor; re-release
+    impossible → no double seller credit); no IDOR (requireParticipant on every
+    route, service-layer); auto-release sweeper 8-day window (sane), state-scoped,
+    REQUIRES_NEW isolation + @Version (no double-pay), banned-seller refunds the
+    buyer. Escrow/Steam-bot legs inert by default (enabled=false) but the
+    wallet money path runs + is guarded regardless. No fix warranted.
+  Net this session: 5 mobile fidelity fixes shipped (waves 183-186) + 4 fresh
+  backend money/abuse audits all CLEAN (affiliate, review, deposit/withdraw,
+  trade-escrow-auth). Tree clean; SteamAuthController never staged.
