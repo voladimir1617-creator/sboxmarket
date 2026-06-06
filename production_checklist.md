@@ -1786,3 +1786,29 @@ stranding, 690054f seller-wallet stranding); 1 flagged (profile-tab empty-on-500
 Everything else verified clean. App production-ready.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 200 — a11y money-control spot-cert (clean) + continuation milestone
+
+VERIFIED CLEAN (no fix):
+- Money-form a11y: wallet amount input has aria-label="Deposit amount" +
+  inputmode="decimal"; all deposit/withdraw/preset/submit CTAs are real
+  <button> (incl. role=tab) — keyboard-operable; ZERO div/span-onClick money
+  controls. With the earlier buy-confirm modal a11y (initial-focus + WCAG
+  focus-trap + Escape + role=dialog/aria-modal), the keyboard/screen-reader
+  path through the money flows is sound.
+
+MILESTONE — /loop KEEP WORKING continuation complete across the high-value
+defect surface. 10 adversarial agents (protection / reviews / cost-amp /
+CSRF+escalation / IDOR / SSE+webhook / resilience / data-consistency / N+1 /
+[a11y spot-checked solo]) + ~28 solo probes. SHIPPED 4 REAL FIXES, all
+test-locked + full-suite-certified:
+  • f02c349 — cost-amp cooldown on cache-bypassing Steam sync (abuse)
+  • 7166d3e — watchlist null-item crash → unrecoverable ErrorBoundary (resilience)
+  • d940532 — bot-escrow custody stranded on every trade cancel/auto-cancel (HIGH)
+  • 690054f — auction-win payment stranded when seller has no wallet
+FLAGGED 1 (profile-tab empty-on-500, spawn_task). Everything else — money
+paths/concurrency/3 state-machines/fee+cents/cross-debit, security, idempotency,
+migrations, perf, a11y — verified clean. Full Spock suite GREEN. App
+production-ready.
+
+App live on :8082; dev-login remains UNCOMMITTED.
