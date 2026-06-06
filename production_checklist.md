@@ -2087,3 +2087,24 @@ defect on every /profile data table:
     ?v=218→219. Verified LIVE at 380px: transactions render as clean cards
     (PURCHASE / description / −$1.42 bold right / COMPLETED; refunds +$0.54),
     row grew 40px→125px, amount display:block & on-screen, 0 console errors.
+
+WAVE 185 — mobile fidelity, /loadout tab bar (eyes-on-pixels, overflow-probe-
+blind). SHIPPED:
+  • The .loadout-tabs segmented pill (csfloat ship #65: display:inline-flex,
+    fixed height:40px) packs Discover/My Loadouts/Favorites + a flex:1 spacer +
+    the blue "+ Create" button on ONE non-wrapping line. At 380px that row can't
+    fit (3 tabs 293px + 2×16px gaps = 325px > 288px pill): the tabs squeezed
+    until labels overlapped and the Create button clipped off the right edge at
+    x=515. No page scroll (clipped, not expanding) → scrollWidth probe clean;
+    only a screenshot caught it (same class as wave-183 /sell toolbar).
+  • Fix (design.css, CSS-only): @media (max-width:560px) lets the pill wrap +
+    grow (flex-wrap:wrap, height:auto), tightens gap 16→2px and tab padding
+    16→10px so all THREE tabs fit one line in the 288px pill, and drops Create
+    to its own full-width line (flex:1 1 100%). Had to beat the earlier
+    `body .loadout-tabs{flex-wrap:nowrap!important}` (0,1,1) + the
+    `body .full-page-mode .info-modal-body > .loadout-tabs` nowrap (0,3,1) — a
+    bare .loadout-tabs (0,1,0) lost (media queries add no specificity), so the
+    override leads with `html body .full-page-mode .info-modal-body .loadout-
+    tabs` (0,3,2). flex-wrap stays as a <=320px safety net. design.css ?v=219→
+    221. Verified LIVE at 380px: 3 tabs on one line (tops all 99px), none
+    clipped, Create on its own line below (top 149) full-width, 0 overflow.

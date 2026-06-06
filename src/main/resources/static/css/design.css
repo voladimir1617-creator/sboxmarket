@@ -200298,3 +200298,42 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   }
 }
 /* ===== END WAVE184 profile list-table mobile stack ===== */
+
+/* WAVE185 — /loadout tab bar overflow on mobile. The .loadout-tabs segmented
+   pill (csfloat parity ship #65) is display:inline-flex with a FIXED
+   height:40px and packs the Discover / My Loadouts / Favorites tabs + a flex:1
+   spacer + the blue "+ Create" button onto one non-wrapping line. At phone
+   widths that row can't fit: the three tabs get squeezed until their labels
+   overlap and the Create button clips off the right edge. The page doesn't
+   scroll (the button is clipped, not expanding the page) so the scrollWidth
+   probe read clean — only a screenshot caught it (same class as the /sell
+   toolbar fix). Let the pill wrap + grow on mobile so the tabs keep their full
+   width on line 1 and Create drops to its own full-width line below. */
+@media (max-width: 560px) {
+  /* High specificity — earlier ships set `body .loadout-tabs` and
+     `body .full-page-mode .info-modal-body > .loadout-tabs` to
+     flex-wrap:nowrap !important, which (media queries add no specificity)
+     outrank a bare .loadout-tabs. Match their ancestor chain + lead with
+     html body so this wins on mobile. */
+  html body .loadout-tabs,
+  html body .full-page-mode .info-modal-body .loadout-tabs {
+    flex-wrap: wrap !important;
+    height: auto !important;
+    gap: 2px !important;
+  }
+  /* Trim the tab padding so all three tabs (Discover / My Loadouts /
+     Favorites) fit on ONE line inside the ~288px pill — at the desktop 16px
+     padding + 16px gaps they totalled ~325px and Favorites wrapped to a
+     second line. flex-wrap stays as a safety net for very narrow (<=320px)
+     screens where even the tightened tabs won't fit. */
+  html body .loadout-tabs .offer-tab,
+  html body .full-page-mode .info-modal-body .loadout-tabs .offer-tab {
+    padding: 0 10px !important;
+  }
+  html body .loadout-tabs > .btn-accent,
+  html body .full-page-mode .info-modal-body .loadout-tabs > .btn-accent {
+    flex: 1 1 100% !important;
+    margin-top: 8px !important;
+  }
+}
+/* ===== END WAVE185 loadout tab-bar mobile wrap ===== */
