@@ -1963,3 +1963,18 @@ WAVE 179 — modal keyboard-a11y sweep (fresh agent). SHIPPED 1 fix:
   Money-surface modal a11y is gold-standard. Continuation now: 4 fixes shipped
   (dispute-hold, MyStall crash, 4-tab silent-error, PreSigninModal a11y) + 2 HIGH
   flagged + 1 backlogged + the whole money/correctness/a11y surface certified.
+
+WAVE 180 — React state-management clean-certification (fresh agent). ZERO real
+bugs. The one candidate (ItemModal not resetting sub-state — buyConfirm /
+offerOpen / offerAmt — on item.id change, claimed a "wrong-money-submit") was
+DISCARDED on verification: the item-load effect (app.js:5072, deps
+[routeName, route.params.id]) calls setModalLoading(true) at the top then ALWAYS
+awaits Promise.all([fetchListingsForItem, fetchHistory]) — so on every item
+navigation the render gate (modalLoading ? spinner : ItemModal) shows the
+spinner during the fetch → ItemModal UNMOUNTS → REMOUNTS fresh on the new item,
+re-initializing all useState. The agent missed the modalLoading unmount/remount
+cycle; state never persists across items, so the reset-useEffect "fix" would be
+pure churn. Agent's other 10 patterns (stale closures, useEffect deps, setState-
+after-unmount, list keys, derived-money memos, checkout re-entrancy) all verified
+safe — aliveRef-guarded async, correct deps, stable id keys, correct memo deps,
+synchronous re-entrancy latches. Frontend state-management is sound.
