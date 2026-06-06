@@ -13821,6 +13821,14 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   const starred = useMemo(() => {
     const byItem = {};
     (pool || []).forEach(l => {
+      // Null-item listing guard (resilience audit). A house/system row — or a
+      // listing whose item DTO didn't populate — has a null `item`; `l.item.id`
+      // would throw a TypeError that bubbles to the top-level ErrorBoundary and
+      // wedges /watchlist UNRECOVERABLY (reload re-crashes). The same `pool` is
+      // already guarded with `l?.item?.id` 17 lines up (the present-set memo) and
+      // ~10 other sites use `l?.item`; this forEach was the lone outlier. A
+      // null-item row can't be a watched item's listing anyway, so skip it.
+      if (!l?.item) return;
       if (!watchlist.includes(l.item.id)) return;
       const cur = byItem[l.item.id];
       if (!cur || parseFloat(l.price) < parseFloat(cur.price)) byItem[l.item.id] = l;
