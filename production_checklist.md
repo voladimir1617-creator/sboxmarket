@@ -1722,3 +1722,39 @@ cart stale-row scrub/gate; navigation traps avoided (replace-not-push redirect,
 layered Escape-bail).
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 198 — adversarial DATA-CONSISTENCY wave (2 real money-stranding fixes)
+
+Read-only orphaned-money-state agent (escrow conservation / item custody /
+listing-trade pairing / ledger / wallet reconciliation). Found 2 real bugs.
+
+APPLIED:
+- d940532 (MONEY/ITEM, HIGH) — P2P trade cancel/auto-cancel never released
+  bot-escrow custody. When escrow is enabled the seller's real Steam asset is
+  IN_CUSTODY from list-time; cancel()/autoCancelStaleSellerTrade/
+  autoCancelBannedSellerTrade flipped the DB listing back to the seller but
+  never called steamEscrowService.returnToSeller (TradeService didn't even
+  inject it) → the physical item was stranded in the bot FOREVER on every
+  unhappy-path trade exit, while the DB said it was relistable. Fix: inject
+  SteamEscrowService (required=false) + add the escrow RETURN leg to the shared
+  returnListingToSeller helper (covers all 3 exits), deferOrRun/afterCommit so
+  it fires only after the cancel+refund commit, idempotent + custody-guarded
+  (no-op unless IN_CUSTODY → never claws back a delivered item). +2 specs.
+- 690054f (MONEY, MEDIUM) — BidService.settle debited the auction winner then
+  opened the trade with sellerWallet?.id = NULL when the seller had no wallet
+  (lazy-created elsewhere, not guaranteed at list-time) → release() skipped the
+  seller credit → winner's payment stranded at the platform. PurchaseService.buy
+  guards this with SELLER_WALLET_MISSING but settle is sweep-invoked (can't
+  reject post-debit). Fix: get-or-create the seller wallet before open (mirrors
+  CartController/ListingController/SteamAuthService) so the trade always carries
+  a real sellerWalletId. +1 spec (wires tradeService — the trade-open path was
+  previously untested in the unit spec).
+
+VERIFIED CLEAN (Agent, HIGH conf): listing↔trade pairing (buy + settle flip
+SOLD and insert Trade in the SAME tx — no SOLD-without-trade); transaction
+ledger (completeDeposit PENDING→COMPLETED guard, refund cap, chargeback/reverse
+atomic claims — no double-credit); wallet reconciliation (every balance change
+writes a Transaction in-tx; the one divergence — refund clamp-at-zero with full
+REFUND row — is intentional + logged for manual reconcile).
+
+App live on :8082; dev-login remains UNCOMMITTED.
