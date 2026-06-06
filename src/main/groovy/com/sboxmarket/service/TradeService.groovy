@@ -1529,7 +1529,25 @@ class TradeService {
      *  the proxy. */
     @Transactional
     protected void autoCancelStaleSellerTrade(Trade trade) {
-        refundBuyer(trade)
+        // Trade Protection arbiter (batch 1083) — mirror cancel(): hold the
+        // protection row lock while deciding refund-vs-skip so a concurrent
+        // dispute autoClaim (its own committed REQUIRES_NEW credit, which the
+        // Trade @Version does NOT cover) can't double-refund the buyer. The
+        // arbiter runs in THIS sweeper's runInIsolatedTx tx (REQUIRED joins
+        // it), so the lock spans refundBuyer + transitionTo. true = autoClaim
+        // already paid → skip; false = cover was ACTIVE (now consumed→EXPIRED
+        // under the lock) or unprotected → ordinary escrow refund. Best-effort:
+        // a protection hiccup falls through to refund (a missed skip is staff-
+        // clawback-recoverable; a missed refund on an unrefunded buyer is not).
+        boolean alreadyPaidByProtection = false
+        try {
+            alreadyPaidByProtection =
+                tradeProtectionService?.lockAndExpireIfActiveOrReportClaimed(trade.id) ?: false
+        } catch (Exception e) {
+            log.warn("Protection lock/check failed for auto-cancelling stale trade ${trade.id} — " +
+                "falling through to escrow refund: ${e.message}")
+        }
+        if (!alreadyPaidByProtection) refundBuyer(trade)
         returnListingToSeller(trade)
         trade.note = "Automatically cancelled — seller did not respond within ${sellerResponseDays} days"
         trade.settledAt = System.currentTimeMillis()
@@ -1560,14 +1578,10 @@ class TradeService {
             'seller')
         auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
             "Seller-response timeout after ${sellerResponseDays}d")
-        // Trade Protection — the seller-timeout auto-cancel already
-        // refunds the buyer via refundBuyer() above, so the buyer is
-        // whole; expire the cover rather than double-paying.
-        try {
-            tradeProtectionService?.expire(trade.id)
-        } catch (Exception e) {
-            log.warn("Protection expire failed for auto-cancelled trade ${trade.id}: ${e.message}")
-        }
+        // Trade Protection cover is consumed by the arbiter at the TOP of
+        // this method (lockAndExpireIfActiveOrReportClaimed flips ACTIVE→
+        // EXPIRED under the lock, or reports CLAIMED so we skipped the double
+        // refund) — no separate expire() needed.
     }
 
     /**
@@ -1733,7 +1747,19 @@ class TradeService {
      *  stays in PENDING_BUYER_CONFIRM for the next tick to refund again. */
     @Transactional
     protected void autoCancelBannedSellerTrade(Trade trade) {
-        refundBuyer(trade)
+        // Trade Protection arbiter (batch 1083) — same fix as
+        // autoCancelStaleSellerTrade: hold the protection row lock while
+        // deciding refund-vs-skip so a concurrent dispute autoClaim can't
+        // double-refund the buyer. Mirrors cancel(); see it for full rationale.
+        boolean alreadyPaidByProtection = false
+        try {
+            alreadyPaidByProtection =
+                tradeProtectionService?.lockAndExpireIfActiveOrReportClaimed(trade.id) ?: false
+        } catch (Exception e) {
+            log.warn("Protection lock/check failed for auto-cancelling banned-seller trade ${trade.id} — " +
+                "falling through to escrow refund: ${e.message}")
+        }
+        if (!alreadyPaidByProtection) refundBuyer(trade)
         returnListingToSeller(trade)
         trade.note = "Automatically cancelled — seller account banned"
         trade.settledAt = System.currentTimeMillis()
@@ -1742,15 +1768,7 @@ class TradeService {
             "Trade cancelled · refund issued", trade.note, trade.id, '/profile?tab=trades')
         auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
             "Seller banned — auto-cancelled after ${autoReleaseDays}d window")
-        // Trade Protection — the banned-seller branch
-        // refunds the buyer via refundBuyer(), so expire
-        // the cover (no double payout). The auto-release
-        // branch routes through release(), which
-        // expires protection on its own.
-        try {
-            tradeProtectionService?.expire(trade.id)
-        } catch (Exception e) {
-            log.warn("Protection expire failed for banned-seller trade ${trade.id}: ${e.message}")
-        }
+        // Trade Protection cover is consumed by the arbiter at the top of
+        // this method (see autoCancelStaleSellerTrade) — no separate expire().
     }
 }

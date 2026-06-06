@@ -1433,9 +1433,46 @@ class TradeServiceSpec extends Specification {
         // branch, not the release branch.
         stale.state == 'CANCELLED'
         buyerWallet.balance == new BigDecimal("50.00")
-        // Critical: the protection cover is expired so it can't be
-        // claimed against a now-cancelled trade.
-        1 * tradeProtectionService.expire(1L)
+        // Critical: the protection cover is consumed via the LOCKED arbiter
+        // (lockAndExpireIfActiveOrReportClaimed, batch 1083) — under the row
+        // lock it flips ACTIVE→EXPIRED so a concurrent dispute autoClaim can't
+        // double-pay the buyer, and the cover can't be claimed against the
+        // now-cancelled trade. Replaces the old unconditional expire(), which
+        // left the sweeper-vs-autoClaim double-refund race open.
+        1 * tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> false
+    }
+
+    def "sweepPendingConfirm banned-seller branch does NOT double-refund when protection autoClaim already paid (batch 1083)"() {
+        // The bug the trade-lifecycle audit found: autoCancelBannedSellerTrade
+        // (and its stale-seller twin) called UNCONDITIONAL refundBuyer + a
+        // no-op expire(). If a concurrent dispute's autoClaim had already
+        // credited the buyer (protection CLAIMED), the sweeper credited the
+        // escrow AGAIN — a double-refund / money created (the Trade @Version
+        // does NOT cover autoClaim's separate committed REQUIRES_NEW credit).
+        // The wave-105 arbiter fix was applied to cancel() but NOT these
+        // sweepers. The arbiter (returns true on a CLAIMED cover) must now
+        // make the sweeper SKIP its escrow refund.
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def stale = tradeIn('PENDING_BUYER_CONFIRM', [id: 1L])
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findPendingConfirmOlderThan(_) >> [stale]
+        banGuard.isBanned(20L) >> true
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        // autoClaim already paid the buyer → arbiter reports CLAIMED.
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> true
+
+        when:
+        service.sweepPendingConfirm()
+
+        then: 'trade closes but the buyer is NOT refunded a second time'
+        stale.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal("0.00")   // no second escrow credit
+        0 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
     }
 
     def "sweepPendingConfirm keeps releasing healthy trades when the banned-seller branch throws (per-trade isolation)"() {
