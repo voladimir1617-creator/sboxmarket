@@ -569,15 +569,23 @@ class AdminService {
             throw new BadRequestException("DISPUTE_HOLD",
                 "Cannot approve withdrawal — wallet has ${disputed} unresolved deposit dispute${disputed == 1 ? '' : 's'}. Clear the dispute(s) first via the Disputes tab.")
         }
-        tx.status = 'COMPLETED'
-        tx.stripeReference = payoutRef ?: tx.stripeReference
-        tx.description = (tx.description ?: '') + " — approved by admin"
-        tx.updatedAt = System.currentTimeMillis()
-        transactionRepository.save(tx)
+        // Atomic claim (batch 1082) — flip PENDING→COMPLETED in ONE conditional
+        // UPDATE so the approval (+ its money-out notification/email/audit)
+        // fires exactly once and can't overwrite an already-refunded
+        // FAILED/CANCELLED row back to COMPLETED when racing a reject/cancel.
+        // Mirrors claimRejectWithdrawal / claimCancelPendingWithdrawal; the
+        // freeze + dispute gates above stay as pre-claim fast-fails. Approve
+        // moves no money (the Stripe Transfer fired at request time).
+        def finalRef = payoutRef ?: tx.stripeReference
+        int claimed = transactionRepository.claimApproveWithdrawal(tx.id, payoutRef, System.currentTimeMillis())
+        if (claimed != 1) {
+            throw new BadRequestException("NOT_PENDING",
+                "Withdrawal is no longer pending — it was already resolved.")
+        }
 
         notifyWalletOwner(tx.walletId, 'WITHDRAWAL_COMPLETE',
             "Withdrawal approved — \$${tx.amount.toPlainString()}",
-            "Your payout has been released. Reference: ${tx.stripeReference}", tx.id)
+            "Your payout has been released. Reference: ${finalRef}", tx.id)
 
         // Email the user too — money-out events should never rely on the
         // notification bell alone. Silent-fail to keep the approval path
@@ -587,7 +595,7 @@ class AdminService {
                 def ownerUser = walletOwnerUser(tx.walletId)
                 if (emailService.canSendSecurityTo(ownerUser)) {
                     emailService.sendWithdrawalApproved(ownerUser.email,
-                        ownerUser.displayName, tx.amount, tx.stripeReference)
+                        ownerUser.displayName, tx.amount, finalRef)
                 }
             } catch (Exception e) {
                 log.warn("Withdrawal-approved email failed for tx ${tx.id}: ${e.message}")
@@ -596,9 +604,9 @@ class AdminService {
 
         auditService?.log(AuditService.WITHDRAW_APPROVED, adminUserId,
             walletOwnerId(tx.walletId), tx.id,
-            "Approved withdrawal #${tx.id} of \$${tx.amount} (ref=${tx.stripeReference})")
+            "Approved withdrawal #${tx.id} of \$${tx.amount} (ref=${finalRef})")
         log.info("Admin ${adminUserId} approved withdrawal ${tx.id} for wallet ${tx.walletId}")
-        [id: tx.id, status: tx.status]
+        [id: tx.id, status: 'COMPLETED']
     }
 
     @Transactional

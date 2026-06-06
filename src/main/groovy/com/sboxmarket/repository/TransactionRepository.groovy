@@ -341,6 +341,33 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     """)
     int claimRejectWithdrawal(@Param('id') Long id, @Param('now') long now, @Param('suffix') String suffix)
 
+    /**
+     * Atomic claim for an admin withdrawal APPROVAL (batch 1082). Flips a
+     * PENDING withdrawal to COMPLETED in ONE conditional UPDATE so the
+     * approval's terminal flip + side-effects (owner notification + payout
+     * email + audit) fire EXACTLY ONCE, and so an approve racing a
+     * reject/cancel can't overwrite an already-refunded FAILED/CANCELLED row
+     * back to COMPLETED (which would falsely show a refunded withdrawal as
+     * paid out). Returns 1 = this caller owns the approval, 0 = already
+     * terminal (bail). Approve moves no money (the Stripe Transfer fired at
+     * request time), so this is the consistency / duplicate-notification /
+     * status-integrity sibling of claimRejectWithdrawal &
+     * claimCancelPendingWithdrawal. Sets the payout reference (kept when the
+     * arg is null) + updatedAt in the same write.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+           SET t.status          = 'COMPLETED',
+               t.stripeReference = COALESCE(:payoutRef, t.stripeReference),
+               t.updatedAt       = :now,
+               t.description     = CONCAT(COALESCE(t.description, ''), ' — approved by admin')
+         WHERE t.id     = :id
+           AND t.status = 'PENDING'
+           AND t.type   IN ('WITHDRAW', 'WITHDRAWAL')
+    """)
+    int claimApproveWithdrawal(@Param('id') Long id, @Param('payoutRef') String payoutRef, @Param('now') long now)
+
     /** Sum of withdrawal amounts the wallet has requested within a
      *  rolling window — drives the daily withdrawal cap enforced at
      *  the /api/wallet/withdraw controller (batch 357). Includes

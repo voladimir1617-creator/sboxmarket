@@ -871,8 +871,7 @@ class AdminServiceSpec extends Specification {
 
         then:
         1 * adminAuthorization.requireAdmin(1L)
-        tx.status == 'COMPLETED'
-        tx.stripeReference == 'PAYOUT-REF-X'
+        1 * transactionRepository.claimApproveWithdrawal(1L, 'PAYOUT-REF-X', _) >> 1
         result.status == 'COMPLETED'
     }
 
@@ -912,7 +911,7 @@ class AdminServiceSpec extends Specification {
 
         then: 'admin can approve — funds get released instead of being stranded'
         1 * adminAuthorization.requireAdmin(1L)
-        tx.status == 'COMPLETED'
+        1 * transactionRepository.claimApproveWithdrawal(1L, 'PAYOUT-REF-Y', _) >> 1
         result.status == 'COMPLETED'
     }
 
@@ -1857,6 +1856,7 @@ class AdminServiceSpec extends Specification {
         transactionRepository.findById(1L) >> Optional.of(tx)
         transactionRepository.save(_) >> { args -> args[0] }
         transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.claimApproveWithdrawal(1L, _, _) >> 1
         walletRepository.findById(500L) >> Optional.of(new Wallet(id: 500L, username: 'steam_111'))
         steamUserRepository.findBySteamId64('111') >> null
 
@@ -1864,7 +1864,6 @@ class AdminServiceSpec extends Specification {
         def res = service.approveWithdrawal(1L, 1L, 'PAYOUT-X')
 
         then:
-        tx.status == 'COMPLETED'
         res.status == 'COMPLETED'
     }
 
@@ -1922,6 +1921,7 @@ class AdminServiceSpec extends Specification {
         walletRepository.findById(500L) >> Optional.of(wallet)
         transactionRepository.save(_) >> { args -> args[0] }
         transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.claimApproveWithdrawal(1L, _, _) >> 1
         steamUserRepository.findBySteamId64('111') >> null
 
         when:
@@ -1929,7 +1929,6 @@ class AdminServiceSpec extends Specification {
 
         then: 'approval lands cleanly — the freeze gate did not over-block the happy path'
         noExceptionThrown()
-        tx.status == 'COMPLETED'
         res.status == 'COMPLETED'
     }
 
@@ -1948,13 +1947,14 @@ class AdminServiceSpec extends Specification {
         walletRepository.findById(500L) >> Optional.empty()
         transactionRepository.save(_) >> { args -> args[0] }
         transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.claimApproveWithdrawal(1L, _, _) >> 1
 
         when:
-        service.approveWithdrawal(1L, 1L, 'PAYOUT-REF-NOWALLET')
+        def res = service.approveWithdrawal(1L, 1L, 'PAYOUT-REF-NOWALLET')
 
         then:
         noExceptionThrown()
-        tx.status == 'COMPLETED'
+        res.status == 'COMPLETED'
     }
 
     // ── grantAdmin / grantCsr: banned + self guards ─────────────────
