@@ -1611,3 +1611,32 @@ requireAdmin into the payments-layer service would couple authz into it;
 single admin-gated caller makes it adequate today.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 194 — migration + resilience verification + full-suite re-cert
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- Migration layer: 75 migrations (V1-V72, V200-V251) proven portable by
+  DUAL-DB boot (dev H2-PostgreSQL-mode :8082 up + task-172 prod-Postgres
+  boot). Riskiest data migration V71 (canonical-email dedupe) is correct,
+  idempotent, portable (ORDER BY..LIMIT 1 correlated subquery), and
+  account-PRESERVING (NULLs the dedup key on newer colliding rows, keeps
+  oldest as winner — never deletes accounts w/ wallets/trades). 18
+  data-mutating migrations are all backfills/reconciles proven to run on
+  both DBs; floors also live-recompute (ListingFloorRefreshService) so any
+  backfill imperfection self-heals.
+- Resilience on money submits: wallet submit (modals.js 14677-14680) +
+  buy-confirm (2387-2390) reset busy state + ref in `finally` → a mid-submit
+  network failure surfaces the error and frees the button for retry (no
+  stuck "Confirming…"). handleBuy's buyingRef likewise finally-reset.
+
+CERTIFIED:
+- Full Spock suite GREEN again (`./gradlew test` exit 0) after f02c349 —
+  the Steam-sync cost-amp cooldown + 2 new specs integrate cleanly, no
+  cross-spec breakage.
+
+CONTINUATION SUMMARY (/loop KEEP WORKING): 6 adversarial agents
+(protection / reviews / cost-amp / CSRF+escalation / IDOR / SSE+webhook) +
+~13 solo probes. ONE real fix (f02c349 cost-amp); everything else verified
+clean across abuse, security, migrations, resilience. App production-ready.
+
+App live on :8082; dev-login remains UNCOMMITTED.
