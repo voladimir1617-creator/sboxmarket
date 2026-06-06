@@ -1453,3 +1453,31 @@ CERTIFIED:
   no cross-spec breakage.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 189 — trade lifecycle UI + account-security verification (all clean)
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- Account email-change takeover defense: ProfileController.setEmail (569-632)
+  is hardened — 254-char cap, canonical-email uniqueness (V63 Gmail-alias
+  bypass closed), 2FA-staging guard, send cooldown, and batch-512 OLD-EMAIL
+  ALERT on change (explicitly defends "attacker with stolen session swaps
+  email to lock owner out"). Withdraw needs verified-email + TOTP + Stripe
+  Connect, so email alone is never a payout key.
+- Trade lifecycle UI (/profile/trades): renders correctly — KYC-Approved
+  badge, EARNINGS (Sales/Purchases/Net), Balance/Portfolio/Total stats,
+  Account-Standing meter, and the per-trade escrow list (4 TOTAL · 2 OPEN ·
+  1 VERIFIED · 1 CANCELLED) with the Seller→Buyer stepper (Accepts/Sends/
+  Receives/Verified), state filter tabs, role filter, CSV export. Unicode
+  seller names (Cyrillic "дрищ-loh") render correctly.
+- Number reconciliation (looked like a bug, ISN'T): wallet "−$2.55 (4
+  purchases)" = gross purchase debits (cash-flow view); Trades "Total
+  Purchased $2.01" = net of the 1 CANCELLED/refunded trade (trade-outcome
+  view). The $0.54 gap is exactly that cancelled trade. Two valid,
+  internally-consistent views (gross vs net), not a mismatch.
+
+SESSION STATE: every customer money path (buy / cart / sell / deposit /
+withdraw / offers / auction / trade-escrow) verified correct + serialized +
+atomic + re-entrancy-latched; visual fidelity faithful at 1440 & 390; full
+Spock suite green; account security hardened. Production-ready.
+
+App live on :8082; dev-login remains UNCOMMITTED.
