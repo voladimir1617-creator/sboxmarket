@@ -123963,6 +123963,23 @@ body[data-page="404"] main h1,
 }
 /* END CSFLOAT-1:1 PARITY ship #73 */
 
+/* Mobile fix — the page-mode /sell toolbar packs the inventory-source tabs,
+   the "Prices updated" freshness chip, and the "Sync Steam" button into ONE
+   non-wrapping flex row. Below ~560px the tabs overrun into the chip and the
+   Sync button CLIPS off the right edge (real overlap caught on a 390px
+   screenshot; no page-scroll fired because the button is clipped rather than
+   expanding the page, so the scrollWidth overflow probe read "clean"). Let the
+   row wrap: the flex:1 spacer fills line 1 after the two tabs, dropping the
+   freshness chip + Sync button onto a clean second line instead of colliding.
+   The active-tab underline stays correct (it's the ::after on the button, not
+   the container). */
+@media (max-width: 560px) {
+  .full-page-mode .sell-source-tabs {
+    flex-wrap: wrap !important;
+    row-gap: 8px !important;
+  }
+}
+
 /* CSFLOAT-1:1 PARITY ship #74 — empty-state container on /sell, /notifications,
    /buyorders. csfloat empty-states center an icon + 16px / 600 white headline
    + 13px / 400 dim subtitle + primary CTA at 40px height / 8px radius. The
