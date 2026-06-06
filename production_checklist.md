@@ -1667,3 +1667,24 @@ VERIFIED CLEAN (no fix — verify-before-fixing):
 
 All three money state machines are race-safe. App production-ready.
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 196 — money-fill correctness + resilience (backend) verification
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- Buy-order auto-fill: charges the LISTING price (capped at order.maxPrice,
+  skips listings above it), NOT maxPrice — buyer pays the seller's ask up to
+  their ceiling (buyer-favorable). Balance checked vs listing.price; each
+  fill in runInIsolatedTx (no batch poisoning). BuyOrderService 251/262/277.
+- Auction Buy-Now: reuses the verified settle() path (charge buyNowPrice +
+  SOLD + escrow-trade + losing-bidder notify); refuses to settle below a
+  standing top bid if a bid war exceeded buyNowPrice (anti-robbery). BidService 722-745.
+- Escape navigation: full-page routes (/profile,/wallet,/cart,/sell,/db,…)
+  guarded against Esc over-navigation (the documented "Esc on /db → /market"
+  anti-pattern is fixed); /item→/market deliberate; modals close. app.js 4712-4730.
+- Scheduled sweeper resilience: ALL @Scheduled methods (settle / ending-soon /
+  cart-cleanup / announcement-expiry / buy-order-expiry / fraud-signal /
+  floor-refresh / SSE-heartbeat) isolate per-item (own auto-commit /
+  runInIsolatedTx / per-tick catch) — none batch-wrap @Transactional, so the
+  wave-23 rollback-only-leak class cannot recur. Documented in each.
+
+App live on :8082; dev-login remains UNCOMMITTED.
