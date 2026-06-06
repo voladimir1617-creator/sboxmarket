@@ -1856,3 +1856,30 @@ SHIPPED 2 fixes:
   Discarded (verify-before-fixing): a buy-order fmt(need-bal) "finding" already
   guarded by if(bal>=need)return null; and a cart-total float-drift "finding"
   (sub-cent, server-authoritative at checkout) — both churn, not fixed.
+
+WAVE 176 — money-surface clean-certification + live buy E2E. Three fresh
+adversarial agents each found ZERO real defects, certifying the money surface
+is bulletproof:
+  • Refund correctness: every refund (trade cancel/auto-cancel/dispute/sweeps,
+    cart partial-fail, bid losers, buy-order, TradeProtection claim/reverse,
+    Stripe chargeback) is exactly-once + exact-amount via pessimistic locks +
+    atomic status gates + REQUIRES_NEW isolation + Trade.price immutability.
+  • Optimistic-update / money-display: cart remove/clear no-rollback is benign
+    (checkout uses the CLIENT cart so a removed item is never charged), and the
+    offer-savings / sell-fee / buy-order-shortfall displays are all already
+    guarded (atOrAboveAsk, p<=0, bal>=need). All discarded.
+  • Money-input parsing/bounds: every input (sell/offer/bid/buy-order/deposit/
+    withdraw) is dual-validated (DTO @DecimalMin/@DecimalMax + service guard) +
+    setScale(2,HALF_UP) BEFORE logic gates — no negative-flip, underpay, or
+    DevTools-bypass. All discarded.
+  • LIVE BUY E2E (jbin1315, real browser): bought a $1.42 system listing →
+    balance $47.99→$46.57 (exact debit), listing flipped SOLD with ownership
+    transferred, COMPLETED PURCHASE transaction written, NO escrow trade —
+    confirmed CORRECT (PurchaseService.buy:278 only opens a Trade for P2P
+    sellerUserId!=null; system listings resolve in-platform). Withdraw + deposit
+    UIs also verified (email-gate + 2FA + daily caps render correctly).
+  Also discarded the broader silent-error-as-empty sweep's 5 findings (ItemModal
+  recent-sales/buy-orders auxiliary panels + nav notification/offers badges
+  default-to-0 on error) — auxiliary content/counts where degrade-to-empty is
+  accepted practice; the high-stakes surfaces (wallet, NotificationsModal,
+  profile tabs) are already error-handled. Full Spock suite GREEN.
