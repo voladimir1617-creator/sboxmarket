@@ -189891,6 +189891,26 @@ html body .wallet-modal .wallet-amount-input-v2::placeholder {
 }
 /* END CSFLOAT-1:1 PARITY ship #128434 */
 
+/* batch 1081 — mobile fit. The desktop csfloat-parity min-width:220px on
+   the amount input (ship #128434) is a hard floor with no mobile shrink:
+   at <=640px the wallet modal is ~316px and the amount-wrap ~170px, so the
+   220px input ran 35px PAST the modal's right edge (right 399 vs modal-right
+   364) and was clipped on phones — on the primary deposit/withdraw action.
+   Let the input shrink to fill its wrap on mobile; desktop (>640px) keeps
+   the 220px csfloat parity untouched. */
+@media (max-width: 640px) {
+  html body .wallet-modal .wallet-amount-row,
+  html body .wallet-modal .wallet-amount-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  html body .wallet-modal .wallet-amount-input-v2 {
+    min-width: 0 !important;
+    width: 100% !important;
+    flex: 1 1 auto !important;
+  }
+}
+
 
 /* ============================================================
    CSFLOAT-1:1 PARITY ship #128435 (wallet-preset chips — REAL flat brand text)
