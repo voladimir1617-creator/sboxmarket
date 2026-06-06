@@ -1294,3 +1294,32 @@ VERIFIED CLEAN (no fixes — certification of the highest-stakes surfaces):
 Run audit tally: 6 clean lenses (email, XSS, IDOR, param-fuzz, React-effects,
 Stripe-webhook) + OG + security-headers + crawlability, on top of 5 shipped
 fixes. App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 184 — auction-settlement + TradeProtection + TOTP money/security (all clean)
+
+VERIFIED CLEAN (no fixes):
+- Auction settlement (agent — auction-end charge + trade open): NO REAL
+  DEFECTS. Single-settlement via Listing @Version (concurrent/replayed second
+  settle rolls back the whole debit+transaction+trade unit atomically) +
+  status!=ACTIVE guard; tradeService.open joins the same tx (no orphan trade).
+  Insufficient-funds re-check at settle diverts to no-sale return-to-seller
+  (no negative balance, no stuck auction). Auto-bid = second-price w/ solvency
+  re-check, charges resolved price. Anti-snipe: placeBid rejects bids past
+  expiresAt (shared now-snapshot); findExpiredAuctions only returns passed
+  rows. Losing bids deliberately NOT escrowed (bid-time solvency check only) →
+  no escrow leak; only winner debited, once. Buy-Now routes same settle().
+- TradeProtection claim (direct): pessimistic findByTradeIdForUpdate lock +
+  status!=ACTIVE idempotent no-op + atomic payout-then-flip; the cancel-path
+  double-payout race is explicitly prevented (lock pins happens-before so
+  cancel-refund and auto-claim-payout can't both credit the same trade);
+  honest credited-vs-queued user messaging. Double-purchase blocked
+  (PROTECTION_EXISTS). 2% rate.
+- TOTP/2FA verify (direct): brute-force-guarded — MAX_2FA_FAILS=5 +
+  per-user lockout, lockoutRemainingMs checked BEFORE verify (locked user
+  rejected without consuming a code), clearFailures on success. Documented:
+  closes the ~48h withdraw-rate-limit brute-force window on the 1M code space.
+
+Audit tally this run: 7 clean lenses (email, XSS, IDOR, param-fuzz,
+React-effects, Stripe-webhook, auction-settlement) + TradeProtection + TOTP +
+OG + security-headers + crawlability + error/CSRF, on top of 5 shipped fixes.
+Withdrawal-payout audit still in flight. App live on :8082; dev-login UNCOMMITTED.
