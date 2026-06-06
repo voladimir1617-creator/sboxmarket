@@ -1595,6 +1595,49 @@ class BidServiceSpec extends Specification {
         listing.buyerUserId == 10L
     }
 
+    def "settle creates the seller wallet if missing so the auction-win trade opens with a real sellerWalletId (data-consistency audit)"() {
+        // Invariant-1 fix: PurchaseService.buy GATES on SELLER_WALLET_MISSING, but
+        // settle is sweep-invoked and the winner is ALREADY debited — rejecting
+        // isn't an option. A seller who listed an item without ever creating a
+        // wallet would open a trade with sellerWalletId=null → release() skips the
+        // seller credit → the winner's payment is stranded. settle now
+        // get-or-creates the seller wallet so the trade always carries a real id.
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
+            seller: 99L, expiresAt: now - 1000L
+        )
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        def winnerBid = new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal("50"), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [winnerBid]
+        def winner = new SteamUser(id: 10L, steamId64: 'winner', banned: false)
+        steamUserRepository.findById(10L) >> Optional.of(winner)
+        def winnerWallet = new com.sboxmarket.model.Wallet(id: 500L, username: 'steam_winner', balance: new BigDecimal("500"))
+        walletRepository.findByUsername('steam_winner') >> winnerWallet
+        def seller = new SteamUser(id: 99L, steamId64: 'seller')
+        steamUserRepository.findById(99L) >> Optional.of(seller)
+        // Seller has NO wallet yet — the exact bug condition.
+        walletRepository.findByUsername('steam_seller') >> null
+        // JPA-style: a freshly-saved wallet gets an id.
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> if (w.id == null) w.id = 777L; w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        def trade = Mock(com.sboxmarket.service.TradeService)
+        service.tradeService = trade
+
+        when:
+        service.sweepExpired()
+
+        then: "the missing seller wallet is created and the trade opens with a real (non-null) sellerWalletId — not the stranding null"
+        1 * trade.open(100L, 1L, 'Wizard Hat', 10L, 500L, 99L, { it != null }, new BigDecimal("50"))
+
+        cleanup:
+        service.tradeService = null
+    }
+
     def "settle closes out every live bid when the winner is banned (no orphaned WINNING rows)"() {
         // No-sale settle path: a winner banned between bid-time and
         // settle-time returns the item to the seller. Every bid on the

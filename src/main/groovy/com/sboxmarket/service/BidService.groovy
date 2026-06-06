@@ -1330,7 +1330,29 @@ class BidService {
         // confirm/dispute/cancel flow for the buyer.
         if (listing.sellerUserId != null && tradeService != null) {
             def sellerUser = steamUserRepository.findById(listing.sellerUserId).orElse(null)
-            def sellerWallet = sellerUser ? walletRepository.findByUsername("steam_${sellerUser.steamId64}") : null
+            // Get-or-create the seller's wallet (data-consistency audit). The
+            // user-facing PurchaseService.buy GATES on SELLER_WALLET_MISSING, but
+            // settle is sweep-invoked and the winner is ALREADY debited above —
+            // rejecting isn't an option. If the seller listed an item but never
+            // hit a wallet-creating path (login / cart / listing / wallet page),
+            // sellerWallet was null → the trade opened with sellerWalletId=null →
+            // release() skips the seller credit and the winner's payment is
+            // stranded at the platform with only a "manual payout required" log.
+            // Lazily create it (same pattern as CartController / ListingController
+            // / SteamAuthService) so the trade always opens with a real
+            // sellerWalletId and release credits the seller. A rare concurrent
+            // create loses the unique race → this settle's REQUIRES_NEW tx rolls
+            // back and the sweep retries next tick (by when the row exists).
+            def sellerWallet = null
+            if (sellerUser != null) {
+                sellerWallet = walletRepository.findByUsername("steam_${sellerUser.steamId64}".toString())
+                if (sellerWallet == null) {
+                    sellerWallet = walletRepository.save(new com.sboxmarket.model.Wallet(
+                        username: "steam_${sellerUser.steamId64}".toString(),
+                        balance : BigDecimal.ZERO,
+                        currency: 'USD'))
+                }
+            }
             tradeService.open(
                 listing.id,
                 listing.item?.id,
