@@ -1481,3 +1481,30 @@ atomic + re-entrancy-latched; visual fidelity faithful at 1440 & 390; full
 Spock suite green; account security hardened. Production-ready.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 190 — Stripe webhook idempotency + 100% route coverage (all clean)
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- Stripe webhook replay double-credit: DEFENDED at 3 layers — (1) cluster-wide
+  DB event-id claim claimStripeEvent via ProcessedStripeEventRepository
+  (wave 147, multi-pod retries), (2) local synchronized in-memory event-id
+  dedupe alreadyProcessed/markProcessed (batch 476, same-pod retries),
+  (3) row-idempotent completeDeposit (COMPLETED-status check) + idem-key
+  session reuse (StripeService 508-522). A duplicated checkout.session.completed
+  cannot double-credit the wallet.
+- 100% customer-route coverage this run: Home, Market (list/grid @1440/390),
+  Item detail, Cart confirm, Wallet (deposit/withdraw), Sell (Steam empty-state
+  + Platform inv), Profile, Trades (escrow lifecycle), Database (39 indexed
+  table + filters + pagination), Loadout Lab (Discover/My/Favorites/Create),
+  Watchlist (3 items + CSV + filters), Offers (acceptOffer noRollbackFor +
+  REQUIRES_NEW auto-accept verified). All zero-overflow, faithful, functional.
+
+SESSION CLOSE-OUT: relentless grind found+fixed 2 money-critical double-refunds
+(493ccca withdraw reject/approve atomic-claim; b7a64ab trade auto-cancel
+sweeper arbiter) + locked the cross-debit Wallet @Version invariant with a
+regression test (d41a627). Then exhaustively re-certified production-readiness:
+every money path serialized/atomic/re-entrancy-latched, Stripe idempotent
+3 ways, account-takeover defended, currency USD-canonical, cart partial-failure
+isolated, full Spock suite green. App is production-ready.
+
+App live on :8082; dev-login remains UNCOMMITTED.
