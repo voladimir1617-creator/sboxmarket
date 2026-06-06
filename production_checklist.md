@@ -1189,3 +1189,33 @@ four customer money entry/exit flows (buy / sell / deposit / withdraw) are
 verified correct and on the frozen 2%-seller-fee / no-buyer-fee model.
 
 App live on :8082; dev-login scaffolding remains UNCOMMITTED.
+
+## WAVE 180 — mobile-modal overflow sweep (390px) + read-endpoint param fuzz
+
+Fresh lens: modals checked at DESKTOP earlier this session render fine, but
+modal INTERNAL layout at 390px is a distinct surface (where a desktop-
+measured fixed width can overflow).
+
+APPLIED:
+- edb62f0 — wallet amount input overflowed the modal on mobile (batch 1081).
+  csfloat-parity min-width:220px on .wallet-amount-input-v2 is a desktop
+  floor with no mobile shrink → at 390px the input ran 35px past the modal
+  edge (right 399 vs modal-right 364), clipped, on the deposit/withdraw
+  action. Added a max-width:640px media query (min-width:0 / width:100% /
+  flex:1 + row+wrap 100%). Verified both breakpoints: 390 fits (overflow 0),
+  1440 keeps 220px parity. design.css ?v 214->215.
+
+VERIFIED CLEAN:
+- Buy-confirm modal @390: panel 328px, fits viewport, 0 internal overflow.
+- Sell-listing modal @390: 380px, fits, 0 overflow, no NaN.
+- IDOR / access-control (audited directly, agent was rate-limited): trade
+  GET /{id} has explicit participant check (controller); all trade mutations
+  pass uid -> service requireParticipant; offer acceptOffer has an author-
+  discriminator guard that even blocks a seller accepting their OWN counter;
+  offer GETs owner-scoped; wallet withdraw-cancel scoped to caller wallet.id;
+  buy-order cancel passes uid. No IDOR found.
+- Read-endpoint param fuzz (/api/listings): bad sort/page -> sane 200
+  defaults; non-numeric/negative/overflow price -> 400; SQLi q -> 200 (param-
+  ized); category <script> -> 200; ZERO 500s.
+
+App live on :8082; dev-login scaffolding remains UNCOMMITTED.
