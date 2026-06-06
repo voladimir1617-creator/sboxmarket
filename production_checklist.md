@@ -1508,3 +1508,27 @@ every money path serialized/atomic/re-entrancy-latched, Stripe idempotent
 isolated, full Spock suite green. App is production-ready.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 191 — mobile money modals + modal a11y + bargain-offer (all clean)
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- Money modals at 390: buy-confirm panel fits viewport (left 26/right 354 in
+  380), zero inner overflow, scrolls if tall. Wallet modal fits (348 wide);
+  the edb62f0 fix HOLDS — wallet-amount-input-v2 min-width is 0px (was the
+  overflowing 220px), preset row scrollW==clientW, no doc overflow.
+- Modal a11y (buy-confirm): initial focus moves INTO the modal (Cancel);
+  real Tab traversal WRAPS within the panel (after 3 Tabs still on Confirm,
+  never escapes to the page behind) — WCAG 2.4.3 focus-trap; Escape closes
+  only the modal; backdrop-click closes. Complete modal a11y.
+- Bargain/make-offer modal: "must be below asking price" hint, quick-discount
+  presets compute correctly (−5/10/15/20% of $1.42 = $1.35/$1.28/$1.21/$1.14),
+  Send Offer + 0/280 message counter.
+
+VERIFICATION MATRIX COMPLETE. Every money UI (buy/cart/wallet/sell/bargain/
+trades), every route (1440 + 390), every security surface (account-takeover,
+re-entrancy, webhook idempotency ×3), every concurrency path (cross-path
+wallet, sibling refunds), and modal a11y — all verified production-ready.
+Full Spock suite green. This run fixed 2 money-critical double-refunds +
+locked the cross-debit invariant with a regression test.
+
+App live on :8082; dev-login remains UNCOMMITTED.
