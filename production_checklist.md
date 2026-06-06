@@ -2127,3 +2127,39 @@ clipped buttons). SHIPPED:
     fully on-screen (right 190 < 380, reachable). Desktop row unchanged (mobile-
     scoped). Also swept this pass — clean at 380: /watchlist, /settings, /wallet
     (deposit + withdraw).
+
+WAVE 187 — fresh-angle verification (3 read-only adversarial audits + visual
+checks; all CLEAN with proof, no code changes warranted):
+  • AFFILIATE/REFERRAL credit abuse → CERTIFIED CLEAN: the affiliate surface
+    grants NO real money credit. It is a display-only marketing modal
+    (modals.js:3001 AffiliateModal) with a mailto "Apply" link — no referral
+    code, claim endpoint, bonus service, referral DB column, or wallet credit
+    anywhere. New accounts seed balance at ZERO (SteamAuthService:291). Nothing
+    to exploit (self-referral / farming / IDOR all N/A).
+  • REVIEW/RATING abuse → CERTIFIED CLEAN: trade-anchored (leaveReview requires
+    a VERIFIED trade where caller is the buyer; subject derived from
+    trade.sellerUserId, never client). One-review-per-(fromUser,trade) via DB
+    UNIQUE uq_reviews_from_user_trade + DIVE-catch race handling. Self-review
+    blocked (SELF_REVIEW); self/own-stall helpful-vote blocked. Rating clamped
+    1-5 server-side (@Min/@Max + check). Edit/delete/reply ownership enforced.
+    Aggregates computed on-read (AVG/COUNT) → stale-proof, div-by-zero-safe.
+    Comment + reply sanitized via TextSanitizer; React escapes on render (no
+    dangerouslySetInnerHTML anywhere).
+  • DEPOSIT / WITHDRAW idempotency + ordering → CERTIFIED CLEAN: deposit credit
+    gated by atomic event-id claim (processed_stripe_events UNIQUE, V230) AND
+    the PENDING→COMPLETED status edge (completeDeposit:2245) → webhook
+    redelivery is a no-op; amount re-read from Stripe ground truth + signature
+    verified (no forged self-credit). Withdraw DEBITS+flush()es under @Version
+    BEFORE Transfer.create (requestWithdrawal:1116) → a Transfer throw rolls the
+    debit back, no orphan payout; transfer.reversed re-credits once
+    (claimReverseWithdrawal); concurrent withdraws serialize on @Version (no
+    overdraw); bounds/scale(2dp HALF_UP)/daily-cap enforced. Non-defect note
+    (NOT actioned — belt-and-braces only, not exploitable, carries migration/
+    existing-dup risk = churn): transactions.stripe_reference is a non-unique
+    index; credit is gated on status not reference, so absence is safe.
+  • VISUAL verification (no defects): webfonts healthy (Roboto + Roboto Mono +
+    Material Symbols all document.fonts.check TRUE at 400/500/600/700 — the
+    "fallback to Arial" trap is absent); desktop 1440 unaffected by the wave
+    183-186 mobile media-query fixes (/me/stall flex-wrap:nowrap, single-row);
+    desktop marketplace 1440 csfloat-faithful; .grid-card hover lift wired
+    (translateY(-3px) + 0 14px 36px shadow + accent border, 360ms eased).
