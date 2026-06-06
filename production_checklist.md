@@ -1571,3 +1571,43 @@ VERIFIED CLEAN (no fix — verify-before-fixing):
   soft-close 20-extension cap, self-offer guard (OfferService 218).
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 193 — adversarial SECURITY wave (3 agents; all clean)
+
+Fanned out 3 read-only security agents + solo probes. ZERO new vulns.
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- CSRF (Agent D, HIGH conf): MITIGATED — SameSite=Lax session cookie +
+  double-submit CsrfFilter (sbox_csrf cookie ↔ X-CSRF-Token header,
+  constant-time compare, 403 on mismatch) + credentialed-CORS locked to
+  explicit origins (wildcard branch forces allowCredentials=false) + NO
+  state-changing GETs + dev-login GET hard-gated to non-prod (404 in prod).
+- Privilege/balance escalation (Agent D, HIGH conf): SAFE — zero
+  @RequestBody→entity binding; ProfileController reads only specific keys
+  (email/tradeUrl/bio); protected fields (role/balance/frozen/totpSecret/…)
+  @JsonIgnore'd + service-only writes; every Admin/CSR route requireAdmin/
+  requireCsr-first (creditWallet/forceReleaseTrade/ban double-gated).
+- IDOR (Agent E, HIGH conf): NONE — all 36 controllers traced
+  controller→service; every id-taking endpoint verifies owner/participant
+  vs session user before read/mutate; consistent "same-as-missing 404"
+  anti-enumeration (Support/ApiKey/WatchlistAlert/Loadout/SavedSearch).
+  Wallet/transactions/GDPR-export take NO client id (session-derived).
+- SSE + webhook (Agent F, HIGH conf): SSE = only the public auction bid
+  feed keyed by listingId (no per-user stream to IDOR), gated vs
+  hidden/non-auction, double-capped (200/listing + 40/10s), bidder
+  internal-id redacted. Stripe webhook = signature verified (constructEvent
+  on raw body) as the FIRST statement before any mutation; bad/missing
+  sig → 400 no side-effects; secret env-sourced + prod fail-fast.
+- Solo: ProdConfigValidator fail-fast on missing/placeholder secrets +
+  sk_test_ key + localhost APP_PUBLIC_URL (System.exit(1)); RateLimitFilter
+  prefers unspoofable CF-Connecting-IP (XFF-first fallback low-sev/anon-only,
+  not churned); zero dangerouslySetInnerHTML + innerHTML only static/app-data
+  + no eval (XSS clean); SellListingRequest DTO mass-assignment-safe.
+
+NOTED (adequate, not churned — clean layering): StripeService.refundDeposit
+is gated only at its sole caller AdminController.refundDeposit (requireAdmin),
+not re-asserted internally like creditWallet/forceReleaseTrade. Pushing
+requireAdmin into the payments-layer service would couple authz into it;
+single admin-gated caller makes it adequate today.
+
+App live on :8082; dev-login remains UNCOMMITTED.
