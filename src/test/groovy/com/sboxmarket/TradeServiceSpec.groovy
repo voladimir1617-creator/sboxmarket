@@ -584,6 +584,65 @@ class TradeServiceSpec extends Specification {
         1 * itemRepository.decrementTotalSold(77L)
     }
 
+    // ── bot-escrow custody release on cancel (data-consistency audit) ──
+    // A cancel/auto-cancel returns the DB listing to the seller but, before
+    // this fix, never released the bot's IN_CUSTODY hold on the real Steam
+    // asset → the physical item was stranded in the bot forever. The escrow
+    // return is deferred (afterCommit), which runs inline in these no-tx unit
+    // specs (same as the totalSold decrement above), so it's assertable here.
+
+    def "cancel returns the bot-held item to the seller when escrow is enabled (data-consistency audit)"() {
+        given: "a cancellable trade whose listing's real asset the bot holds, escrow ON"
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L, item: null)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        def escrow = Mock(com.sboxmarket.service.SteamEscrowService)
+        escrow.escrowEnabled >> true
+        service.steamEscrowService = escrow
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: "bot custody is released back to the seller for the cancelled trade's listing"
+        1 * escrow.returnToSeller(100L, _)
+
+        cleanup:
+        service.steamEscrowService = null
+    }
+
+    def "cancel does NOT touch bot escrow when escrow is disabled"() {
+        given: "escrow service present but disabled"
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L, item: null)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        def escrow = Mock(com.sboxmarket.service.SteamEscrowService)
+        escrow.escrowEnabled >> false
+        service.steamEscrowService = escrow
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: "no return offer is attempted"
+        0 * escrow.returnToSeller(_, _)
+
+        cleanup:
+        service.steamEscrowService = null
+    }
+
     def "cancel does not call decrementTotalSold when the listing has no item (system listing safety)"() {
         given:
         def t = tradeIn('PENDING_SELLER_SEND')

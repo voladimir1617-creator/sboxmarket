@@ -102,6 +102,15 @@ class TradeService {
     // kept). `required = false` so older test contexts still wire.
     @Autowired(required = false) TradeProtectionService tradeProtectionService
 
+    /** Bot-escrow custody (data-consistency audit). When escrow is enabled the
+     *  seller's real Steam asset is held by the bot (IN_CUSTODY) from list-time
+     *  until it's either delivered to a buyer or returned to the seller. Every
+     *  unhappy-path trade exit (cancel / stale-seller / banned-seller
+     *  auto-cancel) must release that custody back to the seller, else the
+     *  physical item is stranded in the bot forever. `required = false` so unit
+     *  specs and the escrow-disabled (dev/CI) path still wire. */
+    @Autowired(required = false) com.sboxmarket.service.SteamEscrowService steamEscrowService
+
     /** Cap on in-trade messages per sender per 10 min. Anti-spam — a
      *  compromised account trying to DM every counterparty will trip this
      *  long before the chat becomes unusable for legitimate users. */
@@ -1179,6 +1188,37 @@ class TradeService {
                     itemRepository.decrementTotalSold(_itemIdForDecrement)
                 } catch (Exception e) {
                     log.warn("totalSold decrement failed for item ${_itemIdForDecrement} (trade ${_tradeIdForLog}): ${e.message}")
+                }
+            }
+        }
+
+        // Bot-escrow RETURN leg (data-consistency audit). When escrow is enabled
+        // the seller's real Steam asset is held by the bot (IN_CUSTODY) from
+        // list-time. Flipping the DB listing row back to the seller above WITHOUT
+        // releasing bot custody stranded the physical item in the bot forever on
+        // every unhappy-path trade exit (cancel / stale-seller / banned-seller
+        // auto-cancel) — the item was neither in the seller's Steam inventory nor
+        // on the market, while the DB told them it was relistable, and a relist
+        // would double-list an asset the bot still held. `returnToSeller` is
+        // idempotent + custody-guarded (no-op unless IN_CUSTODY, so an
+        // already-DELIVERED item is never clawed back from a buyer) and self-gates
+        // when escrow is off. Deferred to afterCommit (REQUIRES_NEW) like the
+        // totalSold decrement above, so the Steam-bot offer + its own tx run ONLY
+        // after the cancel + buyer-refund durably commit — the item is never
+        // returned if the cancel rolls back. Gated on escrowEnabled outside the
+        // defer so the disabled/CI path never registers an empty afterCommit hook.
+        // Mirrors SellService.cancelListing's return leg (this is the trade-exit
+        // twin that block's comment refers to).
+        if (steamEscrowService?.escrowEnabled && t.listingId != null) {
+            final Long _listingIdForReturn = t.listingId
+            final Long _tradeIdForReturnLog = t.id
+            deferOrRun {
+                try {
+                    steamEscrowService.returnToSeller(_listingIdForReturn,
+                        "Trade #${_tradeIdForReturnLog} cancelled — returning held item to seller".toString())
+                } catch (Exception e) {
+                    log.warn("Escrow return-to-seller failed for listing ${_listingIdForReturn} " +
+                        "(trade ${_tradeIdForReturnLog}): ${e.message}")
                 }
             }
         }
