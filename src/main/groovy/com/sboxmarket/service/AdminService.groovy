@@ -613,16 +613,31 @@ class AdminService {
         if (txType != 'WITHDRAW' && txType != 'WITHDRAWAL') throw new BadRequestException("NOT_WITHDRAWAL", "Transaction is not a withdrawal")
         if (tx.status != 'PENDING') throw new BadRequestException("NOT_PENDING", "Withdrawal is not pending")
 
-        // Refund the wallet — withdrawal was debited optimistically on request
+        // Atomic claim (batch 1082) — flip PENDING→FAILED in ONE conditional
+        // UPDATE BEFORE crediting the refund, so this reject can't double-
+        // refund the wallet when it races the user's atomic self-cancel
+        // (claimCancelPendingWithdrawal, wave 127), a concurrent reject, or an
+        // approve. The pre-read status check above is a friendly fast-fail;
+        // THIS is the race-safe gate — only the caller that wins the flip
+        // (returns 1) issues the wallet credit. Reason + updatedAt are stamped
+        // inside the same atomic UPDATE. (Wave 127 hardened the user-side
+        // cancel but missed this symmetric admin-reject half — the cancel
+        // path's own comment names rejectWithdrawal as the racing party.)
+        int claimed = transactionRepository.claimRejectWithdrawal(
+            tx.id, System.currentTimeMillis(), " — REJECTED: " + (reason ?: 'no reason given'))
+        if (claimed != 1) {
+            // Lost the race — a concurrent cancel/reject already resolved (and
+            // refunded) this row. Do NOT credit the wallet a second time.
+            throw new BadRequestException("NOT_PENDING",
+                "Withdrawal is no longer pending — it was already resolved.")
+        }
+
+        // Refund the wallet — withdrawal was debited optimistically on request.
         def wallet = walletRepository.findById(tx.walletId).orElse(null)
         if (wallet != null) {
             wallet.balance = wallet.balance + tx.amount
             walletRepository.save(wallet)
         }
-        tx.status = 'FAILED'
-        tx.description = (tx.description ?: '') + " — REJECTED: " + (reason ?: 'no reason given')
-        tx.updatedAt = System.currentTimeMillis()
-        transactionRepository.save(tx)
 
         notifyWalletOwner(tx.walletId, 'WITHDRAWAL_REJECTED',
             "Withdrawal rejected — funds returned",
@@ -644,7 +659,7 @@ class AdminService {
             walletOwnerId(tx.walletId), tx.id,
             "Rejected withdrawal #${tx.id} of \$${tx.amount}: ${reason ?: '(no reason)'}")
         log.info("Admin ${adminUserId} rejected withdrawal ${tx.id} for wallet ${tx.walletId}, refunded \$${tx.amount}")
-        [id: tx.id, status: tx.status, refunded: tx.amount]
+        [id: tx.id, status: 'FAILED', refunded: tx.amount]
     }
 
     // ── User management ─────────────────────────────────────────────

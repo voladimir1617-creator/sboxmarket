@@ -310,6 +310,37 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     """)
     int claimReverseWithdrawal(@Param('id') Long id, @Param('now') long now)
 
+    /**
+     * Atomic claim for an admin withdrawal REJECTION (batch 1082). Flips a
+     * PENDING withdrawal to FAILED in ONE conditional UPDATE so {@link
+     * com.sboxmarket.service.AdminService#rejectWithdrawal} issues the wallet
+     * refund EXACTLY ONCE. Returns 1 = this caller owns the refund, 0 = a
+     * concurrent reject / the user's self-cancel / any other terminal flip
+     * already resolved the row (the caller MUST bail WITHOUT crediting).
+     *
+     * The symmetric half of {@link #claimCancelPendingWithdrawal} (wave 127).
+     * That fix made the USER-side cancel atomic but left the ADMIN-side reject
+     * as the old findById-read + unconditional `balance += amount` credit — so
+     * a reject racing a cancel (or two concurrent rejects, or reject racing
+     * approve) STILL double-refunded the wallet: both paths read the same
+     * PENDING row and both credited, while only the last status-overwrite
+     * stuck. Transaction has no @Version, and the wallet @Version only catches
+     * the read-before-commit interleaving, so this conditional UPDATE is the
+     * authoritative gate. Matches both WITHDRAW/WITHDRAWAL spellings; stamps
+     * the rejection reason + updatedAt in the same atomic write.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+           SET t.status      = 'FAILED',
+               t.updatedAt   = :now,
+               t.description = CONCAT(COALESCE(t.description, ''), :suffix)
+         WHERE t.id     = :id
+           AND t.status = 'PENDING'
+           AND t.type   IN ('WITHDRAW', 'WITHDRAWAL')
+    """)
+    int claimRejectWithdrawal(@Param('id') Long id, @Param('now') long now, @Param('suffix') String suffix)
+
     /** Sum of withdrawal amounts the wallet has requested within a
      *  rolling window — drives the daily withdrawal cap enforced at
      *  the /api/wallet/withdraw controller (batch 357). Includes

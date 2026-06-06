@@ -925,13 +925,14 @@ class AdminServiceSpec extends Specification {
         transactionRepository.save(_) >> { args -> args[0] }
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { args -> args[0] }
+        transactionRepository.claimRejectWithdrawal(1L, _, _) >> 1
 
         when:
         def result = service.rejectWithdrawal(1L, 1L, 'bad payout details')
 
         then: 'admin can reject and the wallet gets refunded — the row would otherwise be unreachable'
         wallet.balance == new BigDecimal("25")
-        tx.status == 'FAILED'
+        result.status == 'FAILED'
         result.refunded == new BigDecimal("25")
     }
 
@@ -944,14 +945,36 @@ class AdminServiceSpec extends Specification {
         transactionRepository.save(_) >> { args -> args[0] }
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { args -> args[0] }
+        transactionRepository.claimRejectWithdrawal(1L, _, _) >> 1
 
         when:
         def result = service.rejectWithdrawal(1L, 1L, 'KYC failed')
 
         then:
         wallet.balance == new BigDecimal("25")
-        tx.status == 'FAILED'
+        result.status == 'FAILED'
         result.refunded == new BigDecimal("25")
+    }
+
+    def "rejectWithdrawal does NOT double-credit when the atomic claim is lost (batch 1082)"() {
+        given: 'a withdrawal whose row a concurrent cancel/reject already flipped out of PENDING'
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAWAL', status: 'PENDING',
+                                  amount: new BigDecimal("25"))
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: BigDecimal.ZERO)
+        transactionRepository.findById(1L) >> Optional.of(tx)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        // The conditional UPDATE matched 0 rows — a sibling cancel/reject won
+        // the PENDING→terminal flip first (and already refunded).
+        transactionRepository.claimRejectWithdrawal(1L, _, _) >> 0
+
+        when:
+        service.rejectWithdrawal(1L, 1L, 'duplicate reject')
+
+        then: 'the wallet is NOT refunded a second time; caller told it is no longer pending'
+        def e = thrown(BadRequestException)
+        e.code == 'NOT_PENDING'
+        wallet.balance == BigDecimal.ZERO
+        0 * walletRepository.save(_)
     }
 
     // ── dashboardStats (aggregate path) ───────────────────────────
