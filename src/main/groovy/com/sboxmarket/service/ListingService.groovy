@@ -498,6 +498,31 @@ class ListingService {
 
     @Transactional
     Listing createListing(Listing listing) {
+        // Double-list TOCTOU guard. /api/steam/list[-bulk] do a check-then-
+        // insert (existsBySellerUserIdAndAssetIdAndStatusIn → createListing)
+        // with NO DB uniqueness backstop — V250's index is intentionally
+        // non-unique (terminal / legacy rows legitimately share asset_id). So
+        // two concurrent same-asset POSTs (two tabs / a scripted double-submit
+        // that bypasses the client latch) could BOTH pass the controller's
+        // exists-check before either INSERTed → one physical Steam asset listed
+        // twice → both can sell → the seller is paid twice for one
+        // undeliverable copy (or a buyer is stranded → refund/dispute). Close
+        // it HERE at the shared INSERT choke point: pessimistically lock the
+        // seller's row so their concurrent list attempts serialize, then
+        // re-check the duplicate under the lock. Only Steam-asset listings
+        // (assetId set) are guarded; system / non-Steam listings (null assetId)
+        // skip it. Per-seller lock → no cross-seller contention; multi-pod-safe.
+        // The controller's pre-check stays as a cheap friendly fast-path for the
+        // common sequential-relist case; this is the atomic backstop for the race.
+        if (listing.sellerUserId != null && listing.assetId != null && steamUserRepository != null) {
+            steamUserRepository.findByIdForUpdate(listing.sellerUserId)
+            if (listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(
+                    listing.sellerUserId, listing.assetId,
+                    ['ACTIVE', com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW])) {
+                throw new BadRequestException("ALREADY_LISTED",
+                    "You already have an active listing for this item. Cancel it before listing it again.")
+            }
+        }
         def saved = listingRepository.save(listing)
         updateItemFloorPrice(listing.item.id)
         // Deferred — same rationale as save() above and SellService.relist

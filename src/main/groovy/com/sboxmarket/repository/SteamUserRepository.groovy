@@ -3,9 +3,11 @@ package com.sboxmarket.repository
 import com.sboxmarket.model.SteamUser
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
+import jakarta.persistence.LockModeType
 
 @Repository
 interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
@@ -309,4 +311,17 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
                              @Param('before') Integer before,
                              @Param('now') Integer now,
                              @Param('syncedAt') Long syncedAt)
+
+    /** Pessimistic write-lock on one user row — serializes a seller's
+     *  concurrent listing-creation attempts so the duplicate-asset
+     *  check-then-insert in {@link com.sboxmarket.service.ListingService#createListing}
+     *  is atomic (closes the double-list TOCTOU two same-asset POSTs to
+     *  /api/steam/list[-bulk] would otherwise exploit). Held only for the
+     *  brief duplicate check + the listing INSERT; per-seller, so it never
+     *  contends across distinct sellers; multi-pod-safe (real DB row lock).
+     *  Mirrors the findByIdForUpdate pessimistic pattern on Wallet/Listing/
+     *  Trade. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM SteamUser u WHERE u.id = :id")
+    SteamUser findByIdForUpdate(@Param('id') Long id)
 }

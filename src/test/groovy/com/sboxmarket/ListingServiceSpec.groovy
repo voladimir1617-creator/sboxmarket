@@ -47,6 +47,57 @@ class ListingServiceSpec extends Specification {
         )
     }
 
+    // ── createListing: double-list TOCTOU guard (pessimistic seller lock) ──
+
+    def "createListing locks the seller and rejects a duplicate active asset listing (ALREADY_LISTED)"() {
+        given: "a Steam-asset listing whose seller already has a live listing for the same asset"
+        def steamUserRepository = Mock(com.sboxmarket.repository.SteamUserRepository)
+        def svc = new ListingService(
+            listingRepository:   listingRepository,
+            itemRepository:      itemRepository,
+            buyOrderService:     buyOrderService,
+            steamUserRepository: steamUserRepository
+        )
+        def listing = listingFor()
+        listing.sellerUserId = 10L
+        listing.assetId = 'ASSET-X'
+
+        when:
+        svc.createListing(listing)
+
+        then: "the seller row is pessimistically locked, the duplicate is found, and nothing is inserted"
+        1 * steamUserRepository.findByIdForUpdate(10L)
+        1 * listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(10L, 'ASSET-X', ['ACTIVE', 'PENDING_ESCROW']) >> true
+        0 * listingRepository.save(_)
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'ALREADY_LISTED'
+    }
+
+    def "createListing skips the seller lock + dup-check for system/non-Steam listings (null assetId)"() {
+        given: "a non-Steam listing (no assetId) — the guard must not engage"
+        def steamUserRepository = Mock(com.sboxmarket.repository.SteamUserRepository)
+        def svc = new ListingService(
+            listingRepository:   listingRepository,
+            itemRepository:      itemRepository,
+            buyOrderService:     buyOrderService,
+            steamUserRepository: steamUserRepository
+        )
+        def listing = listingFor()
+        listing.sellerUserId = 10L
+        listing.assetId = null
+        // updateItemFloorPrice runs post-save; Optional.empty() makes it a no-op
+        // so the test doesn't NPE on the unstubbed findById.
+        itemRepository.findById(_) >> Optional.empty()
+
+        when:
+        svc.createListing(listing)
+
+        then: "no lock, no duplicate probe — the listing is inserted normally"
+        0 * steamUserRepository.findByIdForUpdate(_)
+        0 * listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(*_)
+        1 * listingRepository.save(_) >> { Listing l -> l }
+    }
+
     // ── getActiveListings: filters are pushed into findActivePublic ──
 
     def "getActiveListings forwards search as the q param"() {
