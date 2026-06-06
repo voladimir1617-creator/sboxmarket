@@ -1915,3 +1915,32 @@ backlog-noted 1, discarded the rest:
   rollback (offer stays PENDING-retryable on a transient buyer hold — defensible,
   clean rollback, no corruption). wave-28 offer sub-cent normalization re-
   verified solid. Full Spock suite GREEN.
+
+WAVE 178 — auction-settle money-correctness clean-certification (fresh agent).
+ZERO real defects; the agent self-corrected most of its own findings:
+  • The flagged "Wallet @Version double-undercharge at settle" rests on a FALSE
+    premise (that Hibernate doesn't re-check a loaded entity's @Version on
+    update — it does; that's the whole mechanism). BidService.settle debits via
+    walletRepository.save (:1291) AND flips the listing via listingRepository
+    .save (:1295), both @Version entities, so two concurrent settles (same
+    auction, OR same winner-wallet across two auctions) → the loser throws
+    ObjectOptimisticLockingFailureException → its whole @Transactional settle
+    (incl. the debit) rolls back → exactly-once debit, retried next sweep tick.
+    Exactly what ConcurrentBuyIntegrationSpec already proves. DISCARD.
+  • Soft-close extension, multi-settle idempotency (findExpiredAuctions ACTIVE
+    filter + in-memory guard), ban/freeze/dispute re-check at settle, seller-
+    wallet get-or-create race (REQUIRES_NEW rollback + retry), tie-bid winner
+    (deterministic: amount desc, createdAt asc, id asc), and amount-charged
+    (winner pays winning bid; seller credited price−2%, setScale(2)) — all
+    verified correctly handled. DISCARD.
+  • No-2nd-bidder-fallback = deliberate feature choice (return-to-seller/no-
+    charge is SAFE; auto-charging an unconsenting 2nd bidder would be worse),
+    and winner==seller-at-settle needs account compromise (self-bid blocked at
+    bid-time). Not money bugs.
+  Net this continuation (waves 174-178): SHIPPED 3 fixes+tests (dispute-hold,
+  MyStall null-item crash [proven live], 4-tab silent-error), FLAGGED 2 HIGH
+  concurrency defects with full specs (escrow custody double-send; double-list
+  TOCTOU), BACKLOGGED 1 (Offer @Version), and clean-certified the entire money/
+  correctness surface (refund, optimistic-update, money-input, ban/freeze
+  matrix, auction settle) + every core flow live (buy/sell/withdraw/deposit/cart
+  + mobile). Full Spock suite GREEN.
