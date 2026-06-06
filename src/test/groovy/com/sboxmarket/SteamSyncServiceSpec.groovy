@@ -328,6 +328,55 @@ class SteamSyncServiceSpec extends Specification {
         1 * notificationService.push(10L, 'STEAM_INVENTORY', _, { it.contains('3') }, _, '/sell')
     }
 
+    // ── syncNow cost-amplification cooldown (cost-amp audit) ──────
+    //
+    // syncNow deliberately clears the inventory cache + forces a full
+    // multi-call Steam round-trip. RateLimitFilter's 20/10s bucket bounds
+    // request COUNT but not this 1->many outbound amplification, so a
+    // scripted client could proxy-DoS Steam / burn egress + API quota /
+    // exhaust the Tomcat thread pool. The MANUAL_SYNC_COOLDOWN_MS gate (on
+    // the durable lastSyncedAt) caps a forced Steam round-trip to <=1 per
+    // window per user; a re-click inside the window returns the already-fresh
+    // persisted state without touching Steam.
+
+    def "syncNow THROTTLES a re-click within the cooldown — fresh state, NO Steam round-trip"() {
+        given: "a user synced just now (well inside MANUAL_SYNC_COOLDOWN_MS)"
+        def user = new SteamUser(id: 10L, steamId64: '111',
+            steamInventorySize: 5, lastSyncedAt: System.currentTimeMillis())
+        steamUserRepository.findById(10L) >> Optional.of(user)
+
+        when:
+        def result = service.syncNow(10L)
+
+        then: "the persisted state is echoed back as a throttled success"
+        result.ok == true
+        result.throttled == true
+        result.inventorySize == 5
+        result.retryInSec >= 1
+
+        and: "NO Steam round-trip — neither the cache-clear nor the inventory fetch fires"
+        0 * steamInventoryService.clearCacheFor(_)
+        0 * steamInventoryService.fetchInventory(_)
+    }
+
+    def "syncNow proceeds (real Steam hit) once lastSyncedAt is older than the cooldown"() {
+        given: "a user whose last sync was well beyond MANUAL_SYNC_COOLDOWN_MS ago"
+        def user = new SteamUser(id: 10L, steamId64: '111',
+            steamInventorySize: 5,
+            lastSyncedAt: System.currentTimeMillis() - (SteamSyncService.MANUAL_SYNC_COOLDOWN_MS + 60_000L))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamInventoryService.fetchInventory('111') >> [[a: 1], [a: 2]]
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.syncNow(10L)
+
+        then: "the cooldown is past — a real refresh runs (cache cleared + Steam fetched)"
+        1 * steamInventoryService.clearCacheFor('111')
+        result.ok == true
+        result.throttled == null
+    }
+
     // ── syncAllUsers (scheduled sweep) ────────────────────────────
 
     def "syncAllUsers is a no-op when no users are stale"() {

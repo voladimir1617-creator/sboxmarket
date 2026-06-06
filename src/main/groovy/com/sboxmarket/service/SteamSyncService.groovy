@@ -26,6 +26,18 @@ class SteamSyncService {
     // 20 minutes — explicit in ms so the value isn't hidden behind a unit string.
     static final long SYNC_INTERVAL_MS = 20L * 60L * 1000L
 
+    /** Cooldown on the cache-bypassing on-demand sync (POST /api/steam/sync).
+     *  syncNow deliberately drops the inventory cache and forces a full
+     *  multi-call Steam round-trip (upsertUser + fetchInventory), holding a
+     *  Tomcat worker up to ~18s. RateLimitFilter's 20/10s bucket bounds request
+     *  COUNT but NOT this 1->many outbound-Steam amplification, so a scripted
+     *  client could proxy-DoS Steam, burn our egress + Steam-API quota, and
+     *  exhaust the thread pool. This cooldown caps a forced Steam round-trip to
+     *  at most once per window per user — 15s is generous for a legitimate
+     *  "I just got an item, refresh" click while cutting the worst-case forced
+     *  outbound rate ~30x. */
+    static final long MANUAL_SYNC_COOLDOWN_MS = 15L * 1000L
+
     /** How stale a user's Steam profile can be before the sweeper picks them
      *  up. Combined with the per-tick batch cap below, this is how we
      *  guarantee every user gets refreshed on a rolling schedule. */
@@ -259,6 +271,28 @@ class SteamSyncService {
     Map syncNow(Long userId) {
         def user = steamUserRepository.findById(userId).orElse(null)
         if (user == null) return [ok: false, error: 'Unknown user']
+        // Cost-amplification cooldown (cost-amp audit). A forced sync clears the
+        // cache + makes a full multi-call Steam round-trip below; without a gate,
+        // the RateLimitFilter count bucket alone lets a scripted client amplify
+        // one POST into many slow outbound Steam calls (egress/quota burn +
+        // thread-pool exhaustion). If the inventory was synced within the
+        // cooldown (a prior click OR the 20-min sweep), the data is already
+        // fresh — return the persisted state WITHOUT re-hitting Steam. Gating on
+        // the row's lastSyncedAt keeps this durable + multi-pod safe (unlike the
+        // in-memory limiter). A rapid re-click updates lastSyncedAt via syncOne,
+        // so the cooldown self-enforces.
+        long nowMs = System.currentTimeMillis()
+        long lastSync = user.lastSyncedAt ?: 0L
+        if (lastSync > 0L && (nowMs - lastSync) < MANUAL_SYNC_COOLDOWN_MS) {
+            long retryInSec = Math.max(1L, (MANUAL_SYNC_COOLDOWN_MS - (nowMs - lastSync)).intdiv(1000L))
+            return [
+                ok:            true,
+                throttled:     true,
+                lastSyncedAt:  user.lastSyncedAt,
+                inventorySize: user.steamInventorySize ?: 0,
+                retryInSec:    retryInSec
+            ]
+        }
         try {
             // The user is asking for a real refresh — drop both positive and
             // negative cache so fetchInventory actually round-trips Steam.
