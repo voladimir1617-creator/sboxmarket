@@ -1688,3 +1688,37 @@ VERIFIED CLEAN (no fix — verify-before-fixing):
   wave-23 rollback-only-leak class cannot recur. Documented in each.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 197 — adversarial RESILIENCE wave (1 real fix + 1 flagged)
+
+Read-only resilience/UX-dead-end agent on the React frontend.
+
+APPLIED:
+- 7166d3e (RESILIENCE, HIGH) — WatchlistModal `starred` useMemo walked the
+  500-listing pool with a bare `l.item.id` (modals.js ~13824); a null-item
+  row (house/system listing, or unpopulated item DTO) → TypeError → top-level
+  ErrorBoundary "Maintenance in progress" → Reload re-fetches same pool →
+  re-crashes → /watchlist UNRECOVERABLY locked for that user. Same pool is
+  already guarded `l?.item?.id` 17 lines up + ~10 other sites use `l?.item`;
+  this forEach was the lone outlier. Fix: `if (!l?.item) return;`. Live
+  /watchlist still renders all 3 items, console 0 errors, node --check OK,
+  synced to build/. No regression.
+
+FLAGGED (spawn_task — dedicated/testable session): 4 Profile tabs (BuyOrders/
+AutoBids/Offers/Trades, modals.js 6075/6392/8545/7040) show a misleading
+"you have nothing" empty state on a plain HTTP 500 because the fetch helpers
+collapse non-2xx → []/{items:[]}. Medium severity (self-heals on tab-switch/
+refresh; the outage case 502/503/504 already fires the global banner; only an
+isolated app-500 shows empty-without-banner). Fix = give them the err+Retry
+triad ProfileListingsTab already has — deferred (4 money-adjacent tabs, no
+live-500 trigger to test error paths here; don't-churn at session tail).
+
+VERIFIED CLEAN (Agent, HIGH conf): error-recovery on big routes (/wallet,
+/stall, /item, Database, Notifications, Loadout, Sell) all have null→spinner/
+error→Retry/not-found→back triads; interrupted-ops use alive/mounted/reqId
+guards; optimistic updates (watchlist star, DB star, savedSearch delete, cart
+add) all roll back + toast on failure; cross-tab sync via storage events +
+cart stale-row scrub/gate; navigation traps avoided (replace-not-push redirect,
+layered Escape-bail).
+
+App live on :8082; dev-login remains UNCOMMITTED.
