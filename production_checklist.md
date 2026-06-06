@@ -1944,3 +1944,22 @@ ZERO real defects; the agent self-corrected most of its own findings:
   correctness surface (refund, optimistic-update, money-input, ban/freeze
   matrix, auction settle) + every core flow live (buy/sell/withdraw/deposit/cart
   + mobile). Full Spock suite GREEN.
+
+WAVE 179 — modal keyboard-a11y sweep (fresh agent). SHIPPED 1 fix:
+  • fa64be3 — PreSigninModal (the sign-in gateway every logged-out user hits)
+    was aria-modal=TRUE but had only an Escape-only handler: NO focus-trap (Tab
+    escaped to the page behind), NO initial-focus, NO focus-restore. Adopted the
+    shared useDialogA11y hook (exported it from modals.js — pure-additive, zero
+    change to its 12+ callers) + panelRef + tabIndex=-1; dropped the hand-rolled
+    Escape useEffect. Now matches every other dialog's keyboard contract.
+  Agent confirmed the IMPORTANT result: EVERY money/action modal + drawer is
+  already a11y-COMPLETE via the shared useDialogA11y hook (12+ callers) +
+  InfoModal shell (16+ callers) — Escape-w/-stopPropagation (never over-
+  navigates), focus-trap, initial-focus, focus-restore, role/aria-modal, stacked-
+  dialog guards. The other flagged gaps (SaveSearchDrawer, NavPicker, SortPicker,
+  NotificationBell dropdown) are correctly aria-modal=FALSE (non-modal) — a
+  focus-trap there would CONTRADICT their non-modal semantics, so "missing trap"
+  is not a bug for them; the User-Menu initial-focus nicety is LOW (backlog).
+  Money-surface modal a11y is gold-standard. Continuation now: 4 fixes shipped
+  (dispute-hold, MyStall crash, 4-tab silent-error, PreSigninModal a11y) + 2 HIGH
+  flagged + 1 backlogged + the whole money/correctness/a11y surface certified.
