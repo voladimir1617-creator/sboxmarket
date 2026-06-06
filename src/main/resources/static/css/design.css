@@ -142563,6 +142563,26 @@ html body div .profile-tabs ~ div table.db-table tbody td {
   height: 40px !important;
   vertical-align: middle !important;
 }
+/* WAVE184 — the 40px row/cell clamp above is a DESKTOP densification but
+   carries no media query, so on mobile it pinned each profile-table row to a
+   single 40px line. With the .db-table--list mobile restack un-hiding the
+   description + amount (3-4 stacked lines), that clamp hid everything below
+   line 1 (the amount slid under the next row's opaque background). Release the
+   clamp at <=600px. Same selector shape as ship #5708 → equal specificity,
+   declared later inside the query, so it wins on mobile only; desktop keeps the
+   dense 40px rows. */
+@media (max-width: 600px) {
+  html body div .profile-tabs ~ div table.db-table tbody tr.db-row,
+  html body div .profile-tabs ~ div table.db-table tbody tr {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+  html body div .profile-tabs ~ div table.db-table tbody td {
+    height: auto !important;
+    vertical-align: top !important;
+  }
+}
 /* END CSFLOAT-1:1 PARITY ship #5708 */
 
 /* CSFLOAT-1:1 PARITY ship #6001 — csfloat.com renders ZERO cookie consent banner anywhere in the DOM (verified: no "cookie", "consent", "accept all", "manage", "gdpr" strings present, no fixed/sticky overlay near viewport bottom). Mirror that banner-free state on sboxmarket by suppressing any 3rd-party / future-injected consent strip matching common library selectors. Measure-and-match only. */
@@ -200212,3 +200232,69 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   .view-btns { display: none !important; }
 }
 /* ===== END WAVE183 mobile view-toggle hide ===== */
+
+/* WAVE184 — profile list-tables (Transactions / Active Bids / Auto-bids /
+   Support tickets / API keys) reuse .db-table for styling but are NOT the /db
+   item table. The mobile restacking (ship #2210 at ~132918, plus the block at
+   ~5433) is hard-coded to the /db column ORDER — rank / item / category /
+   rarity / supply / sold / views / price / star — and HIDES columns 3 and 4
+   (category+rarity on /db). On these profile tables columns 3 and 4 are
+   different fields, so it silently hid critical data: on /profile/transactions
+   it hid the Description AND the Amount (−$1.42), leaving only "PURCHASE /
+   COMPLETED"; on Auto-bids it hid State + Your bid; on Support it hid Status.
+   The .db-table--list marker (added to exactly these 5 tables) opts them OUT of
+   the /db positional grid and into a plain, column-agnostic vertical stack
+   where EVERY cell stays visible — no positional assumptions, so it stays
+   correct for any column layout. The /db table never gets the marker, so its
+   restacking is untouched. Discriminator note: the /db table is the only
+   .db-table inside .db-table-scroll; CSS can't negate an ancestor, hence the
+   explicit marker class rather than a scoped selector. */
+@media (max-width: 600px) {
+  .db-table--list.db-table tbody tr.db-row {
+    display: block !important;
+    grid-template-columns: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 12px 14px !important;
+    column-gap: 0 !important;
+    row-gap: 0 !important;
+  }
+  .db-table--list.db-table tbody tr.db-row > td {
+    display: block !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    width: auto !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    white-space: normal !important;
+    padding: 1px 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    font-size: 12.5px !important;
+    line-height: 1.45 !important;
+    font-family: inherit !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: var(--ink-3) !important;
+  }
+  /* keep only the internal id/rank column hidden (it carries .db-rank); any
+     meaningful first column without that class — e.g. the API-key Label —
+     stays visible */
+  .db-table--list.db-table tbody tr.db-row > td.db-rank { display: none !important; }
+  /* the first visible cell reads as the row title */
+  .db-table--list.db-table tbody tr.db-row > td.db-rank + td,
+  .db-table--list.db-table tbody tr.db-row > td:first-child:not(.db-rank) {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--ink) !important;
+    margin-bottom: 1px !important;
+  }
+  /* neutralize the /db pseudo-labels (Supply / Sold / views / ·) */
+  .db-table--list.db-table tbody tr.db-row > td::before,
+  .db-table--list.db-table tbody tr.db-row > td::after { content: none !important; }
+  /* an item / listing cell keeps its thumbnail inline with the text */
+  .db-table--list.db-table tbody tr.db-row > td .db-item-cell {
+    display: flex !important; align-items: center !important; gap: 8px !important;
+  }
+}
+/* ===== END WAVE184 profile list-table mobile stack ===== */

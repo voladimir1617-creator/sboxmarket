@@ -2058,3 +2058,32 @@ sweep: the marketplace LIST/TABLE view was illegible on phones.
     rendered, grid rendered with all 34 listings as cards, toggle hidden, 0
     console errors. Screenshot confirms clean 2-col card grid. Resize > 768px
     restores the table + toggle (state-driven, reactive).
+
+WAVE 184 — mobile fidelity, profile list-tables. SHIPPED a real money-visibility
+defect on every /profile data table:
+  • The /db item table's mobile restacking (csfloat ship #2210, plus the block
+    at ~5433) is hard-coded to the /db column ORDER (rank/item/cat/rarity/supply/
+    sold/views/price/star) and HIDES columns 3 + 4 (category+rarity on /db).
+    Five OTHER tables reuse .db-table but have different columns — so on mobile
+    that positional restacking silently hid the wrong cells. On
+    /profile/transactions it hid BOTH the Description AND the Amount (−$1.42),
+    leaving each row as just "PURCHASE / COMPLETED". Auto-bids lost State + Your
+    bid; Support lost Status; etc. A ship #5708 desktop rule
+    (.profile-tabs ~ div table.db-table tbody tr { max-height:40px }, no media
+    query) compounded it by clamping rows to one line so anything past line 1
+    slid under the next row's opaque bg.
+  • Fix (marker class, zero /db regression risk): tag the 5 profile tables
+    (Transactions / Active-bid history / Auto-bids / Support tickets / API keys)
+    with .db-table--list (modals.js, replace_all → 5 sites). A scoped @media
+    (max-width:600px) block opts them OUT of the /db positional grid into a
+    plain, COLUMN-AGNOSTIC vertical stack with EVERY cell visible (only the
+    .db-rank id column stays hidden — so the API-key Label, which has no db-rank,
+    stays visible). Plus a mobile release of the #5708 40px clamp (same selector
+    shape, later, inside the query → wins on mobile only; desktop keeps dense
+    rows). The /db table never gets the marker, so its card restacking is
+    untouched — verified live (/db firstRow still display:grid, no marker class).
+  • main.js app.js?v=203→204; app.js now imports ./modals.js?v=184 (first ?v= on
+    the bare modals import — the documented module-cache gap); design.css
+    ?v=218→219. Verified LIVE at 380px: transactions render as clean cards
+    (PURCHASE / description / −$1.42 bold right / COMPLETED; refunds +$0.54),
+    row grew 40px→125px, amount display:block & on-screen, 0 console errors.

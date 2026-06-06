@@ -5993,7 +5993,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
   visibleTx.length === 0
     ? h('div', { className: 'empty-inline', style: { marginTop: 8 } },
         h('div', { style: { fontSize: 13, color: 'var(--text-secondary)' } }, 'No transactions match this filter.'))
-    : h('table', { className: 'db-table' },
+    : h('table', { className: 'db-table db-table--list' },
       h('thead', null, h('tr', null,
         h('th', null, 'ID'),
         h('th', null, 'Type'),
@@ -6584,7 +6584,7 @@ function ProfileAutoBidsTab() {
       ),
       h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 } },
         `${past.length} settled auction bid${past.length === 1 ? '' : 's'} · capped at the 100 most recent`),
-      h('table', { className: 'db-table' },
+      h('table', { className: 'db-table db-table--list' },
         h('thead', null, h('tr', null,
           h('th', null, 'ID'), h('th', null, 'Listing'),
           h('th', { className: 'center' }, 'Outcome'),
@@ -6723,7 +6723,7 @@ function ProfileAutoBidsTab() {
         onClick: cancelAll
       }, 'Stop all auto-raises')
     ),
-    h('table', { className: 'db-table' },
+    h('table', { className: 'db-table db-table--list' },
       h('thead', null, h('tr', null,
         h('th', null, 'ID'), h('th', null, 'Listing'),
         h('th', { className: 'center' }, 'State'),
@@ -9928,7 +9928,7 @@ function ProfileSupportTab() {
         filtered.length === 0
           ? h('div', { className: 'empty-inline' },
               h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No tickets in this filter.'))
-          : h('table', { className: 'db-table' },
+          : h('table', { className: 'db-table db-table--list' },
               h('thead', null, h('tr', null,
                 h('th', null, 'ID'), h('th', null, 'Subject'), h('th', null, 'Category'), h('th', null, 'Status'), h('th', { className: 'right' }, 'Updated'))),
               h('tbody', null,
@@ -10088,7 +10088,7 @@ function ProfileDevelopersTab() {
                 title: 'Security panic button — revokes every active API key on your account in one click.'
               }, 'Revoke all active keys')
             ),
-            h('table', { className: 'db-table' },
+            h('table', { className: 'db-table db-table--list' },
             h('thead', null, h('tr', null,
               h('th', null, 'Label'),
               h('th', null, 'Prefix'),
