@@ -6032,6 +6032,13 @@ function ProfileTransactionsTab({ transactions, privacy }) {
 
 function ProfileBuyOrdersTab() {
   const [orders, setOrders] = useState(null);
+  // A failed /api/buy-orders fetch must surface a Retry affordance, NOT
+  // masquerade as "No buy orders yet" — these are escrow-bearing standing
+  // orders, so a false-empty on an HTTP 500 makes the user believe their
+  // locked-in orders vanished (and re-create them). Mirrors the
+  // ProfileListingsTab err/aliveRef pattern.
+  const [err, setErr] = useState(false);
+  const aliveRef = useRef(true);
   const [filter, setFilter] = useState('ACTIVE');
   const [busy, setBusy] = useState(false);
   // Synchronous re-entrancy latch for saveEdit (updates a buy order's
@@ -6072,8 +6079,26 @@ function ProfileBuyOrdersTab() {
         'ok');
     } finally { setBusy(false); }
   };
-  const load = useCallback(() => { fetchBuyOrders().then(setOrders); }, []);
-  useEffect(() => { load(); }, [load]);
+  const load = useCallback(async () => {
+    setErr(false);
+    try {
+      // Raw fetch (not fetchBuyOrders, which swallows non-2xx into []) so a
+      // genuine server error surfaces the Retry card below instead of the
+      // false "No buy orders yet" empty state. Refresh-in-place (no
+      // setOrders(null)) so post-edit / post-cancel reloads don't flash a
+      // spinner over the existing rows.
+      const res = await fetch('/api/buy-orders', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!aliveRef.current) return;
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (_) { if (aliveRef.current) setErr(true); }
+  }, []);
+  useEffect(() => {
+    aliveRef.current = true;
+    load();
+    return () => { aliveRef.current = false; };
+  }, [load]);
   const cancelOrder = async (o) => {
     if (!confirm(`Cancel buy order for "${o.itemName || 'item'}"? Any remaining quantity is freed.`)) return;
     setBusy(true);
@@ -6092,6 +6117,14 @@ function ProfileBuyOrdersTab() {
         'ok');
     } finally { setBusy(false); }
   };
+  if (err) return h('div', { className: 'empty-inline' },
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      'Couldn’t load your buy orders'),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+      'Something went wrong fetching your buy orders. Your standing orders are safe — check your connection and try again.'),
+    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+  );
   if (orders === null) return h('div', { className: 'spinner' });
   if (orders.length === 0) return h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -6382,6 +6415,14 @@ function ProfileAutoBidsTab() {
   // those auctions are already settled.
   const [subtab, setSubtab] = useState('active');
   const [bids, setBids] = useState(null);
+  // A failed /api/bids/my-active fetch must surface a Retry affordance, NOT
+  // read as "No active bids" — these are LIVE auction positions (potential
+  // liability if you're winning); a false-empty on a 500 hides your exposure.
+  // Mirrors the ProfileListingsTab err/aliveRef pattern. Scoped to the active
+  // sub-tab; the Past tab already degrades to [] which is acceptable for
+  // settled history.
+  const [err, setErr] = useState(false);
+  const aliveRef = useRef(true);
   const [past, setPast] = useState(null);
   const [busy, setBusy] = useState(false);
   // Date-range filter for bids CSV export — passes through to
@@ -6389,7 +6430,20 @@ function ProfileAutoBidsTab() {
   // downloaded for accounting reconciliation.
   const [bidsDateFrom, setBidsDateFrom] = useState(null);
   const [bidsDateTo,   setBidsDateTo]   = useState(null);
-  const load = useCallback(() => { fetchActiveBids().then(setBids); }, []);
+  const load = useCallback(async () => {
+    setErr(false);
+    try {
+      // Raw fetch (not fetchActiveBids, which swallows non-2xx into []) so a
+      // server error surfaces the Retry card instead of a false "No active
+      // bids". Refresh-in-place (no setBids(null)) so post-cancel reloads
+      // don't flash a spinner over the live rows.
+      const res = await fetch('/api/bids/my-active', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!aliveRef.current) return;
+      setBids(Array.isArray(data) ? data : []);
+    } catch (_) { if (aliveRef.current) setErr(true); }
+  }, []);
   const loadPast = useCallback(async () => {
     try {
       const { fetchPastBids } = await import('./api.js');
@@ -6397,7 +6451,11 @@ function ProfileAutoBidsTab() {
       setPast(Array.isArray(rows) ? rows : []);
     } catch (_) { setPast([]); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    aliveRef.current = true;
+    load();
+    return () => { aliveRef.current = false; };
+  }, [load]);
   useEffect(() => { if (subtab === 'past' && past === null) loadPast(); }, [subtab, past, loadPast]);
   const autoBidsCount = (bids || []).filter(b => b.kind === 'AUTO').length;
   const cancelOne = async (b) => {
@@ -6567,6 +6625,14 @@ function ProfileAutoBidsTab() {
   }
 
   // ── Active sub-tab (existing behaviour) ────────────────────────
+  if (err) return h('div', null, subTabPicker, h('div', { className: 'empty-inline' },
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      'Couldn’t load your bids'),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+      'Something went wrong fetching your live bids. Your auction positions are unaffected — check your connection and try again.'),
+    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+  ));
   if (bids === null) return h('div', null, subTabPicker, h('div', { className: 'spinner' }));
   if (bids.length === 0) return h('div', null, subTabPicker, h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -6748,6 +6814,13 @@ function ProfileTradesTab({ me, privacy }) {
   // crosses the TRADE_LIST_CAP (200) display cap. Null until the first
   // fetch resolves so the banner doesn't flash on initial render.
   const [tradesTotal, setTradesTotal] = useState(null);
+  // A failed /api/trades fetch must surface a Retry affordance, NOT read as
+  // "no trades" — these are live escrow positions (a buyer awaiting delivery,
+  // a seller awaiting confirm, a dispute deadline). A false-empty on an HTTP
+  // 500 could make a user miss an escrow-action window. Mirrors the
+  // ProfileListingsTab err/aliveRef pattern.
+  const [err, setErr] = useState(false);
+  const aliveRef = useRef(true);
   const [busy, setBusy]     = useState(false);
   const [filter, setFilter] = useState('ALL');
   // Per-30s tick so the trade-row countdown chips ("⏱ Xh left") actually
@@ -7038,11 +7111,29 @@ function ProfileTradesTab({ me, privacy }) {
   };
 
   const load = useCallback(async () => {
-    const { items, total } = await fetchTradesWithTotal();
-    setTrades(items);
-    setTradesTotal(total);
+    setErr(false);
+    try {
+      // Raw fetch (not fetchTradesWithTotal, which swallows non-2xx into an
+      // empty result) so a server error surfaces the Retry card instead of a
+      // false "no trades". Same X-Total-Count → items.length total logic.
+      // Refresh-in-place (no setTrades(null)) so the tab-focus refresh and
+      // post-action reloads don't flash a spinner over the rows.
+      const res = await fetch('/api/trades', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const items = await res.json();
+      if (!aliveRef.current) return;
+      const rows = Array.isArray(items) ? items : [];
+      const totalHeader = res.headers.get('X-Total-Count');
+      const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
+      setTrades(rows);
+      setTradesTotal(Number.isFinite(parsed) ? parsed : rows.length);
+    } catch (_) { if (aliveRef.current) setErr(true); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    aliveRef.current = true;
+    load();
+    return () => { aliveRef.current = false; };
+  }, [load]);
   // Batch 665 — tab-focus refresh. A seller watching the Trades tab
   // for a buyer-confirm (or a buyer watching for a seller-send) hates
   // having to hit F5 to see the state flip. Mirrors the wallet's
@@ -7088,6 +7179,14 @@ function ProfileTradesTab({ me, privacy }) {
   useDialogA11y(confirmPanelRef, confirmClose, !!confirmTrade);
 
   if (!me) return h(SignInNeededEmptyState, { what: 'your trades' });
+  if (err) return h('div', { className: 'empty-inline' },
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      'Couldn’t load your trades'),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+      'Something went wrong fetching your trades. Your escrowed trades are safe — check your connection and try again.'),
+    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+  );
   if (trades === null) return h('div', { className: 'spinner' });
 
   const stateFiltered = (() => {
@@ -8507,6 +8606,14 @@ function ProfileOffersTab() {
   // buttons right on each row. Countering opens an inline input, so the user
   // never leaves the list. Reject + cancel confirm via native prompt.
   const [data, setData] = useState(null);
+  // A failed offers fetch must surface a Retry affordance, NOT read as "no
+  // offers" — incoming offers are pending money decisions (a buyer's bid on
+  // your item); a false-empty on an HTTP 500 makes a seller think offers
+  // vanished. Mirrors the ProfileListingsTab err/aliveRef pattern. The silent
+  // tab-focus refresh keeps last-good data on error instead of flipping to
+  // the card.
+  const [err, setErr] = useState(false);
+  const aliveRef = useRef(true);
   const [tab, setTab]   = useState('incoming');
   const [busy, setBusy] = useState(false);
   // Synchronous re-entrancy latch (matches the trades busyRef / buyConfirmBusyRef
@@ -8542,19 +8649,36 @@ function ProfileOffersTab() {
   const [offersDateFrom, setOffersDateFrom] = useState(null);
   const [offersDateTo,   setOffersDateTo]   = useState(null);
 
+  // Raw fetch both lists (not fetchIncoming/OutgoingOffers, which swallow
+  // non-2xx into []) so a server error surfaces the Retry card instead of a
+  // false "no offers". Throws if either leg is non-2xx.
+  const fetchBoth = useCallback(async () => {
+    const [ri, ro] = await Promise.all([
+      fetch('/api/offers/incoming', { credentials: 'same-origin' }),
+      fetch('/api/offers/outgoing', { credentials: 'same-origin' })
+    ]);
+    if (!ri.ok || !ro.ok) throw new Error('HTTP ' + (ri.ok ? ro.status : ri.status));
+    const [i, o] = await Promise.all([ri.json(), ro.json()]);
+    return { incoming: Array.isArray(i) ? i : [], outgoing: Array.isArray(o) ? o : [] };
+  }, []);
   const load = useCallback(async () => {
+    setErr(false);
     setData(null);
-    const [i, o] = await Promise.all([fetchIncomingOffers(), fetchOutgoingOffers()]);
-    setData({ incoming: i, outgoing: o });
-  }, []);
-  // Silent refresh — same fetch pair, but doesn't flash the spinner
-  // by clearing `data` first. Used by the visibilitychange handler so
-  // a tab-back-and-forth doesn't blink the panel.
+    try { const d = await fetchBoth(); if (aliveRef.current) setData(d); }
+    catch (_) { if (aliveRef.current) setErr(true); }
+  }, [fetchBoth]);
+  // Silent refresh — same fetch pair, but doesn't flash the spinner by
+  // clearing `data` first. Best-effort: on error it KEEPS the last-good data
+  // (no overwrite with [], no error card) since it's a background tab-focus
+  // refresh, not a user-initiated load.
   const silentRefresh = useCallback(async () => {
-    const [i, o] = await Promise.all([fetchIncomingOffers(), fetchOutgoingOffers()]);
-    setData({ incoming: i, outgoing: o });
-  }, []);
-  useEffect(() => { load(); }, [load]);
+    try { const d = await fetchBoth(); if (aliveRef.current) setData(d); } catch (_) {}
+  }, [fetchBoth]);
+  useEffect(() => {
+    aliveRef.current = true;
+    load();
+    return () => { aliveRef.current = false; };
+  }, [load]);
   // Batch 665 — tab-focus silent refresh (mirrors the Trades tab + the
   // wallet). When the tab flips back to visible, refetch both offer
   // lists without a spinner flash. Critical for sellers who leave the
@@ -8567,6 +8691,14 @@ function ProfileOffersTab() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [silentRefresh]);
 
+  if (err) return h('div', { className: 'empty-inline' },
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      'Couldn’t load your offers'),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+      'Something went wrong fetching your offers. Nothing was lost — check your connection and try again.'),
+    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+  );
   if (data === null) return h('div', { className: 'spinner' });
 
   const run = async (fn) => {
