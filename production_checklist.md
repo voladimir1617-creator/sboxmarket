@@ -1640,3 +1640,30 @@ CONTINUATION SUMMARY (/loop KEEP WORKING): 6 adversarial agents
 clean across abuse, security, migrations, resilience. App production-ready.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 195 — money state-machine race-safety certification (all 3 clean)
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- TRADE state machine: every transition (sellerAccept/markSent/buyerConfirm/
+  cancel/dispute/release) is @Transactional + requireParticipant (authz) +
+  require(state==expected) (precondition) + Trade @Version (concurrent
+  transitions serialize; loser optimistic-locks & rolls back). Money-moving
+  paths additionally arbiter-guard the protection cover (the @Version-doesn't-
+  cover-REQUIRES_NEW-credit nuance is documented + handled).
+- AUCTION settle: single-settle safe — findExpiredAuctions filters ACTIVE +
+  in-method `status != 'ACTIVE'` no-op (stale-ref/replay guard) + Listing
+  @Version (concurrent settles serialize; loser's ENTIRE tx — winner-charge +
+  trade + SOLD — rolls back together). Comment names the exact double-charge/
+  duplicate-trade/double-push risk.
+- OFFER state machine: transitions check status!=PENDING → OfferNotPending.
+  Offer has NO @Version, but this is NOT a money bug: the sale event
+  (acceptOffer→buy) is backstopped by the Listing @Version (one sale/charge/
+  trade per listing). Accept-vs-withdraw/sweep races resolve to defensible
+  outcomes (buyer charged at most once for the item they offered on, at their
+  price); worst case is a tiny-window cosmetic offer-status mismatch, never
+  money loss. Schema-change to add offer @Version would be disproportionate
+  churn — money-holding entities (listing/wallet/trade) carry @Version by
+  design.
+
+All three money state machines are race-safe. App production-ready.
+App live on :8082; dev-login remains UNCOMMITTED.
