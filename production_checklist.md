@@ -1241,3 +1241,26 @@ re-entrancy latches (7d6defa, 2ff8206), AudioContext autoplay warning
 (4822fcf), deposit $1 client floor (0200922), wallet mobile-modal overflow
 (edb62f0). 1 self-revert (mark-sent). Audits clean: email, XSS, IDOR,
 param-fuzz. App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 182 — React-effects audit + OG/social meta + 360px breakpoint (all clean)
+
+VERIFIED CLEAN (no fixes — exhaustive certification):
+- React correctness (agent, all 214 useEffect hooks + every timer/listener/SSE
+  + all list keys across 15 JS files): NO REAL DEFECTS. Pervasive liveness
+  guards (alive flags / mountedRef / monotonic request-ids + cleanup),
+  functional setState in long-lived handlers, correct prop-sync dep arrays,
+  stable-id keys. React 18 silent no-op covers the few []-keyed unguarded loads.
+- OG / social-share meta: item route rich product OG (item-specific title/desc,
+  real 512x512 Steam image, og:type=product + og:price + og:availability=instock,
+  Twitter card); market route descriptive (og:type=website); /profile serves
+  GENERIC site-level OG — correctly does NOT leak the logged-in user's data to
+  scrapers (privacy-safe).
+- 360px (narrowest realistic phone): page overflow 0; .search-wrap hidden on
+  mobile; home cards in .csfloat-home-preview-row (overflow-x:auto, reachable
+  carousel). Responsive certified across 360/390/768/1440.
+- Modal-overflow class CSS-certified: every min-width>=250px is a scroll
+  container, a desktop-only @media, or fits-390. Wallet input was the sole
+  defect (fixed edb62f0).
+
+Run tally: 5 real fixes + 1 self-revert; clean audits = email, XSS, IDOR,
+read-param-fuzz, React-effects (5 lenses). App live on :8082; dev-login UNCOMMITTED.
