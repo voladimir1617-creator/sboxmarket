@@ -1427,3 +1427,29 @@ APPLIED:
   against a future Wallet-@Version bypass. 3/3 ConcurrentBuy specs green (28s).
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 188 — full-suite green cert + cart partial-failure atomicity verified
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- Cart checkout partial-failure atomicity: CartController has NO @Transactional
+  on the class or `checkout` method (lines 31-49) — each purchaseService.buy()
+  per row runs in its OWN tx (PROPAGATION_REQUIRED, no outer tx), commits
+  independently, caught per-row exceptions (INSUFFICIENT_BALANCE / PRICE_CHANGED
+  / LISTING_NOT_AVAILABLE / optimistic-lock / etc.) roll back ONLY that row.
+  No rollback-only leak; partial success is intentional + documented
+  (comment lines 27-29). A 3-item cart with one sold-out row commits the
+  other two cleanly.
+- Currency: deposit/withdraw FORM is deliberately USD-denominated — hardcoded
+  '$' input prefix + "(charged in USD)"/"(paid out in USD)" helper text
+  (modals.js 15409/15444) + "$"-prefixed presets (15453); only read-only
+  balance/cap/history convert to the display currency. USD-canonical ledger,
+  zero conversion ambiguity at the transaction boundary.
+
+CERTIFIED:
+- Full Spock suite GREEN — `./gradlew test` BUILD SUCCESSFUL in 1m1s, all
+  ~214 specs incl. the new cross-debit ConcurrentBuy test. Holistically
+  validates this run's money fixes (493ccca withdraw reject/approve atomic,
+  b7a64ab trade-sweeper double-refund, d41a627 cross-debit wallet test) —
+  no cross-spec breakage.
+
+App live on :8082; dev-login remains UNCOMMITTED.
