@@ -200337,3 +200337,29 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   }
 }
 /* ===== END WAVE185 loadout tab-bar mobile wrap ===== */
+
+/* WAVE186 — /me/stall row overflow on mobile. Each .stall-row is a single
+   non-wrapping flex row: [48px thumb] [item info, flex:1] [actions cluster:
+   price + Edit / Match / Hide / ⎘ Link / ✕]. The actions cluster alone is
+   ~338px, so thumb + cluster already exceed a 380px viewport: the flex:1 info
+   column collapsed (item name clipped to "…ies" fragments) and the red ✕
+   (cancel-listing) button was pushed to x≈377-422 — only ~3px on screen, so a
+   seller literally could NOT delist an item on a phone. The page didn't scroll
+   (clipped, not expanding) so the scrollWidth probe read clean. Let the row
+   wrap so the thumb + full-width item info sit on line 1 and the actions
+   cluster drops to its own line below (and wraps its own buttons if needed). */
+@media (max-width: 560px) {
+  html body .stall-row {
+    flex-wrap: wrap !important;
+    row-gap: 10px !important;
+    align-items: flex-start !important;
+  }
+  /* the actions cluster is the row's last child (price + buttons, or
+     Save/✕ in edit mode) — let it wrap onto line 2 and reflow its buttons */
+  html body .stall-row > div:last-child {
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+}
+/* ===== END WAVE186 stall-row mobile wrap ===== */

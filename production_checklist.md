@@ -2108,3 +2108,22 @@ blind). SHIPPED:
     tabs` (0,3,2). flex-wrap stays as a <=320px safety net. design.css ?v=219→
     221. Verified LIVE at 380px: 3 tabs on one line (tops all 99px), none
     clipped, Create on its own line below (top 149) full-width, 0 overflow.
+
+WAVE 186 — mobile fidelity, /me/stall rows (found by a clipped-control probe
+that flags any button whose box extends past the viewport, regardless of width —
+strictly better than the old wide-element probe, which width-filtered and missed
+clipped buttons). SHIPPED:
+  • Each .stall-row is a single non-wrapping flex row [48px thumb][info,flex:1]
+    [actions: price + Edit/Match/Hide/⎘Link/✕]. The actions cluster (~338px) +
+    thumb already exceed 380px, so the flex:1 info column collapsed (item name
+    clipped) and the red ✕ cancel-listing button was pushed to x≈377-422 — ~3px
+    on-screen, so a seller literally could NOT delist a listing on a phone. Page
+    didn't scroll (clipped) → scrollWidth probe clean.
+  • Fix (design.css, CSS-only, <=560px): html body .stall-row flex-wrap:wrap +
+    row-gap so the thumb + full-width item info sit on line 1 and the actions
+    cluster (.stall-row > div:last-child, width:100%, flex-wrap) drops to its own
+    line and reflows its buttons. design.css ?v=221→222. Verified LIVE at 380px:
+    0 clipped controls in stall rows, actions wrapped below the name, ✕ now
+    fully on-screen (right 190 < 380, reachable). Desktop row unchanged (mobile-
+    scoped). Also swept this pass — clean at 380: /watchlist, /settings, /wallet
+    (deposit + withdraw).
