@@ -1384,3 +1384,46 @@ survived their original hardening wave. The relentless focused-money-audit
 grind found both.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 187 — live customer-path verification + cross-debit wallet test (regression guard)
+
+Pivoted from backend money audits to a WHOLE-WEBSITE live grind (Playwright
+on :8082) + a fresh money lens. Drove the real browser at 1440 & 390.
+
+VERIFIED CLEAN (no fix needed — verify-before-fixing avoided churn):
+- Fonts genuinely self-hosted + loaded (Roboto 400-900, Roboto Mono,
+  Material Symbols Rounded); icon ligatures render as glyphs (1.0 square
+  ratio), not literal text. design.css?v=215 served.
+- home / market(list) / item-detail @1440, home / market @390: zero
+  horizontal overflow; chrome, nav, tabs, bottom-nav all faithful.
+- "Database" nav link permanently accent-blue = INTENTIONAL csfloat parity
+  (ship #5501/#200000 comments: csfloat permanently highlights its free
+  item DB). A "fix" would have REGRESSED parity.
+- market TREND column "—" everywhere = dev-data gap (trendPercent cached
+  via admin-gated sync, unpopulated in dev); item-detail computes its
+  +15.4% live from seeded PriceHistory. Correct flat fallback, not a bug.
+- Buy flow E2E: Buy now → Confirm-purchase modal shows correct money model
+  (buyer pays list $1.42, 2% Trade Protection shown as optional/excluded
+  from total, "seller receives price minus 2% fee"). Re-entrancy: the
+  modal's async `buyConfirmBusy` guard is backstopped by handleBuy's
+  synchronous `buyingRef` latch (app.js 5216/5222) → no double-purchase.
+  Escape closes ONLY the confirm, item page stays, no over-navigation.
+- Wallet deposit/withdraw: submit (modals.js 14606) has an airtight
+  synchronous `submittingRef` latch (check 14607 → only sync validation →
+  set 14625, NO await between; reset in finally). Withdraw correctly gated
+  on verified email + Stripe Connect onboarding + TOTP + $1 floor + $10k cap.
+- Sell: polished empty-state for Steam inv; Platform inv lists 4 owned items.
+
+APPLIED:
+- d41a627 (test, MONEY) — cross-path wallet double-spend audit confirmed
+  (HIGH confidence) every debit path (buy/cart/offer-accept/withdraw/
+  trade-protection/auction-settle) serializes via the shared Wallet.@Version,
+  loser fails cleanly (409 / WITHDRAW_RACE), flush precedes any irreversible
+  external call. Sound but UNTESTED: ConcurrentBuyIntegrationSpec only raced
+  many buyers vs one listing (Listing @Version), never two debits on ONE
+  wallet. Added a regression test: one buyer funded for ONE of two $100
+  listings buys BOTH concurrently → asserts wallet never negative, exactly
+  one $100 debit + one PURCHASE tx + one SOLD listing + one win. Guards
+  against a future Wallet-@Version bypass. 3/3 ConcurrentBuy specs green (28s).
+
+App live on :8082; dev-login remains UNCOMMITTED.
