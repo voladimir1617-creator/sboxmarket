@@ -1758,3 +1758,31 @@ writes a Transaction in-tx; the one divergence — refund clamp-at-zero with ful
 REFUND row — is intentional + logged for manual reconcile).
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 199 — perf/N+1 dimension clean + full-suite cert (data-consistency fixes green)
+
+VERIFIED CLEAN (Agent, HIGH conf — no fix):
+- N+1 / hot-path query perf: every high-traffic read path is already batched +
+  paginated/capped. Market list (the busiest) = ~3 flat queries/page regardless
+  of size (JOIN FETCH l.item; Item has no lazy assocs; seller identity
+  denormalized; rating/last-seen/floor bulk-decorated via IN-queries). Item
+  detail, all 4 Profile tabs (Trades listForUserWithCounterparty = 5 bulk
+  queries 0 per-row; Offers/BuyOrders denormalized; Listings paged JOIN-FETCH),
+  Database/search (1 SQL), Notifications/Cart (IDs only)/Watchlist (IDs +
+  findAllById) — all clean. Zero repo.findX()-in-loop on any read path. The
+  realistic ceiling is in-memory sort/marshal at the row cap (CPU, not N+1) —
+  every such path is hard-capped.
+
+CERTIFIED:
+- Full Spock suite GREEN (BUILD SUCCESSFUL 2m9s) after the two data-consistency
+  Groovy fixes (d940532 escrow custody, 690054f seller-wallet) — no cross-spec
+  breakage; the flaky auction-timing test passed this run too.
+
+CONTINUATION TALLY (/loop KEEP WORKING): 9 adversarial agents
+(protection / reviews / cost-amp / CSRF+escalation / IDOR / SSE+webhook /
+resilience / data-consistency / N+1) + ~27 solo probes. 4 REAL FIXES shipped +
+test-locked (f02c349 cost-amp, 7166d3e watchlist crash, d940532 escrow
+stranding, 690054f seller-wallet stranding); 1 flagged (profile-tab empty-on-500).
+Everything else verified clean. App production-ready.
+
+App live on :8082; dev-login remains UNCOMMITTED.
