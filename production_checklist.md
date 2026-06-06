@@ -1883,3 +1883,35 @@ is bulletproof:
   default-to-0 on error) — auxiliary content/counts where degrade-to-empty is
   accepted practice; the high-stakes surfaces (wallet, NotificationsModal,
   profile tabs) are already error-handled. Full Spock suite GREEN.
+
+WAVE 177 — sell/offer concurrency audit (two fresh agents). FLAGGED 1 HIGH,
+backlog-noted 1, discarded the rest:
+  • FLAGGED (spawn_task, HIGH) — double-list TOCTOU: SteamInventoryController
+    .listFromSteam (:251) guards duplicate listings with a check-then-insert
+    (existsBy... then createListing) and V250 is a NON-unique index (full unique
+    impossible: legacy NULL asset_ids + relisted terminal rows share asset_id),
+    so two concurrent same-asset POSTs both pass → one asset listed twice →
+    double-sell. Fix = portable nulled-key + composite unique (active_asset_key
+    via @PreUpdate, dedupe-before-constraint, dev-ddl-auto + prod-Flyway,
+    DataIntegrityViolation→ALREADY_LISTED) — substantial + high-blast-radius
+    (botch breaks ALL listing/deploys), deferred with full spec. Real but narrow
+    (sub-second same-asset race; common sequential case caught by the exists-
+    check + client submit-latch).
+  • BACKLOG — Offer entity lacks @Version (the only money-state-machine entity
+    without it). A concurrent accept-vs-cancel can last-write-wins the offer
+    status (offer shows CANCELLED while accept created a Trade). LOW-MEDIUM: the
+    Trade is the money source-of-truth + resolves normally, so no money loss —
+    just a cosmetic status inconsistency / recoverable unwanted-Trade. Fix when
+    the offer flow is next touched: add @Version (with a NULL→0 backfill across
+    dev ddl-auto + a prod Flyway migration) OR an atomic PENDING→{ACCEPTED,
+    CANCELLED} conditional-UPDATE claim. Not done inline: the migration/entity-
+    state complexity + offer-flow blast radius outweighs a cosmetic race at
+    context-tail.
+  Discarded (verify-before-fixing): price-TOCTOU-on-buy (the @Version on Listing
+  + saveAndFlush rolls the WHOLE @Transactional buy back on a concurrent edit —
+  buyer not charged, clean 409); escrow activateListing non-atomic (escrow-off
+  in prod, status-guarded, non-corrupting); return-then-relist window (escrow-
+  only, first-acceptor-wins, needs human delay); acceptOffer BadRequestException
+  rollback (offer stays PENDING-retryable on a transient buyer hold — defensible,
+  clean rollback, no corruption). wave-28 offer sub-cent normalization re-
+  verified solid. Full Spock suite GREEN.
