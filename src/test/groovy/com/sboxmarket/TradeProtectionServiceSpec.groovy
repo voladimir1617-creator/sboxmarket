@@ -342,6 +342,30 @@ class TradeProtectionServiceSpec extends Specification {
         0 * tradeProtectionRepository.save(_)
     }
 
+    def "enable rejects PURCHASE_DISPUTE_HOLD when the buyer has an unresolved deposit dispute"() {
+        given: "a healthy, well-funded wallet — but an open deposit chargeback on file"
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('100.00'),
+            currency: 'USD', frozen: false)
+        tradeRepository.findById(1L) >> Optional.of(
+            tradeIn('PENDING_SELLER_SEND', buyer: 10L, buyerWallet: 500L))
+        tradeProtectionRepository.existsByTradeId(1L) >> false
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        and: "the same dispute-hold the other wallet-debit paths enforce"
+        transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+
+        when:
+        service.enable(10L, 1L)
+
+        then: "the protection fee is blocked exactly like buy/offer/bid/withdraw"
+        def e = thrown(BadRequestException)
+        e.code == 'PURCHASE_DISPUTE_HOLD'
+        and: "no debit, no fee transaction, no protection row while the hold stands"
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+        0 * tradeProtectionRepository.save(_)
+        wallet.balance == new BigDecimal('100.00')
+    }
+
     def "enable rejects INSUFFICIENT_BALANCE when the wallet can't cover the fee"() {
         given: "fee on a \$50 trade is \$1.00 but the wallet holds only \$0.50"
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.50'), currency: 'USD')

@@ -167,6 +167,23 @@ class TradeProtectionService {
             throw new BadRequestException("WALLET_FROZEN",
                 "Your wallet is frozen — protection can't be charged right now.")
         }
+        // Deposit dispute-hold gate (fraud-control completeness audit). The
+        // protection fee is a real wallet debit, and EVERY other wallet-debit
+        // path — PurchaseService.buy, OfferService.makeOffer, BidService.placeBid
+        // / buyNowAuction / settle, BuyOrderService.create/update,
+        // WalletController.withdraw — blocks outflows while the buyer has an
+        // unresolved deposit chargeback (can't segregate disputed vs clean
+        // dollars). enable() was the lone omission, leaving the fraud-control
+        // matrix non-uniform. Same PURCHASE_DISPUTE_HOLD code + rationale.
+        if (transactionRepository != null) {
+            long disputed = transactionRepository.countActiveDisputedDeposits(wallet.id)
+            if (disputed > 0L) {
+                throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
+                    "Trade Protection is paused while you have ${disputed} unresolved deposit " +
+                    "dispute${disputed == 1 ? '' : 's'} on file. It'll resume once the chargeback " +
+                    "closes or staff clear the hold.")
+            }
+        }
         if (wallet.balance < fee) {
             throw new BadRequestException("INSUFFICIENT_BALANCE",
                 "Not enough wallet balance for the \$${fee} protection fee.")
