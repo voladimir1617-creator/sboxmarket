@@ -1532,3 +1532,42 @@ Full Spock suite green. This run fixed 2 money-critical double-refunds +
 locked the cross-debit invariant with a regression test.
 
 App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 192 — adversarial business-logic abuse wave (3 agents; 1 real fix)
+
+Fanned out 3 read-only adversarial agents on fresh abuse lenses + solo probes.
+
+APPLIED:
+- f02c349 (ABUSE / cost-amp) — POST /api/steam/sync (syncNow) deliberately
+  clears the inventory cache + forces a full multi-call Steam round-trip,
+  held only by RateLimitFilter's 20/10s COUNT bucket — not the 1->many
+  outbound amplification. A scripted client could fan one POST into ~40-100
+  slow Steam calls/10s (proxy-DoS Steam, burn egress + API quota, exhaust
+  the Tomcat pool). Fix: 15s per-user cooldown gated on the durable
+  lastSyncedAt — a re-click in-window returns fresh persisted state without
+  hitting Steam (~30x cut). +2 specs (throttle + stale-proceed). Green.
+
+VERIFIED CLEAN (no fix — verify-before-fixing):
+- Trade Protection double-pay (Agent A, HIGH conf): all 6 scenarios
+  prevented — pessimistic-lock + status-guard + atomic-arbiter on every
+  money exit (cancel/release/dispute/sweepers/force-cancel/force-release);
+  coverageAmount frozen at trade.price, reverseClaim reclaims on staff
+  release-after-dispute. No un-arbitrated path; locked by integration tests.
+- Review/reputation gaming (Agent B, HIGH conf): reviews trade-anchored
+  (VERIFIED trade + author==buyer), one-per-trade (code + DB unique index),
+  self-review/self-deal blocked at every trade entry, review-bomb bounded
+  (each fake review needs a real paid trade that PAYS the victim), aggregate
+  float-correct, IDOR blocked (actor from session). Residual is economic
+  (Sybil cost-barrier), not a logic flaw.
+- Cost-amp everything-else (Agent C): SSRF/image-proxy (none), search
+  (capped+escaped+limited), CSV/GDPR exports (rate-limited+row-capped),
+  email (verified-recipient + 60s cooldown + 2FA lockout), row-creation
+  caps (BuyOrder 200 / Offer / Watchlist 500 / SavedSearch 10 / Follows
+  200), notification fan-outs (≤500/≤50, opted-in only) — all adequately
+  capped.
+- Solo: fee math net+fee==price exact (TradeService 505/690), listing price
+  @DecimalMin 0.01 + SellService guard, deposit/withdraw/refund Stripe
+  cents scale-safe (setScale(2) before *100; re-credits use exact tx.amount),
+  soft-close 20-extension cap, self-offer guard (OfferService 218).
+
+App live on :8082; dev-login remains UNCOMMITTED.
