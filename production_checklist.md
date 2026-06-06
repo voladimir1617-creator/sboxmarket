@@ -1355,3 +1355,32 @@ leak). OG/security-headers/robots/sitemap/error-CSRF all excellent.
 
 This is the session's most significant find — a relentless-grind win on a real
 double-refund. App live on :8082; dev-login remains UNCOMMITTED.
+
+## WAVE 186 — trade auto-cancel sweepers double-refunded protected trades (2nd money bug FIXED)
+
+The trade-lifecycle audit agent found a SECOND money-critical double-refund —
+same "fix-applied-to-one-path-not-its-sibling" pattern as the withdrawal bug.
+
+APPLIED:
+- b7a64ab (MONEY-CRITICAL) — autoCancelStaleSellerTrade +
+  autoCancelBannedSellerTrade called UNCONDITIONAL refundBuyer + a no-op
+  expire(). On a PROTECTED trade, a buyer dispute → autoClaim credits the buyer
+  (own committed REQUIRES_NEW tx) + CLAIMED; the seller-timeout/banned sweeper
+  then races: refundBuyer credits AGAIN, expire() no-ops on CLAIMED. Trade
+  @Version doesn't cover autoClaim's separate credit → if the sweeper wins the
+  row-flip race the buyer holds 2×price (platform loses one item price).
+  Wave-105 closed this for manual cancel() via the locked arbiter
+  lockAndExpireIfActiveOrReportClaimed, but the two SWEEPER bodies were left
+  on the old path (the regression spec even named the sweeper as the racer).
+  Fix: both sweepers now route refund through the same arbiter (runs in their
+  runInIsolatedTx tx, lock spans refund+transition); dropped the redundant
+  expire(). Updated the banned-seller spec + added a race regression
+  (arbiter→true ⇒ 0 REFUND tx). 295 Trade* specs green.
+
+PATTERN NOTE: two money-critical double-refunds this run, BOTH "atomic guard
+applied to the primary path but not its sibling" (withdrawal: cancel atomic /
+reject not — 493ccca; trade: cancel arbiter / sweepers not — b7a64ab). Both
+survived their original hardening wave. The relentless focused-money-audit
+grind found both.
+
+App live on :8082; dev-login remains UNCOMMITTED.
