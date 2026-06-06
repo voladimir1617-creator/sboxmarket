@@ -12645,10 +12645,20 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             // behaviour; HIDDEN narrows to hidden rows regardless of
             // listing type; BUY_NOW / AUCTION narrow to the matching
             // non-hidden listings.
-            const filtered = stallTypeFilter === 'ALL' ? stall
+            const filteredByType = stallTypeFilter === 'ALL' ? stall
               : stallTypeFilter === 'HIDDEN' ? stall.filter(l => l.hidden)
               : stallTypeFilter === 'AUCTION' ? stall.filter(l => l.listingType === 'AUCTION' && !l.hidden)
               : stall.filter(l => l.listingType !== 'AUCTION' && !l.hidden);
+            // Drop any listing whose item DTO didn't hydrate (null `item`).
+            // The stall rows below dereference l.item.name / l.item.id
+            // UNGUARDED (12659/12682/12713/12719 — note 12699 already uses
+            // l.item?.viewCount, so the nullability was known but only
+            // half-guarded), so a single null-item row throws a TypeError
+            // into the ErrorBoundary and wedges the entire MyStall modal
+            // UNRECOVERABLY. Same crash class + fix as the WatchlistModal
+            // null-item guard (commit 7166d3e). Filtering here (not just at
+            // the .map) keeps the length-check empty-state honest too.
+            const filtered = filteredByType.filter(l => l?.item);
             return filtered.length === 0
               ? [h('div', { key: 'empty', className: 'empty-inline' },
                   h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
