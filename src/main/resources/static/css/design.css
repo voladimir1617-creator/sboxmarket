@@ -200408,5 +200408,10 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   }
   nav.nav .nav-links::-webkit-scrollbar { display: none !important; }
   .nav-right, .nav-logo, .nav-logo-badge { flex-shrink: 0 !important; }
+  /* the 2-row bar is ~107px tall here, but the sticky category subnav still
+     sticks at top:var(--nav-h) (=56px) — so on scroll it slid UP behind the
+     taller nav and the category tabs vanished. Re-pin it flush below the
+     107px band nav. (only sticky >960; ≤960 it's static so this is a no-op.) */
+  .csfloat-subnav { top: 107px !important; }
 }
 /* ===== END WAVE194 nav mid-width overlap ===== */
