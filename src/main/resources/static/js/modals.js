@@ -2365,7 +2365,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             ),
             h('div', { className: 'cart-confirm-row' },
               h('div', { style: { flex: 1 } },
-                tpFloored ? 'Trade Protection (min $0.25)' : 'Trade Protection (2%)',
+                tpFloored ? `Trade Protection (min ${fmt(0.25)})` : 'Trade Protection (2%)',
                 h('span', {
                   style: { color: 'var(--text-muted)', fontSize: 11, marginLeft: 6, fontWeight: 500 }
                 }, '· optional, add after purchase')

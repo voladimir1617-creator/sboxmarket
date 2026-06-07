@@ -197,7 +197,7 @@ function OptInPanel({ trade, fee, loadingFee, onEnable, busy, error }) {
         // the floor applies, the percentage otherwise. fee === MIN_FEE
         // means max(MIN_FEE, pct) picked the floor (pct <= MIN_FEE).
         parseFloat(fee) <= MIN_FEE
-          ? `$${MIN_FEE.toFixed(2)} minimum · one-time fee`
+          ? `${fmt(MIN_FEE)} minimum · one-time fee`
           : `${RATE_PERCENT}% of trade price · one-time fee`)
     )
   );
