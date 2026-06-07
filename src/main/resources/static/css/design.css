@@ -3014,6 +3014,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed !important; }
 .pulse-track { gap: 36px; }
 .csfloat-hero-stack-card { transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 280ms ease, filter 280ms ease, box-shadow 280ms ease, border-color 140ms ease !important; }
 .cart-row .btn-ghost { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0 !important; }
+/* Wave 176 — mobile tap target: the cart-row remove (X) button was 34x32, under the 40px touch minimum for a destructive action. Bump to 40x40 on phones; desktop keeps the compact 32px csfloat size. */
+@media (max-width: 768px) { .cart-list .cart-row .btn-ghost, .cart-grid .cart-list .cart-row .btn-ghost, body .cart-row .btn-ghost, .cart-row .btn-ghost { width: 40px !important; min-width: 40px !important; height: 40px !important; min-height: 40px !important; } }
 .full-page-mode .modal-actions { transition: backdrop-filter 200ms ease, background 200ms ease; }
 .item-rail-actions-buy { text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 .modal-name-rarity:hover { letter-spacing: 0; }
