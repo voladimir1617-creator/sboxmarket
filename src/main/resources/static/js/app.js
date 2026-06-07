@@ -4253,7 +4253,14 @@ export function App() {
   // so a stray keypress can't dismiss the dialog mid-checkout (preserves — more
   // robustly than the old cartBusy-state guard — the Batch-827 busy guard).
   const cartConfirmPanelRef = React.useRef(null);
-  useDialogA11y(cartConfirmPanelRef, () => { if (!checkoutRef.current) setCartConfirmOpen(false); }, cartConfirmOpen);
+  // Stable onClose (useCallback) so useDialogA11y's effect only re-runs when the
+  // dialog opens/closes — an inline closure makes its dep array change every App
+  // render, re-running the effect and re-grabbing focus to the first control each
+  // time (so the user couldn't keep focus on Confirm). Mirrors how every other
+  // useDialogA11y caller passes a stable handler. checkoutRef guard keeps Escape
+  // from dismissing mid-checkout.
+  const closeCartConfirm = React.useCallback(() => { if (!checkoutRef.current) setCartConfirmOpen(false); }, []);
+  useDialogA11y(cartConfirmPanelRef, closeCartConfirm, cartConfirmOpen);
   const doCheckout = async () => {
     if (cart.length === 0) return;
     // Synchronous in-flight latch — a rapid double-click on Confirm must not fire
