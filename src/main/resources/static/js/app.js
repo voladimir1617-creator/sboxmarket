@@ -5848,7 +5848,7 @@ export function App() {
                 : 'Open wallet · Ctrl-click to toggle privacy',
             style: { position: 'relative' }
           },
-            h('div', { className: 'wallet-btn-icon' }, low ? '!' : '$'),
+            h('div', { className: 'wallet-btn-icon' }, low ? '!' : currencySymbol()),
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 } },
               h('span', { className: 'wallet-btn-label' }, low ? 'Top up' : 'Balance'),
               h('span', { className: 'wallet-btn-amt' }, privacy ? '$•••••' : fmt(wallet.balance))
@@ -6171,7 +6171,7 @@ export function App() {
                       /* CSFloat shows a small green `$` chip next to the price
                          to indicate USD-denominated. Our prices are always USD
                          but the visual cue helps anchor the column. */
-                      h('span', { className: 'csfloat-hero-stack-currency' }, '$'),
+                      currencySymbol() === '$' && h('span', { className: 'csfloat-hero-stack-currency' }, '$'),
                       disc > 0 && h('span', { className: 'csfloat-hero-stack-disc' },
                         '−' + disc + '%')
                     ),
@@ -6325,7 +6325,7 @@ export function App() {
                 h('span', { className: 'csfloat-band-card-price' }, fmt(price)),
                 /* CSFloat-1:1: green `$` USD chip next to the price — same
                    visual cue as the hero card's currency marker. */
-                h('span', { className: 'csfloat-band-card-currency' }, '$'),
+                currencySymbol() === '$' && h('span', { className: 'csfloat-band-card-currency' }, '$'),
                 disc > 0 && h('span', { className: 'csfloat-band-card-disc' }, '−' + disc + '%')
               ),
               /* CSFloat-1:1: float-decimal + (#rank) row, mirroring grid card. */
@@ -6469,7 +6469,7 @@ export function App() {
                   })(),
                   h('div', { className: 'csfloat-home-hero-feature-meta' },
                     h('div', { className: 'csfloat-home-hero-feature-price' }, fmt(top.price || 0),
-                      h('span', { className: 'csfloat-home-hero-feature-usd', 'aria-hidden': 'true' }, '$')
+                      currencySymbol() === '$' && h('span', { className: 'csfloat-home-hero-feature-usd', 'aria-hidden': 'true' }, '$')
                     )
                   ),
                   /* CSFloat-1:1: action button row on hero card. Buy now /

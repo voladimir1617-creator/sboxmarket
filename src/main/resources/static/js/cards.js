@@ -1,5 +1,5 @@
 // Item card components: grid, table row, trending carousel.
-import { h, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch } from './utils.js';
+import { h, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch, currencySymbol } from './utils.js';
 // (2026-05-20) Dropped `FloatBar` from this import — its only call site
 // in GridCard was removed (s&box has no float/wear; FloatBar is a no-op).
 import { ItemImage, RarityBadge, SteamMarketLink, Avatar } from './primitives.js';
@@ -360,11 +360,16 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             // visual signal that the listed price is in USD; mirrors
             // csfloat's "$675.00 [$]" badge pairing. Skipped when there's no
             // price (a "$" marker next to "Not listed" reads as broken).
-            hasPrice && h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Price is in US dollars (USD) — every listing on SkinBox uses one currency' }, '$'),
+            // Decorative currency chip — only for USD. fmt() already prints
+            // the active currency symbol on the price, so showing a hardcoded
+            // "$" while the price reads "¥34,270" was contradictory once the
+            // multi-currency switcher (USD/EUR/GBP/JPY) shipped. Gate on the
+            // live symbol so non-USD just shows the converted price, no chip.
+            hasPrice && currencySymbol() === '$' && h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Price is in US dollars (USD) — every listing on SkinBox uses one currency' }, '$'),
             // CSFloat-1:1 — decorative green USD marker chip immediately after
             // the price number (mirrors csfloat's "$" pill). aria-hidden — the
             // figure itself is already announced; this is a pure visual cue.
-            hasPrice && h('span', { className: 'gc-usd-chip', 'aria-hidden': 'true', title: 'USD' }, '$'),
+            hasPrice && currencySymbol() === '$' && h('span', { className: 'gc-usd-chip', 'aria-hidden': 'true', title: 'USD' }, '$'),
             h(SteamMarketLink, { item, compact: true }),
             // Boss QA cycle 2 N4 — bumped the discount-chip threshold
             // from 5% to 10%. With seed data sitting at 7-8% under
