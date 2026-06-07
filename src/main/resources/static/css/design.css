@@ -22913,6 +22913,16 @@ body .email-receipt-chip .check-icon, body .order-success-dialog .receipt-chip .
 .extension.card > .browsers > img:first-child { position: absolute !important; left: 0 !important; top: 2px !important; }
 .extension.card > .browsers > img:last-child { position: absolute !important; left: 80px !important; top: 0 !important; height: 62px !important; }
 body .csfloat-home-faq-title { font-size: 42px !important; font-weight: 500 !important; line-height: normal !important; letter-spacing: 1.26px !important; color: #ffffff !important; text-align: left !important; font-family: 'Roboto', 'Helvetica Neue', sans-serif !important; margin: 0 0 22px !important; }
+/* wave 174f: mobile type scale. The home section headings (journey "A trade
+   clears in six clean steps" + FAQ) were a flat 42px on ALL widths, so on a
+   390px phone they rendered LARGER than the 30px hero h1 — inverted hierarchy,
+   oversized, and wrapping to 3 lines. Scale them down on small screens so they
+   sit below the hero. Matches the selectors' specificity + comes later so it
+   wins inside the media query. */
+@media (max-width: 640px) {
+  body .csfloat-home-faq-title { font-size: 25px !important; line-height: 1.2 !important; letter-spacing: 0.2px !important; }
+  html body .csfloat-home-journey .csfloat-home-journey-title { font-size: 25px !important; line-height: 1.2 !important; }
+}
 body .csfloat-home-faq { padding: 80px 24px 100px !important; background: transparent !important; border-top: 0 !important; }
 body .csfloat-home-faq-inner { max-width: min(96vw, 1200px) !important; margin: 0 auto !important; }
 body .csfloat-home-faq-list { gap: 0 !important; }
