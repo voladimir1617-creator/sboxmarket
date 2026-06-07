@@ -93843,14 +93843,17 @@ tr:hover .csfloat-row-hover-actions,
   background: rgba(7, 11, 24, 0.85);
   backdrop-filter: blur(18px) saturate(140%);
   border-top: 1px solid var(--line);
-  padding: 6px 8px;
+  /* wave199 — pad the bottom by the iOS home-indicator safe-area inset so the nav
+     row isn't crammed under the gesture bar on notched iPhones (env()=0 on
+     non-notched devices + desktop, so zero effect there). */
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
   z-index: 80;
 }
 @media (max-width: 720px) {
   .csfloat-mobile-nav { display: flex; align-items: stretch; gap: 0; }
-  /* Clear the fixed bottom bar so page content / footer isn't hidden
-     behind it on mobile (the bar measures ~73px tall). */
-  body { padding-bottom: 80px; }
+  /* Clear the fixed bottom bar so page content / footer isn't hidden behind it on
+     mobile (the bar measures ~73px tall; +safe-area inset on notched iPhones). */
+  body { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 }
 .csfloat-mobile-nav-link {
   /* Anchor the .is-active::before indicator + the badge to the link,
