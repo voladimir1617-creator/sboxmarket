@@ -200379,17 +200379,34 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
    flex-shrink:0 so the links can never overlap them. Above 1180 the full nav
    fits unchanged; ≤900 already drops to the wrap/bottom-nav treatment. */
 @media (min-width: 901px) and (max-width: 1180px) {
-  .nav-links {
-    flex: 1 1 0 !important;
+  /* The five section links don't fit beside the right-side control cluster
+     (USD / swap / notifications / cart / balance / avatar) anywhere in this
+     band — left-anchored, they always overran USD (76px at 912px, 12px at
+     1000px). Hiding/tightening links can't cover the whole band, and the base
+     `overflow:visible !important` (kept for the active-tab underline) defeats a
+     single-row scroll lane. So drop the links to their OWN full-width
+     scrollable row beneath the brand + controls — the same treatment the ≤900
+     breakpoint already uses — so they can never overlap the controls at any
+     width in the band. nav.nav .nav-links (specificity 0,2,1) ties the base
+     overflow rule and, declared later, wins → the strip actually scrolls. */
+  /* let the bar grow for the 2nd row — a fixed `nav.nav{height:70px!important}`
+     AND `nav.nav,.nav{max-height:70px!important}` (line ~121902) otherwise clip
+     the 2nd row: height:auto already won on specificity, but the max-height cap
+     held the box at 70px and centered+clipped the 90px content. Release BOTH
+     (height:auto + max-height:none); `html body` raises specificity above them. */
+  html body nav.nav { height: auto !important; min-height: 70px !important; max-height: none !important; padding-top: 8px !important; padding-bottom: 8px !important; }
+  nav.nav .nav-inner { flex-wrap: wrap !important; row-gap: 4px !important; align-items: center !important; }
+  nav.nav .nav-links {
+    order: 3 !important;
+    flex: 1 0 100% !important;
     min-width: 0 !important;
     overflow-x: auto !important;
-    flex-wrap: nowrap !important;
+    overflow-y: visible !important;
     scrollbar-width: none !important;
-    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 20px), transparent 100%) !important;
-            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 20px), transparent 100%) !important;
+    gap: 2px !important;
+    padding-bottom: 6px !important;
   }
-  .nav-links::-webkit-scrollbar { display: none !important; }
-  .nav-right { flex-shrink: 0 !important; }
-  .nav-logo, .nav-logo-badge { flex-shrink: 0 !important; }
+  nav.nav .nav-links::-webkit-scrollbar { display: none !important; }
+  .nav-right, .nav-logo, .nav-logo-badge { flex-shrink: 0 !important; }
 }
 /* ===== END WAVE194 nav mid-width overlap ===== */
