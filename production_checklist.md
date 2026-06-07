@@ -10,6 +10,39 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 
 ## ✅ DONE (verified live)
 
+### Mobile-broken root cause + CSS token bug class + offer modal (2026-06-07) — wave 174d/e
+Operator reported the phone as "everything stacked / overlapping / unstyled".
+Seven commits, each verified live (Playwright, 1440 + 390):
+- **Mobile scroll-container (72e883d) — THE root cause.** `html,body{height:100%}`
+  plus the mobile rule `@media(max-width:640px){html,body{overflow-x:hidden}}`
+  made `body` an 844px (100vh) `overflow:auto` scroll-container (the CSS spec
+  mutates a `visible` overflow-y to `auto` when the other axis is `hidden`).
+  Two nested fixed-height scrollers (body in html) breaks iOS scrolling and
+  leaves all below-fold content unreachable → "stacked / weird / empty". Fix:
+  keep `html` definite, `body{min-height:100%}` so body grows with content and
+  is never a scroller. Verified body 5093px / html scrolls, 10 routes clean.
+- **design.css minify (f1d060d).** 6.85MB→4.6MB (gzip 1.22MB→552KB); stripped
+  1.85MB of append-wave comments + whitespace, one rule per line (greppable),
+  render pixel-identical, all 25,204 rules parse.
+- **.btn nowrap (7d63050).** Empty-cart "Browse marketplace →" wrapped its arrow
+  out of the fixed-height button; `white-space:nowrap` on base `.btn`.
+- **Undefined CSS design-token bug class (b643ba1, 0f5a85b, 63fafa1).** A
+  used-vs-defined audit (grep JS `var(--x)` no-fallback vs `:root` defs) found
+  12 custom properties referenced but never defined → invalid declarations →
+  transparent backgrounds / wrong colors. Defined each against the palette
+  (--bg-secondary/-primary/-page-2/-input, --text/-faint, --err, --warn/--yellow
+  #fbbf24, --green-dim/--red-dim color-mix, --bd-1). Notable: error toasts
+  (.sale-toast.err) and the make-offer drawer had NO background. Font-family
+  tokens (--ui ×1338 etc.) deliberately left undefined — they inherit Roboto.
+- **Make-offer drawer modal (f6a8718).** The drawer was a bare grid child
+  (grid-column:auto) auto-placed into the sticky buy-box column, overlapping the
+  price stats. Re-rendered as a centered fixed modal (box-shadow spread =
+  backdrop), matching app.js's existing Escape handling. Verified 1440 + 390.
+- **Verified clean (no fix):** home/market/item/cart/sell/wallet/profile/db/
+  watchlist/loadout at 390 + filter drawer + cart checkout (insufficient-balance
+  UX exact: "add $210.11"); fonts loaded; home 0 console errors / 0 failed
+  requests; item-not-found + offers (incoming/outgoing) cards.
+
 ### Multi-currency display consistency + privacy mask gaps (2026-06-06) — wave 174c
 Fresh-angle live grind: switched the currency selector (USD/EUR/GBP/JPY)
 and toggled Hide-$ — both surfaced real bugs (verified live, each committed):
