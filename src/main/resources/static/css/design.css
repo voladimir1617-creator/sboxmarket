@@ -176901,28 +176901,16 @@ body :is(.settings-section-heading, h2.settings-section-heading):first-child {
    uses an inline "value preview" pattern in this exact spot.
    Off-state: chip is hidden by content:none on the .off
    modifier on the switch itself. */
-body .settings-row:has(.toggle-switch:not(.off)) > .toggle-switch::before {
-  content: "$•••••" !important;
-  position: absolute !important;
-  right: calc(100% + 12px) !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.4px !important;
-  color: rgb(35, 123, 255) !important;
-  background-color: rgba(35, 123, 255, 0.08) !important;
-  border: 1px solid rgba(35, 123, 255, 0.22) !important;
-  border-radius: 999px !important;
-  padding: 3px 9px !important;
-  white-space: nowrap !important;
-  pointer-events: none !important;
-  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-body .settings-row:has(.toggle-switch.off) > .toggle-switch::before {
-  content: none !important;
-}
+/* REMOVED ship #126785's "$•••••" value-preview chip. The selector
+   `.settings-row:has(.toggle-switch:not(.off)) > .toggle-switch::before`
+   was meant to preview the masked-amount string on the "Hide $ amounts"
+   toggle, but it matched ANY on-toggle that's a direct child of a
+   settings-row — so flipping ON an unrelated boolean (e.g. "Sale
+   notifications") rendered a stray "$•••••" pill beside it that read as
+   a glitch. A boolean toggle has no dollar value to preview, and the
+   rule can't be scoped to the Hide-$ row in CSS alone (no unique
+   selector / can't match by label text), so the decorative chip is
+   dropped entirely — toggles now render clean across /settings. */
 /* END CSFLOAT-1:1 PARITY ship #126785 */
 
 /* CSFLOAT-1:1 PARITY ship #126840 — /settings Local data destructive
