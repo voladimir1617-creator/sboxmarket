@@ -10,6 +10,28 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 
 ## ✅ DONE (verified live)
 
+### Multi-currency display consistency + privacy mask gaps (2026-06-06) — wave 174c
+Fresh-angle live grind: switched the currency selector (USD/EUR/GBP/JPY)
+and toggled Hide-$ — both surfaced real bugs (verified live, each committed):
+- **Currency "$" chips (06ab85b).** Display-only currency switching (fmt()
+  prints the chosen symbol, amounts stay USD-stored) left several DECORATIVE
+  "$" markers hardcoded, so JPY showed "¥34,270$$" on market/hero/band/
+  feature cards and "$Balance ¥2,964" in the nav. Gated each chip on
+  currencySymbol()==='$' (cards.js ×2, app.js home ×3) + balance icon uses
+  currencySymbol(). Verified: JPY → clean "¥…" / "¥Balance ¥…"; USD →
+  chips restored. Wallet/sell AMOUNT-INPUT "$" prefixes left as-is (USD is
+  the entry/storage currency — correct).
+- **Privacy est-value leak (3775e60).** Hide-$ masked nav balance + all
+  /profile totals but NOT the Sell page's Steam/Platform "est. value" +
+  "liquid now" summaries — leaking inventory worth a streamer hid
+  elsewhere. Gated the 4 totals on sb_privacy → "$•••••". Per-item prices
+  stay visible by design.
+- **Verified clean (no fix):** offer modal converts to ¥ correctly;
+  item-detail / cart / market all ¥-clean in JPY; backend falsy-0 class
+  confirmed unique (only the portfolio query, already fixed); add-to-cart
+  +remove, search filter+empty-state, card→item, tablet band (768/820)
+  all functional + overflow-free.
+
 ### Money-display accuracy — 0-floor / fee-floor bug class (2026-06-06) — wave 174b
 Eyes-on grind on the live populated app surfaced a systemic class: a 0/absent
 floor price rendered as a literal value. All fixes verified live (Playwright),
