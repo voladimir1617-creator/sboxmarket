@@ -2406,3 +2406,34 @@ RESULT: ZERO real text overlaps anywhere. Buy-confirm + bargain panels eyes-on-
 pixels clean at 960; Escape closes the buy dialog without over-navigating. The
 nav was the global "everything overlapping"; page bodies were already clean.
 (sell/db render full-page-mode → nav hidden there, fix moot but harmless.)
+
+WAVE 196-199 — parallel read-only visual-audit fan-out (3 agents: responsive CSS,
+frontend render, mobile tap/overflow) → integrate the REAL, browser-verified
+findings. Each verified live before fixing; agent overstatements corrected.
+ • wave196 (88c4d25) CHECKOUT BLOCKER: at <=480 .cart-summary was position:fixed
+   z-index:996 opaque, ~725px tall → it OPAQUELY COVERED the entire cart item list
+   (verified: elementFromPoint returned the summary over all 3 rows). On a phone
+   the customer couldn't see what they were buying. Fixed → position:static inline
+   below items (cart-grid is already 1-col on mobile, summary follows rows in DOM).
+ • wave197 (0c4c308) nav clip in the 769-900 GAP: the <=900 wrap dropped links to a
+   2nd row but `nav.nav,.nav{height/max-height:70px!important}` capped the bar at
+   70px so the links row spilled ~25px below + overlapped content. The <=768 and
+   901-1180 releases both miss 769-900. Released height:auto+max-height:none there.
+ • wave198 (369fff0) card hover-overlay mis-tap trap: .grid-star/.gc-magnifier/
+   .grid-cart-btn are opacity:0 hover-reveals but kept pointer-events:auto, so on
+   TOUCH a card-corner tap fired them invisibly instead of opening the item. Tied
+   pe to the reveal (none default, auto on :hover/:focus-within). (Agent called
+   these undersized tap targets; verifying showed they're invisible-but-tappable.)
+ • wave199 (33ef6f1) mobile bottom-nav lacked env(safe-area-inset-bottom) → on
+   notched iPhones the nav row crammed under the home indicator. Added the inset to
+   the nav padding + body clearance (env()=0 on non-notched → zero regression).
+ • images (68bd544) 4 raw item <img>s (loadout slot/preview, offer row, trade row)
+   bypassed the ItemImage primitive → lacked referrerPolicy:'no-referrer' (Steam
+   CDN 403s hotlinked requests → broken-image boxes). Added no-referrer + an onError
+   that hides a broken img. modals.js?v=184->185, app.js?v=204->205.
+ NOT fixed (deliberate): compact secondary tap targets (chart 7D/1M/3M toggles 28px,
+ home rail tabs 32px, Share 30px) — enlarging to 44px would make the toolbars chunky
+ and break csfloat parity (csfloat itself uses compact toggles); a design call, filed.
+ The stale `--nav-h:56px` (actual nav 70px) is a latent code-smell with no visible
+ impact (its only visible-nav consumer, the subnav, is handled per-band) — not worth
+ a global change. design.css ?v=225->229.
