@@ -45,6 +45,7 @@ class ListingController {
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
     @Autowired(required = false) com.sboxmarket.service.security.AdminAuthorization adminAuthorization
+    @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
 
     // Batch 659 — canonical enum lists + normaliser live in
     // `com.sboxmarket.util.ListingEnums` (shared with ItemController
@@ -1186,6 +1187,13 @@ class ListingController {
     @PutMapping("/{id}/stall")
     ResponseEntity<Map> updateStall(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
         def userId = requireUser(req)
+        // Banned/frozen sellers can't reprice or re-describe their listings —
+        // brings this path to parity with every other seller-mutation
+        // (SellService.relist/cancelAllActive, ListingService.bulkAdjustPrices,
+        // reportListing, the Steam-list endpoints), which all ban-gate the
+        // actor. Null-safe so envs that don't wire the guard (unit tests) are
+        // unaffected.
+        banGuard?.assertNotBanned(userId)
         def listing = listingService.getById(id)
         if (listing.sellerUserId != userId) {
             throw new com.sboxmarket.exception.ForbiddenException("Not your listing")
@@ -1205,7 +1213,16 @@ class ListingController {
             catch (NumberFormatException ignored) {
                 throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "Price must be a valid number")
             }
-            if (p <= BigDecimal.ZERO) throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "Price must be positive")
+            // Normalize to cents up-front, then floor at $0.01 — mirrors the
+            // list-creation paths (SellService.relist + the Steam-list
+            // endpoints). Without setScale, a sub-cent price like 0.004 cleared
+            // the old ">0" check and Postgres ROUNDED it to 0.00 on the
+            // NUMERIC(10,2) column → a live, instantly-buyable $0.00 listing
+            // (grief the discount/top-deals sort, or wash-trade volume at zero
+            // cost). setScale-then-floor makes 0.004→0.00→rejected while a
+            // genuine 0.01 still passes, and stores every price at exactly 2dp.
+            p = p.setScale(2, java.math.RoundingMode.HALF_UP)
+            if (p < new BigDecimal("0.01")) throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "Price must be at least \$0.01")
             if (p > new BigDecimal("100000")) throw new com.sboxmarket.exception.BadRequestException("PRICE_TOO_HIGH", "Price must not exceed \$100,000")
             // Fairness guard: once a bid lands on an auction, the starting
             // price becomes binding — bidders pegged their offer to the

@@ -2195,3 +2195,34 @@ WAVE 188 — mobile sweep completion + P2P escrow authorization audit.
   Net this session: 5 mobile fidelity fixes shipped (waves 183-186) + 4 fresh
   backend money/abuse audits all CLEAN (affiliate, review, deposit/withdraw,
   trade-escrow-auth). Tree clean; SteamAuthController never staged.
+
+WAVE 189 — listing-creation/pricing integrity audit (read-only) → 2 REAL fixes
+SHIPPED + 5 clean-with-proof. Both defects were isolated to the one seller-
+mutation that diverged from the hardened relist/Steam-list/bulk paths:
+ListingController.updateStall (single-listing in-place price/desc edit).
+  • FINDING 1 (MEDIUM) — sub-cent price → $0.00 grief/wash-trade. The edit
+    path checked only `p <= 0` and saved the raw BigDecimal unscaled; on the
+    NUMERIC(10,2) price column Postgres ROUNDS 0.004 → 0.00, yielding a live,
+    instantly-buyable $0.00 ACTIVE listing (dominates the discount/top-deals
+    sort; lets a confederate buy at $0.00 to wash-trade volume). Creation paths
+    all floor at $0.01 + setScale(2); this one didn't. FIX: setScale(2,HALF_UP)
+    then floor `< 0.01 → INVALID_PRICE` (ListingController.groovy ~1208),
+    mirroring SellService.relist. 0.004→0.00→rejected; 0.01 still passes; every
+    price now stored at exactly 2dp.
+  • FINDING 2 (LOW-MED) — updateStall had NO BanGuard gate (every other seller-
+    mutation calls banGuard.assertNotBanned). A banned seller could still
+    reprice ACTIVE listings + fan PRICE_DROPPED bells. FIX: inject
+    @Autowired(required=false) BanGuard + `banGuard?.assertNotBanned(userId)` at
+    the top of updateStall (null-safe → unit tests unaffected).
+  • CLEAN with proof (no change): inventory ownership at list time + assetId
+    IDOR (Steam-list re-fetches the caller's own live inventory by session
+    steamId64; relist checks owned.buyerUserId==seller + status==SOLD); price
+    bounds on all creation paths ($0.01 floor + $100k cap + NaN-safe parse, no
+    overflow on precision=10); mass-assignment (Listing built server-side,
+    sellerUserId from principal, no client fee/net/status); fee/payout (2%
+    server constant at settle time); auction duration 1-168h + reserve>start +
+    maxDiscount [0,1) on every path. Verified: ./gradlew test
+    *ListingControllerSpec *ListingServiceSpec → BUILD SUCCESSFUL (compiles +
+    no regression; the null-safe guard + compareTo-safe setScale leave existing
+    specs green). Backend change → needs app rebuild+restart to go live (test-
+    suite-green is the proof, per the established backend-fix verification model).
