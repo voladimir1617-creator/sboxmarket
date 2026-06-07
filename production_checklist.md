@@ -2381,3 +2381,28 @@ unchanged; ≤900 existing wrap unchanged. This was the site-wide "overlap" — 
 core pages (home/marketplace/item) are otherwise clean+polished at 360/390/768/
 1280/1440/1920 (re-verified this pass). Continuing the 900-1180 band sweep for
 other layouts.
+
+WAVE 195 — nav band fix v2 (SUPERSEDES wave 194's same-row scroll-lane) +
+comprehensive overlap sweep. v1's scroll-lane kept the links LEFT-anchored on the
+single row while the controls shifted left as the viewport narrowed, so at ~912px
+a 76px overlap returned. FINAL fix (design.css, commit 096ae9c, ?v=223→224): in
+@media (min-width:901px) and (max-width:1180px) .nav-inner wraps and .nav-links
+drops to its OWN full-width 2nd row (order:3; flex:1 0 100%) — the lane treatment
+the ≤900 breakpoint already uses — so links can NEVER share a row with the
+controls. Blocker to the bar growing: a PAIR of pinned caps
+`nav.nav{height:70px!important}` AND `nav.nav,.nav{max-height:70px!important}`
+(~line 121902). height:auto already won on specificity, but the max-height cap
+held the box at 70px and vertically-centred+clipped the 90px 2-row content (logo
+top -8px). Override `html body nav.nav{height:auto;min-height:70px;max-height:
+none}` releases BOTH → bar grows to ~107px. Verified LIVE at 901/912/1181/1440:
+band = clean 2-row (logo fully visible, 0 link/control overlaps), ≥1181 single-
+row (links just fit, gap≥0), 1440 unchanged, no h-overflow.
+THEN a clip+stacking-aware text-overlap detector (tight Range text-rects ∩
+overflow-clip ancestors + elementFromPoint exposed-gate + tall-viewport so the
+whole page incl. below-fold is scanned in one pass) swept EVERY route at 960
+(band): home/search/item/sell/wallet/loadout/db/cart/watchlist/buy-orders/
+notifications/settings/profile/offers — and home+market also at 1440 + 390.
+RESULT: ZERO real text overlaps anywhere. Buy-confirm + bargain panels eyes-on-
+pixels clean at 960; Escape closes the buy dialog without over-navigating. The
+nav was the global "everything overlapping"; page bodies were already clean.
+(sell/db render full-page-mode → nav hidden there, fix moot but harmless.)
