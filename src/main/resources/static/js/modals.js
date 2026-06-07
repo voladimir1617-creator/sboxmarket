@@ -8098,7 +8098,10 @@ function ProfileTradesTab({ me, privacy }) {
                       ? `${t.unreadCount} unread message${t.unreadCount === 1 ? '' : 's'} from the counterparty`
                       : 'Private chat with the other trade participant'
                   },
-                    '—',
+                    // Speech-bubble glyph (✕ when open) — matches the staff
+                    // trade-chat button. Previously a bare em-dash '—' that
+                    // rendered as a stray dash glued to the label ("—Chat").
+                    openChat === t.id ? '✕ ' : '💬 ',
                     openChat === t.id ? 'Hide chat' : 'Chat',
                     // Unread badge — accent-coloured pill with the
                     // server-side count. Only shown when > 0 AND chat
