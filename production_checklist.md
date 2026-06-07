@@ -2437,3 +2437,27 @@ findings. Each verified live before fixing; agent overstatements corrected.
  The stale `--nav-h:56px` (actual nav 70px) is a latent code-smell with no visible
  impact (its only visible-nav consumer, the subnav, is handled per-band) — not worth
  a global change. design.css ?v=225->229.
+
+WAVE 200 — 2nd visual-audit batch (empty/error-state + keyboard/focus agents) +
+self-caught regression. The empty/error agent praised the codebase (graceful
+degrade everywhere) but found 3 "false empty/not-found on a fetch error" spots; the
+keyboard/focus agent confirmed money double-submit is excellently ref-latched
+(no double-charge) and found 2 hand-rolled dialogs missing focus traps. Integrated:
+ • stall error state (bd63d8f): a real seller's /stall/{id} showed "this seller
+   doesn't exist" on a 500/offline (fetchPublicStall returned null for BOTH 404 and
+   error). Now returns a distinct {__error} sentinel → recoverable "Couldn't load
+   this stall" + Retry. Verified: forced 500 → error UI; bogus id → not-found still.
+ • cart-checkout confirm focus-trap (2697318) — the money-critical modal had Escape
+   but no Tab trap/focus-restore; wired the shared useDialogA11y. THEN self-caught a
+   regression (e434ac7): I passed an inline onClose, but the hook's deps include
+   onClose, so it re-ran every render and re-grabbed focus — fixed with useCallback
+   (matches every other caller). Verified focus stays on Confirm through re-renders.
+ • report-seller dialog focus-trap (c9dcb3f) — same useDialogA11y treatment +
+   reportSellerBusyRef guard. Verified on /stall/3: focus lands inside, Escape closes.
+ • MarkSentDrawer ref latch (8e43784) — defense-in-depth synchronous busyRef on the
+   trade mark-sent/skip submit (parent already guarded; now self-consistent).
+ Filed (chips, lower value): reviews-tab + seller-search false-empty-on-error
+ (reviews modal is complex → MED regression risk; seller-search self-corrects), and
+ the compact-tap-target sizing (csfloat-parity call). app.js?v=204->210, modals.js
+ ?v=184->186. App boots 0 console errors after every change; SteamAuthController
+ never staged.
