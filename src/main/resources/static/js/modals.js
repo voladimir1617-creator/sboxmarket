@@ -9219,6 +9219,9 @@ function ProfileReviewsTab({ me }) {
   const [mode, setMode]       = useState('received');
   const [received, setReceived] = useState(null);
   const [given, setGiven]     = useState(null);
+  // Distinguish "you have no reviews" from "the fetch failed" — a 500/offline used
+  // to render "No reviews yet", misrepresenting the user's reputation as empty.
+  const [reviewsErr, setReviewsErr] = useState(false);
   const [pending, setPending] = useState(null);
   const [summary, setSummary] = useState(null);
   const [starFilter, setStarFilter] = useState(0);
@@ -9237,12 +9240,22 @@ function ProfileReviewsTab({ me }) {
   const editGivenBusyRef = useRef(editGivenBusy); editGivenBusyRef.current = editGivenBusy;
   const loadReceived = useCallback(async () => {
     if (!me) return;
-    const [list, sum] = await Promise.all([
-      fetchReviewsForUser(me.id),
-      fetchReviewSummary(me.id)
-    ]);
-    setReceived(Array.isArray(list) ? list : []);
-    setSummary(sum || { count: 0, average: null });
+    setReviewsErr(false);
+    try {
+      // Raw fetch (not fetchReviewsForUser, which swallows non-2xx into []) so a
+      // genuine server error surfaces the Retry card instead of a false "No reviews
+      // yet". fetchReviewSummary already degrades gracefully, so it can't mask the err.
+      const [rRes, sum] = await Promise.all([
+        fetch(`/api/reviews/user/${me.id}`, { credentials: 'same-origin' }),
+        fetchReviewSummary(me.id)
+      ]);
+      if (!rRes.ok && rRes.status !== 404) throw new Error('HTTP ' + rRes.status);
+      const list = rRes.ok ? await rRes.json() : [];
+      setReceived(Array.isArray(list) ? list : []);
+      setSummary(sum || { count: 0, average: null });
+    } catch (_) {
+      setReviewsErr(true);
+    }
   }, [me?.id]);
   const loadGiven = useCallback(async () => {
     if (!me) return;
@@ -9322,6 +9335,13 @@ function ProfileReviewsTab({ me }) {
   }
 
   const rows = mode === 'received' ? received : given;
+  if (mode === 'received' && reviewsErr) return h('div', { className: 'empty-inline', style: { padding: '24px 16px' } },
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load your reviews"),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+      'Something went wrong fetching your reviews — your reputation is safe; check your connection and retry.'),
+    h('button', { className: 'btn btn-accent', onClick: loadReceived }, 'Retry')
+  );
   if (rows === null) return h('div', { className: 'spinner' });
 
   const filtered = starFilter > 0 ? rows.filter(r => r.rating === starFilter) : rows;
