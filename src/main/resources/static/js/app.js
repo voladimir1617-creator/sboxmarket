@@ -3796,6 +3796,9 @@ export function App() {
   const [reportSellerContext, setReportSellerContext] = useState('');
   const [reportSellerBusy, setReportSellerBusy] = useState(false);
   const [reportSellerErr, setReportSellerErr] = useState('');
+  // Synchronous busy latch so the report drawer's a11y onClose can be a STABLE
+  // useCallback (no stale-state read) yet still refuse to dismiss mid-submit.
+  const reportSellerBusyRef = React.useRef(false);
   const openReportSeller = () => {
     setReportSellerReason('Scam attempt');
     setReportSellerContext('');
@@ -3806,6 +3809,7 @@ export function App() {
     if (!stallData?.seller?.id) return;
     setReportSellerErr('');
     setReportSellerBusy(true);
+    reportSellerBusyRef.current = true;
     try {
       const { reportUser } = await import('./api.js');
       const res = await reportUser(stallData.seller.id, reportSellerReason, reportSellerContext || '');
@@ -3817,17 +3821,14 @@ export function App() {
       showToast('Report filed — Support will review, track in /support.', 'ok');
     } finally { setReportSellerBusy(false); }
   };
-  // Escape closes the report drawer (busy-guarded).
-  useEffect(() => {
-    if (!reportSellerOpen) return;
-    const onKey = (e) => {
-      if (e.key !== 'Escape' || reportSellerBusy) return;
-      e.stopPropagation();
-      setReportSellerOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [reportSellerOpen, reportSellerBusy]);
+  // Report drawer a11y — Escape + initial focus + focus restore + Tab trap via the
+  // shared useDialogA11y contract (was Escape-only, so Tab escaped to the stall page
+  // behind). Stable onClose (useCallback) so the effect doesn't re-run + re-grab
+  // focus every render; busy-guarded via reportSellerBusyRef so a keypress can't
+  // dismiss it mid-submit.
+  const reportSellerPanelRef = React.useRef(null);
+  const closeReportSeller = React.useCallback(() => { if (!reportSellerBusyRef.current) setReportSellerOpen(false); }, []);
+  useDialogA11y(reportSellerPanelRef, closeReportSeller, reportSellerOpen);
   const [stallReviews, setStallReviews] = useState(null);
   const [stallSold, setStallSold]       = useState([]);
   const [eligibleTrades, setEligibleTrades] = useState([]);
@@ -8952,6 +8953,8 @@ export function App() {
     },
       h('div', {
         className: 'cart-confirm-panel',
+        ref: reportSellerPanelRef,
+        tabIndex: -1,
         style: { maxWidth: 460 },
         onClick: e => e.stopPropagation(),
         role: 'dialog',
