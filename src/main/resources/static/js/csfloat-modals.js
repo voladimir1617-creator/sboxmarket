@@ -1646,6 +1646,11 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                         alt: s.itemName || '',
                         className: 'loadout-slot-img',
                         loading: 'lazy',
+                        // Steam CDN 403s hotlinked (cross-origin Referer) requests —
+                        // strip the referrer so the thumbnail loads; hide a genuinely
+                        // broken img rather than show the broken-image glyph.
+                        referrerPolicy: 'no-referrer',
+                        onError: (e) => { e.currentTarget.style.display = 'none'; },
                         style: {
                           width: 96, height: 96, objectFit: 'contain',
                           background: s.itemAccentColor ? `${s.itemAccentColor}33` : 'rgba(255,255,255,0.04)',
@@ -1879,7 +1884,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                   style: pi.accentColor ? { borderColor: pi.accentColor } : null
                 },
                   pi.imageUrl
-                    ? h('img', { className: 'loadout-card-preview-img', src: pi.imageUrl, alt: '', loading: 'lazy' })
+                    ? h('img', { className: 'loadout-card-preview-img', src: pi.imageUrl, alt: '', loading: 'lazy', referrerPolicy: 'no-referrer', onError: (e) => { e.currentTarget.style.display = 'none'; } })
                     : h('span', { className: 'loadout-card-preview-emoji' }, pi.itemEmoji || '◆')
                 ))
               ),

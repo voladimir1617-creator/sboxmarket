@@ -7637,6 +7637,10 @@ function ProfileTradesTab({ me, privacy }) {
             }, t.itemImageUrl
               ? h('img', {
                   src: t.itemImageUrl, alt: '', loading: 'lazy',
+                  // Steam CDN 403s hotlinked requests — strip referrer so it loads;
+                  // hide a genuinely broken img instead of the broken-image glyph.
+                  referrerPolicy: 'no-referrer',
+                  onError: (e) => { e.currentTarget.style.display = 'none'; },
                   style: { width: '100%', height: '100%', objectFit: 'contain' }
                 })
               : h(MaterialIcon, { name: 'inventory_2', size: 24, color: accent }));
@@ -13290,7 +13294,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     // item page — without it the modal stays mounted on top.
     const itemHref = offer.itemId ? `/item/${offer.itemId}` : null;
     const thumbInner = offer.itemImageUrl
-      ? h('img', { src: offer.itemImageUrl, alt: offer.itemName, loading: 'lazy', decoding: 'async' })
+      ? h('img', { src: offer.itemImageUrl, alt: offer.itemName, loading: 'lazy', decoding: 'async', referrerPolicy: 'no-referrer', onError: (e) => { e.currentTarget.style.display = 'none'; } })
       : h('span', null, '—');
     return h('div', { key: offer.id, className: 'offer-row' },
       itemHref
