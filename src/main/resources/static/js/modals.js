@@ -2645,6 +2645,11 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
   useDialogA11y(panelRef, stableCancel);
   const [url, setUrl]   = useState('');
   const [busy, setBusy] = useState(false);
+  // Synchronous re-entrancy latch — a same-tick double-click on "Mark sent" /
+  // "Skip for now" must not fire onSubmit twice before React commits busy=true
+  // (the disabled attr is async). Parent submitMarkSent already guards, but every
+  // money-adjacent submit gets its own ref latch (matches ReportCounterpartyDrawer).
+  const busyRef = useRef(false);
   const [err, setErr]   = useState('');
   // Live validation regex matches the server-side check.
   const URL_RE = /^https:\/\/steamcommunity\.com\/tradeoffer\/[A-Za-z0-9_?&=/\-]+$/;
@@ -2671,10 +2676,11 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
     // submitMarkSent twice before React tore down the drawer.
     const value = override != null ? override : trimmed;
     if (override == null && !valid) { setErr('That doesn\'t look like a Steam trade-offer URL.'); return; }
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try { await onSubmit(value); }
-    finally { setBusy(false); }
+    finally { setBusy(false); busyRef.current = false; }
   };
   return h('div', {
     className: 'cart-confirm-backdrop',
