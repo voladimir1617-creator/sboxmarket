@@ -21105,6 +21105,14 @@ body hr, body .divider, body .section-divider, body .list-divider { border: 0 !i
 @media (max-width: 600px) { .wallet-modal { max-width: 100% !important; border-radius: 0 !important; }
 .wallet-modal .wallet-hero, .wallet-modal .wallet-tabs, .wallet-modal .wallet-panel { margin-left: 16px !important; margin-right: 16px !important; }
 .wallet-modal .wallet-panel { padding-left: 16px !important; padding-right: 16px !important; }
+/* Mobile: the stepper rail + step-body L/R padding stole ~100px from the
+   narrow modal, collapsing the withdraw destination/2FA inputs (and the
+   payment-method card) to ~170px — they clipped their placeholders and
+   floated right of the rail, misaligned with the full-width Withdraw
+   button. Trim the rail and drop the body's redundant L/R padding so step
+   content fills the column and aligns with the CTA. Desktop is untouched. */
+.wallet-modal .wallet-step-rail { width: 36px !important; padding-right: 12px !important; }
+.wallet-modal .wallet-step-body { padding-left: 0 !important; padding-right: 0 !important; }
 }
 .full-page-mode .info-modal .empty-inline > div[style*="font-size: 15px"], .full-page-mode .info-modal .empty-inline > div[style*="fontSize: 15"], .info-modal .empty-inline > div[style*="font-weight: 600"] { font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 16px !important; font-weight: 500 !important; color: rgb(255, 255, 255) !important; letter-spacing: 0 !important; line-height: 24px !important; margin-bottom: 8px !important; }
 .full-page-mode .info-modal .empty-inline > div[style*="font-size: 13px"], .full-page-mode .info-modal .empty-inline > div[style*="fontSize: 13"], .info-modal .empty-inline > div[style*="max-width: 420px"] { font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 400 !important; color: rgb(158, 167, 177) !important; line-height: 20px !important; max-width: 460px !important; margin: 0 auto 20px !important; }
