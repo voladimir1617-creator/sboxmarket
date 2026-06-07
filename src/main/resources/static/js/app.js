@@ -4243,20 +4243,17 @@ export function App() {
   // every row, and if one failed the user had no reviewable explanation.
   const [cartConfirmOpen, setCartConfirmOpen] = useState(false);
   const [cartBusy, setCartBusy] = useState(false);
-  // Batch 827 — Escape closes the cart-confirm dialog. Busy-guarded
-  // so mid-flight checkout can't be cancelled via a stray keypress.
-  useEffect(() => {
-    if (!cartConfirmOpen) return;
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      if (cartBusy) return;
-      e.stopPropagation();
-      setCartConfirmOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [cartConfirmOpen, cartBusy]);
   const checkoutRef = React.useRef(false);
+  // Batch 1168 — full dialog a11y for the hand-rolled cart-checkout confirm (the
+  // money-critical modal). It previously had Escape-to-close (Batch 827) but NO
+  // Tab focus trap and no focus restore, so a keyboard user tabbed straight out of
+  // the purchase confirm into the cart page behind it. Reuse the shared
+  // useDialogA11y contract (Escape + initial focus + focus restore + Tab trap) that
+  // every InfoModal already gets. onClose is guarded by the synchronous checkoutRef
+  // so a stray keypress can't dismiss the dialog mid-checkout (preserves — more
+  // robustly than the old cartBusy-state guard — the Batch-827 busy guard).
+  const cartConfirmPanelRef = React.useRef(null);
+  useDialogA11y(cartConfirmPanelRef, () => { if (!checkoutRef.current) setCartConfirmOpen(false); }, cartConfirmOpen);
   const doCheckout = async () => {
     if (cart.length === 0) return;
     // Synchronous in-flight latch — a rapid double-click on Confirm must not fire
@@ -9007,6 +9004,8 @@ export function App() {
     cartConfirmOpen && h('div', { className: 'cart-confirm-backdrop', onClick: () => !cartBusy && setCartConfirmOpen(false) },
       h('div', {
         className: 'cart-confirm-panel',
+        ref: cartConfirmPanelRef,
+        tabIndex: -1,
         onClick: e => e.stopPropagation(),
         // Batch 827 — Cart-checkout confirm a11y. Same pattern as
         // Confirm-receipt (batch 826): role=dialog + aria-modal so
