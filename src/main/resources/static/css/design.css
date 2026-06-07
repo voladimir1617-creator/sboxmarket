@@ -155340,25 +155340,34 @@ body div[style*="sticky"][style*="rgba(30,165,255"] > span b {
 }
 /* END CSFLOAT-1:1 PARITY ship #11812 */
 
-/* CSFLOAT-1:1 PARITY ship #11813 — mobile bottom sticky checkout summary on /cart */
+/* CSFLOAT-1:1 PARITY ship #11813 (revised wave196) — mobile cart summary INLINE
+   below the items. The previous version force-`position:fixed`-ed the FULL summary
+   panel (price breakdown + escrow + Trade Protection + 3 action buttons) to the
+   bottom, where it rendered ~725px tall and OPAQUELY COVERED the entire cart item
+   list (z-index:996, bg .97) — on a phone the customer saw ONLY the summary and
+   could not see which skins they were about to pay for: a checkout blocker. This
+   "compact sticky footer" pattern was authored for csfloat's small footer DOM and
+   doesn't fit this clone's full panel. The .cart-grid is already a single column
+   at mobile and .cart-summary follows the .cart-row items in DOM order, so normal
+   flow stacks items-then-summary correctly. */
 @media (max-width: 480px) {
   body .cart-summary,
   body app-cart-page .cart-summary,
   body .cart-page .cart-summary {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 53px !important;
-    margin: 0 !important;
-    border-radius: 12px 12px 0 0 !important;
-    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 16px 0 0 !important;
+    width: 100% !important;
+    border-radius: 12px !important;
+    padding: 14px !important;
     background-color: rgba(15, 18, 26, 0.97) !important;
     border: 1px solid rgba(193, 206, 255, 0.06) !important;
-    border-bottom: 0 !important;
-    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.36) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    z-index: 996 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    z-index: auto !important;
   }
   body .cart-summary .cart-summary-actions {
     margin-top: 8px !important;
@@ -155368,9 +155377,10 @@ body div[style*="sticky"][style*="rgba(30,165,255"] > span b {
     min-height: 44px !important;
     width: 100% !important;
   }
+  /* summary now flows inline; only need normal clearance for the 73px fixed mobile nav */
   body .cart-page,
   body app-cart-page {
-    padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #11813 */
