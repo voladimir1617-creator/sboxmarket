@@ -880,7 +880,7 @@ body::before { opacity: 0.1; background-size: 40px 40px; }
 }
 body { font-family: 'Roboto', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; }
 body.modal-open, html.modal-open { overflow: hidden; }
-:root { --limited-color: var(--rare-lim); --offmarket-color: var(--rare-off); --standard-color: var(--rare-std); --text-primary: var(--ink); --text-secondary: var(--ink-3); --text-tertiary: var(--ink-4); --text-muted: var(--ink-4); --border: var(--line); --border-light: var(--line-2); --bg-card: var(--bg-1); --bg-elevated: var(--bg-2); --card-bg: var(--bg-1); --accent-border: color-mix(in oklab, var(--ink) 30%, transparent); --green: var(--up); --red: var(--down); }
+:root { --limited-color: var(--rare-lim); --offmarket-color: var(--rare-off); --standard-color: var(--rare-std); --text-primary: var(--ink); --text-secondary: var(--ink-3); --text-tertiary: var(--ink-4); --text-muted: var(--ink-4); --border: var(--line); --border-light: var(--line-2); --bg-card: var(--bg-1); --bg-elevated: var(--bg-2); --bg-secondary: var(--bg-2); --card-bg: var(--bg-1); --accent-border: color-mix(in oklab, var(--ink) 30%, transparent); --green: var(--up); --red: var(--down); }
 .modal-demand-chip.signal-up, .modal-demand-chip.signal-down { font-weight: 500; }
 .modal-demand-chip.signal-up { color: var(--up); border-color: color-mix(in oklab, var(--up) 30%, var(--line)); background: color-mix(in oklab, var(--up) 8%, transparent); }
 .modal-demand-chip.signal-down { color: var(--down); border-color: color-mix(in oklab, var(--down) 30%, var(--line)); background: color-mix(in oklab, var(--down) 8%, transparent); }
