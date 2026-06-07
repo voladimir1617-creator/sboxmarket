@@ -612,7 +612,13 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 e.stopPropagation();
                 const url = window.location.origin + '/item/' + item.id;
                 const title = item.name + ' · SkinBox';
-                const text  = `${item.name} — listed from ${fmt(item.lowestPrice)} on SkinBox`;
+                // An unlisted / sold-out item comes back with lowestPrice 0
+                // (not null) — don't share "listed from $0.00 on SkinBox".
+                // Same 0-floor guard as the Listing-price stat above.
+                const _lp = parseFloat(item.lowestPrice);
+                const text  = (Number.isFinite(_lp) && _lp > 0)
+                  ? `${item.name} — listed from ${fmt(item.lowestPrice)} on SkinBox`
+                  : `${item.name} on SkinBox`;
                 const btn = e.currentTarget;
                 const flashCopied = () => {
                   /* Use innerHTML so the Material icon span survives the
@@ -11296,7 +11302,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             h(ItemImage, { item: { imageUrl: si.imageUrl || si.iconUrl, name: si.name, category: si.category, iconEmoji: '—' }, variant: 'card' })
           ),
           h('div', { className: 'inventory-name' }, si.name),
-          h('div', { className: 'inventory-floor' }, si.catalogueId ? 'Floor ' + fmt(si.suggestedPrice) : 'Set your price'),
+          h('div', { className: 'inventory-floor' }, (si.catalogueId && parseFloat(si.suggestedPrice) > 0) ? 'Floor ' + fmt(si.suggestedPrice) : 'Set your price'),
           // Batch 551 — buy-order demand chip. When a standing buy order
           // exists at >= floor, highlight that price so the seller can
           // instantly match it instead of undercutting the floor. Uses
