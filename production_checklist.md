@@ -10,6 +10,27 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 
 ## ✅ DONE (verified live)
 
+### Mobile type scale + hero compaction + money-path/a11y verification (2026-06-07) — wave 174f/g
+Operator: "mobile looks wrong" / "not production ready, keep working". Measured the
+rendered mobile type scale + proportions (downscaled thumbnails hid these — only
+computed-style measurement surfaced them). Two fixes, verified live at 390:
+- **Section headings (eb39ef9).** Home journey + FAQ titles were a flat 42px on
+  phones — bigger than the 30px hero h1 (inverted/oversized hierarchy, 3-line wrap).
+  @media(max-width:640px) → 25px. Now hero 30 > sections 25 > body 16.
+- **Hero compaction (3ea94d4).** Hero card-art kept its desktop 473px height on
+  mobile → hero 940px (>844 viewport), card elongated (ratio 0.59). Capped stack to
+  360px → hero 827px (fits viewport), card 280×360 (natural 3:4), no clip/distortion.
+- **Verified PRODUCTION-READY (no fix needed):** all 3 money flows end-to-end with
+  exact math — deposit ($19.89→$269.89, +$250 exact), buy ($269.89→$39.89, −$230
+  exact, escrow trade created), withdraw (email-gate + 2FA + $5k daily cap + admin
+  review + cancel policy, properly blocked w/o verified email). Market a11y clean
+  (55/55 imgs alt, 123/123 btns named, 4/4 inputs labeled). No service worker →
+  no stale-asset trap; fixes confirmed live-served (design.css?v=239, src==build).
+  Mobile type consistent across home/market/item/profile.
+- **Known remaining optimization:** design.css is 4.6MB minified (25k rules from
+  190+ append waves) — a real perf item, but a safe purge needs a dedicated pass
+  with multi-route render-compare (dynamic classnames make a blind purge risky).
+
 ### Mobile-broken root cause + CSS token bug class + offer modal (2026-06-07) — wave 174d/e
 Operator reported the phone as "everything stacked / overlapping / unstyled".
 Seven commits, each verified live (Playwright, 1440 + 390):
