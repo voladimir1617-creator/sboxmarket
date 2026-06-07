@@ -3899,7 +3899,7 @@ export function App() {
       const stall = await fetchPublicStall(route.params.id);
       if (!alive) return;
       let reviews = null, eligible = [], sold = [];
-      if (stall) {
+      if (stall && !stall.__error) {
         [reviews, eligible, sold] = await Promise.all([
           fetchReviewsForUser(route.params.id),
           me ? fetchEligibleReviews(route.params.id) : Promise.resolve([]),
@@ -7708,6 +7708,19 @@ export function App() {
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
                 "This seller doesn't exist or has deactivated their account."),
               h('a', { className: 'btn btn-accent', href: '/market', style: { display: 'inline-flex', minWidth: '220px', maxWidth: '280px', margin: '0 auto', padding: '10px 22px' } }, 'Back to marketplace')
+            )
+        : stallData.__error
+          // Distinct from __notFound: a genuine fetch error (500/network) must NOT
+          // tell a visitor a real seller "doesn't exist" — show a recoverable error
+          // with Retry instead of the dead-end not-found copy.
+          ? h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
+              h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
+              h('h2', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' } }, "Couldn't load this stall"),
+              h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+                'Something went wrong fetching this seller — it may be a temporary connection issue.'),
+              h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+                h('button', { className: 'btn btn-accent', onClick: () => location.reload(), style: { minWidth: '150px', padding: '10px 22px' } }, 'Retry'),
+                h('a', { className: 'btn btn-ghost', href: '/market', style: { minWidth: '150px', padding: '10px 22px' } }, 'Back to marketplace'))
             )
         : h('div', null,
             // Suspended-account banner (batch 364) — when the seller is

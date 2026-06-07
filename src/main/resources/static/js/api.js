@@ -554,7 +554,13 @@ export async function fetchPublicStall(userId) {
   // sentinel to null so the SPA's existing `__notFound` branch still
   // fires from the standard `stall || { __notFound: true }` fallback.
   const data = await safeJson(`${API}/listings/stall/${userId}`, undefined, { expect: [404] });
-  if (data && data.notFound) return null;
+  // safeJson returns null on ANY fetch error (HTTP non-2xx or network); the stall
+  // endpoint returns an object on success and {notFound:true} for a missing id, so
+  // a null here means a GENUINE error, not "not found". Return a distinct sentinel
+  // so the SPA shows a recoverable error (Retry) instead of a misleading
+  // "this seller doesn't exist" dead-end on a transient 500/offline.
+  if (data == null) return { __error: true };
+  if (data.notFound) return null;
   return data;
 }
 
