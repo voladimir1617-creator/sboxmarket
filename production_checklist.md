@@ -2290,3 +2290,35 @@ CSV injection.
   certified clean with cited proof, ONE fix-yielding. Combined with the 5 live
   mobile-fidelity fixes (waves 183-186), this continuation = 6 real defects
   fixed + the money/security/privacy surface re-validated from 7 fresh angles.
+
+WAVE 192 — real-time push (SSE) + notification IDOR audit (read-only) →
+CERTIFIED CLEAN (all 6 items). Only one push surface exists (auction bid stream,
+AuctionStreamController + AuctionEventBus); notifications are pure client-poll.
+  • SSE scope: stream keyed by listingId (PUBLIC per-auction broadcast), NO
+    client userId param → no "subscribe as another user"; hidden/non-auction id
+    → 404 (can't probe off-market rows). Anonymous-allowed is intentional +
+    safe (public auction state only).
+  • Emitter registry: Map<listingId, emitters>, push targeted to that listing's
+    subscribers only (no all-emitter iteration on bid); race-hardened
+    (re-check loop + value-conditional eviction); emitters hold no user
+    identity (no stale-after-relogin cross-delivery).
+  • Notification REST IDOR: every endpoint requireUser (401 anon); per-row
+    ownership `n.userId == userId` on markRead/markUnread/deleteOne (silent
+    no-op for foreign ids, no existence oracle), batch ops findAll-filter by
+    owner, list/count are WHERE userId=:uid. No cross-user read/flip/delete.
+  • PII: SSE OMITS currentBidderId (sends only public currentBidderName,
+    sanitized) — explicit redaction; Notification entity has no email/IP/payout
+    columns, bodies are the owner's own event text.
+  • DoS: 200-emitter/listing cap + /api/bids/stream/ in RateLimitFilter
+    GUARDED_ENUMS (per-IP open-rate) + 10-min timeout + onCompletion/onError/
+    heartbeat cleanup → no emitter leak. No code change warranted.
+  Housekeeping note (NOT actioned — gitignored, not built/deployed, removing a
+  registered git worktree risks corrupting worktree metadata): a stale agent
+  worktree exists at .claude/worktrees/agent-a476ed47e53e7f5af/ with an older
+  source copy; the live tree (src/main/groovy) is what builds + was audited.
+
+  CONTINUATION AUDIT PASS: 8 fresh adversarial backend audits (affiliate,
+  review, deposit/withdraw, trade-escrow-auth, listing-creation [→2 shipped
+  fixes], api-key-scope, data-export-PII, sse/notification-IDOR) — SEVEN clean
+  with cited proof, ONE fix-yielding. Money/security/privacy/realtime surface
+  re-validated from 8 fresh angles atop the 150+ prior waves.
