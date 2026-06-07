@@ -2226,3 +2226,42 @@ ListingController.updateStall (single-listing in-place price/desc edit).
     no regression; the null-safe guard + compareTo-safe setScale leave existing
     specs green). Backend change → needs app rebuild+restart to go live (test-
     suite-green is the proof, per the established backend-fix verification model).
+
+WAVE 190 — API-key auth + scope enforcement audit (read-only) → CERTIFIED CLEAN
+across all 6 dimensions; no code change warranted. The feature is REAL (not
+stubbed): ApiKeyAuthFilter (@Order 2) hash-resolves `Authorization: Bearer
+sbx_live_…`, stamps session steamUserId = owner, so a key authenticates as its
+owner on every authenticated endpoint. Proven guards:
+  • Scope: RO keys write-gated → 403 RO_KEY_WRITE_FORBIDDEN, fails CLOSED (null/
+    unknown method treated as write); no money mutation sits behind any GET (buy/
+    cancel/withdraw/etc are all POST/PUT/DELETE), so an RO key genuinely can't
+    mutate.
+  • Privilege: userId comes only from the hash-resolved DB row (not spoofable);
+    every admin/CSR endpoint independently re-checks the owner's DB `role`
+    (AdminAuthorization.requireAdmin) → a non-admin owner's key can't reach
+    admin/CSR; session-fixation defended (rotates stray JSESSIONID).
+  • Storage: SHA-256 at rest, @JsonIgnore hash, indexed hash-LOOKUP (no raw-
+    secret == compare), 14-char public prefix only displayed.
+  • Revocation: cache-free DB re-check (countLiveById) every request → revoked
+    key rejected on the very next call.
+  • Rate-limit: RateLimitFilter (@Order 5) buckets per-OWNER (the stamped
+    steamUserId) → a leaked key is capped 20 writes/10s on every money surface;
+    key creation double-bounded (rate-limit + hard 20-active-key ceiling).
+  • Leakage: raw secret returned ONCE at creation, never re-fetchable (list
+    serializes prefix only), never logged.
+  TWO NON-DEFECTS (NOT actioned — design/informational, changing them = churn/
+  scope-creep on the frozen contract): (a) MED design choice — scope is binary
+  RO/RW, so any RW key = full account-drain (no withdraw/transfer sub-scope); a
+  money-movement sub-scope is a future hardening FEATURE, the operator's call,
+  not a bug in the current contract. (b) LOW info — key lookup is a DB-index
+  equality on the full SHA-256 rather than MessageDigest.isEqual; not exploitable
+  at 256-bit secret entropy.
+
+  SESSION TALLY (this continuation): 6 real defects fixed — 5 mobile-fidelity
+  (waves 183-186: /sell toolbar, /search grid-force, /profile table amounts,
+  /loadout tabs, /me/stall delist; verified 360/390/768/1440) + 1 backend money
+  (wave 189: /stall price floor + ban-gate; test-green) — and 6 fresh
+  adversarial backend audits (affiliate, review, deposit/withdraw, trade-escrow-
+  auth, listing-creation [→ the 2 fixes], api-key-scope), 5 certified clean with
+  cited proof. Tree clean; dev-login never staged; ListingControllerSpec
+  coverage chip flagged.
