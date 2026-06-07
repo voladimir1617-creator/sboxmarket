@@ -2302,7 +2302,15 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
       // added to the charged total — matching this app's frozen model
       // where the buyer is debited exactly the listing price (see the
       // cart confirm dialog: "Total charged to wallet" == subtotal).
-      const tradeProtection = price * 0.02;
+      // Match the REAL protection fee the trade row will charge: 2% of
+      // price floored at $0.25 (TradeProtectionService.MIN_FEE /
+      // trade-protection.js computeFee). A bare price*0.02 under-quoted
+      // cheap items by up to 25x — a $0.60 item showed "$0.01" here but
+      // costs $0.25 to actually protect, so the estimate set a false
+      // expectation. Round the 2% to cents half-up before the floor,
+      // mirroring computeFee exactly.
+      const tradeProtection = Math.max(0.25, Math.round(price * 2) / 100);
+      const tpFloored = tradeProtection <= 0.25;
       const confirmItem = bc.item || item;
       return h('div', {
         className: 'cart-confirm-backdrop',
@@ -2357,7 +2365,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             ),
             h('div', { className: 'cart-confirm-row' },
               h('div', { style: { flex: 1 } },
-                'Trade Protection (2%)',
+                tpFloored ? 'Trade Protection (min $0.25)' : 'Trade Protection (2%)',
                 h('span', {
                   style: { color: 'var(--text-muted)', fontSize: 11, marginLeft: 6, fontWeight: 500 }
                 }, '· optional, add after purchase')

@@ -189,7 +189,16 @@ function OptInPanel({ trade, fee, loadingFee, onEnable, busy, error }) {
           : `Enable Protection · ${fmt(fee)}`),
       h('span', {
         style: { fontSize: 10, color: 'var(--text-muted)' }
-      }, `${RATE_PERCENT}% of trade price · one-time fee`)
+      },
+        // On cheap trades the 2% cut rounds below the $0.25 floor, so the
+        // floor is what's actually billed — labelling that "2% of trade
+        // price" misstated the fee (e.g. $0.25 shown next to a $0.60 item,
+        // which is 42%, not 2%). Surface the real basis: the minimum when
+        // the floor applies, the percentage otherwise. fee === MIN_FEE
+        // means max(MIN_FEE, pct) picked the floor (pct <= MIN_FEE).
+        parseFloat(fee) <= MIN_FEE
+          ? `$${MIN_FEE.toFixed(2)} minimum · one-time fee`
+          : `${RATE_PERCENT}% of trade price · one-time fee`)
     )
   );
 }
