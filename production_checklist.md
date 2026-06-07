@@ -2361,3 +2361,23 @@ proof:
   deposit/withdraw, trade-escrow-auth, listing-creation (→2 shipped fixes),
   api-key-scope, data-export-PII, sse/notification-IDOR, search-injection/DoS
   (→1 backlog). 7 clean, 1 fix-yielding, 1 backlog.
+
+WAVE 194 — REAL widespread visual defect (operator-reported "everything
+overlapping"): the desktop top-nav COLLIDED with the right-side control cluster
+across the ~900-1180px band (small laptop / split-screen / 125-150% browser
+zoom — very common). The nav showed all section links (Market/Database/Loadout
+Lab/Watchlist/Help) but they didn't fit beside USD/swap/notifications/cart/
+balance/avatar, so Watchlist jammed into USD and Help over the cart — on EVERY
+page (shared chrome). The ≤1024 horizontal-scroll treatment never engaged
+because .nav-links lacked min-width:0 (a flex item won't shrink below content),
+so it expanded INTO .nav-right instead of scrolling; and 1025-1180 had no
+treatment at all. FIX (design.css, CSS-only): @media (min-width:901px) and
+(max-width:1180px) binds .nav-links into a shrinkable fade-masked horizontal
+scroll-lane (flex:1 1 0 + min-width:0 + overflow-x:auto) and pins .nav-right +
+logo with flex-shrink:0 so the links can NEVER overlap the controls. design.css
+?v=222→223. Verified LIVE: at 1000px nav-links lane ends x=509 < USD x=513 (was
+overflowing to 632 over USD); at 1100px lane ends 609 < USD 613. >1180 full nav
+unchanged; ≤900 existing wrap unchanged. This was the site-wide "overlap" — the
+core pages (home/marketplace/item) are otherwise clean+polished at 360/390/768/
+1280/1440/1920 (re-verified this pass). Continuing the 900-1180 band sweep for
+other layouts.

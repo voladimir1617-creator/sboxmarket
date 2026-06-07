@@ -200363,3 +200363,33 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   }
 }
 /* ===== END WAVE186 stall-row mobile wrap ===== */
+
+/* WAVE194 — nav overlap in the ~900–1180px band (small laptop, split-screen
+   window, or a browser at 125–150% zoom — all very common). The desktop
+   top-nav renders every section link (Market / Database / Loadout Lab /
+   Watchlist / Help) but they don't fit beside the right-side cluster (USD /
+   currency-swap / notifications / cart / balance / avatar), so the links
+   OVERLAPPED the controls on EVERY page (Watchlist jammed into USD, Help over
+   the cart). The ≤1024 rule already tried a horizontal-scroll treatment but it
+   never engaged: .nav-links had no min-width:0, so a flex item refuses to
+   shrink below its content and expanded into .nav-right instead of scrolling.
+   And nothing covered 1025–1180 at all. Fix: across the whole band bind
+   .nav-links into a shrinkable, horizontally-scrollable lane (min-width:0 +
+   flex + overflow-x:auto, fade-masked) and pin the logo + right cluster with
+   flex-shrink:0 so the links can never overlap them. Above 1180 the full nav
+   fits unchanged; ≤900 already drops to the wrap/bottom-nav treatment. */
+@media (min-width: 901px) and (max-width: 1180px) {
+  .nav-links {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none !important;
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 20px), transparent 100%) !important;
+            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 20px), transparent 100%) !important;
+  }
+  .nav-links::-webkit-scrollbar { display: none !important; }
+  .nav-right { flex-shrink: 0 !important; }
+  .nav-logo, .nav-logo-badge { flex-shrink: 0 !important; }
+}
+/* ===== END WAVE194 nav mid-width overlap ===== */
