@@ -11397,7 +11397,24 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       // estValue is unconditional (vs. Steam where we filter on
       // catalogueId to skip uncatalogued rows). Liquid value uses the
       // same buy-order demand map that powers the per-row chips.
-      const intEstValue = internalList.reduce((acc, l) => acc + (parseFloat(l?.item?.lowestPrice) || 0), 0);
+      //
+      // A row's market value is the LIVE floor (lowest active listing)
+      // when the item has listings, else the Steam Market reference
+      // price. Treating a 0 floor (no current listings) as a literal
+      // $0 made a $76 helmet read "Floor $0.00" and crushed the est-
+      // value total to a few dollars even when the inventory held
+      // $100+ of items. Fall back to steamPrice so the grid shows a
+      // real, non-misleading number, and tag whether it's a live floor
+      // or a reference estimate so the per-row label reads "Floor" vs
+      // "Est." instead of an alarming zero.
+      const rowValue = (it) => {
+        const f = parseFloat(it?.lowestPrice);
+        if (Number.isFinite(f) && f > 0) return { v: f, kind: 'floor' };
+        const s = parseFloat(it?.steamPrice);
+        if (Number.isFinite(s) && s > 0) return { v: s, kind: 'est' };
+        return { v: 0, kind: 'none' };
+      };
+      const intEstValue = internalList.reduce((acc, l) => acc + rowValue(l?.item).v, 0);
       let intLiquidValue = 0;
       let intLiquidCount = 0;
       internalList.forEach(l => {
@@ -11417,7 +11434,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             h('span', { className: 'sell-summary-num' }, internalList.length), ' total'),
           intEstValue > 0 && h('div', {
             className: 'sell-summary-chip accent',
-            title: 'Sum of the floor price across every platform-inventory item. Actual sale prices can land above or below.'
+            title: 'Approximate market value across every platform-inventory item — the live floor price where the item has active listings, otherwise the Steam Market reference price. Actual sale prices can land above or below.'
           }, h('span', { className: 'sell-summary-num' }, fmt(intEstValue)), ' est. value'),
           intLiquidCount > 0 && h('div', {
             className: 'sell-summary-chip ok',
@@ -11461,7 +11478,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                 onClick: () => startPickInternal(l),
                 role: 'button',
                 tabIndex: 0,
-                'aria-label': `Relist ${l.item?.name || 'item'} (floor ${fmt(l.item?.lowestPrice || 0)})`,
+                'aria-label': (() => { const rv = rowValue(l.item); return `Relist ${l.item?.name || 'item'} (${rv.kind === 'floor' ? 'floor ' + fmt(rv.v) : rv.kind === 'est' ? 'est. ' + fmt(rv.v) : 'unpriced'})`; })(),
                 onKeyDown: (e) => {
                   const tag = (e.target?.tagName || '').toLowerCase();
                   if (tag === 'button' || tag === 'a' || tag === 'input') return;
@@ -11473,7 +11490,20 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
               },
                 h('div', { className: 'inventory-thumb' }, h(ItemImage, { item: l.item || {}, variant: 'thumb' })),
                 h('div', { className: 'inventory-name' }, l.item?.name || 'Item'),
-                h('div', { className: 'inventory-floor' }, 'Floor ' + fmt(l.item?.lowestPrice || 0)),
+                (() => {
+                  // Live floor when listed; Steam reference price otherwise
+                  // (never a bare "Floor $0.00" on a $76 item with no live
+                  // listings). "Unpriced" only when neither is known.
+                  const rv = rowValue(l.item);
+                  return h('div', {
+                    className: 'inventory-floor',
+                    title: rv.kind === 'est'
+                      ? 'No active listings right now — showing the Steam Market reference price'
+                      : rv.kind === 'none' ? 'No price reference available yet' : null
+                  }, rv.kind === 'floor' ? 'Floor ' + fmt(rv.v)
+                   : rv.kind === 'est'   ? 'Est. ' + fmt(rv.v)
+                   : 'Unpriced');
+                })(),
                 // Batch 551 — buy-order demand chip on the internal
                 // (platform) inventory grid, mirroring the Steam tab.
                 // Relist-at-best-bid is the single fastest path to a
