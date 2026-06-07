@@ -200438,3 +200438,22 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   html body nav.nav { height: auto !important; min-height: 70px !important; max-height: none !important; }
 }
 /* ===== END WAVE197 ===== */
+
+/* ===== WAVE198 — card hover-overlay controls only interactive when revealed ===== */
+/* The grid card thumbnail is itself an <a> to the item. Its quick-action overlays
+   (.grid-star favorite, .gc-magnifier quick-view, .grid-cart-btn add-to-cart) are
+   opacity:0 and reveal on card hover — but they kept pointer-events:auto, so on
+   TOUCH (no hover, so permanently invisible) a tap on a card corner fired one of
+   them INVISIBLY instead of opening the item. Tie interactivity to the reveal:
+   inert by default, interactive only while the card is hovered. Desktop hover-click
+   is preserved; on touch the whole thumbnail becomes one reliable tap → item. */
+.grid-card .grid-star,
+.grid-card .gc-magnifier,
+.grid-card .grid-cart-btn { pointer-events: none; }
+.grid-card:hover .grid-star,
+.grid-card:hover .gc-magnifier,
+.grid-card:hover .grid-cart-btn,
+.grid-card:focus-within .grid-star,
+.grid-card:focus-within .gc-magnifier,
+.grid-card:focus-within .grid-cart-btn { pointer-events: auto; }
+/* ===== END WAVE198 ===== */
