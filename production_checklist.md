@@ -2322,3 +2322,42 @@ AuctionStreamController + AuctionEventBus); notifications are pure client-poll.
   fixes], api-key-scope, data-export-PII, sse/notification-IDOR) — SEVEN clean
   with cited proof, ONE fix-yielding. Money/security/privacy/realtime surface
   re-validated from 8 fresh angles atop the 150+ prior waves.
+
+WAVE 193 — search/filter injection + query-DoS audit (read-only). Injection /
+enum-tampering / numeric-robustness / result-scope all CERTIFIED CLEAN with
+proof:
+  • Injection: every @Query JPQL binds :params; the SORT param is whitelist-
+    mapped through a server-side switch (ListingService/ItemService) or
+    Sort.by() with a hardcoded field (DatabaseController) — NEVER interpolated;
+    free-text is a parameterized LIKE with ESCAPE '\' + controller-side
+    metachar escape. No dynamic query construction anywhere (28 repos, zero
+    GString/StringBuilder/createQuery).
+  • Enum tampering: category/rarity/listingType canon'd via ListingEnums allow-
+    lists → unknown collapses to a no-filter sentinel (no error, no full scan).
+  • Numeric robustness: /api/listings price via regex ^\d{1,10}(\.\d{1,2})?$
+    (rejects NaN/Inf/neg/sci/overflow → 400); typed BigDecimal params on /db +
+    /items trapped by GlobalExceptionHandler.handleTypeMismatch → 400 (no 500);
+    inverted ranges swapped; free-text length-capped to 100 before LIKE.
+  • Result scope: every public query's base WHERE = status='ACTIVE' AND (hidden
+    IS NULL OR hidden=false) → anon can't see hidden/off-market/SOLD rows.
+  ONE REAL FINDING — BACKLOGGED (MED, currently negligible; fix is architectural
+  + carries test-mock churn → spawn_task chip filed, NOT churned inline):
+    /api/listings (ListingController.getListings → ListingService.getActive
+    Listings → ListingRepository.findActivePublic) materializes the ENTIRE
+    active non-hidden set into memory and sorts it in the JVM BEFORE paginating,
+    so `limit` (capped 100) does NOT bound the server working set — only total
+    active-listing count does; `offset` has no ceiling. Anonymous-reachable
+    heap/CPU amplification that SCALES WITH CATALOGUE SIZE. Negligible at the
+    current ~34-listing scale. Proper fix = push Pageable into SQL for the SQL-
+    expressible sorts (mirror DatabaseController, which already fixed this same
+    "bug #17" pattern) + cap the in-memory set for the derived discount/rarity/
+    popularity sorts + add a max-offset ceiling — changes findActivePublic's
+    signature → ripples into ListingServiceSpec mocks. Disproportionate to fix
+    inline for a currently-negligible MED; the cheap offset-cap alone is near-
+    zero benefit (Groovy drop(n) cost is bounded by N not offset) = would be
+    churn. Deferred to a dedicated session (chip filed) — same discipline as the
+    Offer-race / buy-order-TOCTOU backlogs.
+  AUDIT PASS now 9 fresh backend angles this continuation: affiliate, review,
+  deposit/withdraw, trade-escrow-auth, listing-creation (→2 shipped fixes),
+  api-key-scope, data-export-PII, sse/notification-IDOR, search-injection/DoS
+  (→1 backlog). 7 clean, 1 fix-yielding, 1 backlog.
