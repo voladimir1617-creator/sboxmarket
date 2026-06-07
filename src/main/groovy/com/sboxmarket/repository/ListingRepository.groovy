@@ -436,8 +436,23 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("SELECT COUNT(l) FROM Listing l WHERE l.buyerUserId = :uid AND l.status = 'SOLD'")
     long countOwnedBy(@Param("uid") Long uid)
 
+    /**
+     * Owned-inventory value for the /profile Portfolio stat.
+     *
+     * NULLIF(lowestPrice, 0) is load-bearing: an item with NO active
+     * listings carries lowestPrice = 0 (a real BigDecimal zero written by
+     * the floor sweep), NOT null. Plain COALESCE(lowestPrice, steamPrice, 0)
+     * only skips NULLs, so a 0 floor short-circuited the whole expression to
+     * 0 and the steamPrice fallback the doc comment promises NEVER fired —
+     * a portfolio of a $76 helmet + $20 gown read as $0 for those rows,
+     * undercounting holdings by ~98% (e.g. $2.08 shown for a $112 inventory)
+     * and disagreeing with the Sell page's own est-value, which already
+     * falls back to steamPrice. Wrapping in NULLIF(...,0) maps a 0 floor to
+     * NULL so COALESCE moves on to steamPrice, matching the stated intent.
+     * NULLIF + COALESCE are both standard JPQL → portable to H2 and Postgres.
+     */
     @Query("""
-        SELECT COALESCE(SUM(COALESCE(l.item.lowestPrice, l.item.steamPrice, 0)), 0)
+        SELECT COALESCE(SUM(COALESCE(NULLIF(l.item.lowestPrice, 0), l.item.steamPrice, 0)), 0)
         FROM Listing l
         WHERE l.buyerUserId = :uid AND l.status = 'SOLD'
     """)
