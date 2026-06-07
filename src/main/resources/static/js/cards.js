@@ -64,6 +64,14 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
   // Mirrors ListingRow's `effectivePrice` baseline.
   const effectivePrice = isAuction && listing.currentBid ? listing.currentBid : listing.price;
   const disc = discountPct(effectivePrice, item.steamPrice);
+  // The watchlist reuses this market card for a WATCHED item that may have
+  // no active listing — it comes through with price 0 (item.lowestPrice).
+  // Without this guard the footer rendered a misleading "$0.00 $$" (price +
+  // the two USD chips) on a perfectly valuable item. hasPrice gates the
+  // price number + USD chips so a no-listing card reads "Not listed"
+  // instead (same copy as the item-detail Listing-price stat). A real
+  // market listing always has price > 0, so this never changes /market.
+  const hasPrice = (isAuction && listing.currentBid) || (parseFloat(listing.price) > 0);
   const inCart = cartHas ? cartHas(listing.id) : false;
   // Auction participation chip — only shown when the viewer is signed in
   // AND is the current top bidder on this auction. Green "You're winning"
@@ -343,17 +351,20 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       h('div', { className: 'grid-footer' },
         h('div', null,
           h('div', { className: 'grid-price' },
-            isAuction && listing.currentBid
-              ? fmt(listing.currentBid)
-              : fmt(listing.price),
+            hasPrice
+              ? (isAuction && listing.currentBid
+                  ? fmt(listing.currentBid)
+                  : fmt(listing.price))
+              : h('span', { className: 'grid-price-unlisted', style: { color: 'var(--text-muted)', fontWeight: 600 }, title: 'No active listings right now — this item isn\'t for sale at the moment' }, 'Not listed'),
             // CSFloat-1:1 — small green USD chip after every price. Pure
             // visual signal that the listed price is in USD; mirrors
-            // csfloat's "$675.00 [$]" badge pairing.
-            h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Price is in US dollars (USD) — every listing on SkinBox uses one currency' }, '$'),
+            // csfloat's "$675.00 [$]" badge pairing. Skipped when there's no
+            // price (a "$" marker next to "Not listed" reads as broken).
+            hasPrice && h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Price is in US dollars (USD) — every listing on SkinBox uses one currency' }, '$'),
             // CSFloat-1:1 — decorative green USD marker chip immediately after
             // the price number (mirrors csfloat's "$" pill). aria-hidden — the
             // figure itself is already announced; this is a pure visual cue.
-            h('span', { className: 'gc-usd-chip', 'aria-hidden': 'true', title: 'USD' }, '$'),
+            hasPrice && h('span', { className: 'gc-usd-chip', 'aria-hidden': 'true', title: 'USD' }, '$'),
             h(SteamMarketLink, { item, compact: true }),
             // Boss QA cycle 2 N4 — bumped the discount-chip threshold
             // from 5% to 10%. With seed data sitting at 7-8% under
