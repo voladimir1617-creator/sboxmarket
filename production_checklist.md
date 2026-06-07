@@ -10,6 +10,42 @@ Status legend: ✅ shipped & verified live (Playwright/curl this session, in git
 
 ## ✅ DONE (verified live)
 
+### Money-display accuracy — 0-floor / fee-floor bug class (2026-06-06) — wave 174b
+Eyes-on grind on the live populated app surfaced a systemic class: a 0/absent
+floor price rendered as a literal value. All fixes verified live (Playwright),
+each its own commit:
+- **Sell Platform Inventory (ba081f9).** Cards read "Floor $0.00" + the
+  est-value summed floor-only, so a $76 WW1 Helmet showed $0.00 and an 8-item
+  ~$112 inventory totalled $2.00. Added a per-row resolver (live floor, else
+  steamPrice → "Est. $X", else "Unpriced"); est-value uses the same. Total
+  $2.00 → $112.26 live.
+- **Item share text + Steam-inventory tab (751266f).** Share built "listed
+  from $0.00 on SkinBox" for unlisted items; Steam tab showed "Floor $0.00"
+  for a catalogued item with suggestedPrice 0. Guarded both.
+- **Watchlist card (783799a).** A watched item with no listing showed
+  "$0.00 $$"; GridCard now renders "Not listed" (hasPrice guard) — /market
+  unaffected (real listings always > 0).
+- **Profile Portfolio (39e0192, backend).** sumOwnedInventoryValueBy used
+  COALESCE(lowestPrice, steamPrice, 0) — COALESCE skips only NULL, but a no-
+  listing floor is 0, so the steam fallback never fired → Portfolio $8.51 for
+  ~$118 of holdings. Wrapped in NULLIF(lowestPrice,0). Verified live (rebuild
+  + bootRun, H2 data preserved): inventoryValue 2.08 → 112.26, total 8.51 →
+  118.69. NULLIF+COALESCE portable to H2 + Postgres.
+- **Trade Protection fee label (9a83ab2).** 2%-floored-at-$0.25 fee was
+  labelled "2% of trade price" even when the $0.25 floor was charged (42% on a
+  $0.60 item); single-buy confirm estimated price*0.02 with NO floor (25x under
+  on cheap items). Label now "$0.25 minimum" when floored; confirm estimate
+  floors. Verified live across the 4 trades.
+- **Checkout money-flow E2E (no bug — false alarm cleared).** A prior-session
+  flag that Fisherman Cap was charged with no trade was investigated to ground
+  truth: it's a system/house listing (sellerUserId=null) which by design opens
+  no escrow trade and lands the item in Platform Inventory (buyerUserId set,
+  relistable). Wallet ledger + balance math exact ($46.57 → $19.89 for the 3-
+  item $26.68 cart; 2 P2P escrow trades + 1 house item). Money path sound.
+- **Site-wide re-scan clean:** $0.00/NaN/undefined/Infinity, date/[object
+  Object], and horizontal overflow (390 + 1440) all clear across ~11 routes;
+  the only remaining $0.00 are legitimate (Sales / Total Sold with zero sales).
+
 ### Hover/animation fidelity — hero fix + snap-audit (2026-06-05) — wave 175
 Targeted the "animations off" pain via a hover-transition-coverage audit (find
 :hover rules that change transform/box-shadow on elements whose `transition`
