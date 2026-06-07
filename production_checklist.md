@@ -2456,8 +2456,11 @@ keyboard/focus agent confirmed money double-submit is excellently ref-latched
    reportSellerBusyRef guard. Verified on /stall/3: focus lands inside, Escape closes.
  • MarkSentDrawer ref latch (8e43784) — defense-in-depth synchronous busyRef on the
    trade mark-sent/skip submit (parent already guarded; now self-consistent).
- Filed (chips, lower value): reviews-tab + seller-search false-empty-on-error
- (reviews modal is complex → MED regression risk; seller-search self-corrects), and
- the compact-tap-target sizing (csfloat-parity call). app.js?v=204->210, modals.js
- ?v=184->186. App boots 0 console errors after every change; SteamAuthController
- never staged.
+ Then also fixed the reviews-tab false-"No reviews yet"-on-error (97e4e98) — same
+ raw-fetch+err pattern, verified live (forced 500 → error+Retry; Retry recovers).
+ Still filed (genuinely low value): seller-search typeahead false "No sellers match"
+ on a network blip (self-corrects next keystroke; clean fix needs an api.js signature
+ change, poor risk/value), and the compact-tap-target sizing (csfloat-parity call).
+ app.js?v=204->211, modals.js?v=184->187. App boots 0 console errors after every
+ change; all key routes (home/market/item/cart/stall/profile) re-verified clean;
+ SteamAuthController never staged.
