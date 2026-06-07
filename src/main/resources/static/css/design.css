@@ -232,7 +232,7 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
 .wallet-bal { font-family: var(--mono); font-size: 48px; font-weight: 400; letter-spacing: -0.03em; margin: 20px 0 6px; }
 .wallet-bal small { font-size: 18px; color: var(--ink-3); font-weight: 400; }
 .wallet-row { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-.btn { height: 38px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; border-radius: var(--r-sm); font-size: 13px; font-weight: 600; background: var(--accent); color: var(--accent-i); }
+.btn { height: 38px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; border-radius: var(--r-sm); font-size: 13px; font-weight: 600; background: var(--accent); color: var(--accent-i); white-space: nowrap; }
 .btn:hover { filter: brightness(1.05); }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line-2); }
 .btn.ghost:hover { background: var(--bg-2); }
