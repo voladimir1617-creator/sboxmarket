@@ -200425,3 +200425,16 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not
   .csfloat-subnav { top: 107px !important; }
 }
 /* ===== END WAVE194 nav mid-width overlap ===== */
+
+/* ===== WAVE197 — nav clip in the 769-900 gap ===== */
+/* The ≤900 treatment (line ~8151) already wraps .nav-links onto a 2nd full-width
+   row, but the global `nav.nav,.nav{height:70px;max-height:70px!important}` cap
+   (line ~194448) holds the bar at 70px while the 2-row content is ~80px. With
+   nav overflow:visible the links row spilled ~25px BELOW the bar and overlapped
+   the content beneath. The ≤768 release and the 901-1180 release both miss this
+   band — release the height/max-height cap here too so the bar grows to fit. The
+   category subnav is position:static at ≤960, so no sticky-tuck fix is needed. */
+@media (min-width: 769px) and (max-width: 900px) {
+  html body nav.nav { height: auto !important; min-height: 70px !important; max-height: none !important; }
+}
+/* ===== END WAVE197 ===== */
