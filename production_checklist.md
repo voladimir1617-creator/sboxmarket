@@ -2265,3 +2265,28 @@ owner on every authenticated endpoint. Proven guards:
   auth, listing-creation [→ the 2 fixes], api-key-scope), 5 certified clean with
   cited proof. Tree clean; dev-login never staged; ListingControllerSpec
   coverage chip flagged.
+
+WAVE 191 — data-export / PII-read scope audit (read-only) → CERTIFIED CLEAN.
+Every export + PII-read derives its subject from the authenticated session (or
+is admin-gated): GDPR /api/profile/export keyed on requireUser uid (no path/
+query/body id → no IDOR); counterparties disclosed as numeric ids only;
+tradeMessages filtered to senderUserId==uid; secrets excluded by an explicit
+field allow-list AND entity @JsonIgnore (totpSecret/recoveryCodes/emailToken/
+canonicalEmail/adminNotes/sessionEpoch/tokenHash); wallet block omits
+stripeConnectAccountId. Support /tickets/{id} owner-checked (404 for non-owner).
+Admin per-user CSVs gated by fail-closed requireAdmin. Every user CSV routes
+free-text through CsvUtil.safeCell (=+-@ + tab/CR escaped → no formula
+injection). Public stall = explicit public-field allow-list (no email/tradeUrl/
+IP). THREE LOW/informational NON-DEFECTS (not actioned — own-data or correct-by-
+design): user's own raw stripeReference in self-export (own data, not a usable
+secret); RO API key can read owner's own PII bundle (coherent "read own"
+model); /export not ban-gated (CORRECT — GDPR Art.15 right-of-access survives
+suspension). No exploitable IDOR / over-broad scope / PII bleed / secret leak /
+CSV injection.
+
+  AUDIT PASS COMPLETE this continuation: 7 fresh adversarial backend audits —
+  affiliate, review, deposit/withdraw, trade-escrow-auth, listing-creation
+  (→ the 2 shipped wave-189 fixes), api-key-scope, data-export-PII — SIX
+  certified clean with cited proof, ONE fix-yielding. Combined with the 5 live
+  mobile-fidelity fixes (waves 183-186), this continuation = 6 real defects
+  fixed + the money/security/privacy surface re-validated from 7 fresh angles.
