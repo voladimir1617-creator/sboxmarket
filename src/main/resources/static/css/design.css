@@ -27825,3 +27825,49 @@ html body .view-btns button.view-btn.active {
   font-weight: 600 !important;
 }
 
+/* ---- 8. HOME-PAGE CONTROLS ---- */
+/* home rail tabs (Top Deals / Newest / Unique) — keep as tab pills but adopt
+   the one radius (8px) so they match the type-toggle / chart-range tabs. */
+html body .csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab,
+html body .csfloat-home-rail-tabs .csfloat-home-rail-tab,
+html body .csfloat-home-rail-tab,
+html body .csfloat-home-rail-tab:not(.active),
+html body .csfloat-home-rail-tab.active {
+  border-radius: var(--ctl-r) !important;
+}
+/* the decorative hero "preview card" mini-buttons (Buy now / Bargain) are an
+   illustration, not real controls — just normalize their radius to 8px so the
+   one stray 6px treatment disappears from the system. */
+html body .csfloat-home-hero-feature-btn,
+html body span.csfloat-home-hero-feature-btn,
+html body .csfloat-home-hero-feature-btn.primary,
+html body .csfloat-home-hero-feature-btn.ghost,
+html body .csfloat-home-hero-feature-btn.icon {
+  border-radius: var(--ctl-r) !important;
+}
+
+/* ---- 9. ITEM-PAGE CONTROLS ---- */
+/* price-history chart range tabs (7D/1M/3M/1Y/ALL) — kill the 999px pill,
+   adopt the 8px tab radius; beat the high-specificity .chart-range rules. */
+html body .modal.item-page .chart-range .chart-range-btn,
+html body .modal.item-page .chart-range button,
+html body .chart-card .chart-range .chart-range-btn,
+html body .chart-range .chart-range-btn,
+html body .chart-range button,
+html body .chart-range-btn {
+  border-radius: var(--ctl-r) !important;
+}
+html body .modal.item-page .chart-range .chart-range-btn.active,
+html body .chart-card .chart-range-btn.active,
+html body .chart-range .chart-range-btn.active,
+html body .chart-range button.active {
+  border-radius: var(--ctl-r) !important;
+}
+/* the small "N listings" demand badge — normalize its pill to the 8px chip
+   radius so no 999px button-shaped control remains. */
+html body .modal-demand-chip,
+html body .demand-chip,
+html body .item-demand-chip {
+  border-radius: var(--ctl-r) !important;
+}
+
