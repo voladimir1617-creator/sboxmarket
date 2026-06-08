@@ -8,7 +8,7 @@
    resolve; body min-height:100% grows to content so it never becomes a scroller. */
 html { height: 100%; } body { min-height: 100%; }
 html { scroll-padding-top: calc(var(--nav-h, 56px) + 16px); }
-:root { --bg: oklch(0.17 0.008 260); --bg-1: oklch(0.20 0.009 260); --bg-2: oklch(0.23 0.010 260); --bg-3: oklch(0.27 0.011 260); --line: oklch(0.30 0.012 260); --line-2: oklch(0.36 0.014 260); --ink: oklch(0.97 0.006 90); --ink-2: oklch(0.80 0.008 90); --ink-3: oklch(0.74 0.010 90); --ink-4: oklch(0.66 0.010 90); --accent: #237bff; --accent-d: #1668e6; --accent-i: #ffffff; --accent-hue: 235; --cta: #237bff; --cta-d: #1668e6; --cta-ink: #ffffff; --cta-soft: color-mix(in oklch, #237bff 14%, transparent); --blue: #3b82f6; --blue-d: #2563eb; --blue-soft: color-mix(in oklch, #3b82f6 14%, transparent); --rare-lim: oklch(0.78 0.15 25); --rare-off: oklch(0.82 0.14 70); --rare-std: oklch(0.75 0.05 230); --up: oklch(0.82 0.16 150); --down: oklch(0.72 0.16 25); --blue: #237bff; --blue-d: #1668e6; --blue-soft: color-mix(in oklch, #237bff 14%, transparent); --r-xs: 3px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --shadow-1: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 1px 2px rgba(0,0,0,.3); --shadow-2: 0 12px 40px rgba(0,0,0,.45), 0 1px 0 oklch(1 0 0 / 0.04) inset; --nav-h: 56px; --sub-h: 44px; --mono: 'Roboto Mono', 'JetBrains Mono', ui-monospace, monospace; --serif: 'Roboto', 'Times New Roman', Georgia, serif; }
+:root { --bg: oklch(0.17 0.008 260); --bg-1: oklch(0.20 0.009 260); --bg-2: oklch(0.23 0.010 260); --bg-3: oklch(0.27 0.011 260); --line: oklch(0.30 0.012 260); --line-2: oklch(0.36 0.014 260); --ink: oklch(0.97 0.006 90); --ink-2: oklch(0.80 0.008 90); --ink-3: oklch(0.74 0.010 90); --ink-4: oklch(0.66 0.010 90); --accent: #237bff; --accent-d: #1668e6; --accent-i: #ffffff; --accent-hue: 235; --cta: #237bff; --cta-d: #1668e6; --cta-ink: #ffffff; --cta-soft: color-mix(in oklch, #237bff 14%, transparent); --blue: #3b82f6; --blue-d: #2563eb; --blue-soft: color-mix(in oklch, #3b82f6 14%, transparent); --rare-lim: oklch(0.78 0.15 25); --rare-off: oklch(0.82 0.14 70); --rare-std: oklch(0.75 0.05 230); --up: oklch(0.82 0.16 150); --down: oklch(0.72 0.16 25); --blue: #237bff; --blue-d: #1668e6; --blue-soft: color-mix(in oklch, #237bff 14%, transparent); --r-xs: 3px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --shadow-1: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 1px 2px rgba(0,0,0,.3); --shadow-2: 0 12px 40px rgba(0,0,0,.45), 0 1px 0 oklch(1 0 0 / 0.04) inset; --nav-h: 56px; --sub-h: 44px; --page-maxw: min(92vw, 1800px); --mono: 'Roboto Mono', 'JetBrains Mono', ui-monospace, monospace; --serif: 'Roboto', 'Times New Roman', Georgia, serif; }
 html[data-accent="mono"] { --accent: #237bff; --accent-d: #1668e6; --accent-i: #ffffff; --accent-hue: 235; }
 html[data-accent="blue"] { --accent: #1ea5ff; --accent-d: #0d87db; --accent-i: #04121c; --accent-hue: 235; }
 html[data-accent="orange"] { --accent: #ff9639; --accent-d: #e8801a; --accent-i: #1a0f06; --accent-hue: 35; }
@@ -3085,14 +3085,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cta); cursor: 
 .csfloat-band-row-wrap { margin-bottom: 32px; }
 select option { background: var(--bg-1); color: var(--ink); }
 .csfloat-subnav-inner { padding: 8px 0; }
-.csfloat-band { max-width: 1280px; margin: 0 auto; }
+.csfloat-band { max-width: var(--page-maxw, min(92vw, 1800px)); margin: 0 auto; }
 .hero, .px-hero { border-bottom: 1px solid var(--line); margin-bottom: 32px; }
-.csfloat-subnav { max-width: 1280px; margin: 0 auto; }
-.csfloat-subnav-inner { max-width: 1280px; }
+.csfloat-subnav { max-width: var(--page-maxw, min(92vw, 1800px)); margin: 0 auto; }
+.csfloat-subnav-inner { max-width: var(--page-maxw, min(92vw, 1800px)); }
 .market-sidebar { border-right: 1px solid var(--line); }
 .csfloat-band-row { scroll-snap-type: x proximity; scroll-behavior: smooth; scroll-padding: 16px; }
 .csfloat-band-card { scroll-snap-align: start; }
-.csfloat-band-tabs-wrap { max-width: 1280px; margin: 0 auto; }
+.csfloat-band-tabs-wrap { max-width: var(--page-maxw, min(92vw, 1800px)); margin: 0 auto; }
 .toolbar { gap: 8px !important; }
 @media (min-width: 1100px) { .toolbar { gap: 12px !important; }
 }
@@ -6612,7 +6612,7 @@ to { left: 100%; }
 }
 .csfloat-container { width: 100%; max-width: 2100px; margin: 0 auto; padding: 0 18px; }
 .csfloat-container.narrow { max-width: 920px; }
-.csfloat-container.medium { max-width: 1280px; }
+.csfloat-container.medium { max-width: var(--page-maxw, min(92vw, 1800px)); }
 .csfloat-container.wide { max-width: 1680px; }
 @media (max-width: 720px) { .csfloat-container { padding: 0 12px; }
 }
@@ -9139,7 +9139,7 @@ to { transform: translateX(-100%); }
 .csfloat-badge-delta.up::before { content: "▲"; font-size: 8px; }
 .csfloat-badge-delta.down { color: oklch(0.84 0.18 30); background: oklch(0.30 0.04 30 / 0.18); border-color: oklch(0.42 0.07 30 / 0.36); }
 .csfloat-badge-delta.down::before { content: "▼"; font-size: 8px; }
-.csfloat-contained { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+.csfloat-contained { max-width: var(--page-maxw, min(92vw, 1800px)); margin: 0 auto; padding: 0 24px; }
 .csfloat-contained.narrow { max-width: 800px; }
 .csfloat-contained.medium { max-width: 1100px; }
 .csfloat-contained.wide { max-width: 1680px; }
@@ -18313,7 +18313,7 @@ to { opacity: 1; transform: translate(-50%, 0); }
 .csfloat-sub-subtitle { font: 400 13px/1.5 var(--ui); color: var(--ink-3); letter-spacing: -0.005em; margin: 0; max-width: 600px; }
 .csfloat-sub-subtitle > b { color: var(--ink-1); font-weight: 600; }
 .csfloat-sub-subtitle > .csfloat-sub-subtitle-mono { font-family: var(--mono); font-feature-settings: "tnum"; color: var(--ink-2); font-weight: 600; }
-.csfloat-center-wrap { width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+.csfloat-center-wrap { width: 100%; max-width: var(--page-maxw, min(92vw, 1800px)); margin: 0 auto; padding: 0 24px; }
 .csfloat-center-wrap.is-narrow { max-width: 720px; }
 .csfloat-center-wrap.is-mid { max-width: 960px; }
 .csfloat-center-wrap.is-wide { max-width: 1600px; }
@@ -20085,7 +20085,7 @@ to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
 .csfloat-home-preview-card-rank { margin-left: auto; color: var(--ink-3); font-family: var(--mono), 'Roboto Mono', ui-monospace, monospace; font-size: 10px; font-weight: 500; position: relative; padding-left: 10px; }
 .csfloat-home-preview-card-rank::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 3px; border-radius: 50%; background: var(--line-2); }
 .csfloat-home-tiles { padding: 64px 24px 48px; background: radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--cta) 4%, transparent) 0%, transparent 65%), var(--bg); border-top: 1px solid var(--line); }
-.csfloat-home-tiles-inner { max-width: min(96vw, 1280px); margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.csfloat-home-tiles-inner { max-width: var(--page-maxw, min(92vw, 1800px)); margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .csfloat-home-tile { position: relative; padding: 28px 24px 24px; background: var(--bg-1); border: 1px solid var(--line); border-radius: 14px; transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease; overflow: hidden; }
 .csfloat-home-tile::before { content: ""; position: absolute; inset: 0; border-radius: 14px; background: linear-gradient(180deg, color-mix(in oklab, var(--cta) 4%, transparent) 0%, transparent 60%); opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
 .csfloat-home-tile:hover { transform: translateY(-2px); border-color: color-mix(in oklab, var(--cta) 24%, var(--line)); box-shadow: 0 18px 36px -16px rgba(0,0,0,0.55), 0 0 0 1px color-mix(in oklab, var(--cta) 18%, transparent); }
@@ -27412,17 +27412,19 @@ html body .grid-card .grid-footer .grid-price { font-weight: 600 !important; }
 .full-page-mode .modal-backdrop:has(.info-modal), .full-page-mode .modal-backdrop:has(.presignin-modal) { background: var(--bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .empty-inline::before, .empty-inline::after, body h1#info-modal-h-sell-items::after { content: none !important; }
 .full-page-mode .info-modal::after { content: none !important; }
-body .csfloat-home-hero-inner, body .csfloat-home-rail-inner, body .csfloat-home-preview-inner, body .csfloat-home-tiles-inner, body .csfloat-home-metrics-inner, body .csfloat-home-faq-inner, body .csfloat-home-journey-inner { max-width: min(94vw, 1280px) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; }
-body .csfloat-home-rail .csfloat-home-rail-inner { max-width: min(94vw, 1280px) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; }
+body .csfloat-home-hero-inner, body .csfloat-home-rail-inner, body .csfloat-home-preview-inner, body .csfloat-home-tiles-inner, body .csfloat-home-metrics-inner, body .csfloat-home-faq-inner, body .csfloat-home-journey-inner { max-width: var(--page-maxw, min(92vw, 1800px)) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; }
+body .csfloat-home-rail .csfloat-home-rail-inner { max-width: var(--page-maxw, min(92vw, 1800px)) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; }
 /* ===== WAVE 175: unify the page gutter — nav, market subnav, market layout, and footer all adopt the SAME container model as the home sections (max-width: min(94vw,1280px); margin: 0 auto; padding: 0 24px) so every chrome element shares one left/right gutter at EVERY viewport width. Placed late + high-specificity so they win over the per-breakpoint rules above. Do NOT add grid/flex-direction here — only the box container. ===== */
 html body nav.nav { padding-left: 0 !important; padding-right: 0 !important; }
-html body nav.nav .nav-inner { max-width: min(94vw, 1280px) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; width: 100% !important; }
+html body nav.nav .nav-inner { max-width: var(--page-maxw, min(92vw, 1800px)) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; width: 100% !important; }
 html body nav.csfloat-subnav { max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
-html body nav.csfloat-subnav .csfloat-subnav-inner { max-width: min(94vw, 1280px) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; width: 100% !important; }
-html body main.layout, html body main.layout:has(> .sidebar), html body main.layout:has(> aside.sidebar) { max-width: min(94vw, 1280px) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; }
+html body nav.csfloat-subnav .csfloat-subnav-inner { max-width: var(--page-maxw, min(92vw, 1800px)) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; width: 100% !important; }
+html body main.layout, html body main.layout:has(> .sidebar), html body main.layout:has(> aside.sidebar) { max-width: var(--page-maxw, min(92vw, 1800px)) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; }
 html body footer.site-footer { display: block !important; padding-left: 0 !important; padding-right: 0 !important; }
-html body footer.site-footer .site-footer-inner, html body footer.site-footer .site-footer-bottom { max-width: min(94vw, 1280px) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; width: auto !important; }
+html body footer.site-footer .site-footer-inner, html body footer.site-footer .site-footer-bottom { max-width: var(--page-maxw, min(92vw, 1800px)) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; width: auto !important; }
 .full-page-mode .info-modal:has(.db-table) { width: min(96vw, 1360px) !important; max-width: 1360px !important; }
+/* WAVE 177: item detail page widens toward the page cap so its content no longer sits stranded at 1280 while the nav/footer span the raised cap. Capped a touch narrower than the full page cap (1520) because the 2-col preview+chart layout reads sparse if stretched edge-to-edge; still centered so it stays visually anchored under the wide nav. Item-page-only — info-modals keep their content-specific caps above. */
+html body .full-page-mode .modal.item-page, html body .modal-backdrop.page-mode:has(.modal.item-page) > .modal.item-page { width: min(100%, min(92vw, 1520px)) !important; max-width: min(92vw, 1520px) !important; }
 body .csfloat-home-hero, body .csfloat-home-rail, body .csfloat-home-preview, body .csfloat-home-tiles, body .csfloat-home-metrics, body .csfloat-home-faq, body .csfloat-home-journey { padding-left: 0 !important; padding-right: 0 !important; }
 html body .site-root.full-page-mode .modal-backdrop { display: block !important; place-items: normal !important; }
 html body .site-root.full-page-mode .modal-backdrop > .info-modal, html body .site-root.full-page-mode .modal-backdrop > .item-modal { width: 100% !important; margin-left: auto !important; margin-right: auto !important; }
