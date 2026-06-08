@@ -27885,3 +27885,250 @@ html body .item-demand-chip {
   border-radius: var(--ctl-r) !important;
 }
 
+
+
+/* ============================================================================
+   UNIFIED SURFACE / SPACING / TYPE SYSTEM  (v261)
+   One card surface, one border, one card radius (10px) + one control radius (8px),
+   an 8px spacing scale, and a committed type scale. Source-of-truth layer placed
+   last so it wins equal-specificity ties; targeted overrides collapse the
+   accumulated one-off grays / radii / paddings / font-sizes from 200+ edit waves.
+   ========================================================================== */
+
+:root {
+  /* --- SURFACES --- the one dark card/panel surface (de-facto dominant) --- */
+  --surface:        rgb(27, 29, 36);          /* card / panel / modal / sidebar bg */
+  --surface-2:      rgb(31, 33, 40);          /* inset / nested surface (sparingly) */
+  --surface-line:   rgba(255, 255, 255, 0.07);/* the one subtle card/panel border */
+  /* --- RADIUS --- one for cards/panels, one for inner controls/inputs --- */
+  --r-card:         10px;                      /* cards, panels, modals, sidebars */
+  --r-ctl:          8px;                       /* buttons, inputs, chips (= --ctl-r) */
+  /* keep existing --r-md (10px) aligned to card radius */
+  --r-md:           10px;
+  /* --- SPACING --- 8px-based scale: 4 / 8 / 12 / 16 / 20 / 24 / 32 / 48 --- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 48px;
+  --card-pad: 16px;                            /* default card internal padding */
+  /* --- TYPE --- 12 / 13 / 14 / 16 / 20 / 24 / 32 / 42 --- */
+  --fs-1: 12px; --fs-2: 13px; --fs-3: 14px; --fs-4: 16px;
+  --fs-5: 20px; --fs-6: 24px; --fs-7: 32px; --fs-8: 42px;
+}
+
+/* ---------------------------------------------------------------------------
+   1) SURFACES — collapse every card/panel to one bg + one border + 10px radius
+   --------------------------------------------------------------------------- */
+html body .grid-card,
+html body .listing-grid .grid-card,
+html body .card,
+html body .similar-card,
+html body .recently-viewed-card,
+html body .modal-stat-box,
+html body .csfloat-home-tile,
+html body .csfloat-home-metric,
+html body .sidebar,
+html body aside.sidebar,
+html body .wallet-hero,
+html body .cashout-setup-card {
+  background-color: var(--surface) !important;
+  border-radius: var(--r-card) !important;
+}
+
+/* one subtle border on every standalone card/panel
+   (grid-card keeps its 2px transparent ring for the hover-highlight pattern) */
+html body .similar-card,
+html body .recently-viewed-card,
+html body .modal-stat-box,
+html body .csfloat-home-tile,
+html body .csfloat-home-metric,
+html body .sidebar,
+html body aside.sidebar {
+  border: 1px solid var(--surface-line) !important;
+}
+
+/* modals / panels share the same bg + 10px radius (keep their elevation shadow) */
+html body .modal:not(.item-page),
+html body .modal-content,
+html body .info-modal,
+html body .recent-sales-list {
+  background-color: var(--surface) !important;
+  border-radius: var(--r-card) !important;
+}
+
+/* footer surface matches the card system */
+html body footer.site-footer .site-footer-inner {
+  background-color: var(--surface) !important;
+  border-radius: var(--r-card) !important;
+}
+
+/* grid-card: keep dominant surface, snap radius 12px/4px -> 10px (overrides late 4px rule) */
+html body .grid-card.grid-card,
+html body .listing-grid .grid-card {
+  background-color: var(--surface) !important;
+  border-radius: var(--r-card) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   2) RADIUS — kill arbitrary container radii (12/14/16/20px) -> 10px cards.
+   Inner controls/inputs/chips stay at 8px via the control system.
+   --------------------------------------------------------------------------- */
+html body .csfloat-home-tile,
+html body .csfloat-home-tile::before,
+html body .csfloat-home-metric,
+html body .similar-card,
+html body .recent-sales-list,
+html body .wallet-hero,
+html body .modal:not(.item-page),
+html body .modal-content,
+html body footer.site-footer .site-footer-inner {
+  border-radius: var(--r-card) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   3) SPACING — snap card internal padding + stray gaps to the 8px scale.
+   --------------------------------------------------------------------------- */
+/* card internal padding: collapse 26/28px tiles + 20/24px metrics to scale */
+html body .csfloat-home-tile { padding: var(--sp-6) !important; }            /* 24 */
+html body .csfloat-home-metric { padding: var(--sp-5) !important; gap: var(--sp-1) !important; } /* 20 / 4 (was 5) */
+html body .recently-viewed-card { padding: var(--sp-3) !important; }         /* 12 */
+html body .modal-stat-box { padding: var(--sp-4) !important; }               /* 16 (was 16 18 16 16) */
+
+/* ---------------------------------------------------------------------------
+   4) TYPE — snap stray TEXT font-sizes to 12/13/14/16/20/24/32/42.
+   Only real text offenders (NOT icon/SVG glyph fonts); traced via live audit.
+   --------------------------------------------------------------------------- */
+/* meta / discount / micro-labels: 10.5 / 11 / 11.5 -> 12 */
+html body .grid-discount,
+html body .csfloat-home-hero-feature-statusrow {
+  font-size: var(--fs-1) !important;                                         /* 10.5 -> 12 */
+}
+/* secondary text / nav / CTA labels: 14.5 / 15 -> 14 */
+html body .nav-logo-text,
+html body .steam-btn-text,
+html body .csfloat-home-hero-cta.primary,
+html body .csfloat-home-hero-cta.secondary,
+html body .csfloat-home-hero-feature-name.top,
+html body .cashout-setup-title {
+  font-size: var(--fs-3) !important;                                         /* 14.5/15 -> 14 */
+}
+/* blurbs / seller name: 13.5 -> 13 */
+html body .csfloat-home-tile-blurb,
+html body .modal-seller-name {
+  font-size: var(--fs-2) !important;                                         /* 13.5 -> 13 */
+}
+/* card price: 22 -> 20 (grid + item rail stay consistent)
+   needs .grid-card .grid-price specificity to beat the late descendant rules */
+html body .grid-price,
+html body .grid-card .grid-price,
+html body .listing-grid .grid-card .grid-price {
+  font-size: var(--fs-5) !important;                                         /* 22 -> 20 */
+}
+/* activity / toolbar ticker text: 11.5 -> 12 */
+html body .ticker-name,
+html body .ticker-price,
+html body .activity-ticker .ticker-item .ticker-name,
+html body .toolbar-ticker .ticker-item .ticker-name,
+html body .activity-ticker .ticker-item .ticker-price,
+html body .toolbar-ticker .ticker-item .ticker-price {
+  font-size: var(--fs-1) !important;                                         /* 11.5 -> 12 */
+}
+/* metric value: 26 / 30 / 32 -> 32 ; metric label: 18 -> 13 */
+html body .csfloat-home-metric-num { font-size: var(--fs-7) !important; }    /* -> 32 */
+html body .csfloat-home-metric-label { font-size: var(--fs-2) !important; }  /* -> 13 */
+html body .csfloat-home-tile-title { font-size: var(--fs-4) !important; }    /* lock 16 */
+/* journey step + section eyebrow: 28 -> 24 ; modal stat val: 22 -> 24 */
+html body .csfloat-home-journey-step-label { font-size: var(--fs-6) !important; } /* 28 -> 24 */
+html body .modal-stat-val.accent,
+html body .modal-stat-val { font-size: var(--fs-6) !important; }             /* 22 -> 24 */
+
+/* ---------------------------------------------------------------------------
+   5) SPECIFICITY-MATCHED OVERRIDES — beat the high-specificity late waves that
+   otherwise keep the home metric off-system (16px radius / bluish border) and
+   the journey-step label off-scale (28px). Same selector depth, placed last.
+   --------------------------------------------------------------------------- */
+/* home metric card -> one surface, one border, 10px radius, scale padding */
+body .csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric,
+html body .csfloat-home-metrics .csfloat-home-metric {
+  background: var(--surface) !important;
+  border: 1px solid var(--surface-line) !important;
+  border-radius: var(--r-card) !important;
+  padding: var(--sp-5) !important;                                           /* 24 20 -> 20 */
+  gap: var(--sp-1) !important;                                               /* 6 -> 4 */
+}
+/* home metric number / label snapped to scale (beat 0,3,0 rules) */
+body .csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric .csfloat-home-metric-num,
+html body .csfloat-home-metrics .csfloat-home-metric .csfloat-home-metric-num {
+  font-size: var(--fs-7) !important;                                        /* -> 32 */
+}
+body .csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric .csfloat-home-metric-label,
+html body .csfloat-home-metrics .csfloat-home-metric .csfloat-home-metric-label {
+  font-size: var(--fs-2) !important;                                        /* 18 -> 13 */
+}
+/* journey-step label snapped (beat the 0,4,2 rule) */
+html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey-step-label {
+  font-size: var(--fs-6) !important;                                        /* 28 -> 24 */
+}
+/* hero headline: cap the clamp top to the scale max (42) */
+html body .csfloat-home-hero .csfloat-home-hero-title,
+html body .csfloat-home-hero-title {
+  font-size: clamp(28px, 4.2vw, 42px) !important;                           /* 60 -> 42 */
+}
+/* metrics eyebrow: 18 -> 16 (beat 0,3,0) */
+body .csfloat-home-metrics .csfloat-home-metrics-eyebrow,
+html body .csfloat-home-metrics .csfloat-home-metrics-eyebrow {
+  font-size: var(--fs-4) !important;                                        /* 18 -> 16 */
+}
+/* steam sign-in label: 15 -> 14 (beat nav.nav .steam-btn .steam-btn-text) */
+html body nav.nav .steam-btn .steam-btn-text,
+html body button.steam-btn .steam-btn-text {
+  font-size: var(--fs-3) !important;                                        /* 15 -> 14 */
+}
+/* home preview grid price: 22 -> 20 (covers home-preview ancestor) */
+html body .csfloat-home-preview .grid-card .grid-price,
+html body .csfloat-home-preview-card .grid-price,
+html body .csfloat-home .grid-card .grid-price {
+  font-size: var(--fs-5) !important;                                        /* 22 -> 20 */
+}
+
+/* ---------------------------------------------------------------------------
+   6) ITEM-PAGE specificity-matched overrides — the related-item strip cards
+   (12px, no border), the modal stat boxes (off-gray surface-2 / 8px), and the
+   seller name (13.5px) keep slipping off-system; pin them to the one system.
+   --------------------------------------------------------------------------- */
+/* related/similar strip cards -> 10px + one border. Must beat the in-modal
+   rule `body .modal .similar-strip .similar-card` (0,4,0). */
+html body .modal .similar-strip > .similar-card,
+html body .modal .similar-strip .similar-card,
+html body .modal-content .similar-strip .similar-card,
+html body .modal.item-page .similar-strip .similar-card,
+body .similar-strip .similar-card {
+  background: var(--surface) !important;
+  background-color: var(--surface) !important;
+  border: 1px solid var(--surface-line) !important;
+  border-radius: var(--r-card) !important;
+}
+/* modal stat boxes -> one surface (was #1f2128 surface-2). Must beat
+   `.site-root.full-page-mode .modal-stat-box` + `.modal.item-page .modal-stat-box`. */
+html body .modal.item-page .modal-stats .modal-stat-box,
+html body .modal .modal-stats .modal-stat-box,
+body .site-root.full-page-mode .modal-stats .modal-stat-box,
+body .modal-stats .modal-stat-box {
+  background: var(--surface) !important;
+  background-color: var(--surface) !important;
+  border: 1px solid var(--surface-line) !important;
+}
+/* seller name in listing modal: 13.5 -> 13 (beat body .modal-seller-info .modal-seller-name) */
+body .modal-seller-info .modal-seller-name,
+body .modal-seller-info .seller-name {
+  font-size: var(--fs-2) !important;                                        /* 13.5 -> 13 */
+}
+/* item title (full-page mode): 28 -> 24 section-heading tier */
+html body .full-page-mode .modal-name,
+html body .site-root.full-page-mode .modal-name {
+  font-size: var(--fs-6) !important;                                        /* 28 -> 24 */
+}
+/* listing price stat value: 22 -> 24 (beat .modal-stat-box:first-child .modal-stat-val) */
+body .modal-stat-box .modal-stat-val.accent,
+body .modal-stat-box:first-child .modal-stat-val,
+html body .site-root.full-page-mode .modal-stat-box:first-child .modal-stat-val {
+  font-size: var(--fs-6) !important;                                        /* 22 -> 24 */
+}
