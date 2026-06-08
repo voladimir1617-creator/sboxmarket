@@ -27709,12 +27709,26 @@ html body .grid-card button.grid-star.on {
   border-radius: var(--ctl-r) !important;
 }
 
-/* ---- 6. MOBILE — preserve required 44px tap targets on primary actions ---- */
+/* ---- 6. MOBILE — preserve required 44px tap targets on primary actions ----
+   Scoped high enough (incl. the .modal.item-page item-rail context + button tag)
+   to beat the 36/40px desktop control-height rules at <=768px. */
 @media (max-width: 768px) {
   html body .buy-btn,
+  html body button.buy-btn,
   html body .btn-accent,
   html body .btn-primary,
-  html body .item-rail-actions-buy {
+  html body button.btn-accent,
+  html body button.btn-primary,
+  html body .item-rail-actions-buy,
+  html body button.item-rail-actions-buy,
+  html body .item-rail-actions-cart,
+  html body button.item-rail-actions-cart,
+  html body .item-rail-actions-bargain,
+  html body button.item-rail-actions-bargain,
+  html body .modal.item-page .item-rail-actions-buy,
+  html body .modal.item-page button.item-rail-actions-buy,
+  html body .modal.item-page .item-rail-actions-cart,
+  html body .modal.item-page .item-rail-actions-bargain {
     height: 44px !important;
     min-height: 44px !important;
   }
