@@ -27428,7 +27428,7 @@ html body .full-page-mode .modal.item-page, html body .modal-backdrop.page-mode:
 body .csfloat-home-hero, body .csfloat-home-rail, body .csfloat-home-preview, body .csfloat-home-tiles, body .csfloat-home-metrics, body .csfloat-home-faq, body .csfloat-home-journey { padding-left: 0 !important; padding-right: 0 !important; }
 html body .site-root.full-page-mode .modal-backdrop { display: block !important; place-items: normal !important; }
 html body .site-root.full-page-mode .modal-backdrop > .info-modal, html body .site-root.full-page-mode .modal-backdrop > .item-modal { width: 100% !important; margin-left: auto !important; margin-right: auto !important; }
-html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not(:has(.db-table)):not(:has(.db-controls)):not(:has(.stall-hero)):not(:has(.loadout-grid)):not(:has(.wallet-tabs)):not(:has(.profile-tabs)):not(:has(.mystall-tabs)):not(:has(.admin-shell)):not(:has(.csr-shell)):not(:has(.cart-grid)) { max-width: 940px !important; }
+html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not(:has(.db-table)):not(:has(.db-controls)):not(:has(.stall-hero)):not(:has(.loadout-grid)):not(:has(.wallet-tabs)):not(:has(.profile-tabs)):not(:has(.mystall-tabs)):not(:has(.admin-shell)):not(:has(.csr-shell)):not(:has(.cart-grid)):not([aria-labelledby^="info-modal-h-loadout-lab"]):not([aria-labelledby^="info-modal-h-incoming"]):not([aria-labelledby^="info-modal-h-buy-orders"]):not([aria-labelledby^="info-modal-h-sell-items"]) { max-width: 940px !important; }
 .modal.item-page > .recently-viewed { min-width: 0 !important; max-width: 100% !important; }
 .modal.item-page .recently-viewed-rail { min-width: 0 !important; }
 .full-page-mode .modal-backdrop:has(.info-modal), .full-page-mode .modal-backdrop:has(.presignin-modal) { overflow-y: auto !important; align-items: start !important; }
@@ -28387,4 +28387,60 @@ html body .feat-lead:hover,
 html body .feat-side:hover {
   transform: translateY(-2px) !important;
   border-color: var(--ctl-border-h, rgba(255,255,255,0.16)) !important;
+}
+
+/* =====================================================================
+   WAVE 178 — LARGE-SCREEN (2K) WIDTH FOR DATA/TABLE/GALLERY ROUTES
+   The SPA full-page-mode routes render inside .info-modal and were capped
+   at an older narrow width (940 catch-all / 1040 :has() list / 1360 db),
+   so on a 2560px monitor they sat stranded-centered with ~600-820px of
+   dead margin while the nav/subnav/market/footer already span the raised
+   page cap (var(--page-maxw) = min(92vw,1800px)). This block routes the
+   DATA-shaped routes (tables, item grids, dashboards) to the SAME page cap
+   so they breathe at 2K — consistent with the market grid.
+
+   Targeted PER ROUTE via the modal's aria-labelledby slug (content-stable,
+   survives row-count changes via ^= prefix). Placed last + matched to the
+   specificity of the WAVE-175 27431 catch-all so it wins cleanly.
+
+   FORM / reading-width routes are intentionally LEFT OUT and keep their
+   comfortable centered width (a wide 1800px form reads worse):
+     - /wallet   -> .wallet-modal, 520px centered overlay (not full-page)
+     - /settings -> single-column toggle/field rows, ~940 centered
+     - /cart     -> 2-col checkout (.cart-grid) already capped ~1040
+   Reuses var(--page-maxw) so it tracks the one page-gutter knob.
+   ===================================================================== */
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-database"],
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-loadout-lab"],
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-watchlist"],
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-profile"],
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-support"],
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-incoming"],
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-buy-orders"],
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-sell-items"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-database"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-loadout-lab"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-watchlist"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-profile"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-support"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-incoming"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-buy-orders"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-sell-items"] {
+  width: 100% !important;
+  max-width: var(--page-maxw, min(92vw, 1800px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* WAVE 178b — when a widened info-modal route (watchlist/profile-listings)
+   contains a .listing-grid, keep it on a sane auto-fill track sizing so the
+   cards fill the now-wider container. The market grid lives in main.layout
+   (NOT an info-modal) and keeps its own dense column rules — this is scoped
+   strictly to .listing-grid INSIDE a full-page-mode info-modal, so it only
+   overrides the viewport-keyed repeat(12)/repeat(4) density rules that were
+   crushing the few wide watchlist cards into 127px tracks (overflow/clip).
+   Cards are ~220px; auto-fill lets them size correctly and wrap. */
+html body .site-root.full-page-mode .modal-backdrop > .info-modal .listing-grid,
+html body .full-page-mode .info-modal .listing-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
 }
