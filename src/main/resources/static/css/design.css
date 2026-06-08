@@ -27461,3 +27461,4 @@ nav.nav .nav-links::-webkit-scrollbar { display: none !important; }
 }
 .grid-card .grid-star, .grid-card .gc-magnifier, .grid-card .grid-cart-btn { pointer-events: none; }
 .grid-card:hover .grid-star, .grid-card:hover .gc-magnifier, .grid-card:hover .grid-cart-btn, .grid-card:focus-within .grid-star, .grid-card:focus-within .gc-magnifier, .grid-card:focus-within .grid-cart-btn { pointer-events: auto; }
+html body .csfloat-home-hero, html body .csfloat-home-preview, html body .csfloat-home-tiles, html body .csfloat-home-metrics, html body .csfloat-home-journey, html body .csfloat-home-faq { border-top: 0 none !important; border-bottom: 0 none !important; }
