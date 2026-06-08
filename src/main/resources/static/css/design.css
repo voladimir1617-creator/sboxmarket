@@ -23242,7 +23242,9 @@ body .nav-picker-panel .nav-picker-row.active .material-symbols-rounded, body .n
 }
 .grid-card .just-listed-badge, .item-card .just-listed-badge, item-card .just-listed-badge, .csfloat-card .just-listed-badge, .just-listed-badge { animation: sb-just-listed-badge-pop 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important; }
 .listings, .listing-grid, .market-grid { contain: layout style; }
-.listings > item-card, .listings > .item-card, .listings > .grid-card, .listing-grid > .grid-card, .market-grid > .grid-card, .market-grid > .item-card, .market-grid > item-card, .csfloat-card { transition: transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 240ms ease-out !important; }
+/* base transform is the HOVER-lift speed (snappy 180ms); the slower 360ms
+   FLIP reorder lives on .is-reordering below so both feel right. */
+.listings > item-card, .listings > .item-card, .listings > .grid-card, .listing-grid > .grid-card, .market-grid > .grid-card, .market-grid > .item-card, .market-grid > item-card, .csfloat-card { transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 240ms ease-out !important; }
 .listings.is-reordering > *, .listing-grid.is-reordering > *, .market-grid.is-reordering > * { transition: transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1) !important; will-change: transform !important; }
 @keyframes sb-card-remove { 0% { opacity: 1; transform: scale(1); }
 100% { opacity: 0; transform: scale(0.96); }
@@ -24542,11 +24544,11 @@ html body .wallet-modal .wallet-submit:disabled { background-color: rgba(255, 25
 html body .wallet-modal .modal-close { width: 40px !important; height: 40px !important; padding: 8px !important; border-radius: 50% !important; background-color: transparent !important; border: none !important; color: rgb(255, 255, 255) !important; font-size: 20px !important; line-height: 24px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; letter-spacing: normal !important; }
 html body .wallet-modal .modal-close:hover { background-color: rgba(255, 255, 255, 0.08) !important; }
 html body .wallet-modal .modal-close:active { background-color: rgba(255, 255, 255, 0.12) !important; }
-html body a.grid-card, html body .grid-card { border-radius: 12px !important; border-width: 2px !important; border-style: solid !important; transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, z-index 0s linear !important; box-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card:hover, html body .grid-card:hover { transform: translateY(-15px) !important; z-index: 1 !important; }
-html body a.grid-card:hover, html body .grid-card:hover { border-color: rgba(193, 206, 255, 0.07) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card:focus-visible, html body .grid-card:focus-visible { outline: 0 !important; outline-offset: 0 !important; transform: translateY(-15px) !important; z-index: 1 !important; border-color: rgba(193, 206, 255, 0.20) !important; box-shadow: 0 0 0 1px rgba(193, 206, 255, 0.20) inset, 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card:active, html body .grid-card:active { transform: translateY(-10px) !important; transition: transform 0.15s ease, border-color 0.3s ease, box-shadow 0.3s ease !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
+html body a.grid-card, html body .grid-card { border-radius: 12px !important; border-width: 2px !important; border-style: solid !important; transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), z-index 0s linear !important; box-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
+html body a.grid-card:hover, html body .grid-card:hover { transform: translateY(-3px) !important; z-index: 1 !important; }
+html body a.grid-card:hover, html body .grid-card:hover { border-color: rgba(193, 206, 255, 0.14) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
+html body a.grid-card:focus-visible, html body .grid-card:focus-visible { outline: 2px solid color-mix(in oklab, var(--cta) 70%, transparent) !important; outline-offset: 2px !important; transform: translateY(-3px) !important; z-index: 1 !important; border-color: rgba(193, 206, 255, 0.20) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
+html body a.grid-card:active, html body .grid-card:active { transform: translateY(-1px) !important; transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
 html body a.grid-card.is-sold, html body a.grid-card[data-sold="true"], html body .grid-card.is-sold, html body .grid-card[data-sold="true"] { opacity: 0.55 !important; pointer-events: auto !important; cursor: not-allowed !important; filter: grayscale(0.55) !important; }
 html body a.grid-card.is-sold:hover, html body a.grid-card[data-sold="true"]:hover, html body .grid-card.is-sold:hover, html body .grid-card[data-sold="true"]:hover { transform: none !important; z-index: auto !important; border-color: rgba(255, 255, 255, 0.06) !important; box-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
 html body a.grid-card.is-sold::after, html body a.grid-card[data-sold="true"]::after, html body .grid-card.is-sold::after, html body .grid-card[data-sold="true"]::after { content: "SOLD" !important; position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) rotate(-12deg) !important; background-color: rgba(15, 17, 22, 0.85) !important; color: rgb(245, 80, 80) !important; font-size: 18px !important; font-weight: 800 !important; letter-spacing: 3px !important; padding: 6px 18px !important; border: 2px solid rgb(245, 80, 80) !important; border-radius: 4px !important; pointer-events: none !important; z-index: 4 !important; }
@@ -24554,7 +24556,7 @@ html body a.grid-card:has(.grid-cart-btn.in), html body .grid-card:has(.grid-car
 html body a.grid-card:has(.grid-cart-btn.in):hover, html body .grid-card:has(.grid-cart-btn.in):hover { border-color: rgba(35, 123, 255, 0.45) !important; box-shadow: 0 0 0 1px rgba(35, 123, 255, 0.30) inset, 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
 html body a.grid-card.is-auction, html body .grid-card.is-auction { border-color: rgba(251, 191, 36, 0.10) !important; }
 html body a.grid-card.is-auction:hover, html body .grid-card.is-auction:hover { border-color: rgba(251, 191, 36, 0.22) !important; box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.10) inset, 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card .grid-cart-btn, html body a.grid-card .grid-star, html body .grid-card .grid-cart-btn, html body .grid-card .grid-star { transition: opacity 0.3s ease, transform 0.3s ease, color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease !important; opacity: 0 !important; transform: translateY(-4px) !important; }
+html body a.grid-card .grid-cart-btn, html body a.grid-card .grid-star, html body .grid-card .grid-cart-btn, html body .grid-card .grid-star { transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1), transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important; opacity: 0 !important; transform: translateY(-4px) !important; }
 html body a.grid-card:hover .grid-cart-btn, html body a.grid-card:focus-visible .grid-cart-btn, html body a.grid-card:hover .grid-star, html body a.grid-card:focus-visible .grid-star, html body .grid-card:hover .grid-cart-btn, html body .grid-card:focus-visible .grid-cart-btn, html body .grid-card:hover .grid-star, html body .grid-card:focus-visible .grid-star { opacity: 1 !important; transform: translateY(0) !important; }
 html body a.grid-card .grid-cart-btn.in, html body a.grid-card .grid-star.on, html body .grid-card .grid-cart-btn.in, html body .grid-card .grid-star.on { opacity: 1 !important; transform: translateY(0) !important; }
 html body .user-menu, html body .user-menu-dropdown, html body .user-dropdown, html body .profile-menu, html body .menu-popover, html body .popover.user-menu { min-width: 112px !important; max-width: 280px !important; width: auto !important; border-radius: 15px !important; background-color: rgba(21, 23, 28, 0.8) !important; border: 2px solid rgba(193, 206, 255, 0.07) !important; color: rgb(255, 255, 255) !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 16px !important; }
@@ -26511,10 +26513,14 @@ html body .wallet-modal .wallet-amount-input-v2::placeholder { color: rgba(193, 
 @media (max-width: 640px) { html body .wallet-modal .wallet-amount-row, html body .wallet-modal .wallet-amount-wrap { width: 100% !important; max-width: 100% !important; }
 html body .wallet-modal .wallet-amount-input-v2 { min-width: 0 !important; width: 100% !important; flex: 1 1 auto !important; }
 }
-html body .wallet-modal .wallet-preset-row { display: flex !important; flex-wrap: wrap !important; align-items: baseline !important; gap: 24px !important; background: transparent !important; border: 0 !important; padding: 0 !important; }
-html body .wallet-modal .wallet-preset-btn, html body .wallet-modal .wallet-preset-row button { font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0 !important; background: transparent !important; color: rgb(35, 123, 255) !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; height: auto !important; min-height: 24px !important; line-height: 24px !important; cursor: pointer !important; text-decoration: none !important; transition: opacity 120ms ease !important; }
-html body .wallet-modal .wallet-preset-btn:hover, html body .wallet-modal .wallet-preset-row button:hover { background: transparent !important; border: 0 !important; color: rgb(35, 123, 255) !important; opacity: 0.85 !important; text-decoration: underline !important; }
-html body .wallet-modal .wallet-preset-btn.active, html body .wallet-modal .wallet-preset-row button.active { background: transparent !important; border: 0 !important; color: rgb(35, 123, 255) !important; text-decoration: underline !important; }
+/* deposit-amount presets — render as the unified pill chips (not bare text
+   links). Bare links wrapped awkwardly ($500 orphaned a row) and broke the
+   control system; tidy nowrap chips that tile cleanly match csfloat + the
+   secondary-control surface used elsewhere. */
+html body .wallet-modal .wallet-preset-row { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)) !important; align-items: center !important; gap: 8px !important; background: transparent !important; border: 0 !important; padding: 0 !important; }
+html body .wallet-modal .wallet-preset-btn, html body .wallet-modal .wallet-preset-row button { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; min-width: 0 !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 13px !important; font-weight: 600 !important; letter-spacing: 0 !important; white-space: nowrap !important; background: var(--ctl-surface) !important; color: var(--ctl-ink) !important; border: 1px solid var(--ctl-border) !important; border-radius: var(--ctl-r) !important; padding: 0 10px !important; height: 36px !important; min-height: 36px !important; line-height: 34px !important; cursor: pointer !important; text-decoration: none !important; }
+html body .wallet-modal .wallet-preset-btn:hover, html body .wallet-modal .wallet-preset-row button:hover { background: var(--ctl-surface-h) !important; border-color: var(--ctl-border-h) !important; color: #ffffff !important; opacity: 1 !important; text-decoration: none !important; transform: translateY(-1px) !important; }
+html body .wallet-modal .wallet-preset-btn.active, html body .wallet-modal .wallet-preset-row button.active { background: rgba(35, 123, 255, 0.14) !important; border-color: rgb(35, 123, 255) !important; color: rgb(35, 123, 255) !important; text-decoration: none !important; transform: none !important; }
 html body .wallet-modal .wallet-preset-btn:focus-visible, html body .wallet-modal .wallet-preset-row button:focus-visible { outline: 2px solid rgb(35, 123, 255) !important; outline-offset: 2px !important; }
 nav.nav .nav-logo .nav-logo-icon { width: 40px !important; height: 40px !important; }
 nav.nav .nav-logo .nav-logo-icon img, nav.nav .nav-logo .nav-logo-icon svg { width: 40px !important; height: 40px !important; display: block !important; }
@@ -27848,6 +27854,7 @@ html body .csfloat-home-rail-tab,
 html body .csfloat-home-rail-tab:not(.active),
 html body .csfloat-home-rail-tab.active {
   border-radius: var(--ctl-r) !important;
+  white-space: nowrap !important;
 }
 /* the decorative hero "preview card" mini-buttons (Buy now / Bargain) are an
    illustration, not real controls — just normalize their radius to 8px so the
@@ -27858,6 +27865,7 @@ html body .csfloat-home-hero-feature-btn.primary,
 html body .csfloat-home-hero-feature-btn.ghost,
 html body .csfloat-home-hero-feature-btn.icon {
   border-radius: var(--ctl-r) !important;
+  white-space: nowrap !important;
 }
 
 /* ---- 9. ITEM-PAGE CONTROLS ---- */
@@ -28285,4 +28293,96 @@ html body .sep,
 html body .bullet,
 html body .meta-sep {
   color: var(--ink-4) !important;
+}
+
+/* =====================================================================
+   MOTION & INTERACTION STATES — one transition recipe + focus ring
+   ---------------------------------------------------------------------
+   Prior passes left state transitions scattered across many easings
+   (ease / ease-out / linear / two cubic-beziers) and durations (80ms ->
+   600ms), plus ~250 `transition: all` declarations on interactive
+   controls. This block lands ONE recipe on the interactive control
+   families so hover / focus / active feel identical everywhere and never
+   snap or jank.
+
+   Rules:
+   - property list is explicit (no `all`): color / bg / border / shadow /
+     transform / opacity / fill. Layout props (width/height/margin) are
+     deliberately NOT animated, so hovers can't shift layout.
+   - duration is NOT !important, so the global prefers-reduced-motion
+     `transition-duration: 0.01ms !important` keeps winning for a11y.
+   - long, intentional motion (image zoom, progress/meter fills, carousels,
+     bottom-sheet slide, on-scroll reveals, SVG dashoffset rings) lives on
+     other elements NOT in this list and is left untouched.
+   ===================================================================== */
+:root {
+  --ease-ui: cubic-bezier(0.4, 0, 0.2, 1);   /* the ONE control easing */
+  --dur-ui: 150ms;                            /* the ONE state duration  */
+}
+html body button,
+html body .btn,
+html body a.btn,
+html body .btn-accent, html body .btn-primary, html body .btn-secondary,
+html body .btn-ghost, html body .btn-clear, html body .buy-btn,
+html body .item-rail-actions-buy, html body .item-rail-actions-cart,
+html body .item-rail-actions-bargain,
+html body .sort-picker-chip, html body .deals-chip, html body .price-chip,
+html body .toolbar-refresh, html body .nav-picker-chip, html body .nav-icon-btn,
+html body .type-toggle-btn, html body .chart-range-btn,
+html body .view-btns button, html body .view-btn,
+html body .csfloat-subnav-tab, html body .csfloat-home-rail-tab,
+html body .csfloat-home-hero-feature-btn,
+html body .csfloat-chip, html body .csfloat-tab, html body .csfloat-pill,
+html body .csfloat-mkt-card, html body .csfloat-mkt-card-fav,
+html body .csfloat-pagination-btn, html body .csfloat-side-nav-link,
+html body .csfloat-sort-trigger, html body .csfloat-filter-bar-view-btn,
+html body .csfloat-deposit-chip, html body .csfloat-stepper-btn,
+html body .csfloat-radio-card, html body .csfloat-pay-method,
+html body .csfloat-similar-card, html body .csfloat-cat-card,
+html body .filter-chip, html body .chip,
+html body .nav a, html body nav.nav a, html body .nav-link,
+html body .csfloat-subnav-tab, html body .profile-subnav a,
+html body .card, html body .grid-card, html body .feat-lead, html body .feat-side,
+html body .db-row, html body .ltable tbody tr,
+html body .wallet-preset-btn, html body .wallet-preset-row button,
+html body input, html body select, html body textarea,
+html body .csfloat-amount-input, html body .csfloat-report-textarea,
+html body .grid-star, html body .grid-cart-btn, html body .grid-zoom,
+html body .gc-magnifier, html body .trade-action-btn,
+html body .deposit-chip, html body .preset-chip {
+  transition-property: background-color, border-color, color, box-shadow, transform, opacity, fill !important;
+  transition-timing-function: var(--ease-ui) !important;
+  transition-duration: var(--dur-ui);
+}
+
+/* ONE consistent keyboard focus ring across every interactive control
+   (kills the mix of accent / ink / 60%-mix rings from earlier passes). */
+html body button:focus-visible,
+html body a:focus-visible,
+html body .btn:focus-visible,
+html body input:focus-visible,
+html body select:focus-visible,
+html body textarea:focus-visible,
+html body [role="button"]:focus-visible,
+html body [role="tab"]:focus-visible,
+html body .chip:focus-visible, html body .filter-chip:focus-visible,
+html body .csfloat-chip:focus-visible, html body .csfloat-tab:focus-visible,
+html body .card:focus-visible, html body .grid-card:focus-visible,
+html body .db-row:focus-visible, html body .nav-icon-btn:focus-visible,
+html body .nav-picker-chip:focus-visible, html body .csfloat-mkt-card:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--cta) 70%, white 0%) !important;
+  outline-offset: 2px !important;
+}
+
+/* consistent, subtle card hover — a small lift + border highlight, never a
+   layout shift (transform/border/shadow only). Cards already declare these
+   transition props above so the lift eases in at the one 150ms recipe.
+   (.grid-card has its own canonical lift earlier — now tuned to -3px/150ms —
+   so it is intentionally excluded here to avoid two rules fighting.) */
+html body .csfloat-mkt-card:hover,
+html body .csfloat-similar-card:hover,
+html body .feat-lead:hover,
+html body .feat-side:hover {
+  transform: translateY(-2px) !important;
+  border-color: var(--ctl-border-h, rgba(255,255,255,0.16)) !important;
 }
