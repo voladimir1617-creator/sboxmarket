@@ -27462,3 +27462,366 @@ nav.nav .nav-links::-webkit-scrollbar { display: none !important; }
 .grid-card .grid-star, .grid-card .gc-magnifier, .grid-card .grid-cart-btn { pointer-events: none; }
 .grid-card:hover .grid-star, .grid-card:hover .gc-magnifier, .grid-card:hover .grid-cart-btn, .grid-card:focus-within .grid-star, .grid-card:focus-within .gc-magnifier, .grid-card:focus-within .grid-cart-btn { pointer-events: auto; }
 html body .csfloat-home-hero, html body .csfloat-home-preview, html body .csfloat-home-tiles, html body .csfloat-home-metrics, html body .csfloat-home-journey, html body .csfloat-home-faq { border-top: 0 none !important; border-bottom: 0 none !important; }
+
+/* =====================================================================
+   WAVE 177 — UNIFIED CONTROL SYSTEM (csfloat-grade)
+   Collapses 19 ad-hoc button treatments into ONE coherent system.
+   Two heights (36 std / 40 CTA), one radius (8px), three surfaces
+   (blue primary / one dark secondary / transparent ghost), two type
+   scales (14/600 buttons, 13/500 chips). Appended last = wins among
+   same-specificity rules. Layout/position/features untouched — visual
+   styling of controls only.
+   ===================================================================== */
+:root {
+  --ctl-h: 36px;            /* standard control height */
+  --ctl-h-cta: 40px;        /* primary / CTA height */
+  --ctl-r: 8px;             /* the ONE button/input/chip radius */
+  --ctl-pad: 0 14px;        /* standard horizontal padding */
+  --ctl-pad-cta: 0 16px;    /* primary horizontal padding */
+  --ctl-fs: 14px;           /* button label size */
+  --ctl-fw: 600;            /* button label weight */
+  --ctl-fs-sm: 13px;        /* chip / meta size */
+  --ctl-fw-sm: 500;         /* chip / meta weight */
+  --ctl-primary: rgb(35, 123, 255);
+  --ctl-primary-h: rgb(64, 142, 255);
+  --ctl-primary-ink: #ffffff;
+  --ctl-surface: rgb(38, 41, 48);          /* the one dark control surface (= card --bg-2) */
+  --ctl-surface-h: rgb(46, 50, 58);
+  --ctl-border: rgba(255, 255, 255, 0.08); /* the one control border */
+  --ctl-border-h: rgba(255, 255, 255, 0.16);
+  --ctl-ink: rgb(220, 226, 233);           /* secondary/ghost label */
+  --ctl-ink-3: rgb(158, 167, 177);         /* low-emphasis label */
+}
+
+/* ---- 1. PRIMARY (blue, white text, 40px CTA / 36px compact) ---- */
+html body .btn-accent,
+html body .btn-primary,
+html body button.btn-accent,
+html body button.btn-primary,
+html body .buy-btn,
+html body button.buy-btn,
+html body .item-rail-actions-buy,
+html body button.item-rail-actions-buy {
+  height: var(--ctl-h-cta) !important;
+  min-height: var(--ctl-h-cta) !important;
+  padding: var(--ctl-pad-cta) !important;
+  border-radius: var(--ctl-r) !important;
+  font-size: var(--ctl-fs) !important;
+  font-weight: var(--ctl-fw) !important;
+  background: var(--ctl-primary) !important;
+  background-color: var(--ctl-primary) !important;
+  border: 1px solid var(--ctl-primary) !important;
+  color: var(--ctl-primary-ink) !important;
+  box-shadow: none !important;
+}
+html body .btn-accent:hover,
+html body .btn-primary:hover,
+html body button.btn-accent:hover,
+html body button.btn-primary:hover,
+html body .buy-btn:hover,
+html body .item-rail-actions-buy:hover {
+  background: var(--ctl-primary-h) !important;
+  background-color: var(--ctl-primary-h) !important;
+  border-color: var(--ctl-primary-h) !important;
+  color: var(--ctl-primary-ink) !important;
+}
+
+/* ---- 2. SECONDARY (one dark surface + one border, 36px) ---- */
+html body .sort-picker-chip,
+html body button.sort-picker-chip,
+html body .deals-chip,
+html body button.deals-chip,
+html body .deals-chip.new-chip,
+html body button.deals-chip.new-chip,
+html body .toolbar-refresh,
+html body button.toolbar-refresh,
+html body .price-chip,
+html body button.price-chip,
+html body .sidebar .price-chip,
+html body .item-rail-actions-cart,
+html body button.item-rail-actions-cart,
+html body .item-rail-actions-bargain,
+html body button.item-rail-actions-bargain {
+  height: var(--ctl-h) !important;
+  min-height: var(--ctl-h) !important;
+  border-radius: var(--ctl-r) !important;
+  font-size: var(--ctl-fs-sm) !important;
+  font-weight: var(--ctl-fw-sm) !important;
+  background: var(--ctl-surface) !important;
+  background-color: var(--ctl-surface) !important;
+  border: 1px solid var(--ctl-border) !important;
+  color: var(--ctl-ink) !important;
+  box-shadow: none !important;
+}
+html body .sort-picker-chip:hover,
+html body .deals-chip:hover,
+html body .toolbar-refresh:hover,
+html body .price-chip:hover,
+html body .item-rail-actions-cart:hover,
+html body .item-rail-actions-bargain:hover {
+  background: var(--ctl-surface-h) !important;
+  background-color: var(--ctl-surface-h) !important;
+  border-color: var(--ctl-border-h) !important;
+  color: #fff !important;
+}
+/* secondary, active/selected state for price-chip keeps the blue fill */
+html body .sidebar .price-chip.active,
+html body .price-chip.active {
+  background: var(--ctl-primary) !important;
+  background-color: var(--ctl-primary) !important;
+  border-color: var(--ctl-primary) !important;
+  color: var(--ctl-primary-ink) !important;
+}
+
+/* the generic .btn-ghost button (Share / Save / bookmark) → secondary surface, 36px */
+html body button.btn.btn-ghost,
+html body .btn.btn-ghost {
+  height: var(--ctl-h) !important;
+  min-height: var(--ctl-h) !important;
+  border-radius: var(--ctl-r) !important;
+  font-size: var(--ctl-fs-sm) !important;
+  font-weight: var(--ctl-fw-sm) !important;
+  background: var(--ctl-surface) !important;
+  background-color: var(--ctl-surface) !important;
+  border: 1px solid var(--ctl-border) !important;
+  color: var(--ctl-ink) !important;
+}
+html body button.btn.btn-ghost:hover,
+html body .btn.btn-ghost:hover {
+  background: var(--ctl-surface-h) !important;
+  border-color: var(--ctl-border-h) !important;
+  color: #fff !important;
+}
+
+/* ---- 3. GHOST (transparent, no border, low-emphasis) ---- */
+html body .btn-clear,
+html body button.btn-clear,
+html body .sidebar .btn-clear,
+html body .nav-picker-chip,
+html body button.nav-picker-chip {
+  height: var(--ctl-h) !important;
+  min-height: var(--ctl-h) !important;
+  border-radius: var(--ctl-r) !important;
+  font-size: var(--ctl-fs-sm) !important;
+  font-weight: var(--ctl-fw-sm) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  color: var(--ctl-ink-3) !important;
+}
+html body .btn-clear:hover,
+html body .nav-picker-chip:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #fff !important;
+}
+
+/* nav icon buttons → 36px SQUARE ghost, 8px radius */
+html body nav.nav .nav-icon-btn,
+html body .nav-icon-btn,
+html body a.nav-icon-btn,
+html body button.nav-icon-btn {
+  height: var(--ctl-h) !important;
+  min-height: var(--ctl-h) !important;
+  width: var(--ctl-h) !important;
+  min-width: var(--ctl-h) !important;
+  border-radius: var(--ctl-r) !important;
+  background: transparent !important;
+  border: 0 none !important;
+}
+/* nav currency picker chip is NOT a square — auto width, ghost, 36px, 8px */
+html body nav.nav .nav-picker-chip,
+html body .nav-picker-chip {
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 0 10px !important;
+  font-size: var(--ctl-fs) !important;
+}
+
+/* the toolbar refresh + sort picker are icon-leaning square-ish; keep auto width but unify height/radius (covered above). refresh icon button → square */
+html body .toolbar-refresh,
+html body button.toolbar-refresh {
+  width: var(--ctl-h) !important;
+  min-width: var(--ctl-h) !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* ---- 4. TABS (legit pattern: text tabs + consistent active) ---- */
+/* type-toggle (All / Buy Now / Auction) → ghost text tab, 8px, accent active */
+html body .type-toggle-btn,
+html body button.type-toggle-btn {
+  height: var(--ctl-h) !important;
+  min-height: var(--ctl-h) !important;
+  border-radius: var(--ctl-r) !important;
+  font-size: var(--ctl-fs-sm) !important;
+  font-weight: var(--ctl-fw-sm) !important;
+  background: transparent !important;
+  border: 0 none !important;
+  color: var(--ctl-ink-3) !important;
+}
+html body .type-toggle-btn.active,
+html body button.type-toggle-btn.active {
+  background: var(--ctl-primary-soft, rgba(35, 123, 255, 0.14)) !important;
+  color: rgb(78, 150, 255) !important;
+  font-weight: 600 !important;
+}
+/* chart range pills (7D/1M/3M…) → 8px segment tabs (kill 999px), accent active */
+html body .chart-range-btn,
+html body button.chart-range-btn {
+  border-radius: var(--ctl-r) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  color: var(--ctl-ink-3) !important;
+}
+html body .chart-range-btn.active,
+html body button.chart-range-btn.active {
+  background: rgba(35, 123, 255, 0.14) !important;
+  color: rgb(78, 150, 255) !important;
+  font-weight: 600 !important;
+}
+/* csfloat-subnav tabs (All/Hats/Jackets…) — keep as underline text tabs,
+   just guarantee internal consistency (weight + the one accent on active). */
+html body nav.csfloat-subnav .csfloat-subnav-tab,
+html body .csfloat-subnav-tab {
+  font-size: var(--ctl-fs) !important;
+  font-weight: var(--ctl-fw-sm) !important;
+}
+html body nav.csfloat-subnav .csfloat-subnav-tab.active,
+html body .csfloat-subnav-tab.active {
+  font-weight: 600 !important;
+}
+
+/* ---- 5. GRID-CARD OVERLAY MICRO-CONTROLS — kill the 20px pill → 8px rect ---- */
+/* (compact card-hover overlays stay compact; only the pill radius is normalized) */
+html body .grid-card .grid-star,
+html body .grid-card button.grid-star,
+html body .grid-card .grid-cart-btn,
+html body .grid-card .grid-zoom,
+html body .grid-card .gc-magnifier {
+  border-radius: var(--ctl-r) !important;
+}
+/* favorited heart keeps its red affordance but as an 8px rect, not a pill */
+html body .grid-card .grid-star.on,
+html body .grid-card button.grid-star.on {
+  border-radius: var(--ctl-r) !important;
+}
+
+/* ---- 6. MOBILE — preserve required 44px tap targets on primary actions ---- */
+@media (max-width: 768px) {
+  html body .buy-btn,
+  html body .btn-accent,
+  html body .btn-primary,
+  html body .item-rail-actions-buy {
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+/* ---- 7. SPECIFICITY REINFORCEMENT ----
+   Several legacy late-zone rules use `body .toolbar .x` (0,2,1) / `body .x`
+   (0,2,0) selectors that out-specify the section-1..6 rules above. Re-assert
+   the unified secondary surface / radius for those exact controls at >=(0,2,2).
+*/
+html body .toolbar .sort-picker-chip,
+html body .sort-picker .sort-picker-chip,
+html body .toolbar button.sort-picker-chip {
+  background: var(--ctl-surface) !important;
+  background-color: var(--ctl-surface) !important;
+  border: 1px solid var(--ctl-border) !important;
+  border-radius: var(--ctl-r) !important;
+  height: var(--ctl-h) !important;
+  min-height: var(--ctl-h) !important;
+  font-size: var(--ctl-fs-sm) !important;
+  font-weight: var(--ctl-fw-sm) !important;
+  color: var(--ctl-ink) !important;
+}
+html body .toolbar .sort-picker-chip:hover,
+html body .sort-picker.open .sort-picker-chip {
+  background: var(--ctl-surface-h) !important;
+  border-color: var(--ctl-border-h) !important;
+  color: #fff !important;
+}
+
+html body .toolbar .toolbar-refresh,
+html body .toolbar button.toolbar-refresh {
+  width: var(--ctl-h) !important;
+  height: var(--ctl-h) !important;
+  min-width: var(--ctl-h) !important;
+  padding: 0 !important;
+  background: var(--ctl-surface) !important;
+  background-color: var(--ctl-surface) !important;
+  border: 1px solid var(--ctl-border) !important;
+  border-radius: var(--ctl-r) !important;
+  color: var(--ctl-ink) !important;
+}
+html body .toolbar .toolbar-refresh:hover,
+html body .toolbar button.toolbar-refresh:hover {
+  background: var(--ctl-surface-h) !important;
+  background-color: var(--ctl-surface-h) !important;
+  border-color: var(--ctl-border-h) !important;
+  color: #fff !important;
+}
+
+/* the generic ghost button keeps the secondary surface; beat the faint-fill rule */
+html body .toolbar button.btn.btn-ghost,
+html body .toolbar .btn.btn-ghost,
+html body main .btn.btn-ghost,
+html body .item-rail button.btn.btn-ghost {
+  background: var(--ctl-surface) !important;
+  background-color: var(--ctl-surface) !important;
+  border: 1px solid var(--ctl-border) !important;
+  color: var(--ctl-ink) !important;
+}
+html body .toolbar button.btn.btn-ghost:hover,
+html body main .btn.btn-ghost:hover {
+  background: var(--ctl-surface-h) !important;
+  border-color: var(--ctl-border-h) !important;
+  color: #fff !important;
+}
+
+/* nav currency picker — beat `nav.nav .nav-picker-chip{border-radius:4px}` */
+html body nav.nav .nav-picker-chip,
+html body nav.nav button.nav-picker-chip {
+  border-radius: var(--ctl-r) !important;
+  font-size: var(--ctl-fs) !important;
+  height: var(--ctl-h) !important;
+  min-height: var(--ctl-h) !important;
+}
+html body nav.nav .nav-icon-btn,
+html body nav.nav a.nav-icon-btn,
+html body nav.nav button.nav-icon-btn {
+  border-radius: var(--ctl-r) !important;
+}
+
+/* view toggle (grid/list) — a 2-button segmented control. Unify to one 8px
+   container + 36px ghost buttons with an accent active state (kill 0px + 999px). */
+html body .toolbar .view-btns,
+html body .view-btns {
+  height: var(--ctl-h) !important;
+  border-radius: var(--ctl-r) !important;
+  border: 1px solid var(--ctl-border) !important;
+  background: var(--ctl-surface) !important;
+  overflow: hidden !important;
+}
+html body .toolbar .view-btns button,
+html body .view-btns button,
+html body .view-btns button.view-btn {
+  height: var(--ctl-h) !important;
+  min-height: var(--ctl-h) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--ctl-ink-3) !important;
+  font-size: var(--ctl-fs) !important;
+  font-weight: var(--ctl-fw-sm) !important;
+}
+html body .toolbar .view-btns button.active,
+html body .view-btns button.active,
+html body .view-btns button.view-btn.active {
+  background: var(--ctl-primary) !important;
+  color: var(--ctl-primary-ink) !important;
+  font-weight: 600 !important;
+}
+
