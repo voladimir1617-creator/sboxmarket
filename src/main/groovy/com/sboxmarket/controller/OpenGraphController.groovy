@@ -45,16 +45,44 @@ class OpenGraphController {
     @Value('${app.public-url:http://localhost:8080}')
     String publicUrl
 
-    /** Full contents of /static/index.html loaded once at startup. */
-    private String template = null
+    /** Contents of /static/index.html. Cached, but re-read whenever the
+     *  underlying file's mtime changes so a cache-busted asset version
+     *  (index.html's `?v=` bump) reaches OG-rendered routes WITHOUT a server
+     *  restart. Previously the template was frozen at @PostConstruct, so
+     *  every OG route (/market, /item, /db, /faq, /wallet, …) served whatever
+     *  index.html existed at boot — i.e. a STALE `?v=` that made browsers
+     *  load an OLD cached design.css/main.js on every page except the
+     *  SPA-fallback home route, which reads the file live. In a packaged jar
+     *  the resource mtime is constant (the jar's), so this loads exactly once
+     *  there — a redeploy ships a new jar anyway. */
+    private volatile String template = null
+    private volatile long templateMtime = -1L
 
     @PostConstruct
     void loadTemplate() {
+        refreshTemplate()
+    }
+
+    /** Reload the template if index.html changed on disk. Steady-state cost
+     *  is a single stat (mtime check) with no lock; the file is only re-read
+     *  + the monitor only entered when the mtime actually changes. */
+    private void refreshTemplate() {
         try {
             def res = new ClassPathResource('static/index.html')
-            template = res.inputStream.getText(StandardCharsets.UTF_8.name())
+            long mtime
+            try { mtime = res.lastModified() } catch (Exception ignore) { mtime = -1L }
+            // Unchanged (or mtime unavailable inside a jar AND already loaded) → nothing to do.
+            if (template != null && (mtime <= 0L || mtime == templateMtime)) {
+                return
+            }
+            synchronized (this) {
+                if (template == null || (mtime > 0L && mtime != templateMtime)) {
+                    template = res.inputStream.getText(StandardCharsets.UTF_8.name())
+                    templateMtime = mtime
+                }
+            }
         } catch (Exception e) {
-            log.warn("Could not load index.html template for OG tag injection: ${e.message}")
+            log.warn("Could not (re)load index.html template for OG tag injection: ${e.message}")
         }
     }
 
@@ -129,6 +157,7 @@ class OpenGraphController {
     // slash variant. Same treatment on stall + loadout below.
     @GetMapping(value = ['/item/{id}', '/item/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> itemPage(@PathVariable String id, HttpServletRequest req) {
+        refreshTemplate()
         if (template == null) {
             // Template never loaded — let the SPA fallback handler serve it.
             return ResponseEntity.status(404).body('')
@@ -307,6 +336,7 @@ class OpenGraphController {
     /** Same treatment for /stall/{id} — seller stall shares. */
     @GetMapping(value = ['/stall/{id}', '/stall/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> stallPage(@PathVariable String id, HttpServletRequest req) {
+        refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')
         Long userId
         try { userId = Long.parseLong(id) }
@@ -441,6 +471,7 @@ class OpenGraphController {
      * into the home page in search-engine indexes.
      */
     private ResponseEntity<String> spaStaticPage(HttpServletRequest req, String path, String title, String desc, String ogType = 'website') {
+        refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')
         def base = resolveBaseUrl(req)
         def url = base + path
@@ -496,6 +527,7 @@ class OpenGraphController {
 
     @GetMapping(value = ['/market', '/market/', '/search', '/search/'], produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> marketPage(HttpServletRequest req) {
+        refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')
         def base = resolveBaseUrl(req)
         def title = 'Marketplace · SkinBox'
@@ -525,6 +557,7 @@ class OpenGraphController {
 
     @GetMapping(value = ['/faq', '/faq/'], produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> faqPage(HttpServletRequest req) {
+        refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')
         def base = resolveBaseUrl(req)
         def title = 'FAQ · SkinBox'
@@ -575,6 +608,7 @@ class OpenGraphController {
      */
     @GetMapping(value = ['/loadout/{id}', '/loadout/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> loadoutPage(@PathVariable String id, HttpServletRequest req) {
+        refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')
         Long loadoutId
         try { loadoutId = Long.parseLong(id) }
@@ -701,6 +735,7 @@ class OpenGraphController {
                          '/csr', '/csr/'],
                 produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> privateShell() {
+        refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')
         def Q = java.util.regex.Matcher.&quoteReplacement
         def out = template
@@ -726,6 +761,7 @@ class OpenGraphController {
      * preview in the CDN.
      */
     private ResponseEntity<String> notFoundSpaShell() {
+        refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')
         def Q = java.util.regex.Matcher.&quoteReplacement
         def out = template
