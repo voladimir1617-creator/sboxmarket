@@ -28468,7 +28468,7 @@ html body .full-page-mode .info-modal .buyorder-form { width: 100% !important; m
 
 /* WAVE 180 — operator-reported (2K @125% scaling -> ~2048px CSS viewport): grid-card internals clipped at any column < ~222px. Root cause: .grid-thumb aspect-ratio:1.1 + min-height:200px derives width from HEIGHT (220px) regardless of card width; card overflow:hidden then clips badges/meta. Constrain thumb to the card and raise the market grid floor so columns never shrink below content. */
 html body .grid-card .grid-thumb { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
-html body main.layout .listing-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important; }
+@media (min-width: 901px) { html body main.layout .listing-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important; } }
 
 /* WAVE 180b — rail/grid cards: let the price row (price + steam + discount badge) WRAP on narrow cards instead of clipping at the card edge (operator screenshot: "-18%" half-cut on home rail at ~200px cards). Wrapping only engages when the row cannot fit. */
 html body .grid-card .grid-price { flex-wrap: wrap !important; row-gap: 2px !important; }
