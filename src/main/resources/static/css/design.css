@@ -28465,3 +28465,16 @@ html body .info-modal .info-modal-body .buyorder-form { text-align: left !import
    Overlay-modal renders (no .full-page-mode ancestor) are already narrow and
    unaffected — max-width only ever shrinks. */
 html body .full-page-mode .info-modal .buyorder-form { width: 100% !important; max-width: 620px !important; margin-left: auto !important; margin-right: auto !important; }
+
+/* WAVE 180 — operator-reported (2K @125% scaling -> ~2048px CSS viewport): grid-card internals clipped at any column < ~222px. Root cause: .grid-thumb aspect-ratio:1.1 + min-height:200px derives width from HEIGHT (220px) regardless of card width; card overflow:hidden then clips badges/meta. Constrain thumb to the card and raise the market grid floor so columns never shrink below content. */
+html body .grid-card .grid-thumb { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+html body main.layout .listing-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important; }
+
+/* WAVE 180b — rail/grid cards: let the price row (price + steam + discount badge) WRAP on narrow cards instead of clipping at the card edge (operator screenshot: "-18%" half-cut on home rail at ~200px cards). Wrapping only engages when the row cannot fit. */
+html body .grid-card .grid-price { flex-wrap: wrap !important; row-gap: 2px !important; }
+
+/* WAVE 180c — operator screenshot: a TRANSPARENT sticky-bottom pager floated over /db table rows (sticky from rule ~23259, transparent bg from the higher-specificity ~22589 duel). The page itself is the scroller in full-page-mode, so sticky pins to the viewport and covers data rows. Return the pager to normal flow at the end of the table. */
+html body .db-pager { position: static !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* WAVE 180d — operator: "when I click something the menu disappears." On every full-page-mode route (db/profile/wallet/cart/...) the opaque .modal-backdrop (z-index 200) sat ON TOP of the sticky nav (z-index 50): the nav was buried under the backdrop — invisible and unclickable, so there was no way to navigate off these pages. Drop the backdrop below the nav and pad its scroller so content clears the bar. Desktop-scoped; the mobile layering already shows the nav. */
+@media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop { z-index: 40 !important; padding-top: 70px !important; box-sizing: border-box !important; } }

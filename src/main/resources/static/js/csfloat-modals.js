@@ -422,7 +422,6 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
                         if (typeof onPickItem === 'function') onPickItem(item);
                       }
                     }, highlightMatch(item.name || '', search)),
-                    h('div', { className: 'db-sub' }, '#' + item.id)
                   )
                 )
               ),
