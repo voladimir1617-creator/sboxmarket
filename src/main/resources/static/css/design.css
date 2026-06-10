@@ -28478,3 +28478,12 @@ html body .db-pager { position: static !important; box-shadow: none !important; 
 
 /* WAVE 180d — operator: "when I click something the menu disappears." On every full-page-mode route (db/profile/wallet/cart/...) the opaque .modal-backdrop (z-index 200) sat ON TOP of the sticky nav (z-index 50): the nav was buried under the backdrop — invisible and unclickable, so there was no way to navigate off these pages. Drop the backdrop below the nav and pad its scroller so content clears the bar. Desktop-scoped; the mobile layering already shows the nav. */
 @media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop { z-index: 40 !important; padding-top: 70px !important; box-sizing: border-box !important; } }
+
+/* WAVE 181 — operator: item page read as scattered widgets in a void. (1) .modal-preview was hard-capped at 760px inside its 1064px grid column, leaving a ~300px dead strip mid-page and stranding the rarity badge at the box corner far from the artwork — preview now fills its column (one intentional media panel) with the badge pinned to the panel's top-left. (2) The four stat boxes (listing price / steam ref / 30d change / supply) were separate floating cards — merged into ONE panel with internal row dividers. Desktop-scoped. */
+@media (min-width: 901px) {
+html body .site-root.full-page-mode .modal.item-page .modal-header > .modal-preview, html body .modal.item-page .modal-header > .modal-preview, html body .modal.item-page .modal-preview { width: 100% !important; max-width: 100% !important; }
+html body .modal.item-page .modal-preview > .rarity-badge, html body .modal.item-page .modal-preview [class*=rarity] { left: 14px !important; right: auto !important; top: 14px !important; }
+html body .modal.item-page .modal-stats { background: rgb(27,29,36) !important; border: 1px solid rgba(255,255,255,0.07) !important; border-radius: 10px !important; gap: 0 !important; overflow: hidden !important; }
+html body .modal.item-page .modal-stats > .modal-stat-box { background: transparent !important; border: 0 !important; border-radius: 0 !important; border-bottom: 1px solid rgba(255,255,255,0.06) !important; padding: 13px 16px !important; }
+html body .modal.item-page .modal-stats > .modal-stat-box:last-child { border-bottom: 0 !important; }
+}
