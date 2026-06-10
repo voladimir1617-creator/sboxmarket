@@ -126,7 +126,7 @@ class SteamMarketPriceServiceSpec extends Specification {
 
         then:
         item.lowestPrice == new BigDecimal('1.47')  // platform floor preserved
-        item.steamPrice  == new BigDecimal('1.28')  // retail reference preserved
+        item.steamPrice  == new BigDecimal('1.34')  // Steam reference refreshed to live quote
         item.trendPercent == 0                       // trend untouched when listed
     }
 
@@ -145,11 +145,35 @@ class SteamMarketPriceServiceSpec extends Specification {
 
         then:
         item.lowestPrice == new BigDecimal('12.00')
-        item.steamPrice  == new BigDecimal('9.00')  // still preserved
+        item.steamPrice  == new BigDecimal('12.00') // Steam reference refreshed to live quote
         item.trendPercent == 20                      // +20% change recorded
     }
 
-    def "applyPriceUpdate populates steamPrice only when empty"() {
+    def "applyPriceUpdate refreshes a stale steamPrice with the live Steam quote"() {
+        given:
+        // Regression for the frozen-reference bug: catalogue seeding
+        // fabricates steamPrice = lowestPrice × 1.20 (SeedService) and the
+        // old only-when-empty guard never replaced it, so item 7
+        // 'Lunar Jacket 2026' showed a frozen $8.16 reference (6.80 × 1.2
+        // from seed day) while Steam's live lowest_price was $6.05 —
+        // operator-visible as a wrong "Steam CA$11.18" badge.
+        def item = new Item(
+            name:        'Lunar Jacket 2026',
+            isListed:    true,
+            lowestPrice: new BigDecimal('8.36'),
+            steamPrice:  new BigDecimal('8.16'),   // fake seed value, pre-fix frozen forever
+            trendPercent: 0
+        )
+
+        when:
+        service.applyPriceUpdate(item, new BigDecimal('6.05'), new BigDecimal('6.05'))
+
+        then:
+        item.steamPrice  == new BigDecimal('6.05')  // live market quote wins
+        item.lowestPrice == new BigDecimal('8.36')  // platform floor untouched (listed)
+    }
+
+    def "applyPriceUpdate populates steamPrice when previously empty"() {
         given:
         def item = new Item(
             name: 'Orphan',

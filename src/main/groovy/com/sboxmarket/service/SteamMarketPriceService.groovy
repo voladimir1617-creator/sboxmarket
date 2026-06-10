@@ -267,9 +267,20 @@ class SteamMarketPriceService {
      *      Steam's (usually lower) market floor drifts the grid
      *      card away from the real cheapest listing and surprises
      *      buyers at click-through.
-     *   2. `steamPrice` is only populated when empty — a reference
-     *      price sourced from SCMM originalPrice (retail store)
-     *      wins over the market lowest when both exist.
+     *   2. `steamPrice` (the "Steam reference" rendered on cards, the
+     *      buy modal and the discount badges) is ALWAYS refreshed with
+     *      the live Steam-market quote (lowest_price, median fallback).
+     *      It used to be written only-when-empty so an SCMM retail
+     *      originalPrice could win — but the SCMM scheduled sync is
+     *      retired, and catalogue seeding fabricates
+     *      `steamPrice = lowestPrice × 1.20` (SeedService), so the
+     *      only-when-empty guard froze that fake value forever: item
+     *      'Lunar Jacket 2026' kept showing a $8.16 reference
+     *      (6.80 × 1.2 from seed day) while Steam's live lowest was
+     *      $6.05. Live Steam data is the entire point of this service;
+     *      it wins. Items with no Steam-market listing keep whatever
+     *      reference they have (this method is only called when a
+     *      positive bestPrice was fetched).
      *   3. `trendPercent` only ticks when we actually wrote a new
      *      floor (unlisted item case). For listed items, trend is
      *      driven by platform listings, not Steam-market wiggle.
@@ -282,8 +293,12 @@ class SteamMarketPriceService {
         if (!item.isListed) {
             item.lowestPrice = bestPrice
         }
-        if (item.steamPrice == null || item.steamPrice <= BigDecimal.ZERO) {
-            item.steamPrice = lowestPrice
+        // Always refresh the Steam reference with the live quote —
+        // bestPrice is lowest_price with median_price fallback, already
+        // validated > 0 by the caller. The defensive guard keeps a
+        // direct (spec / future) caller from nulling a real reference.
+        if (bestPrice != null && bestPrice > BigDecimal.ZERO) {
+            item.steamPrice = bestPrice
         }
         if (!item.isListed && oldPrice != null && oldPrice > BigDecimal.ZERO) {
             // Explicit scale + rounding — a bare BigDecimal `/` throws
