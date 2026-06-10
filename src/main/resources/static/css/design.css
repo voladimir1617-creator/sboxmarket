@@ -26774,8 +26774,8 @@ body .item-rail-actions-bargain + div div[style*="margin-top: 10px"] + textarea 
 @media (max-width: 768px) { body .item-rail-actions-bargain + div .btn.btn-accent, body .item-rail-actions-bargain + div button.btn.btn-accent, body .modal.item-page .item-rail-actions-bargain + div .btn.btn-accent, body .modal.item-page .item-rail-actions-bargain + div button.btn.btn-accent { width: 100% !important; min-width: 0 !important; flex: 1 1 auto !important; }
 body .item-rail-actions-bargain + div div[style*="display: flex"][style*="margin-top: 10px"], body .modal.item-page .item-rail-actions-bargain + div div[style*="display: flex"][style*="margin-top: 10px"] { width: 100% !important; }
 }
-}
-site-wide on every chart-rendering surface (price-history popup, variant-body sparkline, profile-chart, etc). sboxmarket's Sparkline
+/* CSFLOAT-1:1 PARITY ship #128760 — chart axis text fill + typography parity,
+   site-wide on every chart-rendering surface (price-history popup, variant-body sparkline, profile-chart, etc). sboxmarket's Sparkline
    primitive renders no <text> today but the parity hook locks the
    color in case axis labels get added later. Belt-and-suspenders for
    the existing #14702 .chart-axis-label HTML rule. */
@@ -26796,7 +26796,7 @@ body .price-history-chart svg.sparkline text {
    CSFLOAT-1:1 PARITY ship #128761 — svg.chart inline gridline stroke
    parity to canonical csfloat ngx-charts gridline color. csfloat ships
    .ngx-charts .gridline-path { stroke: var(--highlight-background-minimal)
-   /* rgba(193, 206, 255, 0.04) */ } — the cool blue tint at the same
+   rgba(193, 206, 255, 0.04) } — the cool blue tint at the same
    0.04 alpha as csfloat's hairline tokens. sboxmarket's Sparkline
    primitive (primitives.js:357-361) hard-codes the gridline stroke
    inline as rgba(255,255,255,0.04) — same alpha but pure white base,
@@ -26817,7 +26817,7 @@ body .price-history-chart svg.sparkline line:not([stroke-dasharray]) {
      .ngx-charts-tooltip-content.type-tooltip {
        backdrop-filter: blur(10px);
        border-radius: 6px;
-       background-color: var(--highlight-background-minimal); /* rgba(193,206,255,0.04) */
+       background-color: var(--highlight-background-minimal); rgba(193,206,255,0.04)
        border: 2px solid var(--highlight-c-1-ceff-4, rgba(193, 206, 255, 0.04));
      }
    sboxmarket ship #14703 painted .sparkline-tooltip with an opaque
@@ -26896,20 +26896,23 @@ body .csfloat-cart-drawer-body .item .remove, body .cart-popover .item .remove, 
 body .csfloat-cart-drawer-body .item .remove .mdc-icon-button, body .cart-popover .item .remove .mdc-icon-button, body .cart-popover-container .item .remove .mdc-icon-button, body .csfloat-cart-popover-container .item .remove .mdc-icon-button { width: 40px !important; height: 40px !important; padding: 8px !important; border-radius: 999px !important; background: transparent !important; color: rgb(158, 167, 177) !important; border: 0 !important; }
 body .csfloat-cart-drawer-body .item .remove .mdc-icon-button:hover, body .cart-popover .item .remove .mdc-icon-button:hover, body .cart-popover-container .item .remove .mdc-icon-button:hover { background: rgba(193, 206, 255, 0.08) !important; color: rgb(255, 255, 255) !important; }
 body .csfloat-cart-drawer-body .item .details-row .reference, body .cart-popover .item .details-row .reference, body .cart-popover-container .item .details-row .reference, body .csfloat-cart-popover-container .item .details-row .reference { padding: 5px 7px !important; min-height: 26px !important; min-width: 69px !important; }
-csfloat's mat-button-toggle-checked label color goes to
+/* CSFLOAT-1:1 PARITY ship #128770 — .chart-range-btn.active subtle-tint correction:
+   csfloat's mat-button-toggle-checked label color goes to
    var(--primary-text-color) #ffffff but the BACKGROUND is the same
    subtle translucent tint as inactive-hover, NOT a saturated brand
    blue. Ship #128764 painted the active state brand-blue under the
    incorrect assumption that csfloat used brand-fill for active toggles
    — the canonical design uses a hairline-tinted fill paired with white
    text to indicate selection (much subtler than the sboxmarket version
-   shipped in #128764). Override with `html body html body` specificity
-   prefix to win the cascade against the previous ship. */
-html body html body .chart-range .chart-range-btn.active,
-html body html body .chart-range .chart-range-btn.active:hover,
-html body html body .chart-range .chart-range-btn.active:focus,
-html body html body .chart-range .chart-range-btn.active:focus-visible,
-html body html body button.chart-range-btn.active {
+   shipped in #128764). Override with a late-cascade `html body`
+   prefix to win the cascade against the previous ship (the original
+   `html body html body` prefix can never match a real DOM — html is
+   the root — so it was rewritten to the matchable equivalent). */
+html body .chart-range .chart-range-btn.active,
+html body .chart-range .chart-range-btn.active:hover,
+html body .chart-range .chart-range-btn.active:focus,
+html body .chart-range .chart-range-btn.active:focus-visible,
+html body button.chart-range-btn.active {
   background: rgba(193, 206, 255, 0.04) !important;
   background-color: rgba(193, 206, 255, 0.04) !important;
   color: rgb(255, 255, 255) !important;
@@ -26924,7 +26927,7 @@ html body html body button.chart-range-btn.active {
    CSFLOAT-1:1 PARITY ship #128771 — .chart-range-btn (inactive state)
    typography parity to canonical csfloat
    .mat-button-toggle-label-content spec:
-     color           : var(--subtext-color)  /* #9ea7b1 — ink-2 */
+     color           : var(--subtext-color)  (#9ea7b1 — ink-2)
      font-weight     : 500
      letter-spacing  : 0.03em
      font-size       : 14px
@@ -27068,10 +27071,9 @@ html body html body .recent-sales-table .recent-sales-row:hover, html body html 
 html body .recent-sales-row .recent-sales-price, html body .recent-sales-row .recent-sales-time, html body .recent-sales-row .recent-sales-type, html body .recent-sales-table .rs-date, html body .recent-sales-table .rs-float, html body .recent-sales-table .rs-price { white-space: nowrap !important; text-overflow: ellipsis !important; overflow: hidden !important; min-width: 0 !important; }
 .nav-link, nav.nav .nav-link, .nav > .nav-links > .nav-link, .nav-inner > .nav-links > .nav-link { padding: 0 10px !important; padding-left: 10px !important; padding-right: 10px !important; }
 html body html body .modal.item-page { border-radius: 12px !important; }
-}
-. Sbox baseline uses 1px solid var(--line-2) (mid-tone divider) which reads as a hard line. Canonical csfloat ships a 2px luminous cool-blue hairline that softens against the dark surface — the canonical border-treatment for every dialog surface in the app. */ html body html body .modal.item-page { border: 2px solid rgba(193, 206, 255, 0.07) !important; }
-}
-with chrome-path translucent base var(--dialog-background) for the frosted-blur surface. Sbox baseline uses var(--bg-1) oklch which resolves to roughly the same darkness but lacks the precise rgba match. Pin canonical csfloat values: - default opaque rgba(21,23,28,1) for fallback - @supports (backdrop-filter) translucent rgba(21,23,28,0.8) so the canvas behind the dialog gets the bleed effect when paired with backdrop-filter blur(16px) (#128793). */ html body html body .modal.item-page { background-color: rgba(21, 23, 28, 1) !important; }
+/* CSFLOAT-1:1 PARITY — item modal hairline border. Sbox baseline uses 1px solid var(--line-2) (mid-tone divider) which reads as a hard line. Canonical csfloat ships a 2px luminous cool-blue hairline that softens against the dark surface — the canonical border-treatment for every dialog surface in the app. */ html body .modal.item-page { border: 2px solid rgba(193, 206, 255, 0.07) !important; }
+/* CSFLOAT-1:1 PARITY — item modal surface base, paired
+   with chrome-path translucent base var(--dialog-background) for the frosted-blur surface. Sbox baseline uses var(--bg-1) oklch which resolves to roughly the same darkness but lacks the precise rgba match. Pin canonical csfloat values: - default opaque rgba(21,23,28,1) for fallback - @supports (backdrop-filter) translucent rgba(21,23,28,0.8) so the canvas behind the dialog gets the bleed effect when paired with backdrop-filter blur(16px) (#128793). */ html body html body .modal.item-page { background-color: rgba(21, 23, 28, 1) !important; }
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) { html body html body .modal.item-page { background-color: rgba(21, 23, 28, 0.8) !important; }
 }
 html body html body .modal.item-page { -webkit-backdrop-filter: blur(16px) !important; backdrop-filter: blur(16px) !important; }
