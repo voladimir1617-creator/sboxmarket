@@ -295,7 +295,7 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       isAuction && listing.buyNowPrice && parseFloat(listing.buyNowPrice) > 0 && h('div', { style: { padding: '0 0 4px' } },
         h('span', {
           style: {
-            fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 3,
+            fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
             background: 'rgba(34,197,94,0.15)', color: 'var(--green)',
             border: '1px solid rgba(34,197,94,0.35)', letterSpacing: 0.3
           },

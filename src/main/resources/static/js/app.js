@@ -16,7 +16,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=193';
+} from './modals.js?v=194';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -161,7 +161,7 @@ function StaffAccessDeniedModal({ what, onClose }) {
     h('div', { className: 'modal', onClick: (e) => e.stopPropagation(), style: { maxWidth: 440, textAlign: 'center', padding: '32px 24px' } },
       h('div', { style: { marginBottom: 12, display: 'flex', justifyContent: 'center' } },
         h(MaterialIcon, { name: 'lock', size: 40, color: 'var(--text-muted)' })),
-      h('h1', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' } }, 'Staff access only'),
+      h('h1', { style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' } }, 'Staff access only'),
       h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18, lineHeight: 1.55 } },
         'You need a staff role to open ', what, '. If you think this is a mistake, reach out via ',
         h('a', {
@@ -290,7 +290,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       // transaction, not a sockpuppet. Tooltip explains the guarantee.
       h('span', {
         style: {
-          fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 3,
+          fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
           background: 'rgba(34,197,94,0.12)', color: '#22c55e',
           border: '1px solid rgba(34,197,94,0.35)', letterSpacing: 0.3
         },
@@ -317,9 +317,9 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         onClick: toggleHelpful,
         disabled: !canVote || voteBusy,
         style: {
-          marginLeft: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700,
-          borderRadius: 12, border: '1px solid var(--border)',
-          background: hasVoted ? 'rgba(30,165,255,0.15)' : 'transparent',
+          marginLeft: 8, padding: '2px 8px', fontSize: 12, fontWeight: 700,
+          borderRadius: 8, border: '1px solid var(--border)',
+          background: hasVoted ? 'rgba(35,123,255,0.15)' : 'transparent',
           color: hasVoted ? 'var(--accent)' : 'var(--text-muted)',
           cursor: canVote ? (voteBusy ? 'wait' : 'pointer') : 'default'
         },
@@ -1088,7 +1088,7 @@ function renderHighlighted(text, needle) {
     str.slice(0, idx),
     h('span', {
       style: { background: 'rgba(30,165,255,0.25)', color: 'inherit',
-               borderRadius: 3, padding: '0 2px' }
+               borderRadius: 4, padding: '0 2px' }
     }, str.slice(idx, idx + n.length)),
     str.slice(idx + n.length)
   );
@@ -1220,7 +1220,7 @@ function FindSellerBar() {
             s.verified && h('span', {
               title: 'Verified seller · 10+ sales · ≥4.0★',
               style: {
-                background: '#1ea5ff', color: '#fff',
+                background: 'var(--cta, #237bff)', color: '#fff',
                 fontSize: 10, fontWeight: 700, padding: '1px 5px',
                 borderRadius: 8, letterSpacing: 0.2, lineHeight: 1.2
               }
@@ -9275,7 +9275,7 @@ export function App() {
           style: {
             maxWidth: 420, textAlign: 'center', padding: '32px 24px',
             background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-            borderRadius: 12
+            borderRadius: 10
           },
           // In-page region (not a dialog) — no aria-modal / role=dialog.
           role: 'region',
@@ -9283,7 +9283,7 @@ export function App() {
         },
           h('div', { style: { marginBottom: 12, display: 'flex', justifyContent: 'center' }, 'aria-hidden': 'true' },
             h(MaterialIcon, { name: 'search_off', size: 40, color: 'var(--text-muted)' })),
-          h('h1', { id: 'item-not-found-title', style: { fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' } }, 'Item not found'),
+          h('h1', { id: 'item-not-found-title', style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' } }, 'Item not found'),
           h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
             'The item you were looking for has been removed or never existed. It may have been merged into another entry by the catalogue sync.'),
           h('a', { className: 'btn btn-accent', href: '/market' }, 'Back to marketplace')

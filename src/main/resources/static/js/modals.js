@@ -3040,7 +3040,7 @@ export function AffiliateModal({ onClose }) {
       style: {
         marginBottom: 22,
         padding: '32px 24px',
-        borderRadius: 12,
+        borderRadius: 10,
         background: 'var(--bg-1)',
         border: '1px solid var(--line-2)',
         textAlign: 'center'
@@ -3998,7 +3998,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           padding: '22px 26px',
           background: 'var(--bg-card)',
           border: '1px solid var(--border)',
-          borderRadius: 12
+          borderRadius: 10
         }
       },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 8 } },
@@ -4638,7 +4638,7 @@ function SecurityActivityRow() {
                       meta.label,
                       r.actorIsStaff && h('span', {
                         style: { marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 5px',
-                                 borderRadius: 3, background: 'rgba(30,165,255,0.18)',
+                                 borderRadius: 4, background: 'rgba(35,123,255,0.18)',
                                  color: 'var(--accent)', letterSpacing: 0.4 }
                       }, 'STAFF')
                     ),
@@ -6628,7 +6628,7 @@ function ProfileAutoBidsTab() {
             h('td', { className: 'center' },
               h('span', {
                 style: {
-                  fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 3,
+                  fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
                   background: statusStyle.bg, color: statusStyle.c,
                   border: '1px solid ' + statusStyle.br
                 }
@@ -6764,7 +6764,7 @@ function ProfileAutoBidsTab() {
         h('td', { className: 'center' },
           h('span', {
             style: {
-              fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 3, marginRight: 4,
+              fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, marginRight: 4,
               background: b.status === 'WINNING' ? 'rgba(34,197,94,0.15)' : 'rgba(251,191,36,0.15)',
               color:      b.status === 'WINNING' ? 'var(--green)'          : '#fbbf24',
               border:     b.status === 'WINNING' ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(251,191,36,0.4)'
@@ -6772,7 +6772,7 @@ function ProfileAutoBidsTab() {
           }, b.status === 'WINNING' ? 'Winning' : '↑ Outbid'),
           b.kind === 'AUTO' && h('span', {
             style: {
-              fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 3,
+              fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
               background: 'rgba(77,200,255,0.15)', color: 'var(--accent)',
               border: '1px solid rgba(77,200,255,0.35)'
             }
@@ -7706,7 +7706,7 @@ function ProfileTradesTab({ me, privacy }) {
                       ? h('span', {
                           style: {
                             marginLeft: 6, fontSize: 10, fontWeight: 700,
-                            padding: '1px 6px', borderRadius: 3,
+                            padding: '1px 6px', borderRadius: 4,
                             background: rating >= 4.5 ? 'rgba(34,197,94,0.15)'
                                       : rating >= 3.5 ? 'rgba(251,191,36,0.15)'
                                       : 'rgba(248,113,113,0.15)',
@@ -8291,7 +8291,7 @@ function ProfileTradesTab({ me, privacy }) {
       },
         h('button', { className: 'modal-close', onClick: closeReview, 'aria-label': 'Close' }, '✕'),
         h('div', { style: { padding: '24px 26px 20px' } },
-          h('div', { id: 'review-modal-title', style: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 } },
+          h('div', { id: 'review-modal-title', style: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 } },
             'Leave a review'),
           h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 } },
             'For "', h('strong', { style: { color: 'var(--text-secondary)' } }, reviewTrade.itemName || ('Trade #' + reviewTrade.id)), '"'),
@@ -9579,7 +9579,7 @@ function ProfileReviewsTab({ me }) {
               // Verified buyer chip — every review is trade-gated.
               h('span', {
                 style: {
-                  fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 3,
+                  fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
                   background: 'rgba(34,197,94,0.12)', color: '#22c55e',
                   border: '1px solid rgba(34,197,94,0.35)', letterSpacing: 0.3
                 },
@@ -9884,7 +9884,7 @@ function ProfileSupportTab() {
             m.author === 'STAFF' && h('span', {
               style: {
                 marginLeft: 6, fontSize: 9, fontWeight: 800,
-                padding: '1px 6px', borderRadius: 3,
+                padding: '1px 6px', borderRadius: 4,
                 background: 'rgba(30,165,255,0.18)',
                 color: 'var(--accent)',
                 letterSpacing: 0.4
@@ -10636,7 +10636,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         h('div', null,
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 } }, item.category || 'Steam item'),
-          h('div', { style: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10 } }, item.name),
+          h('div', { style: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10 } }, item.name),
           isSteam && !item.tradable && h('div', { style: { fontSize: 11, color: 'var(--red)', marginBottom: 8, fontWeight: 700 } }, 'Not tradable on Steam right now'),
           h(RarityBadge, { rarity: item.rarity || 'Standard' }),
           h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 12 } },
@@ -12901,7 +12901,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 stallWatcherCounts[l.item.id] > 0 && h('span', {
                   style: {
                     marginLeft: 8, fontSize: 10, fontWeight: 700,
-                    color: 'var(--accent)', padding: '2px 8px', borderRadius: 12,
+                    color: 'var(--accent)', padding: '2px 8px', borderRadius: 8,
                     background: 'rgba(30,165,255,0.10)', border: '1px solid rgba(30,165,255,0.35)'
                   },
                   title: `${stallWatcherCounts[l.item.id]} buyer${stallWatcherCounts[l.item.id] === 1 ? '' : 's'} have starred this item — they're watching for a deal`
@@ -12940,7 +12940,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     style: {
                       marginLeft: 8, fontSize: 10, fontWeight: 700,
                       color: closesDeal ? 'var(--green)' : '#fbbf24',
-                      padding: '2px 8px', borderRadius: 12, textDecoration: 'none',
+                      padding: '2px 8px', borderRadius: 8, textDecoration: 'none',
                       background: closesDeal ? 'rgba(34,197,94,0.12)' : 'rgba(251,191,36,0.12)',
                       border: '1px solid ' + (closesDeal ? 'rgba(34,197,94,0.4)' : 'rgba(251,191,36,0.4)')
                     },
