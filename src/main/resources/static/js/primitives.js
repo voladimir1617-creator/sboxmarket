@@ -715,7 +715,7 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
       style: {
         width: '100%', padding: '6px 8px', fontSize: 12,
         background: 'var(--bg, #0f1115)', color: 'var(--text)',
-        border: '1px solid var(--border)', borderRadius: 4,
+        border: '1px solid var(--border)', borderRadius: 8,
         resize: 'vertical', fontFamily: 'inherit'
       }
     }),
@@ -793,9 +793,9 @@ export function DateRangeFilter({ from, to, onChange, compact }) {
     border:  '1px solid var(--border)',
     background:  'var(--bg-card)',
     color:   'var(--text-primary)',
-    borderRadius: 6,
+    borderRadius: 8,
     padding: compact ? '3px 6px' : '4px 8px',
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)'
   };
   const hasBound = from != null || to != null;

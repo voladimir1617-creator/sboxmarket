@@ -16,7 +16,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=194';
+} from './modals.js?v=195';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -1474,7 +1474,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         style: {
           width: '100%', minHeight: 80, padding: '8px 10px',
           background: 'var(--bg-input)', color: 'var(--text-primary)',
-          border: '1px solid var(--border)', borderRadius: 6,
+          border: '1px solid var(--border)', borderRadius: 8,
           fontFamily: 'inherit', fontSize: 13, resize: 'vertical'
         }
       }),
@@ -3112,7 +3112,7 @@ function SaveSearchDrawer({ initial, onCancel, onSave }) {
     style: {
       width: '100%', marginTop: 6, padding: '10px 12px',
       background: 'var(--bg-elevated, #1a1c20)',
-      border: '1px solid var(--border)', borderRadius: 6,
+      border: '1px solid var(--border)', borderRadius: 8,
       display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center'
     }
   },
@@ -8200,7 +8200,7 @@ export function App() {
                 h('div', {
                   style: { display: 'flex', alignItems: 'flex-end', gap: 2, height: 46,
                            padding: '4px 2px', background: 'rgba(148,163,184,0.04)',
-                           border: '1px solid var(--border)', borderRadius: 6 },
+                           border: '1px solid var(--border)', borderRadius: 8 },
                   title: 'Daily sale count, oldest (30d ago) on the left, today on the right'
                 },
                   days.map((n, i) => h('div', {
@@ -8595,7 +8595,7 @@ export function App() {
                 left: left + '%', top: top + 'px',
                 width: size, height: size,
                 opacity, transform: `rotate(${rot}deg)`,
-                borderRadius: 6,
+                borderRadius: 8,
                 background: `url(${safeImg}) center/cover no-repeat, radial-gradient(circle, ${safeAccent}22, transparent)`
               }
             });

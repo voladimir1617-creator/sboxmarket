@@ -3088,7 +3088,7 @@ export function AffiliateModal({ onClose }) {
             ),
             h('div', {
               className: 'stall-stat-val',
-              style: { fontSize: 17, letterSpacing: '-0.01em' }
+              style: { fontSize: 16, letterSpacing: '-0.01em' }
             },
               h('span', { style: { color: 'var(--ink-3)', fontWeight: 500, fontSize: 13, marginRight: 3 } }, '≥'),
               r.value
@@ -3537,16 +3537,16 @@ export function SettingsModal({ onClose, me }) {
       Section('Account & data'),
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 } },
         'Display name and avatar come from your Steam profile and update on every sign-in. Email + 2FA + trade URL live on the Personal Info tab.'),
-      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' } },
         h('a', {
           className: 'btn btn-ghost',
-          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 11, textDecoration: 'none' },
+          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12, textDecoration: 'none' },
           href: '/profile/personal',
           onClick: () => onClose && onClose()
         }, 'Manage account →'),
         h('a', {
           className: 'btn btn-ghost',
-          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 11, textDecoration: 'none' },
+          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12, textDecoration: 'none' },
           href: '/api/profile/export',
           title: 'Download every piece of your data we store as a JSON file'
         }, '⇣ Export my data (JSON)')
@@ -3556,15 +3556,15 @@ export function SettingsModal({ onClose, me }) {
       Section('Local data'),
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 } },
         'These preferences live in your browser. Your account data (wallet, listings, trades) is stored server-side and is not affected by these buttons.'),
-      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' } },
         h('button', {
           className: 'btn btn-ghost',
-          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 11 },
+          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12 },
           onClick: resetLocal
         }, 'Reset UI preferences'),
         h('button', {
           className: 'btn-danger-ghost',
-          style: { padding: '8px 14px', fontSize: 11 },
+          style: { padding: '8px 14px', fontSize: 12 },
           onClick: wipeAllLocal,
           title: 'Clear every piece of local state this site has stored (cart, watchlist, alerts, dismissed banners, recent searches, …)'
         }, '✕ Clear all local data')
@@ -6152,7 +6152,7 @@ function ProfileBuyOrdersTab() {
       'No buy orders yet'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Set a standing "pay up to $X" on any item and the matching engine auto-buys the next qualifying listing from your wallet. Great for items you check into but miss the drop on.'),
-    h('a', { className: 'btn btn-accent', href: '/buy-orders' }, '+ Create buy order')
+    h('a', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, href: '/buy-orders' }, '+ Create buy order')
   );
   const counts = {
     ALL:       orders.length,

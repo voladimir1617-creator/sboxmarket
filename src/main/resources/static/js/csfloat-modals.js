@@ -193,7 +193,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       h('label', {
         style: {
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '6px 12px', borderRadius: 6,
+          padding: '6px 12px', borderRadius: 8,
           border: '1px solid var(--border)',
           background: listedOnly ? 'var(--accent-dim)' : 'transparent',
           color: listedOnly ? 'var(--accent)' : 'var(--text-secondary)',
@@ -295,12 +295,12 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
                   )
                 ),
                 h('td', null, h('div', { className: 'skeleton-line', style: { width: 60, height: 12 } })),
-                h('td', null, h('div', { className: 'skeleton-line', style: { width: 70, height: 18, borderRadius: 6 } })),
+                h('td', null, h('div', { className: 'skeleton-line', style: { width: 70, height: 18, borderRadius: 8 } })),
                 h('td', { className: 'right' }, h('div', { className: 'skeleton-line', style: { width: 40, height: 12, marginLeft: 'auto' } })),
                 h('td', { className: 'right' }, h('div', { className: 'skeleton-line', style: { width: 36, height: 12, marginLeft: 'auto' } })),
                 h('td', { className: 'right' }, h('div', { className: 'skeleton-line', style: { width: 36, height: 12, marginLeft: 'auto' } })),
                 h('td', { className: 'right' }, h('div', { className: 'skeleton-line', style: { width: 60, height: 12, marginLeft: 'auto' } })),
-                h('td', { className: 'center' }, h('div', { className: 'skeleton-line', style: { width: 24, height: 24, borderRadius: 6, margin: '0 auto' } }))
+                h('td', { className: 'center' }, h('div', { className: 'skeleton-line', style: { width: 24, height: 24, borderRadius: 8, margin: '0 auto' } }))
               ))
             )
           )
@@ -453,7 +453,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
                   h('button', {
                     className: 'btn btn-ghost db-row-star',
                     style: {
-                      padding: 0, fontSize: 15, lineHeight: 1, borderRadius: 6,
+                      padding: 0, fontSize: 15, lineHeight: 1, borderRadius: 8,
                       color: isStarred ? '#fbbf24' : 'var(--text-muted)',
                       background: 'transparent',
                       border: '1px solid var(--border)',
