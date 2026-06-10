@@ -27430,7 +27430,7 @@ html body .full-page-mode .modal.item-page, html body .modal-backdrop.page-mode:
 body .csfloat-home-hero, body .csfloat-home-rail, body .csfloat-home-preview, body .csfloat-home-tiles, body .csfloat-home-metrics, body .csfloat-home-faq, body .csfloat-home-journey { padding-left: 0 !important; padding-right: 0 !important; }
 html body .site-root.full-page-mode .modal-backdrop { display: block !important; place-items: normal !important; }
 html body .site-root.full-page-mode .modal-backdrop > .info-modal, html body .site-root.full-page-mode .modal-backdrop > .item-modal { width: 100% !important; margin-left: auto !important; margin-right: auto !important; }
-html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not(:has(.db-table)):not(:has(.db-controls)):not(:has(.stall-hero)):not(:has(.loadout-grid)):not(:has(.wallet-tabs)):not(:has(.profile-tabs)):not(:has(.mystall-tabs)):not(:has(.admin-shell)):not(:has(.csr-shell)):not(:has(.cart-grid)):not([aria-labelledby^="info-modal-h-loadout-lab"]):not([aria-labelledby^="info-modal-h-incoming"]):not([aria-labelledby^="info-modal-h-buy-orders"]):not([aria-labelledby^="info-modal-h-sell-items"]) { max-width: 940px !important; }
+html body .site-root.full-page-mode .modal-backdrop > .info-modal:not(.wide):not(:has(.db-table)):not(:has(.db-controls)):not(:has(.stall-hero)):not(:has(.loadout-grid)):not(:has(.wallet-tabs)):not(:has(.profile-tabs)):not(:has(.mystall-tabs)):not(:has(.admin-shell)):not(:has(.csr-shell)):not(:has(.cart-grid)):not([aria-labelledby^="info-modal-h-loadout-lab"]):not([aria-labelledby^="info-modal-h-incoming"]):not([aria-labelledby^="info-modal-h-outgoing"]):not([aria-labelledby^="info-modal-h-buy-orders"]):not([aria-labelledby^="info-modal-h-sell-items"]) { max-width: 940px !important; }
 .modal.item-page > .recently-viewed { min-width: 0 !important; max-width: 100% !important; }
 .modal.item-page .recently-viewed-rail { min-width: 0 !important; }
 .full-page-mode .modal-backdrop:has(.info-modal), .full-page-mode .modal-backdrop:has(.presignin-modal) { overflow-y: auto !important; align-items: start !important; }
@@ -28418,6 +28418,7 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledb
 html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-profile"],
 html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-support"],
 html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-incoming"],
+html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-outgoing"],
 html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-buy-orders"],
 html body .site-root.full-page-mode .modal-backdrop > .info-modal[aria-labelledby^="info-modal-h-sell-items"],
 html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-database"],
@@ -28426,6 +28427,7 @@ html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-watchlist"]
 html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-profile"],
 html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-support"],
 html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-incoming"],
+html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-outgoing"],
 html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-buy-orders"],
 html body .full-page-mode .info-modal[aria-labelledby^="info-modal-h-sell-items"] {
   width: 100% !important;
