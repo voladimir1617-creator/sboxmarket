@@ -28448,3 +28448,20 @@ html body .site-root.full-page-mode .modal-backdrop > .info-modal .listing-grid,
 html body .full-page-mode .info-modal .listing-grid {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
 }
+
+/* FIXER B2-1 — .info-modal-body sets text-align:center !important (~21607)
+   for prose-style info modals, but the buy-order create form INHERITS it:
+   catalogue-picker rows rendered the item name centered ~600px away from its
+   thumbnail, and the picked-item summary + field labels floated centered.
+   Re-anchor the whole create form left like every other list/form row —
+   inheritance carries it to picker rows, picked row, labels and hints.
+   Explicitly-centered children (.empty-inline etc.) keep their own rules. */
+html body .info-modal .info-modal-body .buyorder-form { text-align: left !important; }
+
+/* FIXER B2-2 — on the full-page /buy-orders route the create form inherited
+   the 1800px wide-route panel width, blowing the single-value price/qty
+   inputs up to ~1697px wide. Cap the form to the unified narrow form measure
+   (wallet 520 / settings 940 family) and center it inside the wide panel.
+   Overlay-modal renders (no .full-page-mode ancestor) are already narrow and
+   unaffected — max-width only ever shrinks. */
+html body .full-page-mode .info-modal .buyorder-form { width: 100% !important; max-width: 620px !important; margin-left: auto !important; margin-right: auto !important; }
