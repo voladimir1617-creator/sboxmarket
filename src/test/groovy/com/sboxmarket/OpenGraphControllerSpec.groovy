@@ -53,7 +53,12 @@ class OpenGraphControllerSpec extends Specification {
     def setup() {
         // Inject the template directly — PostConstruct's classpath read
         // isn't available in a pure unit test. Template load is mocked.
+        // PIN it: the per-handler refreshTemplate() (added so a `?v=` bump
+        // reaches every route without a restart) reads the real
+        // static/index.html off the test classpath and would otherwise
+        // clobber this fixture with the live marketing title.
         controller.template = TEMPLATE
+        controller.templatePinned = true
     }
 
     /**

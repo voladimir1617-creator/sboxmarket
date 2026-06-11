@@ -58,6 +58,15 @@ class OpenGraphController {
     private volatile String template = null
     private volatile long templateMtime = -1L
 
+    /** Test seam: when true, refreshTemplate() leaves `template` untouched.
+     *  A pure unit test injects a controlled fixture via `controller.template
+     *  = ...`; without this pin the per-handler refreshTemplate() (which now
+     *  runs on every request so a `?v=` bump reaches all routes without a
+     *  restart) finds the real `static/index.html` on the test classpath and
+     *  clobbers the fixture. Production never sets this — it always wants the
+     *  live on-disk template. */
+    boolean templatePinned = false
+
     @PostConstruct
     void loadTemplate() {
         refreshTemplate()
@@ -67,6 +76,7 @@ class OpenGraphController {
      *  is a single stat (mtime check) with no lock; the file is only re-read
      *  + the monitor only entered when the mtime actually changes. */
     private void refreshTemplate() {
+        if (templatePinned) return
         try {
             def res = new ClassPathResource('static/index.html')
             long mtime
