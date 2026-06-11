@@ -4920,18 +4920,16 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   const setupDone    = setupSteps.filter(s => s.done).length;
   const setupMissing = setupSteps.filter(s => !s.done);
   return h('div', { className: 'profile-panel' },
+    // Use a real class (not an inline rgba background) so this callout does
+    // NOT match the leftover `.profile-panel > div[style*="rgba(250,204,21,0.08)"]`
+    // frosted-glass override (design.css ~24866) that forced it into an
+    // unbalanced flex `space-between` pill — centered heading + checklist
+    // stranded on the far right, plus a muddy orange blur (design review).
+    // The class styling (.profile-setup-banner) keeps it a clean left-aligned
+    // stacked callout.
     setupDone < 4 && h('div', {
-      style: {
-        margin: '0 0 14px', padding: '10px 14px',
-        background: setupMissing.some(s => s.id === 'trade' || s.id === 'verified')
-          ? 'rgba(250,204,21,0.08)'
-          : 'rgba(30,165,255,0.08)',
-        border: '1px solid ' + (setupMissing.some(s => s.id === 'trade' || s.id === 'verified')
-          ? 'rgba(250,204,21,0.35)'
-          : 'rgba(30,165,255,0.35)'),
-        borderRadius: 8, fontSize: 12, lineHeight: 1.55,
-        color: 'var(--text-primary)'
-      }
+      className: 'profile-setup-banner' +
+        (setupMissing.some(s => s.id === 'trade' || s.id === 'verified') ? ' warn' : '')
     },
       h('div', { style: { fontWeight: 700, marginBottom: 6 } },
         setupMissing.some(s => s.id === 'trade') ? '⚠' : '—',
