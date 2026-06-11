@@ -18,6 +18,7 @@ import com.sboxmarket.service.TextSanitizer
 import com.sboxmarket.service.security.BanGuard
 import spock.lang.Specification
 import spock.lang.Subject
+import spock.lang.Unroll
 
 /**
  * Unit coverage for placeBid. The scheduled sweeper (sweepExpired/settle)
@@ -204,8 +205,9 @@ class BidServiceSpec extends Specification {
         def result = service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
 
         then:
-        // Bot fires: new listing currentBid is 25 + 0.05 = 25.05, bidder back to the auto-cap holder
-        listing.currentBid == new BigDecimal('25.05')
+        // Bot fires: currentBid = $25 + incrementFor($25)=$0.25 → $25.25
+        // (the $25–$50 tier), bidder back to the auto-cap holder.
+        listing.currentBid == new BigDecimal('25.25')
         listing.currentBidderId == 7L
         // Outbid notification goes to the new bidder (Alice), not the auto-cap holder
         1 * notificationService.push(10L, 'AUCTION_OUTBID', _, _, 100L, _)
@@ -213,13 +215,14 @@ class BidServiceSpec extends Specification {
         // Service returns the bot-placed bid, not Alice's bid
         result.bidderUserId == 7L
         result.kind == 'AUTO'
-        result.amount == new BigDecimal('25.05')
+        result.amount == new BigDecimal('25.25')
     }
 
     def "placeBid with AUTO vs AUTO: higher-cap bidder wins at loser_cap + INC"() {
         given:
         // A has existing AUTO bid amount=$20 max=$40, currently winning.
-        // B places amount=$25 with max=$50. B's cap is higher → B wins at $40.05.
+        // B places amount=$25 with max=$50. B's cap is higher → B wins at
+        // $40 + incrementFor($40)=$0.25 → $40.25 (the $25–$50 tier).
         def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
         def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'A',
                                amount: new BigDecimal('20'), maxAmount: new BigDecimal('40'), kind: 'AUTO', status: 'WINNING')
@@ -232,8 +235,8 @@ class BidServiceSpec extends Specification {
         service.placeBid(10L, 'B', 100L, new BigDecimal('25'), new BigDecimal('50'))
 
         then:
-        // B wins at $40.05 (A's cap + increment), not at their original $25.
-        listing.currentBid == new BigDecimal('40.05')
+        // B wins at $40.25 (A's cap + the $0.25 tier increment), not their original $25.
+        listing.currentBid == new BigDecimal('40.25')
         listing.currentBidderId == 10L
         // A (previous top) gets the plain outbid notification.
         1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, _, _)
@@ -333,9 +336,9 @@ class BidServiceSpec extends Specification {
     def "placeBid Branch B bot-raise: new bidder's auto-cap out-raises the prior top, second row saved"() {
         // Branch B raise sub-case (lines 372-395). A is AUTO leading at $20
         // with cap $30. B places amount=$25, cap=$50. B's cap beats A's, and
-        // B's submitted $25 does NOT yet clear A's cap+increment ($30.05),
-        // so the bot raises B *on their own behalf* to $30.05 and saves a
-        // SECOND Bid row. The auction lands on B at $30.05.
+        // B's submitted $25 does NOT yet clear A's cap+increment ($30.25,
+        // since incrementFor($30)=$0.25), so the bot raises B *on their own
+        // behalf* to $30.25 and saves a SECOND Bid row. Auction lands on B at $30.25.
         given:
         def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
         def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'A',
@@ -357,12 +360,12 @@ class BidServiceSpec extends Specification {
 
         then:
         // B wins at A's cap + one increment.
-        listing.currentBid == new BigDecimal('30.05')
+        listing.currentBid == new BigDecimal('30.25')
         listing.currentBidderId == 10L
-        // Two B rows were saved — the submitted $25 and the bot-raise $30.05.
+        // Two B rows were saved — the submitted $25 and the bot-raise $30.25.
         rows.count { it.bidderUserId == 10L } == 2
         // The bot-raise row is the one that reads WINNING.
-        def botRow = rows.find { it.bidderUserId == 10L && it.amount == new BigDecimal('30.05') }
+        def botRow = rows.find { it.bidderUserId == 10L && it.amount == new BigDecimal('30.25') }
         botRow.status == 'WINNING'
         botRow.kind == 'AUTO'
         // B's original lower row was demoted to OUTBID by markOthersOutbid.
@@ -399,7 +402,7 @@ class BidServiceSpec extends Specification {
         // The returned row is the winning bot-raise row — not OUTBID.
         result.status == 'WINNING'
         result.bidderUserId == 10L
-        result.amount == new BigDecimal('30.05')
+        result.amount == new BigDecimal('30.25')
     }
 
     def "placeBid manual outbid still returns the bidder's own WINNING row"() {
@@ -696,20 +699,20 @@ class BidServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
-    def "placeBid accepts exactly currentBid + 0.05 increment"() {
-        given:
+    def "placeBid accepts exactly currentBid + the tiered increment"() {
+        given: "a \$20 current bid → tier step is \$0.25 (the \$10–\$50 band)"
         listingRepository.findById(_) >> Optional.of(
             auctionListing(currentBid: new BigDecimal("20.00"), currentBidderId: 7L)
         )
         bidRepository.save(_) >> { Bid b -> b }
         listingRepository.save(_) >> { Listing l -> l }
 
-        when:
-        def result = service.placeBid(10L, 'Alice', 100L, new BigDecimal("20.05"), null)
+        when: "Alice bids exactly the minimum — \$20.25"
+        def result = service.placeBid(10L, 'Alice', 100L, new BigDecimal("20.25"), null)
 
         then:
         result != null
-        result.amount == new BigDecimal("20.05")
+        result.amount == new BigDecimal("20.25")
     }
 
     def "placeBid rejects an auto-bid cap below the bid amount (INVALID_MAX_BID)"() {
@@ -2069,6 +2072,37 @@ class BidServiceSpec extends Specification {
         then:
         n == 0
         0 * bidRepository.saveAll(_)
+    }
+
+    // ── tiered bid increment (csfloat parity) ────────────────────────
+    @Unroll
+    def "incrementFor(#price) == #expected"() {
+        expect:
+        BidService.incrementFor(new BigDecimal(price)) == new BigDecimal(expected)
+
+        where:
+        price     || expected
+        "0"       || "0.05"
+        "0.99"    || "0.05"
+        "1"       || "0.10"
+        "9.99"    || "0.10"
+        "10"      || "0.25"
+        "49.99"   || "0.25"
+        "50"      || "0.50"
+        "99.99"   || "0.50"
+        "100"     || "1"
+        "249.99"  || "1"
+        "250"     || "5"
+        "999.99"  || "5"
+        "1000"    || "25"
+        "4999.99" || "25"
+        "5000"    || "100"
+        "12000"   || "100"
+    }
+
+    def "incrementFor tolerates a null price (treats it as the entry tier)"() {
+        expect:
+        BidService.incrementFor(null) == new BigDecimal("0.05")
     }
 
 }

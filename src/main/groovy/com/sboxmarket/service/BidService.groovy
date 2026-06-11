@@ -32,8 +32,36 @@ import org.springframework.transaction.support.TransactionTemplate
 @Slf4j
 class BidService {
 
-    // Minimum bid increment in dollars — keeps a cheap floor so bid wars don't spin.
+    // Minimum bid increment in dollars — keeps a cheap floor so bid wars don't
+    // spin. Retained as the entry-level step (and the unit-test anchor); the
+    // live step scales with price via incrementFor() below.
     private static final BigDecimal INCREMENT = new BigDecimal("0.05")
+
+    /**
+     * Price-tiered minimum bid increment, csfloat/eBay-style. A flat $0.05 is
+     * fine for a $3 hat but absurd for a $5,000 knife (100,000 distinct bid
+     * levels, and a "bid war" that moves the price one nickel at a time). The
+     * step scales with the value being raised so increments stay meaningful at
+     * every price. The tier basis is whatever amount is being stepped over —
+     * the current top bid for the min-next-bid check, or a bidder's proxy cap
+     * for a bot re-raise — so a $0.05 step never gets applied to a $4,000 bid.
+     *
+     * Tiers (lower-bound inclusive):
+     *   &lt; $1     → $0.05      $1–$10  → $0.10     $10–$50   → $0.25
+     *   $50–$100  → $0.50      $100–$250 → $1       $250–$1k  → $5
+     *   $1k–$5k   → $25        ≥ $5k     → $100
+     */
+    static BigDecimal incrementFor(BigDecimal price) {
+        BigDecimal p = (price != null) ? price : BigDecimal.ZERO
+        if (p < new BigDecimal("1"))     return new BigDecimal("0.05")
+        if (p < new BigDecimal("10"))    return new BigDecimal("0.10")
+        if (p < new BigDecimal("50"))    return new BigDecimal("0.25")
+        if (p < new BigDecimal("100"))   return new BigDecimal("0.50")
+        if (p < new BigDecimal("250"))   return new BigDecimal("1")
+        if (p < new BigDecimal("1000"))  return new BigDecimal("5")
+        if (p < new BigDecimal("5000"))  return new BigDecimal("25")
+        return new BigDecimal("100")
+    }
 
     /** Anti-snipe window. If a bid lands within this many ms of the auction
      *  close, push `expiresAt` out so the close is always a fair contest,
@@ -298,11 +326,12 @@ class BidService {
                     "Bid must be at least \$${minRequired.toPlainString()}")
             }
         } else {
-            minRequired = listing.currentBid + INCREMENT
+            BigDecimal inc = incrementFor(listing.currentBid)
+            minRequired = listing.currentBid + inc
             if (amount < minRequired) {
                 throw new BadRequestException("BID_TOO_LOW",
                     "Bid must be at least \$${minRequired.toPlainString()} " +
-                    "(current bid + \$${INCREMENT.toPlainString()} increment)")
+                    "(current bid + \$${inc.toPlainString()} increment)")
             }
         }
 
@@ -419,7 +448,8 @@ class BidService {
                 // Previous top wins via bot re-raise. Settle at one increment
                 // above B's cap, capped at A's own max. On a tie this resolves
                 // to `aMax` itself (raised would exceed aMax and gets clamped).
-                def raised = (bMax + INCREMENT)
+                // The step scales with B's cap — the amount being raised over.
+                def raised = (bMax + incrementFor(bMax))
                 if (raised > aMax) raised = aMax
                 // Solvency re-check for the bot re-raise (batch 330). The
                 // bid-time solvency check covered A's original bid, but A's
@@ -497,8 +527,8 @@ class BidService {
                 // Only fires when B actually needs a raise beyond their
                 // submitted amount — if B placed >= aMax already, their
                 // original bid stands and we fall through to the plain
-                // outbid notification below.
-                def raised = (aMax + INCREMENT)
+                // outbid notification below. Step scales with A's cap.
+                def raised = (aMax + incrementFor(aMax))
                 if (raised > bMax) raised = bMax
                 if (raised > amount) {
                     // Save a second bid from B at the higher level so

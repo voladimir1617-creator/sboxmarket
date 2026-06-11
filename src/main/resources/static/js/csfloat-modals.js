@@ -2789,7 +2789,23 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   // price+$0.05 and the submit guard below then rejected a perfectly
   // valid first bid placed at the starting price. Split the two cases.
   const hasBid = view.currentBid != null;
-  const minNext = (hasBid ? (floor + 0.05) : floor).toFixed(2);
+  // Price-tiered minimum increment — mirrors BidService.incrementFor exactly
+  // so the hint and the submit guard agree with the server (a flat $0.05 hint
+  // on a $4,000 bid would let a buyer submit a too-low bid and eat a server
+  // rejection). Tiers: <$1 $0.05 / <$10 $0.10 / <$50 $0.25 / <$100 $0.50 /
+  // <$250 $1 / <$1k $5 / <$5k $25 / else $100.
+  const bidIncrementFor = (p) => {
+    p = p || 0;
+    if (p < 1)    return 0.05;
+    if (p < 10)   return 0.10;
+    if (p < 50)   return 0.25;
+    if (p < 100)  return 0.50;
+    if (p < 250)  return 1;
+    if (p < 1000) return 5;
+    if (p < 5000) return 25;
+    return 100;
+  };
+  const minNext = (hasBid ? (floor + bidIncrementFor(floor)) : floor).toFixed(2);
 
   const submit = async () => {
     setErr('');
