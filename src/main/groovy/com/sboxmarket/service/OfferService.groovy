@@ -61,8 +61,11 @@ class OfferService {
     @Autowired(required = false) PlatformTransactionManager transactionManager
 
     /** Sweeper window for auto-declining idle offers. Defaults to 7 days —
-     *  same as CSFloat's offer-expiry policy. Configurable so ops can
-     *  shorten to 24h during pricing incidents without a redeploy. */
+     *  intentionally MORE generous than csfloat's 24h expiry (the prior
+     *  comment wrongly claimed parity), since a smaller marketplace gives
+     *  sellers more slack to respond. Configurable, so ops can tighten it to
+     *  24h (`offer.auto-decline-days=1`) without a redeploy if response times
+     *  warrant matching csfloat. */
     @Value('${offer.auto-decline-days:7}') long autoDeclineDays
 
     /** Cap on the optional buyer-supplied note attached to an offer.
