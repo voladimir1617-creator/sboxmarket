@@ -2,7 +2,7 @@
 // surface — none of them receive the full App state.
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
-import { GridCard } from './cards.js';
+import { GridCard } from './cards.js?v=2';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -800,16 +800,22 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     )
                   )
             ),
-            // I4 Boss-QA: explicit "Total supply (in circulation)" label
-            // — the unlabeled "11,652" was unparseable to the boss.
+            // I4 Boss-QA: explicit label — the unlabeled "11,652" was
+            // unparseable to the boss. Data-honesty fix (fabricated-stats
+            // audit): `item.supply` is the count of ACTIVE listings on
+            // SkinBox (reconciled every 60s by ListingFloorRefreshService),
+            // NOT a Workshop mint count — no mint-count source exists
+            // (the SCMM sync that once fed one is retired). The old
+            // "minted on the Steam Workshop / in circulation" wording
+            // claimed data we don't have.
             h('div', { className: 'modal-stat-box' },
               h('div', { className: 'modal-stat-label' },
-                'Total supply',
-                h('span', { className: 'modal-stat-sublabel' }, ' · in circulation')
+                'Supply',
+                h('span', { className: 'modal-stat-sublabel' }, ' · listed on SkinBox')
               ),
               h('div', {
                 className: 'modal-stat-val',
-                title: `${Number(item.supply).toLocaleString()} ${item.name || 'items'} have been minted on the Steam Workshop`
+                title: `${Number(item.supply).toLocaleString()} active listing${Number(item.supply) === 1 ? '' : 's'} of ${item.name || 'this item'} on SkinBox right now`
               },
                 Number(item.supply).toLocaleString(),
                 h('span', { className: 'modal-stat-unit' }, Number(item.supply) === 1 ? ' item' : ' items')
@@ -10621,9 +10627,20 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     // text. Steam path's `|| 0` is symmetric; mirror it for the
     // internal-relist path so the placeholder reads "0.00" instead.
     const __floor = parseFloat(item.lowestPrice);
+    const __steam = parseFloat(item.steamPrice);
+    // A never-listed platform item has a null `lowestPrice`, which used to
+    // collapse the suggestion to "$0.00" even when the panel right below it
+    // shows a real Steam reference and last-sold median. Fall back through
+    // the same anchors the price chips offer — floor → last-sold median →
+    // Steam price — so the placeholder is always a useful starting point.
     const suggested = isSteam
       ? parseFloat(item.suggestedPrice || 0).toFixed(2)
-      : (Number.isFinite(__floor) ? __floor : 0).toFixed(2);
+      : (
+          (Number.isFinite(__floor) && __floor > 0) ? __floor
+          : (pickedRecentMedian != null && pickedRecentMedian > 0) ? pickedRecentMedian
+          : (Number.isFinite(__steam) && __steam > 0) ? __steam
+          : 0
+        ).toFixed(2);
     return h(InfoModal, { title: 'List Item for Sale', onClose },
       h('div', { style: { display: 'flex', gap: 18, marginBottom: 20 } },
         h('div', { style: { width: 120, aspectRatio: '1', borderRadius: 10, background: 'radial-gradient(ellipse at 50% 35%, rgba(30,165,255,0.14) 0%, transparent 65%), linear-gradient(180deg, #1a2236 0%, #0d1320 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 8 } },

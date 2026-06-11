@@ -10,13 +10,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow } from './cards.js';
+import { GridCard, ListingRow } from './cards.js?v=2';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=195';
+} from './modals.js?v=197';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -6181,21 +6181,31 @@ export function App() {
                        bar was CS chrome leaking into a non-CS marketplace.
                        The fake "0.024478055537 (#345)" decimal was equally
                        misleading. Listing id surfaces in the meta row only. */
-                    /* CSFloat-1:1: online-status row showing seller availability,
-                       a verified-account check, and the inventory-key icon with
-                       the seller's total listings count. Visual-only mocks — we
-                       don't have presence yet. Prominent card only. */
-                    i === 0 && h('div', { className: 'csfloat-hero-stack-online' },
-                      h('span', { className: 'csfloat-hero-stack-online-dot' }),
-                      h('span', { className: 'csfloat-hero-stack-online-text' }, 'Online'),
-                      h('span', { className: 'csfloat-hero-stack-verified', 'aria-label': 'Verified seller' },
-                        h(MaterialIcon, { name: 'verified', size: 13 })
-                      ),
-                      h('span', { className: 'csfloat-hero-stack-keys', 'aria-label': 'Trade keys' },
-                        h(MaterialIcon, { name: 'key', size: 13 }),
-                        h('span', { className: 'csfloat-hero-stack-keys-num' }, heroViews || '672')
-                      )
-                    ),
+                    /* CSFloat-1:1: online-status row on the prominent card.
+                       Data-honesty fix (fabricated-stats audit): this row used
+                       to hardcode "Online" + an unconditional verified check +
+                       a "Trade keys" count that was really the view count with
+                       a pure-fiction '672' fallback. Now it reads REAL signals:
+                       presence from sellerLastSeenAt (PresenceFilter bumps it
+                       on every authed request; absent → honestly Offline, dot
+                       only renders when online since its CSS is hard-green),
+                       verified from sellerReviewCount >= 5 (same rule as
+                       GridCard). The fake keys chip is gone — views already
+                       show on the image overlay with an eye glyph. */
+                    i === 0 && (() => {
+                      const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
+                      const isOnline = l.sellerLastSeenAt
+                        ? (Date.now() - Number(l.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
+                        : false;
+                      const isVerified = (l.sellerReviewCount || 0) >= 5;
+                      return h('div', { className: 'csfloat-hero-stack-online' },
+                        isOnline && h('span', { className: 'csfloat-hero-stack-online-dot' }),
+                        h('span', { className: 'csfloat-hero-stack-online-text' }, isOnline ? 'Online' : 'Offline'),
+                        isVerified && h('span', { className: 'csfloat-hero-stack-verified', 'aria-label': 'Verified seller' },
+                          h(MaterialIcon, { name: 'verified', size: 13 })
+                        )
+                      );
+                    })(),
                     /* csfloat-style action row on the prominent card only.
                        Click on the card already navigates to /item/{id} so
                        these are visual mocks of csfloat's "Buy now / Bargain". */
@@ -6328,13 +6338,15 @@ export function App() {
                 currencySymbol() === '$' && h('span', { className: 'csfloat-band-card-currency' }, '$'),
                 disc > 0 && h('span', { className: 'csfloat-band-card-disc' }, '−' + disc + '%')
               ),
-              /* CSFloat-1:1: float-decimal + (#rank) row, mirroring grid card. */
+              /* Listing-id meta row. Data-honesty fix (fabricated-stats
+                 audit): this used to render a hash-derived 12-decimal
+                 "float value" — the SAME fake decimal Boss QA H1/I1/S5
+                 already removed from the hero stack as misleading (s&box
+                 items have no float/wear mechanic). Only the real listing
+                 id remains, matching the hero's "id in the meta row only"
+                 resolution. */
               h('div', { className: 'csfloat-band-card-floatmeta' },
-                (() => {
-                  const seed = Number(l.id || it.id || 1);
-                  const f = ((seed * 2654435761) >>> 0) / 0x100000000;
-                  return f.toFixed(12) + ' (#' + (l.id || it.id || 0) + ')';
-                })()
+                '#' + (l.id || it.id || 0)
               ),
               /* CSFloat-1:1: per-card listed-time row at the bottom of the
                  band card. CSFloat shows "Expires in 03:05:46:04" on each
@@ -6437,28 +6449,30 @@ export function App() {
                     )
                   ),
                   /* Status row mirrors csfloat hero card — online indicator
-                     + verified blue check + simulated view count. The
-                     "online" state is deterministic on the seller id so it
-                     stays consistent across reloads (same seller, same
-                     state) — see GridCard's status row for the same logic. */
+                     + verified check + view count. Data-honesty fix
+                     (fabricated-stats audit): presence is REAL only —
+                     sellerLastSeenAt within 15 min, honestly Offline when
+                     absent (the old id-hash fallback faked ~40% Online);
+                     the view count is the item's real lifetime viewCount
+                     (was `100 + seed % 700` — pure fiction), hidden at 0;
+                     the verified check now requires sellerReviewCount >= 5
+                     (same rule as GridCard) instead of always rendering. */
                   (() => {
-                    const seed = top.sellerUserId ? Number(String(top.sellerUserId).slice(-6)) || 0 : (top.id || 0);
-                    // V61 — real presence from sellerLastSeenAt; seed
-                    // fallback only when the listing has no real seller.
                     const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
                     const isOnline = top.sellerLastSeenAt
                       ? (Date.now() - Number(top.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
-                      : (seed % 5) < 2;
-                    const views = 100 + (seed % 700); // 100-799 stable
+                      : false;
+                    const views = parseInt(top.item?.viewCount, 10) || 0;
+                    const isVerified = (top.sellerReviewCount || 0) >= 5;
                     return h('div', { className: 'csfloat-home-hero-feature-statusrow' },
                       h('span', { className: `csfloat-home-hero-feature-dot${isOnline ? ' online' : ''}` }),
                       isOnline ? 'Online' : 'Offline',
-                      h('span', { className: 'csfloat-home-hero-feature-verified', title: 'Verified seller' },
+                      isVerified && h('span', { className: 'csfloat-home-hero-feature-verified', title: 'Verified seller (5+ reviews)' },
                         h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
                           h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
                         )
                       ),
-                      h('span', { className: 'csfloat-home-hero-feature-views' },
+                      views > 0 && h('span', { className: 'csfloat-home-hero-feature-views', title: `${views.toLocaleString()} lifetime item-detail opens` },
                         h('svg', { width: 11, height: 11, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, 'aria-hidden': true },
                           h('path', { d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
                           h('circle', { cx: 12, cy: 12, r: 3 })
@@ -6637,10 +6651,12 @@ export function App() {
         )
       )
     ),
-    /* Home marketing — trust metrics band. 4 numbers that read fast and
-       reinforce "this marketplace is real". Pulls live homeTotalListings
-       where possible; static-but-truthy fallback for the others until a
-       /api/stats endpoint surfaces volume + payout time. */
+    /* Home marketing — trust metrics band. 4 tiles that read fast and
+       reinforce "this marketplace is real". One live number (listings);
+       the rest are static PRODUCT-FACT claims (fee %, payout mechanism,
+       auth method) — never invented measurements. If a tile ever needs a
+       quantity (volume, payout time), compute it from real records
+       server-side first. */
     routeName === 'home' && h('section', { className: 'csfloat-home-metrics', 'aria-label': 'Marketplace trust metrics' },
       h('div', { className: 'csfloat-home-metrics-inner' },
         h('div', { className: 'csfloat-home-metrics-eyebrow' }, 'Trusted by s&box traders'),
@@ -6654,9 +6670,16 @@ export function App() {
             h('div', { className: 'csfloat-home-metric-num' }, '2%'),
             h('div', { className: 'csfloat-home-metric-label' }, 'Platform fee')
           ),
+          /* Data-honesty fix (fabricated-stats audit): was "< 60s Median
+             payout" — a fake MEASUREMENT (nothing tracks payout medians).
+             "Instant wallet payout" is a mechanism fact instead: escrow
+             credits the seller wallet in the same transaction that
+             confirms delivery (see PurchaseService / the FAQ below) —
+             a static product claim like the "2%" fee tile, not an
+             invented telemetry number. */
           h('div', { className: 'csfloat-home-metric' },
-            h('div', { className: 'csfloat-home-metric-num' }, '< 60s'),
-            h('div', { className: 'csfloat-home-metric-label' }, 'Median payout')
+            h('div', { className: 'csfloat-home-metric-num' }, 'Instant'),
+            h('div', { className: 'csfloat-home-metric-label' }, 'Wallet payout')
           ),
           h('div', { className: 'csfloat-home-metric' },
             h('div', { className: 'csfloat-home-metric-num' }, 'Steam'),
