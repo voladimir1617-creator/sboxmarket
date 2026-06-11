@@ -1,6 +1,7 @@
 package com.sboxmarket.service
 
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ConflictException
 import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.ListingNotAvailableException
 import com.sboxmarket.exception.NotFoundException
@@ -360,7 +361,13 @@ class SellService {
                 return
             }
             try {
-                runInIsolatedTx { cancelListing(sellerUserId, l.id) }
+                // Thread includeAuctions through as the per-listing `force`
+                // flag. With includeAuctions=false the pre-filter above already
+                // skipped bid-on auctions, so force=false changes nothing; with
+                // includeAuctions=true the seller has explicitly opted to dump
+                // their entire stall including live auctions, so force=true lets
+                // cancelListing's new bid-lock through for exactly that case.
+                runInIsolatedTx { cancelListing(sellerUserId, l.id, includeAuctions) }
                 cancelled++
             } catch (Exception e) {
                 failed++
@@ -372,11 +379,26 @@ class SellService {
     }
 
     @Transactional
-    void cancelListing(Long sellerUserId, Long listingId) {
+    void cancelListing(Long sellerUserId, Long listingId, boolean force = false) {
         def listing = listingRepository.findById(listingId)
                 .orElseThrow { new NotFoundException("Listing", listingId) }
         if (listing.sellerUserId != sellerUserId) {
             throw new ForbiddenException("You can only cancel your own listings")
+        }
+        // csfloat parity: an auction LOCKS once it has its first bid. Letting a
+        // seller pull a bid-on auction is a price-manipulation channel — bait
+        // the price up with shills, then withdraw before settling — and it
+        // strands every honest bidder. Only the admin force path
+        // (AdminService.forceCancelListing, which doesn't route through here)
+        // or an explicit bulk `includeAuctions` override (force=true, a
+        // deliberate "nuke my whole stall" action) may cancel a bid-on
+        // auction. A no-bid auction stays freely cancellable — nobody's
+        // committed yet — exactly like csfloat. bidCount is the same
+        // denormalised counter cancelAllActive's pre-filter trusts, kept in
+        // lockstep by BidService on every placeBid/auto-raise.
+        if (!force && listing.listingType == 'AUCTION' && (listing.bidCount ?: 0) > 0) {
+            throw new ConflictException("AUCTION_HAS_BIDS",
+                "This auction already has bids and can no longer be cancelled. It will settle when it ends.")
         }
         // PENDING_ESCROW listings (item being deposited into / held by the bot
         // but not yet activated) are cancellable too — the seller may pull the

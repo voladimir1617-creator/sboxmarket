@@ -13185,13 +13185,27 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       } catch (_) { window.prompt('Copy this link:', url); }
                     }
                   }, '⎘ Link'),
-                  h('button', {
-                    className: 'btn btn-ghost',
-                    style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
-                    title: 'Cancel listing',
-                    'aria-label': 'Cancel listing',
-                    onClick: () => doCancel(l)
-                  }, '✕')
+                  // csfloat parity: an auction locks once it has its first bid,
+                  // so the server rejects the cancel (AUCTION_HAS_BIDS). Show a
+                  // disabled lock instead of a live ✕ so the seller isn't invited
+                  // to click a button that can only fail — the auction must settle
+                  // when it ends. No-bid auctions and Buy-Now listings cancel as
+                  // before.
+                  (l.listingType === 'AUCTION' && (l.bidCount ?? 0) > 0)
+                    ? h('button', {
+                        className: 'btn btn-ghost',
+                        disabled: true,
+                        style: { border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '7px 10px', fontSize: 11, cursor: 'not-allowed', opacity: 0.7 },
+                        title: 'This auction has bids and can no longer be cancelled — it settles when it ends.',
+                        'aria-label': 'Auction locked — has active bids'
+                      }, '🔒')
+                    : h('button', {
+                        className: 'btn btn-ghost',
+                        style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
+                        title: 'Cancel listing',
+                        'aria-label': 'Cancel listing',
+                        onClick: () => doCancel(l)
+                      }, '✕')
                 )
           ));
           })()

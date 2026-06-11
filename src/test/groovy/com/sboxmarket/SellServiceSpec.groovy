@@ -1,6 +1,7 @@
 package com.sboxmarket
 
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ConflictException
 import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.ListingNotAvailableException
 import com.sboxmarket.exception.NotFoundException
@@ -388,11 +389,31 @@ class SellServiceSpec extends Specification {
         listing.status == 'SOLD'
     }
 
-    def "cancelListing on an AUCTION with live bids cancels the bids and pings each distinct bidder"() {
-        given:
+    def "cancelListing on an AUCTION that already has bids is rejected (csfloat lock)"() {
+        given: "an auction whose denormalised bidCount shows it has been bid on"
         def listing = new Listing(
             id: 100L, status: 'ACTIVE', sellerUserId: 10L,
-            listingType: 'AUCTION',
+            listingType: 'AUCTION', bidCount: 2,
+            item: new Item(id: 7L, name: 'Wizard Hat')
+        )
+        listingRepository.findById(100L) >> Optional.of(listing)
+
+        when: "the seller tries the ordinary (non-force) cancel"
+        service.cancelListing(10L, 100L)
+
+        then: "it's blocked before any bid/notification side effects run"
+        def e = thrown(ConflictException)
+        e.code == 'AUCTION_HAS_BIDS'
+        0 * bidRepository.saveAll(_)
+        0 * notificationService.push(_, 'AUCTION_CANCELLED', _, _, _, _)
+        listing.status == 'ACTIVE'   // still live — it must settle when it ends
+    }
+
+    def "cancelListing with force=true on a bid-on AUCTION cancels the bids and pings each distinct bidder"() {
+        given: "the admin / bulk-includeAuctions override path"
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            listingType: 'AUCTION', bidCount: 3,
             item: new Item(id: 7L, name: 'Wizard Hat')
         )
         def b1 = new Bid(id: 1L, listingId: 100L, bidderUserId: 20L, status: 'WINNING')
@@ -404,7 +425,7 @@ class SellServiceSpec extends Specification {
         bidRepository.findByListing(100L) >> [b1, b2, b3]
 
         when:
-        service.cancelListing(10L, 100L)
+        service.cancelListing(10L, 100L, true)
 
         then:
         1 * bidRepository.saveAll({ Iterable bids -> bids*.status.every { it == 'CANCELLED' } })
@@ -412,6 +433,25 @@ class SellServiceSpec extends Specification {
         1 * notificationService.push(21L, 'AUCTION_CANCELLED', _, _, 100L, _)
         // Deduped — no third push for the same bidder.
         0 * notificationService.push(20L, 'AUCTION_CANCELLED', _, _, _, _)
+        listing.status == 'SOLD'
+    }
+
+    def "cancelListing on a no-bid AUCTION still cancels freely (nobody's committed)"() {
+        given:
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            listingType: 'AUCTION', bidCount: 0,
+            item: new Item(id: 7L, name: 'Wizard Hat')
+        )
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        bidRepository.findByListing(100L) >> []
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        noExceptionThrown()
         listing.status == 'SOLD'
     }
 
