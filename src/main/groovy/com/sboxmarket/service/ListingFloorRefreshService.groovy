@@ -108,17 +108,30 @@ class ListingFloorRefreshService {
                     BigDecimal floor = listingRepository.minPriceForItem(item.id)
                     BigDecimal newPrice = floor ?: BigDecimal.ZERO
                     boolean newIsListed = (floor != null && floor > BigDecimal.ZERO)
+                    // Reconcile the denormalised `supply` too. It's a
+                    // displayed stat (item-modal "Supply" box, /db Supply
+                    // column, profile "N supply" chip) but NOTHING on the
+                    // live mutation path ever wrote it — only the launch
+                    // seed (active-listing count at seed time) and the
+                    // retired SCMM sync. So it froze forever: an item could
+                    // sell out to 0 active listings and still display
+                    // "Supply 2". Same drift-sweep contract as the floor:
+                    // worst-case staleness is one minute.
+                    int newSupply = (int) listingRepository.countActiveForItem(item.id)
 
                     BigDecimal oldPrice = item.lowestPrice ?: BigDecimal.ZERO
                     boolean    oldIsListed = item.isListed ?: false
+                    int        oldSupply = (item.supply ?: 0) as int
 
                     // Only write when something actually changed — saves a
                     // row version bump + audit entry on the steady-state
                     // case where the floor is already correct (which is
                     // the common case once the system is settled).
-                    if (newPrice.compareTo(oldPrice) != 0 || newIsListed != oldIsListed) {
+                    if (newPrice.compareTo(oldPrice) != 0 || newIsListed != oldIsListed
+                            || newSupply != oldSupply) {
                         item.lowestPrice = newPrice
                         item.isListed    = newIsListed
+                        item.supply      = newSupply
                         itemRepository.save(item)
                         changed++
                     }

@@ -180,6 +180,23 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     BigDecimal minPriceForItem(@Param("itemId") Long itemId)
 
+    /** Live ACTIVE-listing count for one item — drives the 60s `supply`
+     *  reconcile in ListingFloorRefreshService. `Item.supply` is a
+     *  denormalised display field (item-modal "Supply" stat, /db Supply
+     *  column, profile-card "N supply" chip) that was only ever written
+     *  by the launch seed (and the retired SCMM sync), so it froze at
+     *  its seed value forever — sales/cancels/new listings never moved
+     *  it. Same hidden-exclusion semantics as minPriceForItem above:
+     *  both feed public surfaces, so a seller-hidden row shouldn't
+     *  inflate the public supply figure. */
+    @Query("""
+        SELECT COUNT(l) FROM Listing l
+        WHERE l.item.id = :itemId
+          AND l.status = 'ACTIVE'
+          AND (l.hidden IS NULL OR l.hidden = false)
+    """)
+    long countActiveForItem(@Param("itemId") Long itemId)
+
     // `findActiveByPriceRange`, `searchActiveByName`, `findActiveByCategory`,
     // `findActiveByRarity` — all removed in batch 307. Every real caller
     // went through `findActivePublic` (below) instead, which composes the

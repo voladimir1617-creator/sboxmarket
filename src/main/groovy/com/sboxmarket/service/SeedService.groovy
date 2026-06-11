@@ -3,6 +3,7 @@ package com.sboxmarket.service
 import com.sboxmarket.model.Bid
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.Loadout
+import com.sboxmarket.model.LoadoutFavorite
 import com.sboxmarket.model.LoadoutSlot
 import com.sboxmarket.model.PriceHistory
 import com.sboxmarket.model.SteamUser
@@ -10,6 +11,7 @@ import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.BidRepository
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
+import com.sboxmarket.repository.LoadoutFavoriteRepository
 import com.sboxmarket.repository.LoadoutRepository
 import com.sboxmarket.repository.LoadoutSlotRepository
 import com.sboxmarket.repository.PriceHistoryRepository
@@ -38,6 +40,7 @@ class SeedService {
     @Autowired(required = false) ListingRepository listingRepository
     @Autowired(required = false) LoadoutRepository loadoutRepository
     @Autowired(required = false) LoadoutSlotRepository loadoutSlotRepository
+    @Autowired(required = false) LoadoutFavoriteRepository loadoutFavoriteRepository
     @Autowired(required = false) ItemRepository itemRepository
     @Autowired(required = false) PriceHistoryRepository priceHistoryRepository
     @Autowired(required = false) SteamUserRepository steamUserRepository
@@ -84,6 +87,142 @@ class SeedService {
         seedPriceHistory()
         seedPerItemSales()
         backfillPublicLoadouts()
+        reconcileSeededLoadoutFavorites()
+        reconcileSeededTotalSold()
+    }
+
+    /**
+     * Fabricated-counter fix (same bug class as the frozen steamPrice):
+     * the public-loadout seed used to stamp `favorites: (5 - fxIdx) * 7`
+     * (35/28/21/14/7) onto its fixtures while creating ZERO backing
+     * {@code LoadoutFavorite} junction rows. But the live mutation path —
+     * {@code LoadoutService.toggleFavorite} — keeps the denormalised
+     * counter in sync FROM the junction table
+     * ({@code loadout.favorites = countByLoadout(id)}), so the FIRST real
+     * user to star "Cardboard Connoisseur" snapped its public count from
+     * 35 to 1 — the fiction visibly collapsed on first contact with real
+     * activity, and the Discover sort (ORDER BY favorites DESC) reshuffled.
+     *
+     * This step makes the junction table the single source of truth, the
+     * same way {@code seedAuctionBids} backs every seeded {@code bidCount}
+     * with real {@code Bid} rows:
+     *   - For each SYNTHETIC public loadout (ownerUserId < 0 — the seed's
+     *     marker, real Steam users are positive), backfill real
+     *     {@code LoadoutFavorite} rows from the six demo seller accounts:
+     *     the top-ranked fixture gets all 6, the next 5, ... (descending,
+     *     so the Discover sort stays sensible — just at honest magnitudes).
+     *   - Then set {@code favorites} = the ACTUAL row count, exactly the
+     *     value {@code toggleFavorite} would converge to. A real user's
+     *     star now moves the count 6 → 7, not 35 → 1.
+     *
+     * SELF-HEALING + IDEMPOTENT: runs every boot. Existing DBs with the
+     * old fabricated counters get their junction rows backfilled (guarded
+     * per-(user,loadout) by findByUserAndLoadout, so re-runs and real
+     * favorites are never duplicated — the UNIQUE constraint backstops it)
+     * and the counter reconciled to the row count; a DB that's already
+     * coherent is a no-op. Real users' favorites on these loadouts are
+     * preserved — they're junction rows too, so they simply count.
+     */
+    private void reconcileSeededLoadoutFavorites() {
+        if (loadoutRepository == null || loadoutFavoriteRepository == null || steamUserRepository == null) return
+        try {
+            // Demo-seller account ids in their fixed seed order.
+            def demoIds = []
+            SEED_SELLER_ACCOUNTS.each { acct ->
+                def u = steamUserRepository.findBySteamId64(acct[1] as String)
+                if (u?.id != null) demoIds << u.id
+            }
+            def synthetic = []
+            try {
+                synthetic = loadoutRepository.findAll().findAll {
+                    it != null && it.visibility == 'PUBLIC' && it.ownerUserId != null && it.ownerUserId < 0L
+                }
+            } catch (Exception ignored) { return }
+            if (synthetic.isEmpty()) return
+            // Preserve the existing Discover ranking: order by the current
+            // counter DESC (the legacy fabricated values are distinct and
+            // descending), then id ASC so a fresh seed (all counters 0)
+            // ranks in fixture-insert order.
+            synthetic.sort { a, b ->
+                int byFav = ((b.favorites ?: 0) as int) <=> ((a.favorites ?: 0) as int)
+                byFav != 0 ? byFav : (((a.id ?: 0L) as long) <=> (((b.id ?: 0L) as long)))
+            }
+            int reconciled = 0
+            int rowsCreated = 0
+            synthetic.eachWithIndex { l, rank ->
+                if (l.id == null) return
+                // Rank 0 gets all demo accounts, rank 1 one fewer, ...
+                int desired = Math.max(0, demoIds.size() - rank)
+                for (int i = 0; i < desired; i++) {
+                    Long uid = demoIds[i] as Long
+                    if (loadoutFavoriteRepository.findByUserAndLoadout(uid, l.id) == null) {
+                        try {
+                            loadoutFavoriteRepository.save(new LoadoutFavorite(userId: uid, loadoutId: l.id))
+                            rowsCreated++
+                        } catch (Exception ignored) { /* UNIQUE race — already present */ }
+                    }
+                }
+                long real = loadoutFavoriteRepository.countByLoadout(l.id)
+                if (((l.favorites ?: 0) as int) != (int) real) {
+                    l.favorites = (int) real
+                    loadoutRepository.save(l)
+                    reconciled++
+                }
+            }
+            if (rowsCreated > 0 || reconciled > 0) {
+                log.info("Reconciled seeded loadout favorites: ${rowsCreated} junction rows backfilled, " +
+                        "${reconciled} counters synced to their real row count (was fabricated 35/28/21/14/7 " +
+                        "with zero backing rows — first real star used to collapse the count)")
+            }
+        } catch (Exception e) {
+            log.warn("Loadout-favorites reconcile skipped: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Seed-coherence fix for {@code Item.totalSold} (display surfaces:
+     * the item-modal "N sold" lifetime chip, the /db "Sold" column and
+     * the most-traded sort). {@code seedPerItemSales} and
+     * {@code backfillDemoSales} insert SOLD Listing rows — which the
+     * "Recent sales (N)" panel, the velocity chips and the stall pages
+     * all COUNT as sales — but left the denormalised lifetime counter at
+     * 0, so the same item page said "6 recent sales" and "Sold 0" at
+     * once. (Exactly the inconsistency {@code seedAuctionBids} fixed for
+     * bidCount-vs-Bid-rows.)
+     *
+     * Reconciles the counter to the real SOLD-row count via the SAME
+     * query family the velocity panel reads (countSoldForItemSince since
+     * epoch 0), so the displayed surfaces agree by construction.
+     *
+     * GUARDED: only items whose counter is still 0 are touched — the
+     * live increment path (PurchaseService.buy / BidService settle, with
+     * the TradeService dispute decrement) owns any non-zero counter and
+     * is never clobbered. Idempotent: after the first reconcile the
+     * counter is > 0 (when sold rows exist) and the guard skips forever.
+     */
+    private void reconcileSeededTotalSold() {
+        if (itemRepository == null || listingRepository == null) return
+        try {
+            int fixed = 0
+            itemRepository.findAll().each { item ->
+                if (item == null || item.id == null) return
+                if (((item.totalSold ?: 0) as int) != 0) return
+                long sold = 0L
+                try { sold = listingRepository.countSoldForItemSince(item.id, 0L) }
+                catch (Exception ignored) { return }
+                if (sold > 0L) {
+                    item.totalSold = (int) sold
+                    itemRepository.save(item)
+                    fixed++
+                }
+            }
+            if (fixed > 0) {
+                log.info("Reconciled totalSold for ${fixed} items to their real SOLD-row count " +
+                        "(seeded sales rows existed but the lifetime counter was frozen at 0)")
+            }
+        } catch (Exception e) {
+            log.warn("totalSold reconcile skipped: ${e.message}", e)
+        }
     }
 
     /**
@@ -1278,7 +1417,16 @@ class SeedService {
                     name:        fx.name,
                     description: fx.desc,
                     visibility:  'PUBLIC',
-                    favorites:   (5 - fxIdx) * 7,  // descending so Discover sort is sensible
+                    // 0, NOT a fabricated count: the counter is denormalised
+                    // from the loadout_favorites junction table (see
+                    // LoadoutService.toggleFavorite), so stamping a number
+                    // here with no backing rows meant the first real star
+                    // collapsed it to 1. reconcileSeededLoadoutFavorites()
+                    // (runs right after this seed) backfills REAL junction
+                    // rows from the demo-seller accounts in descending rank
+                    // and sets this counter to the actual row count — same
+                    // "rows back the counter" contract as seedAuctionBids.
+                    favorites:   0,
                     createdAt:   now - (fxIdx + 1) * 86_400_000L,
                     updatedAt:   now - (fxIdx + 1) * 3_600_000L
                 )

@@ -312,20 +312,17 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       // line on every card. V61 ship: real presence comes from
       // `listing.sellerLastSeenAt` (epoch ms), bumped by PresenceFilter
       // on every authenticated request — a seller who's actively
-      // browsing in the last 15 minutes reads as Online. Null
-      // (system seed listings, sellerUserId === null) falls back to
-      // the deterministic-seed pattern so the row stays consistent
-      // across reloads for those rows. The verified-check renders
-      // when sellerReviewCount >= 5.
+      // browsing in the last 15 minutes reads as Online. No timestamp
+      // (system seed listings, sellerUserId === null) means the seller
+      // has NEVER been seen → honestly Offline. The old fallback hashed
+      // the id into a fake ~40% "Online" rate — fabricated presence the
+      // operator's data audit flagged; never resurrect it. The
+      // verified-check renders when sellerReviewCount >= 5.
       (() => {
         const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
-        let isOnline;
-        if (listing.sellerLastSeenAt) {
-          isOnline = (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS;
-        } else {
-          const seed = listing.sellerUserId ? Number(String(listing.sellerUserId).slice(-6)) || 0 : (listing.id || 0);
-          isOnline = (seed % 5) < 2;
-        }
+        const isOnline = listing.sellerLastSeenAt
+          ? (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
+          : false;
         const isVerified = (listing.sellerReviewCount || 0) >= 5;
         // Operator audit (batch 1149): clarify the Online/Offline pill —
         // it tracks SELLER PRESENCE (whether the lister is currently
@@ -443,20 +440,17 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         })(),
         // CSFloat-1:1 — seller-presence row under the price area: green dot
         // + Online/Offline + a count. csfloat surfaces seller presence here;
-        // we reuse the SAME presence flag as the `grid-status` row above
-        // (real `sellerLastSeenAt` within a 15-min window, else a stable
-        // deterministic-seed fallback so it doesn't flicker across reloads).
+        // we reuse the SAME presence flag as the `grid-status` row above:
+        // real `sellerLastSeenAt` within a 15-min window, and honestly
+        // Offline when there's no timestamp (the old id-hash fallback
+        // fabricated a stable fake "Online" for ~40% of seed listings).
         // The count is the watcher count when we have one; omitted otherwise
         // so a card with no watchers shows "● Online" with no trailing "0".
         (() => {
           const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
-          let isOnline;
-          if (listing.sellerLastSeenAt) {
-            isOnline = (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS;
-          } else {
-            const seed = listing.sellerUserId ? Number(String(listing.sellerUserId).slice(-6)) || 0 : (listing.id || 0);
-            isOnline = (seed % 5) < 2;
-          }
+          const isOnline = listing.sellerLastSeenAt
+            ? (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
+            : false;
           return h('div', {
             className: `gc-online-row${isOnline ? ' is-online' : ''}`,
             title: isOnline ? 'Seller is online' : 'Seller is offline'
