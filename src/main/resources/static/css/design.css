@@ -28487,3 +28487,7 @@ html body .modal.item-page .modal-stats { background: rgb(27,29,36) !important; 
 html body .modal.item-page .modal-stats > .modal-stat-box { background: transparent !important; border: 0 !important; border-radius: 0 !important; border-bottom: 1px solid rgba(255,255,255,0.06) !important; padding: 13px 16px !important; }
 html body .modal.item-page .modal-stats > .modal-stat-box:last-child { border-bottom: 0 !important; }
 }
+
+/* WAVE 182 — home deal-rail "View all N listings" tail tile rendered as a solid featureless slab next to detailed item cards (operator screenshot). Quiet ghost-tile treatment: transparent with a dashed border, accent tint on hover. */
+html body .csfloat-home-preview-tail { background: transparent !important; border: 1px dashed rgba(255,255,255,0.14) !important; transition: border-color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1) !important; }
+html body .csfloat-home-preview-tail:hover { border-color: rgba(35,123,255,0.5) !important; background: rgba(35,123,255,0.05) !important; }
