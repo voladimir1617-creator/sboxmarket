@@ -168,7 +168,11 @@ export function SignInNeededEmptyState({ what, mailto }) {
   const mailHref = mailto && mailto.to
     ? `mailto:${mailto.to}` + (mailto.subject ? `?subject=${encodeURIComponent(mailto.subject)}` : '')
     : null;
-  return h('div', { className: 'empty-inline' },
+  // `empty-authgate` marks THIS as the sign-in gate (vs a tab "no data"
+  // empty state) so CSS can vertically-center it on a full-page route —
+  // otherwise the short gate card strands at the top of a 2K viewport with
+  // a large void below (design review #2).
+  return h('div', { className: 'empty-inline empty-authgate' },
     h('div', {
       className: 'empty-icon',
       // G10 Boss QA — sign-in lock icon was 26px and read as a tiny

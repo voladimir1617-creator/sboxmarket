@@ -28503,3 +28503,7 @@ html body .profile-setup-banner { display: block !important; text-align: left !i
 html body .profile-setup-banner.warn { background: rgba(250,204,21,0.08) !important; border-color: rgba(250,204,21,0.35) !important; }
 html body .profile-setup-banner > div { flex: none !important; width: auto !important; text-align: left !important; }
 html body .profile-setup-banner > ul { text-align: left !important; }
+
+/* WAVE 184 — design-review #2: a signed-out auth-gate on a full-page route (wallet / watchlist / buy-orders / notifications) is a short card that stranded at the top of a 2K viewport with a large dead void below. Vertically center the wrapper ONLY when it contains the .empty-authgate gate (scoped via :has so tall routes + tab "no data" empties are untouched). */
+html body .full-page-mode .modal-backdrop:has(.empty-authgate) { min-height: calc(100vh - 150px) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; }
+html body .full-page-mode .modal-backdrop:has(.empty-authgate) > .modal, html body .full-page-mode .modal-backdrop:has(.empty-authgate) > .info-modal { margin: 0 auto !important; }
