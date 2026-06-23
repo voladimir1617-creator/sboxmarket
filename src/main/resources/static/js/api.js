@@ -31,9 +31,31 @@ import { API } from './utils.js';
   };
 })();
 
+// ── Fetch timeout (customer-readiness BLOCKER fix) ────────────────
+// Browsers apply NO default timeout to fetch(), so on flaky mobile/wifi a
+// socket can stay open with no bytes and `await fetch` hangs forever. That
+// previously trapped a customer in the non-dismissable "Placing order…"
+// confirm dialog with money possibly in transit (the busy latch's `finally`
+// never ran). Wrapping every call in an AbortController + timeout means a
+// stalled request ABORTS → throws → falls into the existing catch blocks
+// below → the busy latch clears and the user gets a real "network error"
+// instead of an eternal spinner. Reads get a tight ceiling; writes (money
+// POSTs can be legitimately slow) get a generous one.
+const READ_TIMEOUT_MS = 20_000;
+const WRITE_TIMEOUT_MS = 45_000;
+async function fetchT(url, opts, ms) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 async function safeJson(url, opts, meta) {
   try {
-    const r = await fetch(url, opts);
+    const r = await fetchT(url, opts, READ_TIMEOUT_MS);
     if (!r.ok) {
       // Session-revoked broadcast (batch 604). Before this, a 401 on
       // a read operation (e.g. /api/profile/me after an admin force-
@@ -99,7 +121,7 @@ async function safeJson(url, opts, meta) {
  */
 async function writeJson(url, opts) {
   try {
-    const r = await fetch(url, opts);
+    const r = await fetchT(url, opts, WRITE_TIMEOUT_MS);
     let body;
     try { body = await r.json(); } catch { body = null; }
     if (!r.ok) {

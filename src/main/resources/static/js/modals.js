@@ -503,7 +503,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   const buyConfirmBusyRef = useRef(false);
   buyConfirmBusyRef.current = buyConfirmBusy;
   const closeBuyConfirm = useCallback(() => {
-    if (buyConfirmBusyRef.current) return;
+    // Always close — even mid-purchase (customer-readiness BLOCKER). The old
+    // busyRef guard trapped the user in a non-dismissable dialog when a buy
+    // request hung; the Confirm handler's own `if (busy) return` still blocks
+    // a real double-submit, and the fetch timeout bounds any in-flight POST.
     setBuyConfirm(null);
   }, []);
   useDialogA11y(buyConfirmRef, closeBuyConfirm, !!buyConfirm);
@@ -2390,8 +2393,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             h('button', {
               className: 'btn btn-ghost',
               style: { border: '1px solid var(--border)' },
-              onClick: () => closeBuyConfirm(),
-              disabled: buyConfirmBusy
+              // Always allow back-out, even mid-purchase (customer-readiness
+              // BLOCKER): disabling Cancel on busy trapped the user when a
+              // request hung. The Confirm guard below still blocks double-submit.
+              onClick: () => closeBuyConfirm()
             }, 'Cancel'),
             h('button', {
               className: 'btn btn-accent',

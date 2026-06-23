@@ -16,7 +16,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=201';
+} from './modals.js?v=202';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -4260,7 +4260,10 @@ export function App() {
   // time (so the user couldn't keep focus on Confirm). Mirrors how every other
   // useDialogA11y caller passes a stable handler. checkoutRef guard keeps Escape
   // from dismissing mid-checkout.
-  const closeCartConfirm = React.useCallback(() => { if (!checkoutRef.current) setCartConfirmOpen(false); }, []);
+  // Escape/dialog-a11y close is ALWAYS allowed — even mid-checkout — so a hung
+  // request can't trap the user (customer-readiness BLOCKER). The checkoutRef
+  // latch still prevents a real double-submit of the Confirm action.
+  const closeCartConfirm = React.useCallback(() => { setCartConfirmOpen(false); }, []);
   useDialogA11y(cartConfirmPanelRef, closeCartConfirm, cartConfirmOpen);
   const doCheckout = async () => {
     if (cart.length === 0) return;
@@ -9034,7 +9037,7 @@ export function App() {
         )
       )
     ),
-    cartConfirmOpen && h('div', { className: 'cart-confirm-backdrop', onClick: () => !cartBusy && setCartConfirmOpen(false) },
+    cartConfirmOpen && h('div', { className: 'cart-confirm-backdrop', onClick: () => setCartConfirmOpen(false) },
       h('div', {
         className: 'cart-confirm-panel',
         ref: cartConfirmPanelRef,
@@ -9199,8 +9202,13 @@ export function App() {
           h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)' },
-            onClick: () => setCartConfirmOpen(false),
-            disabled: cartBusy
+            // Cancel is ALWAYS available, even mid-checkout (customer-readiness
+            // BLOCKER fix). Disabling it on cartBusy trapped the user in a
+            // non-dismissable "Placing order…" dialog when a request hung. The
+            // synchronous checkoutRef latch still blocks a real double-submit
+            // of Confirm; closing here just hides the dialog — the in-flight
+            // POST (now timeout-bounded) still resolves and updates state.
+            onClick: () => setCartConfirmOpen(false)
           }, 'Cancel'),
           h('button', {
             className: 'btn btn-accent',
