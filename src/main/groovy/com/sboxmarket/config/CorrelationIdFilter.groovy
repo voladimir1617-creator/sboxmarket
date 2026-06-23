@@ -356,7 +356,25 @@ class CorrelationIdFilter extends OncePerRequestFilter {
                     '/offers', '/buy-orders', '/notifications',
                     '/watchlist', '/support', '/settings', '/admin', '/csr'])
         if (path != null && path.matches('.*\\.(js|css)$')) {
-            resp.setHeader("Cache-Control", "no-cache, must-revalidate")
+            // Two tiers of JS/CSS by whether the URL is version-stamped:
+            //   - `?v=NNN` present → the URL is immutable per build (the
+            //     deploy bumps ?v= on every change, which is the cache-bust),
+            //     so cache it for a year. A 572KB-gzipped design.css that
+            //     revalidates on every pageview is a real mobile-latency tax
+            //     (a blocking conditional-GET round-trip on the critical
+            //     render path even when it 304s). `?v=293` and `?v=294` are
+            //     distinct cache entries, so a long TTL can NOT trap a user
+            //     on a stale build — the next deploy's bumped URL is a fresh
+            //     fetch and the old entry just ages out.
+            //   - no `?v=` → a bare-import module (api.js, cards.js,
+            //     csfloat-modals.js, …) whose URL never changes. no-cache is
+            //     the ONLY way a deploy reaches it, so it stays must-revalidate.
+            def ver = req.getParameter('v')
+            if (ver != null && !ver.trim().isEmpty()) {
+                resp.setHeader("Cache-Control", "public, max-age=31536000, immutable")
+            } else {
+                resp.setHeader("Cache-Control", "no-cache, must-revalidate")
+            }
         } else if (path != null && path.matches('.*\\.(woff2?|svg|png|ico|jpg|webp)$')) {
             resp.setHeader("Cache-Control", "public, max-age=14400")
         } else if (path != null && method == 'GET'

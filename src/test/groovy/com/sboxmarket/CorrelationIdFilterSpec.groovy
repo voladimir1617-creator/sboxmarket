@@ -334,6 +334,34 @@ class CorrelationIdFilterSpec extends Specification {
         path << ['/', '/market', '/profile', '/css/design.css', '/js/main.js', '/img/favicon-512.png']
     }
 
+    def "version-stamped JS/CSS are cached immutable; bare imports stay no-cache: #path"() {
+        // A 572KB-gzipped design.css revalidating on every navigation is a
+        // real mobile-latency tax. Version-stamped URLs (?v=NNN) are
+        // immutable per build (the deploy bumps ?v=, which is the cache-bust),
+        // so they get a year-long immutable cache. Bare-import modules with
+        // no ?v= keep no-cache because their URL never changes.
+        given:
+        def req = new MockHttpServletRequest('GET', path)
+        if (ver != null) req.addParameter('v', ver)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeader('Cache-Control') == expected
+
+        where:
+        path                | ver    || expected
+        '/css/design.css'   | '293'  || 'public, max-age=31536000, immutable'
+        '/js/main.js'       | '197'  || 'public, max-age=31536000, immutable'
+        '/js/app.js'        | '227'  || 'public, max-age=31536000, immutable'
+        '/js/api.js'        | null   || 'no-cache, must-revalidate'
+        '/js/cards.js'      | null   || 'no-cache, must-revalidate'
+        '/css/design.css'   | null   || 'no-cache, must-revalidate'
+        '/css/design.css'   | ''     || 'no-cache, must-revalidate'
+    }
+
     def "MDC is cleared even when downstream throws"() {
         given:
         def req = new MockHttpServletRequest('GET', '/api/listings')
