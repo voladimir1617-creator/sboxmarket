@@ -71,6 +71,13 @@ class AuditService {
     static final String REVIEW_DELETED_STAFF = 'REVIEW_DELETED_STAFF'
     static final String TICKET_REPLIED      = 'TICKET_REPLIED'
     static final String TICKET_CLOSED       = 'TICKET_CLOSED'
+    // Money-reconciliation events: a payout/clawback that could not complete
+    // automatically and needs an operator to settle it by hand. These used to
+    // be log.warn-only, invisible to ops in the admin panel. Filter the audit
+    // log by this event type to find every wallet movement awaiting manual
+    // reconciliation (skipped seller credit, refund > debit shortfall,
+    // trade-protection payout/clawback shortfall).
+    static final String MANUAL_PAYOUT_REQUIRED = 'MANUAL_PAYOUT_REQUIRED'
 
     @Autowired AuditLogRepository auditLogRepository
     @Autowired SteamUserRepository steamUserRepository

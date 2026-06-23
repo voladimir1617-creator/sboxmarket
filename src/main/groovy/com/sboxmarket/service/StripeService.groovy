@@ -671,6 +671,18 @@ class StripeService {
             auditService?.log(AuditService.REFUND_ISSUED, adminUserId, subjectUserId, refundTx.id,
                 "Refunded \$${amount} of deposit ${tx.id} (stripeRef=${refundId}, wallet debit=\$${debit})")
         } catch (Exception ignore) {}
+        // A refund larger than the (drained) wallet balance leaves a real
+        // money gap: Stripe paid out the full amount but we could only claw
+        // back `debit`. Record it as a distinct, filterable reconciliation
+        // event so ops can chase the shortfall from the admin panel rather
+        // than only finding it by parsing the log stream.
+        if (debit < amount) {
+            try {
+                auditService?.log(AuditService.MANUAL_PAYOUT_REQUIRED, adminUserId, subjectUserId, refundTx.id,
+                    "Refund shortfall on deposit ${tx.id}: \$${amount} refunded via Stripe but wallet ${wallet.id} " +
+                    "only had \$${debit} — \$${amount - debit} shortfall for manual reconciliation.")
+            } catch (Exception ignore) {}
+        }
         // User-facing push + email (batch 523). Admin-initiated refunds
         // now reach the user via the same channels as dashboard-
         // initiated refunds (batch 522). Symmetry matters: a user

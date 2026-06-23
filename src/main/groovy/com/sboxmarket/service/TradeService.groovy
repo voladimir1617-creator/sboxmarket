@@ -688,12 +688,21 @@ class TradeService {
         if (t.sellerWalletId == null) {
             log.warn("Trade #{} VERIFIED but sellerWalletId is null — seller credit skipped. " +
                      "Manual payout required for \${}", t.id, t.price - t.feeAmount)
+            // Surface this to ops in the admin audit panel — a log.warn alone
+            // is easy to miss, and a skipped seller credit means the platform
+            // is holding the buyer's money with no automated payout.
+            auditService?.log(AuditService.MANUAL_PAYOUT_REQUIRED, null, t.sellerUserId, t.id,
+                "Seller credit skipped on VERIFIED trade #${t.id} — sellerWalletId is null. " +
+                "Manual payout owed: \$${t.price - t.feeAmount} for '${t.itemName}'.")
         }
         if (t.sellerWalletId != null) {
             def sellerWallet = walletRepository.findById(t.sellerWalletId).orElse(null)
             if (sellerWallet == null) {
                 log.warn("Trade #{} VERIFIED but seller wallet {} not found — credit skipped. " +
                          "Manual payout required for \${}", t.id, t.sellerWalletId, t.price - t.feeAmount)
+                auditService?.log(AuditService.MANUAL_PAYOUT_REQUIRED, null, t.sellerUserId, t.id,
+                    "Seller credit skipped on VERIFIED trade #${t.id} — seller wallet ${t.sellerWalletId} " +
+                    "not found. Manual payout owed: \$${t.price - t.feeAmount} for '${t.itemName}'.")
             }
             if (sellerWallet != null) {
                 def credit = (t.price - t.feeAmount)

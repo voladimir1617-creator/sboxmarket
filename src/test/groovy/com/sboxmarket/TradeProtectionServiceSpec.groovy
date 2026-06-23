@@ -636,6 +636,37 @@ class TradeProtectionServiceSpec extends Specification {
         1 * auditService.log('TRADE_PROTECTION_CLAIMED', null, 10L, 1L, _)
     }
 
+    def "autoClaim flags MANUAL_PAYOUT_REQUIRED when the buyer wallet is missing (payout skipped)"() {
+        given:
+        // Protection is claimed but the buyer wallet row can't be found, so
+        // the coverage credit is skipped — the buyer is owed money the
+        // platform hasn't paid. That must surface as a filterable
+        // reconciliation event, not just a log.warn.
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
+        def trade  = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L, itemName: 'Wizard Hat')
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        walletRepository.findById(500L) >> Optional.empty()   // wallet vanished
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        def result = service.autoClaim(1L, 'Seller never delivered')
+
+        then: "no wallet credit + no REFUND transaction (nothing was paid)"
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+
+        and: "the claim still flips to CLAIMED but the payout is recorded as skipped"
+        result.is(protection)
+        protection.status == TradeProtection.CLAIMED
+        1 * auditService.log('TRADE_PROTECTION_CLAIMED', null, 10L, 1L, { it.contains('SKIPPED') })
+
+        and: "a MANUAL_PAYOUT_REQUIRED reconciliation event is written for ops"
+        1 * auditService.log('MANUAL_PAYOUT_REQUIRED', null, 10L, 1L, { it.contains('50.00') && it.toLowerCase().contains('manual payout') })
+    }
+
     def "autoClaim defaults a null reason to 'Trade failed'"() {
         given:
         def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,

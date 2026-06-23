@@ -356,7 +356,17 @@ class TradeProtectionService {
                 tradeId, '/wallet')
         }
         auditService?.log('TRADE_PROTECTION_CLAIMED', null, protection.buyerUserId, tradeId,
-            "Protection claim paid out \$${protection.coverageAmount}: ${protection.claimReason}")
+            (credited
+                ? "Protection claim paid out \$${protection.coverageAmount}: ${protection.claimReason}"
+                : "Protection claim approved but payout SKIPPED (no buyer wallet) \$${protection.coverageAmount}: ${protection.claimReason}"))
+        // When the wallet credit was skipped the buyer is owed money the
+        // platform hasn't paid — flag it as a filterable reconciliation event
+        // so ops can settle it by hand, not just a buried log.warn.
+        if (!credited) {
+            auditService?.log(AuditService.MANUAL_PAYOUT_REQUIRED, null, protection.buyerUserId, tradeId,
+                "Trade Protection payout owed but skipped on trade #${tradeId}: \$${protection.coverageAmount} " +
+                "to buyer ${protection.buyerUserId} (no buyer wallet). Manual payout required.")
+        }
         log.info("Trade #{} protection CLAIMED — \${} refunded to buyer {} ({})",
             tradeId, protection.coverageAmount, protection.buyerUserId, protection.claimReason)
         protection
@@ -440,14 +450,23 @@ class TradeProtectionService {
                 if (shortfall > BigDecimal.ZERO) {
                     log.warn("Trade #{} protection reversal short by \${} — buyer wallet {} had only \${}; " +
                         "manual clawback required", tradeId, shortfall, wallet.id, avail)
+                    auditService?.log(AuditService.MANUAL_PAYOUT_REQUIRED, null, protection.buyerUserId, tradeId,
+                        "Trade Protection clawback short on trade #${tradeId}: \$${shortfall} of \$${cover} " +
+                        "could not be recovered (buyer wallet ${wallet.id} had only \$${avail}). Manual clawback required.")
                 }
             } else {
                 log.warn("Trade #{} protection reversal — buyer wallet {} not found; " +
                     "manual clawback required for \${}", tradeId, buyerWalletId, cover)
+                auditService?.log(AuditService.MANUAL_PAYOUT_REQUIRED, null, protection.buyerUserId, tradeId,
+                    "Trade Protection clawback skipped on trade #${tradeId}: buyer wallet ${buyerWalletId} " +
+                    "not found. \$${cover} manual clawback required.")
             }
         } else if (cover > BigDecimal.ZERO) {
             log.warn("Trade #{} protection reversal — no buyer wallet on the trade; " +
                 "manual clawback required for \${}", tradeId, cover)
+            auditService?.log(AuditService.MANUAL_PAYOUT_REQUIRED, null, protection.buyerUserId, tradeId,
+                "Trade Protection clawback skipped on trade #${tradeId}: no buyer wallet on the trade. " +
+                "\$${cover} manual clawback required.")
         }
 
         protection.status      = TradeProtection.EXPIRED
