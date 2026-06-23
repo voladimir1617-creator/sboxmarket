@@ -39,7 +39,7 @@ module.exports = defineConfig({
     },
     {
       name: 'chromium-auth',
-      testIgnore: /\.anon\.spec\.js/,
+      testIgnore: /\.(anon|mobile)\.spec\.js/,
       dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
