@@ -316,23 +316,92 @@ class RateLimitFilterSpec extends Specification {
         allowed == 200
     }
 
-    def "X-Forwarded-For is honoured so requests behind a proxy keyed per real IP"() {
+    def "X-Forwarded-For is honoured ONLY when the direct peer is a trusted proxy"() {
         given:
-        def first = get('/api/items/7')
-        first.addHeader('X-Forwarded-For', '203.0.113.1')
-        def second = get('/api/items/7')
+        // The default trusted-proxy set (no Spring @Value injection in this
+        // unit) is loopback only, so the proxy must present as 127.0.0.1 for
+        // its forwarded header to be believed.
+        def second = get('/api/items/7', '127.0.0.1')
         second.addHeader('X-Forwarded-For', '203.0.113.2')
 
-        when: "Burn the first IP's budget via its XFF header"
+        when: "Burn the first real-client IP's budget via the trusted proxy's XFF header"
         (1..40).each {
-            def r = get('/api/items/7')
+            def r = get('/api/items/7', '127.0.0.1')
             r.addHeader('X-Forwarded-For', '203.0.113.1')
             filter.doFilter(r, new MockHttpServletResponse(), chain)
         }
         def resp = new MockHttpServletResponse()
         filter.doFilter(second, resp, chain)
 
-        then: "Second IP is fresh even though the shared proxy is the direct peer"
+        then: "Second real-client IP is fresh even though the shared trusted proxy is the direct peer"
+        resp.status == 200
+    }
+
+    def "SECURITY: an untrusted peer cannot spoof X-Forwarded-For to escape its bucket"() {
+        // BLOCKER #2 from the customer-readiness audit. Before the fix the
+        // limiter believed X-Forwarded-For / CF-Connecting-IP from ANY caller,
+        // so an attacker hitting the origin directly could send a fresh fake
+        // IP on every request to mint a brand-new bucket each time and bypass
+        // the limit entirely. Now a non-trusted peer is keyed on its real
+        // socket IP and the spoofed header is ignored.
+        given:
+        def attackerIp = '203.0.113.200'   // NOT in the trusted-proxy set
+        int allowed = 0
+        int blocked = 0
+
+        when: "the attacker burns 50 requests, each carrying a unique spoofed XFF"
+        (1..50).each { i ->
+            def r = get('/api/items/7', attackerIp)
+            r.addHeader('X-Forwarded-For', "10.0.0.${i}")   // a different fake IP every hit
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(r, resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then: "the spoof is ignored — all 50 key on the real socket IP, so the 40/10s cap still bites"
+        allowed == 40
+        blocked == 10
+    }
+
+    def "SECURITY: an untrusted peer cannot spoof CF-Connecting-IP either"() {
+        given:
+        def attackerIp = '198.51.100.5'   // NOT trusted
+        int allowed = 0
+        int blocked = 0
+
+        when: "50 requests each with a unique spoofed CF-Connecting-IP"
+        (1..50).each { i ->
+            def r = get('/api/items/7', attackerIp)
+            r.addHeader('CF-Connecting-IP', "172.16.9.${i}")
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(r, resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then: "CF-Connecting-IP from an untrusted peer is ignored — real-IP cap holds"
+        allowed == 40
+        blocked == 10
+    }
+
+    def "CF-Connecting-IP from a trusted proxy IS honoured (per real client)"() {
+        given:
+        // Trusted proxy (loopback) forwards the real client via CF header.
+        def clientA = '203.0.113.10'
+        def clientB = '203.0.113.11'
+
+        when: "client A burns the enum budget through the trusted proxy"
+        (1..40).each {
+            def r = get('/api/items/7', '127.0.0.1')
+            r.addHeader('CF-Connecting-IP', clientA)
+            filter.doFilter(r, new MockHttpServletResponse(), chain)
+        }
+        and: "client B arrives via the same trusted proxy"
+        def rb = get('/api/items/7', '127.0.0.1')
+        rb.addHeader('CF-Connecting-IP', clientB)
+        def resp = new MockHttpServletResponse()
+        filter.doFilter(rb, resp, chain)
+
+        then: "client B has a fresh bucket — the proxy's forwarded client IP is trusted"
         resp.status == 200
     }
 

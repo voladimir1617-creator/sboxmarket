@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import groovy.util.logging.Slf4j
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
@@ -247,6 +248,101 @@ class RateLimitFilter extends OncePerRequestFilter {
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>()
 
+    // Trusted reverse proxies. Forwarded client-IP headers (CF-Connecting-IP,
+    // X-Forwarded-For) are ONLY honoured when the immediate TCP peer
+    // (req.remoteAddr) falls inside one of these CIDRs — see clientIp() for
+    // why this matters. The live topology is Cloudflare tunnel ->
+    // cloudflared/nginx on loopback -> app, so loopback is trusted by default.
+    // application-prod.yml widens this to the private ranges where a
+    // containerised nginx upstream lives.
+    @Value('${sbox.ratelimit.trusted-proxies:127.0.0.0/8,::1/128}')
+    private String trustedProxiesProp = '127.0.0.0/8,::1/128'
+
+    private volatile List<Cidr> trustedCidrsCache
+
+    // A single parsed CIDR (network address + prefix length) with a bitwise
+    // contains() that works for both IPv4 (4-byte) and IPv6 (16-byte). Family
+    // mismatch (e.g. an IPv4 addr against an IPv6 CIDR) is never "contained".
+    private static class Cidr {
+        final byte[] network
+        final int prefix
+        Cidr(byte[] network, int prefix) { this.network = network; this.prefix = prefix }
+        boolean contains(byte[] ip) {
+            if (ip == null || ip.length != network.length) return false
+            int fullBytes = (prefix / 8) as int
+            for (int i = 0; i < fullBytes; i++) {
+                if (ip[i] != network[i]) return false
+            }
+            int remBits = prefix % 8
+            if (remBits != 0) {
+                int mask = (0xFF << (8 - remBits)) & 0xFF
+                if ((ip[fullBytes] & mask) != (network[fullBytes] & mask)) return false
+            }
+            true
+        }
+    }
+
+    private List<Cidr> trustedCidrs() {
+        def c = trustedCidrsCache
+        if (c == null) {
+            synchronized (this) {
+                c = trustedCidrsCache
+                if (c == null) {
+                    c = parseCidrs(trustedProxiesProp)
+                    trustedCidrsCache = c
+                }
+            }
+        }
+        c
+    }
+
+    private List<Cidr> parseCidrs(String csv) {
+        def out = new ArrayList<Cidr>()
+        for (String part : (csv ?: '').split(',')) {
+            def p = part?.trim()
+            if (!p) continue
+            try {
+                String ipPart
+                int prefix
+                int slash = p.indexOf('/')
+                if (slash >= 0) {
+                    ipPart = p.substring(0, slash).trim()
+                    prefix = Integer.parseInt(p.substring(slash + 1).trim())
+                } else {
+                    ipPart = p
+                    prefix = -1
+                }
+                byte[] net = InetAddress.getByName(ipPart).address
+                int maxBits = net.length * 8
+                if (prefix < 0 || prefix > maxBits) prefix = maxBits
+                out.add(new Cidr(net, prefix))
+            } catch (Exception e) {
+                log.warn("Ignoring invalid trusted-proxy CIDR: ${p}")
+            }
+        }
+        out
+    }
+
+    // True when `ip` is a literal address inside a trusted-proxy CIDR (or any
+    // loopback address). Only ever called on req.remoteAddr, which is always a
+    // literal socket IP — so InetAddress never triggers a DNS lookup.
+    private boolean isTrustedProxy(String ip) {
+        if (!ip) return false
+        byte[] b
+        try {
+            b = InetAddress.getByName(ip).address
+        } catch (Exception ignored) {
+            return false
+        }
+        try {
+            if (InetAddress.getByAddress(b).isLoopbackAddress()) return true
+        } catch (Exception ignored) { }
+        for (Cidr c : trustedCidrs()) {
+            if (c.contains(b)) return true
+        }
+        false
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse resp, FilterChain chain) {
         def method = req.method
@@ -398,18 +494,29 @@ class RateLimitFilter extends OncePerRequestFilter {
         chain.doFilter(req, resp)
     }
 
-    private static String clientIp(HttpServletRequest req) {
-        // Prefer Cloudflare's CF-Connecting-IP — it's a single IP that
-        // Cloudflare sets from the TCP peer, not spoofable by the client.
-        // Fall back to X-Forwarded-For (first entry) for non-Cloudflare
-        // deployments, then to the direct remoteAddr.
+    private String clientIp(HttpServletRequest req) {
+        def remote = req.remoteAddr
+        // SECURITY: only honour forwarded client-IP headers when the immediate
+        // TCP peer is a trusted reverse proxy. A request that reaches the
+        // origin from any OTHER address keys on its real socket IP — it cannot
+        // set CF-Connecting-IP / X-Forwarded-For to mint a fresh rate-limit
+        // bucket per spoofed value (which would bypass the limiter entirely)
+        // or to frame a third party's IP. Without this gate the limiter
+        // trusted any client that simply sent the header.
+        if (!isTrustedProxy(remote)) {
+            return remote
+        }
+        // Peer is trusted → forwarded headers are meaningful. Prefer
+        // Cloudflare's CF-Connecting-IP: a single IP that Cloudflare sets from
+        // the real TCP peer and OVERWRITES any client-supplied value, so it's
+        // authoritative on the CF path (the live topology).
         def cf = req.getHeader('CF-Connecting-IP')
         if (cf && !cf.trim().isEmpty()) return cf.trim()
         def xff = req.getHeader('X-Forwarded-For')
         if (xff) {
-            // A crafted `X-Forwarded-For: ,` (or `,,`) is non-blank, yet
-            // Java's split drops trailing empty tokens → a zero-length
-            // array, so the old `split(',')[0]` threw
+            // Non-CF fallback. A crafted `X-Forwarded-For: ,` (or `,,`) is
+            // non-blank, yet Java's split drops trailing empty tokens → a
+            // zero-length array, so the old `split(',')[0]` threw
             // ArrayIndexOutOfBoundsException. Unhandled here in the filter
             // chain it surfaces as a 500 on EVERY request carrying such a
             // header. Take the first non-empty hop; fall through to
@@ -419,6 +526,6 @@ class RateLimitFilter extends OncePerRequestFilter {
                 if (t) return t
             }
         }
-        req.remoteAddr
+        remote
     }
 }

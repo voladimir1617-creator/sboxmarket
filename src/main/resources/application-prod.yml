@@ -221,6 +221,20 @@ security:
   #   CORS_ALLOWED_ORIGINS=https://skinbox.example
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
+# In-app rate limiter (RateLimitFilter) trusted-proxy set. The limiter only
+# reads the forwarded client-IP headers (CF-Connecting-IP, X-Forwarded-For)
+# when the immediate TCP peer (req.remoteAddr) is inside one of these CIDRs;
+# any other peer is bucketed by its real socket IP so it cannot spoof the
+# header to escape its limit. Defaults to loopback (the live cloudflared ->
+# app hop is loopback). In a containerised nginx -> app topology the upstream
+# connects from the docker bridge, so the private RFC1918 ranges are included
+# here — those addresses are NOT internet-routable, so an external attacker
+# can never present one as a real TCP source. If the app is fronted by a proxy
+# on a different network, set SBOX_TRUSTED_PROXIES to that proxy's CIDR(s).
+sbox:
+  ratelimit:
+    trusted-proxies: ${SBOX_TRUSTED_PROXIES:127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+
 # Logging — log to files with rotation instead of stdout spam. Ops tooling
 # reads /var/log/skinbox/skinbox.log.
 logging:
