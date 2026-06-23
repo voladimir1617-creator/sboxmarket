@@ -7025,13 +7025,26 @@ export function App() {
                   }
                 }
               },
-              'aria-label': 'Search listings'
-              /* Boss QA cycle 12 A2 — stripped role="combobox", aria-expanded,
-                 aria-autocomplete from <input type="search">. axe-allowed-attr
-                 rejects those on the implicit searchbox role. The suggestion
-                 dropdowns below still have role="listbox"/option and are
-                 keyboard-navigable via the existing onKeyDown handlers, so SR
-                 users still get full functionality without invalid ARIA. */
+              'aria-label': 'Search listings',
+              // WAI-ARIA 1.2 combobox pattern. An earlier pass stripped these
+              // because axe rejects role="combobox" on <input type="search">
+              // (the implicit searchbox role conflicts) — but this input is
+              // type="text", where the combobox role IS valid. Without them a
+              // screen reader never hears that suggestions opened or which one
+              // is highlighted as the user arrows through. aria-activedescendant
+              // points at the highlighted autocomplete option (the only
+              // arrow-navigable list); aria-controls/expanded track whichever
+              // popup (autocomplete or recent-searches) is actually showing.
+              role: 'combobox',
+              'aria-autocomplete': 'list',
+              'aria-expanded': !!((suggestOpen && suggest.length > 0)
+                || (suggestOpen && (!searchInput || searchInput.trim().length < 2) && recentSearches.length > 0)),
+              'aria-controls': (suggestOpen && suggest.length > 0)
+                ? 'search-suggest-listbox'
+                : ((suggestOpen && (!searchInput || searchInput.trim().length < 2) && recentSearches.length > 0)
+                    ? 'search-recent-listbox' : undefined),
+              'aria-activedescendant': (suggestOpen && suggest.length > 0 && suggestIdx >= 0)
+                ? ('search-opt-' + suggestIdx) : undefined
             }),
             searchInput && h('button', {
               className: 'search-clear',
@@ -7044,7 +7057,9 @@ export function App() {
             // item autocomplete.
             suggestOpen && (!searchInput || searchInput.trim().length < 2) && recentSearches.length > 0 && h('div', {
               className: 'search-suggest',
-              role: 'listbox'
+              id: 'search-recent-listbox',
+              role: 'listbox',
+              'aria-label': 'Recent searches'
             },
               // Batch 922 — header row now includes a "Clear all" affordance
               // for users who've accumulated 5-6 recent searches and want
@@ -7095,10 +7110,13 @@ export function App() {
             ),
             suggestOpen && suggest.length > 0 && h('div', {
               className: 'search-suggest',
-              role: 'listbox'
+              id: 'search-suggest-listbox',
+              role: 'listbox',
+              'aria-label': 'Search suggestions'
             },
               suggest.map((item, i) => h('div', {
                 key: item.id,
+                id: 'search-opt-' + i,
                 className: `search-suggest-row ${i === suggestIdx ? 'active' : ''}`,
                 role: 'option',
                 'aria-selected': i === suggestIdx,
