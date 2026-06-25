@@ -28570,3 +28570,26 @@ details:not([open]) > .faq-a {
   flex: 0 0 auto !important;
   white-space: nowrap !important;
 }
+
+/* WAVE 189 — bottom-right mobile FAB stack. The Filters FAB pill sat at
+   bottom:20px in the 481-720 band and overlapped the 58px fixed bottom-nav by
+   ~38px (the <=480 rule lifted it to bottom:85 but the 481-720 band was
+   missed). Lift it above the nav there. Then, on pages that render a Filters
+   FAB, stack the "Back to top" button ABOVE the FAB so the two bottom-right
+   FABs don't collide when scrolled (:has scopes this to those pages only). */
+@media (min-width: 481px) and (max-width: 720px) {
+  .mobile-filters-fab {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 12px) !important;
+  }
+}
+@media (max-width: 768px) {
+  body:has(.mobile-filters-fab) .app-back-to-top {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 74px) !important;
+  }
+}
+@media (max-width: 480px) {
+  /* <=480 the Filters FAB is a 52px circle at bottom:85 — clear that. */
+  body:has(.mobile-filters-fab) .app-back-to-top {
+    bottom: calc(85px + 52px + 14px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
