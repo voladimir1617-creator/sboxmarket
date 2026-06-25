@@ -2574,6 +2574,7 @@ function BackToTopButton() {
   }, []);
   if (!visible) return null;
   return h('button', {
+    className: 'app-back-to-top',
     'aria-label': 'Back to top',
     title: 'Back to top',
     onClick: () => {

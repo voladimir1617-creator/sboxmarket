@@ -28539,3 +28539,34 @@ details:not([open]) > .faq-a {
   overflow: hidden !important;
   border: 0 !important;
 }
+
+/* WAVE 187 — the floating "Back to top" button (app.js, inline-styled
+   position:fixed; bottom:24px) overlapped the 58px fixed mobile bottom-nav at
+   <=720px, sitting on top of the right-most nav tab. Lift it clear of the nav
+   on mobile. The inline bottom has no !important, so this rule wins. */
+@media (max-width: 720px) {
+  .app-back-to-top {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 14px) !important;
+  }
+}
+
+/* WAVE 188 — the category subnav was forced flex-wrap:wrap + overflow:hidden
+   (lines ~20273/20307), so on narrow screens its 8 tabs (~580px) wrapped to 3
+   rows inside the fixed 44px bar and spilled onto the search toolbar below
+   (overlap reported as "alignment off on phone"). A category strip must scroll
+   horizontally, not wrap. Restore nowrap + horizontal scroll for the bar and
+   its inner wrapper; keep the scrollbar hidden. */
+.csfloat-subnav, .csfloat-subnav-inner {
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none !important;
+}
+.csfloat-subnav::-webkit-scrollbar,
+.csfloat-subnav-inner::-webkit-scrollbar { display: none !important; }
+.csfloat-subnav > .csfloat-subnav-tab,
+.csfloat-subnav-inner > .csfloat-subnav-tab {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
