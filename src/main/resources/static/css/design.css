@@ -28510,3 +28510,32 @@ html body .full-page-mode .modal-backdrop:has(.empty-authgate) > .modal, html bo
 
 /* WAVE 185 — design-review #3 (verified): the primary button "two systems" finding was largely unfounded — every primary already renders blue (the line-1180 ink-fill is dead/overridden). The ONE real residual: the nav .steam-btn was pinned to 4px radius (line 27306) while every other primary — including the auth-gate "Sign in with Steam" (.btn-accent) — uses the 8px system radius. Align it. */
 html body nav.nav .steam-btn, html body .toolbar .steam-btn, html body button.steam-btn { border-radius: 8px !important; }
+
+/* WAVE 186 — CROSS-BROWSER <details> COLLAPSE FIX (2026-06-24).
+   Chromium 131+ (Opera GX 132, current Chrome/Edge) changed how a CLOSED
+   <details> renders: it now PAINTS author-styled content inside the closed
+   element (via the new ::details-content wrapper), whereas older engines hid
+   it natively. The FAQ/help accordions style their answer (display:block,
+   and a parent override flipped overflow:visible) and relied on that native
+   hiding — so on a newer browser EVERY closed answer rendered and overflowed
+   its 27px row, overlapping the next question. Reported as "everything
+   overlapping / alignment off on different screens"; invisible on older
+   Playwright Chromium, which still hid it. Restore collapse for every closed
+   <details> site-wide. ::details-content targets exactly the affected engines
+   (older ones ignore the unknown pseudo, where there's no bug); the explicit
+   answer-class rules are belt-and-braces against the !important overrides. */
+details:not([open])::details-content {
+  content-visibility: hidden !important;
+  block-size: 0 !important;
+}
+details:not([open]) > .csfloat-home-faq-a,
+details:not([open]) > .csfloat-faq-a,
+details:not([open]) > .help-faq-a,
+details:not([open]) > .faq-a {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+}
