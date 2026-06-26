@@ -514,7 +514,11 @@ export async function fetchMyStallSold() {
 export async function fetchMyStallSoldWithTotal() {
   try {
     const res = await fetch(`${API}/listings/my-stall/sold`, { credentials: 'same-origin' });
-    if (!res.ok) return { items: [], total: 0 };
+    // `error:true` lets the MyStall "Sold" tab distinguish a real fetch failure
+    // (show a retry card) from a genuinely-empty sales history ("No sales yet").
+    // Without it a 500/network drop showed a seller their payout history had
+    // vanished. (audit P2)
+    if (!res.ok) return { items: [], total: 0, error: true };
     const items = await res.json();
     const totalHeader = res.headers.get('X-Total-Count');
     const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
@@ -524,7 +528,7 @@ export async function fetchMyStallSoldWithTotal() {
       total: Number.isFinite(parsed) ? parsed : fallback
     };
   } catch {
-    return { items: [], total: 0 };
+    return { items: [], total: 0, error: true };
   }
 }
 /** Apply a percent adjustment (±50 max) to every active non-auction

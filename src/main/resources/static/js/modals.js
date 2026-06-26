@@ -11618,6 +11618,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // prolific seller crosses the 500-row display cap (batch 1033).
   const [stallTotal, setStallTotal] = useState(null);
   const [sold, setSold] = useState(null);
+  // Sold-history fetch failure (vs a genuinely-empty history) so the tab can
+  // show a retry card instead of falsely telling a seller their payouts
+  // vanished. (audit P2)
+  const [soldErr, setSoldErr] = useState(false);
   // True sale-history count on the server — feeds the "Showing most
   // recent 200 of N" overflow banner on the Sold tab for power-sellers.
   // Null until the first fetch resolves so the banner doesn't flash.
@@ -11798,12 +11802,13 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // Load sold history lazily when the user clicks the tab — avoids a second
   // list fetch on every modal open for sellers who never touch the history.
   useEffect(() => {
-    if (!me || tab !== 'sold' || sold !== null) return;
-    fetchMyStallSoldWithTotal().then(({ items, total }) => {
+    if (!me || tab !== 'sold' || sold !== null || soldErr) return;
+    fetchMyStallSoldWithTotal().then(({ items, total, error }) => {
+      if (error) { setSoldErr(true); return; }  // retry card, not false "No sales yet"
       setSold(items);
       setSoldRowCount(total);
     });
-  }, [me, tab, sold]);
+  }, [me, tab, sold, soldErr]);
   // Same lazy-load for analytics. The endpoint computes per-item demand
   // (30-day item sales count) + view counts so opening this tab does ONE
   // round-trip and the per-row cells are filled from cached numbers.
@@ -12647,9 +12652,18 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             )
     ),
     tab === 'sold' && (
-      sold === null
-        ? h('div', { className: 'spinner' })
-        : sold.length === 0
+      soldErr
+        ? h('div', { className: 'empty-inline' },
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
+            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+              "Couldn't load your sold history"),
+            h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
+              "Something interrupted the request for your settled sales. Your payout history is safe — this is only a display hiccup."),
+            h('div', { style: { display: 'flex', justifyContent: 'center' } },
+              h('button', { className: 'btn btn-secondary', onClick: () => setSoldErr(false) }, 'Retry')))
+        : sold === null
+          ? h('div', { className: 'spinner' })
+          : sold.length === 0
           ? h('div', { className: 'empty-inline' },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
               h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
