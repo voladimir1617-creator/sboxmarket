@@ -133,12 +133,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   const [reportReasons, setReportReasons] = useState([]);
   // Image lightbox open state (clickable magnifier, /item page-mode only).
   const [zoomOpen, setZoomOpen] = useState(false);
-  useEffect(() => {
-    if (!zoomOpen) return;
-    const onKey = (e) => { if (e.key === 'Escape') setZoomOpen(false); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [zoomOpen]);
+  // Lightbox a11y: the trap/Escape/initial+restore-focus is handled by the
+  // shared useDialogA11y hook (called below near the other dialog traps) so the
+  // aria-modal image dialog no longer lets Tab escape to the page behind it.
+  // (audit P3 — replaced a bare document Escape listener.)
+  const lightboxRef = useRef(null);
   useEffect(() => {
     if (reportTarget && reportReasons.length === 0) {
       fetchReportReasons().then(r => setReportReasons(r.length ? r : [
@@ -495,6 +494,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     if (typeof onCloseRef.current === 'function') onCloseRef.current();
   }, []);
   useDialogA11y(panelRef, dialogClose, !isPageMode);
+  // Image lightbox a11y — trap focus + Escape + restore-focus while the
+  // full-size zoom dialog is open (item page-mode only). (audit P3)
+  useDialogA11y(lightboxRef, () => setZoomOpen(false), isPageMode && zoomOpen);
   // Buy-confirm dialog a11y — its own ref + close callback so Escape,
   // focus-trap and restore-focus work independently of the item panel's
   // trap. Busy-guarded so a click during the purchase POST can't tear
@@ -2275,8 +2277,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     ),
     /* Image lightbox — full-viewport overlay opened by the magnifier
        button on the item-detail image. Click backdrop or the close X to
-       dismiss; Escape also dismisses (handled in the useEffect above). */
+       dismiss; Escape + Tab focus-trap handled by useDialogA11y(lightboxRef). */
     isPageMode && zoomOpen && h('div', {
+      ref: lightboxRef,
       className: 'item-lightbox',
       role: 'dialog',
       'aria-modal': 'true',
