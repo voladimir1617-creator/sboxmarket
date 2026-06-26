@@ -4812,6 +4812,15 @@ export function App() {
       // instead of silently landing back on the home page.
       confirmDeposit(sid)
         .then(r => {
+          // confirmDeposit returns an error sentinel ({error}/{code}) on a
+          // failed/unsettled/expired/rate-limited confirm. Do NOT show a green
+          // "Deposit complete" on failure — no money was credited and the user
+          // must retry / check Wallet history. (audit P2 false-success)
+          if (r && (r.error || r.code)) {
+            showToast(r.message || r.error ||
+              'We could not confirm your deposit yet — check Wallet history in a minute.', 'err');
+            return;
+          }
           loadWallet();
           const bal = r && r.newBalance != null ? Number(r.newBalance) : null;
           showToast(bal != null
@@ -4819,7 +4828,7 @@ export function App() {
             : 'Deposit complete — balance updated', 'ok');
         })
         .catch(() => {
-          showToast('Deposit received — balance will refresh shortly', 'ok');
+          showToast('We could not confirm your deposit — check Wallet history in a minute.', 'err');
         });
       dirty = true;
     }

@@ -80,6 +80,7 @@ class AdminService {
     @Autowired AdminAuthorization adminAuthorization
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.ApiKeyRepository apiKeyRepository
+    @Autowired(required = false) ApiKeyService apiKeyService
     @Autowired(required = false) SteamMarketPriceService steamMarketPriceService
     @Autowired(required = false) @Lazy StripeService stripeService
 
@@ -804,6 +805,18 @@ class AdminService {
         user.sessionEpoch = System.currentTimeMillis()
         steamUserRepository.save(user)
 
+        // Revoke every live API key the banned user holds. sessionEpoch only
+        // invalidates COOKIE sessions; an outstanding sbx_live_… key keeps
+        // authenticating (ApiKeyAuthFilter stamps SESSION_USER_ID) and behaves
+        // like a live session, so a banned (or leaked-key) account would keep
+        // full programmatic access — listing, buying, offers, wallet flows.
+        // Silent-fail like the cleanup blocks below. (audit P2)
+        try {
+            apiKeyService?.revokeAll(targetUserId)
+        } catch (Exception e) {
+            log.warn("API-key revoke on ban failed for user ${targetUserId}: ${e.message}")
+        }
+
         // Cancel all the user's active listings so the marketplace stays clean
         def active = listingRepository.findActiveBySeller(targetUserId)
         active.each { it.status = 'CANCELLED' }
@@ -1102,6 +1115,15 @@ class AdminService {
             throw new BadRequestException("CANT_REVOKE_SELF", "You cannot revoke your own admin role")
         }
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
+        // Last-admin lockout guard: refuse to demote the final remaining admin,
+        // else two admins can mutually demote each other (or one demotes the
+        // rest) -> zero admins -> the entire /api/admin surface (withdrawals,
+        // disputes, refunds, role grants) is unreachable until an env-var change
+        // + redeploy. (audit P2)
+        if (user.role == 'ADMIN' && steamUserRepository.countByRole('ADMIN') <= 1) {
+            throw new BadRequestException("LAST_ADMIN",
+                "Cannot revoke the last remaining admin — promote another admin first")
+        }
         user.role = 'USER'
         steamUserRepository.save(user)
         notificationService?.safePush(targetUserId, 'ADMIN_REVOKED',
@@ -1553,6 +1575,15 @@ class AdminService {
             }
         } catch (Exception e) {
             log.warn("finalizeDeletion: saved-search cleanup failed for ${targetUserId}: ${e.message}")
+        }
+        // Revoke all the deleted user's API keys — a GDPR-finalised ("deleted")
+        // account must not retain programmatic access; an outstanding sbx_live_…
+        // key otherwise keeps authenticating as the erased account. (audit P2)
+        try {
+            int revoked = apiKeyService?.revokeAll(targetUserId) ?: 0
+            if (revoked > 0) log.info("finalizeDeletion: revoked ${revoked} API key(s) for user ${targetUserId}")
+        } catch (Exception e) {
+            log.warn("finalizeDeletion: API-key revoke failed for ${targetUserId}: ${e.message}")
         }
 
         auditService?.log(AuditService.USER_BANNED, adminUserId, targetUserId, null,

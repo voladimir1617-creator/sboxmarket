@@ -366,6 +366,7 @@ class AdminServiceSpec extends Specification {
             email: 'p@x.io', emailVerified: true, displayName: 'Pat')
         steamUserRepository.findById(20L) >> Optional.of(target)
         steamUserRepository.save(_) >> { args -> args[0] }
+        steamUserRepository.countByRole('ADMIN') >> 2   // not the last admin
 
         when:
         def result = service.revokeAdmin(1L, 20L)
@@ -373,6 +374,22 @@ class AdminServiceSpec extends Specification {
         then:
         result.role == 'USER'
         1 * emailService.sendRoleRevoked('p@x.io', 'Pat', 'ADMIN')
+    }
+
+    def "revokeAdmin refuses to demote the last remaining admin (lockout guard)"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', role: 'ADMIN',
+            email: 'p@x.io', emailVerified: true, displayName: 'Pat')
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        steamUserRepository.countByRole('ADMIN') >> 1   // the only admin
+
+        when:
+        service.revokeAdmin(1L, 20L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'LAST_ADMIN'
+        0 * steamUserRepository.save(_)
     }
 
     def "revokeAdmin forbids self-revoke"() {
