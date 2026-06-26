@@ -10205,6 +10205,10 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const [source, setSource]       = useState('steam'); // steam | internal
   const [steamData, setSteamData] = useState(null);    // {items, count, lastSyncedAt}
   const [internal, setInternal]   = useState(null);
+  // Platform-inventory fetch failure (vs genuinely empty) so the Sell modal's
+  // internal tab shows a retry affordance instead of spinning forever / falsely
+  // claiming "Platform inventory empty". (fetch-swallow bug class)
+  const [internalErr, setInternalErr] = useState(false);
   const [picking, setPicking]     = useState(null);    // { kind: 'steam'|'internal', item: {...} }
   const [price, setPrice]         = useState('');
   const [busy, setBusy]           = useState(false);
@@ -10317,7 +10321,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     setSteamData(await fetchSteamInventory());
   }, []);
   const loadInternal = useCallback(async () => {
-    const { items, total } = await fetchInventoryWithTotal();
+    const { items, total, error } = await fetchInventoryWithTotal();
+    if (error) { setInternalErr(true); return; }  // retry card, not a forever-spinner / false-empty
+    setInternalErr(false);
     setInternal(items);
     setInternalTotal(total);
   }, []);
@@ -11391,7 +11397,15 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       );
     })(),
 
-    source === 'internal' && internal === null && h('div', { className: 'spinner' }),
+    source === 'internal' && internalErr && h('div', { className: 'empty-inline' },
+      h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
+      h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+        "Couldn't load your platform inventory"),
+      h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+        'Something interrupted the request. Your items are safe — this is only a display hiccup.'),
+      h('div', { style: { display: 'flex', justifyContent: 'center' } },
+        h('button', { className: 'btn btn-secondary', onClick: () => { setInternalErr(false); loadInternal(); } }, 'Retry'))),
+    source === 'internal' && !internalErr && internal === null && h('div', { className: 'spinner' }),
     source === 'internal' && internal && internalList.length === 0 && h('div', { className: 'empty-inline' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'Platform inventory empty'),

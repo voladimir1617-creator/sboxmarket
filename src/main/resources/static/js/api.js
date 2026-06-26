@@ -486,7 +486,11 @@ export async function fetchInventory() {
 export async function fetchInventoryWithTotal() {
   try {
     const res = await fetch(`${API}/listings/inventory`, { credentials: 'same-origin' });
-    if (!res.ok) return { items: [], total: 0 };
+    // error:true so the SellItemsModal "Platform inventory" tab can show a retry
+    // affordance instead of a permanent spinner / false "Platform inventory
+    // empty" when the load fails. Steam inventory is a separate fetch, so only
+    // this secondary source is affected. (fetch-swallow bug class)
+    if (!res.ok) return { items: [], total: 0, error: true };
     const items = await res.json();
     const totalHeader = res.headers.get('X-Total-Count');
     const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
@@ -496,7 +500,7 @@ export async function fetchInventoryWithTotal() {
       total: Number.isFinite(parsed) ? parsed : fallback
     };
   } catch {
-    return { items: [], total: 0 };
+    return { items: [], total: 0, error: true };
   }
 }
 
