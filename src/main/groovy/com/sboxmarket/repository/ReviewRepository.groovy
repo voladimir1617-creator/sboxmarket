@@ -3,6 +3,7 @@ package com.sboxmarket.repository
 import com.sboxmarket.model.Review
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
@@ -27,6 +28,14 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
      *  eligibleTradesFor's reviewed-flag without loading the buyer's entire
      *  cross-seller review history just to build a Set. Derived query (no JPQL). */
     List<Review> findByFromUserIdAndTradeIdIn(Long fromUserId, Collection<Long> tradeIds)
+
+    /** GDPR PII scrub on account deletion (audit P2) — blank the free-text
+     *  comment a deleted author wrote, keeping the row (rating + FK skeleton)
+     *  so the counterparty's aggregate score + the audit trail stay intact.
+     *  Returns the row count for logging. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Review r SET r.comment = null WHERE r.fromUserId = :uid AND r.comment IS NOT NULL")
+    int blankCommentsByAuthor(@Param('uid') Long fromUserId)
 
     /** Spam guard — count short, recent reviews authored by this buyer
      *  since the given epoch-ms cutoff. A "short" review is one whose

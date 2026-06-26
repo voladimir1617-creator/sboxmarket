@@ -75,6 +75,10 @@ class AdminService {
     @Autowired(required = false) com.sboxmarket.repository.UserBlockRepository userBlockRepository
     @Autowired(required = false) com.sboxmarket.repository.SellerFollowRepository sellerFollowRepository
     @Autowired(required = false) com.sboxmarket.repository.SavedSearchRepository savedSearchRepository
+    // GDPR PII scrub on account deletion — blank user-authored free text
+    // (review comments, trade chat bodies) while keeping the row skeletons. (audit P2)
+    @Autowired(required = false) com.sboxmarket.repository.ReviewRepository reviewRepository
+    @Autowired(required = false) com.sboxmarket.repository.TradeMessageRepository tradeMessageRepository
     @Autowired(required = false) javax.sql.DataSource dataSource
     @Autowired BanGuard banGuard
     @Autowired AdminAuthorization adminAuthorization
@@ -1575,6 +1579,32 @@ class AdminService {
             }
         } catch (Exception e) {
             log.warn("finalizeDeletion: saved-search cleanup failed for ${targetUserId}: ${e.message}")
+        }
+        // GDPR PII scrub of user-authored free text (audit P2). The deletion
+        // docstring promises a PII scrub, but the user's review comments + trade
+        // chat bodies survived as plain text on rows keyed by other entities.
+        // Blank them while keeping the row skeletons (rating + FK, thread
+        // structure + read-receipts) so the counterparty's aggregate review
+        // score and the audit trail stay intact. Per-repo try/catch — the
+        // account itself is already scrubbed above; these are best-effort
+        // cleanup an admin can re-run. (support_messages.author is a ROLE, not a
+        // user id, so support-ticket bodies need a ticket-join scrub — tracked
+        // separately, not done here.)
+        try {
+            if (reviewRepository != null) {
+                int n = reviewRepository.blankCommentsByAuthor(targetUserId)
+                if (n > 0) log.info("finalizeDeletion: scrubbed ${n} review comment(s) for user ${targetUserId}")
+            }
+        } catch (Exception e) {
+            log.warn("finalizeDeletion: review-comment scrub failed for ${targetUserId}: ${e.message}")
+        }
+        try {
+            if (tradeMessageRepository != null) {
+                int n = tradeMessageRepository.blankBodiesBySender(targetUserId)
+                if (n > 0) log.info("finalizeDeletion: scrubbed ${n} trade message(s) for user ${targetUserId}")
+            }
+        } catch (Exception e) {
+            log.warn("finalizeDeletion: trade-message scrub failed for ${targetUserId}: ${e.message}")
         }
         // Revoke all the deleted user's API keys — a GDPR-finalised ("deleted")
         // account must not retain programmatic access; an outstanding sbx_live_…

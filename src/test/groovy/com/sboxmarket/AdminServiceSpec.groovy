@@ -61,6 +61,8 @@ class AdminServiceSpec extends Specification {
     com.sboxmarket.service.BuyOrderService buyOrderService = Mock()
     com.sboxmarket.repository.OfferRepository offerRepository = Mock()
     com.sboxmarket.repository.SupportMessageRepository supportMessageRepository = Mock()
+    com.sboxmarket.repository.ReviewRepository reviewRepository = Mock()
+    com.sboxmarket.repository.TradeMessageRepository tradeMessageRepository = Mock()
     com.sboxmarket.service.AuditService auditService = Mock()
 
     @Subject
@@ -83,7 +85,9 @@ class AdminServiceSpec extends Specification {
         tradeService             : tradeService,
         watchlistAlertRepository : watchlistAlertRepository,
         buyOrderService          : buyOrderService,
-        offerRepository          : offerRepository
+        offerRepository          : offerRepository,
+        reviewRepository         : reviewRepository,
+        tradeMessageRepository   : tradeMessageRepository
     )
 
     // ── ban / unban ───────────────────────────────────────────────
@@ -850,6 +854,47 @@ class AdminServiceSpec extends Specification {
         then:
         1 * watchlistAlertRepository.deleteByUser(60L)
         1 * buyOrderService.cancelAllForUser(60L)
+    }
+
+    def "finalizeDeletion scrubs user-authored free text — review comments + trade bodies (GDPR, audit P2)"() {
+        // The deletion docstring promised a PII scrub, but the user's review
+        // comments + trade chat bodies survived as plain text. They must now be
+        // blanked while the row skeletons stay for the counterparty.
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann', deletionRequestedAt: 1234L)
+        steamUserRepository.findById(60L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_999') >> null
+        tradeRepository.findByParticipant(60L) >> []
+        listingRepository.findActiveBySeller(60L) >> []
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def res = service.finalizeDeletion(1L, 60L)
+
+        then:
+        1 * reviewRepository.blankCommentsByAuthor(60L)
+        1 * tradeMessageRepository.blankBodiesBySender(60L)
+        res.finalised == true
+    }
+
+    def "finalizeDeletion swallows a PII-scrub failure and still finalises"() {
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann', deletionRequestedAt: 1234L)
+        steamUserRepository.findById(60L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_999') >> null
+        tradeRepository.findByParticipant(60L) >> []
+        listingRepository.findActiveBySeller(60L) >> []
+        steamUserRepository.save(_) >> { args -> args[0] }
+        reviewRepository.blankCommentsByAuthor(60L) >> { throw new RuntimeException('db down') }
+
+        when:
+        def res = service.finalizeDeletion(1L, 60L)
+
+        then:
+        // The trade-message scrub still ran even though the review scrub threw.
+        1 * tradeMessageRepository.blankBodiesBySender(60L)
+        res.finalised == true
+        noExceptionThrown()
     }
 
     def "finalizeDeletion swallows watchlist-alert cleanup failures"() {

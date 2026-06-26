@@ -73,6 +73,16 @@ interface TradeMessageRepository extends JpaRepository<TradeMessage, Long> {
                          @Param('now') Long now)
 
     /**
+     * GDPR PII scrub on account deletion (audit P2) — blank the chat body a
+     * deleted sender wrote, retaining the row so the counterparty's thread
+     * structure + read-receipts stay coherent. Empty string (not null) keeps
+     * the column safe under a NOT NULL constraint. Returns the row count.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE TradeMessage m SET m.body = '' WHERE m.senderUserId = :uid AND m.body <> ''")
+    int blankBodiesBySender(@Param('uid') Long senderUserId)
+
+    /**
      * Bulk unread-count per trade for a single viewer — drives the
      * "💬 N new" chip on the Profile → Trades list (batch 281). One
      * query, one map back. Empty `tradeIds` is handled by the caller
