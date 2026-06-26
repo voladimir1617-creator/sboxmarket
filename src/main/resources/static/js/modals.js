@@ -11613,6 +11613,10 @@ export function MyStallModal(props) {
 
 function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   const [stall, setStall] = useState(null);
+  // Active-stall fetch failure (vs a genuinely-empty stall) so the modal can
+  // show a retry card instead of spinning forever / claiming the seller's live
+  // listings vanished — sibling of soldErr. (audit P2)
+  const [stallErr, setStallErr] = useState(false);
   // True active-listing count on the server — feeds the MyStall Active
   // tab's "Showing most recent 500 of N" overflow banner when a
   // prolific seller crosses the 500-row display cap (batch 1033).
@@ -11723,7 +11727,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   }, []);
   const maskEarn = (v) => privacy ? '$•••••' : fmt(v);
   const load = useCallback(() => {
-    fetchMyStallWithTotal().then(({ items, total }) => {
+    fetchMyStallWithTotal().then(({ items, total, error }) => {
+      if (error) { setStallErr(true); return; }  // retry card, not a permanent spinner / false-empty
+      setStallErr(false);
       setStall(items);
       setStallTotal(total);
     });
@@ -11841,6 +11847,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
 
   if (!me) return h(InfoModal, { title: 'My Stall', onClose },
     h(SignInNeededEmptyState, { what: 'your stall' }));
+  if (stallErr) return h(InfoModal, { title: 'My Stall', onClose },
+    h('div', { className: 'empty-inline' },
+      h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
+      h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+        "Couldn't load your stall"),
+      h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
+        "Something interrupted the request for your stall. Your listings are safe — this is only a display hiccup."),
+      h('div', { style: { display: 'flex', justifyContent: 'center' } },
+        h('button', { className: 'btn btn-secondary', onClick: () => { setStallErr(false); load(); } }, 'Retry'))));
   if (stall === null) return h(InfoModal, { title: 'My Stall', onClose }, h('div', { className: 'spinner' }));
 
   const doCancel = async (listing) => {

@@ -552,7 +552,10 @@ export async function fetchMyStall() {
 export async function fetchMyStallWithTotal() {
   try {
     const res = await fetch(`${API}/listings/my-stall`, { credentials: 'same-origin' });
-    if (!res.ok) return { items: [], total: 0 };
+    // error:true distinguishes a real fetch failure (retry card) from a
+    // genuinely-empty active stall — mirrors the Sold-tab fix so a transient
+    // 500/network drop doesn't tell a seller their live listings vanished. (audit P2)
+    if (!res.ok) return { items: [], total: 0, error: true };
     const items = await res.json();
     const totalHeader = res.headers.get('X-Total-Count');
     const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
@@ -562,7 +565,7 @@ export async function fetchMyStallWithTotal() {
       total: Number.isFinite(parsed) ? parsed : fallback
     };
   } catch {
-    return { items: [], total: 0 };
+    return { items: [], total: 0, error: true };
   }
 }
 
