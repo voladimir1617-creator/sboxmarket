@@ -565,17 +565,33 @@ class BidService {
             // Email the displaced bidder — the notification bell may go
             // unchecked for hours; by the time they see it the auction
             // might be over. Gated on emailVerified, silent-fail.
-            try {
-                def prev = steamUserRepository.findById(previousTopId).orElse(null)
-                if (emailService != null && emailService.canSendTo(prev, 'AUCTIONS')) {
-                    def itemUrl = listing.item?.id != null
-                        ? "/item/${listing.item.id}".toString()
-                        : null
-                    emailService.sendAuctionOutbid(prev.email, prev.displayName,
-                        listing.item?.name, amount, itemUrl)
+            // Deferred to afterCommit: markOthersOutbid (line 590, AFTER this)
+            // and the tx commit can still roll the new bid back; a synchronous
+            // send would tell the prior leader they were outbid by a bid that
+            // never durably landed. Inline fallback preserves the no-tx test
+            // path. (audit P3)
+            final Long prevId = previousTopId
+            final BigDecimal newTop = amount
+            final String itemNameOb = listing.item?.name
+            final String itemUrlOb = listing.item?.id != null ? "/item/${listing.item.id}".toString() : null
+            def sendOutbid = {
+                try {
+                    def prev = steamUserRepository.findById(prevId).orElse(null)
+                    if (emailService != null && emailService.canSendTo(prev, 'AUCTIONS')) {
+                        emailService.sendAuctionOutbid(prev.email, prev.displayName,
+                            itemNameOb, newTop, itemUrlOb)
+                    }
+                } catch (Exception e) {
+                    log.warn("Outbid email failed for user ${prevId}: ${e.message}")
                 }
-            } catch (Exception e) {
-                log.warn("Outbid email failed for user ${previousTopId}: ${e.message}")
+            }
+            if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override void afterCommit() { sendOutbid() }
+                    })
+            } else {
+                sendOutbid()
             }
         }
 
@@ -1113,22 +1129,46 @@ class BidService {
             // same steamUserRepository lookup the banned-filter just
             // did, but re-fetched here to pick up email/verified fields.
             if (emailService != null && steamUserRepository != null) {
-                try {
-                    def eligible = steamUserRepository.findAllById(recipients)
-                    def itemUrl = listing.item?.id != null ? "/item/${listing.item.id}".toString() : null
-                    def topBid  = listing.currentBid ?: listing.price ?: BigDecimal.ZERO
-                    eligible.each { u ->
-                        try {
-                            if (emailService.canSendTo(u, 'AUCTIONS')) {
-                                emailService.sendAuctionEnding(u.email, u.displayName,
-                                    itemName, topBid, (long) mins, itemUrl)
+                // Defer the email fan-out to afterCommit. notifyEndingSoon runs
+                // in a REQUIRES_NEW tx whose commit also persists the
+                // endingSoonNotified dedup claim; if that tx rolls back at commit
+                // (e.g. a concurrent placeBid extending expiresAt collides on the
+                // same row, as the comment at 1135-1139 anticipates), a
+                // synchronously-sent email has already left, and the next sweep
+                // re-fires the "Ending in ~Nm" mail to EVERY bidder + watcher.
+                // afterCommit sends only once the claim is durably committed —
+                // mirroring WatchlistAlertService.fireRow (the bell push above
+                // already tolerates rollback because it defers). Inline fallback
+                // keeps the no-tx unit-test path unchanged. (audit P2)
+                final def itemUrl = listing.item?.id != null ? "/item/${listing.item.id}".toString() : null
+                final BigDecimal topBid = listing.currentBid ?: listing.price ?: BigDecimal.ZERO
+                final def recipientIds = recipients
+                final long minsLeft = (long) mins
+                final String itemNameF = itemName
+                def sendEmails = {
+                    try {
+                        def eligible = steamUserRepository.findAllById(recipientIds)
+                        eligible.each { u ->
+                            try {
+                                if (emailService.canSendTo(u, 'AUCTIONS')) {
+                                    emailService.sendAuctionEnding(u.email, u.displayName,
+                                        itemNameF, topBid, minsLeft, itemUrl)
+                                }
+                            } catch (Exception inner) {
+                                log.warn("AUCTION_ENDING email failed for uid=${u.id}: ${inner.message}")
                             }
-                        } catch (Exception inner) {
-                            log.warn("AUCTION_ENDING email failed for uid=${u.id}: ${inner.message}")
                         }
+                    } catch (Exception outer) {
+                        log.warn("AUCTION_ENDING email fan-out failed: ${outer.message}")
                     }
-                } catch (Exception outer) {
-                    log.warn("AUCTION_ENDING email fan-out failed: ${outer.message}")
+                }
+                if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                    org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override void afterCommit() { sendEmails() }
+                        })
+                } else {
+                    sendEmails()
                 }
             }
         }

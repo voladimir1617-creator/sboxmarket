@@ -2457,7 +2457,26 @@ class StripeService {
         }
         // Match the live path — credit whole cents only (see createDepositSession).
         amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
-        def wallet = walletRepository.findById(walletId).orElseThrow()
+        // Lock the wallet row so concurrent dev-mode deposits serialize through
+        // the cap check below, exactly like the live path's PESSIMISTIC_WRITE.
+        def wallet = walletRepository.findByIdForUpdate(walletId)
+                .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
+        // Rolling 24-hour deposit cap — MUST be enforced on the dev path too.
+        // Without this, a deployment with no Stripe keys (isLive()==false)
+        // silently accepted unlimited deposits: the cap was computed for the
+        // wallet UI (dailyDepositRemaining) but never enforced, so a user could
+        // drive their balance past $5k/24h while the UI showed the cap as
+        // exhausted. Mirrors createDepositSession lines 427-445.
+        def since = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
+        def used24h = transactionRepository.sumDepositsSince(walletId, since) ?: BigDecimal.ZERO
+        def remaining = (dailyDepositCap ?: BigDecimal.ZERO) - used24h
+        if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO
+        if (amount > remaining) {
+            log.warn("DEPOSIT_DAILY_CAP hit (dev-mode) for wallet ${walletId}: attempted \$${amount}, used \$${used24h}/\$${dailyDepositCap ?: 0} in 24h (remaining \$${remaining})")
+            throw new com.sboxmarket.exception.BadRequestException("DEPOSIT_DAILY_CAP",
+                "Daily deposit cap reached — \$${used24h.toPlainString()} of \$${(dailyDepositCap ?: BigDecimal.ZERO).toPlainString()} used in the last 24h. " +
+                "\$${remaining.toPlainString()} remaining. Try again in 24 hours or open a support ticket for a temporary limit raise.")
+        }
         wallet.balance = wallet.balance + amount
         walletRepository.save(wallet)
 
@@ -2513,7 +2532,13 @@ class StripeService {
     @Scheduled(fixedDelay = 4L * 60L * 60L * 1000L, initialDelay = 5L * 60L * 1000L)
     void sweepStalePendingDeposits() {
         def cutoff = System.currentTimeMillis() - (48L * 60L * 60L * 1000L)
-        def stale = transactionRepository.findStalePending('DEPOSIT', cutoff)
+        // Bounded batch (mirrors every sibling sweeper — SteamEscrowService,
+        // OfferService, NotificationService all page). The per-row claim UPDATE
+        // drains the rest across subsequent 4-hourly ticks, so capping the
+        // hydrate at 5000 avoids loading an unbounded stale-PENDING backlog
+        // (e.g. during an extended Stripe webhook outage) into one tick.
+        def stale = transactionRepository.findStalePending('DEPOSIT', cutoff,
+            org.springframework.data.domain.PageRequest.of(0, 5000))
         if (stale.isEmpty()) return
         log.info("Deposit sweeper: ${stale.size()} candidate stale PENDING deposit(s); racing for claims")
 

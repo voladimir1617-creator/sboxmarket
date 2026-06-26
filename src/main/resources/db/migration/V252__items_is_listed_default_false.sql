@@ -1,0 +1,16 @@
+-- Align the items.is_listed column DEFAULT with the JPA entity.
+--
+-- Item.groovy declares `Boolean isListed = false`, and every creation path
+-- (SeedService, SboxApiService, ListingService reconcile, SteamInventoryController)
+-- either sets isListed explicitly or relies on that entity initializer — so the
+-- catalogue-only default of record is FALSE. But V1__baseline.sql created the
+-- column DEFAULT TRUE, while dev (H2, ddl-auto from the entity, Flyway disabled)
+-- gets FALSE. The two environments therefore had OPPOSITE column-level defaults.
+--
+-- Inert today because no path lets the DB DEFAULT decide the value, but a future
+-- raw-SQL / partial-column INSERT, or any ETL/tooling path that omits is_listed,
+-- would silently get TRUE in prod and FALSE in dev — a catalogue-visibility bug
+-- that can't be reproduced in dev. Make prod match the entity. (audit P3)
+--
+-- Postgres prod dialect; runs prod-only (dev uses H2 ddl-auto, Flyway disabled).
+ALTER TABLE items ALTER COLUMN is_listed SET DEFAULT FALSE;

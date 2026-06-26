@@ -69,7 +69,7 @@ class StripeServiceStaleDepositClaimSpec extends Specification {
     def "sweepStalePendingDeposits fires DEPOSIT_EXPIRED when claimExpirePending returns 1 (this pod won)"() {
         given:
         def tx = makeStale(1001L, 100L)
-        transactionRepository.findStalePending('DEPOSIT', _) >> [tx]
+        transactionRepository.findStalePending('DEPOSIT', _, _) >> [tx]
         transactionRepository.claimExpirePending(1001L) >> 1
         walletRepository.findById(100L) >> Optional.of(new Wallet(id: 100L, username: 'steam_76561198000000001'))
         steamUserRepository.findBySteamId64('76561198000000001') >> new SteamUser(id: 42L)
@@ -86,7 +86,7 @@ class StripeServiceStaleDepositClaimSpec extends Specification {
     def "sweepStalePendingDeposits bails on losing claim — no notification, no wallet lookup"() {
         given: "sibling pod (or a Stripe webhook completing the deposit) beat us to the UPDATE"
         def tx = makeStale(2002L, 200L)
-        transactionRepository.findStalePending('DEPOSIT', _) >> [tx]
+        transactionRepository.findStalePending('DEPOSIT', _, _) >> [tx]
         transactionRepository.claimExpirePending(2002L) >> 0
 
         when:
@@ -103,7 +103,7 @@ class StripeServiceStaleDepositClaimSpec extends Specification {
     def "sweepStalePendingDeposits does NOT call saveAll — every row goes through the conditional claim"() {
         given:
         def tx = makeStale(3003L, 300L)
-        transactionRepository.findStalePending('DEPOSIT', _) >> [tx]
+        transactionRepository.findStalePending('DEPOSIT', _, _) >> [tx]
         transactionRepository.claimExpirePending(3003L) >> 1
         walletRepository.findById(300L) >> Optional.empty()
 
@@ -119,7 +119,7 @@ class StripeServiceStaleDepositClaimSpec extends Specification {
     def "sweepStalePendingDeposits in a 4-row batch where 2 rows webhook-completed only fires 2 notifications"() {
         given: "4 stale rows but 4002 and 4004 already flipped CONFIRMED by Stripe webhook between read and claim"
         def txs = (4001L..4004L).collect { makeStale(it, it + 1000L) }
-        transactionRepository.findStalePending('DEPOSIT', _) >> txs
+        transactionRepository.findStalePending('DEPOSIT', _, _) >> txs
         transactionRepository.claimExpirePending(4001L) >> 1
         transactionRepository.claimExpirePending(4002L) >> 0
         transactionRepository.claimExpirePending(4003L) >> 1
@@ -139,7 +139,7 @@ class StripeServiceStaleDepositClaimSpec extends Specification {
 
     def "sweepStalePendingDeposits does nothing when findStalePending returns empty"() {
         given:
-        transactionRepository.findStalePending('DEPOSIT', _) >> []
+        transactionRepository.findStalePending('DEPOSIT', _, _) >> []
 
         when:
         service.sweepStalePendingDeposits()

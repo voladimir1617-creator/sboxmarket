@@ -62,7 +62,9 @@ class StripeServiceSpec extends Specification {
     def "devModeDeposit credits the wallet and returns live=false"() {
         given:
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"))
-        walletRepository.findById(500L) >> Optional.of(wallet)
+        service.dailyDepositCap = new BigDecimal('5000')
+        walletRepository.findByIdForUpdate(500L) >> Optional.of(wallet)
+        transactionRepository.sumDepositsSince(500L, _) >> BigDecimal.ZERO
         walletRepository.save(_) >> { args -> args[0] }
         def saved = null
         transactionRepository.save(_) >> { args ->
@@ -113,7 +115,9 @@ class StripeServiceSpec extends Specification {
         // the wallet drifts a fraction of a cent past what was charged.
         given:
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"))
-        walletRepository.findById(500L) >> Optional.of(wallet)
+        service.dailyDepositCap = new BigDecimal('5000')
+        walletRepository.findByIdForUpdate(500L) >> Optional.of(wallet)
+        transactionRepository.sumDepositsSince(500L, _) >> BigDecimal.ZERO
         walletRepository.save(_) >> { args -> args[0] }
         def saved = null
         transactionRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; saved = t; t }
