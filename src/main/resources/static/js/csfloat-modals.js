@@ -2670,6 +2670,14 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
           // live bid fields and take only the non-bid columns from fresh. (audit P2)
           const pBid = prev?.bidCount ?? -1;
           const fBid = fresh.bidCount ?? -1;
+          // expiresAt is monotonic FORWARD within a listing (soft-close only
+          // extends it). A stale REST poll that started before an SSE soft-close
+          // carries the SAME bidCount but a LOWER expiresAt — so guarding only on
+          // bidCount (fBid < pBid) let such a poll clobber the extension when the
+          // counts were equal. Protect expiresAt independently: never regress it
+          // backward, regardless of bidCount. (self-review fix)
+          const keepExpires = (prev && prev.expiresAt != null &&
+            (fresh.expiresAt == null || prev.expiresAt > fresh.expiresAt)) ? prev.expiresAt : fresh.expiresAt;
           if (prev && fBid < pBid) {
             return {
               ...fresh,
@@ -2677,11 +2685,11 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
               currentBidderId:   prev.currentBidderId,
               currentBidderName: prev.currentBidderName,
               bidCount:          prev.bidCount,
-              expiresAt:         (prev.expiresAt != null && (fresh.expiresAt == null || prev.expiresAt > fresh.expiresAt)) ? prev.expiresAt : fresh.expiresAt,
+              expiresAt:         keepExpires,
               status:            prev.status ?? fresh.status,
             };
           }
-          return fresh;
+          return { ...fresh, expiresAt: keepExpires };
         });
       }
     } catch (_) { /* stay on the old copy */ }

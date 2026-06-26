@@ -877,7 +877,13 @@ class AdminServiceSpec extends Specification {
         res.finalised == true
     }
 
-    def "finalizeDeletion swallows a PII-scrub failure and still finalises"() {
+    def "finalizeDeletion does NOT swallow a PII-scrub failure — it propagates so the deletion is atomic"() {
+        // Self-review fix: the scrub is an @Modifying bulk UPDATE in the method's
+        // own @Transactional context. A failure already marks the tx rollback-only,
+        // so swallowing it would let the method return finalised:true while Spring
+        // silently rolls the whole deletion back (user unbanned, PII intact). The
+        // scrub must instead ABORT visibly so the admin retries — deletion and PII
+        // scrub are atomic for an erasure request.
         given:
         def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann', deletionRequestedAt: 1234L)
         steamUserRepository.findById(60L) >> Optional.of(target)
@@ -888,13 +894,11 @@ class AdminServiceSpec extends Specification {
         reviewRepository.blankCommentsByAuthor(60L) >> { throw new RuntimeException('db down') }
 
         when:
-        def res = service.finalizeDeletion(1L, 60L)
+        service.finalizeDeletion(1L, 60L)
 
         then:
-        // The trade-message scrub still ran even though the review scrub threw.
-        1 * tradeMessageRepository.blankBodiesBySender(60L)
-        res.finalised == true
-        noExceptionThrown()
+        def e = thrown(RuntimeException)
+        e.message == 'db down'
     }
 
     def "finalizeDeletion swallows watchlist-alert cleanup failures"() {

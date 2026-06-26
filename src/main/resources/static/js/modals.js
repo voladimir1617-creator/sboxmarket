@@ -11823,11 +11823,17 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // list fetch on every modal open for sellers who never touch the history.
   useEffect(() => {
     if (!me || tab !== 'sold' || sold !== null || soldErr) return;
+    // alive guard: clicking Retry flips soldErr and re-runs this effect while the
+    // previous (failed) fetch's promise may still be settling — without this, the
+    // stale resolve could clobber the fresh one's setSold/setSoldRowCount. (self-review fix)
+    let alive = true;
     fetchMyStallSoldWithTotal().then(({ items, total, error }) => {
+      if (!alive) return;
       if (error) { setSoldErr(true); return; }  // retry card, not false "No sales yet"
       setSold(items);
       setSoldRowCount(total);
     });
+    return () => { alive = false; };
   }, [me, tab, sold, soldErr]);
   // Same lazy-load for analytics. The endpoint computes per-item demand
   // (30-day item sales count) + view counts so opening this tab does ONE

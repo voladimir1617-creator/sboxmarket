@@ -1586,25 +1586,25 @@ class AdminService {
         // Blank them while keeping the row skeletons (rating + FK, thread
         // structure + read-receipts) so the counterparty's aggregate review
         // score and the audit trail stay intact. Per-repo try/catch — the
-        // account itself is already scrubbed above; these are best-effort
-        // cleanup an admin can re-run. (support_messages.author is a ROLE, not a
-        // user id, so support-ticket bodies need a ticket-join scrub — tracked
-        // separately, not done here.)
-        try {
-            if (reviewRepository != null) {
-                int n = reviewRepository.blankCommentsByAuthor(targetUserId)
-                if (n > 0) log.info("finalizeDeletion: scrubbed ${n} review comment(s) for user ${targetUserId}")
-            }
-        } catch (Exception e) {
-            log.warn("finalizeDeletion: review-comment scrub failed for ${targetUserId}: ${e.message}")
+        // (support_messages.author is a ROLE, not a user id, so support-ticket
+        // bodies need a ticket-join scrub — tracked separately, not done here.)
+        //
+        // NOT wrapped in try/catch on purpose. These are @Modifying bulk UPDATEs
+        // running in finalizeDeletion's own @Transactional context: a failure
+        // here ALREADY marks the transaction rollback-only, so swallowing the
+        // exception would let the method return "finalised: true" while Spring
+        // silently rolls the WHOLE deletion back (user left unbanned, PII
+        // intact) — a silent GDPR-compliance failure. Letting it propagate makes
+        // the scrub ATOMIC with the deletion: either the account is banned AND
+        // its PII is gone, or the admin gets a visible error and retries. That
+        // is the correct semantics for an erasure request. (self-review fix)
+        if (reviewRepository != null) {
+            int n = reviewRepository.blankCommentsByAuthor(targetUserId)
+            if (n > 0) log.info("finalizeDeletion: scrubbed ${n} review comment(s) for user ${targetUserId}")
         }
-        try {
-            if (tradeMessageRepository != null) {
-                int n = tradeMessageRepository.blankBodiesBySender(targetUserId)
-                if (n > 0) log.info("finalizeDeletion: scrubbed ${n} trade message(s) for user ${targetUserId}")
-            }
-        } catch (Exception e) {
-            log.warn("finalizeDeletion: trade-message scrub failed for ${targetUserId}: ${e.message}")
+        if (tradeMessageRepository != null) {
+            int n = tradeMessageRepository.blankBodiesBySender(targetUserId)
+            if (n > 0) log.info("finalizeDeletion: scrubbed ${n} trade message(s) for user ${targetUserId}")
         }
         // Revoke all the deleted user's API keys — a GDPR-finalised ("deleted")
         // account must not retain programmatic access; an outstanding sbx_live_…

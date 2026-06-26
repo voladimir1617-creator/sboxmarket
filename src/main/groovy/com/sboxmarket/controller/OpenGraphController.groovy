@@ -215,9 +215,9 @@ class OpenGraphController {
             // Facebook/Discord/LinkedIn render the share card distorted or reject
             // the content-type mismatch. Real dims aren't known at request time;
             // drop the hints and let the platform measure the image. (audit P2)
-            .replaceFirst(/<meta property="og:image:width"[^>]*>/,  '')
-            .replaceFirst(/<meta property="og:image:height"[^>]*>/, '')
-            .replaceFirst(/<meta property="og:image:type"[^>]*>/,   '')
+            .replaceFirst(/\s*<meta property="og:image:width"[^>]*>/,  '')
+            .replaceFirst(/\s*<meta property="og:image:height"[^>]*>/, '')
+            .replaceFirst(/\s*<meta property="og:image:type"[^>]*>/,   '')
             .replaceFirst(/<meta property="og:url"[^>]*>/,         Q("<meta property=\"og:url\" content=\"${escape(url)}\">"))
             .replaceFirst(/<meta property="og:type"[^>]*>/,        Q("<meta property=\"og:type\" content=\"product\">"))
             // Batch 783 — per-item canonical URL. Google collapses
@@ -391,9 +391,9 @@ class OpenGraphController {
             .replaceFirst(/<meta property="og:image"[^>]*>/,       Q("<meta property=\"og:image\" content=\"${escape(image)}\">"))
             // Strip stale og:image:width/height/type (512x512/png home logo) —
             // the stall avatar is a 184x184 JPEG, so the dims/type lie. (audit P2)
-            .replaceFirst(/<meta property="og:image:width"[^>]*>/,  '')
-            .replaceFirst(/<meta property="og:image:height"[^>]*>/, '')
-            .replaceFirst(/<meta property="og:image:type"[^>]*>/,   '')
+            .replaceFirst(/\s*<meta property="og:image:width"[^>]*>/,  '')
+            .replaceFirst(/\s*<meta property="og:image:height"[^>]*>/, '')
+            .replaceFirst(/\s*<meta property="og:image:type"[^>]*>/,   '')
             .replaceFirst(/<meta property="og:url"[^>]*>/,         Q("<meta property=\"og:url\" content=\"${escape(url)}\">"))
             .replaceFirst(/<meta property="og:type"[^>]*>/,        Q("<meta property=\"og:type\" content=\"profile\">"))
             // Batch 783 — per-stall canonical URL (same reasoning as item).
