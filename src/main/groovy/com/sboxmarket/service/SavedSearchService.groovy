@@ -99,8 +99,14 @@ class SavedSearchService {
         // HTML / script payloads can't survive a round-trip. cleanShort
         // also caps at 80 chars, matching the column width.
         def q        = textSanitizer.cleanShort((payload.q ?: payload.search ?: '') as String) ?: ''
-        def minPrice = (payload.minPrice as String ?: '').take(16)
-        def maxPrice = (payload.maxPrice as String ?: '').take(16)
+        // minPrice/maxPrice persist as strings, but the LISTING_MATCH matcher
+        // (matchesPreset, ~L317) evaluates `new BigDecimal(preset.minPrice)`.
+        // A non-numeric value stored here (e.g. "1,000", "abc", "$5") makes that
+        // throw, so the saved-search alert silently NEVER fires. Normalise to a
+        // clean non-negative decimal string (or '' = "no bound") at write time
+        // rather than persisting data that quietly breaks matching. (audit P3)
+        def minPrice = normalisePriceBound(payload.minPrice as String)
+        def maxPrice = normalisePriceBound(payload.maxPrice as String)
         // Batch 957 — the extended filter set. Clamp numerics, whitelist
         // enums. Booleans pass through with a null-safe default.
         int minDisc = 0
@@ -280,6 +286,26 @@ class SavedSearchService {
 
     private static String sanitiseEnum(String value, Set<String> whitelist, String fallback) {
         (value && whitelist.contains(value)) ? value : fallback
+    }
+
+    /**
+     * Normalise a saved-search price bound to a clean non-negative decimal
+     * string, or '' to mean "no bound". A non-numeric value persisted here
+     * would make the LISTING_MATCH matcher's `new BigDecimal(preset.minPrice)`
+     * throw, silently disabling the alert — so garbage is dropped at write
+     * time rather than stored. `toPlainString` avoids scientific notation
+     * (a "1e3" input is stored as "1000"). (audit P3)
+     */
+    private static String normalisePriceBound(String raw) {
+        if (raw == null) return ''
+        def s = raw.trim().take(16)
+        if (s.isEmpty()) return ''
+        try {
+            def v = new BigDecimal(s)
+            return v.signum() < 0 ? '' : v.toPlainString()
+        } catch (NumberFormatException ignore) {
+            return ''
+        }
     }
 
     /**

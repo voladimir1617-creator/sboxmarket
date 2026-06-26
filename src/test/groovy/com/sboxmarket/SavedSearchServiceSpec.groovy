@@ -103,6 +103,33 @@ class SavedSearchServiceSpec extends Specification {
         }) >> { SavedSearch s -> s }
     }
 
+    def "upsert drops non-numeric price bounds so the LISTING_MATCH matcher can't choke (audit P3)"() {
+        given:
+        repository.findByUserAndName(10L, 'junkprice') >> null
+        repository.countByUser(10L) >> 0L
+
+        when:
+        // "1,000" / "$5" / "abc" would all throw new BigDecimal(...) in the
+        // matcher; a negative bound is meaningless. All normalise to ''.
+        service.upsert(10L, [name: 'junkprice', minPrice: '1,000', maxPrice: 'abc'])
+
+        then:
+        1 * repository.save({ it.minPrice == '' && it.maxPrice == '' }) >> { SavedSearch s -> s }
+    }
+
+    def "upsert keeps valid price bounds in plain decimal form (no scientific notation)"() {
+        given:
+        repository.findByUserAndName(10L, 'okprice') >> null
+        repository.countByUser(10L) >> 0L
+
+        when:
+        service.upsert(10L, [name: 'okprice', minPrice: '  5.50 ', maxPrice: '1e3'])
+
+        then:
+        // trimmed; "1e3" normalised to plain "1000" so the matcher parses it.
+        1 * repository.save({ it.minPrice == '5.50' && it.maxPrice == '1000' }) >> { SavedSearch s -> s }
+    }
+
     // ── Ban guard ───────────────────────────────────────────────────
 
     def "upsert rejects a banned user before any repo work"() {
