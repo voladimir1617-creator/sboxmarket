@@ -2597,6 +2597,12 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   // who didn't place the last bid. Falls back to the prop on first
   // render; once we've seen a refresh the live copy wins.
   const [live, setLive]       = useState(listing);
+  // Mirror `live` into a ref so the SSE effect's isTerminal() can read the
+  // freshest listing WITHOUT live?.status/live?.expiresAt in its dep array —
+  // those deps tore the EventSource down + reopened it on every soft-close
+  // bid, dropping events in the hottest window (audit P2). Same pattern as
+  // busyRef above.
+  const liveRef = useRef(live); liveRef.current = live;
   // Audit fix — `live` was seeded from `listing` only on first mount, so
   // if the parent swapped the prop to a different auction (e.g. user
   // navigated /item/A → /item/B without remounting the panel) the panel
@@ -2657,6 +2663,24 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
             // Soft-close extension detected. Flash the banner for 8s.
             setExtendedUntil(Date.now() + 8000);
           }
+          // Monotonic merge: this REST poll may have STARTED before a newer SSE
+          // 'bid' event already merged a higher bid. Blindly returning `fresh`
+          // would regress currentBid/expiresAt/bidCount to the pre-bid snapshot
+          // right at auction close. If fresh is older (lower bidCount), keep the
+          // live bid fields and take only the non-bid columns from fresh. (audit P2)
+          const pBid = prev?.bidCount ?? -1;
+          const fBid = fresh.bidCount ?? -1;
+          if (prev && fBid < pBid) {
+            return {
+              ...fresh,
+              currentBid:        prev.currentBid,
+              currentBidderId:   prev.currentBidderId,
+              currentBidderName: prev.currentBidderName,
+              bidCount:          prev.bidCount,
+              expiresAt:         (prev.expiresAt != null && (fresh.expiresAt == null || prev.expiresAt > fresh.expiresAt)) ? prev.expiresAt : fresh.expiresAt,
+              status:            prev.status ?? fresh.status,
+            };
+          }
           return fresh;
         });
       }
@@ -2686,7 +2710,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     const lid = listing.id;
     let alive = true;
     const isTerminal = () => {
-      const view = live || listing;
+      const view = liveRef.current || listing;
       const terminal = view && view.status && view.status !== 'ACTIVE';
       const wellPastEnd = view?.expiresAt && (Date.now() > view.expiresAt + 15_000);
       return terminal && wellPastEnd;
@@ -2695,6 +2719,8 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     // --- SSE stream ---------------------------------------------------
     let es = null;
     let sseAlive = false;
+    let errCount = 0;
+    let lastErrAt = 0;
     try {
       if (typeof window !== 'undefined' && 'EventSource' in window) {
         es = new window.EventSource(`/api/bids/stream/${encodeURIComponent(lid)}`);
@@ -2729,7 +2755,18 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
             fetchBidHistory(lid).then(rows => { if (alive) setHistory(rows); }).catch(() => {});
           } catch (_) { /* malformed event — ignore */ }
         });
-        es.addEventListener('error', () => { sseAlive = false; /* browser auto-reconnects */ });
+        es.addEventListener('error', () => {
+          sseAlive = false;
+          // Over-capacity streams (>200 subs/listing) complete server-side
+          // immediately, so the browser's auto-reconnect would retry every
+          // ~3s forever. After a few RAPID failures, give up on SSE and lean
+          // on the polling fallback (which drops to 8s once sseAlive is
+          // false). A slow/occasional error still auto-reconnects. (audit P3)
+          const now = Date.now();
+          errCount = (now - lastErrAt < 5000) ? errCount + 1 : 1;
+          lastErrAt = now;
+          if (errCount >= 4 && es) { try { es.close(); } catch (_) {} es = null; }
+        });
       }
     } catch (_) {
       es = null; sseAlive = false;
@@ -2761,7 +2798,11 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       clearInterval(cadenceId);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [load, listing?.id, live?.status, live?.expiresAt]);
+    // NOTE: deliberately NOT depending on live?.status/live?.expiresAt — the
+    // EventSource is opened once per listing and lives the whole auction;
+    // isTerminal() reads liveRef.current for the freshest state without a
+    // teardown+reopen on every soft-close bid. (audit P2)
+  }, [load, listing?.id]);
 
   // Tick every second for the countdown timer
   useEffect(() => {

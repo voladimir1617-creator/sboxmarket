@@ -840,7 +840,14 @@ function AdminAnnouncementsTab() {
       live.map(r => h('div', { key: r.id, style: { display: 'flex', gap: 12, padding: 6, alignItems: 'center' } },
         h(SeverityChip, { severity: r.severity }),
         h('span', { style: { flex: 1 } }, r.message),
-        r.expiresAt && h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } }, 'ends ' + timeAgo(r.expiresAt)),
+        r.expiresAt && h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } }, (() => {
+          // timeAgo() is PAST-only — feeding it a future expiry rendered every
+          // live banner as "ends Just now". Forward-relative instead. (audit P3)
+          const d = Number(r.expiresAt) - Date.now();
+          if (!(d > 0)) return 'ending now';
+          const hh = Math.floor(d / 3600000), mm = Math.floor((d % 3600000) / 60000);
+          return hh > 0 ? `ends in ${hh}h ${mm}m` : `ends in ${mm}m`;
+        })()),
         h('button', { className: 'btn btn-ghost', style: { padding: '4px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, onClick: () => deactivate(r.id) }, 'Stop')
       ))
     ),
