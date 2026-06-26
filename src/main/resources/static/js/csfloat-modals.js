@@ -2012,7 +2012,12 @@ export function NotificationsModal({ onClose, me }) {
   const load = useCallback(async () => {
     setLoadErr(false);
     try {
-      setData(await fetchNotifications());
+      // fetchNotifications never throws — it returns {error:true} on an HTTP
+      // error / network drop. Detect that explicitly so the error + Retry UI
+      // shows instead of a deceptive "all caught up" empty state.
+      const res = await fetchNotifications();
+      if (res && res.error) setLoadErr(true);
+      else setData(res);
     } catch (_) {
       setLoadErr(true);
     } finally {

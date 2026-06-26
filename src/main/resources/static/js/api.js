@@ -932,10 +932,13 @@ export async function fetchNotifications(limit) {
   const qs = (limit != null && Number.isFinite(limit)) ? `?limit=${limit}` : '';
   try {
     const r = await fetch(`${API}/notifications${qs}`, { credentials: 'same-origin' });
-    if (!r.ok) return { items: [], unread: 0 };
+    // `error: true` lets the full NotificationsModal distinguish a real failure
+    // (show error + Retry) from a genuinely-empty inbox (show "all caught up").
+    // The nav-bell consumer only reads .items/.unread, so the extra key is inert.
+    if (!r.ok) return { items: [], unread: 0, error: true };
     const data = await r.json();
     return (data && typeof data === 'object') ? data : { items: [], unread: 0 };
-  } catch (_) { return { items: [], unread: 0 }; }
+  } catch (_) { return { items: [], unread: 0, error: true }; }
 }
 
 /** Cheap unread-count for the nav bell's 25-second poll — avoids

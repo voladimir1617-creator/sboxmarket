@@ -19,7 +19,7 @@ import {
   fetchTradeMessages, postTradeMessage,
   setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, cancel2fa, disable2fa,
   regenerate2faBackupCodes, fetch2faRecoveryStatus,
-  fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales,
+  fetchListings, fetchItem, fetchItemsByIds, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, fetchMyAuthoredReviews, fetchPendingReviews, deleteReview, replyToReview, fetchBuyOrderCountForItem,
   fetchBuyOrdersForItem,
   fetchWalletSpend
@@ -2699,8 +2699,13 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
     // guard (and short-circuit URL validation) without duplicating the
     // try/finally. Without this, rapid double-clicks on Skip fired
     // submitMarkSent twice before React tore down the drawer.
-    const value = override != null ? override : trimmed;
-    if (override == null && !valid) { setErr('That doesn\'t look like a Steam trade-offer URL.'); return; }
+    // Only a STRING override (the "" from Skip-for-now) counts. The primary
+    // button is wired `onClick: () => submit()`, but harden here too: if a
+    // caller ever passes the click SyntheticEvent, treat it as no override so
+    // we validate + send the typed URL instead of `event.trim()`-ing a crash.
+    const hasOverride = typeof override === 'string';
+    const value = hasOverride ? override : trimmed;
+    if (!hasOverride && !valid) { setErr('That doesn\'t look like a Steam trade-offer URL.'); return; }
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
@@ -2775,7 +2780,7 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
           className: 'btn btn-accent',
           style: { padding: '6px 14px', fontSize: 12 },
           disabled: busy || !valid,
-          onClick: submit
+          onClick: () => submit()
         }, busy ? 'Marking…' : 'Mark sent')
       )
     )
@@ -14059,10 +14064,14 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     const present = new Set((pool || []).map(l => l?.item?.id).filter(Boolean));
     const missing = watchlist.filter(id => !present.has(id) && fallbackItems[id] == null);
     if (missing.length === 0) return;
-    Promise.all(missing.map(id => fetchItem(id).catch(() => null))).then(results => {
+    // One batched /api/items/batch call per 50 ids (server caps at 50) instead
+    // of one GET per missing id — kills the watchlist N+1 on modal open.
+    const chunks = [];
+    for (let i = 0; i < missing.length; i += 50) chunks.push(missing.slice(i, i + 50));
+    Promise.all(chunks.map(c => fetchItemsByIds(c).catch(() => []))).then(chunkResults => {
       if (!alive) return;
       const next = { ...fallbackItems };
-      missing.forEach((id, i) => { if (results[i]) next[id] = results[i]; });
+      chunkResults.flat().forEach(item => { if (item && item.id != null) next[item.id] = item; });
       setFallbackItems(next);
     });
     return () => { alive = false; };
