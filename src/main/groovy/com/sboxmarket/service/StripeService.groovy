@@ -607,6 +607,27 @@ class StripeService {
         def wallet = walletRepository.findByIdForUpdate(tx.walletId)
                 .orElseThrow { new NoSuchElementException("Wallet not found") }
 
+        // Re-validate the cumulative-refund cap AFTER taking the wallet lock.
+        // The pre-lock check above (line ~589) is raceable: two concurrent
+        // refunds on the same deposit both read sumRefundsByDeposit()=0 before
+        // either commits, both pass, and on the dev_/non-cs_ path (which skips
+        // Stripe's own over-refund guard) both double-debit the wallet + write a
+        // second REFUND row. findByIdForUpdate serialises the two on the wallet
+        // row, so re-reading the sum HERE — with the first refund's committed
+        // REFUND row now visible under READ_COMMITTED — rejects the second
+        // before any money moves (Stripe refund + debit are both below this).
+        // (abuse-audit fix)
+        def refundedNow = (transactionRepository.sumRefundsByDeposit(tx.id) ?: BigDecimal.ZERO)
+            .setScale(2, java.math.RoundingMode.HALF_UP)
+        def remainingNow = tx.amount - refundedNow
+        if (remainingNow < BigDecimal.ZERO) remainingNow = BigDecimal.ZERO
+        if (amount > remainingNow) {
+            throw new IllegalArgumentException(
+                "Refund amount \$${amount} exceeds remaining refundable balance \$${remainingNow} on deposit #${tx.id} " +
+                "(concurrent refund detected — original \$${tx.amount}, already refunded \$${refundedNow})"
+            )
+        }
+
         String refundId = 'dev'
         if (isLive() && tx.stripeReference?.startsWith('cs_')) {
             try {
@@ -1079,6 +1100,21 @@ class StripeService {
     Transaction requestWithdrawal(Long walletId, BigDecimal amount, String destinationRef) {
         def wallet = walletRepository.findById(walletId)
                 .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
+
+        // Authoritative wallet-freeze gate, co-located with the debit. The
+        // WalletController pre-check runs BEFORE the (potentially slow) TOTP
+        // verification gate, so an admin freeze landing during that window
+        // would otherwise let a withdrawal through against a now-frozen wallet
+        // (staff regulatory hold / fraud freeze bypass). Re-check here, inside
+        // the same transaction that debits, against the freshly-read row.
+        // Mirrors the controller's WALLET_FROZEN code so the UI banner is the
+        // same. (abuse-audit fix)
+        if (Boolean.TRUE.equals(wallet.frozen)) {
+            throw new com.sboxmarket.exception.BadRequestException("WALLET_FROZEN",
+                "Your wallet is frozen by staff" +
+                    (wallet.frozenReason ? ": ${wallet.frozenReason}" : '') +
+                    ". Open a support ticket to resolve.")
+        }
 
         if (amount == null || amount <= BigDecimal.ZERO) {
             throw new IllegalArgumentException("Amount must be positive")

@@ -242,6 +242,26 @@ class StripeServiceSpec extends Specification {
         0 * transactionRepository.save(_)
     }
 
+    def "requestWithdrawal REJECTS a frozen wallet — the freeze can land during the TOTP gate, so this is the authoritative last-line check (abuse-audit)"() {
+        // The WalletController freeze gate runs BEFORE the (slow) TOTP step, so
+        // an admin freeze landing in that window must still block the debit. The
+        // service re-checks wallet.frozen against the freshly-read row.
+        given:
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"),
+            frozen: true, frozenReason: 'fraud review')
+        walletRepository.findById(500L) >> Optional.of(wallet)
+
+        when:
+        service.requestWithdrawal(500L, new BigDecimal("40"), 'acct_external')
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'WALLET_FROZEN'
+        wallet.balance == new BigDecimal("100.00")   // never debited
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+    }
+
     def "requestWithdrawal in live mode with payouts ENABLED creates a real Stripe Transfer and records its id as the tx reference"() {
         // Happy path for the real payout rail. An onboarded wallet
         // (payoutsEnabled + stripeConnectAccountId) gets a real
@@ -366,6 +386,31 @@ class StripeServiceSpec extends Specification {
         1 * transactionRepository.save({ Transaction tx ->
             tx.type == 'REFUND' && tx.amount == new BigDecimal("100")
         })
+    }
+
+    def "refundDeposit re-checks the cumulative cap AFTER the wallet lock — a refund that committed mid-flight is rejected, not double-paid (abuse-audit)"() {
+        // Two admin refunds race the same $100 dev_ deposit (Stripe skipped, so
+        // no over-refund guard from Stripe). Both pass the pre-lock cap (sum=0).
+        // findByIdForUpdate serialises them on the wallet; the second, after the
+        // lock, must see the first's committed REFUND row (sum=$100) and abort
+        // rather than double-debit the wallet + write a second REFUND row.
+        given:
+        def depositTx = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT',
+            status: 'COMPLETED', amount: new BigDecimal("100"), currency: 'USD', stripeReference: 'dev_123')
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100"))
+        transactionRepository.findById(1L) >> Optional.of(depositTx)
+        walletRepository.findByIdForUpdate(500L) >> Optional.of(wallet)
+        // 1st read (pre-lock) sees 0 and passes; 2nd read (post-lock) sees the
+        // racing refund's committed $100.
+        transactionRepository.sumRefundsByDeposit(1L) >>> [BigDecimal.ZERO, new BigDecimal("100.00")]
+
+        when:
+        service.refundDeposit(1L, new BigDecimal("100"))
+
+        then:
+        thrown(IllegalArgumentException)
+        wallet.balance == new BigDecimal("100")   // never debited
+        0 * transactionRepository.save(_)         // no second REFUND row
     }
 
     def "refundDeposit honours a partial amount"() {

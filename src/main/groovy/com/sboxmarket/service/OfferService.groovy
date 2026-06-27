@@ -376,7 +376,13 @@ class OfferService {
     private Offer tryAutoAccept(Listing listing, Offer saved, BigDecimal amount) {
         if (listing?.maxDiscount == null
                 || listing.maxDiscount <= BigDecimal.ZERO
+                || listing.maxDiscount >= BigDecimal.ONE
                 || listing.sellerUserId == null) {
+            // >= 1.0 guard is defense-in-depth: SellService.relist validates
+            // 0 <= maxDiscount < 1, but a stale/mutated row with maxDiscount >= 1
+            // would make the threshold below go <= 0, auto-accepting EVERY offer
+            // (even $0.01) under the seller's true floor. Never auto-accept on an
+            // out-of-range discount. (abuse-audit fix)
             return null
         }
         def threshold = (listing.price - (listing.price * listing.maxDiscount))

@@ -127,6 +127,23 @@ class OfferAutoAcceptSpec extends Specification {
         0 * purchaseService.buy(_, _, _)
     }
 
+    def "listing with an out-of-range maxDiscount (>= 1.0) never auto-accepts (abuse-audit defense-in-depth)"() {
+        given:
+        // maxDiscount 1.5 makes threshold = 100 - 100*1.5 = -$50, so the OLD
+        // guard (only maxDiscount <= 0) auto-accepted ANY positive offer far
+        // below the seller's floor. The >= 1.0 guard must reject it.
+        def listing = listingAt(new BigDecimal('100.00'), new BigDecimal('1.5'))
+        listingRepository.findById(10L) >> Optional.of(listing)
+        offerRepository.save(_) >> { args -> args[0].id = 1L; args[0] }
+
+        when:
+        def offer = service.makeOffer(42L, 'Bob', 10L, new BigDecimal('40'))
+
+        then:
+        offer.status == 'PENDING'
+        0 * purchaseService.buy(_, _, _)
+    }
+
     def "system listing (null sellerUserId) with maxDiscount stays PENDING"() {
         given:
         def listing = listingAt(new BigDecimal('100.00'), new BigDecimal('0.30'))
