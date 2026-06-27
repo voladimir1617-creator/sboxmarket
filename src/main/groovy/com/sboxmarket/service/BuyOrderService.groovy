@@ -232,6 +232,17 @@ class BuyOrderService {
             order.itemId, order.category, order.rarity, order.maxPrice,
             org.springframework.data.domain.PageRequest.of(0, 50)
         )
+        // Remaining spendable balance for THIS fill loop, tracked locally.
+        // Within this parent @Transactional the persistence context hands back
+        // the SAME cached Wallet instance on every iteration, so its `balance`
+        // never reflects the prior iteration's REQUIRES_NEW buy() debit — a
+        // plain re-read would keep showing the stale pre-fill balance and let
+        // the affordability check pass over-optimistically (the buy then fails
+        // in its sub-tx, caught + logged, but the loop reads inconsistently and
+        // churns). Seed from the first (fresh) read, decrement on each fill.
+        // buy() remains the authoritative fresh-read + @Version money guard.
+        // (integrity-audit fix)
+        def available = null
         for (Listing listing : candidates) {
             if (order.quantity <= 0 || order.status != 'ACTIVE') break
             if (listing.sellerUserId != null && listing.sellerUserId == order.buyerUserId) continue
@@ -248,10 +259,13 @@ class BuyOrderService {
             def user = steamUserRepository.findById(order.buyerUserId).orElse(null)
             if (user == null) break
             def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
-            if (wallet == null || wallet.balance < listing.price) {
+            if (wallet == null) break
+            if (available == null) available = wallet.balance   // first read is fresh
+            if (available < listing.price) {
                 // Out of money — no point checking the next listing,
                 // they all cost > the cheapest unaffordable one. The
-                // candidate set is sorted ASC.
+                // candidate set is sorted ASC. `available` reflects this
+                // loop's prior fills (the cached wallet.balance would not).
                 break
             }
             // Cap guard — never auto-buy above the order's price ceiling.
@@ -276,6 +290,7 @@ class BuyOrderService {
                 runInIsolatedTx {
                     purchaseService.buy(wallet.id, order.buyerUserId, listing.id)
                 }
+                available = available - listing.price   // only on a committed fill
                 order.quantity = Math.max(0, order.quantity - 1)
                 order.updatedAt = System.currentTimeMillis()
                 if (order.quantity == 0) order.status = 'FILLED'

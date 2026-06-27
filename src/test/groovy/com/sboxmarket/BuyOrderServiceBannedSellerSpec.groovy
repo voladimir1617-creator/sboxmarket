@@ -169,4 +169,29 @@ class BuyOrderServiceBannedSellerSpec extends Specification {
         1 * purchaseService.buy(500L, 10L, 101L)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 7L && o.status == 'FILLED' })
     }
+
+    def "tryFillFromExisting caps fills at the affordable count — local accumulator, not the cached wallet balance, drives the loop (integrity-audit)"() {
+        given: "a qty-3 order, a \$250 wallet, three clean \$100 listings — only TWO are affordable"
+        // Within the parent @Transactional the persistence context returns the
+        // SAME cached Wallet each iteration, so wallet.balance never reflects the
+        // prior fill's REQUIRES_NEW debit. Without the local accumulator the loop
+        // would attempt all three (the 3rd then failing in buy()); with it the
+        // loop stops cleanly after two.
+        def l1 = listingFor(id: 201L, seller: 88L, price: new BigDecimal('100'))
+        def l2 = listingFor(id: 202L, seller: 88L, price: new BigDecimal('100'))
+        def l3 = listingFor(id: 203L, seller: 88L, price: new BigDecimal('100'))
+        def order = new BuyOrder(id: 9L, buyerUserId: 10L, quantity: 3, status: 'ACTIVE',
+                                  maxPrice: new BigDecimal('100'), itemId: 1L)
+        listingRepository.findMatchingForBuyOrder(_, _, _, _, _) >> [l1, l2, l3]
+        banGuard.isBanned(88L) >> false
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111', banned: false))
+        walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, balance: new BigDecimal('250.00'))
+
+        when:
+        service.tryFillFromExisting(order)
+
+        then: "exactly two fills — the third is skipped once the local balance can't cover \$100"
+        2 * purchaseService.buy(500L, 10L, _)
+        order.quantity == 1
+    }
 }
