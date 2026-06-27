@@ -10318,14 +10318,17 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   };
 
   const loadSteam = useCallback(async () => {
-    setSteamData(await fetchSteamInventory());
+    const d = await fetchSteamInventory();
+    setSteamData(d);
+    return !(d && d.error);  // success flag drives the poll's backoff
   }, []);
   const loadInternal = useCallback(async () => {
     const { items, total, error } = await fetchInventoryWithTotal();
-    if (error) { setInternalErr(true); return; }  // retry card, not a forever-spinner / false-empty
+    if (error) { setInternalErr(true); return false; }  // retry card, not a forever-spinner / false-empty
     setInternalErr(false);
     setInternal(items);
     setInternalTotal(total);
+    return true;
   }, []);
 
   useEffect(() => {
@@ -10343,16 +10346,30 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // avoid burning bandwidth on backgrounded windows.
   useEffect(() => {
     if (!me) return;
-    const tick = () => {
-      if (document.visibilityState !== 'visible') return;
-      loadSteam();
-      loadInternal();
+    // Self-rescheduling poll with exponential backoff. A fixed 30s setInterval
+    // hammered a failing backend every 30s forever (no error-awareness). Now a
+    // failed tick doubles the delay (capped at 5min) and a success resets it to
+    // 30s — so a partial outage isn't churned, and recovery snaps back to the
+    // fast cadence. (self-review fix)
+    let timer = null, stopped = false, delay = 30_000;
+    const tick = async () => {
+      if (stopped) return;
+      let ok = true;
+      if (document.visibilityState === 'visible') {
+        const [okS, okI] = await Promise.all([loadSteam(), loadInternal()]);
+        ok = okS && okI;
+      }
+      delay = ok ? 30_000 : Math.min(delay * 2, 300_000);
+      if (!stopped) timer = setTimeout(tick, delay);
     };
-    const id = setInterval(tick, 30_000);
-    const onVis = () => { if (document.visibilityState === 'visible') tick(); };
+    timer = setTimeout(tick, 30_000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && !stopped) { clearTimeout(timer); delay = 30_000; tick(); }
+    };
     document.addEventListener('visibilitychange', onVis);
     return () => {
-      clearInterval(id);
+      stopped = true;
+      clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVis);
     };
   }, [me, loadSteam, loadInternal]);
