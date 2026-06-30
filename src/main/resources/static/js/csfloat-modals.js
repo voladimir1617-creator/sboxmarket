@@ -552,7 +552,12 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   const load = useCallback(async () => {
     setOrdersErr(false);
     try {
-      const { items, total } = await fetchBuyOrdersWithTotal();
+      const { items, total, error } = await fetchBuyOrdersWithTotal();
+      // fetchBuyOrdersWithTotal swallows non-2xx/network into an empty list +
+      // error:true (it never throws), so branch on the sentinel — otherwise the
+      // catch below never fires and a backend failure renders a false "No buy
+      // orders" instead of the Retry panel. (frontend-audit fix)
+      if (error) { setOrdersErr(true); return; }
       setOrders(items);
       setOrdersTotal(total);
     } catch (_) {

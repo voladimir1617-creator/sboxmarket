@@ -16,7 +16,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=210';
+} from './modals.js?v=211';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -1840,7 +1840,9 @@ function MarketPulse() {
   // `soldPrice` — reading the wrong field zeroed every row, so the "24H
   // vol" chip was permanently hidden by the `vol24 > 0` guard below.
   // Mirror the same `price ?? soldPrice` fallback the pulse rows use.
-  const vol24 = rows.reduce((acc, r) => acc + (parseFloat(r.price ?? r.soldPrice) || 0), 0);
+  // Accumulate in integer CENTS so float drift can't push the 24h-vol chip off
+  // the server's exact BigDecimal sum across a rounding boundary. (audit)
+  const vol24 = rows.reduce((acc, r) => acc + Math.round((parseFloat(r.price ?? r.soldPrice) || 0) * 100), 0) / 100;
   return h('div', { className: 'pulse', style: { height: 32 } },
     h('span', { className: 'pulse-led' }),
     h('span', { style: { fontWeight: 500, color: 'var(--ink-2)' } }, 'LIVE TAPE'),
@@ -8243,7 +8245,9 @@ export function App() {
               });
               const maxCount = Math.max(...days);
               const total = days.reduce((a, b) => a + b, 0);
-              const revenue = recent.reduce((sum, s) => sum + (parseFloat(s.price) || 0), 0);
+              // Integer-cents accumulation — see the 24h-vol chip; float reduce
+              // drifts vs the server's exact BigDecimal revenue. (audit)
+              const revenue = recent.reduce((sum, s) => sum + Math.round((parseFloat(s.price) || 0) * 100), 0) / 100;
               return h('div', { className: 'stall-recent-sales', style: { marginBottom: 14 } },
                 h('div', { className: 'stall-reviews-head', style: { marginBottom: 8 } },
                   h('span', { className: 'section-title-dot' }),

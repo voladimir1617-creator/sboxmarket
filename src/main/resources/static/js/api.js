@@ -830,7 +830,12 @@ export async function fetchBuyOrders() {
 export async function fetchBuyOrdersWithTotal() {
   try {
     const res = await fetch(`${API}/buy-orders`, { credentials: 'same-origin' });
-    if (!res.ok) return { items: [], total: 0 };
+    // error:true lets the consumer show its Retry panel instead of a false
+    // "No buy orders" empty state — these are escrow-bearing standing orders, so
+    // a 500/network drop must not read as "they vanished". The consumer's
+    // try/catch never fired because this function swallowed instead of throwing.
+    // (frontend-audit fix)
+    if (!res.ok) return { items: [], total: 0, error: true };
     const items = await res.json();
     const totalHeader = res.headers.get('X-Total-Count');
     const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
@@ -840,7 +845,7 @@ export async function fetchBuyOrdersWithTotal() {
       total: Number.isFinite(parsed) ? parsed : fallback
     };
   } catch {
-    return { items: [], total: 0 };
+    return { items: [], total: 0, error: true };
   }
 }
 

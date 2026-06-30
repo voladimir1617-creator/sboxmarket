@@ -2405,7 +2405,15 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               className: 'btn btn-accent',
               disabled: buyConfirmBusy,
               onClick: async () => {
-                if (buyConfirmBusy) return;
+                // SYNCHRONOUS re-entrancy latch on a MONEY action. Checking the
+                // async `buyConfirmBusy` STATE left a double-click window: both
+                // clicks fire in one React batch before the setBuyConfirmBusy(true)
+                // re-render lands, both see false, both POST the purchase ->
+                // DOUBLE CHARGE. The ref flips immediately, so the 2nd click is
+                // blocked at once. Mirrors the Make Offer button's offerBusyRef.
+                // (frontend-audit fix — CRITICAL)
+                if (buyConfirmBusyRef.current) return;
+                buyConfirmBusyRef.current = true;
                 setBuyConfirmBusy(true);
                 try {
                   // Fire the EXISTING purchase function the direct buy
@@ -2413,6 +2421,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                   // front — nothing about what executes is changed.
                   await onBuy(bc.listingId, bc.price);
                 } finally {
+                  buyConfirmBusyRef.current = false;
                   setBuyConfirmBusy(false);
                   setBuyConfirm(null);
                 }
