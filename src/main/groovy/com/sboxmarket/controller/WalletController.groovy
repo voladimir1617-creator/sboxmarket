@@ -715,7 +715,14 @@ class WalletController {
     }
 
     @PostMapping("/confirm-deposit")
-    ResponseEntity<Map> confirmDeposit(@RequestParam String sessionId, HttpServletRequest req) {
+    ResponseEntity<Map> confirmDeposit(@RequestBody(required = false) Map body, HttpServletRequest req) {
+        // sessionId moved from a query PARAM to the request BODY so the Stripe
+        // Checkout Session id stops landing in our server access logs, the
+        // Referer header, and proxy/CDN caches (it's still in the browser URL
+        // from Stripe's own redirect, but that's Stripe's flow, not ours). The
+        // length cap + empty guard below preserve the old @RequestParam's
+        // reject-on-missing/oversized behaviour. (frontend-audit fix)
+        String sessionId = (body?.get('sessionId') as String)?.trim() ?: ''
         // Completing a deposit credits a wallet — the session-wallet
         // metadata check inside StripeService binds the credit to the
         // wallet that created the session, but there's no reason an
@@ -730,6 +737,13 @@ class WalletController {
         // deposit (it has no caller context) — the money belongs to
         // the user — but the synchronous user-driven path must reject.
         banGuard?.assertNotBanned(user.id)
+        // sessionId is required — reject AFTER the auth + ban gates so an
+        // anonymous/banned caller still gets 401/403 (not a 400 that would leak
+        // that the endpoint exists). Preserves the old @RequestParam's
+        // reject-on-missing behaviour. (frontend-audit fix)
+        if (sessionId.isEmpty()) {
+            throw new com.sboxmarket.exception.BadRequestException("INVALID_SESSION_ID", "sessionId is required")
+        }
         // Upstream length cap on the session id. Stripe Checkout Session
         // ids are <=66 chars in practice (e.g. cs_test_a1B2…); rejecting
         // pathological lengths here keeps a hostile client from forcing

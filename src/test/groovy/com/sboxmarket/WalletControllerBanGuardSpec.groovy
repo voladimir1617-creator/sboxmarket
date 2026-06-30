@@ -248,7 +248,7 @@ class WalletControllerBanGuardSpec extends Specification {
         1 * banGuard.assertNotBanned(10L) >> { throw new ForbiddenException("Your account is banned: chargeback fraud") }
 
         when:
-        controller.confirmDeposit('cs_abc', reqFor(10L))
+        controller.confirmDeposit([sessionId: 'cs_abc'], reqFor(10L))
 
         then: 'the synchronous credit path never runs (webhook still owns the eventual credit)'
         thrown(ForbiddenException)
@@ -268,7 +268,7 @@ class WalletControllerBanGuardSpec extends Specification {
         1 * stripeService.completeDeposit('cs_abc')
 
         when:
-        def resp = controller.confirmDeposit('cs_abc', reqFor(10L))
+        def resp = controller.confirmDeposit([sessionId: 'cs_abc'], reqFor(10L))
 
         then:
         resp.statusCode.value() == 200

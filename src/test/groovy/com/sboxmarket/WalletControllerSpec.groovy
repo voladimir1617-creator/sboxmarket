@@ -994,7 +994,7 @@ class WalletControllerSpec extends Specification {
 
     def "confirmDeposit() anon: 401 (never reaches Stripe — session binding is server-side)"() {
         when:
-        controller.confirmDeposit('cs_abc', reqFor(null))
+        controller.confirmDeposit([sessionId: 'cs_abc'], reqFor(null))
 
         then:
         thrown(UnauthorizedException)
@@ -1013,7 +1013,7 @@ class WalletControllerSpec extends Specification {
         1 * stripeService.completeDeposit('cs_abc')
 
         when:
-        def resp = controller.confirmDeposit('cs_abc', reqFor(10L))
+        def resp = controller.confirmDeposit([sessionId: 'cs_abc'], reqFor(10L))
 
         then:
         resp.body.newBalance == new BigDecimal('175.00')
@@ -1036,7 +1036,7 @@ class WalletControllerSpec extends Specification {
         1 * walletRepository.findById(500L) >> Optional.of(committed)
 
         when:
-        def resp = controller.confirmDeposit('cs_fresh', reqFor(10L))
+        def resp = controller.confirmDeposit([sessionId: 'cs_fresh'], reqFor(10L))
 
         then: 'response carries the committed $125, not the stale $50 snapshot'
         resp.body.newBalance == new BigDecimal('125.00')
@@ -1052,7 +1052,7 @@ class WalletControllerSpec extends Specification {
         1 * walletRepository.findById(500L) >> Optional.empty()
 
         when:
-        def resp = controller.confirmDeposit('cs_x', reqFor(10L))
+        def resp = controller.confirmDeposit([sessionId: 'cs_x'], reqFor(10L))
 
         then: 'no NPE — degrades to the snapshot balance rather than failing the request'
         resp.body.newBalance == new BigDecimal('90.00')
@@ -1076,7 +1076,7 @@ class WalletControllerSpec extends Specification {
         1 * walletRepository.findById(500L) >> Optional.of(webhookCredited)
 
         when:
-        def resp = controller.confirmDeposit('cs_race', reqFor(10L))
+        def resp = controller.confirmDeposit([sessionId: 'cs_race'], reqFor(10L))
 
         then: 'no 500 — the user whose deposit succeeded sees the correct post-credit balance'
         resp.statusCode.value() == 200
@@ -1094,7 +1094,7 @@ class WalletControllerSpec extends Specification {
         }
 
         when:
-        controller.confirmDeposit('cs_bad', reqFor(10L))
+        controller.confirmDeposit([sessionId: 'cs_bad'], reqFor(10L))
 
         then: 'only OptimisticLockingFailureException is swallowed — real errors surface'
         thrown(IllegalStateException)

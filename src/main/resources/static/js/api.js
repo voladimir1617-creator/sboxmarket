@@ -676,8 +676,13 @@ export async function withdrawFunds(amount, destination, totpCode) {
 }
 
 export async function confirmDeposit(sessionId) {
-  return writeJson(`${API}/wallet/confirm-deposit?sessionId=${encodeURIComponent(sessionId)}`, {
-    method: 'POST', credentials: 'same-origin'
+  // sessionId in the BODY, not the query string, so the Stripe session id stops
+  // landing in server access logs / the Referer header / proxy caches.
+  // (frontend-audit fix)
+  return writeJson(`${API}/wallet/confirm-deposit`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId })
   });
 }
 
