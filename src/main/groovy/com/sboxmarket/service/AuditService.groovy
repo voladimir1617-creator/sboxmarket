@@ -81,6 +81,10 @@ class AuditService {
 
     @Autowired AuditLogRepository auditLogRepository
     @Autowired SteamUserRepository steamUserRepository
+    // Spoofing-resistant client-IP resolution — forwarded headers are honoured
+    // only behind a trusted proxy. required=false so unit tests that construct
+    // the service directly fall back to req.remoteAddr. (integrity-audit fix)
+    @Autowired(required = false) com.sboxmarket.config.ClientIpResolver clientIpResolver
 
     /** Optional so unit tests that build the service with `new
      *  AuditService(...)` (no Spring context) still work — in that case
@@ -217,19 +221,14 @@ class AuditService {
         (attr instanceof ServletRequestAttributes) ? ((ServletRequestAttributes) attr).request : null
     }
 
-    private static String clientIp(HttpServletRequest req) {
-        def cf = req.getHeader('CF-Connecting-IP')
-        if (cf && !cf.trim().isEmpty()) return cf.trim().take(64)
-        def xff = req.getHeader('X-Forwarded-For')
-        if (xff) {
-            // First non-empty token — a crafted `,`/`,,` header is non-blank
-            // but splits to a zero-length array, so the old `split(',')[0]`
-            // threw ArrayIndexOutOfBoundsException.
-            for (String tok : xff.split(',')) {
-                def t = tok?.trim()
-                if (t) return t.take(64)
-            }
-        }
-        (req.remoteAddr ?: '').take(64)
+    // Delegates to the shared ClientIpResolver so the audit trail records the
+    // REAL client IP — forwarded headers (CF-Connecting-IP / X-Forwarded-For)
+    // are honoured only when the immediate peer is a trusted proxy, so a direct
+    // client can no longer forge the logged IP. Falls back to remoteAddr when
+    // the resolver isn't wired (unit tests build the service by hand). The old
+    // body trusted the headers unconditionally. (integrity-audit fix)
+    private String clientIp(HttpServletRequest req) {
+        def ip = clientIpResolver ? clientIpResolver.resolve(req) : req?.remoteAddr
+        (ip ?: '').take(64)
     }
 }

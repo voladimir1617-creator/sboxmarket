@@ -24,6 +24,10 @@ class ItemController {
     @Autowired(required = false) com.sboxmarket.service.SboxApiService sboxApiService
     @Autowired(required = false) com.sboxmarket.service.SteamMarketPriceService steamMarketPriceService
     @Autowired(required = false) com.sboxmarket.service.ListingFloorRefreshService listingFloorRefreshService
+    // Spoofing-resistant client-IP resolution for the view-count dedup — without
+    // it, a client could spoof CF-Connecting-IP / X-Forwarded-For to mint a fresh
+    // dedup key per request and inflate an item's view count. (integrity-audit fix)
+    @Autowired(required = false) com.sboxmarket.config.ClientIpResolver clientIpResolver
 
     /** View-count dedupe cache (batch 413). Maps "ip|itemId" → last-bump
      *  epoch-ms. Prevents a single IP from inflating an item's view count
@@ -253,23 +257,12 @@ class ItemController {
         true
     }
 
-    private static String clientIp(HttpServletRequest req) {
-        def cf = req.getHeader('CF-Connecting-IP')
-        if (cf && !cf.trim().isEmpty()) return cf.trim()
-        def xff = req.getHeader('X-Forwarded-For')
-        if (xff) {
-            // A crafted `X-Forwarded-For: ,` (or `,,`, all-empty tokens)
-            // is non-blank — so the old `xff.split(',')[0]` indexed into
-            // a ZERO-length array (Java's split drops every trailing
-            // empty), throwing ArrayIndexOutOfBoundsException. Take the
-            // first NON-empty token; fall through to remoteAddr when the
-            // header carries no real client address.
-            for (String tok : xff.split(',')) {
-                def t = tok?.trim()
-                if (t) return t
-            }
-        }
-        req.remoteAddr
+    // Delegates to the shared ClientIpResolver so the view-dedup key is the REAL
+    // client IP — forwarded headers honoured only behind a trusted proxy, so a
+    // direct client can't spoof a fresh key per request to inflate views. Falls
+    // back to remoteAddr when the resolver isn't wired. (integrity-audit fix)
+    private String clientIp(HttpServletRequest req) {
+        clientIpResolver ? clientIpResolver.resolve(req) : req?.remoteAddr
     }
 
     @GetMapping("/{id}/history")

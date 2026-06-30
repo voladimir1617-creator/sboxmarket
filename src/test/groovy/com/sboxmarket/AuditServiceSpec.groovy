@@ -27,10 +27,16 @@ class AuditServiceSpec extends Specification {
     AuditLogRepository  auditLogRepository  = Mock()
     SteamUserRepository steamUserRepository = Mock()
 
+    // Real resolver (default trusted-proxies = loopback only). MockHttpServletRequest's
+    // default remoteAddr is 127.0.0.1, so by default the forwarded headers ARE honoured;
+    // a test that wants them IGNORED sets a non-loopback remoteAddr.
+    com.sboxmarket.config.ClientIpResolver clientIpResolver = new com.sboxmarket.config.ClientIpResolver()
+
     @Subject
     AuditService service = new AuditService(
         auditLogRepository : auditLogRepository,
-        steamUserRepository: steamUserRepository
+        steamUserRepository: steamUserRepository,
+        clientIpResolver   : clientIpResolver
     )
 
     def "log enriches actor + subject with display names"() {
@@ -273,10 +279,11 @@ class AuditServiceSpec extends Specification {
      *  these specs can exercise every branch directly, then double-cover
      *  the path through `log()` to make sure the entry's ipAddress
      *  matches. */
-    private static String invokeClientIp(HttpServletRequest req) {
+    private String invokeClientIp(HttpServletRequest req) {
         def m = AuditService.getDeclaredMethod('clientIp', HttpServletRequest)
         m.accessible = true
-        m.invoke(null, req) as String
+        // Now an INSTANCE method that delegates to the wired ClientIpResolver.
+        m.invoke(service, req) as String
     }
 
     def "clientIp prefers CF-Connecting-IP over X-Forwarded-For and remoteAddr"() {
@@ -287,10 +294,25 @@ class AuditServiceSpec extends Specification {
         def req = new MockHttpServletRequest()
         req.addHeader('CF-Connecting-IP', '203.0.113.5')
         req.addHeader('X-Forwarded-For', '198.51.100.7, 10.0.0.1')
-        req.setRemoteAddr('10.0.0.50')
+        req.setRemoteAddr('127.0.0.1')   // immediate peer = trusted loopback proxy
 
         expect:
         invokeClientIp(req) == '203.0.113.5'
+    }
+
+    def "a SPOOFED CF-Connecting-IP from a NON-trusted peer is IGNORED — the real socket IP is logged (integrity-audit fix)"() {
+        given:
+        // A client connecting DIRECTLY (not via our trusted proxy) sets
+        // CF-Connecting-IP / X-Forwarded-For to forge its logged IP or frame a
+        // third party. The trusted-proxy gate must reject the headers and record
+        // the real socket address so the audit trail can't be poisoned.
+        def req = new MockHttpServletRequest()
+        req.addHeader('CF-Connecting-IP', '203.0.113.5')
+        req.addHeader('X-Forwarded-For', '9.9.9.9')
+        req.setRemoteAddr('1.2.3.4')   // not in the trusted-proxy CIDRs
+
+        expect:
+        invokeClientIp(req) == '1.2.3.4'
     }
 
     def "clientIp falls through to X-Forwarded-For when CF-Connecting-IP is blank"() {
@@ -302,7 +324,7 @@ class AuditServiceSpec extends Specification {
         def req = new MockHttpServletRequest()
         req.addHeader('CF-Connecting-IP', '   ')
         req.addHeader('X-Forwarded-For', '198.51.100.7, 10.0.0.1, 10.0.0.2')
-        req.setRemoteAddr('10.0.0.50')
+        req.setRemoteAddr('127.0.0.1')   // immediate peer = trusted loopback proxy
 
         expect:
         invokeClientIp(req) == '198.51.100.7'
