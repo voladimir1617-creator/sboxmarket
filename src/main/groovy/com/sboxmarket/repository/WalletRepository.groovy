@@ -23,8 +23,25 @@ interface WalletRepository extends JpaRepository<Wallet, Long> {
     Wallet findByStripeConnectAccountId(String stripeConnectAccountId)
 
     /** Single SUM aggregate instead of `findAll().sum { it.balance }`.
-     *  Drops the admin-dashboard roundtrip from O(N) to O(1). */
-    @Query("SELECT COALESCE(SUM(w.balance), 0) FROM Wallet w")
+     *  Drops the admin-dashboard roundtrip from O(N) to O(1).
+     *
+     *  Feeds the admin dashboard's `totalEscrow` — "how much user money are
+     *  we holding", i.e. the platform's LIABILITY. The platform treasury
+     *  (PlatformLedgerService.TREASURY_USERNAME) is excluded because its
+     *  balance is the opposite of a liability: it is the platform's own
+     *  margin, and it can legitimately go NEGATIVE while processing costs
+     *  outrun fee revenue. Including it would net the company's own money
+     *  against what it owes its users and misstate the figure in BOTH
+     *  directions depending on the sign — the one number an operator would
+     *  reach for to answer "can we cover a withdrawal run".
+     *
+     *  The username is spelled as a literal rather than referencing the
+     *  constant: HQL resolution of a static String field across packages is
+     *  version-dependent and would fail at context-startup rather than at
+     *  compile time. WalletRepositoryTreasuryExclusionSpec pins the literal
+     *  against PlatformLedgerService.TREASURY_USERNAME so the two cannot
+     *  drift apart silently. */
+    @Query("SELECT COALESCE(SUM(w.balance), 0) FROM Wallet w WHERE w.username <> '__platform_treasury__'")
     BigDecimal sumAllBalances()
 
     /** Pessimistic-write lock on one wallet row — SERIALIZES the rolling-24h

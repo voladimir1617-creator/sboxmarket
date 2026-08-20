@@ -1,5 +1,6 @@
 package com.sboxmarket.controller
 
+import com.sboxmarket.config.LiveMoneyGuard
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.SteamAuthService
@@ -36,6 +37,45 @@ class SteamAuthController {
     @Autowired(required = false) com.sboxmarket.service.AuditService auditService
     @Autowired(required = false) com.sboxmarket.service.EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.AuditLogRepository auditLogRepository
+    @Autowired org.springframework.core.env.Environment env
+
+    /** DEV-ONLY local login — establishes a real session for a seed user so the
+     *  auth-gated UI can be QA'd on localhost without a live Steam round-trip.
+     *  Scaffolding for visual QA — not a shipped feature. Mirrors the /return
+     *  session establishment exactly.
+     *
+     *  This endpoint takes a user id and NOTHING ELSE and hands back a valid
+     *  session for that user — no password, no OpenID assertion, no token. It
+     *  is total account takeover of every account on the platform, including
+     *  every admin, for anyone who can reach the URL. Its gate is therefore
+     *  the most safety-critical branch in the controller.
+     *
+     *  Guarded by {@link LiveMoneyGuard}, which is true when the `prod`
+     *  profile is active OR a live Stripe key is configured. The profile check
+     *  alone made a forgotten / stripped `SPRING_PROFILES_ACTIVE` sufficient
+     *  to open this door on a box that was otherwise taking real payments —
+     *  one environment variable standing between a live marketplace and
+     *  credential-free impersonation. The live key cannot be forgotten,
+     *  because without it there is no money to steal. */
+    @GetMapping("/dev-login")
+    def devLogin(@RequestParam(required = false) Long userId,
+                 @RequestParam(required = false, defaultValue = "/profile") String next,
+                 HttpServletRequest req, HttpServletResponse resp) {
+        if (LiveMoneyGuard.isRealMoney(env)) {
+            log.warn("dev-login refused — real-money deployment (profiles={})", env.activeProfiles)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build()
+        }
+        SteamUser user = userId != null ? steamUserRepository.findById(userId).orElse(null)
+                                        : steamUserRepository.findAll().find { it != null }
+        if (user == null) { return ResponseEntity.status(HttpStatus.NOT_FOUND).body([error: 'no seed users']) }
+        try { req.session?.invalidate() } catch (Exception ignore) {}
+        def fresh = req.getSession(true)
+        fresh.setAttribute(SESSION_USER_ID, user.id)
+        fresh.setAttribute(SESSION_EPOCH, user.sessionEpoch ?: 0L)
+        log.warn("DEV-LOGIN (non-prod only) as ${user.displayName} (#${user.id})")
+        try { resp.sendRedirect(sanitizeNext(next)) } catch (Exception ignore) {}
+        return null
+    }
 
     /** Kicks off the OpenID flow — redirects the browser to Steam's login page.
      *

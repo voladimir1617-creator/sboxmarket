@@ -72,6 +72,13 @@ class TradeService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) AuditService auditService
     @Autowired(required = false) EmailService emailService
+    /** Platform's own ledger account — the counterparty for the fee taken
+     *  on release. `required = false` so the ~200 existing unit specs that
+     *  build TradeService via the property-map constructor still wire; the
+     *  null-safe call in release() then no-ops for them. Production wiring
+     *  is unconditional (PlatformLedgerService is a plain @Service), and
+     *  TradeServiceFeeLedgerSpec pins that a real one is actually called. */
+    @Autowired(required = false) PlatformLedgerService platformLedgerService
     @Autowired TextSanitizer textSanitizer
     @Autowired(required = false) com.sboxmarket.repository.TradeMessageRepository tradeMessageRepository
     @Autowired(required = false) ReviewService reviewService
@@ -720,6 +727,30 @@ class TradeService {
                 ))
             }
         }
+        // Book the platform's cut to a real account.
+        //
+        // Until this line existed the 2% was subtracted from the seller and
+        // credited to NOBODY — no platform wallet, no treasury, no FEE row.
+        // Revenue was a residual you could only reconstruct by summing
+        // Trade.feeAmount after the fact, which meant the business could not
+        // observe its own margin against the Stripe processing cost it pays
+        // on every deposit. See PlatformLedgerService.
+        //
+        // Posted on EVERY VERIFIED release, including the two seller-credit
+        // failure branches above: the fee is earned when the trade verifies,
+        // and the residual figure this replaces (TradeRepository.sumFeesSince,
+        // `WHERE state = 'VERIFIED'`) counts those same rows. Booking on a
+        // narrower condition would put two disagreeing revenue numbers on the
+        // same admin dashboard.
+        //
+        // NOT wrapped in try/catch, unlike the notification / email / audit
+        // side-effects below it. This is money, in the same commit as the
+        // seller credit: if the fee cannot be booked, the release must roll
+        // back and be retried rather than pay the seller and lose the fee —
+        // that silent leak is the whole defect being closed. Idempotent by
+        // the state machine (release() refuses a VERIFIED trade) plus Trade's
+        // @Version, which is what already stops the seller double-credit.
+        platformLedgerService?.postTradeFee(t.feeAmount, t.id, t.listingId, t.itemName)
         notificationService?.safePush(t.buyerUserId, 'TRADE_VERIFIED',
             "Trade verified · ${t.itemName}", null, t.id, '/profile?tab=trades')
         // Auto-release email to the buyer (batch 601). Only fires when

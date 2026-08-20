@@ -242,6 +242,15 @@ class BuyOrderService {
         // churns). Seed from the first (fresh) read, decrement on each fill.
         // buy() remains the authoritative fresh-read + @Version money guard.
         // (integrity-audit fix)
+        //
+        // Known, accepted corner (self-review): if a deposit lands DURING this
+        // ms-scale loop, `available` won't reflect it and a fill the buyer could
+        // now afford may be skipped. This is NOT a regression — the pre-fix code
+        // re-read the same persistence-context-cached wallet and also never saw a
+        // concurrent deposit. It self-heals: the order stays ACTIVE and re-matches
+        // on the next listing event / sweep with a fresh wallet read. A fresh
+        // entityManager.refresh() each iteration would close it but isn't unit-
+        // testable with mocked repos and adds a DB round-trip per candidate.
         def available = null
         for (Listing listing : candidates) {
             if (order.quantity <= 0 || order.status != 'ACTIVE') break

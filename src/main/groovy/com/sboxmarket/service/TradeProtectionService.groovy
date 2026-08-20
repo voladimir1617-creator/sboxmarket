@@ -69,6 +69,11 @@ class TradeProtectionService {
     @Autowired TransactionRepository transactionRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) AuditService auditService
+    /** Platform's own ledger account — receives the protection premium as
+     *  revenue and paid claims as cost, so the product's true margin is
+     *  observable instead of showing pure premium income. `required = false`
+     *  matching the other optional collaborators here. */
+    @Autowired(required = false) PlatformLedgerService platformLedgerService
     @Autowired(required = false) BanGuard banGuard
 
     // ── Quote ────────────────────────────────────────────────────────
@@ -200,6 +205,14 @@ class TradeProtectionService {
             description:     "Trade Protection on ${trade.itemName ?: ('trade #' + tradeId)}",
             listingId:       trade.listingId
         ))
+        // Book the premium as platform revenue. The debit above is only half
+        // an entry — it takes money OUT of the buyer's wallet and, before
+        // this posting existed, put it nowhere: the second uncounted revenue
+        // stream alongside the 2% trade fee. Same in-caller-transaction
+        // contract as TradeService.release()'s fee posting; this is our money
+        // moving, so a failure must roll the purchase back rather than debit
+        // the buyer for a premium we never recorded earning.
+        platformLedgerService?.postProtectionFee(fee, tradeId, trade.listingId, trade.itemName)
 
         def now = System.currentTimeMillis()
         def protection = new TradeProtection(
@@ -330,6 +343,17 @@ class TradeProtectionService {
                     description:     "Trade Protection payout — ${trade?.itemName ?: ('trade #' + tradeId)}",
                     listingId:       trade?.listingId
                 ))
+                // Book the claim as a platform cost. The premium booked at
+                // purchase() is only revenue if the cover lapses unused; a
+                // paid claim is the platform buying that risk back, and
+                // without this leg the protection product would report pure
+                // profit no matter how many claims it paid. Only the
+                // ACTUALLY-credited branch books a cost — the two
+                // manual-payout warnings below moved no money yet, so
+                // booking there would overstate the loss and then double it
+                // when support pays out for real.
+                platformLedgerService?.postProtectionPayout(
+                    protection.coverageAmount, tradeId, trade?.listingId)
                 credited = true
             } else {
                 log.warn("Trade #{} protection claimed but buyer wallet {} not found — " +
@@ -445,6 +469,16 @@ class TradeProtectionService {
                         description:     "Trade Protection claim reversed — ${trade?.itemName ?: ('trade #' + tradeId)}",
                         listingId:       trade?.listingId
                     ))
+                    // Credit the recovery back to the platform ledger. Without
+                    // this the PROTECTION_PAYOUT cost booked at autoClaim time
+                    // stands forever even though the money came back, which
+                    // permanently understates margin — and understates it most
+                    // for the platform that polices claims best. Books `debit`,
+                    // the amount ACTUALLY recovered, not `cover`: the clamp
+                    // below means a buyer who already spent the payout leaves a
+                    // real shortfall that must stay on the books.
+                    platformLedgerService?.postProtectionReversal(
+                        debit, tradeId, trade?.listingId)
                 }
                 def shortfall = cover - debit
                 if (shortfall > BigDecimal.ZERO) {

@@ -262,7 +262,11 @@ class ItemController {
     // direct client can't spoof a fresh key per request to inflate views. Falls
     // back to remoteAddr when the resolver isn't wired. (integrity-audit fix)
     private String clientIp(HttpServletRequest req) {
-        clientIpResolver ? clientIpResolver.resolve(req) : req?.remoteAddr
+        // .take(64) bounds the view-dedup map key (mirrors AuditService's cap) so
+        // an oversized forwarded header can't mint unbounded distinct keys.
+        // (self-review fix)
+        def ip = clientIpResolver ? clientIpResolver.resolve(req) : req?.remoteAddr
+        (ip ?: '').take(64)
     }
 
     @GetMapping("/{id}/history")

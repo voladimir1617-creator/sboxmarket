@@ -60,6 +60,11 @@ class AdminService {
     @Autowired SupportMessageRepository supportMessageRepository
     @Autowired NotificationService notificationService
     @Autowired(required = false) AuditService auditService
+    /** Platform's own ledger account — supplies the margin figures on the
+     *  admin dashboard. `required = false` so the specs that build
+     *  AdminService via the property-map constructor still wire; the
+     *  dashboard then reports a zero margin rather than throwing. */
+    @Autowired(required = false) PlatformLedgerService platformLedgerService
     @Autowired TextSanitizer textSanitizer
     // AdminService used to be a dependency of TradeService (for the ban guard)
     // AND TradeService used to be a dependency of AdminService (for moderation
@@ -162,6 +167,33 @@ class AdminService {
         // activeChargebacks stays low (because staff clear them fast).
         def chargebacks30d = transactionRepository.countByTypeStatusSince('DEPOSIT', 'DISPUTED', since30d)
 
+        // MARGIN, not revenue. `fees24h/7d/30d` above are gross fee income
+        // reconstructed from Trade.feeAmount — they say nothing about what
+        // the fees COST to earn. Deposits credit the user the gross amount
+        // while the payment processor keeps ~2.9% + $0.30, so a platform can
+        // post rising fee revenue while every deposited dollar loses money
+        // (see UNIT-ECONOMICS.md: break-even needs 1.6-4.3 trades per
+        // deposited dollar). The treasury balance is revenue MINUS booked
+        // cost, so a negative figure here is the signal that was previously
+        // unobservable — it is expected to start negative and the operator's
+        // question is whether it trends up. Null-safe: the service is a
+        // plain @Service in prod, but AdminService is constructed bare in
+        // several specs.
+        def platformMargin      = platformLedgerService ? platformLedgerService.margin() : BigDecimal.ZERO
+        def feeRevenue30d       = transactionRepository.sumByTypeSinceCompleted(
+                com.sboxmarket.service.PlatformLedgerService.TYPE_FEE, 'COMPLETED', since30d) ?: BigDecimal.ZERO
+        def protectionRevenue30d = transactionRepository.sumByTypeSinceCompleted(
+                com.sboxmarket.service.PlatformLedgerService.TYPE_PROTECTION_FEE, 'COMPLETED', since30d) ?: BigDecimal.ZERO
+        def processingCost30d   = transactionRepository.sumByTypeSinceCompleted(
+                com.sboxmarket.service.PlatformLedgerService.TYPE_PROCESSING_COST, 'COMPLETED', since30d) ?: BigDecimal.ZERO
+        def protectionCost30d   = transactionRepository.sumByTypeSinceCompleted(
+                com.sboxmarket.service.PlatformLedgerService.TYPE_PROTECTION_PAYOUT, 'COMPLETED', since30d) ?: BigDecimal.ZERO
+        def protectionReversal30d = transactionRepository.sumByTypeSinceCompleted(
+                com.sboxmarket.service.PlatformLedgerService.TYPE_PROTECTION_REVERSAL, 'COMPLETED', since30d) ?: BigDecimal.ZERO
+        def netMargin30d = ((feeRevenue30d as BigDecimal) + (protectionRevenue30d as BigDecimal)
+                          + (protectionReversal30d as BigDecimal)
+                          - (processingCost30d as BigDecimal) - (protectionCost30d as BigDecimal))
+
         [
             users:                    steamUserRepository.count(),
             items:                    itemRepository.count(),
@@ -184,7 +216,13 @@ class AdminService {
             pendingSellerSend:        pendingSellerSend,
             pendingBuyerConfirm:      pendingBuyerConf,
             activeChargebacks:        activeChargebacks,
-            chargebacks30d:           chargebacks30d
+            chargebacks30d:           chargebacks30d,
+            platformMargin:           (platformMargin as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            feeRevenue30d:            (feeRevenue30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            protectionRevenue30d:     (protectionRevenue30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            processingCost30d:        (processingCost30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            protectionCost30d:        (protectionCost30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            netMargin30d:             (netMargin30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP)
         ]
     }
 

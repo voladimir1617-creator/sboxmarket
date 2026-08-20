@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 @Slf4j
@@ -77,6 +78,11 @@ class StripeService {
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
     @Autowired(required = false) AuditService auditService
+    /** Platform's own ledger account — receives the PROCESSING_COST leg of
+     *  every live deposit so the treasury balance is margin, not revenue.
+     *  `required = false` matching every other optional collaborator here,
+     *  so the large existing StripeService spec suite still wires. */
+    @Autowired(required = false) PlatformLedgerService platformLedgerService
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     @Autowired(required = false) EmailService emailService
@@ -237,6 +243,48 @@ class StripeService {
      *  eviction caps the set at {@link #SEEN_EVENTS_CAP} so a long-lived
      *  container can't accumulate unbounded state. Synchronized for the
      *  same worker-pool-race reason as {@link #alreadyProcessed}. */
+    /**
+     * Refuse a withdrawal whose Transfer id is already on a ledger row.
+     *
+     * The idempotency key on the Transfer buckets by wallet + amount + MINUTE,
+     * so it cannot tell "the same request retried" from "a second, genuinely
+     * different withdrawal that happens to look identical". A user withdrawing
+     * $50 twice inside one wall-clock minute is normal behaviour: Stripe
+     * replays the FIRST Transfer and creates no second payout, but the caller
+     * went on to write a second COMPLETED WITHDRAW row — and the wallet had
+     * ALREADY been debited a second time further up. User debited $100, paid
+     * $50, with a ledger showing two successful payouts on one transfer id.
+     *
+     * {@code @Version} does not help: it serialises CONCURRENT requests, and
+     * this failure is SEQUENTIAL — exactly the case the minute bucket swallows.
+     *
+     * The duplicate rows also break reconciliation.
+     * {@code TransactionRepository.findByStripeReference} is single-result, so
+     * two rows sharing a transfer id make {@code handleTransferReversed} throw
+     * IncorrectResultSizeDataAccessException — a reversal of that payout could
+     * never be applied.
+     *
+     * Fails CLOSED. We cannot tell from here whether Stripe replayed or
+     * created, and paying out twice is unrecoverable while asking the user to
+     * wait a moment is not. Throwing rolls back this debit, so the user keeps
+     * their money.
+     *
+     * Extracted from the inline Transfer block so the invariant is directly
+     * unit-testable: the surrounding path calls the static
+     * {@code Transfer.create}, which no unit test can drive to success.
+     */
+    protected void assertTransferNotAlreadyRecorded(String transferId, Long walletId, String idemKey) {
+        if (transferId == null) return
+        def prior = transactionRepository.findByStripeReference(transferId)
+        if (prior == null) return
+        log.error("Withdrawal REFUSED for wallet ${walletId}: Stripe replayed transfer ${transferId} " +
+                  "(idem=${idemKey}) which is already recorded on tx ${prior.id}. " +
+                  "No second payout was created; rolling back this debit.")
+        throw new com.sboxmarket.exception.BadRequestException("WITHDRAWAL_TOO_SOON",
+            "You just requested an identical withdrawal moments ago. Your balance was not charged " +
+            "again — wait a minute and retry if you meant to withdraw twice.")
+    }
+
     private synchronized void markProcessed(String eventId) {
         if (eventId == null || eventId.isEmpty()) return
         if (seenEventIds.contains(eventId)) return
@@ -245,6 +293,62 @@ class StripeService {
             seenEventIds.remove(oldest)
         }
         seenEventIds.add(eventId)
+    }
+
+    /** Drops an event id back out of the fast-path cache — see
+     *  {@link #forgetIfRolledBack} for why that is necessary. */
+    private synchronized void unmarkProcessed(String eventId) {
+        if (eventId == null || eventId.isEmpty()) return
+        seenEventIds.remove(eventId)
+    }
+
+    /**
+     * Un-mark an event id if the surrounding transaction rolls back.
+     *
+     * THE BUG THIS CLOSES: {@link #claimStripeEvent} takes the claim up front
+     * — it INSERTs the processed_stripe_events row and calls
+     * {@link #markProcessed} BEFORE the side-effecting handler runs. The
+     * comment in handleWebhookEvent argues this is safe because "the claim row
+     * is written inside THIS @Transactional, so a thrown handler rolls the
+     * claim row back too". That is true of the DB row and FALSE of
+     * {@link #seenEventIds}, which is a plain in-memory LinkedHashSet that no
+     * rollback touches.
+     *
+     * So when a handler threw, the durable claim vanished but the in-memory
+     * one survived, and Stripe's retry hit the very first line of
+     * claimStripeEvent — the {@code alreadyProcessed} fast path — got "already
+     * processed", and the controller ACKed 200. Stripe then stops retrying.
+     * On a single-pod deployment the retry ALWAYS lands on the pod holding the
+     * poisoned cache, so the outcome is deterministic: the customer's card is
+     * charged, completeDeposit never completes, no COMPLETED row is written,
+     * and no retry can ever recover it. That is a silently lost deposit, and it
+     * is a regression of the batch-657 fix whose own comment (above
+     * alreadyProcessed) describes this exact failure.
+     *
+     * Registering the removal on rollback restores the invariant the batch-657
+     * comment states — "a handler that throws must NOT leave the event marked
+     * processed" — WITHOUT giving up the up-front claim that makes the gate
+     * multi-pod safe. The in-memory set goes back to being what its own
+     * documentation calls it: a fast-path cache of the authoritative DB row,
+     * consistent with that row in both directions.
+     *
+     * afterCompletion (not afterCommit) because we must act on the ROLLBACK
+     * outcome specifically. No-ops when no synchronization is active — a
+     * non-transactional caller has no rollback to observe.
+     */
+    private void forgetIfRolledBack(String eventId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) return
+        final String id = eventId
+        TransactionSynchronizationManager.registerSynchronization(
+            new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override void afterCompletion(int status) {
+                    if (status == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
+                        unmarkProcessed(id)
+                        log.warn("Stripe webhook ${id} rolled back — cleared from the in-process " +
+                                 "dedup cache so Stripe's retry genuinely re-runs the handler")
+                    }
+                }
+            })
     }
 
     /** Cluster-wide webhook-event claim (wave 147). Attempts to record the
@@ -324,6 +428,11 @@ class StripeService {
                 eventType:   eventType,
                 processedAt: System.currentTimeMillis()))
             markProcessed(eventId)
+            // Keep the in-memory cache consistent with the durable claim: if
+            // this transaction rolls back the row disappears, so the cache
+            // entry must disappear with it or Stripe's retry is wrongly
+            // short-circuited and the deposit is lost. See forgetIfRolledBack.
+            forgetIfRolledBack(eventId)
             return true
         } catch (org.springframework.dao.DataIntegrityViolationException dup) {
             // Lost the cross-pod race — a sibling pod claimed the same id
@@ -638,7 +747,40 @@ class StripeService {
                     .setAmount((amount * 100).longValue())
                     .setReason(RefundCreateParams.Reason.REQUESTED_BY_CUSTOMER)
                     .build()
-                def refund = Refund.create(refundParams)
+                // Idempotency key — this was the ONLY money-moving Stripe call
+                // in the file without one (Session.create and Transfer.create
+                // both carry them).
+                //
+                // The hole: if this call times out AFTER Stripe committed the
+                // refund, the catch below throws, @Transactional rolls back,
+                // and the REFUND row is never written. sumRefundsByDeposit then
+                // reads $0 again, so an admin retry sails through BOTH
+                // cumulative-cap checks and issues a SECOND real refund.
+                // Stripe's own `amount_too_large` catches this for a FULL
+                // refund but not for partials: two $50 refunds against a $100
+                // deposit both succeed, $100 leaves Stripe, and the ledger
+                // records $50.
+                //
+                // The key is anchored on the ledger state the refund is being
+                // applied to — deposit + amount + how much was already
+                // refunded — which makes it do double duty:
+                //   * A RETRY of a refund that Stripe committed but we failed
+                //     to record sees an unchanged `refundedNow` (the lost
+                //     attempt rolled back), so it reproduces the SAME key,
+                //     Stripe replays the original refund instead of issuing a
+                //     second, and this run finally writes the missing REFUND
+                //     row. The stuck state repairs itself.
+                //   * A genuinely DIFFERENT second partial runs after the first
+                //     committed, so `refundedNow` has moved and the key differs
+                //     — a real new refund is created, as intended.
+                // A plain amount-only key would have conflated those two.
+                //
+                // refundedNow is read under the wallet's pessimistic lock
+                // above, so concurrent refunds on one deposit cannot both
+                // observe the same value.
+                def refundIdemKey = "rf_${tx.id}_${(amount * 100).longValue()}_${(refundedNow * 100).longValue()}"
+                def refundOpts = RequestOptions.builder().setIdempotencyKey(refundIdemKey).build()
+                def refund = Refund.create(refundParams, refundOpts)
                 refundId = refund.id
             } catch (Exception e) {
                 log.error("Stripe refund failed for tx ${depositTxId}: ${e.message}")
@@ -1195,6 +1337,42 @@ class StripeService {
                     .putMetadata("type", "WITHDRAW")
                     .build()
                 def transfer = com.stripe.model.Transfer.create(transferParams, reqOpts)
+                // Stripe-idempotent-REPLAY guard — the withdrawal twin of the
+                // one createDepositSession already carries.
+                //
+                // idemKey buckets by wallet + amount + MINUTE, so it cannot
+                // tell "the same request retried" from "a second, genuinely
+                // different withdrawal that happens to look identical". A user
+                // withdrawing $50 twice inside one wall-clock minute is normal
+                // behaviour, not a double-submit: Stripe replays the FIRST
+                // Transfer and creates no second payout, but the code below
+                // wrote a second COMPLETED WITHDRAW row anyway — and the wallet
+                // was ALREADY debited a second time further up. Net effect:
+                // user debited $100, paid $50, with a ledger showing two
+                // successful payouts sharing one transfer id.
+                //
+                // @Version does not help here. It serialises CONCURRENT
+                // requests; this failure is SEQUENTIAL, which is exactly the
+                // case the minute bucket silently swallows.
+                //
+                // The duplicate rows also break reconciliation:
+                // TransactionRepository.findByStripeReference is single-result,
+                // so two rows on one transfer id make handleTransferReversed
+                // throw IncorrectResultSizeDataAccessException — a reversal of
+                // that payout could never be applied.
+                //
+                // Deliberately checked INSIDE the try but rethrown untouched by
+                // the catch below: wrapping it in the generic "Stripe error"
+                // IllegalStateException would relabel a precise, actionable
+                // refusal as an outage and lose the WITHDRAWAL_TOO_SOON code
+                // the UI needs to explain what happened.
+                //
+                // Failing closed is the only safe direction: we cannot tell
+                // from here whether Stripe replayed or created, and paying out
+                // twice is unrecoverable while asking the user to wait a moment
+                // is not. The throw rolls back this debit, so the user keeps
+                // their money.
+                assertTransferNotAlreadyRecorded(transfer.id, walletId, idemKey)
                 stripeRef = transfer.id
                 // The Transfer succeeded — funds have left the platform
                 // balance. Mark COMPLETED; Stripe handles the downstream
@@ -1202,6 +1380,15 @@ class StripeService {
                 txStatus = "COMPLETED"
                 txDescription = "Withdrawal via Stripe Connect (transfer ${transfer.id} → ${wallet.stripeConnectAccountId})"
                 log.info("Stripe Connect transfer ${transfer.id} created for wallet ${walletId}: \$${amount} → ${wallet.stripeConnectAccountId}")
+            } catch (com.sboxmarket.exception.BadRequestException replay) {
+                // The idempotent-replay refusal above is a DECIDED outcome, not
+                // a Stripe failure. Rethrow it untouched so the caller sees
+                // WITHDRAWAL_TOO_SOON with its own message; relabelling it as
+                // "Stripe error … try again" would invite the user to
+                // immediately retry the one action that is currently unsafe.
+                // Rollback of the wallet debit is unchanged — an exception is
+                // an exception as far as @Transactional is concerned.
+                throw replay
             } catch (Exception e) {
                 // Transfer failed — let it propagate so the @Transactional
                 // rolls back the wallet debit (no money left, no orphan
@@ -2380,6 +2567,42 @@ class StripeService {
             }
         }
         transactionRepository.save(tx)
+
+        // Book what this deposit COST us.
+        //
+        // The wallet was credited `tx.amount` GROSS a few lines up, but the
+        // processor keeps ~2.9% + $0.30 of it — money the platform never
+        // receives and, until this posting existed, never recorded anywhere.
+        // Without the cost leg the treasury reads as pure profit and the
+        // break-even question in UNIT-ECONOMICS.md ("a dollar deposited,
+        // traded once, and withdrawn loses money at every deposit size")
+        // cannot be answered from the data at all.
+        //
+        // Live-only: in dev mode no real charge happened, so booking a cost
+        // would be fiction that makes the margin look worse than reality.
+        //
+        // Best-effort, unlike the FEE posting in TradeService.release(). This
+        // records an EXTERNAL fact that has ALREADY happened at the
+        // processor. The user genuinely paid; failing their deposit because
+        // we could not write our own bookkeeping row would turn a missing
+        // ledger line into lost customer money — strictly the worse outcome.
+        //
+        // The "best-effort" guarantee lives INSIDE postDepositProcessingCost,
+        // which defers the write to afterCommit in its own transaction. A
+        // try/catch here would NOT have been enough and would have been worse
+        // than nothing: a constraint violation inside a repository save marks
+        // this transaction rollback-only before any catch block here can run,
+        // so the deposit would roll back while the catch logged reassurance.
+        // The bare try/catch below is kept only for a defensive throw on the
+        // estimate arithmetic itself, which runs before the deferral.
+        if (isLive() && platformLedgerService != null) {
+            try {
+                platformLedgerService.postDepositProcessingCost(tx.amount, sessionId)
+            } catch (Exception e) {
+                log.error("Processing-cost estimate failed for deposit tx ${tx.id} " +
+                          "(wallet credit unaffected; platform margin understated by this row): ${e.message}", e)
+            }
+        }
 
         // Resolve the wallet owner up-front so we can pass them as the
         // audit subject AND as the notification recipient. Pre-fix the
