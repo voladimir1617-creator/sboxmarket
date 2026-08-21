@@ -214,6 +214,18 @@ class WalletController {
             dailyDepositUsed:   depositUsed24h,
             dailyDepositRemaining: depositRemaining24h,
             dailyDepositOldestAt: oldestDepositAt,
+            // Pass-through processor fees. The wallet modal renders a live
+            // "you receive $X" preview from these as the user types, which is
+            // the ONLY place a deposit's true credit is visible before the
+            // Stripe redirect — a form promising $100 that credits $96.80 is
+            // how you buy chargebacks. Rates, not amounts: the authoritative
+            // per-transaction figures come back on the /deposit and /withdraw
+            // responses, computed server-side from this same config.
+            //
+            // Not a secret. These are the terms of the transaction; the user
+            // is entitled to them before they commit, and Stripe's own
+            // published rates are where they came from.
+            feeSchedule:        stripeService.passThroughFeeSchedule(),
             frozen:             Boolean.TRUE.equals(wallet.frozen),
             frozenReason:       wallet.frozenReason,
             frozenAt:           wallet.frozenAt
@@ -594,10 +606,20 @@ class WalletController {
             walletRepository.flush()
             def reloaded = walletRepository.findById(wallet.id)
                     .orElseThrow { new NotFoundException("Wallet", wallet.id) }
+            // Echo the pass-through payout fee and the NET actually sent.
+            // `newBalance` alone tells the user what left their wallet but
+            // not what lands in their bank — and under pass-through pricing
+            // those are different numbers. Read off the persisted row, not
+            // recomputed, so this can never disagree with what was paid out.
+            // Zero on the dev path and on any pre-pass-through row.
+            def payoutFee = (tx.feeAmount ?: BigDecimal.ZERO) as BigDecimal
             return ResponseEntity.ok([
                 transactionId: tx.id,
                 status       : tx.status,
-                newBalance   : reloaded.balance
+                newBalance   : reloaded.balance,
+                amount       : tx.amount,
+                processingFee: payoutFee,
+                netPayout    : (tx.amount ?: BigDecimal.ZERO) - payoutFee
             ])
         } catch (org.springframework.dao.OptimisticLockingFailureException raceLost) {
             log.info("withdraw lost wallet @Version race for wallet ${wallet.id} — concurrent withdraw committed first")

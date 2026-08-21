@@ -200,6 +200,27 @@ trade:
   # window. Shorten during incidents via TRADE_AUTO_RELEASE_DAYS=1.
   auto-release-days: ${TRADE_AUTO_RELEASE_DAYS:8}
 
+# Payment-processor rates. These are PASS-THROUGH: the user is credited net
+# of the deposit fee and paid out net of the payout fee, and the platform's
+# own revenue is the 2% selling fee alone (TradeService.FEE_RATE) — see
+# UNIT-ECONOMICS.md.
+#
+# THESE ARE LIST PRICES AND THEY ARE WHAT THE USER IS CHARGED. Set them to
+# your actual negotiated Stripe rates. Too high and you are overcharging real
+# users on every deposit; too low and the platform silently eats the
+# difference on every one. The gap shows up as the treasury residual
+# (PROCESSING_RECOVERY credits minus PROCESSING_COST debits) — if that number
+# trends away from ~zero, one of these four is wrong.
+platform:
+  # Card deposit — Stripe US standard is 2.9% + $0.30.
+  processing-fee-percent: ${PLATFORM_PROCESSING_FEE_PERCENT:2.9}
+  processing-fee-fixed:   ${PLATFORM_PROCESSING_FEE_FIXED:0.30}
+  # Connect payout — roughly 0.25% + $0.25. Deliberately separate knobs from
+  # the deposit rate: the two legs are priced an order of magnitude apart, and
+  # a single shared rate would force the operator to be wrong on one of them.
+  payout-fee-percent:     ${PLATFORM_PAYOUT_FEE_PERCENT:0.25}
+  payout-fee-fixed:       ${PLATFORM_PAYOUT_FEE_FIXED:0.25}
+
 # Outgoing-email settings read by EmailService.
 app:
   email:

@@ -75,6 +75,57 @@ class StripeService {
     @Value('${sbox.stripe.daily-deposit-cap:5000}')
     BigDecimal dailyDepositCap
 
+    /**
+     * Pass-through processor fee on a deposit of {@code gross} — the amount
+     * withheld from the wallet credit so the platform does not absorb Stripe's
+     * cut. Zero when the ledger service is absent, which is the fail-SAFE
+     * direction: the user is credited the full amount and the platform eats
+     * the cost, rather than a mis-wired context silently inventing a charge.
+     *
+     * Every quote surface and the credit itself route through these two
+     * helpers so a user can never be shown one number and charged another.
+     */
+    BigDecimal depositFee(BigDecimal gross) {
+        platformLedgerService == null ? BigDecimal.ZERO.setScale(2)
+                                      : (platformLedgerService.depositFeeCharged(gross) ?: BigDecimal.ZERO.setScale(2))
+    }
+
+    /** Pass-through processor fee deducted from a payout of {@code gross}. */
+    BigDecimal payoutFee(BigDecimal gross) {
+        platformLedgerService == null ? BigDecimal.ZERO.setScale(2)
+                                      : (platformLedgerService.payoutFeeCharged(gross) ?: BigDecimal.ZERO.setScale(2))
+    }
+
+    /**
+     * The pass-through fee schedule, for the wallet UI to quote from BEFORE
+     * the user commits.
+     *
+     * A deposit screen that says "$100" and credits $96.80 is a chargeback
+     * generator, so the rates the server will actually charge have to reach
+     * the form. They are read off the SAME config the charge is computed
+     * from, never hardcoded client-side — a client with its own copy of "2.9%"
+     * silently stops matching the day an operator negotiates a rate.
+     *
+     * {@code active} is false in dev mode: no Stripe keys means no Stripe
+     * charge (createDepositSession returns into devModeDeposit, and
+     * requestWithdrawal creates no Transfer), so quoting a fee there would
+     * advertise a deduction that never happens.
+     *
+     * Rates only — the authoritative per-transaction figures still come back
+     * on the deposit-session and withdrawal responses, and the Stripe-hosted
+     * Checkout page restates the net a third time.
+     */
+    Map passThroughFeeSchedule() {
+        def zero = BigDecimal.ZERO.setScale(2)
+        [
+            active:              isLive() && platformLedgerService != null,
+            depositFeePercent:   platformLedgerService?.processingFeePercent ?: zero,
+            depositFeeFixed:     platformLedgerService?.processingFeeFixed   ?: zero,
+            withdrawalFeePercent: platformLedgerService?.payoutFeePercent    ?: zero,
+            withdrawalFeeFixed:  platformLedgerService?.payoutFeeFixed       ?: zero
+        ]
+    }
+
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
     @Autowired(required = false) AuditService auditService
@@ -515,6 +566,30 @@ class StripeService {
         // the same 2dp value.
         amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
 
+        // ── Pass-through processor fee ───────────────────────────────
+        // The operator's pricing decision: Stripe's cut is the user's, not the
+        // platform's. The card is charged `amount` GROSS and the wallet is
+        // credited `amount - processingFee`. Both numbers are computed HERE,
+        // before the Stripe session exists, so the figure returned to the
+        // deposit screen is the same figure completeDeposit will credit — it is
+        // persisted on the row rather than recomputed later.
+        BigDecimal processingFee = depositFee(amount)
+        // Refuse rather than credit zero-or-negative. At 2.9% + $0.30 the fee
+        // exceeds the deposit below ~$0.31, and a misconfigured fixed leg moves
+        // that threshold arbitrarily high. Without this the arithmetic runs off
+        // the end silently: a card charged for a credit of $0.00, or a DEPOSIT
+        // row whose net is negative. The @DecimalMin("1.00") on DepositRequest
+        // makes this unreachable at today's rates from the API — which is
+        // exactly why it must be checked here, where the rate actually lives,
+        // instead of being assumed from a DTO annotation three layers away.
+        if (platformLedgerService != null && platformLedgerService.feeExceedsAmount(amount, processingFee)) {
+            log.warn("DEPOSIT_BELOW_FEE for wallet ${walletId}: \$${amount} deposit vs \$${processingFee} processing fee")
+            throw new com.sboxmarket.exception.BadRequestException("DEPOSIT_BELOW_FEE",
+                "A \$${amount.toPlainString()} deposit does not cover the \$${processingFee.toPlainString()} payment-processing fee. " +
+                "Deposit a larger amount.")
+        }
+        BigDecimal netCredit = amount - processingFee
+
         // PESSIMISTIC_WRITE lock on the wallet row. The cap check just below is
         // read-then-act (sumDepositsSince → compare → the PENDING row that
         // counts is only INSERTED later, after the Stripe round-trip), and the
@@ -575,7 +650,18 @@ class StripeService {
                             .setProductData(
                                 SessionCreateParams.LineItem.PriceData.ProductData.builder()
                                     .setName("SkinBox Wallet Deposit")
-                                    .setDescription("Deposit \$${amount} into @${wallet.username}")
+                                    // The LAST place the user can read the terms
+                                    // before their card is charged — Stripe renders
+                                    // this on the hosted Checkout page. State the
+                                    // net here as well as in the API response: a
+                                    // user who lands on Checkout from a stale tab,
+                                    // a deep link, or a client that ignored
+                                    // `netCredit` still sees what they actually get
+                                    // before they pay. Silence here is how a "$100
+                                    // deposit" becomes a chargeback over $96.80.
+                                    .setDescription(processingFee > BigDecimal.ZERO
+                                        ? "Deposit into @${wallet.username} — \$${netCredit} credited after the \$${processingFee} payment-processing fee"
+                                        : "Deposit \$${amount} into @${wallet.username}")
                                     .build())
                             .build())
                     .build())
@@ -629,23 +715,41 @@ class StripeService {
         def existingForSession = transactionRepository.findByStripeReference(session.id)
         if (existingForSession != null) {
             log.info("Reusing existing deposit tx ${existingForSession.id} for idempotent Stripe session ${redactSession(session.id)} (idem=${idemKey})")
+            // Quote the REUSED row's own fee, not a freshly computed one. The
+            // row is what completeDeposit will credit against, so echoing a
+            // recomputed number here could disagree with it if the rate moved
+            // between the two calls.
+            def reusedFee = (existingForSession.feeAmount ?: BigDecimal.ZERO) as BigDecimal
             return [checkoutUrl: session.url, sessionId: session.id,
-                    transactionId: existingForSession.id, live: true]
+                    transactionId: existingForSession.id, live: true,
+                    amount: existingForSession.amount, processingFee: reusedFee,
+                    netCredit: (existingForSession.amount ?: BigDecimal.ZERO) - reusedFee]
         }
 
         def tx = new Transaction(
             walletId:        walletId,
             type:            "DEPOSIT",
             status:          "PENDING",
+            // GROSS — this is what the card is charged, and what
+            // completeDeposit compares against Stripe's session.amount_total.
             amount:          amount,
+            // …and the pass-through fee lives beside it, so the net credited
+            // later is the net quoted now even if the configured rate moves.
+            feeAmount:       processingFee,
             currency:        currency.toUpperCase(),
             stripeReference: session.id,
-            description:     "Stripe Checkout deposit"
+            description:     processingFee > BigDecimal.ZERO
+                                ? "Stripe Checkout deposit (\$${processingFee} processing fee passed through)".toString()
+                                : "Stripe Checkout deposit"
         )
         transactionRepository.save(tx)
 
-        log.info("Created Stripe Checkout session ${redactSession(session.id)} for wallet $walletId amount \$${amount} (idem=${idemKey})")
-        [checkoutUrl: session.url, sessionId: session.id, transactionId: tx.id, live: true]
+        log.info("Created Stripe Checkout session ${redactSession(session.id)} for wallet $walletId amount \$${amount} " +
+                 "(fee \$${processingFee}, net \$${netCredit}, idem=${idemKey})")
+        // `netCredit` is the number the deposit screen must show. Returning only
+        // `amount` is what makes a "$100" button credit $96.80 with no warning.
+        [checkoutUrl: session.url, sessionId: session.id, transactionId: tx.id, live: true,
+         amount: amount, processingFee: processingFee, netCredit: netCredit]
     }
 
     /* ── REFUND ──────────────────────────────────────────
@@ -1047,9 +1151,35 @@ class StripeService {
             // retries — never leave a REVERSED row with no matching credit.
             throw new IllegalStateException("transfer.reversed: wallet ${tx.walletId} not found for tx ${tx.id} — rolling back for retry")
         }
-        // Re-credit exactly what requestWithdrawal debited.
+        // Re-credit exactly what requestWithdrawal debited — the GROSS
+        // `tx.amount`, not the net that was transferred.
+        //
+        // Only the net came back from Stripe; the pass-through payout fee
+        // never left the platform balance, so returning the gross costs the
+        // platform only the payout cost it had already paid Stripe (which a
+        // reversal does not refund). That is the user-favourable direction and
+        // the correct one: the withdrawal did not happen, so the user should
+        // not be left holding a fee for it.
         wallet.balance = wallet.balance + (tx.amount ?: BigDecimal.ZERO)
         walletRepository.save(wallet)
+
+        // …but the treasury still carries the PROCESSING_RECOVERY credit that
+        // requestWithdrawal booked, and the line above just handed that
+        // recovery back to the user. Left standing it overstates margin by the
+        // fee on every reversed payout, in the flattering direction. Debit it
+        // away so what remains is the bare PROCESSING_COST — the honest record
+        // that the platform ate this one.
+        BigDecimal reversedFee = (tx.feeAmount ?: BigDecimal.ZERO) as BigDecimal
+        if (platformLedgerService != null && reversedFee > BigDecimal.ZERO) {
+            try {
+                platformLedgerService.postPassThroughRecoveryReversal(reversedFee, transfer.id,
+                    "Payout fee returned to user on reversed transfer ${transfer.id} " +
+                        "(tx ${tx.id}) — platform absorbed the payout cost".toString())
+            } catch (Exception e) {
+                log.error("Recovery-reversal posting failed for tx ${tx.id} " +
+                          "(wallet re-credit unaffected; platform margin OVERSTATED by \$${reversedFee}): ${e.message}", e)
+            }
+        }
         // NOTE: do NOT re-save `tx` — the conditional claim above already
         // persisted status/updatedAt/description, and the managed `tx` instance
         // is intentionally left untouched so its stale COMPLETED snapshot can't
@@ -1288,6 +1418,38 @@ class StripeService {
                 "Set up payouts before withdrawing. Connect a payout account (a one-time identity + bank/debit-card setup) from the Wallet page, then try again.")
         }
 
+        // ── Pass-through payout fee ──────────────────────────────────
+        // The money-out half of the operator's pricing decision: Stripe's
+        // payout cost comes off the USER'S payout, not the platform's margin.
+        //
+        // The wallet is debited the GROSS `amount` and the Transfer is created
+        // for `amount - payoutFee`. The difference stays on the platform
+        // balance and is what pays Stripe for the payout — it is NOT margin,
+        // which is why it is booked as a PROCESSING_RECOVERY credit against a
+        // matching PROCESSING_COST debit further down.
+        //
+        // Dev mode charges nothing: no Transfer is created, so no processor
+        // cost is incurred, and inventing a fee for a simulated payout would
+        // debit a real balance for imaginary work. `payoutFee` is therefore
+        // gated on isLive() exactly the way the deposit side is gated by
+        // createDepositSession returning early into devModeDeposit.
+        BigDecimal payoutFeeCharged = isLive() ? payoutFee(amount) : BigDecimal.ZERO.setScale(2)
+        // Refuse rather than pay out zero-or-negative. At 0.25% + $0.25 the
+        // fee swallows anything under ~$0.26, and a misconfigured fixed leg
+        // moves that threshold arbitrarily high. The @DecimalMin("1.00") on
+        // WithdrawRequest makes this unreachable from the API at today's
+        // rates — which is exactly why it belongs HERE, where the rate lives,
+        // rather than being assumed from a DTO annotation three layers away.
+        // Checked BEFORE the debit so a refusal never leaves a balance short.
+        if (platformLedgerService != null && payoutFeeCharged > BigDecimal.ZERO
+                && platformLedgerService.feeExceedsAmount(amount, payoutFeeCharged)) {
+            log.warn("WITHDRAWAL_BELOW_FEE for wallet ${walletId}: \$${amount} withdrawal vs \$${payoutFeeCharged} payout fee")
+            throw new com.sboxmarket.exception.BadRequestException("WITHDRAWAL_BELOW_FEE",
+                "A \$${amount.toPlainString()} withdrawal does not cover the \$${payoutFeeCharged.toPlainString()} payout fee. " +
+                "Withdraw a larger amount.")
+        }
+        BigDecimal netPayout = amount - payoutFeeCharged
+
         // Debit the wallet first, then FLUSH so the @Version optimistic-lock
         // UPDATE executes (and takes the row write-lock) BEFORE the Stripe
         // Transfer — never at outer-tx commit, which is AFTER the Transfer.
@@ -1308,7 +1470,7 @@ class StripeService {
         walletRepository.flush()
 
         // ── Real payout via Stripe Connect Transfer (live mode) ──────
-        // Move `amount` from the platform balance to the seller's
+        // Move `netPayout` from the platform balance to the seller's
         // connected account. The Transfer id is the authoritative
         // money-movement reference we store on the tx. In the Express
         // flow with automatic payouts (Stripe's default), this Transfer
@@ -1318,15 +1480,23 @@ class StripeService {
         // fail (it would have to run on the connected account, which we
         // leave to Stripe's automatic schedule). We therefore create the
         // Transfer only and leave the bank settlement to Stripe.
+        //
+        // NET, not gross: the wallet was debited `amount` and the payout fee
+        // is passed through, so `amount - payoutFeeCharged` is what actually
+        // belongs to the user. Transferring the gross here would give the user
+        // their fee back AND leave the platform paying Stripe's payout cost —
+        // the absorbed-cost behaviour the pricing decision replaced.
         String stripeRef = destinationRef ?: "manual"
         String txStatus
         String txDescription
         if (isLive()) {
             try {
-                long amountCents = (amount * 100).longValue()
+                long amountCents = (netPayout * 100).longValue()
                 // Idempotency key bucketed by wallet + amount + minute so a
                 // fast double-submit that slipped past the @Version guard
                 // can't create two Transfers (mirrors createDepositSession).
+                // Keyed on the NET cents actually transferred so the key and
+                // the Transfer it guards can never describe different amounts.
                 def idemKey = "wd_${walletId}_${amountCents}_${System.currentTimeMillis().intdiv(60_000)}"
                 def reqOpts = RequestOptions.builder().setIdempotencyKey(idemKey).build()
                 def transferParams = com.stripe.param.TransferCreateParams.builder()
@@ -1378,8 +1548,12 @@ class StripeService {
                 // balance. Mark COMPLETED; Stripe handles the downstream
                 // bank settlement on its automatic payout schedule.
                 txStatus = "COMPLETED"
-                txDescription = "Withdrawal via Stripe Connect (transfer ${transfer.id} → ${wallet.stripeConnectAccountId})"
-                log.info("Stripe Connect transfer ${transfer.id} created for wallet ${walletId}: \$${amount} → ${wallet.stripeConnectAccountId}")
+                txDescription = payoutFeeCharged > BigDecimal.ZERO
+                    ? "Withdrawal via Stripe Connect (transfer ${transfer.id} → ${wallet.stripeConnectAccountId}) — " +
+                      "\$${netPayout} paid out after the \$${payoutFeeCharged} payout fee"
+                    : "Withdrawal via Stripe Connect (transfer ${transfer.id} → ${wallet.stripeConnectAccountId})"
+                log.info("Stripe Connect transfer ${transfer.id} created for wallet ${walletId}: " +
+                         "\$${amount} debited, fee \$${payoutFeeCharged}, \$${netPayout} → ${wallet.stripeConnectAccountId}")
             } catch (com.sboxmarket.exception.BadRequestException replay) {
                 // The idempotent-replay refusal above is a DECIDED outcome, not
                 // a Stripe failure. Rethrow it untouched so the caller sees
@@ -1410,7 +1584,16 @@ class StripeService {
             walletId:        walletId,
             type:            "WITHDRAW",
             status:          txStatus,
+            // GROSS — what the wallet was debited. The debit above and this
+            // row must agree, or every downstream consumer that re-credits
+            // `tx.amount` (cancelPendingWithdrawal, handleTransferReversed,
+            // AdminService.rejectWithdrawal) hands back the wrong number.
             amount:          amount,
+            // …and the fee that came off the PAYOUT sits beside it, so the
+            // net the user received is reconstructable from the row alone:
+            // `amount - feeAmount`. Null on the dev path, where nothing was
+            // charged.
+            feeAmount:       payoutFeeCharged > BigDecimal.ZERO ? payoutFeeCharged : null,
             currency:        currency.toUpperCase(),
             stripeReference: stripeRef,
             description:     txDescription
@@ -1437,9 +1620,46 @@ class StripeService {
         } catch (Exception ignore) {}
         try {
             auditService?.log(AuditService.WITHDRAW_REQUESTED, ownerUserId, ownerUserId, tx.id,
-                "Withdrawal \$${amount} requested from wallet ${wallet.username} → ${destinationRef}")
+                "Withdrawal \$${amount} requested from wallet ${wallet.username} → ${destinationRef}" +
+                (payoutFeeCharged > BigDecimal.ZERO ? " (\$${netPayout} paid out after \$${payoutFeeCharged} payout fee)" : ''))
         } catch (Exception ignore) {}
-        log.info("Withdrawal \$${amount} from wallet $walletId → ${tx.status}")
+
+        // ── Book BOTH legs of the pass-through payout charge ─────────
+        //
+        // Same shape, same reasoning as the deposit side in completeDeposit.
+        // The user was debited GROSS and received NET, so they have already
+        // borne the processor's payout cost. Booking only the PROCESSING_COST
+        // debit would count that cost twice — once in the user's reduced
+        // payout, again against platform margin — and the withdrawal leg of
+        // UNIT-ECONOMICS.md would read as a permanent loss on a leg that is
+        // designed to be free. Booking nothing nets right but hides a wrong
+        // `platform.payout-fee-*` config forever.
+        //
+        // Live-only: dev mode creates no Transfer, so there is no processor
+        // cost to book and `payoutFeeCharged` is zero by construction.
+        //
+        // Best-effort by contract — the deferral and the swallow live INSIDE
+        // postPassThroughProcessing (see the trap documented on
+        // postDepositProcessingCost: a bookkeeping row must never be able to
+        // roll back a payout that has already left the platform). The
+        // try/catch here only guards the estimate arithmetic, which runs
+        // before the deferral.
+        if (isLive() && platformLedgerService != null && payoutFeeCharged > BigDecimal.ZERO) {
+            try {
+                def cost = platformLedgerService.estimatePayoutCost(amount)
+                platformLedgerService.postPassThroughProcessing(
+                    cost, payoutFeeCharged, stripeRef,
+                    "Estimated payout cost on \$${amount.toPlainString()} withdrawal".toString(),
+                    "Payout fee recovered from user on \$${amount.toPlainString()} withdrawal " +
+                        "(paid out \$${netPayout.toPlainString()})".toString())
+            } catch (Exception e) {
+                log.error("Payout-cost estimate failed for withdrawal tx ${tx.id} " +
+                          "(payout unaffected; platform margin misstated by this row): ${e.message}", e)
+            }
+        }
+
+        log.info("Withdrawal \$${amount} from wallet $walletId → ${tx.status}" +
+                 (payoutFeeCharged > BigDecimal.ZERO ? " (net \$${netPayout})" : ''))
         tx
     }
 
@@ -2543,7 +2763,29 @@ class StripeService {
         }
 
         def wallet = walletRepository.findById(tx.walletId).orElseThrow()
-        wallet.balance = wallet.balance + tx.amount
+        // ── Credit NET, not gross ────────────────────────────────────
+        // `tx.amount` is what the card was charged; `tx.feeAmount` is the
+        // processor's cut, passed through to the user per the pricing decision.
+        // The fee is read off the ROW, not recomputed from live config, so the
+        // wallet is credited exactly the figure quoted at deposit time.
+        //
+        // Null fee = a row written before pass-through pricing existed, or a
+        // context with no ledger service. Those credit gross, which is the old
+        // absorbed-cost behaviour and the correct answer for them.
+        BigDecimal depositFeeCharged = (tx.feeAmount ?: BigDecimal.ZERO) as BigDecimal
+        BigDecimal credited = (tx.amount ?: BigDecimal.ZERO) - depositFeeCharged
+        // Never let a bad fee turn a deposit into a debit. Clamping instead of
+        // throwing on purpose: the card has ALREADY been charged by the time
+        // this runs, so refusing here would strand the user's money at Stripe
+        // with a PENDING row. Credit the gross (user's favour), and log loudly
+        // so the misconfiguration is found by a human rather than by a customer.
+        if (credited <= BigDecimal.ZERO) {
+            log.error("Deposit tx ${tx.id} has fee \$${depositFeeCharged} >= amount \$${tx.amount} — " +
+                      "crediting GROSS and skipping the pass-through posting; check platform.processing-fee-* config")
+            credited = (tx.amount ?: BigDecimal.ZERO) as BigDecimal
+            depositFeeCharged = BigDecimal.ZERO
+        }
+        wallet.balance = wallet.balance + credited
         walletRepository.save(wallet)
 
         // Capture the payment_intent id (batch 494). Needed so the
@@ -2568,15 +2810,20 @@ class StripeService {
         }
         transactionRepository.save(tx)
 
-        // Book what this deposit COST us.
+        // Book BOTH legs of the processor charge.
         //
-        // The wallet was credited `tx.amount` GROSS a few lines up, but the
-        // processor keeps ~2.9% + $0.30 of it — money the platform never
-        // receives and, until this posting existed, never recorded anywhere.
-        // Without the cost leg the treasury reads as pure profit and the
-        // break-even question in UNIT-ECONOMICS.md ("a dollar deposited,
-        // traded once, and withdrawn loses money at every deposit size")
-        // cannot be answered from the data at all.
+        // The wallet was credited NET a few lines up, so the user has already
+        // borne the processor's cut. Booking only the PROCESSING_COST debit —
+        // which is what this call site did while the platform absorbed the fee
+        // — would now count that cut TWICE: once in the user's reduced credit,
+        // and again against platform margin. A deposit that is economically
+        // break-even would read as a $3.20 loss and UNIT-ECONOMICS.md's
+        // break-even table would never converge no matter how the business ran.
+        //
+        // Booking nothing at all nets correctly but hides the arithmetic; the
+        // pair (cost debit + recovery credit) nets to ~zero AND leaves the
+        // residual visible, which is where a wrong `processing-fee-percent`
+        // shows up. See PlatformLedgerService.postPassThroughProcessing.
         //
         // Live-only: in dev mode no real charge happened, so booking a cost
         // would be fiction that makes the margin look worse than reality.
@@ -2597,7 +2844,12 @@ class StripeService {
         // estimate arithmetic itself, which runs before the deferral.
         if (isLive() && platformLedgerService != null) {
             try {
-                platformLedgerService.postDepositProcessingCost(tx.amount, sessionId)
+                def cost = platformLedgerService.estimateProcessingCost(tx.amount)
+                platformLedgerService.postPassThroughProcessing(
+                    cost, depositFeeCharged, sessionId,
+                    "Estimated processing cost on \$${tx.amount?.toPlainString()} deposit".toString(),
+                    "Processing fee recovered from user on \$${tx.amount?.toPlainString()} deposit " +
+                        "(credited \$${credited.toPlainString()})".toString())
             } catch (Exception e) {
                 log.error("Processing-cost estimate failed for deposit tx ${tx.id} " +
                           "(wallet credit unaffected; platform margin understated by this row): ${e.message}", e)

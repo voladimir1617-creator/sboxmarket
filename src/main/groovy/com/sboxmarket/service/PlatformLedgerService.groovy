@@ -107,15 +107,32 @@ class PlatformLedgerService {
      * from the type alone, the way DEPOSIT and WITHDRAW already work.
      */
     static final String TYPE_PROTECTION_REVERSAL = 'PROTECTION_REVERSAL'
+    /**
+     * The processor cut PASSED THROUGH to the user — the amount withheld from
+     * a deposit credit or from a payout so the platform does not absorb it.
+     *
+     * This is NOT platform profit and must never be read as such. It is the
+     * offsetting leg of {@link #TYPE_PROCESSING_COST}: the platform still pays
+     * the processor (the debit), and the user reimburses it (this credit). The
+     * pair nets to ~zero by design, and the residual is the honest signal — it
+     * is the sub-cent rounding the platform gives away plus any gap between the
+     * CONFIGURED rate and the processor's real one.
+     *
+     * Booking only the debit (what the code did before pass-through pricing)
+     * would count the cost twice: once against the user's credit and again
+     * against the platform's margin, making a break-even deposit read as a
+     * $3.20 loss.
+     */
+    static final String TYPE_PROCESSING_RECOVERY = 'PROCESSING_RECOVERY'
     // Cost (debit treasury):
-    /** Payment-processor cut on a deposit — money the platform never receives. */
+    /** Payment-processor cut on a deposit or payout — money the platform never receives. */
     static final String TYPE_PROCESSING_COST   = 'PROCESSING_COST'
     /** A Trade Protection claim paid out to a buyer — the cover being consumed. */
     static final String TYPE_PROTECTION_PAYOUT = 'PROTECTION_PAYOUT'
 
     /** Types that CREDIT the treasury. */
     static final List<String> REVENUE_TYPES =
-        [TYPE_FEE, TYPE_PROTECTION_FEE, TYPE_PROTECTION_REVERSAL].asImmutable()
+        [TYPE_FEE, TYPE_PROTECTION_FEE, TYPE_PROTECTION_REVERSAL, TYPE_PROCESSING_RECOVERY].asImmutable()
     /** Types that DEBIT the treasury. */
     static final List<String> COST_TYPES = [TYPE_PROCESSING_COST, TYPE_PROTECTION_PAYOUT].asImmutable()
 
@@ -130,6 +147,17 @@ class PlatformLedgerService {
 
     /** Fixed per-transaction processor charge in dollars. Stripe US: $0.30. */
     @Value('${platform.processing-fee-fixed:0.30}') BigDecimal processingFeeFixed
+
+    /**
+     * Processor percentage rate on a PAYOUT (money out), as a percent.
+     * Stripe Connect US: roughly 0.25% + $0.25 per payout. Separate from the
+     * deposit rate because the two legs are priced differently and a single
+     * knob would force the operator to be wrong on one of them.
+     */
+    @Value('${platform.payout-fee-percent:0.25}') BigDecimal payoutFeePercent
+
+    /** Fixed per-payout processor charge in dollars. Stripe Connect US: $0.25. */
+    @Value('${platform.payout-fee-fixed:0.25}') BigDecimal payoutFeeFixed
 
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
@@ -198,13 +226,58 @@ class PlatformLedgerService {
     // ── Cost ────────────────────────────────────────────────────────
 
     /**
+     * Book BOTH legs of a pass-through processor charge: the cost the platform
+     * pays the processor, and the recovery the user reimbursed.
+     *
+     * <h4>Why two legs and not zero</h4>
+     *
+     * Under pass-through pricing the user is credited NET, so the processor's
+     * cut never touches platform margin. The naive conclusions are both wrong:
+     *
+     * <ul>
+     *   <li><b>Keep only the cost debit</b> (what the code did before the
+     *       pricing decision) and the cost is counted TWICE — once in the
+     *       user's reduced credit, again against margin. A $100 deposit that
+     *       is economically break-even reads as a $3.20 loss, and
+     *       UNIT-ECONOMICS.md's break-even table stays permanently wrong.</li>
+     *   <li><b>Book nothing at all</b> and the arithmetic nets right but
+     *       becomes unobservable: an operator on a negotiated rate who never
+     *       set {@code platform.processing-fee-percent} would be under- or
+     *       over-charging every user with nothing in the books to show it.</li>
+     * </ul>
+     *
+     * Booking both keeps {@code treasury.balance} economically correct AND
+     * leaves the residual visible. The residual is real money and is expected
+     * to be slightly NEGATIVE: {@code feeCharged} is rounded DOWN in the user's
+     * favour while {@code cost} is the honest HALF_UP estimate, so the platform
+     * eats up to $0.01 per transaction by design.
+     *
+     * Best-effort by contract, and atomic: both rows are written inside ONE
+     * deferred transaction, so the debit can never land without its recovery.
+     * A half-posted pair would understate margin by the full processor cut —
+     * exactly the failure this method exists to prevent.
+     *
+     * @param cost       what the processor takes (HALF_UP estimate, or the real figure if known)
+     * @param feeCharged what was actually withheld from the user (FLOOR-rounded)
+     */
+    void postPassThroughProcessing(BigDecimal cost, BigDecimal feeCharged,
+                                   String reference, String costDescription,
+                                   String recoveryDescription) {
+        if (cost == null && feeCharged == null) return
+        deferOrRun {
+            debit(TYPE_PROCESSING_COST, cost, reference ?: 'stripe', costDescription, null)
+            credit(TYPE_PROCESSING_RECOVERY, feeCharged, reference ?: 'stripe', recoveryDescription, null)
+        }
+    }
+
+    /**
      * Book the payment-processor cut on a completed deposit as a cost.
      *
-     * The platform credits the user the GROSS deposit while the processor
-     * keeps a slice of it, so this posting is the ONLY record that the
-     * money-in leg costs anything at all. Without it the treasury balance
-     * reads as pure profit and the break-even question in UNIT-ECONOMICS.md
-     * cannot be answered from the data.
+     * Retained for the ABSORBED-cost case (the platform eats the processor's
+     * cut and credits the user gross). Under the pass-through pricing decision
+     * the deposit path calls {@link #postPassThroughProcessing} instead, which
+     * adds the offsetting recovery leg — calling THIS method on a net-credited
+     * deposit double-counts the cost.
      *
      * This is an ESTIMATE from the configured rate, not the processor's
      * reported figure — see {@link #estimateProcessingCost}. Best-effort by
@@ -273,6 +346,127 @@ class PlatformLedgerService {
         def cost = (amount * pct / new BigDecimal('100')) + fixed
         cost = cost.setScale(2, RoundingMode.HALF_UP)
         cost > BigDecimal.ZERO ? cost : null
+    }
+
+    /**
+     * Processor cost for a PAYOUT of {@code gross}, rounded to cents.
+     *
+     * The money-out twin of {@link #estimateProcessingCost}, priced off
+     * {@code payout-fee-*} rather than {@code processing-fee-*}. Using the
+     * deposit rate here would overstate the cost of every withdrawal by more
+     * than 10x (2.9% + $0.30 against roughly 0.25% + $0.25) and drag the
+     * measured margin negative on a leg that is very nearly free.
+     *
+     * HALF_UP, deliberately — this estimates what the processor ACTUALLY
+     * takes. Only the figure charged to the USER rounds in the user's favour
+     * (see {@link #payoutFeeCharged}).
+     */
+    BigDecimal estimatePayoutCost(BigDecimal gross) {
+        if (gross == null || gross <= BigDecimal.ZERO) return null
+        def pct   = (payoutFeePercent ?: BigDecimal.ZERO) as BigDecimal
+        def fixed = (payoutFeeFixed ?: BigDecimal.ZERO) as BigDecimal
+        def cost = (gross * pct / new BigDecimal('100')) + fixed
+        cost = cost.setScale(2, RoundingMode.HALF_UP)
+        cost > BigDecimal.ZERO ? cost : null
+    }
+
+    /**
+     * Un-book a pass-through recovery the platform gave back — a reversed
+     * payout where the user is re-credited the GROSS they were debited.
+     *
+     * The withdrawal booked a cost debit (real, already paid to the processor,
+     * NOT refunded when a transfer reverses) and an offsetting recovery credit
+     * (the user's reimbursement). Re-crediting the user gross hands that
+     * reimbursement back, so the recovery credit is now fiction. Debiting the
+     * same amount cancels it and leaves the original cost standing alone,
+     * which is the true outcome: the platform ate that payout.
+     *
+     * Booked as {@link #TYPE_PROCESSING_COST} rather than a negative recovery
+     * so {@code REVENUE_TYPES}/{@code COST_TYPES} keep their invariant that a
+     * row's amount is always positive and its direction lives in its type.
+     */
+    void postPassThroughRecoveryReversal(BigDecimal recovered, String reference, String description) {
+        if (recovered == null || recovered <= BigDecimal.ZERO) return
+        deferOrRun {
+            debit(TYPE_PROCESSING_COST, recovered, reference ?: 'stripe', description, null)
+        }
+    }
+
+    // ── Pass-through pricing (what the USER is charged) ─────────────
+
+    /**
+     * The processor fee PASSED THROUGH to the user on a deposit of
+     * {@code gross} — the amount withheld from their wallet credit.
+     *
+     * <h4>Rounding goes to the user, always</h4>
+     *
+     * Rounded DOWN ({@link RoundingMode#FLOOR}), never HALF_UP. On a $33.33
+     * deposit the true 2.9% + $0.30 is $1.266557: HALF_UP charges the user
+     * $1.27, FLOOR charges $1.26. The half-cent difference is trivial per
+     * transaction and the DIRECTION is not — a fee that rounds toward the
+     * house on every single deposit is the shape of a defect nobody notices
+     * until a regulator or a forum thread does. FLOOR makes the platform eat
+     * the sub-cent, so the user's credit is rounded UP in every case where
+     * the arithmetic is not exact.
+     *
+     * {@link #estimateProcessingCost} deliberately keeps HALF_UP: that one
+     * estimates what the processor ACTUALLY takes, and biasing it toward the
+     * user would understate a real cost. The gap between the two is the
+     * treasury residual, and it is supposed to be there.
+     */
+    BigDecimal depositFeeCharged(BigDecimal gross) {
+        feeCharged(gross, processingFeePercent, processingFeeFixed)
+    }
+
+    /** What a {@code gross} deposit actually credits to the wallet. */
+    BigDecimal depositNetCredit(BigDecimal gross) {
+        netOf(gross, depositFeeCharged(gross))
+    }
+
+    /**
+     * The processor fee passed through to the user on a payout of
+     * {@code gross} — deducted from what they receive, not from the wallet
+     * debit. Same FLOOR rounding, same reason.
+     */
+    BigDecimal payoutFeeCharged(BigDecimal gross) {
+        feeCharged(gross, payoutFeePercent, payoutFeeFixed)
+    }
+
+    /** What a {@code gross} withdrawal actually pays out to the user. */
+    BigDecimal payoutNet(BigDecimal gross) {
+        netOf(gross, payoutFeeCharged(gross))
+    }
+
+    /**
+     * True when the fee would swallow the whole transaction — a $0.30 deposit
+     * at 2.9% + $0.30, or any amount under a misconfigured fixed leg.
+     *
+     * Callers MUST refuse rather than proceed. Without this the arithmetic
+     * runs off the end quietly: a net credit of zero charges a card for
+     * nothing, and a NEGATIVE net would (before the wallets CHECK constraint)
+     * have driven a user's balance below zero from a deposit.
+     */
+    boolean feeExceedsAmount(BigDecimal gross, BigDecimal fee) {
+        if (gross == null) return true
+        def net = netOf(gross, fee)
+        net == null || net <= BigDecimal.ZERO
+    }
+
+    private BigDecimal feeCharged(BigDecimal gross, BigDecimal pctCfg, BigDecimal fixedCfg) {
+        if (gross == null || gross <= BigDecimal.ZERO) return BigDecimal.ZERO.setScale(2)
+        def pct   = (pctCfg ?: BigDecimal.ZERO) as BigDecimal
+        def fixed = (fixedCfg ?: BigDecimal.ZERO) as BigDecimal
+        def fee = (gross * pct / new BigDecimal('100')) + fixed
+        // FLOOR, not DOWN: identical for the positive amounts this handles,
+        // but FLOOR stays correct if a negative ever reaches here.
+        fee = fee.setScale(2, RoundingMode.FLOOR)
+        fee < BigDecimal.ZERO ? BigDecimal.ZERO.setScale(2) : fee
+    }
+
+    private BigDecimal netOf(BigDecimal gross, BigDecimal fee) {
+        if (gross == null) return null
+        ((gross as BigDecimal).setScale(2, RoundingMode.HALF_UP)
+            - ((fee ?: BigDecimal.ZERO) as BigDecimal).setScale(2, RoundingMode.HALF_UP))
     }
 
     // ── Reporting ───────────────────────────────────────────────────

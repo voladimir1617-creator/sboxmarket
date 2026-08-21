@@ -14938,18 +14938,50 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   // transaction visible, not silently scoped to the current month.
   const [txMonth, setTxMonth] = useState('ALL');
 
-  // Batch 720 — FEE BREAKDOWN BUG FIX. The previous code showed a
-  // "Stripe fee (2.8% + $0.30)" line on deposits and a "Platform fee
-  // (1.5%)" line on withdrawals, both deducted from a "You receive"
-  // line. Neither fee was actually applied server-side — SkinBox
-  // absorbs the Stripe merchant fee on deposits (the user's wallet
-  // gets credited the full deposit amount), and withdrawals debit
-  // the wallet for exactly the requested amount with no platform
-  // fee. The UI was lying. Now the preview reflects reality: the
-  // exact amount typed is credited (deposit) or paid out (withdraw).
-  // The real platform fee (2% on completed sales) is surfaced
-  // elsewhere — on the sell form + in the earnings card.
+  // Batch 720 removed a fee breakdown that claimed deductions the server
+  // never applied — the UI was lying in the user's favour. Under the
+  // pass-through pricing decision the server DOES deduct now, so the
+  // breakdown is back, and the same rule applies in the other direction:
+  // it must show exactly what will happen, never a rounder, friendlier
+  // number. A deposit form promising $100 that credits $96.80 is a
+  // chargeback generator.
+  //
+  // Rates come from the server (`wallet.feeSchedule`), never hardcoded —
+  // a client carrying its own copy of "2.9%" silently stops matching the
+  // day an operator sets a negotiated rate. `active` is false in dev mode
+  // (no Stripe keys ⇒ no Stripe charge), so the preview shows no
+  // deduction there, matching devModeDeposit crediting gross.
+  //
+  // The authoritative figures still come back on the /deposit and
+  // /withdraw responses; this is the pre-commit estimate.
   const amt = parseFloat(amount) || 0;
+  const feeSchedule = (wallet && wallet.feeSchedule) || null;
+  const feesActive = !!(feeSchedule && feeSchedule.active);
+  // FLOOR, mirroring PlatformLedgerService.feeCharged, which uses
+  // RoundingMode.FLOOR so the sub-cent goes to the user.
+  //
+  // The Math.round-before-floor is NOT decoration. The obvious
+  // `Math.floor(raw * 100) / 100` disagrees with the server's BigDecimal
+  // on 14 of the 99,802 whole-cent amounts between $1.00 and $500.00 —
+  // including **$20.00**, which is a preset button: 20 * 2.9 / 100 + 0.30
+  // lands a hair under 0.88 in binary floating point, so the naive floor
+  // quotes a $0.87 fee against the $0.88 actually charged and promises a
+  // credit one cent too high. Scaling to micro-units and rounding there
+  // first absorbs the representation error before the floor sees it.
+  //
+  // Verified exhaustively against the BigDecimal implementation across
+  // both fee legs for every whole-cent amount in that range: 99,802/99,802
+  // exact. A preview that is only usually right teaches users to stop
+  // reading it, and this one is load-bearing disclosure.
+  const feeFor = (gross, pct, fixed) => {
+    if (!(gross > 0)) return 0;
+    const raw = (gross * (parseFloat(pct) || 0)) / 100 + (parseFloat(fixed) || 0);
+    return Math.max(0, Math.floor(Math.round(raw * 1e6) / 1e4) / 100);
+  };
+  const previewFee = !feesActive || !(amt > 0) ? 0 : (tab === 'deposit'
+    ? feeFor(amt, feeSchedule.depositFeePercent, feeSchedule.depositFeeFixed)
+    : feeFor(amt, feeSchedule.withdrawalFeePercent, feeSchedule.withdrawalFeeFixed));
+  const previewNet = Math.max(0, amt - previewFee);
 
   const submit = async () => {
     if (submittingRef.current) return;
@@ -15824,23 +15856,32 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                         })()
                       )
                     ),
-                    // Batch 720 — honest preview. Shows exactly what the
-                    // user will see happen: card charged (deposit) →
-                    // wallet credited the same amount; wallet debited
-                    // (withdraw) → payout sent for the same amount.
-                    // No fee deduction because the backend applies
-                    // none on these paths — SkinBox absorbs Stripe's
-                    // merchant fee on deposits, and the only platform
-                    // fee (2%) lives on the sale side.
+                    // Honest preview: exactly what the server will do.
+                    // Card charged (deposit) → wallet credited NET of
+                    // Stripe's fee; wallet debited (withdraw) → payout
+                    // sent NET of Stripe's payout cost. The platform's
+                    // own revenue is the 2% selling fee, which lives on
+                    // the sale side and is not charged here.
                     amt > 0 && h('div', { className: 'wallet-fee-breakdown' },
                       h('div', { className: 'wallet-fee-row' },
                         h('span', null, tab === 'deposit' ? 'Card charged' : 'Wallet debited'),
                         // amt is the $-prefixed USD wallet input — literal USD, not fmt() (FX-converted). (wave-146)
                         h('strong', null, '$' + amt.toFixed(2))
                       ),
+                      // The deduction line. Rendered ONLY when a fee is
+                      // actually applied, so the dev-mode/absorbed case
+                      // stays visually identical to the old behaviour
+                      // instead of showing a "− $0.00" the user has to
+                      // parse.
+                      previewFee > 0 && h('div', { className: 'wallet-fee-row' },
+                        h('span', null, tab === 'deposit'
+                          ? 'Payment processing fee'
+                          : 'Payout fee'),
+                        h('strong', null, '− $' + previewFee.toFixed(2))
+                      ),
                       h('div', { className: 'wallet-fee-row total' },
-                        h('span', null, tab === 'deposit' ? 'Wallet credit' : 'Payout amount'),
-                        h('strong', { style: { color: 'var(--accent)' } }, '$' + amt.toFixed(2))
+                        h('span', null, tab === 'deposit' ? 'Wallet credit' : 'You receive'),
+                        h('strong', { style: { color: 'var(--accent)' } }, '$' + previewNet.toFixed(2))
                       ),
                       // Cash-out setup (Stripe Connect) — withdraw tab only.
                       // Show a "Set up cash-out" card until payouts are
@@ -15884,9 +15925,19 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                         );
                       })(),
                       h('div', { className: 'wallet-fee-row', style: { fontSize: 10, color: 'var(--text-muted)' } },
-                        h('span', null, tab === 'deposit'
-                          ? 'Stripe merchant fee paid by SkinBox — 100% of your deposit reaches your wallet.'
-                          : 'Payouts arrive in 1-2 business days. No platform fee on withdrawals — the 2% platform fee is deducted at sale time, not here.'
+                        h('span', null,
+                          // Two different truths depending on whether a fee
+                          // is applied — never one line that hedges. The
+                          // pre-pass-through copy claimed "100% of your
+                          // deposit reaches your wallet", which is now the
+                          // opposite of what happens.
+                          !feesActive
+                            ? (tab === 'deposit'
+                                ? 'Test mode — no payment processor is charged, so 100% of your deposit reaches your wallet.'
+                                : 'Test mode — simulated payout, no processor fee applied.')
+                            : (tab === 'deposit'
+                                ? 'This is the payment processor’s fee, passed through at cost. SkinBox adds nothing to it — our only fee is 2% when an item sells.'
+                                : 'This is the payment processor’s payout cost, passed through at cost. Payouts arrive in 1-2 business days. SkinBox charges no withdrawal fee — our only fee is 2% when an item sells.')
                         )
                       )
                     ),
