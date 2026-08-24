@@ -332,6 +332,34 @@ class ListingController {
             .body(rows)
     }
 
+    /**
+     * The current seller's listings HELD awaiting a bot-escrow deposit —
+     * created, but not yet live because the bot does not hold the item yet.
+     *
+     * These exist in no other seller-facing response. `/my-stall` and every
+     * aggregate beside it filter on {@code status = 'ACTIVE'}, so a listing
+     * sitting in PENDING_ESCROW was invisible to the person who created it
+     * while still being solid enough to block a re-list of the same asset
+     * (the ALREADY_LISTED guard counts PENDING_ESCROW). The seller was told
+     * they already had a listing for an item they could not find and could not
+     * cancel, until the 24h deposit-timeout sweeper cleared it.
+     *
+     * Returned as its own list, not merged into `/my-stall`, so no existing
+     * count, total, or export shifts meaning — see
+     * {@code ListingRepository.findPendingEscrowBySeller}. Each row carries the
+     * real listing id, which is all the seller needs: `SellService.cancelListing`
+     * already accepts PENDING_ESCROW and returns the item.
+     *
+     * Empty whenever bot-escrow is unconfigured — nothing is ever created in
+     * PENDING_ESCROW on the legacy path — so this is a no-op today and becomes
+     * load-bearing the moment the bot goes live.
+     */
+    @GetMapping("/my-stall/pending-escrow")
+    ResponseEntity<List<Listing>> myStallPendingEscrow(HttpServletRequest req) {
+        def userId = requireUser(req)
+        ResponseEntity.ok(listingService.listingRepository.findPendingEscrowBySeller(userId))
+    }
+
     /** Seller earnings summary for the MyStall header (batch 605).
      *  Returns gross revenue and sold counts for lifetime, 30d, and 7d
      *  windows. "Gross" = listing price the buyer paid; the net-of-fee

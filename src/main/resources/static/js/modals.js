@@ -10652,10 +10652,35 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       const typeLabel = sellType === 'AUCTION'
         ? `auction (${sellDurationHours}h)`
         : 'Buy Now';
-      const copy = itemName
-        ? `Listed "${itemName}" for ${fmt(p)} as ${typeLabel}.`
-        : `Listed for ${fmt(p)} as ${typeLabel}.`;
-      toast(copy, 'ok');
+      // A listing created under bot-escrow is NOT live yet. The backend
+      // returns status PENDING_ESCROW and the item only reaches the market
+      // once the seller accepts the bot's Steam trade offer and the bot
+      // genuinely holds it. Saying "Listed" here would be a success message
+      // for something that has not happened: the seller would then refresh
+      // into a stall that filters on status='ACTIVE' and find nothing, with
+      // no hint that the next move is theirs and lives in Steam, not here.
+      // Report what actually happened, and name the action they have to take.
+      const held = res?.status === 'PENDING_ESCROW' || res?.escrowPending === true;
+      const label = itemName ? `"${itemName}"` : 'your item';
+      if (held) {
+        // 'warn', not 'ok' and not a bare default. utils.toast only knows
+        // ok / warn / err — an unknown kind silently renders as ok, i.e.
+        // pixel-identical to the success toast, which would leave this
+        // whole branch cosmetic. 'warn' also buys 7000ms of dwell instead
+        // of 4500ms, and this toast asks the seller to go do something in
+        // another application, so it needs to be readable that long.
+        toast(
+          `${label} is reserved at ${fmt(p)} — accept the Steam trade offer from our bot to send us the item, and it goes live the moment we receive it.`,
+          'warn'
+        );
+      } else {
+        toast(
+          itemName
+            ? `Listed "${itemName}" for ${fmt(p)} as ${typeLabel}.`
+            : `Listed for ${fmt(p)} as ${typeLabel}.`,
+          'ok'
+        );
+      }
       await onRefresh();
       onClose();
     } finally { setBusy(false); }

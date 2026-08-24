@@ -94,6 +94,29 @@ class SteamEscrowService {
     @Value('${steam.escrow.deposit-timeout-hours:24}')
     int depositTimeoutHours = 24
 
+    /** Minimum gap between two return attempts for the SAME item. Every
+     *  attempt stamps updatedAt, and the retry query is {@code updatedAt <
+     *  cutoff}, so this is what stops a rate-limited bot from being retried on
+     *  every tick — and stops a stranded item generating a log line every ten
+     *  minutes forever. 10 minutes is well inside Steam's rate-limit window. */
+    @Value('${steam.escrow.return-retry-backoff-ms:600000}')
+    long returnRetryBackoffMs = 600000L
+
+    /** Attempt count past which a still-held item is logged at ERROR rather
+     *  than WARN. NOT a give-up threshold — the sweep keeps trying forever,
+     *  because the thing it is trying to hand back is a real user's item and
+     *  the platform is the one holding it. This only changes the volume. */
+    @Value('${steam.escrow.return-alert-attempts:5}')
+    int returnAlertAttempts = 5
+
+    /** Minimum gap between two deposit re-requests for the same listing.
+     *  Shorter than the return backoff because the whole window is bounded by
+     *  {@code deposit-timeout-hours} anyway: a seller who pastes a missing
+     *  trade URL should get their bot offer within minutes, not hours, or the
+     *  24h timeout arrives before the retry does any good. */
+    @Value('${steam.escrow.deposit-retry-backoff-ms:300000}')
+    long depositRetryBackoffMs = 300000L
+
     /**
      * True only when the bot sidecar is configured. The whole escrow leg is
      * inert when this is false — listings are created ACTIVE the legacy way
@@ -379,6 +402,35 @@ class SteamEscrowService {
         // a buyer) and already-RETURNED rows are terminal.
         if (e.custodyState != EscrowedItem.IN_CUSTODY) return false
 
+        // Record that a return was ASKED FOR, before attempting it — this is
+        // what makes a failure recoverable. Every call site of this method is
+        // best-effort and discards the boolean, so if the attempt below fails
+        // (or throws) the ONLY durable trace that the seller is owed their item
+        // back is this stamp. Without it the row reverts to looking exactly
+        // like a live for-sale listing and no sweep can distinguish the two.
+        // Stamped once — a retry must not keep pushing the "first asked" time
+        // forward, or the age of a stranded item would be permanently understated.
+        if (e.returnRequestedAt == null) {
+            e.returnRequestedAt = System.currentTimeMillis()
+            touch(e)
+        }
+        return attemptReturn(e, reason)
+    }
+
+    /**
+     * Send the actual return offer for a custody row whose return intent is
+     * already recorded. Shared by the first attempt ({@link #returnToSeller})
+     * and every retry ({@link #sweepPendingReturns}) so the two can never drift
+     * — the retry path must send the same offer, to the same freshly-resolved
+     * trade URL, and apply the same terminal RETURNED flip.
+     *
+     * Re-resolves the seller's trade URL on every attempt rather than caching
+     * it: the single most likely reason a first attempt failed is that the
+     * seller had no trade URL, and the fix for that is the seller pasting one
+     * in. A retry that reused the stale answer could never observe the fix.
+     */
+    private boolean attemptReturn(EscrowedItem e, String reason) {
+        Long listingId = e.listingId
         String tradeUrl = resolveSellerTradeUrl(e.sellerUserId)
         if (tradeUrl == null || tradeUrl.trim().isEmpty()) {
             touchError(e, 'cannot return — seller has no trade URL')
@@ -397,10 +449,174 @@ class SteamEscrowService {
                     "Your listing closed without a sale — our bot has sent your item back to you. Accept the Steam offer to receive it.")
             return true
         } else {
-            // Leave IN_CUSTODY so a later tick / retry can re-send the return.
+            // Leave IN_CUSTODY. returnRequestedAt (stamped by returnToSeller
+            // before the first attempt) keeps the row in the retry sweep's
+            // candidate set, so "a later tick" is now a real thing rather than
+            // an aspiration in a comment.
             touchError(e, "return failed ${res.errorCode}: ${res.message}")
             log.warn("SteamEscrow: return offer failed for listing ${listingId}: ${res.errorCode} ${res.message}")
             return false
+        }
+    }
+
+    /**
+     * Retry sweep for returns that were asked for and did not happen — the
+     * safety net that stops a transient bot failure from permanently keeping a
+     * real user's real item.
+     *
+     * The candidate set is {@code IN_CUSTODY AND returnRequestedAt IS NOT NULL}.
+     * That second clause is load-bearing, not decorative: IN_CUSTODY is the
+     * healthy state of every live for-sale listing, so sweeping IN_CUSTODY
+     * alone would mail every seller's item back out from under their own active
+     * listing. On a healthy marketplace this query returns nothing.
+     *
+     * Unlike the deposit-timeout sweep there is no give-up state. A deposit
+     * that never lands costs the seller a cancelled listing; a return that
+     * never lands costs them the ITEM, and the platform is holding it. So the
+     * sweep keeps trying, and past {@code return-alert-attempts} it escalates
+     * the log to ERROR with the ids an operator needs — it never silently
+     * stops.
+     *
+     * NOT @Transactional — per-row atomic claims + per-row try/catch, the same
+     * posture as {@link #sweepStalePendingDeposits}, so one bad row can't abort
+     * the sweep or roll back its siblings' attempt counters.
+     */
+    @Scheduled(initialDelayString = '${steam.escrow.return-retry-initial-delay-ms:90000}',
+               fixedDelayString = '${steam.escrow.return-retry-interval-ms:600000}')
+    void sweepPendingReturns() {
+        if (!escrowSweepEnabled) return
+        if (!escrowEnabled) return
+        long cutoff = System.currentTimeMillis() - Math.max(0L, returnRetryBackoffMs)
+        List<EscrowedItem> pending
+        try {
+            pending = escrowRepository.findPendingReturns(cutoff,
+                    PageRequest.of(0, Math.max(1, batchSize))) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: failed to load pending returns: ${ex.message}")
+            return
+        }
+        if (pending.isEmpty()) return
+        log.info("SteamEscrow: ${pending.size()} item(s) owed back to sellers and still held; retrying returns")
+
+        for (EscrowedItem e : pending) {
+            try {
+                // Multi-pod claim. The row stays IN_CUSTODY across a retry, so
+                // there is no state transition to claim on — the attempt
+                // counter is the compare-and-swap token instead. A lost claim
+                // means a sibling pod is sending this return right now; sending
+                // a second offer for the same asset is a real, user-visible
+                // mess, so we bail rather than double-send.
+                int claimed = escrowRepository.claimReturnRetry(
+                        e.id, e.returnAttempts ?: 0, System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("SteamEscrow: return-retry claim lost for escrow=${e.id} — sibling pod, or the row just RETURNED")
+                    continue
+                }
+                // Re-load after the claim. claimReturnRetry is a @Modifying
+                // bulk UPDATE, which writes straight past the persistence
+                // context — the `e` we are holding still carries the OLD
+                // returnAttempts, and attemptReturn ends in a save(). Saving
+                // the stale instance would silently roll the counter back to
+                // its pre-claim value, so the next tick would re-claim with the
+                // same expected value and the CAS would never advance: an
+                // infinite retry loop that also defeats the escalation
+                // threshold, since attempts would never climb.
+                EscrowedItem fresh = escrowRepository.findById(e.id).orElse(null)
+                if (fresh == null || fresh.custodyState != EscrowedItem.IN_CUSTODY) continue
+
+                boolean sent = attemptReturn(fresh,
+                        "retry ${fresh.returnAttempts} — item owed back to seller".toString())
+                if (!sent && (fresh.returnAttempts ?: 0) >= returnAlertAttempts) {
+                    // Escalate rather than give up. An operator can read this
+                    // line and act on it by hand; the row stays in the sweep.
+                    log.error("SteamEscrow: item STILL HELD after ${fresh.returnAttempts} return attempts — " +
+                            "escrow=${fresh.id} listing=${fresh.listingId} seller=${fresh.sellerUserId} " +
+                            "asset=${fresh.heldAssetId ?: fresh.assetId} lastError=${fresh.lastError}. " +
+                            "This is a real user's item held by the platform; manual intervention required.")
+                }
+            } catch (Exception ex) {
+                log.warn("SteamEscrow: return retry failed on escrow=${e?.id}: ${ex.message}")
+            }
+        }
+    }
+
+    /**
+     * Re-request sweep for deposits whose trade offer never got created.
+     *
+     * {@link #pollDeposits} filters on {@code depositOfferId IS NOT NULL}, so a
+     * row whose bot call failed at list time — or whose seller had no trade URL
+     * to send a request to — was returned by NO poller. The only thing that
+     * ever happened to it was {@link #sweepStalePendingDeposits} cancelling the
+     * listing 24 hours later. A seller who pasted their trade URL a minute
+     * after listing still lost the listing, because nothing was watching for
+     * the fix.
+     *
+     * This sweep re-resolves the trade URL and re-sends the deposit request, so
+     * both failure shapes self-heal: the bot recovers, or the seller does. The
+     * 24h timeout stays as the backstop for a deposit nobody ever fixes.
+     *
+     * NOT @Transactional — per-row claims + per-row try/catch, same posture as
+     * the other two sweeps.
+     */
+    @Scheduled(initialDelayString = '${steam.escrow.deposit-retry-initial-delay-ms:75000}',
+               fixedDelayString = '${steam.escrow.deposit-retry-interval-ms:300000}')
+    void sweepUnsentDeposits() {
+        if (!escrowSweepEnabled) return
+        if (!escrowEnabled) return
+        long cutoff = System.currentTimeMillis() - Math.max(0L, depositRetryBackoffMs)
+        List<EscrowedItem> unsent
+        try {
+            unsent = escrowRepository.findUnsentDeposits(cutoff,
+                    PageRequest.of(0, Math.max(1, batchSize))) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: failed to load unsent deposits: ${ex.message}")
+            return
+        }
+        if (unsent.isEmpty()) return
+        log.info("SteamEscrow: ${unsent.size()} deposit(s) with no trade offer yet; re-requesting")
+
+        for (EscrowedItem e : unsent) {
+            try {
+                String tradeUrl = resolveSellerTradeUrl(e.sellerUserId)
+                if (tradeUrl == null || tradeUrl.trim().isEmpty()) {
+                    // Still no address to send to. Touch the row so the backoff
+                    // window applies and this doesn't spin every tick; the 24h
+                    // timeout sweeper remains the give-up path.
+                    touchError(e, 'seller has no Steam trade URL — set one in Profile to deposit')
+                    continue
+                }
+                // Multi-pod claim, CAS on updatedAt. The side effect is a real
+                // Steam trade offer landing in a seller's client — two pods
+                // racing here would send the seller two identical deposit
+                // requests for one listing, and accepting both is impossible,
+                // so one of them would sit in their offer list as garbage.
+                int claimed = escrowRepository.claimDepositRetry(
+                        e.id, e.updatedAt, System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("SteamEscrow: deposit re-request claim lost for escrow=${e.id} — sibling pod")
+                    continue
+                }
+                EscrowedItem fresh = escrowRepository.findById(e.id).orElse(null)
+                if (fresh == null
+                        || fresh.custodyState != EscrowedItem.PENDING_DEPOSIT
+                        || fresh.depositOfferId != null) continue
+
+                SteamBotResult res = steamTradeBotService.requestItems(
+                        tradeUrl, [(fresh.assetId ?: '').trim()], offerMessage)
+                if (res.ok) {
+                    fresh.depositOfferId = res.offerId
+                    fresh.lastError = null
+                    touch(fresh)
+                    log.info("SteamEscrow: deposit re-requested for listing ${fresh.listingId} (offer ${res.offerId})")
+                    safeNotifySeller(fresh.sellerUserId, fresh.listingId,
+                            "Accept the Steam trade offer from our bot to deposit your item — your listing goes live the moment we receive it.")
+                } else {
+                    touchError(fresh, "re-request ${res.errorCode}: ${res.message}")
+                    log.warn("SteamEscrow: deposit re-request failed for listing ${fresh.listingId}: ${res.errorCode} ${res.message}")
+                }
+            } catch (Exception ex) {
+                log.warn("SteamEscrow: deposit re-request failed on escrow=${e?.id}: ${ex.message}")
+            }
         }
     }
 

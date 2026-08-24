@@ -83,6 +83,30 @@ class EscrowedItem {
     @Column(name = "return_offer_id", length = 64)
     String returnOfferId
 
+    /** When a return to the seller was FIRST asked for (listing cancelled /
+     *  auction expired unsold / trade cancelled), whether or not the bot call
+     *  succeeded. NULL — the default, and the state of every live for-sale
+     *  listing — means nobody has asked for this item back.
+     *
+     *  This is what makes a FAILED return recoverable. Steam rate-limits trade
+     *  APIs routinely, so {@code returnToSeller} returning false on a
+     *  RATE_LIMITED / NOT_READY / TRANSPORT_ERROR is an ordinary event, not an
+     *  exotic one — and every one of its four call sites is best-effort and
+     *  discards the result. Before this field the row went back to looking
+     *  exactly like a live listing, so no sweep could tell "the bot holds this
+     *  because it is for sale" apart from "the bot holds this because the
+     *  return failed", and a real user's real item stayed in the bot's
+     *  inventory permanently and silently. */
+    @Column(name = "return_requested_at")
+    Long returnRequestedAt
+
+    /** Number of return attempts made so far. Also the compare-and-swap token
+     *  the multi-pod retry claim races on — the row stays IN_CUSTODY across a
+     *  retry, so unlike {@code claimTimeoutPendingDeposit} there is no state
+     *  transition to claim, and the attempt counter stands in for one. */
+    @Column(name = "return_attempts", nullable = false)
+    Integer returnAttempts = 0
+
     /** PENDING_DEPOSIT, IN_CUSTODY, DELIVERED, RETURNED, FAILED. */
     @Column(name = "custody_state", length = 24, nullable = false)
     String custodyState = PENDING_DEPOSIT

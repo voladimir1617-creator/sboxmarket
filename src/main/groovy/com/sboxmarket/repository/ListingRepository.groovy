@@ -259,6 +259,33 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     List<Listing> findActiveBySellerPaged(@Param("uid") Long uid,
                                            org.springframework.data.domain.Pageable pageable)
 
+    /**
+     * The seller's own listings that are HELD awaiting a bot-escrow deposit.
+     *
+     * Deliberately a separate query rather than widening
+     * {@link #findActiveBySeller} to {@code status IN ('ACTIVE','PENDING_ESCROW')}.
+     * That query feeds the stall grid, the analytics endpoint, the CSV export,
+     * the away-mode hide/unhide batch, `cancelAllActive`, and the admin seller
+     * view; folding a not-yet-live listing into it would silently change every
+     * one of those answers — a held listing would count toward stall value,
+     * appear in earnings analytics, and be hidden/unhidden by vacation mode
+     * while not actually being on the market. A held listing is a genuinely
+     * different thing from a live one and gets its own list.
+     *
+     * Why it needs to exist at all: PENDING_ESCROW is invisible to every
+     * seller-facing query, so before this the seller had no way to see — or
+     * therefore to cancel — a listing whose deposit stalled, even though
+     * {@code SellService.cancelListing} explicitly accepts PENDING_ESCROW and
+     * would have worked if they could have named the id.
+     */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.sellerUserId = :uid
+          AND l.status = 'PENDING_ESCROW'
+        ORDER BY l.listedAt DESC
+    """)
+    List<Listing> findPendingEscrowBySeller(@Param("uid") Long uid)
+
     /** Count + sum aggregates for the /profile hero strip — avoids
      *  hydrating every seller row just to call .size() / .inject(…)
      *  on it. Paired into a single call site in ProfileService. */

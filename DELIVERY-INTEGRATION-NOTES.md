@@ -95,7 +95,21 @@ code does not require it.**
 
 ---
 
-## GAP 1 (blocking real delivery): the Steam **asset id** of the sold item is not persisted
+> **STATUS UPDATE — GAP 1 IS CLOSED.** The section below describes the deposit
+> leg as "not yet built". It has since been built: `SteamEscrowService` +
+> `EscrowedItem` + `EscrowedItemRepository` + migration `V210` implement the
+> seller→bot deposit, custody confirmation against the bot's real inventory, the
+> 24h deposit timeout, and the return-to-seller path.
+> `SteamDeliveryService.resolveAssetId` now reads
+> `steamEscrowService.heldAssetIdForListing(trade.listingId)` first and only
+> falls back to `steam.delivery.test-asset-id`. Read the rest of this section as
+> history, not as an open item.
+>
+> What is genuinely still open is **not code**: the sidecar has never been run,
+> because it needs a dedicated Steam account with a mobile authenticator and a
+> cleared trade hold. See the "Operator setup" checklist in `steam-bot/README.md`.
+
+## GAP 1 (CLOSED — kept for history): the Steam **asset id** of the sold item is not persisted
 
 A bot-escrow model needs the concrete **Steam asset id** the bot must give the
 buyer. The current platform does **not** store this anywhere on `Trade` or

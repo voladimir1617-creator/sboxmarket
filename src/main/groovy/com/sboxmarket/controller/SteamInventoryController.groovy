@@ -66,6 +66,49 @@ class SteamInventoryController {
         uid
     }
 
+    /**
+     * Reject a listing attempt from a seller who has no Steam trade URL, when
+     * bot-escrow is live. Pre-flight, before any listing row is created.
+     *
+     * ── Why this has to fail LOUD ─────────────────────────────────────────
+     * With escrow enabled, listing an item creates it in PENDING_ESCROW and
+     * asks the bot to request the asset from the seller. A seller with no trade
+     * URL has no address the bot can send that request to, so
+     * {@code requestDepositForListing} takes its no-trade-URL branch: it
+     * persists a custody row with no offer id and leaves the listing held.
+     *
+     * What the seller experienced before this gate: HTTP 200 with a listing id,
+     * a green "Listed …" toast — and then nothing. The listing is PENDING_ESCROW,
+     * and every seller-facing query ({@code findActiveBySeller},
+     * {@code countActiveBySeller}, {@code cancelAllActive}) filters on
+     * {@code status = 'ACTIVE'}, so it appears in no stall, no count, and no
+     * bulk-cancel. Re-listing the same item is refused by the ALREADY_LISTED
+     * guard, which DOES count PENDING_ESCROW — so the seller is told they have
+     * an active listing for an item that is visible nowhere and cancellable
+     * through no button. That dead end lasted until the 24h deposit-timeout
+     * sweeper cancelled it.
+     *
+     * A success response for an action that silently did not happen is the
+     * exact failure this codebase keeps re-learning. So: fail here, with the
+     * same error code and the same shape the BUY side already uses
+     * ({@code PurchaseService.buy} throws TRADE_URL_MISSING pre-debit rather
+     * than taking the money and stranding the trade). The seller gets a
+     * sentence telling them precisely what to do, and no dead listing exists.
+     *
+     * Gated on {@code escrowEnabled} — with the bot unconfigured a listing goes
+     * straight to ACTIVE and the seller delivers by hand from their own Steam
+     * client, so a trade URL is genuinely not needed at list time and demanding
+     * one would be a regression.
+     */
+    private void requireSellerTradeUrl(Long uid) {
+        if (!(steamEscrowService?.escrowEnabled)) return
+        def seller = steamUserRepository.findById(uid).orElse(null)
+        if (seller != null && !seller.tradeUrl?.trim()) {
+            throw new BadRequestException("TRADE_URL_MISSING",
+                "Set your Steam trade URL in Profile before listing — our bot needs it to collect the item from you.")
+        }
+    }
+
     @GetMapping("/inventory")
     ResponseEntity<Map> inventory(HttpServletRequest req) {
         def uid = requireUser(req)
@@ -197,6 +240,9 @@ class SteamInventoryController {
         // collaborator field comment for why the check has to live here
         // rather than being inherited from a service call.
         banGuard?.assertNotBanned(uid)
+        // Pre-flight: a seller the bot cannot collect from must not get a
+        // listing row at all. See requireSellerTradeUrl.
+        requireSellerTradeUrl(uid)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
         def assetId = body?.assetId?.toString()
         def priceRaw = body?.price
@@ -429,6 +475,12 @@ class SteamInventoryController {
         // up front so a banned user can't slip 20 new listings through
         // the bulk path in a single call.
         banGuard?.assertNotBanned(uid)
+        // Same pre-flight as /list, and it matters MORE here: without it a
+        // trade-URL-less seller creates up to 20 dead PENDING_ESCROW listings
+        // in one call, every one of them invisible in their own stall and
+        // blocking a re-list of that asset via ALREADY_LISTED, until the 24h
+        // sweeper cancels all 20.
+        requireSellerTradeUrl(uid)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
 
         def raw = body?.assetIds

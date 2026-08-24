@@ -147,11 +147,28 @@ client.on('webSession', (sessionID, cookies) => {
     console.log('[bot] Trade manager ready (cookies set).');
   };
 
-  // If an explicit API key was provided, pin it; otherwise let the manager fetch/derive one.
+  // steam-tradeoffer-manager v2's signature is:
+  //     setCookies(cookies[, familyViewPin], callback)
+  // The middle positional argument is a FAMILY VIEW PIN, not an API key. There
+  // is no API-key parameter at all — the manager obtains its own key from the
+  // web session during setCookies.
+  //
+  // This used to pass CONFIG.apiKey there whenever STEAM_BOT_API_KEY was set,
+  // which handed the Steam Web API key to parentalUnlock() as a family-view
+  // PIN. That call fails, finishSetup receives the error, cookiesReady stays
+  // false, ready() stays false — and every single endpoint returns 503
+  // NOT_READY forever. The bot would never have sent one trade offer. Since
+  // .env.example ships STEAM_BOT_API_KEY as a documented option, an operator
+  // following the README and pasting their key in would have hit exactly this
+  // and had no way to tell it apart from a Steam outage.
+  //
+  // Only reachable with a real Steam login, so no test could have caught it and
+  // the code has never been executed once. Pass the callback in the position
+  // the library actually reads it from.
+  manager.setCookies(cookies, finishSetup);
   if (CONFIG.apiKey) {
-    manager.setCookies(cookies, CONFIG.apiKey, finishSetup);
-  } else {
-    manager.setCookies(cookies, finishSetup);
+    console.log('[bot] STEAM_BOT_API_KEY is set but unused — steam-tradeoffer-manager ' +
+      'derives its own Web API key from the login session. Safe to leave blank.');
   }
 
   community.setCookies(cookies);
