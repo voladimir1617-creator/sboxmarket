@@ -153,11 +153,99 @@ class SellService {
         }
     }
 
+    /**
+     * Pre-flight: refuse a platform-inventory relist while bot-escrow is live.
+     *
+     * ── The gap this closes ───────────────────────────────────────────────
+     * {@link #relist} hardcoded {@code status: 'ACTIVE'} and never asked for a
+     * deposit. The first-list path
+     * ({@code SteamInventoryController.listFromSteam}) does the opposite: it
+     * creates the row PENDING_ESCROW and calls
+     * {@code SteamEscrowService.requestDepositForListing} so the bot physically
+     * holds the item before anyone can buy it. So with the bot live a RELISTED
+     * item was buyable while the bot held nothing: the buyer pays, a Trade
+     * opens, {@code SteamDeliveryService.resolveAssetId} finds no custody row,
+     * records NO_ASSET_ID, and the sale stalls until the 3-day auto-cancel
+     * refunds the buyer. The buyer's money is safe; the marketplace is
+     * advertising an item it cannot deliver, which is the part that isn't.
+     *
+     * ── Why this refuses instead of routing through the escrow path ───────
+     * The escrow path's one entry point needs a CURRENT, REAL, seller-owned
+     * Steam asset id — {@code requestDepositForListing(listing, assetId, name)}
+     * hands that id straight to the bot as "request exactly this asset from
+     * this trade URL". A relist has no such id:
+     *
+     *   - Platform/house-bought items never had a Steam asset at all
+     *     ({@code owned.assetId} is null) — there is nothing on Steam to
+     *     collect, so no deposit can ever succeed.
+     *   - For an item that DID come from Steam, {@code owned.assetId} is the
+     *     ORIGINAL seller's id. Steam reassigns the asset id on every trade —
+     *     this codebase already relies on that fact
+     *     ({@code SteamEscrowService.fetchBotInventoryIndex} indexes by name
+     *     precisely "so custody-confirm can match an asset even when Steam
+     *     reassigns the asset id on receipt"). The stored id therefore names a
+     *     copy this seller does not own.
+     *
+     * Passing either into the escrow path is strictly WORSE than the gap it
+     * would be closing. relist flips the source row to RELISTED (gone from the
+     * seller's inventory) before creating the fresh row; the fresh row would
+     * sit PENDING_ESCROW against a deposit offer Steam can never fill, and 24h
+     * later {@code sweepStalePendingDeposits} flips it PENDING_ESCROW →
+     * CANCELLED — a terminal state that does NOT hand the item back the way
+     * {@link #cancelListing} does. The seller's item would vanish from their
+     * platform inventory permanently.
+     *
+     * Re-deriving a live asset id here (fetch the seller's Steam inventory,
+     * match by market_hash_name, pick a copy) is the THIRD code path this
+     * change is explicitly not allowed to invent — and it is guesswork besides,
+     * because "which physical copy is the one you bought" is not a question the
+     * platform can answer. The path that CAN answer it already exists and the
+     * seller can already reach it: the Sell modal's Steam tab, where they pick
+     * the concrete asset and {@code listFromSteam} escrows it properly.
+     *
+     * So: fail here, loud and early, with a sentence naming the action that
+     * works. Same posture and same shape as
+     * {@code SteamInventoryController.requireSellerTradeUrl} — refuse before
+     * any row is written rather than return 200 for something that silently did
+     * not happen.
+     *
+     * ── Escrow DISABLED is untouched ──────────────────────────────────────
+     * Gated on {@code escrowEnabled}, which is false whenever the bot sidecar
+     * is unconfigured (STEAM_BOT_BASE_URL unset — dev / test / CI, and
+     * production as it stands today). On that path nothing here fires and
+     * relist behaves exactly as before: straight to ACTIVE, seller hand-
+     * delivers from their own Steam client. Listing from inventory is the
+     * project's only live seller capability and this must not take it away.
+     * The null-safe navigation also keeps the guard inert when the bean is
+     * absent entirely (Spock property-map construction), matching every other
+     * optional collaborator on this service.
+     *
+     * ── Why the message is SHORT ──────────────────────────────────────────
+     * {@code GlobalExceptionHandler.genericMessage} replaces any domain
+     * message longer than 140 characters with "Request could not be
+     * completed" whenever {@code security.verbose-errors} is false — which is
+     * the default, and production. The first draft of this message was 214
+     * characters, so the seller would have been told nothing at all: visible,
+     * but not actionable, which is the same defect in a different costume.
+     * Keep it under 140 and keep the words "Steam tab" in it — both are pinned
+     * by RelistEscrowGateSpec, the length via a round-trip through the real
+     * handler rather than a bare character count.
+     */
+    private void assertRelistNotBypassingEscrow() {
+        if (!(steamEscrowService?.escrowEnabled)) return
+        throw new BadRequestException("RELIST_NEEDS_STEAM_DEPOSIT",
+            "Our bot has to hold an item before it can sell, and a relist gives us no Steam " +
+            "item to collect. List it from the Steam tab instead.")
+    }
+
     @Transactional
     Listing relist(Long sellerUserId, String sellerName, Long ownedListingId, BigDecimal newPrice,
                    String listingType = 'BUY_NOW', Long durationHours = null, String description = null,
                    BigDecimal buyNowPrice = null, BigDecimal maxDiscount = null) {
         banGuard.assertNotBanned(sellerUserId)
+        // Pre-flight, before ANY read or write: with the escrow bot live this
+        // path cannot produce a deliverable listing. See the guard's docstring.
+        assertRelistNotBypassingEscrow()
         sellerName = textSanitizer.cleanShort(sellerName)
         // HALF_UP-normalize the money inputs to whole cents up front so the
         // range checks + the buyNowPrice-vs-startingBid comparison below — and
@@ -257,6 +345,14 @@ class SellService {
             sellerAvatar: (sellerName ?: 'US').take(2).toUpperCase(),
             condition   : '',
             rarityScore : owned.rarityScore,
+            // ACTIVE unconditionally, and that is now SAFE rather than an
+            // oversight: assertRelistNotBypassingEscrow at the top of this
+            // method means we only ever get here with the escrow bot OFF, where
+            // ACTIVE-on-create is the correct legacy behaviour (the seller
+            // hand-delivers). It must NOT become a conditional PENDING_ESCROW —
+            // holding a listing without a deposit request is a hold nothing can
+            // ever release, and the 24h timeout sweeper would then cancel it
+            // WITHOUT returning the item to the seller's inventory.
             status      : 'ACTIVE',
             sellerUserId: sellerUserId,
             listingType : resolvedType,
