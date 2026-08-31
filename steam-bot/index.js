@@ -17,14 +17,15 @@
  * process to localhost / a private network and never expose it publicly.
  */
 
-const express = require('express');
-const SteamUser = require('steam-user');
-const SteamCommunity = require('steamcommunity');
-const TradeOfferManager = require('steam-tradeoffer-manager');
-const SteamTotp = require('steam-totp');
-
 // ---------------------------------------------------------------------------
 // Config (env only)
+//
+// NOTE ON ORDERING: config + validation deliberately come BEFORE the require()
+// calls below. Node evaluates requires in source order, so a sidecar with no
+// node_modules used to die on "Cannot find module 'express'" and never reach
+// the credential check — the operator learned nothing about the four secrets
+// they had not set yet. Validation first means one run reports every real
+// problem.
 // ---------------------------------------------------------------------------
 const CONFIG = {
   username: process.env.STEAM_BOT_USERNAME,
@@ -41,18 +42,129 @@ const CONFIG = {
   confirmRetryMs: parseInt(process.env.STEAM_BOT_CONFIRM_RETRY_MS || '20000', 10),
 };
 
-function requireConfig() {
-  const missing = [];
-  for (const key of ['username', 'password', 'sharedSecret', 'identitySecret', 'apiToken']) {
-    if (!CONFIG[key]) missing.push(key);
+// ---------------------------------------------------------------------------
+// Startup validation
+//
+// Runs before the Steam libraries load, before logIn(), and before the HTTP
+// server binds its port. A half-started bot is worse than a dead one: it still
+// answers /health, so the backend keeps calling it, and every trade comes back
+// 503 NOT_READY — indistinguishable from a Steam outage. Fail here instead, and
+// name EVERY problem in one pass so the operator fixes them in one edit rather
+// than discovering them one restart at a time.
+//
+// The old check reported the INTERNAL key names ("username, password,
+// sharedSecret") — none of which appear in .env.example or the README, so the
+// error told the operator nothing about which line to fill in.
+// ---------------------------------------------------------------------------
+
+// No usable default; the process genuinely cannot function without these.
+const REQUIRED_ENV = [
+  { name: 'STEAM_BOT_USERNAME',
+    purpose: 'Steam login name of the dedicated bot account (README step 1).' },
+  { name: 'STEAM_BOT_PASSWORD',
+    purpose: 'Password for that same bot account (README step 1).' },
+  { name: 'STEAM_BOT_SHARED_SECRET',
+    purpose: 'base64 shared_secret from the bot mobile authenticator; generates the ' +
+      'Steam Guard login code, so login is impossible without it (README step 3).' },
+  { name: 'STEAM_BOT_IDENTITY_SECRET',
+    purpose: 'base64 identity_secret from the same authenticator; auto-confirms outgoing ' +
+      'trade offers. Without it every sent offer stalls unconfirmed (README step 3).' },
+  { name: 'BOT_API_TOKEN',
+    purpose: 'Shared bearer token required on every request except /health. Must match the ' +
+      'backend BOT_API_TOKEN exactly, or the backend gets 401 on every call (README step 5).' },
+];
+
+// The literal values .env.example ships. They are in a tracked file, so anyone
+// reading the repo knows them — treating them as "set" would run the sidecar on
+// a publicly known API token.
+const ENV_PLACEHOLDERS = new Set([
+  'your_bot_steam_login',
+  'your_bot_steam_password',
+  'base64_shared_secret_here',
+  'base64_identity_secret_here',
+  'change_me_long_random_shared_token',
+]);
+
+// Optional, each with a working default. Absent is fine — only a value that is
+// PRESENT and unparseable is an error. parseInt() would silently accept "4000x"
+// as 4000 and turn "abc" into NaN, and app.listen(NaN) binds a random port the
+// backend can never reach.
+const NUMERIC_ENV = [
+  { name: 'BOT_PORT', min: 1, max: 65535, def: '4000' },
+  { name: 'STEAM_BOT_APP_ID', min: 1, max: null, def: '590830' },
+  { name: 'STEAM_BOT_CONTEXT_ID', min: 0, max: null, def: '2' },
+  { name: 'STEAM_BOT_POLL_INTERVAL_MS', min: 1, max: null, def: '15000' },
+  { name: 'STEAM_BOT_CONFIRM_RETRY_MS', min: 1, max: null, def: '20000' },
+];
+
+function validateEnvOrExit() {
+  const problems = [];
+
+  for (const item of REQUIRED_ENV) {
+    const raw = process.env[item.name];
+    const value = raw === undefined || raw === null ? '' : String(raw).trim();
+    if (value === '') {
+      problems.push(item.name + ' is missing or blank. ' + item.purpose);
+    } else if (ENV_PLACEHOLDERS.has(value)) {
+      problems.push(item.name + ' is still the .env.example placeholder "' + value +
+        '". ' + item.purpose);
+    }
   }
-  if (missing.length) {
+
+  for (const item of NUMERIC_ENV) {
+    const raw = process.env[item.name];
+    if (raw === undefined || raw === null || String(raw).trim() === '') continue; // default applies
+    const num = Number(String(raw).trim());
+    const range = item.max === null ? item.min + ' or greater'
+      : 'between ' + item.min + ' and ' + item.max;
+    if (!Number.isInteger(num) || num < item.min || (item.max !== null && num > item.max)) {
+      problems.push(item.name + '="' + raw + '" is not a whole number ' + range +
+        '. Unset it to use the default (' + item.def + ').');
+    }
+  }
+
+  if (!problems.length) return;
+
+  // eslint-disable-next-line no-console
+  console.error('[bot] Refusing to start: %d configuration problem(s).', problems.length);
+  for (const problem of problems) {
     // eslint-disable-next-line no-console
-    console.error('[bot] Missing required env vars: ' + missing.join(', ') +
-      '. See README.md / .env.example.');
-    process.exit(1);
+    console.error('[bot]   * ' + problem);
+  }
+  // eslint-disable-next-line no-console
+  console.error('[bot] Fix these in steam-bot/.env (copy .env.example), then run:');
+  // eslint-disable-next-line no-console
+  console.error('[bot]   node --env-file=.env index.js');
+  // eslint-disable-next-line no-console
+  console.error('[bot] This process does NOT auto-load .env — without --env-file (or a ' +
+    'process manager that injects env) every variable above reads as missing.');
+  process.exit(1);
+}
+
+validateEnvOrExit();
+
+// ---------------------------------------------------------------------------
+// Dependencies (loaded only once the config is known-good)
+// ---------------------------------------------------------------------------
+function loadDependency(name) {
+  try {
+    return require(name);
+  } catch (err) {
+    if (err && err.code === 'MODULE_NOT_FOUND' && String(err.message).includes(name)) {
+      // eslint-disable-next-line no-console
+      console.error('[bot] Dependency "%s" is not installed. Run `npm install` in ' +
+        'steam-bot/ before starting the sidecar.', name);
+      process.exit(1);
+    }
+    throw err; // a real failure inside the module — do not disguise it
   }
 }
+
+const express = loadDependency('express');
+const SteamUser = loadDependency('steam-user');
+const SteamCommunity = loadDependency('steamcommunity');
+const TradeOfferManager = loadDependency('steam-tradeoffer-manager');
+const SteamTotp = loadDependency('steam-totp');
 
 // ---------------------------------------------------------------------------
 // Steam clients
@@ -474,7 +586,8 @@ app.use((req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
 // Boot
 // ---------------------------------------------------------------------------
 function main() {
-  requireConfig();
+  // Config was validated at module load, before the Steam libraries were even
+  // required — see validateEnvOrExit(). Nothing reaches here half-configured.
   logIn();
   app.listen(CONFIG.port, CONFIG.host, () => {
     // eslint-disable-next-line no-console

@@ -31,6 +31,38 @@ import groovy.util.logging.Slf4j
 @Slf4j
 class SboxMarketApplication {
 
+    /**
+     * Logger for use INSIDE the @Bean closures below. Callers MUST capture the
+     * return value in a local variable before building the closure.
+     *
+     * {@code @Slf4j} injects a `log` property onto the class, but a
+     * {@code @Configuration} class is proxied by Spring CGLIB, and a Groovy
+     * closure declared in a @Bean method resolves any bare identifier
+     * dynamically against that proxy — where neither the @Slf4j property nor a
+     * private static field exists. Both forms fail identically at runtime:
+     *   groovy.lang.MissingPropertyException: No such property: log for class:
+     *   com.sboxmarket.SboxMarketApplication$$SpringCGLIB$$0
+     * thrown out of CommandLineRunner.run, which aborts startup. (A private
+     * static field is no better — Groovy property resolution does not see it
+     * through the proxy either. Measured, not assumed: both were tried.)
+     *
+     * A LOCAL variable is captured lexically by the closure and needs no
+     * property resolution at all, so it is immune to the proxy.
+     *
+     * This bug was ALREADY latent: the pre-existing `log.error('SEED REFUSED: …')`
+     * in the onStartup closure sat on a branch that only executes when a live
+     * Stripe key is configured without the prod profile. That branch is the
+     * LiveMoneyGuard safety net — so the one boot where it was meant to warn
+     * loudly and carry on is the one boot where it would instead have died with
+     * an unrelated-looking Groovy error. Normal dev boots never take that
+     * branch, which is why it was never seen.
+     *
+     * `log` remains correct in `main`, which runs against the real class.
+     */
+    private static org.slf4j.Logger runnerLog() {
+        org.slf4j.LoggerFactory.getLogger(SboxMarketApplication)
+    }
+
     static void main(String[] args) {
         def ctx = SpringApplication.run(SboxMarketApplication, args)
         // Read the actual server.port from the Spring environment rather
@@ -60,11 +92,38 @@ class SboxMarketApplication {
      * added them because "EVERY P2P buy of a seeded listing 400d SELLER_WALLET_MISSING".
      * The one thing stopping people buying fictional items was removed on purpose. So
      * the gate has to be here, at the wiring point.
+     *
+     * <h3>2026-08-31 — the gate is now FAIL-CLOSED (opt-in), not fail-open</h3>
+     *
+     * The two gates below ({@code @Profile("!prod")} and {@link
+     * com.sboxmarket.config.LiveMoneyGuard}) both answer "is this OBVIOUSLY
+     * production?". Neither answers "is this a developer box?". The difference
+     * is the whole risk: the operator's own instance runs on the {@code default}
+     * profile with {@code sk_test_} keys — so BOTH gates pass and the seeder
+     * fabricates the entire marketplace. Measured on a fresh boot 2026-08-31:
+     * 39 catalogue items, 85 ACTIVE listings, 6 invented sellers holding 50 of
+     * them, 56 auction bids, 171 SOLD rows and 3,510 price-history points.
+     *
+     * That is not a cosmetic problem once a stranger can see the site. The SOLD
+     * rows and the 90-day price series are what a real buyer prices against, and
+     * the ACTIVE listings are buyable — the invented sellers were given wallets
+     * precisely so the buy path would not refuse them.
+     *
+     * "Not prod" is the wrong question because absence of configuration is the
+     * default state of every box that has not been configured yet — including
+     * the one the operator is about to put a real item on. So the demo catalogue
+     * now requires someone to ASK for it: an explicit {@code sbox.seed.demo-data}
+     * property, or an explicitly-activated {@code dev}/{@code test} profile.
+     * A bare {@code default}-profile boot seeds NOTHING. Absence of a signal
+     * reads as "no", which is the only safe direction for fabricated inventory.
+     *
+     * @see #demoSeedRequested(org.springframework.core.env.Environment)
      */
     @Bean
     @Profile("!prod")
     CommandLineRunner onStartup(SeedService seedService,
                                 org.springframework.core.env.Environment env) {
+        def logger = runnerLog()
         return { args ->
             // Second, independent gate. @Profile("!prod") above is the primary
             // one, but it is the SAME switch that guards dev-login, the admin
@@ -75,14 +134,87 @@ class SboxMarketApplication {
             // environment variable and cannot be lost by the same mistake,
             // so it gets a veto of its own. See LiveMoneyGuard.
             if (com.sboxmarket.config.LiveMoneyGuard.isRealMoney(env)) {
-                log.error('SEED REFUSED: a live Stripe key is configured but the `prod` profile is NOT active ' +
+                logger.error('SEED REFUSED: a live Stripe key is configured but the `prod` profile is NOT active ' +
                           '(profiles: {}). This deployment can charge real cards, so the demo catalogue will ' +
                           'not be created. Set SPRING_PROFILES_ACTIVE=prod — dev-login, the default admin ' +
                           'bootstrap id, and the prod config validator are ALL still misconfigured.',
                           env.activeProfiles?.join(',') ?: 'default')
                 return
             }
+            // THIRD gate, and the only one that is fail-closed: the demo
+            // catalogue must be explicitly requested. See the class doc above
+            // for why "not prod" was never a sufficient answer.
+            if (!demoSeedRequested(env)) {
+                logger.info('Demo catalogue NOT seeded — no demo-data opt-in (profiles: {}). ' +
+                         'The book will contain only real listings. To populate the fake ' +
+                         'marketplace for local UI work, set sbox.seed.demo-data=true ' +
+                         '(or activate the `dev` profile).',
+                         env.activeProfiles?.join(',') ?: 'default')
+                return
+            }
             seedService.seed()
+        } as CommandLineRunner
+    }
+
+    /**
+     * Has someone explicitly asked for the fabricated demo catalogue?
+     *
+     * Static + Environment-only so it is unit-testable against a mock
+     * Environment with no Spring context — the same shape as
+     * {@link com.sboxmarket.config.LiveMoneyGuard#isRealMoney}.
+     *
+     * Precedence:
+     * <ol>
+     *   <li>An explicit {@code sbox.seed.demo-data} property wins outright, in
+     *       BOTH directions. {@code false} switches the demo catalogue off even
+     *       under the {@code dev}/{@code test} profiles, so a developer can
+     *       reproduce the real empty-book experience without inventing a new
+     *       profile.</li>
+     *   <li>Otherwise the {@code dev} and {@code test} profiles imply yes. Both
+     *       have to be activated deliberately, which is the signal we want, and
+     *       keeping {@code test} on preserves the existing CI behaviour of the
+     *       ~4,459-test suite exactly.</li>
+     *   <li>Otherwise NO. Critically this includes the bare {@code default}
+     *       profile — the state of every box nobody has configured yet, which is
+     *       precisely the box that must not invent inventory.</li>
+     * </ol>
+     */
+    static boolean demoSeedRequested(Environment env) {
+        if (env == null) return false
+        String explicit = env.getProperty('sbox.seed.demo-data')
+        if (explicit != null && !explicit.trim().isEmpty()) {
+            return explicit.trim().equalsIgnoreCase('true')
+        }
+        def profiles = env.activeProfiles?.toList() ?: []
+        return profiles.contains('dev') || profiles.contains('test')
+    }
+
+    /**
+     * One-shot purge of previously-seeded demo data.
+     *
+     * The opt-in gate above stops NEW fabrication; it cannot un-fabricate what a
+     * previous boot already wrote. The operator's live H2 file already holds a
+     * fully-seeded marketplace from before the gate existed, and "delete the
+     * database" is not an acceptable instruction once there is a real account,
+     * a real wallet balance or a real listing in it.
+     *
+     * Deliberately NOT {@code @Profile("!prod")}: the purge has to be able to run
+     * in whatever profile the operator is actually using, including {@code prod}
+     * if a seeded dev database is ever promoted. It is inert unless explicitly
+     * asked, and asking is idempotent — a second run finds nothing to delete.
+     *
+     * Ordered BEFORE nothing in particular; it runs in its own runner so a purge
+     * failure cannot take down boot (SeedService.purgeDemoData swallows and logs).
+     */
+    @Bean
+    CommandLineRunner purgeDemoDataOnStartup(SeedService seedService,
+                                             Environment env) {
+        def logger = runnerLog()
+        return { args ->
+            String flag = env?.getProperty('sbox.seed.purge-demo-data')
+            if (flag == null || !flag.trim().equalsIgnoreCase('true')) return
+            logger.warn('sbox.seed.purge-demo-data=true — removing fabricated demo data from this database.')
+            seedService.purgeDemoData()
         } as CommandLineRunner
     }
 }

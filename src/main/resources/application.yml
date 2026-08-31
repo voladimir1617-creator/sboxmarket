@@ -5,6 +5,53 @@ server:
   # localhost:8082. Defaulting to 8080 silently broke that QA loop.
   # Still overridable via SERVER_PORT; prod sets its own port.
   port: ${SERVER_PORT:8082}
+  ###
+  # Tomcat connection hardening — MUST NOT live only in application-prod.yml.
+  #
+  # THE WEDGE THIS FIXES (measured 2026-08-31, reproduced and fix-verified):
+  # a long-lived instance stops answering. TCP still accepts, nothing ever
+  # responds, a 60s client sees HTTP 000. A thread dump shows the acceptor and
+  # poller healthy, every worker parked, and most of them at cpu=0.00ms — they
+  # were spawned and never reached application code.
+  #
+  # Cause: Tomcat writes a response body with a BLOCKING write, and the worker
+  # is pinned for the whole write. A client that stops reading (backgrounded
+  # tab, dead mobile connection, a dropped Cloudflare tunnel hop, an aborted
+  # fetch) leaves its worker in
+  #     NioEndpoint$NioSocketWrapper.doWrite -> Object.wait()
+  # and this app ships big JSON bodies (a 200-row /api/listings is ~74KB, plus
+  # the admin CSV exports and the sitemap), so a stalled reader holds a thread
+  # for a long time. Enough of them and all `threads.max` workers are pinned;
+  # new connections then sit in the kernel accept queue, which is exactly
+  # "TCP accepts, never responds".
+  #
+  # `application-prod.yml` already sets connection-timeout/keep-alive-timeout,
+  # but `application.yml` did NOT — and the default profile is what actually
+  # runs (the operator's own instance boots with `profiles: default`). So the
+  # one deployment taking real traffic had none of this. Hardening belongs on
+  # the BASE profile so no profile can be missing it; prod still overrides with
+  # its own tighter 10s/15s.
+  #
+  # MEASURED, identical load (400 slowloris + 250 non-reading readers), same
+  # jar, same data — the only difference is these keys:
+  #   without: 200/200 workers pinned, 50 stuck in doWrite, peak latency 53.87s
+  #   with:     53 workers,              0 stuck in doWrite, peak latency  0.03s
+  #
+  # connection-timeout also bounds the blocking WRITE (Tomcat applies it as the
+  # socket write timeout during request processing), which is the half that
+  # matters here — not just the request-line read it is usually described as.
+  # 20s is deliberately generous versus prod's 10s: it must never cut off a
+  # legitimate slow mobile client fetching a large page, only a stalled one.
+  ###
+  max-http-request-header-size: ${SERVER_MAX_HEADER_SIZE:16KB}
+  tomcat:
+    connection-timeout: ${SERVER_CONNECTION_TIMEOUT:20s}
+    keep-alive-timeout: ${SERVER_KEEP_ALIVE_TIMEOUT:15s}
+    max-swallow-size: 2MB
+    max-http-form-post-size: 2MB
+    threads:
+      max: ${SERVER_THREADS_MAX:200}
+      min-spare: ${SERVER_THREADS_MIN_SPARE:20}
   # Session cookie hardening — HttpOnly is always on, Secure + SameSite
   # controlled by env so local HTTP dev still works.
   servlet:

@@ -1469,4 +1469,216 @@ class SeedService {
             log.warn("Public-loadout seed skipped: ${e.message}", e)
         }
     }
+
+    // ───────────────────────── purge ─────────────────────────
+
+    /**
+     * Remove every row this class fabricated, so a database that was seeded
+     * before the opt-in gate existed can be handed to real users.
+     *
+     * <h3>Why a purge is needed at all</h3>
+     *
+     * The gate in {@code SboxMarketApplication.onStartup} stops NEW fabrication.
+     * It cannot un-fabricate what a previous boot already committed, and the
+     * operator's live H2 file is exactly that database. "Delete the database"
+     * stops being an acceptable instruction the moment there is one real
+     * account, one real wallet balance or one real listing in it.
+     *
+     * <h3>What gets removed, and how it is identified</h3>
+     *
+     * Only rows carrying an unambiguous seed marker:
+     * <ul>
+     *   <li><b>Sellers</b> — the six {@link #SEED_SELLER_ACCOUNTS} steamId64s
+     *       (76561199000000001–006). These are literal fixtures; no Steam
+     *       account can collide with them by accident.</li>
+     *   <li><b>Their wallets</b> — {@code steam_<steamId64>}, the naming
+     *       convention {@code SteamAuthService.upsertUser} uses.</li>
+     *   <li><b>Listings</b> — any listing whose {@code sellerUserId} is one of
+     *       those six, OR whose {@code sellerName} is one of the six handles.
+     *       The second clause is required: {@code seedMarketplaceListings} and
+     *       {@code seedPerItemSales} write "system" rows with
+     *       {@code sellerUserId = null} and only the handle to identify them.
+     *       This sweeps ACTIVE, SOLD and auction rows alike.</li>
+     *   <li><b>Bids</b> — on any purged listing, or placed by any of the six.</li>
+     *   <li><b>Public loadouts</b> — the synthetic ones, marked
+     *       {@code ownerUserId < 0} (the seed's own marker; real Steam users
+     *       always have positive ids), plus their slots and favorites.</li>
+     *   <li><b>Price history</b> — ONLY for items left with zero listings after
+     *       the sweep above. An item whose entire market presence was invented
+     *       loses its invented 90-day chart; an item carrying real listings
+     *       keeps every point, because organic history from
+     *       {@code PriceHistoryService.record} is indistinguishable from seeded
+     *       history at the row level and must never be guessed at.</li>
+     * </ul>
+     *
+     * Deliberately NOT removed: the catalogue {@code Item} rows. Those are item
+     * DEFINITIONS (name, category, image), not claims about inventory or price
+     * discovery, and a real seller lists against them. Their derived counters
+     * ({@code totalSold}, {@code lowestPrice}) are recomputed from what actually
+     * survives, so no fabricated number outlives the rows that justified it.
+     *
+     * IDEMPOTENT — a second run finds nothing and logs zeroes. NEVER THROWS —
+     * it runs from a {@code CommandLineRunner} and a purge failure must not stop
+     * the app booting; each stage catches independently so one bad stage cannot
+     * abort the rest.
+     */
+    void purgeDemoData() {
+        int listingsDeleted = 0, bidsDeleted = 0, usersDeleted = 0,
+            walletsDeleted = 0, loadoutsDeleted = 0, historyDeleted = 0
+        def touchedItemIds = new HashSet<Long>()
+
+        // 1. Resolve the six fixture accounts. Absent accounts are fine — the
+        //    handle-based listing sweep below does not depend on them.
+        def seedIds = new HashSet<Long>()
+        // BOTH handle lists. SEED_SELLER_ACCOUNTS holds the SIX fixtures that
+        // get real SteamUser rows; SEED_SELLERS holds the TEN display names
+        // that seedMarketplaceListings stamps onto listings — the same six plus
+        // VaultRunner / NeonArc / CrateDigger / FrostByte, which never get an
+        // account and so are identifiable ONLY by name. Purging the six alone
+        // left 30 fabricated listings behind (measured 2026-08-31: 142 removed,
+        // 30 survivors, and /api/listings/stats still reported volume and sales
+        // from them) — a partially-purged book is arguably worse than an
+        // un-purged one, because it looks real.
+        def seedHandles = new HashSet<String>()
+        seedHandles.addAll(SEED_SELLERS)
+        SEED_SELLER_ACCOUNTS.each { acct ->
+            seedHandles.add(acct[0] as String)
+            try {
+                def u = steamUserRepository?.findBySteamId64(acct[1] as String)
+                if (u?.id != null) seedIds.add(u.id)
+            } catch (Exception ignored) { }
+        }
+
+        // 2. Listings — by owner id OR by fixture handle (system rows have a
+        //    null sellerUserId and are only identifiable by the handle).
+        def purgedListingIds = new HashSet<Long>()
+        try {
+            if (listingRepository != null) {
+                def doomed = listingRepository.findAll().findAll { l ->
+                    l != null && ((l.sellerUserId != null && seedIds.contains(l.sellerUserId)) ||
+                                  (l.sellerName != null && seedHandles.contains(l.sellerName)))
+                }
+                doomed.each { l ->
+                    if (l.id != null) purgedListingIds.add(l.id)
+                    try { if (l.item?.id != null) touchedItemIds.add(l.item.id) } catch (Exception ignored) { }
+                }
+                // 3. Bids first — they reference listing ids, so they go before
+                //    the listings they point at.
+                try {
+                    if (bidRepository != null) {
+                        def deadBids = bidRepository.findAll().findAll { b ->
+                            b != null && ((b.listingId != null && purgedListingIds.contains(b.listingId)) ||
+                                          (b.bidderUserId != null && seedIds.contains(b.bidderUserId)))
+                        }
+                        bidsDeleted = deadBids.size()
+                        if (bidsDeleted > 0) bidRepository.deleteAll(deadBids)
+                    }
+                } catch (Exception e) {
+                    log.warn("Demo purge: bid sweep failed: ${e.message}", e)
+                }
+                listingsDeleted = doomed.size()
+                if (listingsDeleted > 0) listingRepository.deleteAll(doomed)
+            }
+        } catch (Exception e) {
+            log.warn("Demo purge: listing sweep failed: ${e.message}", e)
+        }
+
+        // 4. Synthetic public loadouts (ownerUserId < 0) + slots + favorites.
+        try {
+            if (loadoutRepository != null) {
+                def synthetic = loadoutRepository.findAll().findAll {
+                    it != null && it.ownerUserId != null && it.ownerUserId < 0L
+                }
+                synthetic.each { lo ->
+                    try { loadoutFavoriteRepository?.deleteByLoadoutId(lo.id) } catch (Exception ignored) { }
+                    try { loadoutSlotRepository?.deleteByLoadoutId(lo.id) } catch (Exception ignored) { }
+                }
+                loadoutsDeleted = synthetic.size()
+                if (loadoutsDeleted > 0) loadoutRepository.deleteAll(synthetic)
+            }
+        } catch (Exception e) {
+            log.warn("Demo purge: loadout sweep failed: ${e.message}", e)
+        }
+
+        // 5. The fixture accounts and their wallets.
+        SEED_SELLER_ACCOUNTS.each { acct ->
+            String steamId64 = acct[1] as String
+            try {
+                def w = walletRepository?.findByUsername("steam_${steamId64}")
+                if (w != null) { walletRepository.delete(w); walletsDeleted++ }
+            } catch (Exception e) {
+                log.warn("Demo purge: wallet for ${steamId64} not removed: ${e.message}")
+            }
+            try {
+                def u = steamUserRepository?.findBySteamId64(steamId64)
+                if (u != null) { steamUserRepository.delete(u); usersDeleted++ }
+            } catch (Exception e) {
+                log.warn("Demo purge: user ${steamId64} not removed: ${e.message}")
+            }
+        }
+
+        // 6. Price history ONLY for items whose entire market presence was
+        //    fabricated — i.e. nothing is listed against them any more. An item
+        //    with surviving listings keeps its history untouched, because a
+        //    seeded point and an organically recorded point are identical at
+        //    the row level and guessing between them would delete real data.
+        try {
+            if (priceHistoryRepository != null && listingRepository != null) {
+                def survivorItemIds = new HashSet<Long>()
+                listingRepository.findAll().each { l ->
+                    try { if (l?.item?.id != null) survivorItemIds.add(l.item.id) } catch (Exception ignored) { }
+                }
+                touchedItemIds.each { Long itemId ->
+                    if (survivorItemIds.contains(itemId)) return
+                    try {
+                        def rows = priceHistoryRepository.findByItemIdOrdered(itemId)
+                        if (rows) {
+                            historyDeleted += rows.size()
+                            priceHistoryRepository.deleteAll(rows)
+                        }
+                    } catch (Exception ignored) { }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Demo purge: price-history sweep failed: ${e.message}", e)
+        }
+
+        // 7. Recompute the derived counters the seed inflated, so no fabricated
+        //    number outlives the rows that justified it. Same source of truth
+        //    the live mutation paths use.
+        try {
+            if (itemRepository != null && listingRepository != null) {
+                touchedItemIds.each { Long itemId ->
+                    try {
+                        def opt = itemRepository.findById(itemId)
+                        if (!opt.isPresent()) return
+                        def item = opt.get()
+                        item.totalSold  = (int) listingRepository.findAll().count { l ->
+                            l?.item?.id == itemId && l.status == 'SOLD'
+                        }
+                        // COALESCE to zero. `minPriceForItem` is a MIN() over
+                        // active listings and returns NULL once the last one is
+                        // purged, but items.lowest_price is NOT NULL — writing
+                        // the raw result threw
+                        //   SQL Error 23502: NULL not allowed for column "LOWEST_PRICE"
+                        // on every fully-emptied item, so the reconcile silently
+                        // failed and each kept the fabricated floor from its
+                        // deleted listings. Zero is the honest value for an item
+                        // with nothing listed against it, and is what the live
+                        // floor-refresh sweep converges to anyway.
+                        def floor = listingRepository.minPriceForItem(itemId)
+                        item.lowestPrice = (floor != null) ? floor : BigDecimal.ZERO
+                        item.isListed = listingRepository.countActiveForItem(itemId) > 0
+                        itemRepository.save(item)
+                    } catch (Exception ignored) { }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Demo purge: counter reconcile failed: ${e.message}", e)
+        }
+
+        log.warn("Demo purge complete — listings=${listingsDeleted} bids=${bidsDeleted} " +
+                 "sellers=${usersDeleted} wallets=${walletsDeleted} loadouts=${loadoutsDeleted} " +
+                 "priceHistoryPoints=${historyDeleted} itemsReconciled=${touchedItemIds.size()}")
+    }
 }
