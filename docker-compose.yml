@@ -22,7 +22,14 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "${APP_PORT:-8080}:8080"
+      # Container side is 8082 because that is what the app binds
+      # (application.yml -> server.port: ${SERVER_PORT:8082}). This published
+      # 8080:8080, so nothing was ever reachable and the Dockerfile HEALTHCHECK
+      # (which probes the container's own port) could never pass either.
+      # Host side stays a separate knob: deploy/run-local.sh's edge container
+      # also defaults to host 8082, so override APP_PORT if you run both stacks
+      # on one box.
+      - "${APP_PORT:-8082}:8082"
     # Real secrets (Stripe live keys, SMTP password, Steam API key, Sentry DSN)
     # come from an operator-supplied env file — NEVER committed, NEVER baked
     # into the image. Copy deploy/skinbox.env.example -> deploy/skinbox.env and
@@ -35,12 +42,30 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # Explicit so the app, the published port and the Dockerfile HEALTHCHECK
+      # can never disagree again — all three now read 8082 from one place.
+      SERVER_PORT: ${SERVER_PORT:-8082}
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/skinbox
       SPRING_DATASOURCE_USERNAME: skinbox
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-skinbox}
       ADMIN_BOOTSTRAP_STEAM_IDS: ${ADMIN_BOOTSTRAP_STEAM_IDS:-76561197960287930}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://skinbox.market}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
+      # NO DEFAULT, on purpose. This used to default to `sk_test_dummy`, which
+      # ProdConfigValidator rejects outright ("STRIPE_SECRET_KEY is a Stripe
+      # TEST key ... refusing to start"). Because that check runs on
+      # ApplicationReadyEvent and calls System.exit(1) — i.e. AFTER Tomcat has
+      # bound — and this service is `restart: unless-stopped`, the result was an
+      # endless boot/exit/restart crash loop rather than a clean failure. The
+      # validator is right and must not be weakened: it is the control that
+      # stops production processing real customer money through a test key.
+      # What was wrong was shipping a default guaranteed to trip it.
+      #
+      # `:?` fails at `docker compose up` time with this message, before any
+      # container starts, so the operator gets one actionable line instead of a
+      # restarting container. For a local smoke test, do not use the prod
+      # profile (note Dockerfile also bakes ENV SPRING_PROFILES_ACTIVE=prod, so
+      # it must be overridden here AND there).
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?set STRIPE_SECRET_KEY (a real sk_live_... key) in deploy/skinbox.env - the prod profile refuses to start with a sk_test_ key}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_dummy}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-https://skinbox.market/?deposit=success}

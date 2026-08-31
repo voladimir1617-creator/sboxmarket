@@ -219,8 +219,19 @@ class SteamEscrowServiceSpec extends Specification {
         1 * notificationService.safePush(1L, _, _, _, _, _)
     }
 
-    def "confirm: accepted but asset not yet in inventory keeps waiting (no activation)"() {
-        given:
+    def "confirm: accepted but asset not yet in inventory moves to IN_ESCROW_HOLD (no activation)"() {
+        given: "an accepted deposit whose asset has not appeared in the bot inventory"
+        // Expectation CHANGED deliberately (Steam trade-hold wave). This row
+        // used to stay PENDING_DEPOSIT, which was the orphaning bug: the offer
+        // is ACCEPTED, so the item has already left the seller's inventory, and
+        // a PENDING_DEPOSIT row is precisely what the 24h timeout sweeper
+        // failed and cancelled. Once the item is gone, FAILED does not undo
+        // anything — it deletes the only pointer to a real item.
+        //
+        // IN_ESCROW_HOLD is the honest state ("gone from the seller, not usable
+        // by the bot yet") and it is the one the pollers and the escalation
+        // sweep both watch. It also stamps depositAcceptedAt, which is what
+        // permanently disqualifies the row from the give-up path.
         bot.enabled >> true
         def e = new EscrowedItem(id: 5L, listingId: 10L, assetId: '555', depositOfferId: '444',
                 custodyState: EscrowedItem.PENDING_DEPOSIT)
@@ -231,8 +242,10 @@ class SteamEscrowServiceSpec extends Specification {
         then:
         1 * escrowRepository.findById(5L) >> Optional.of(e)
         1 * bot.getOfferStatus('444') >> SteamBotResult.success([ok: true, status: 'accepted'])
-        // stays PENDING_DEPOSIT, error noted, listing NOT activated
-        1 * escrowRepository.save({ EscrowedItem r -> r.custodyState == EscrowedItem.PENDING_DEPOSIT })
+        // parked in the hold state, with the item-has-left-the-seller stamp set
+        1 * escrowRepository.save({ EscrowedItem r ->
+            r.custodyState == EscrowedItem.IN_ESCROW_HOLD && r.depositAcceptedAt != null })
+        // listing is NOT made buyable — the bot cannot deliver what it can't touch
         0 * listingRepository.save(_)
     }
 

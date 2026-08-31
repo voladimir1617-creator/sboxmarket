@@ -73,8 +73,24 @@ in dev. In production:
 
 ```bash
 COOKIE_SECURE=true
-COOKIE_SAME_SITE=strict
+COOKIE_SAME_SITE=lax
 ```
+
+> **Do not set this to `strict`.** It silently breaks login and deposits.
+> Steam OpenID and Stripe Checkout both send the user to their own domain and
+> then redirect the browser back here, and `SameSite=Strict` withholds the
+> session cookie on exactly that kind of cross-site top-level navigation. The
+> user lands back on the site signed out, with a deposit that appears to have
+> vanished — and nothing logs an error, because from the server's point of view
+> the request simply arrived with no session. `Lax` sends cookies on top-level
+> GET redirects but still withholds them on cross-site POSTs, which is the
+> correct posture for OpenID/OAuth return flows.
+>
+> Note the blast radius depends on the profile: `application-prod.yml` hard-pins
+> `same-site: lax` and ignores this variable, so under `SPRING_PROFILES_ACTIVE=prod`
+> a `strict` value is inert. The **default** profile reads it (`application.yml`
+> → `same-site: ${COOKIE_SAME_SITE:lax}`), and the default profile is what a
+> plain `java -jar` boot actually runs — so this advice was live, not theoretical.
 
 Put a TLS terminator (Caddy, nginx, Cloudflare) in front of port 8082.
 The app trusts `CF-Connecting-IP` and `X-Forwarded-For` for client-IP

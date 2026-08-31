@@ -23,7 +23,7 @@ export STEAM_RETURN_URL=https://skinbox.example/api/auth/steam/return
 export ADMIN_BOOTSTRAP_STEAM_IDS=76561198012345678
 export CORS_ALLOWED_ORIGINS=https://skinbox.example
 export COOKIE_SECURE=true
-export COOKIE_SAME_SITE=strict
+export COOKIE_SAME_SITE=lax   # NOT strict - Steam OpenID + Stripe redirect back cross-site, and strict withholds the session cookie on exactly those returns (silent logout / vanished deposit)
 export SECURITY_HSTS=true
 
 # 2. Run the JAR as a non-root user (systemd recommended)
@@ -112,7 +112,7 @@ Every finding from the external audit has a live mitigation in this repo:
 - **CSRF double-submit-cookie** protects every `POST/PUT/PATCH/DELETE` on `/api/**`; Stripe webhooks and Steam OpenID returns are explicitly exempt.
 - **Rate limit**: 20 writes / 10 s per IP per guarded surface, returns 429 with `Retry-After`.
 - **Content-Security-Policy** covers `self` + unpkg + Google Fonts + Steam CDNs + Stripe; blocks inline scripts.
-- **Session cookies** are `HttpOnly` always; `Secure` + `SameSite=strict` in prod.
+- **Session cookies** are `HttpOnly` always; `Secure` + `SameSite=lax` in prod. Lax, not Strict, on purpose: Steam OpenID and Stripe Checkout both redirect the browser back from their own domains, and Strict withholds the session cookie on those cross-site top-level navigations, silently signing the user out mid-login or mid-deposit.
 - **Append-only audit log** at `GET /api/admin/audit` records every staff action and every money movement with IP + user-agent + correlation id.
 
 ## What's in here

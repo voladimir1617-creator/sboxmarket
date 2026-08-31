@@ -384,7 +384,7 @@
       <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">Security + infrastructure</div>
       <ul class="changelog-list">
-        <li><span class="changelog-tag security">SECURITY</span>CSRF double-submit-cookie on every write endpoint; session cookies HttpOnly + SameSite-strict in prod.</li>
+        <li><span class="changelog-tag security">SECURITY</span>CSRF double-submit-cookie on every write endpoint; session cookies HttpOnly + SameSite-lax in prod (Lax, not Strict, so Steam OpenID and Stripe redirects back to the site keep the session).</li>
         <li><span class="changelog-tag security">SECURITY</span>Rate limiting on write (20/10s) and read (120/10s) surfaces.</li>
         <li><span class="changelog-tag security">SECURITY</span>CSP covering every CDN origin; HSTS opt-in; body-size caps.</li>
         <li><span class="changelog-tag feature">NEW</span>System status page at <a href="/status.html" style="color:var(--accent)">/status.html</a> — probes core endpoints every 30s.</li>

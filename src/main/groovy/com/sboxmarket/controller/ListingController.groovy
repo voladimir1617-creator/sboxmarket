@@ -46,6 +46,12 @@ class ListingController {
     @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
     @Autowired(required = false) com.sboxmarket.service.security.AdminAuthorization adminAuthorization
     @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
+    // Bot-escrow custody, for explaining WHY a held listing is held (and when
+    // it stops being held). Optional so existing specs that wire this
+    // controller without it still construct; when absent or the bot is
+    // unconfigured, /my-stall/pending-escrow degrades to the bare listing rows
+    // it returned before.
+    @Autowired(required = false) com.sboxmarket.service.SteamEscrowService steamEscrowService
 
     // Batch 659 — canonical enum lists + normaliser live in
     // `com.sboxmarket.util.ListingEnums` (shared with ItemController
@@ -353,11 +359,37 @@ class ListingController {
      * Empty whenever bot-escrow is unconfigured — nothing is ever created in
      * PENDING_ESCROW on the legacy path — so this is a no-op today and becomes
      * load-bearing the moment the bot goes live.
+     *
+     * ── Each row now says WHY it is held, and until when ──────────────────
+     * Returning bare Listing rows was only half an answer. The single most
+     * alarming thing that can happen to a first-time seller is a Steam
+     * mobile-authenticator trade hold: the item vanishes from their own Steam
+     * inventory, and the listing does not go live — for SEVEN TO FIFTEEN DAYS.
+     * A response that shows a not-live listing with no reason and no end date
+     * is indistinguishable from one that silently failed, which is exactly the
+     * shape of defect this codebase keeps paying for.
+     *
+     * So each row carries an `escrow` block: the custody state, a plain-English
+     * sentence, and — when Steam has told us one — the concrete release date
+     * plus a machine-readable `holdReleasesAt` for a live countdown. The
+     * listing fields are unchanged and still at the top level, so this is
+     * additive for any existing client.
      */
     @GetMapping("/my-stall/pending-escrow")
-    ResponseEntity<List<Listing>> myStallPendingEscrow(HttpServletRequest req) {
+    ResponseEntity<List<Map>> myStallPendingEscrow(HttpServletRequest req) {
         def userId = requireUser(req)
-        ResponseEntity.ok(listingService.listingRepository.findPendingEscrowBySeller(userId))
+        List<Listing> rows = listingService.listingRepository.findPendingEscrowBySeller(userId)
+        Map<Long, Map> custody = [:]
+        try {
+            custody = steamEscrowService?.custodyViewForListings(rows*.id) ?: [:]
+        } catch (Exception e) {
+            // Explaining a hold must never be the reason the seller cannot see
+            // their held listings at all.
+            log.warn("pending-escrow custody enrichment failed for user {}: {}", userId, e.message)
+        }
+        ResponseEntity.ok(rows.collect { Listing l ->
+            [listing: l, escrow: custody[l.id]] as Map
+        })
     }
 
     /** Seller earnings summary for the MyStall header (batch 605).

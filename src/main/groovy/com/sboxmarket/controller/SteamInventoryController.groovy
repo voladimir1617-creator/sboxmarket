@@ -212,6 +212,30 @@ class SteamInventoryController {
         // tripped the negative cache on this call (first 429 of the window).
         Long after = steamInventoryService.blockedUntilMs(user.steamId64)
         Long signal = (blockedUntil != null) ? blockedUntil : after
+
+        // Say which of the seven things actually happened.
+        //
+        // fetchInventory returns [] for a private profile, a 429, any non-200,
+        // unparseable JSON, an unreadable shape, a transport exception — and for
+        // a genuinely empty inventory. All seven rendered as "No s&box items in
+        // your Steam inventory", so a seller whose profile was private, or whose
+        // fetch Steam had throttled, was told as settled fact that they owned
+        // nothing. The one case that WAS surfaced lumped 403 in with 429 and
+        // called both `rate_limited`, so a private profile produced "retry in
+        // 3 min" forever — advice that could never work.
+        if (enriched.isEmpty()) {
+            Map outcome = steamInventoryService.lastOutcomeFor(user.steamId64)
+            String o = outcome?.outcome
+            if (o != null && o != com.sboxmarket.service.SteamInventoryService.OUTCOME_OK) {
+                resp.reason = o
+                resp.reasonDetail = outcome.detail
+                // `unreadable` separates "we asked and the answer was zero" from
+                // "we could not get an answer". Only the first justifies telling
+                // the seller they have nothing to sell.
+                resp.unreadable = (o != com.sboxmarket.service.SteamInventoryService.OUTCOME_EMPTY)
+                resp.message = inventoryReasonMessage(o)
+            }
+        }
         if (signal != null && enriched.isEmpty()) {
             // intdiv() keeps this as long-division — Groovy's `/` on two
             // longs yields a BigDecimal, and Math.max(long, BigDecimal)
@@ -223,9 +247,46 @@ class SteamInventoryController {
             resp.blocked = true
             resp.blockedUntil = signal
             resp.retryInSec = retryInSec
-            resp.reason = 'rate_limited'
+            // Do NOT clobber a more specific reason set above. The negative
+            // cache is tripped by BOTH 403 and 429, so hardcoding
+            // 'rate_limited' here is what told a private-profile user to wait
+            // and retry — advice that can never come true, because no amount of
+            // waiting makes a private inventory readable.
+            if (resp.reason == null) resp.reason = 'rate_limited'
+            if (resp.message == null) resp.message = inventoryReasonMessage(resp.reason as String)
         }
         ResponseEntity.ok(resp)
+    }
+
+    /**
+     * A sentence the seller can act on for each empty-inventory cause.
+     *
+     * Each one names a different remedy, which is the point: the previous
+     * single message ("No s&box items in your Steam inventory") was correct for
+     * exactly one of these and actively misleading for the rest.
+     */
+    private static String inventoryReasonMessage(String outcome) {
+        switch (outcome) {
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_PRIVATE:
+                return 'Your Steam inventory is private. Open Steam → Profile → Privacy Settings and set ' +
+                       '"Inventory" to Public, then refresh.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_RATE_LIMITED:
+            case 'rate_limited':
+                return 'Steam is rate-limiting our requests right now. Nothing is wrong with your account — ' +
+                       'wait a few minutes and refresh.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_UPSTREAM:
+                return 'Steam returned an error when we asked for your inventory. This is on Steam\'s side — ' +
+                       'try again shortly.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_MALFORMED:
+                return 'We reached Steam but could not read its reply, so we do not yet know what you own. ' +
+                       'This is our problem, not yours — please try again.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_NETWORK:
+                return 'We could not reach Steam to load your inventory. Try again in a moment.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_EMPTY:
+                return 'No s&box items found in your Steam inventory.'
+            default:
+                return null
+        }
     }
 
     @PostMapping("/sync")

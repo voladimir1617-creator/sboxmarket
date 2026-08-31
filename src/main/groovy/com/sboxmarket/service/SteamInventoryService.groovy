@@ -57,8 +57,72 @@ class SteamInventoryService {
     private static final int  NEG_CACHE_MAX = 5000
     private final java.util.concurrent.ConcurrentHashMap<String, Long> negativeCache = new java.util.concurrent.ConcurrentHashMap<>()
 
+    /**
+     * Why the last fetch for a user returned what it did.
+     *
+     * ── Six different failures used to be one empty list ──────────────────
+     * {@code fetchInventory} returns {@code []} for a private profile, a 429,
+     * any non-200, unparseable JSON, an unexpected JSON shape, a transport
+     * exception — and for a genuinely empty inventory. The UI rendered all
+     * seven as "No s&box items in your Steam inventory", so "Steam is throttling
+     * us", "your profile is private" and "we could not read Steam's reply" were
+     * all presented to the seller as the settled fact that they own nothing.
+     * The only one that was ever distinguishable was the negative-cache probe,
+     * and that lumped 403 and 429 together and reported both as `rate_limited`.
+     *
+     * That is this operator's most expensive recurring defect — absence
+     * rendered as a successful answer — sitting on the first screen of the sell
+     * flow. Recording the outcome costs one map write per fetch and lets the
+     * seller be told which of the seven actually happened.
+     */
+    static final String OUTCOME_OK            = 'ok'
+    /** 200 OK, well-formed, but no assets for app 590830 / context 2. Either a
+     *  genuinely empty inventory or the wrong app/context — indistinguishable
+     *  from here, and deliberately NOT reported as plain "empty", because the
+     *  app id and context are hardcoded and a wrong one looks exactly like
+     *  owning nothing. */
+    static final String OUTCOME_EMPTY         = 'empty_or_wrong_context'
+    static final String OUTCOME_PRIVATE       = 'private_profile'
+    static final String OUTCOME_RATE_LIMITED  = 'rate_limited'
+    static final String OUTCOME_UPSTREAM      = 'upstream_error'
+    static final String OUTCOME_MALFORMED     = 'malformed_response'
+    static final String OUTCOME_NETWORK       = 'network_error'
+
+    private static final int OUTCOME_MAX = 5000
+    private final java.util.concurrent.ConcurrentHashMap<String, Map> lastOutcome = new java.util.concurrent.ConcurrentHashMap<>()
+
+    /** Record the outcome of a fetch, bounded like the other two maps. */
+    private List<Map> recordOutcome(String steamId64, String outcome, String detail = null, List<Map> items = []) {
+        if (steamId64) {
+            if (lastOutcome.size() >= OUTCOME_MAX) {
+                try {
+                    def first = lastOutcome.keys().nextElement()
+                    if (first != null) lastOutcome.remove(first)
+                } catch (NoSuchElementException ignored) { /* raced to empty */ }
+            }
+            lastOutcome.put(steamId64, [outcome: outcome, detail: detail,
+                                        at: System.currentTimeMillis()] as Map)
+        }
+        return items
+    }
+
+    /**
+     * Why the last inventory fetch for this user produced what it did — one of
+     * the {@code OUTCOME_*} constants, plus an optional operator-facing detail
+     * and the timestamp. Null when we have never fetched for them.
+     *
+     * The caller uses this to say something true when the list is empty. An
+     * empty list with {@code OUTCOME_OK}/{@code OUTCOME_EMPTY} genuinely means
+     * "nothing to sell"; every other outcome means "we could not find out",
+     * which is a different sentence and often a different remedy.
+     */
+    Map lastOutcomeFor(String steamId64) {
+        if (!steamId64) return null
+        return lastOutcome.get(steamId64)
+    }
+
     /** Test-friendly clear hook. Production code should never call this. */
-    void clearCache() { inventoryCache.clear(); negativeCache.clear() }
+    void clearCache() { inventoryCache.clear(); negativeCache.clear(); lastOutcome.clear() }
 
     /** Record a negative-cache entry with bounded eviction. Same pattern as
      *  the positive cache's soft cap — when the map fills, drop one entry
@@ -156,7 +220,7 @@ class SteamInventoryService {
             if (status == 429) retryAfterHeader = conn.getHeaderField('Retry-After')
         } catch (Exception e) {
             log.warn("Steam inventory fetch for $steamId64 threw: ${e.message}")
-            return []
+            return recordOutcome(steamId64, OUTCOME_NETWORK, e.message)
         } finally {
             try { conn?.disconnect() } catch (Exception ignored) {}
         }
@@ -167,7 +231,13 @@ class SteamInventoryService {
             // hammering Refresh doesn't fire one outbound call per click.
             // Same TTL as 429 since both are "back off" signals.
             recordNegative(steamId64, now + NEG_CACHE_TTL_MS)
-            return []
+            // Distinct from the 429 below. Both trip the same negative cache,
+            // and before this both were reported to the seller as
+            // "rate_limited" — so a user whose profile was private was told to
+            // wait and retry, forever, instead of being told to make their
+            // inventory public.
+            return recordOutcome(steamId64, OUTCOME_PRIVATE,
+                    'Steam returned 403 — inventory is private or friends-only')
         }
         if (status == 429) {
             log.warn("Steam inventory rate-limited (429) for $steamId64")
@@ -186,21 +256,35 @@ class SteamInventoryService {
                 }
             } catch (Exception ignored) { /* fall through to default */ }
             recordNegative(steamId64, now + backoffMs)
-            return []
+            return recordOutcome(steamId64, OUTCOME_RATE_LIMITED,
+                    "Steam returned 429; backing off ${backoffMs}ms".toString())
         }
         if (status != 200 || !body) {
             log.warn("Steam inventory returned HTTP $status for $steamId64")
-            return []
+            return recordOutcome(steamId64, OUTCOME_UPSTREAM,
+                    "Steam returned HTTP ${status}".toString())
         }
 
         def json
         try { json = new JsonSlurper().parseText(body) }
         catch (Exception e) {
             log.warn("Steam inventory for $steamId64 was not valid JSON: ${e.message}")
-            return []
+            return recordOutcome(steamId64, OUTCOME_MALFORMED,
+                    "Steam's reply was not valid JSON: ${e.message}".toString())
         }
 
-        def out = mapInventoryJson(json, steamId64)
+        Map mapResult = mapInventoryShape(json, steamId64)
+        def out = (mapResult['items'] ?: []) as List<Map>
+        boolean malformedShape = mapResult['malformed'] == true
+        if (malformedShape) {
+            // 200 OK with a body we could parse but not understand. NOT the
+            // same as an empty inventory: we failed to read the answer rather
+            // than reading an answer of zero.
+            return recordOutcome(steamId64, OUTCOME_MALFORMED,
+                    'Steam returned a shape we could not map (missing assets/descriptions)')
+        }
+        recordOutcome(steamId64, out.isEmpty() ? OUTCOME_EMPTY : OUTCOME_OK,
+                out.isEmpty() ? "no app ${SBOX_APP_ID} / context ${CONTEXT_ID} assets in the response".toString() : null)
         log.info("Fetched ${out.size()} s&box inventory items for $steamId64 (icons: ${out.count { it.iconUrl }}/${out.size()})")
         // Cache the result. Bounded soft-cap eviction at CACHE_MAX so a
         // long-running container doesn't accumulate unbounded entries.
@@ -240,6 +324,23 @@ class SteamInventoryService {
      * Package-private for direct Spock coverage of the shape-tolerance.
      */
     List<Map> mapInventoryJson(json, String steamId64) {
+        return (mapInventoryShape(json, steamId64)['items'] ?: []) as List<Map>
+    }
+
+    /**
+     * The shape-aware core of {@link #mapInventoryJson}. Returns
+     * {@code [items: List<Map>, malformed: boolean]}.
+     *
+     * The `malformed` flag is the entire reason this exists. Both a genuinely
+     * empty inventory and a reply we could not understand produce an empty
+     * item list, and reporting the second as the first tells a seller they own
+     * nothing on the strength of a response we failed to read. `mapInventoryJson`
+     * stays as a thin wrapper so its existing direct Spock coverage of the
+     * shape-tolerance is unchanged.
+     */
+    // Package-private, matching mapInventoryJson, for direct Spock coverage of
+    // the empty-vs-unreadable distinction.
+    Map mapInventoryShape(json, String steamId64) {
         def out = []
         try {
             def descriptions = [:]
@@ -283,9 +384,13 @@ class SteamInventoryService {
             }
         } catch (Exception e) {
             log.warn("Steam inventory for $steamId64 had unexpected shape: ${e.message}")
-            return []
+            return [items: [], malformed: true]
         }
-        out
+        // A 200 with neither assets nor descriptions is not a well-formed empty
+        // inventory — Steam returns `{"success": false}` in that shape too — so
+        // treat it as unreadable rather than as a confident zero.
+        boolean unreadable = (json == null) || (json?.assets == null && json?.descriptions == null)
+        return [items: out, malformed: unreadable]
     }
 
     /**

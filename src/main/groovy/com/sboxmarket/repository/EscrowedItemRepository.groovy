@@ -22,10 +22,19 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
 
     /** All deposits still awaiting confirmation (bot requested the asset, the
      *  seller hasn't accepted yet / we haven't seen it in the bot inventory).
-     *  Drives the deposit-confirm poller. Oldest first. */
+     *  Drives the deposit-confirm poller. Oldest first.
+     *
+     *  IN_ESCROW_HOLD is in the candidate set, and that inclusion is
+     *  load-bearing rather than tidy: a row sits in that state for the 7-to-15
+     *  DAYS of a Steam mobile-authenticator hold, and the only event that ever
+     *  ends the hold is the asset appearing in the bot's inventory. If the
+     *  confirm poller stopped looking at held rows the moment they entered the
+     *  hold, the item would land a week later with nothing watching for it —
+     *  which is the orphaning this whole wave exists to prevent, just relocated
+     *  one state to the right. */
     @Query("""
         SELECT e FROM EscrowedItem e
-        WHERE e.custodyState = 'PENDING_DEPOSIT'
+        WHERE e.custodyState IN ('PENDING_DEPOSIT', 'IN_ESCROW_HOLD')
           AND e.depositOfferId IS NOT NULL
         ORDER BY e.updatedAt ASC
     """)
@@ -50,14 +59,66 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
      *      — which requires a non-null offer id — never even returns the row).
      *  The timeout sweeper uses this; `createdAt` is the age anchor (the
      *  deposit was requested at row creation), oldest first so the batch cap
-     *  drains the most-overdue rows first. */
+     *  drains the most-overdue rows first.
+     *
+     *  ── Scoped to deposits the seller NEVER ACCEPTED ──────────────────────
+     *  {@code depositAcceptedAt IS NULL AND escrowEndsAt IS NULL} is the entire
+     *  safety of this query, and it is the difference between a timeout that
+     *  costs a listing and one that costs an ITEM.
+     *
+     *  Giving up on a deposit is only harmless while the seller still holds the
+     *  item: custody FAILED plus listing CANCELLED then genuinely undoes the
+     *  listing and the seller has lost nothing but time. The instant the offer
+     *  is accepted, the asset leaves their inventory and the platform's row is
+     *  the only thing that knows where it went — so marking that row FAILED
+     *  does not undo anything, it just deletes the pointer. That is exactly how
+     *  a real item ends up sitting in the bot's inventory referenced by nothing.
+     *
+     *  A Steam mobile-authenticator hold makes this the NORMAL path, not an
+     *  exotic one: the hold runs 7 to 15 days, so an accepted deposit is
+     *  routinely 24h old with a fortnight still to run. Those rows belong to
+     *  {@link #findOverdueEscrowHolds}, which escalates and never fails them. */
     @Query("""
         SELECT e FROM EscrowedItem e
-        WHERE e.custodyState = 'PENDING_DEPOSIT'
-          AND e.createdAt < :cutoff
+        WHERE e.custodyState        = 'PENDING_DEPOSIT'
+          AND e.depositAcceptedAt  IS NULL
+          AND e.escrowEndsAt       IS NULL
+          AND e.createdAt           < :cutoff
         ORDER BY e.createdAt ASC
     """)
     List<EscrowedItem> findStalePendingDeposits(@Param('cutoff') Long cutoff, Pageable page)
+
+    /**
+     * Deposits sitting inside a Steam trade hold whose hold has RUN OVER — the
+     * release time (plus a grace window) has passed and the asset still has not
+     * appeared in the bot's inventory.
+     *
+     * This is the escalation queue, NOT a give-up queue, and the distinction is
+     * the whole point. Every row here has {@code depositAcceptedAt} set, which
+     * means the item has already left the seller's inventory. There is no state
+     * this sweep could move the row to that would improve the seller's
+     * position, and exactly one that would destroy it (FAILED, which is how the
+     * pointer to a real item gets lost). So the sweep logs loudly, tells the
+     * seller the truth, and leaves the row exactly where it is — the same
+     * no-give-up posture as {@link #findPendingReturns}, chosen for the same
+     * reason: the thing at stake is a real user's real item and the platform is
+     * the party holding it.
+     *
+     * {@code escrowEndsAt IS NULL} is included because a hold we never managed
+     * to read is still a hold — an accepted deposit whose asset never arrived
+     * is overdue on the strength of {@code updatedAt} alone, and omitting those
+     * rows would make an unreadable hold the quietest failure of the lot.
+     */
+    @Query("""
+        SELECT e FROM EscrowedItem e
+        WHERE e.custodyState = 'IN_ESCROW_HOLD'
+          AND (e.escrowEndsAt IS NULL OR e.escrowEndsAt < :releasedBefore)
+          AND e.updatedAt < :backoffCutoff
+        ORDER BY e.updatedAt ASC
+    """)
+    List<EscrowedItem> findOverdueEscrowHolds(@Param('releasedBefore') Long releasedBefore,
+                                              @Param('backoffCutoff') Long backoffCutoff,
+                                              Pageable page)
 
     /**
      * Atomic claim for the stale-deposit TIMEOUT sweep — flips custody
@@ -215,4 +276,43 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
     int claimDepositRetry(@Param('id') Long id,
                           @Param('expectedUpdatedAt') Long expectedUpdatedAt,
                           @Param('now') Long now)
+
+    /**
+     * Compare-and-swap claim for one overdue-hold ESCALATION, keyed on
+     * {@code updatedAt}. Returns 1 when this pod owns the escalation, 0 when it
+     * lost the race.
+     *
+     * Note what this claim does NOT do: it does not change custodyState. The
+     * row stays IN_ESCROW_HOLD because that remains the true description of
+     * where the item is, and because there is no better state to move it to —
+     * every alternative either lies about custody (IN_CUSTODY, which would
+     * authorise the delivery leg to send an asset the bot cannot touch) or
+     * throws the pointer away (FAILED). The claim exists purely so two pods
+     * cannot both fire the seller notification and so the ERROR line is rate-
+     * limited to one per backoff window instead of one per tick, forever.
+     */
+    @Modifying
+    @Query("""
+        UPDATE EscrowedItem e
+           SET e.lastError  = :reason,
+               e.updatedAt  = :now
+         WHERE e.id                = :id
+           AND e.custodyState      = 'IN_ESCROW_HOLD'
+           AND e.updatedAt         = :expectedUpdatedAt
+    """)
+    int claimOverdueHoldEscalation(@Param('id') Long id,
+                                   @Param('reason') String reason,
+                                   @Param('expectedUpdatedAt') Long expectedUpdatedAt,
+                                   @Param('now') Long now)
+
+    /** Custody rows for a set of listings regardless of state — powers the
+     *  seller-facing held-listing view, which has to explain a PENDING_ESCROW
+     *  listing whose custody row may be PENDING_DEPOSIT (waiting on the seller),
+     *  IN_ESCROW_HOLD (waiting on Steam) or FAILED. One query for the whole
+     *  page rather than one per listing. */
+    @Query("""
+        SELECT e FROM EscrowedItem e
+        WHERE e.listingId IN :listingIds
+    """)
+    List<EscrowedItem> findByListingIds(@Param('listingIds') Collection<Long> listingIds)
 }

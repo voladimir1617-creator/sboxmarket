@@ -86,13 +86,46 @@ class SteamEscrowService {
     @Value('${steam.escrow.batch-size:50}')
     int batchSize = 50
 
-    /** Hours a deposit may sit in PENDING_DEPOSIT before the timeout sweeper
-     *  gives up on it: marks custody FAILED and reverts the held listing out of
-     *  PENDING_ESCROW so the seller's item is no longer locked out of the
-     *  market. 24h gives a seller a full day to accept the bot's deposit offer.
-     *  Mirrors the Stripe stale-deposit sweeper's bounded-window posture. */
+    /** Hours an UNACCEPTED deposit may sit in PENDING_DEPOSIT before the
+     *  timeout sweeper gives up on it: marks custody FAILED and reverts the
+     *  held listing out of PENDING_ESCROW so the seller's item is no longer
+     *  locked out of the market. 24h gives a seller a full day to accept the
+     *  bot's deposit offer. Mirrors the Stripe stale-deposit sweeper's
+     *  bounded-window posture.
+     *
+     *  ── This is the UNHELD deadline only ──────────────────────────────────
+     *  It applies to a deposit the seller has not accepted, where the item is
+     *  still in their own inventory and giving up costs nobody anything. It is
+     *  explicitly NOT the deadline for a deposit sitting in a Steam trade hold
+     *  — see {@link #depositDeadlineFor}, which is the single place that
+     *  decides lateness. A constant cannot be the answer for a window Steam
+     *  varies between 7 and 15 days. */
     @Value('${steam.escrow.deposit-timeout-hours:24}')
     int depositTimeoutHours = 24
+
+    /** Grace window added to a Steam trade hold's OWN release time before the
+     *  deposit is treated as overdue.
+     *
+     *  Steam releases a held item at {@code escrowEndsUnix}, but the asset does
+     *  not appear in the bot's inventory at that instant — the release, Steam's
+     *  own inventory propagation, and our next poll all add latency, and the
+     *  published release time is itself approximate. 48h absorbs all of that
+     *  without ever being the reason a genuinely-arrived item is called late.
+     *
+     *  This grace only affects when we start SHOUTING about a hold. It is not a
+     *  give-up threshold: nothing in this service ever fails a deposit whose
+     *  item has left the seller, at any age. */
+    @Value('${steam.escrow.hold-grace-hours:48}')
+    int holdGraceHours = 48
+
+    /** Minimum gap between two escalations for the SAME overdue hold. Every
+     *  escalation stamps updatedAt and the sweep's query is
+     *  {@code updatedAt < cutoff}, so this is what stops one stuck item
+     *  producing an ERROR line and a seller notification on every tick for the
+     *  rest of the container's life. 6h keeps it visible without becoming noise
+     *  an operator learns to scroll past. */
+    @Value('${steam.escrow.hold-escalation-backoff-ms:21600000}')
+    long holdEscalationBackoffMs = 21600000L
 
     /** Minimum gap between two return attempts for the SAME item. Every
      *  attempt stamps updatedAt, and the retry query is {@code updatedAt <
@@ -125,6 +158,100 @@ class SteamEscrowService {
      */
     boolean isEscrowEnabled() {
         return steamTradeBotService != null && steamTradeBotService.enabled
+    }
+
+    // -----------------------------------------------------------------------
+    // Steam trade holds — reading them, and what they do to the deadline
+    // -----------------------------------------------------------------------
+
+    /**
+     * Read a Steam trade-hold release time out of a sidecar offer-status
+     * response and return it in epoch MILLIS, or null when the offer carries no
+     * hold.
+     *
+     * ── The units conversion is the whole method ──────────────────────────
+     * The sidecar reports {@code escrowEndsUnix} in SECONDS (it is
+     * {@code Math.floor(offer.escrowEnds.getTime() / 1000)} in
+     * steam-bot/index.js). Every timestamp on {@code escrowed_items} is epoch
+     * MILLIS. Storing the raw value would put the release date in January 1970
+     * — a hold that expired 56 years ago — so every held deposit would read as
+     * instantly overdue and the sweeper would fail and cancel it on the first
+     * tick. That is the identical outcome to having no hold support at all,
+     * except now with a populated column that makes it look handled. Hence a
+     * named method with a test on it rather than an inline {@code * 1000}.
+     *
+     * Defensive about the shape because this crosses a process boundary: the
+     * value arrives as whatever Jackson made of the JSON (Integer for small
+     * values, Long, or a String), and a hold 15 days out is ~1.7e9 seconds,
+     * which overflows nothing but does arrive as an Integer often enough to
+     * matter. Non-positive and unparseable values read as "no hold" rather than
+     * as an epoch at the dawn of 1970.
+     */
+    static Long readEscrowEndsMillis(SteamBotResult res) {
+        if (res == null || res.raw == null) return null
+        def raw = res.raw['escrowEndsUnix']
+        if (raw == null) return null
+        long seconds
+        try {
+            seconds = (raw instanceof Number) ? ((Number) raw).longValue()
+                                              : Long.parseLong(String.valueOf(raw).trim())
+        } catch (Exception ignore) {
+            return null
+        }
+        if (seconds <= 0L) return null
+        return seconds * 1000L
+    }
+
+    /**
+     * The instant after which a deposit is genuinely late — the single place
+     * that decides it, and the reason the timeout is a function of the hold
+     * rather than a constant.
+     *
+     * Three cases, in the order they are checked, because the later ones are
+     * only safe once the earlier ones are ruled out:
+     *
+     *   1. A KNOWN hold ({@code escrowEndsAt} set) — late only once Steam's own
+     *      release time has passed plus {@link #holdGraceHours}. This is the
+     *      case that the flat 24h constant got catastrophically wrong: Steam
+     *      holds for 7-15 days, so hour 24 of a hold is not late, it is early.
+     *
+     *   2. Accepted, hold unknown ({@code depositAcceptedAt} set) — NEVER late,
+     *      returns {@link Long#MAX_VALUE}. The item has left the seller's
+     *      inventory and this row is the only record of where it went. There is
+     *      no deadline at which throwing that record away becomes the right
+     *      move, so there is no deadline. The overdue-hold sweep escalates
+     *      these instead; it never fails them.
+     *
+     *   3. Neither ({@code createdAt} only) — the ordinary unheld deadline,
+     *      {@link #depositTimeoutHours} after the deposit was requested. The
+     *      seller still holds the item, so giving up costs nothing but a
+     *      listing, and the pre-existing 24h behaviour is exactly right.
+     */
+    long depositDeadlineFor(EscrowedItem e) {
+        if (e == null) return Long.MAX_VALUE
+        if (e.escrowEndsAt != null) {
+            return e.escrowEndsAt + Math.max(0L, (long) holdGraceHours) * 60L * 60L * 1000L
+        }
+        if (e.depositAcceptedAt != null) return Long.MAX_VALUE
+        long created = e.createdAt != null ? e.createdAt : System.currentTimeMillis()
+        return created + Math.max(1L, (long) depositTimeoutHours) * 60L * 60L * 1000L
+    }
+
+    /** True when {@code now} is past {@link #depositDeadlineFor}. The sweeps'
+     *  SQL does the coarse selection; this is the authoritative per-row gate
+     *  applied before anything irreversible happens to the row. */
+    boolean isDepositOverdue(EscrowedItem e, long now = System.currentTimeMillis()) {
+        return now > depositDeadlineFor(e)
+    }
+
+    /** Human-readable release date for a hold, for seller-facing copy. UTC so
+     *  the sentence is unambiguous rather than rendered in the server's
+     *  incidental timezone. */
+    static String formatHoldRelease(Long escrowEndsAtMillis) {
+        if (escrowEndsAtMillis == null) return null
+        return java.time.Instant.ofEpochMilli(escrowEndsAtMillis)
+                .atZone(java.time.ZoneOffset.UTC)
+                .format(java.time.format.DateTimeFormatter.ofPattern('d MMM yyyy')) + ' (UTC)'
     }
 
     // -----------------------------------------------------------------------
@@ -248,7 +375,9 @@ class SteamEscrowService {
     @Transactional
     void confirmDeposit(Long escrowId, Map botInventory = null) {
         EscrowedItem e = escrowRepository.findById(escrowId).orElse(null)
-        if (e == null || e.custodyState != EscrowedItem.PENDING_DEPOSIT) return
+        if (e == null) return
+        if (e.custodyState != EscrowedItem.PENDING_DEPOSIT
+                && e.custodyState != EscrowedItem.IN_ESCROW_HOLD) return
         if (e.depositOfferId == null || e.depositOfferId.trim().isEmpty()) return
 
         SteamBotResult res = steamTradeBotService.getOfferStatus(e.depositOfferId)
@@ -256,10 +385,39 @@ class SteamEscrowService {
             touchError(e, "poll ${res.errorCode}: ${res.message}")
             return
         }
+
+        // Record the hold BEFORE branching on anything else. Steam attaches
+        // escrowEnds to the offer as soon as the hold exists, which can be
+        // while the offer still reads `in_escrow` rather than `accepted` — so
+        // reading it only on the accepted branch would miss the entire window
+        // the value is most needed in. Persisting it here is also what stops
+        // the timeout sweeper from failing the row (findStalePendingDeposits
+        // requires escrowEndsAt IS NULL), so this assignment is the actual
+        // mechanism that prevents the orphaning, not merely a record of it.
+        Long holdEnds = readEscrowEndsMillis(res)
+        boolean newHold = holdEnds != null && e.escrowEndsAt == null
+        if (holdEnds != null) e.escrowEndsAt = holdEnds
+
         if (res.terminalFailure) {
-            // Seller declined / let the deposit offer expire. The listing can't
-            // go live — mark the custody FAILED and leave the listing in
-            // PENDING_ESCROW (a separate staff/seller action can cancel it).
+            // Seller declined / let the deposit offer expire.
+            //
+            // Only safe to fail this row while the item is still the seller's.
+            // Once depositAcceptedAt is set the asset has left their inventory,
+            // and a terminal status arriving after that is a contradiction we
+            // must not resolve by throwing away the only pointer to a real
+            // item. Keep the row, shout, and let the overdue-hold sweep and an
+            // operator work out where it went.
+            if (e.depositAcceptedAt != null) {
+                touchError(e, "offer reported ${res.status} AFTER acceptance — item location unconfirmed")
+                log.error("SteamEscrow: deposit offer ${e.depositOfferId} for listing ${e.listingId} " +
+                        "reported terminal (${res.status}) AFTER it was accepted — the item has already left " +
+                        "seller ${e.sellerUserId}. Row deliberately NOT failed: custody=${e.custodyState} " +
+                        "escrow=${e.id} asset=${e.assetId}. Manual reconciliation required.")
+                return
+            }
+            // The item never moved — cancelling costs the seller a listing and
+            // nothing else. Mark FAILED and leave the listing in PENDING_ESCROW
+            // (a separate staff/seller action can cancel it).
             e.custodyState = EscrowedItem.FAILED
             e.lastError = "deposit offer ${res.status}"
             touch(e)
@@ -268,10 +426,27 @@ class SteamEscrowService {
                     "Your deposit trade offer was ${res.status}, so your listing didn't go live. Re-list to try again.")
             return
         }
-        if (!res.accepted) {
-            // active / in_escrow / pending — keep waiting.
+
+        // `in_escrow` — Steam has the item and is holding it. The seller has
+        // already parted with it, so this row must never again be a candidate
+        // for the give-up path, and the seller must be told what is happening
+        // rather than watching a listing sit "pending" for a fortnight.
+        if (res.inEscrow || (holdEnds != null && !res.accepted)) {
+            enterEscrowHold(e, holdEnds, newHold)
             return
         }
+
+        if (!res.accepted) {
+            // active / pending — the seller has not acted yet. Item is still
+            // theirs; the ordinary 24h unheld deadline applies.
+            if (newHold) touch(e)
+            return
+        }
+
+        // From here the offer is ACCEPTED: the item is out of the seller's
+        // inventory for good. Stamp that fact before anything else can fail,
+        // because it is what disqualifies this row from ever being timed out.
+        if (e.depositAcceptedAt == null) e.depositAcceptedAt = System.currentTimeMillis()
 
         // Offer accepted. Confirm the bot ACTUALLY holds the asset before we
         // make the listing buyable — the offer being "accepted" plus the asset
@@ -279,9 +454,20 @@ class SteamEscrowService {
         Map index = botInventory != null ? botInventory : fetchBotInventoryIndex()
         String held = resolveHeldAssetId(e, index)
         if (held == null) {
-            // Accepted but not yet visible in inventory (Steam propagation lag,
-            // or a transient inventory fetch failure) — wait for the next tick.
-            touchError(e, 'offer accepted; awaiting asset in bot inventory')
+            // Accepted, but the asset is not in the bot's inventory: a Steam
+            // trade hold, ordinary propagation lag, or a transient inventory
+            // fetch failure. All three mean the same thing about custody — the
+            // item has left the seller and the bot cannot yet touch it — so all
+            // three go to IN_ESCROW_HOLD.
+            //
+            // Parking it here rather than leaving it PENDING_DEPOSIT is what
+            // gives it a watcher: PENDING_DEPOSIT rows with the item already
+            // gone are excluded from the timeout sweep (correctly — failing
+            // them orphans the item) but were then in NO sweep's candidate set
+            // at all, which is the same silence one state to the left.
+            // IN_ESCROW_HOLD is polled until the asset lands and escalated if
+            // it never does.
+            enterEscrowHold(e, holdEnds, newHold)
             return
         }
 
@@ -294,6 +480,46 @@ class SteamEscrowService {
         log.info("SteamEscrow: listing ${e.listingId} item now IN_CUSTODY (held asset ${held}); listing activated")
         safeNotifySeller(e.sellerUserId, e.listingId,
                 "We've received your item — your listing is now live on the marketplace.")
+    }
+
+    /**
+     * Move a deposit into {@link EscrowedItem#IN_ESCROW_HOLD}: the seller has
+     * parted with the item and the bot cannot use it yet.
+     *
+     * Stamps {@code depositAcceptedAt} if it is not already set — that stamp,
+     * not the state, is what permanently disqualifies the row from the give-up
+     * path, so it must survive even if the state is later changed by hand.
+     *
+     * The seller is notified ONCE per hold, and only when there is a real
+     * release date to tell them. A hold is the single most alarming thing that
+     * can happen to a first-time seller — their item has vanished from their
+     * inventory and their listing is not live — and the difference between
+     * "pending" and "in a Steam trade hold until 14 March, then it goes live
+     * automatically" is the difference between a support ticket and a shrug.
+     * When there is no known release date we stay quiet rather than inventing
+     * one: an ordinary few-second inventory propagation lag also lands here,
+     * and notifying on that would train the seller to ignore the message that
+     * matters.
+     */
+    private void enterEscrowHold(EscrowedItem e, Long holdEnds, boolean newHold) {
+        boolean firstEntry = e.custodyState != EscrowedItem.IN_ESCROW_HOLD
+        if (e.depositAcceptedAt == null) e.depositAcceptedAt = System.currentTimeMillis()
+        e.custodyState = EscrowedItem.IN_ESCROW_HOLD
+        String release = formatHoldRelease(e.escrowEndsAt)
+        e.lastError = release != null
+                ? "Steam trade hold — item releases ${release}".toString()
+                : 'item accepted by Steam; awaiting arrival in bot inventory'
+        touch(e)
+        if (firstEntry || newHold) {
+            log.info("SteamEscrow: listing ${e.listingId} deposit is IN_ESCROW_HOLD " +
+                    "(escrow=${e.id} seller=${e.sellerUserId} releases=${release ?: 'unknown'})")
+        }
+        if (release != null && (firstEntry || newHold)) {
+            safeNotifySeller(e.sellerUserId, e.listingId,
+                    "Steam is holding your item until ${release} — this is Steam's trade hold, not us. " +
+                    "We already have the trade; your listing goes live automatically the moment the hold ends. " +
+                    "Adding the Steam Mobile Authenticator removes this delay on future trades.")
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -351,8 +577,29 @@ class SteamEscrowService {
         log.info("SteamEscrow: ${stale.size()} candidate stale PENDING_DEPOSIT row(s) past ${depositTimeoutHours}h; racing for claims")
 
         int failed = 0
+        long now = System.currentTimeMillis()
         for (EscrowedItem e : stale) {
             try {
+                // Authoritative per-row gate. The SQL above already excludes
+                // accepted / held rows, but this is the money question — "is
+                // giving up on this row safe?" — and it is answered here, in
+                // one place, by the same helper the tests pin. A row that
+                // slipped through the query (an escrowEndsAt written between
+                // the read and now, a hand-edited row) is dropped rather than
+                // failed. Cheap, and the failure mode it guards is losing a
+                // real item.
+                if (!isDepositOverdue(e, now)) {
+                    log.debug("SteamEscrow: escrow=${e.id} matched the stale query but is not overdue " +
+                            "(deadline=${depositDeadlineFor(e)}) — skipping")
+                    continue
+                }
+                if (e.depositAcceptedAt != null || e.escrowEndsAt != null) {
+                    // Belt and braces on the one mistake that costs an item.
+                    log.warn("SteamEscrow: refusing to time out escrow=${e.id} listing=${e.listingId} — " +
+                            "the item has already left the seller (accepted=${e.depositAcceptedAt} " +
+                            "holdEnds=${e.escrowEndsAt}). Handled by the escrow-hold sweep instead.")
+                    continue
+                }
                 // Multi-pod / out-of-band claim. Flips custody
                 // PENDING_DEPOSIT→FAILED only if the row is still
                 // PENDING_DEPOSIT — a sibling pod, or a last-second
@@ -383,6 +630,86 @@ class SteamEscrowService {
     }
 
     // -----------------------------------------------------------------------
+    // 3a. ESCROW HOLDS — watch them, escalate them, never give up on them
+    // -----------------------------------------------------------------------
+
+    /**
+     * Escalation sweep for deposits stuck inside a Steam trade hold that has
+     * run past its own release time plus {@link #holdGraceHours}.
+     *
+     * ── This sweep has no give-up state, on purpose ───────────────────────
+     * Every row it touches has {@code depositAcceptedAt} set, which means the
+     * seller no longer has the item. The custody row is therefore the only
+     * record of where a real person's real item went. There is no state this
+     * sweep could move the row to that would improve the seller's position, and
+     * exactly one that would destroy it — FAILED, which is precisely how the
+     * pointer got lost in the bug this wave closes. So it logs, tells the
+     * seller the truth, and leaves the row exactly where it is, for an operator
+     * to act on. Same posture, for the same reason, as
+     * {@link #sweepPendingReturns}.
+     *
+     * The confirm poller keeps polling these rows the whole time
+     * ({@code findPendingDeposits} includes IN_ESCROW_HOLD), so the ordinary
+     * happy ending — the hold expires, the asset appears, custody flips
+     * IN_CUSTODY and the listing goes live — needs nothing from this sweep at
+     * all. This only fires when that did NOT happen, which is exactly when a
+     * human needs to know.
+     *
+     * NOT @Transactional — per-row atomic claims + per-row try/catch, the same
+     * posture as the other sweeps.
+     */
+    @Scheduled(initialDelayString = '${steam.escrow.hold-escalation-initial-delay-ms:120000}',
+               fixedDelayString = '${steam.escrow.hold-escalation-interval-ms:3600000}')
+    void sweepOverdueEscrowHolds() {
+        if (!escrowSweepEnabled) return
+        if (!escrowEnabled) return
+        long now = System.currentTimeMillis()
+        long releasedBefore = now - Math.max(0L, (long) holdGraceHours) * 60L * 60L * 1000L
+        long backoffCutoff = now - Math.max(0L, holdEscalationBackoffMs)
+        List<EscrowedItem> overdue
+        try {
+            overdue = escrowRepository.findOverdueEscrowHolds(releasedBefore, backoffCutoff,
+                    PageRequest.of(0, Math.max(1, batchSize))) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: failed to load overdue escrow holds: ${ex.message}")
+            return
+        }
+        if (overdue.isEmpty()) return
+        log.warn("SteamEscrow: ${overdue.size()} deposit(s) past their Steam trade-hold release and still not in the bot inventory")
+
+        for (EscrowedItem e : overdue) {
+            try {
+                String release = formatHoldRelease(e.escrowEndsAt)
+                String reason = release != null
+                        ? "Steam hold ended ${release} but the item has not arrived — under investigation".toString()
+                        : 'item accepted but never arrived in the bot inventory — under investigation'
+                int claimed = escrowRepository.claimOverdueHoldEscalation(
+                        e.id, reason, e.updatedAt, now)
+                if (claimed == 0) {
+                    log.debug("SteamEscrow: hold-escalation claim lost for escrow=${e.id} — sibling pod, or the row just advanced")
+                    continue
+                }
+                // ERROR, with every id an operator needs to chase it by hand.
+                // The row is deliberately left IN_ESCROW_HOLD — see the method
+                // javadoc; this is a real user's item and the platform is the
+                // party that has it.
+                log.error("SteamEscrow: deposit STILL not received past its Steam trade hold — " +
+                        "escrow=${e.id} listing=${e.listingId} seller=${e.sellerUserId} " +
+                        "asset=${e.assetId} offer=${e.depositOfferId} " +
+                        "holdEnded=${release ?: 'unknown'} acceptedAt=${e.depositAcceptedAt}. " +
+                        "The seller no longer has this item. Custody row left IN_ESCROW_HOLD on purpose " +
+                        "(failing it would delete the only pointer to the item); manual reconciliation required.")
+                safeNotifySeller(e.sellerUserId, e.listingId,
+                        "Your item's Steam trade hold has ended but we haven't received it yet. " +
+                        "We're looking into it — your listing is still reserved and we have a record of the trade. " +
+                        "Nothing is lost; contact support if you'd like an update.")
+            } catch (Exception ex) {
+                log.warn("SteamEscrow: hold escalation failed on escrow=${e?.id}: ${ex.message}")
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // 4. RETURN — send the held asset back to the seller
     // -----------------------------------------------------------------------
 
@@ -398,6 +725,37 @@ class SteamEscrowService {
         if (!escrowEnabled) return false
         EscrowedItem e = escrowRepository.findByListingId(listingId)
         if (e == null) return false
+
+        // A deposit inside a Steam trade hold cannot be handed back yet — the
+        // bot does not have the item, Steam does, and no trade offer the bot
+        // sends can move it before the hold expires. But the seller has asked
+        // for it back, and that ask must not evaporate just because it arrived
+        // during the one window where it cannot be actioned.
+        //
+        // Stamping returnRequestedAt now makes the existing return machinery do
+        // the rest for free: when the hold expires, confirmDeposit promotes the
+        // row IN_ESCROW_HOLD -> IN_CUSTODY, at which point it matches
+        // findPendingReturns (IN_CUSTODY AND returnRequestedAt IS NOT NULL) and
+        // sweepPendingReturns mails it straight back out to the seller.
+        // activateListing only touches PENDING_ESCROW rows, so the listing the
+        // seller just cancelled is not resurrected on the way through.
+        if (e.custodyState == EscrowedItem.IN_ESCROW_HOLD) {
+            if (e.returnRequestedAt == null) {
+                e.returnRequestedAt = System.currentTimeMillis()
+                touch(e)
+            }
+            String release = formatHoldRelease(e.escrowEndsAt)
+            log.info("SteamEscrow: return requested for listing ${listingId} while its deposit is in a Steam " +
+                    "trade hold (escrow=${e.id} releases=${release ?: 'unknown'}) — queued; the item goes back " +
+                    "to seller ${e.sellerUserId} automatically once the hold clears (${reason})")
+            safeNotifySeller(e.sellerUserId, listingId, release != null
+                    ? "Your listing is cancelled. Steam is still holding the item until ${release}; we'll send it " +
+                      "straight back to you as soon as the hold ends — you don't need to do anything."
+                    : "Your listing is cancelled. Steam is still holding the item; we'll send it straight back to " +
+                      "you as soon as the hold ends — you don't need to do anything.")
+            return false
+        }
+
         // Only items the bot actually holds can be returned. DELIVERED (sent to
         // a buyer) and already-RETURNED rows are terminal.
         if (e.custodyState != EscrowedItem.IN_CUSTODY) return false
@@ -635,6 +993,83 @@ class SteamEscrowService {
             e.custodyState = EscrowedItem.DELIVERED
             touch(e)
         }
+    }
+
+    /**
+     * Seller-facing custody explanation for a set of held listings, keyed by
+     * listing id — what is actually happening to their item, and when it ends.
+     *
+     * ── Why this exists ──────────────────────────────────────────────────
+     * A PENDING_ESCROW listing is invisible to every other seller-facing query,
+     * and the one endpoint that does return them
+     * ({@code GET /api/listings/my-stall/pending-escrow}) returned bare Listing
+     * rows carrying no custody information at all. So a seller in a 15-day
+     * Steam trade hold saw, at best, a listing that was not live, with no
+     * reason and no end date — indistinguishable from one that had silently
+     * failed. Their item was gone from their Steam inventory at the same time.
+     *
+     * That is this operator's most expensive recurring defect (absence rendered
+     * as success, or here as an unexplained nothing), on the single most
+     * alarming event in the sell flow. Every row below carries a state, a
+     * human-readable sentence, and — when Steam has told us one — a concrete
+     * release date.
+     *
+     * Never throws: a failure to explain a listing must not take down the
+     * seller's stall view. Returns an empty map when escrow is disabled, which
+     * is correct — nothing is ever created in PENDING_ESCROW on the legacy path.
+     */
+    Map<Long, Map> custodyViewForListings(Collection<Long> listingIds) {
+        Map<Long, Map> out = [:]
+        if (!escrowEnabled || listingIds == null || listingIds.isEmpty()) return out
+        List<EscrowedItem> rows
+        try {
+            rows = escrowRepository.findByListingIds(listingIds) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: custody view lookup failed: ${ex.message}")
+            return out
+        }
+        long now = System.currentTimeMillis()
+        for (EscrowedItem e : rows) {
+            if (e?.listingId == null) continue
+            String release = formatHoldRelease(e.escrowEndsAt)
+            boolean holding = e.custodyState == EscrowedItem.IN_ESCROW_HOLD
+            String message
+            switch (e.custodyState) {
+                case EscrowedItem.IN_ESCROW_HOLD:
+                    message = release != null
+                        ? "Steam is holding this item until ${release}. This is Steam's own trade hold, not a " +
+                          "problem with your listing — it goes live automatically when the hold ends."
+                        : "We've received your trade and are waiting for Steam to release the item. Your listing " +
+                          "goes live automatically once it arrives."
+                    break
+                case EscrowedItem.PENDING_DEPOSIT:
+                    message = e.depositOfferId != null
+                        ? 'Waiting for you to accept our bot\'s Steam trade offer — your listing goes live the moment we receive the item.'
+                        : 'We haven\'t been able to send you a trade offer yet. Check that your Steam trade URL is set in Profile.'
+                    break
+                case EscrowedItem.FAILED:
+                    message = 'This deposit didn\'t complete, so the listing never went live. You still have the item — re-list to try again.'
+                    break
+                case EscrowedItem.IN_CUSTODY:
+                    message = 'We have your item; this listing should be live.'
+                    break
+                default:
+                    message = "Custody state: ${e.custodyState}".toString()
+            }
+            out[e.listingId] = [
+                custodyState:    e.custodyState,
+                inSteamHold:     holding,
+                // Machine-readable release instant alongside the sentence, so a
+                // client can render a live countdown rather than re-parsing prose.
+                holdReleasesAt:  e.escrowEndsAt,
+                holdReleasesOn:  release,
+                holdOverdue:     holding && e.escrowEndsAt != null && now > depositDeadlineFor(e),
+                itemLeftSeller:  e.depositAcceptedAt != null,
+                returnQueued:    e.returnRequestedAt != null,
+                message:         message
+            ]
+        }
+        return out
     }
 
     /** Resolve the bot-held asset id for a listing's confirmed custody, or

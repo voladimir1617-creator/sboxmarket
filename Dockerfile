@@ -37,7 +37,11 @@ WORKDIR /opt/skinbox
 # have to know about the 1.0.0 version suffix.
 COPY --from=builder --chown=1001:0 /work/build/libs/sboxmarket-*.jar /opt/skinbox/skinbox.jar
 
-EXPOSE 8080
+# 8082, matching application.yml's `server.port: ${SERVER_PORT:8082}`. This
+# said 8080 while the app has always bound 8082, so the HEALTHCHECK below
+# probed a port nothing was listening on and the container could never become
+# healthy.
+EXPOSE 8082
 
 # Prod defaults — override on every deploy via --env / env_file / k8s secrets:
 ENV SPRING_PROFILES_ACTIVE=prod \
@@ -48,7 +52,13 @@ ENV SPRING_PROFILES_ACTIVE=prod \
 # disabled in prod to avoid leaking framework version to scanners).
 # start-period covers the ~10s JVM + Spring Boot warmup so the container
 # isn't flagged unhealthy during its first boot cycle.
+#
+# The ${SERVER_PORT:-8082} fallback MUST track application.yml's
+# `server.port: ${SERVER_PORT:8082}`. It said 8080 while the app bound 8082, so
+# wget got connection-refused on every probe and the container sat `unhealthy`
+# forever — and because `depends_on: condition: service_healthy` is how other
+# services gate on this one, an unpassable healthcheck is not cosmetic.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD \
-  wget -qO- "http://127.0.0.1:${SERVER_PORT:-8080}/api/health" | grep -q '"UP"' || exit 1
+  wget -qO- "http://127.0.0.1:${SERVER_PORT:-8082}/api/health" | grep -q '"UP"' || exit 1
 
 ENTRYPOINT ["java", "-jar", "/opt/skinbox/skinbox.jar"]
