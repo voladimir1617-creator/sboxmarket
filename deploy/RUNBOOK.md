@@ -2,11 +2,249 @@
 
 One page. Paste-ready commands. If you are reading this during an outage, scroll to the matching section, run the bullets in order, then come back and update the runbook with what worked.
 
+---
+
+# GO LIVE — bringing skinbox.market up safely
+
+**The domain is deliberately DARK and must stay dark until step 6 passes. Do not start cloudflared before then.**
+
+## Why it is dark
+
+Not the tunnel. The JVM that serves port 8082 runs the **default** profile with no Stripe
+env, so `stripe.secret-key` falls back to `sk_test_replace_me`, `StripeService.isLive()`
+is false, and `LiveMoneyGuard.isRealMoney()` is false. That unlocks the dev scaffolding:
+
+- `GET /api/auth/steam/dev-login` mints a valid `SBOX_SESSION` for any user id, **with no
+  credential of any kind** — total account takeover of every account, admins included.
+- `devModeDeposit` credits up to **$5,000 / 24h against no payment**.
+
+Both were reachable on the public domain on 2026-08-31 and closed by taking the domain down.
+Publishing the tunnel again without the prod profile re-opens both.
+
+> **A 404 from dev-login is NOT proof the door is shut.** The controller has two 404s: the
+> guard's (empty body) and "that user id doesn't exist" (`{"error":"no seed users"}`). On
+> 2026-09-01 the live endpoint answered 404 **through the second branch** — the guard had
+> already been passed. Always read the body. This is pinned by
+> `ProdScaffoldingUnreachableSpec`.
+
+## What actually runs today (measured 2026-09-01, not assumed)
+
+| Thing | Reality |
+|---|---|
+| Serving `localhost:8082` | A **host-native JVM**, PID varies, started by hand. Not Docker. |
+| Its profile | **default** — the vulnerable one. |
+| Its database | **H2 file** `./data/sboxmarket.mv.db` — actively written. |
+| `sbox-app` container | Ghost. **No host port binding.** Runs a jar baked 2026-05-05 (~4 months stale). |
+| `sbox-edge` container | Ghost. Listens on 8082 *inside* the container; Docker never published it. |
+| `sbox-pg` container | Real, publishes `0.0.0.0:5433`. DB `skinbox` is **26 migrations behind** (v61, last touched 2026-05-05). |
+| Public domain | Down. `cloudflared` service runs with bare argv and reads a config containing only `logDirectory:`, so the named tunnel never runs. |
+
+## Docker: which runtime is real? (verdict — read before deploying)
+
+There are **three** deployment stories in this repo and only one of them has ever served a
+request. Running two at once is how the four-month-stale-image confusion happened.
+
+1. **`docker-compose.yml`** — builds the app from the Dockerfile, bakes
+   `SPRING_PROFILES_ACTIVE=prod`, owns its own Postgres, and **fails closed** if
+   `STRIPE_SECRET_KEY` is unset. Actively maintained (fixed 2026-08-31).
+2. **`deploy/run-local.sh`** — a blue-green `docker run` stack (`sbox-app` / `sbox-edge` /
+   `sbox-pg`) with an nginx edge. **This is what created the ghosts.** The running
+   containers carry **no compose labels**, so they came from this script, not compose.
+3. **A host-native JVM** started by hand. **This is what actually serves port 8082.**
+
+**Verdict: compose is the intended runtime; the `run-local.sh` blue-green stack is a dead
+end and its containers are ghosts.** Evidence for calling them ghosts:
+
+- `sbox-app` — `NetworkSettings.Ports` is `{"8080/tcp":null}`. No host binding. It runs a
+  jar baked into the image on **2026-05-05**, so it cannot pick up any change on disk.
+- `sbox-edge` — declares 8082 but `NetworkSettings.Ports` is `{"8082/tcp":[]}`, i.e.
+  never published. Inside it, stock `default.conf` still serves the nginx welcome page on
+  :80, and the mounted `edge-upstream.conf` points at `sbox-app:8082` — which nothing
+  reaches from the host anyway.
+- Only `sbox-pg` binds a host port (`0.0.0.0:5433`), and its `skinbox` database is the
+  abandoned 2026-05-05 snapshot.
+
+**Consequence you must handle before step 1:** compose's `db` service also publishes
+`5433:5432`, and its `app` publishes `8082`. Both collide with the ghosts and with the host
+JVM. Remove the ghosts first:
+
+```bash
+docker rm -f sbox-app sbox-edge          # keep sbox-pg only if you still want its data
+```
+
+If you go with compose, remember it must be started as
+`docker compose --env-file deploy/skinbox.env up -d` — a bare `docker compose up` does
+**not** substitute `${VAR}` from an `env_file:` entry and will fail on `STRIPE_SECRET_KEY`.
+
+Everything below the "GO LIVE" block describing an `sbox-edge` → `sbox-app` zero-downtime
+topology is **historical**. It is not the live path and has not been for months.
+
+## Does the prod profile boot? Yes.
+
+Verified 2026-09-01 against a throwaway Postgres database: **all 87 Flyway migrations
+applied, JPA validated, `Started SboxMarketApplication in 14.9s`**, and the only error in
+the entire boot was `ProdConfigValidator` correctly refusing the three placeholder Stripe
+values. **Nothing else blocks prod.** What remains is the three real Stripe keys and a
+Postgres database with the current schema.
+
+---
+
+## The deploy sequence
+
+### 1. Provision Postgres and pick the database
+
+The prod profile **requires** Postgres — `SPRING_DATASOURCE_URL` has no default and the 87
+migrations are Postgres-specific SQL. The live data is currently in H2 and **does not move
+by itself.**
+
+Decide explicitly, because this is a data decision, not a config one:
+
+- **Start clean** (recommended if the H2 contents are demo/test data): create a fresh
+  database and let Flyway build all 87 migrations into it.
+  ```bash
+  docker exec sbox-pg psql -U skinbox -d postgres -c "CREATE DATABASE skinbox_prod;"
+  ```
+- **Carry the H2 data over**: that is an export/import job (H2 → Postgres) and is **not**
+  covered here. Do not assume pointing at the existing `skinbox` database preserves
+  anything — it holds an unrelated 2026-05-05 snapshot (2 users, 42 listings, 3 wallets)
+  and is 26 migrations behind.
+
+Do **not** reuse the old `skinbox` database without deciding what happens to those rows.
+
+### 2. Fill `deploy/skinbox.env`
+
+Copy the template and fill it in. **This file is never committed and is not created for you.**
+
+```bash
+cp deploy/skinbox.env.example deploy/skinbox.env
+```
+
+Every `CHANGE_ME` must be replaced. The ones that block boot, and what each must look like:
+
+| Variable | Must be |
+|---|---|
+| `STRIPE_SECRET_KEY` | a real `sk_live_…` or `rk_live_…` (restricted keys are accepted and preferred) |
+| `STRIPE_PUBLISHABLE_KEY` | a real `pk_live_…` |
+| `STRIPE_WEBHOOK_SECRET` | a real `whsec_…` from the Stripe **webhook endpoint** page |
+| `SPRING_DATASOURCE_URL` | the database from step 1, e.g. `jdbc:postgresql://localhost:5433/skinbox_prod` |
+| `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` | real credentials |
+| `APP_UNSUBSCRIBE_SECRET` | `openssl rand -base64 48` — never the committed placeholder |
+| `APP_PUBLIC_URL` | `https://skinbox.market` — **must not contain `localhost`** |
+| `CORS_ALLOWED_ORIGINS`, `ADMIN_BOOTSTRAP_STEAM_IDS`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STEAM_REALM`, `STEAM_RETURN_URL` | already correct in the template |
+
+**Do not invent a placeholder to "get past" a startup error.** A plausible `sk_live_` value
+flips the service into live mode, where it behaves as though payments work right up until
+the first real charge. The validator refuses every shape it can detect locally — including
+a truncated key, the publishable key pasted into the secret slot, `whsec_dummy`, and any
+value containing `replace_me`. Those refusals are the control working. The only fix is the
+real key.
+
+`chmod 600 deploy/skinbox.env` — it holds live payment credentials.
+
+### 3. Stop the current default-profile JVM
+
+`pkill -f` does nothing on Windows. Use the PID that owns the port:
+
+```powershell
+$pid = (Get-NetTCPConnection -LocalPort 8082 -State Listen).OwningProcess
+Get-CimInstance Win32_Process -Filter "ProcessId=$pid" | Select-Object ProcessId, CommandLine
+Stop-Process -Id $pid -Force
+```
+
+Confirm nothing is left listening before continuing — two JVMs on one port is how the
+"restart changed nothing" confusion starts:
+
+```powershell
+netstat -ano | Select-String ":8082"   # expect no output
+```
+
+### 4. Build
+
+```bash
+./gradlew.bat clean build -x test    # or `build` to run the suite too
+```
+
+### 5. Start under the prod profile
+
+Load the env file into the session, then launch:
+
+```powershell
+Get-Content deploy\skinbox.env | Where-Object { $_ -match '^\s*[^#\s].*=' } | ForEach-Object {
+    $k, $v = $_ -split '=', 2
+    Set-Item -Path "env:$($k.Trim())" -Value $v.Trim()
+}
+$env:SPRING_PROFILES_ACTIVE = 'prod'
+java -jar build\libs\sboxmarket-1.0.0.jar
+```
+
+**Note the launch shape change.** The JVM serving today runs
+
+```
+java -Dloader.path=build/classes/groovy/main,build/resources/main -cp build/libs/sboxmarket-1.0.0.jar org.springframework.boot.loader.launch.PropertiesLauncher
+```
+
+which puts `build/classes/groovy/main` and `build/resources/main` **first** on the
+classpath — so static assets are read live off disk and edits appear without a restart,
+while **classes are still frozen at JVM start**. That split is what made a fix look shipped
+when it wasn't. Under plain `java -jar` neither is live: everything comes from inside the
+jar, and any change — static or class — needs step 4 and a restart.
+
+### 6. VERIFY prod is really active — the gate
+
+Do not proceed to step 7 until all four pass.
+
+```bash
+# a) The validator announces itself. This line only exists under the prod profile.
+grep "Prod config validation passed" /var/log/skinbox/skinbox.log
+#    -> "Prod config validation passed: all 14 required secrets present..."
+#    If instead the process EXITED with "FATAL: production config validation failed",
+#    read the list — it names every bad variable at once. Fix and restart.
+
+# b) dev-login is dead — and check the BODY, not just the status.
+curl -s -i http://localhost:8082/api/auth/steam/dev-login | head -1
+curl -s    http://localhost:8082/api/auth/steam/dev-login
+#    -> 404 with an EMPTY body.
+#    -> {"error":"no seed users"} means the guard was PASSED. Prod is NOT active. Stop.
+
+# c) The app is up.
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8082/api/health   # 200
+
+# d) Deposits go to Stripe, not to the dev credit path.
+#    In the Wallet UI, a deposit must redirect to a checkout.stripe.com URL.
+#    A response with "live": false and a "dev_…" reference means devModeDeposit ran.
+```
+
+### 7. Only then: fix the cloudflared service
+
+**Requires an administrator shell.** The service currently runs with bare argv — no
+`tunnel run`, no `--config` — and reads a config containing only `logDirectory:`, so the
+named tunnel never registers. The operator's own `~/.cloudflared/config.yml` is correct and
+nothing consumes it. **Nothing is needed in the Cloudflare dashboard.**
+
+```
+cloudflared service uninstall
+cloudflared --config C:\Users\WW\.cloudflared\config.yml service install
+```
+
+Then confirm the tunnel registered connections, and only then check the public hostname.
+If the domain returns 530 / `error code: 1033`, that is "no tunnel connection registered" —
+the service, not the app.
+
+---
+
+
 The deploy script (`deploy/run-local.sh`) ships a **cookie-state gate** that replays poisoned-cookie shapes after each deploy and aborts on any 5xx (added after the four NUL-byte outages on 2026-05-03). **Do not bypass this gate.** If it fails, the build is broken — revert, do not push past it. The gate now runs against the staging container BEFORE the upstream swap (added 2026-05-03 zero-downtime work) — a failed gate never reaches public traffic.
 
 Cloudflare uptime monitor should target `GET /api/health/cookie-aware` on the public hostname — that endpoint runs synthetic SELECTs on `SPRING_SESSION` with both a known-good UUID and a known-poisoned UUID and returns 503 the moment either throws.
 
-## Topology (zero-downtime, post-2026-05-03)
+## Topology (HISTORICAL — not the live path)
+
+> **This section describes the `run-local.sh` blue-green stack, which no longer serves
+> anything.** Verified 2026-09-01: `sbox-app` and `sbox-edge` hold no host ports, and a
+> host-native JVM answers `localhost:8082`. It also assumes Postgres, while the live app
+> runs H2. Kept for reference only — see the GO LIVE block above for what is real. The
+> `docker logs sbox-app` / `docker exec sbox-pg` commands in the incident sections below
+> will not reflect the running app.
 
 ```
 Cloudflare tunnel (cloudflared on host)

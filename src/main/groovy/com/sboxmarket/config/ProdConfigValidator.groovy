@@ -83,6 +83,23 @@ class ProdConfigValidator {
     /** Stripe webhook signing secrets. */
     static final String STRIPE_WEBHOOK_PREFIX = 'whsec_'
 
+    /** The substring {@code StripeService.isLive()} keys off:
+     *  {@code secretKey && !secretKey.contains('replace_me')}.
+     *
+     *  The shape check above and isLive() ask different questions, and there
+     *  is exactly one family of values where they DISAGREE — and it fails
+     *  OPEN. `sk_live_replace_me…` starts with a live prefix and is long
+     *  enough, so the shape check passes and prod boots reporting a clean
+     *  config; but isLive() sees `replace_me` and returns FALSE, so
+     *  createDepositSession falls straight through to devModeDeposit and the
+     *  deployment credits wallets against no payment — the exact free-money
+     *  path this validator exists to close, reached THROUGH a green boot.
+     *
+     *  No real Stripe key contains this marker, so rejecting it cannot lock
+     *  out a legitimate deploy. Pinned by ProdScaffoldingUnreachableSpec,
+     *  which asserts the two checks can never disagree. */
+    static final String STRIPE_DEV_KEY_MARKER = 'replace_me'
+
     /** Minimum number of characters AFTER the prefix. Real Stripe keys and
      *  signing secrets carry far more than this; the threshold exists to catch
      *  a truncated copy-paste (`sk_live_abc`) and short human placeholders
@@ -183,6 +200,17 @@ class ProdConfigValidator {
                 "${STRIPE_MIN_BODY_CHARS} characters; got ${stripeKey.length()} characters total. " +
                 '(The value is not shown here because it may be a real secret.) ' +
                 'Note StripeService.isLive() would have accepted this and failed at the first real charge.'.toString())
+        } else if (stripeKey != null && stripeKey.contains(STRIPE_DEV_KEY_MARKER)) {
+            // The one input where the shape check and isLive() DISAGREE, and
+            // it disagrees in the dangerous direction: live-shaped enough to
+            // boot, but isLive() is false, so createDepositSession falls
+            // through to devModeDeposit and credits wallets against no
+            // payment — free money on a deployment that booted clean.
+            violations.add("STRIPE_SECRET_KEY contains '${STRIPE_DEV_KEY_MARKER}' — refusing to start. " +
+                'It is shaped like a live key, so this validator would otherwise pass it, but ' +
+                'StripeService.isLive() tests for exactly this substring and would report the ' +
+                'deployment as NOT live — routing every deposit into devModeDeposit, which credits ' +
+                'the wallet against no payment.'.toString())
         }
 
         String publishableKey = environment.getProperty('STRIPE_PUBLISHABLE_KEY')
