@@ -7,6 +7,24 @@
 ###
 
 server:
+  # Bind the wildcard — REQUIRED here, and only here.
+  #
+  # `application.yml` defaults to 127.0.0.1 because a wildcard bind on the
+  # default profile published the dev-login scaffolding to the LAN and the
+  # tailnet (see the long note there). Inside a container that same default
+  # would be a different bug: Docker's published `${APP_PORT:-8082}:8082`
+  # forwards to the container's external interface, so an app bound to the
+  # container's loopback is unreachable from the host and every request gets
+  # connection-refused — the same class of failure as the 8080/8082 mismatch
+  # the Dockerfile HEALTHCHECK comment records.
+  #
+  # This is safe precisely BECAUSE it is the prod profile: the container's
+  # network namespace is not the house LAN, the topology is
+  # Cloudflare -> nginx -> app, and every piece of dev scaffolding is dead here
+  # (MoneyMode classifies a prod box with a non-live key as INDETERMINATE, which
+  # shuts the same doors LIVE does). The default profile makes none of those
+  # guarantees, which is why it gets the closed default instead.
+  address: ${SERVER_ADDRESS:0.0.0.0}
   # Trust the proxy's X-Forwarded-* headers. The live topology is
   # Cloudflare tunnel -> nginx -> app, and the cloudflared->nginx hop is
   # plain HTTP: nginx stamps `X-Forwarded-Proto: $scheme` which is `http`

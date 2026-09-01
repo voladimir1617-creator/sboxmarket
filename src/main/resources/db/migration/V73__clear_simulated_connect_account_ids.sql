@@ -1,0 +1,55 @@
+-- V73: clear the `dev_acct_…` debris the SIMULATED onboarding branch left on
+-- wallets, and un-set the payout flag that may sit beside it.
+--
+-- WHAT WENT WRONG
+--
+-- StripeService.createConnectOnboardingLink has a SIMULATED branch (no Stripe
+-- keys configured) that writes a fabricated reference into the seller's real
+-- payout column:
+--
+--     wallet.stripeConnectAccountId = "dev_acct_${walletId}_${millis}"
+--
+-- and the live branch was idempotent on that column being NON-NULL
+-- (`if (!accountId) { create }`) rather than on it being a Stripe account.
+-- Nothing in the codebase ever cleared it — no migration, no admin action, no
+-- self-heal. So a wallet that opened payout onboarding while the deployment ran
+-- without keys was PERMANENTLY un-onboardable once real keys arrived:
+-- AccountLink.create was handed `dev_acct_…`, Stripe rejected it, and the
+-- seller saw "Set up payouts" forever with nothing they could do about it.
+--
+-- WHY THIS FILE IS THE SECONDARY REPAIR, NOT THE PRIMARY ONE
+--
+-- Flyway is `enabled: false` on the default profile and `true` only under
+-- `prod` (application.yml vs application-prod.yml). THE DEFAULT PROFILE IS THE
+-- ONE THAT ACTUALLY RUNS on the operator's instance — that is precisely how
+-- commit e11b012 left half a hole open behind an @Profile('prod') validator,
+-- and 1b9690e had to close it again in a profile-independent place. A
+-- migration alone would repeat that mistake exactly.
+--
+-- So the load-bearing repair is in the CODE and runs on every profile:
+-- `StripeService.isRealConnectAccount()` makes the live branch idempotent on
+-- the `acct_` SHAPE, so a poisoned wallet is treated as un-onboarded and its
+-- next onboarding attempt overwrites the debris with a genuine account. This
+-- file only spares a prod seller from having to click the button once, and
+-- repairs any deployment whose owner never does.
+--
+-- MEASURED BEFORE WRITING (2026-09-01, the operator's live H2 database):
+-- 8 wallets, 0 with any connect account id at all — so this migration is a
+-- verified no-op HERE. It is committed anyway because the write was reachable
+-- on every keyless deployment, and a repair that only exists where damage has
+-- already been observed is not a repair.
+--
+-- SAFETY: NULL is the column's documented "not onboarded" state (V72), which
+-- is exactly what a wallet holding a simulated reference actually is. Only the
+-- `dev_acct_%` prefix this codebase writes is touched — any other unrecognised
+-- value is left alone for a human to look at, and is already inert at runtime
+-- because the code keys on the `acct_` shape.
+
+UPDATE wallets
+   SET stripe_connect_account_id = NULL,
+       -- A fabricated destination and an enabled payout flag surviving
+       -- together is the one combination that reaches Transfer.create with a
+       -- destination Stripe cannot resolve. FALSE is the honest value: no
+       -- Stripe account exists for this wallet, so no payout can be enabled.
+       payouts_enabled = FALSE
+ WHERE stripe_connect_account_id LIKE 'dev\_acct\_%' ESCAPE '\';

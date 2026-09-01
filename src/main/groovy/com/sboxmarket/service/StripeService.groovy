@@ -1,5 +1,6 @@
 package com.sboxmarket.service
 
+import com.sboxmarket.config.MoneyMode
 import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Transaction
@@ -1266,13 +1267,51 @@ class StripeService {
      * the account it fires `account.updated` with payouts_enabled=true,
      * which our webhook mirrors onto wallet.payoutsEnabled.
      *
-     * Idempotent on the account id: if the wallet already has a
-     * stripeConnectAccountId we DON'T create a second account — we just
-     * mint a fresh link for it (onboarding links are single-use + short-
-     * lived, so we generate one on every call). Stores the connected-
-     * account id on the wallet the first time so the destination is
-     * stable for the eventual Transfer.
+     * Idempotent on a REAL account id: if the wallet already carries an
+     * {@code acct_…} we DON'T create a second account — we just mint a
+     * fresh link for it (onboarding links are single-use + short-lived, so
+     * we generate one on every call). Stores the connected-account id on
+     * the wallet the first time so the destination is stable for the
+     * eventual Transfer.
+     *
+     * Idempotent on a REAL id, and deliberately NOT on any id — see
+     * {@link #isRealConnectAccount}.
      */
+    /** The prefix Stripe gives every connected account. */
+    static final String CONNECT_ACCOUNT_PREFIX = 'acct_'
+
+    /**
+     * <b>Is this stored reference a Stripe account, or is it our own debris?</b>
+     *
+     * The one test for "this string is a destination Stripe will accept".
+     * {@code connectStatus} already gated its live re-read on exactly this
+     * shape; the onboarding path did not, and that asymmetry is the bug:
+     *
+     * <ul>
+     *   <li>The SIMULATED branch below writes {@code dev_acct_<id>_<millis>}
+     *       into {@code wallet.stripeConnectAccountId}.</li>
+     *   <li>The live branch used to be idempotent on <i>any</i> non-null value
+     *       ({@code if (!accountId) create}).</li>
+     *   <li>Nothing anywhere cleared it — no migration, no admin action, no
+     *       self-heal.</li>
+     * </ul>
+     *
+     * So a wallet that opened payout onboarding while the deployment had no
+     * Stripe keys was PERMANENTLY un-onboardable once real keys arrived:
+     * {@code AccountLink.create} was handed {@code dev_acct_…}, Stripe
+     * rejected it, and the seller saw "Set up payouts" forever with no action
+     * available to them that could fix it. Measured on this deployment's
+     * database 2026-09-01: 8 wallets, 0 poisoned — but the write was still
+     * reachable, so the repair is the self-heal, not the row count.
+     *
+     * Treating a non-{@code acct_} value as "no account yet" makes the poison
+     * INERT rather than merely absent: the next onboarding attempt overwrites
+     * it with a genuine account, on every profile, with no migration needed.
+     */
+    static boolean isRealConnectAccount(String accountId) {
+        accountId?.startsWith(CONNECT_ACCOUNT_PREFIX)
+    }
+
     @Transactional
     Map createConnectOnboardingLink(Long walletId) {
         def wallet = walletRepository.findById(walletId)
@@ -1292,6 +1331,20 @@ class StripeService {
             // "onboarding required" state; an admin/dev can flip it via
             // the DB if they want to exercise the payout-enabled branch.
             if (!wallet.stripeConnectAccountId) {
+                // Re-assert authorisation AT THE WRITE, not only at the branch
+                // that reached it — the shape `devModeDeposit` already uses.
+                // This string outlives the deployment mode that wrote it: it
+                // sits in the wallet row until someone overwrites it, so a
+                // caller that reaches this line on a money deployment would
+                // leave permanent debris on a live seller's payout field.
+                // The branch above already forbids that; this makes forgetting
+                // the branch impossible rather than merely unlikely.
+                MoneyMode writeMode = moneyMode()
+                if (!writeMode.devFallbackAuthorized()) {
+                    throw new IllegalStateException(
+                        "REFUSING to write a simulated dev_acct_ payout reference on a ${writeMode} " +
+                        "deployment (wallet ${walletId}) — only ${MoneyMode.SIMULATED} may fabricate one")
+                }
                 wallet.stripeConnectAccountId = "dev_acct_${walletId}_${System.currentTimeMillis()}"
                 walletRepository.save(wallet)
             }
@@ -1305,8 +1358,20 @@ class StripeService {
         // what we need to push payouts to it. card_payments is NOT
         // requested — sellers only RECEIVE money here, they don't charge
         // cards. Email pre-fills the onboarding form when we have it.
+        // THE SELF-HEAL. This was `if (!accountId)` — idempotent on any
+        // non-null string, including our own `dev_acct_…` debris, which made
+        // the poison permanent and user-visible ("Set up payouts" forever).
+        // Reusing an id is only correct when Stripe would recognise it, so the
+        // condition is the SHAPE, not the presence. A poisoned wallet takes
+        // this branch, gets a real account, and the bad value is overwritten
+        // three lines down — no migration, no admin action, on every profile.
         String accountId = wallet.stripeConnectAccountId
-        if (!accountId) {
+        if (!isRealConnectAccount(accountId)) {
+            if (accountId) {
+                log.warn("Wallet ${walletId} carried a non-Stripe Connect reference (${accountId.length()} chars, " +
+                         "prefix '${accountId.take(Math.min(9, accountId.length()))}') — treating it as un-onboarded " +
+                         "and creating a real account to replace it")
+            }
             try {
                 def acctParamsBuilder = com.stripe.param.AccountCreateParams.builder()
                     .setType(com.stripe.param.AccountCreateParams.Type.EXPRESS)
@@ -1378,9 +1443,17 @@ class StripeService {
             ]
         }
 
-        // Live + an account exists → re-read Stripe for ground truth and
+        // On a money deployment, `hasAccount` must mean "Stripe has an account
+        // for this seller", not "this column is non-null". A wallet carrying
+        // `dev_acct_…` from an earlier keyless window has NO account, and
+        // reporting one told the SPA the seller was further along than they
+        // were. Same predicate the onboarding path now uses, so the status the
+        // UI renders and the branch the button takes can never disagree.
+        boolean realAccount = isRealConnectAccount(wallet.stripeConnectAccountId)
+
+        // Live + a REAL account exists → re-read Stripe for ground truth and
         // self-heal the persisted flag if a webhook was missed.
-        if (hasAccount && wallet.stripeConnectAccountId?.startsWith('acct_')) {
+        if (realAccount) {
             try {
                 def account = com.stripe.model.Account.retrieve(wallet.stripeConnectAccountId)
                 boolean stripeSaysEnabled = Boolean.TRUE.equals(account.payoutsEnabled)
@@ -1409,7 +1482,7 @@ class StripeService {
 
         [
             live:             true,
-            hasAccount:       hasAccount,
+            hasAccount:       realAccount,
             payoutsEnabled:   payoutsEnabled,
             onboardingNeeded: !payoutsEnabled,
             accountId:        wallet.stripeConnectAccountId,
@@ -1485,6 +1558,23 @@ class StripeService {
         if (isLive() && !Boolean.TRUE.equals(wallet.payoutsEnabled)) {
             throw new com.sboxmarket.exception.BadRequestException("CONNECT_ONBOARDING_REQUIRED",
                 "Set up payouts before withdrawing. Connect a payout account (a one-time identity + bank/debit-card setup) from the Wallet page, then try again.")
+        }
+        // …and the DESTINATION must be a real Stripe account, not just an
+        // enabled flag. `payoutsEnabled` is a mirror: the webhook only ever
+        // sets it from an `acct_` Stripe told us about, but the SIMULATED
+        // onboarding branch invites a dev to "flip it via the DB", and that
+        // flag outlives the keyless window exactly as the `dev_acct_…` string
+        // does. Both surviving together sends `Transfer.create` a destination
+        // Stripe cannot resolve — the debit rolls back, but the seller is told
+        // "Stripe error … try again", which invites them to retry forever the
+        // one action that can never succeed. Name the real cause instead, and
+        // route them to the button that now repairs it.
+        if (isLive() && !isRealConnectAccount(wallet.stripeConnectAccountId)) {
+            log.error("Withdrawal refused for wallet ${walletId}: payoutsEnabled is set but the payout " +
+                      "destination is not a Stripe account — re-run Connect onboarding to replace it")
+            throw new com.sboxmarket.exception.BadRequestException("CONNECT_ONBOARDING_REQUIRED",
+                "Set up payouts before withdrawing. Your payout account needs to be reconnected — " +
+                "open the Wallet page and run payout setup again, then try again.")
         }
 
         // ── Pass-through payout fee ──────────────────────────────────

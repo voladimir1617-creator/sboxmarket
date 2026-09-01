@@ -193,6 +193,27 @@ while **classes are still frozen at JVM start**. That split is what made a fix l
 when it wasn't. Under plain `java -jar` neither is live: everything comes from inside the
 jar, and any change — static or class — needs step 4 and a restart.
 
+**The bind address.** `application.yml` now sets `server.address: ${SERVER_ADDRESS:127.0.0.1}`,
+so the default profile binds **loopback only**. Before that it bound the wildcard, and on
+2026-09-01 the running instance answered `200` — and `/api/auth/steam/dev-login` answered
+`302` with a live session — on `192.168.68.70` (house LAN), `100.82.162.44` (Tailscale, i.e.
+every device the operator owns) and `172.29.80.1` (WSL vSwitch). There is no inbound firewall
+rule for 8082, so nothing else was stopping it.
+
+That 302 is *correct* on a dev box: with no Stripe key the deployment is `MoneyMode.SIMULATED`
+and dev-login is supposed to work. The whole SIMULATED contract just assumes nobody but the
+developer can reach the port, and the wildcard bind quietly broke that assumption. The fix is
+the socket, not another guard.
+
+`prod` overrides to `0.0.0.0` — a container MUST bind the wildcard or Docker's published
+`${APP_PORT:-8082}:8082` has nothing to forward to. For a deliberate LAN demo on the default
+profile, set `SERVER_ADDRESS=0.0.0.0` for that run only, and know what you are publishing.
+
+The tunnel is unaffected: cloudflared runs on this same host and its ingress rule already
+targets `http://localhost:8082`, so loopback is reachable to it and it stays the only public
+path — exposure becomes something the tunnel grants, not something the socket leaks. The
+`SkinBox Watchdog` scheduled task probes `http://localhost:8082/api/health`, also loopback.
+
 ### 6. VERIFY prod is really active — the gate
 
 Do not proceed to step 7 until all four pass.
@@ -217,6 +238,19 @@ curl -s    http://localhost:8082/api/auth/steam/dev-login
 
 # c) The app is up.
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8082/api/health   # 200
+
+# c2) The socket is bound where you think it is. Read the ADDRESS, not the port.
+#     PowerShell:
+#       Get-NetTCPConnection -LocalPort 8082 -State Listen | Select LocalAddress,OwningProcess
+#     -> LocalAddress 127.0.0.1  = loopback only (the default-profile expectation)
+#     -> LocalAddress ::         = EVERY interface, including the LAN and the tailnet
+#
+#     Then prove it against a real interface, and PAIR the two probes — a refusal on
+#     its own is indistinguishable from a dead server, which is the trap this whole
+#     runbook exists to avoid:
+#       curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8082/api/health    # 200
+#       curl -s -m 5 http://<your-lan-ip>:8082/api/health                            # refused
+#     A 200 on loopback in the same breath as a refusal off-box is the positive signal.
 
 # d) Deposits go to Stripe, not to the dev credit path.
 #    In the Wallet UI, a deposit must redirect to a checkout.stripe.com URL.

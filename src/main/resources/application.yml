@@ -1,4 +1,48 @@
 server:
+  ###
+  # BIND ADDRESS — loopback by DEFAULT, and that default is the security
+  # control, not a convenience.
+  #
+  # Spring Boot's default is "no address", which means Tomcat binds the
+  # wildcard: every interface the machine has. On the operator's box that is
+  # not an abstraction — measured 2026-09-01 while the app was running under
+  # the default profile, `http://<lan-ip>:8082/` answered 200 and
+  # `/api/auth/steam/dev-login` answered 302 with a live session, from:
+  #     192.168.68.70   (the house LAN)
+  #     100.82.162.44   (the Tailscale tailnet — every device he owns)
+  #     172.29.80.1     (the WSL/Hyper-V vSwitch)
+  # There is no inbound firewall rule for 8082, so nothing else was stopping it.
+  #
+  # And that door is open BY DESIGN on this profile: `dev-login` is gated on
+  # MoneyMode.handlesRealMoney(), the key here is the committed
+  # `sk_test_replace_me` placeholder, so the deployment classifies SIMULATED and
+  # the scaffolding is correctly enabled — for a DEVELOPER LAPTOP. The whole
+  # SIMULATED contract assumes nobody but the developer can reach the port. The
+  # wildcard bind quietly broke that assumption, which is what turned a correct
+  # dev affordance into credential-free account takeover for anyone on the LAN.
+  #
+  # So the fix belongs HERE and not in another guard: the scaffolding is not the
+  # defect, its REACHABILITY is. A loopback bind restores the premise the
+  # SIMULATED mode was written against.
+  #
+  # This costs the intended topology nothing. cloudflared runs on this same host
+  # and its ingress rule is already `skinbox.market -> http://localhost:8082`
+  # (C:\Users\WW\.cloudflared\config.yml), so the tunnel reaches loopback fine
+  # and stays the ONLY public path — which is the point: exposure becomes a
+  # thing the tunnel grants, not a thing the socket leaks. The watchdog's health
+  # probe (`http://localhost:8082/api/health`) is loopback too and is unaffected.
+  #
+  # `prod` overrides this to 0.0.0.0 — a container MUST bind the wildcard or
+  # Docker's published `${APP_PORT:-8082}:8082` mapping has nothing to forward
+  # to. That override is an explicit declaration of intent on a profile whose
+  # whole job is to be deployed behind nginx; the default profile makes no such
+  # declaration, so it gets the closed answer. Same asymmetry MoneyMode uses:
+  # when the deployment has not said what it is, choose the safe branch.
+  #
+  # Override for a deliberate LAN demo with SERVER_ADDRESS=0.0.0.0 — but read
+  # the dev-login paragraph above first and know what you are publishing.
+  ###
+  address: ${SERVER_ADDRESS:127.0.0.1}
   # Default 8082 — the operator's owner-QA watchdog (the every-minute
   # "sboxmarket owner QA" automation, the three .claude/watchdog QA
   # scripts, and codex-agent-lane.ps1's health probe) all target
