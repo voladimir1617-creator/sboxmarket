@@ -67,6 +67,11 @@ class AdminServiceSpec extends Specification {
 
     @Subject
     AdminService service = new AdminService(
+        // Declared for the same reason CsrServiceSpec declares dailyCapStr:
+        // creditWallet reads this @Value field, and a hand-constructed service
+        // gets no Spring injection. Left at the production default so these
+        // specs exercise the shipped bound rather than one invented here.
+        dailyCreditCapStr        : '25000.00',
         steamUserRepository      : steamUserRepository,
         walletRepository         : walletRepository,
         transactionRepository    : transactionRepository,

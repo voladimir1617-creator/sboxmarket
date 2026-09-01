@@ -3215,7 +3215,7 @@ function AdminUsersTab({ me }) {
                           (inbound ? '+' : '−') + fmt(parseFloat(tx.amount) || 0)),
                         h('td', { className: `wallet-tx-status ${tx.status}`, style: { fontSize: 10 } }, tx.status),
                         h('td', { style: { fontSize: 10, color: 'var(--text-secondary)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-                          tx.stripeReference && tx.stripeReference !== 'admin'
+                          tx.stripeReference && !/^admin(_\d+)?$/.test(tx.stripeReference)
                             ? h('span', { title: tx.stripeReference }, tx.stripeReference)
                             : (tx.description || '—'))
                       );

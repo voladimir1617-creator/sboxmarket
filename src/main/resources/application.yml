@@ -326,6 +326,25 @@ admin:
   #      emptying the list alone demotes nobody who is already ADMIN.
   bootstrap-steam-ids: ${ADMIN_BOOTSTRAP_STEAM_IDS:}
 
+  # Rolling 24h cap on how much ONE admin identity can CREDIT into wallets,
+  # in USD. The per-call cap inside AdminService.creditWallet is $10,000 and
+  # bounds a single adjustment; this bounds the loop. Without it, /api/admin's
+  # 20-requests-per-10-seconds budget made the arithmetic ceiling 20 x $10,000
+  # every 10 seconds into a confederate's wallet, since CANT_CREDIT_SELF only
+  # stops an admin crediting THEMSELVES. CsrService closes the identical loop
+  # one level down at $200/day; this is the same control where the per-call
+  # figure is 400x larger.
+  #
+  # $25,000 is about two max-size adjustments or fifty $500 ones in a day, so
+  # the "common $5-$500 goodwill credit" case the per-call cap's own comment
+  # describes never comes near it. Debits are not counted (a debit destroys
+  # balance rather than minting it, and netting them would be a reset button).
+  # It bounds one admin IDENTITY: an attacker who also calls grantAdmin gets a
+  # fresh budget, at the cost of an ADMIN_GRANTED audit row plus a security
+  # email. A platform-wide cap was considered and deliberately not taken - one
+  # rogue actor would lock every honest admin out of the refund tool.
+  daily-credit-cap: ${ADMIN_DAILY_CREDIT_CAP:25000.00}
+
 csr:
   # Maximum size of a single CSR goodwill credit, in USD. Anything above
   # this requires a full admin to approve. Defaults to $25 per adjustment.

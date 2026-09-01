@@ -47,6 +47,20 @@ class AdminService {
 
     @Value('${admin.bootstrap-steam-ids:}') String bootstrapIds
 
+    /** Per-admin cumulative wallet-CREDIT cap over a rolling 24h window.
+     *  The per-call cap inside creditWallet bounds ONE adjustment at
+     *  $10,000; it says nothing about how many. With /api/admin rate-limited
+     *  at 20 requests / 10 seconds the arithmetic ceiling was 20 x $10,000
+     *  every 10 seconds into a second wallet -- CANT_CREDIT_SELF only forces
+     *  the attacker to credit a confederate rather than themselves.
+     *  CsrService.issueGoodwillCredit closes exactly this loop one level down
+     *  and reasons about it out loud ("$25 x the 20/10s rate limit ~ $180k/hr");
+     *  the same reasoning was never applied here, where the per-call figure is
+     *  400x larger. Default $25,000/day per admin -- about two max-size
+     *  adjustments, or fifty $500 ones, so the common goodwill case that the
+     *  per-call cap's own comment describes never meets it. */
+    @Value('${admin.daily-credit-cap:25000.00}') String dailyCreditCapStr
+
     @Autowired SteamUserRepository steamUserRepository
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
@@ -1852,6 +1866,54 @@ class AdminService {
             throw new BadRequestException("ADJUSTMENT_TOO_LARGE",
                 "Single admin adjustment must not exceed \$10,000 — split into smaller credits or route through manual payout")
         }
+        // Rolling per-admin 24h cumulative CREDIT cap. The per-call cap above
+        // bounds ONE adjustment; this bounds the LOOP. Mirrors
+        // CsrService.issueGoodwillCredit deliberately - same rolling window,
+        // same repository query, keyed on the same kind of per-actor
+        // reference - because it is the same threat, only 400x bigger.
+        //
+        // CREDITS ONLY, and deliberately NOT netted against debits. A debit
+        // destroys balance rather than minting it, so bounding it protects
+        // nothing; worse, netting would hand an attacker a reset button -
+        // credit $10,000 to a confederate, then debit $10,000 out of some
+        // OTHER funded wallet, and the running total returns to zero while
+        // the confederate keeps the money. The `type` discriminator on the
+        // sum ('ADJUSTMENT_CREDIT') already excludes debits, and the signum
+        // guard here makes that intent explicit instead of incidental.
+        //
+        // ACTOR IDENTITY. This is only computable because the transaction row
+        // written below now records WHICH admin acted - `admin_<id>` - exactly
+        // as CSR stamps `csr_<id>`, and for exactly that reason. Until now the
+        // row carried a constant 'admin' and the actor existed only in the
+        // audit log, whose sole amount-bearing field is a 500-char free-text
+        // summary assembled from operator-supplied note text. Parsing a dollar
+        // figure back out of a string the actor helps write is not a money
+        // control, so the identity was put where the arithmetic already lives.
+        //
+        // REACH, written down so the next reader inherits it instead of
+        // re-deriving it as a discovery: this bounds ONE admin identity. An
+        // attacker who also calls grantAdmin obtains a second identity with a
+        // fresh budget. That path writes an ADMIN_GRANTED audit row, pushes a
+        // bell notification and sends a security email, so it trades a silent
+        // loop for a noisy privilege escalation. A platform-WIDE cap would
+        // close that too and is deliberately NOT taken: one rogue actor would
+        // then lock every honest admin out of the refund tool, and the
+        // availability of the refund path is itself a money control.
+        // Best-effort against a concurrent burst (no per-admin lock - the rate
+        // limiter bounds the burst); what it closes is the sequential
+        // unbounded loop, which is what was actually reachable.
+        if (amount.signum() > 0) {
+            def dailyCreditCap = new BigDecimal(dailyCreditCapStr)
+            def creditWindowStart = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
+            def usedToday = transactionRepository.sumByTypeReferenceSince(
+                'ADJUSTMENT_CREDIT', "admin_${adminUserId}".toString(), creditWindowStart) ?: BigDecimal.ZERO
+            if (usedToday + amount > dailyCreditCap) {
+                throw new BadRequestException("ADMIN_DAILY_CAP",
+                    "Admin daily wallet-credit cap is \$${dailyCreditCap.toPlainString()} - " +
+                    "\$${usedToday.toPlainString()} already credited by this admin in the last 24h. " +
+                    "Route the remainder through the manual payout path so it hits a second set of eyes.")
+            }
+        }
         // Note is required for audit trail — operator must leave a paper
         // trail on every adjustment, even small ones.
         if (note == null || note.trim().isEmpty()) {
@@ -1907,7 +1969,15 @@ class AdminService {
             status:          'COMPLETED',
             amount:          amount.abs(),
             currency:        wallet.currency,
-            stripeReference: 'admin',
+            // `admin_<id>`, not the bare constant 'admin' this carried until
+            // now. The constant made every admin adjustment indistinguishable
+            // from every other one, which is exactly why the rolling cap above
+            // could not be built from this table. Same shape as CSR's
+            // `csr_<id>`, same reason. Rows written BEFORE this change keep the
+            // bare 'admin' and are therefore not counted by the rolling sum:
+            // the window is fully accurate 24h after deploy and under-counts
+            // (errs toward letting a credit through) until then.
+            stripeReference: "admin_${adminUserId}",
             description:     "Admin adjustment: " + cleanNote
         ))
 

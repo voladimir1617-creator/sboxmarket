@@ -235,6 +235,35 @@ while **classes are still frozen at JVM start**. That split is what made a fix l
 when it wasn't. Under plain `java -jar` neither is live: everything comes from inside the
 jar, and any change — static or class — needs step 4 and a restart.
 
+**Changing the launch line means changing TWO lines, not one.** `skinbox-watchdog.ps1`
+decides whether the server is already up with
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" |
+  Where-Object { $_.CommandLine -like '*PropertiesLauncher*' }
+```
+
+and a `java -jar` process does not contain that string. Measured 2026-09-01 with BOTH
+shapes running at once - the current instance on 8082 and a jar-only instance on 8099 -
+that predicate matched only the PropertiesLauncher one. So switching the launch line
+alone leaves the watchdog permanently blind to the server it just started: every tick
+where the health probe is slow or briefly fails, it concludes "no process, not healthy"
+and starts ANOTHER one. That is the duplicate-daemon failure this repo has already paid
+for once. Match on the artefact instead of the launcher -
+
+```powershell
+Where-Object { $_.CommandLine -like '*sboxmarket-1.0.0.jar*' }
+```
+
+- which matched both shapes in the same measurement, so it is also correct DURING the
+switch rather than only after it.
+
+**One more consequence, in the other direction.** `-Dloader.path=build/classes/groovy/main`
+makes that directory part of the running JVM's classpath, and `./gradlew` rewrites it.
+So today any build - a test run included - edits the live process's classpath underneath
+it. Under `java -jar` the running JVM holds only the jar it started from, and a build
+touches nothing it is using.
+
 **The bind address.** `application.yml` now sets `server.address: ${SERVER_ADDRESS:127.0.0.1}`,
 so the default profile binds **loopback only**. Before that it bound the wildcard, and on
 2026-09-01 the running instance answered `200` — and `/api/auth/steam/dev-login` answered
