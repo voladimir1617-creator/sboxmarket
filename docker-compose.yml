@@ -65,7 +65,7 @@ services:
       # restarting container. For a local smoke test, do not use the prod
       # profile (note Dockerfile also bakes ENV SPRING_PROFILES_ACTIVE=prod, so
       # it must be overridden here AND there).
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?set STRIPE_SECRET_KEY (a real sk_live_... key) in deploy/skinbox.env - the prod profile refuses to start with a sk_test_ key}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?set STRIPE_SECRET_KEY (a real sk_live_... key) in deploy/skinbox.env AND start with `docker compose --env-file deploy/skinbox.env up` -- compose interpolates ${...} from the shell or a ROOT .env, NOT from env_file, so the file alone is not enough (verified 2026-08-31) - the prod profile refuses to start with a sk_test_ key}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_dummy}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-https://skinbox.market/?deposit=success}
