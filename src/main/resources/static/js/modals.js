@@ -11095,25 +11095,62 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     ),
 
     source === 'steam' && steamData === null && h('div', { className: 'spinner' }),
-    source === 'steam' && steamData && steamList.length === 0 && h('div', { className: 'empty-inline' },
+    source === 'steam' && steamData && steamList.length === 0 && (() => {
+      // ── Say which of the seven things actually happened ──────────────────
+      // The server distinguishes private_profile / rate_limited / upstream_error
+      // / malformed_response / network_error / empty_or_wrong_context and sends
+      // `reason`, `unreadable` and a remedy sentence in `message`. This block
+      // used to read NONE of them: it branched on `error` and `blocked` only,
+      // so every server-diagnosed cause collapsed back into one of two strings.
+      //
+      // Worst case, and the reason this matters: a private profile trips the
+      // negative cache, so the server sets `blocked` as well as
+      // reason='private_profile'. Checking `blocked` first told that seller
+      // "try again in ~5 minutes" — advice that can never come true, because
+      // no amount of waiting makes a private inventory readable.
+      //
+      // `unreadable` is the load-bearing flag: true means we could not get an
+      // answer, and we must NOT tell the seller he owns nothing.
+      const reason     = steamData?.reason;
+      const unreadable = steamData?.unreadable === true;
+      const serverMsg  = steamData?.message;
+      const isPrivate  = reason === 'private_profile';
+      const isThrottled = reason === 'rate_limited' || (!reason && steamData?.blocked);
+      // A connection error OR anything the server marked unreadable.
+      const couldNotRead = !!steamData?.error || unreadable;
+
+      const icon = steamData?.error || (unreadable && !isThrottled && !isPrivate)
+        ? 'cloud_off'
+        : isThrottled ? 'hourglass_top'
+        : isPrivate   ? 'lock'
+        : 'inbox';
+
+      const title = steamData?.error
+        ? "Couldn't load your Steam inventory"
+        : isPrivate    ? 'Your Steam inventory is private'
+        : isThrottled  ? 'Steam is rate-limiting our requests'
+        : unreadable   ? "We couldn't read your Steam inventory"
+        : 'No s&box items in your Steam inventory';
+
+      // Prefer the server's sentence — it names the actual remedy. Fall back
+      // to local copy only when the server said nothing specific.
+      const detail = steamData?.error
+        ? "We couldn't reach the inventory service — this is a connection problem, not an empty inventory. Re-sync to try again."
+        : serverMsg
+          ? (isThrottled && steamData?.retryInSec
+              ? `${serverMsg} (about ${Math.max(1, Math.ceil(Number(steamData.retryInSec) / 60))} minute${Math.max(1, Math.ceil(Number(steamData.retryInSec) / 60)) === 1 ? '' : 's'}.) Your previously-synced inventory still works for listing.`
+              : serverMsg)
+          : couldNotRead
+            ? "We couldn't read your inventory from Steam, so we don't yet know what you own. This is not the same as owning nothing — please try again."
+            : "Either your Steam inventory is set to Private, or there are no s&box cosmetics in it. If the inventory is public and you still see this, the sync cache may be stale — try again.";
+
+      return h('div', { className: 'empty-inline' },
       h('div', { className: 'empty-icon' },
-        h(MaterialIcon, { name: steamData?.error ? 'cloud_off' : steamData?.blocked ? 'hourglass_top' : 'inbox', size: 26 })),
+        h(MaterialIcon, { name: icon, size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
-        steamData?.error
-          ? "Couldn't load your Steam inventory"
-          : steamData?.blocked
-            ? 'Steam is rate-limiting our requests'
-            : 'No s&box items in your Steam inventory'),
+        title),
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
-        steamData?.error
-          ? "We couldn't reach the inventory service — this is a connection problem, not an empty inventory. Re-sync to try again."
-          : steamData?.blocked
-            ? (() => {
-                const sec = Number(steamData.retryInSec || 300);
-                const min = Math.max(1, Math.ceil(sec / 60));
-                return `Steam's inventory endpoint hit a rate-limit. Try again in ~${min} minute${min === 1 ? '' : 's'}. Your previously-synced inventory still works for listing.`;
-              })()
-            : "Either your Steam inventory is set to Private, or there are no s&box cosmetics in it. If the inventory is public and you still see this, the sync cache may be stale — try again."),
+        detail),
       // Batch 831 — actionable empty-state. Two real CTAs instead of
       // one "Sync Steam" hint buried at the bottom of the page:
       // 1) Direct link to Steam's privacy settings so a user who
@@ -11158,7 +11195,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           syncing ? 'Syncing…' : 'Re-sync now'
         )
       )
-    ),
+    );
+    })(),
     source === 'steam' && steamData && steamList.length > 0 && (() => {
       // Apply filter chips + name search before rendering. Rarity chips
       // derived from whatever rarities the user's inventory actually

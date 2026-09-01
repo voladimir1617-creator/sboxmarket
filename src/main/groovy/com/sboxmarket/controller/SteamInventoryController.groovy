@@ -283,7 +283,17 @@ class SteamInventoryController {
             case com.sboxmarket.service.SteamInventoryService.OUTCOME_NETWORK:
                 return 'We could not reach Steam to load your inventory. Try again in a moment.'
             case com.sboxmarket.service.SteamInventoryService.OUTCOME_EMPTY:
-                return 'No s&box items found in your Steam inventory.'
+                // The app id and context are HARDCODED (590830 / 2). A wrong
+                // one returns a well-formed, genuinely empty asset list — which
+                // is indistinguishable here from owning nothing. Saying only
+                // "no items found" states the one interpretation the seller
+                // cannot act on. Naming the app/context we actually asked for,
+                // and the URL that answers it, is the difference between a
+                // seller who can diagnose this himself and one who cannot.
+                return 'Steam returned no items for s&box (app 590830, context 2). ' +
+                       'If you do own s&box cosmetics, check that your inventory is public and that ' +
+                       'they show at steamcommunity.com/profiles/<your id>/inventory/#590830_2 — ' +
+                       'if they appear there under a different game or context, tell us: we query 590830/2 only.'
             default:
                 return null
         }
