@@ -536,8 +536,58 @@ class StripeService {
 
     String getPublishableKey() { publishableKey }
 
+    /**
+     * <b>The one decision.</b> Every money-path branch in this class derives
+     * from this call — see {@link com.sboxmarket.config.MoneyMode}, which is
+     * also what {@code LiveMoneyGuard} and {@code ProdConfigValidator} ask, so
+     * the three can no longer disagree about what "live" means.
+     */
+    com.sboxmarket.config.MoneyMode moneyMode() {
+        com.sboxmarket.config.MoneyMode.ofKey(secretKey)
+    }
+
+    /**
+     * "Is Stripe wired?" — the question the 13 read/charge/book call sites in
+     * this class actually ask, and the only one this boolean is still allowed
+     * to answer.
+     *
+     * It used to be {@code secretKey && !secretKey.contains("replace_me")} — a
+     * SUBSTRING TEST — and it answered TWO questions at once: "call Stripe?"
+     * and, by its negation, "run the fabricated deposit?". That inversion is
+     * the bug. {@code !isLive()} is NO LONGER a licence to credit a wallet: the
+     * dev fallback is gated on
+     * {@link com.sboxmarket.config.MoneyMode#devFallbackAuthorized()}, which
+     * an unrecognised key does not satisfy.
+     */
     boolean isLive() {
-        secretKey && !secretKey.contains("replace_me")
+        moneyMode().stripeConfigured()
+    }
+
+    /**
+     * Refuse to move money when the deployment's own configuration cannot be
+     * classified. Called at each money-path DOOR rather than at the fifteen
+     * branches behind them.
+     *
+     * The alternative — falling through to the simulated path, which is what
+     * {@code !isLive()} used to mean — is how {@code sk_live_replace_me…}
+     * credited wallets against no payment on a deployment whose configuration
+     * had just validated clean.
+     */
+    private void refuseIfIndeterminate(String action) {
+        if (moneyMode() == com.sboxmarket.config.MoneyMode.INDETERMINATE) {
+            // The VALUE is never echoed — it may be a real secret. Its length
+            // is what diagnoses a truncated paste, the same convention
+            // ProdConfigValidator uses.
+            log.error("MONEY_MODE_INDETERMINATE refusing ${action}: stripe.secret-key is set " +
+                      "(${secretKey?.trim()?.length() ?: 0} chars) but is neither a recognised live key " +
+                      "(${com.sboxmarket.config.MoneyMode.LIVE_PREFIXES.join('/')}), a test key " +
+                      "(${com.sboxmarket.config.MoneyMode.TEST_PREFIXES.join('/')}), nor a blank/placeholder. " +
+                      'Refusing rather than falling back to the simulated path.')
+            throw new com.sboxmarket.exception.BadRequestException('STRIPE_MODE_INDETERMINATE',
+                'Payments are unavailable: this deployment\'s Stripe configuration could not be identified as ' +
+                'either live or unconfigured, so no charge and no simulated credit will be made. ' +
+                'Contact support — this is a server configuration problem, not a problem with your account.')
+        }
     }
 
     /* ── DEPOSIT ─────────────────────────────────────────
@@ -545,10 +595,19 @@ class StripeService {
      * Returns the hosted Checkout URL for redirect. */
     @Transactional
     Map createDepositSession(Long walletId, BigDecimal amount) {
-        if (!isLive()) {
+        // THE FREE-MONEY DOOR. It used to be `if (!isLive())` — the negation of
+        // a substring test — so ANY key the substring test failed to recognise
+        // credited the wallet against no payment. `sk_live_replace_me…` passed
+        // a hardened prod validator and arrived here as "not live".
+        //
+        // Three-way now, because the question is three-way: only an
+        // affirmatively-identified unconfigured deployment may fabricate a
+        // credit, and "I cannot tell" refuses instead of guessing.
+        if (moneyMode().devFallbackAuthorized()) {
             // fallback dev-mode: instant fake deposit so UI works without real keys
             return devModeDeposit(walletId, amount)
         }
+        refuseIfIndeterminate('deposit')
         if (amount == null || amount <= BigDecimal.ZERO) {
             throw new IllegalArgumentException("Deposit amount must be positive")
         }
@@ -1219,7 +1278,11 @@ class StripeService {
         def wallet = walletRepository.findById(walletId)
                 .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
 
-        if (!isLive()) {
+        // Same three-way as createDepositSession: an unrecognised key must not
+        // buy a wallet a fake `dev_acct_…` reference that the payout path will
+        // later treat as an onboarded destination.
+        refuseIfIndeterminate('Connect onboarding')
+        if (moneyMode().devFallbackAuthorized()) {
             // Dev mode (no real Stripe keys): do NOT pretend to onboard a
             // real account. Mark the wallet as a SIMULATED connected
             // account so the rest of the UI/flow is exercisable locally,
@@ -1370,6 +1433,12 @@ class StripeService {
 
     @Transactional
     Transaction requestWithdrawal(Long walletId, BigDecimal amount, String destinationRef) {
+        // The money-OUT twin of the deposit door. Below, `isLive()` false means
+        // "create no Transfer and write a simulated `manual` row" — which on an
+        // unclassifiable key would DEBIT a real balance and pay out nothing.
+        // Refuse before the balance is touched.
+        refuseIfIndeterminate('withdrawal')
+
         def wallet = walletRepository.findById(walletId)
                 .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
 
@@ -2956,6 +3025,25 @@ class StripeService {
      * frontend redirects to locally. */
     @Transactional
     Map devModeDeposit(Long walletId, BigDecimal amount) {
+        // THE DOOR CHECKS ITS OWN LOCK.
+        //
+        // Per this repo's recurring "correct logic nobody calls" failure, a
+        // guard that lives only at the call site is one careless future caller
+        // away from being bypassed — and this method credits a real wallet
+        // balance against no payment. It re-asserts the authorisation itself,
+        // so it cannot be reached from anywhere by a deployment that is not
+        // affirmatively SIMULATED, regardless of what the caller checked.
+        //
+        // This is an IllegalStateException, not a BadRequestException: reaching
+        // here on a non-simulated deployment is a programming error, not
+        // anything the user did.
+        if (!moneyMode().devFallbackAuthorized()) {
+            log.error("devModeDeposit reached on a ${moneyMode()} deployment for wallet ${walletId} — " +
+                      'refusing to credit a wallet against no payment')
+            throw new IllegalStateException(
+                "devModeDeposit is only authorised when the deployment is SIMULATED (no Stripe key / a " +
+                "committed placeholder); this deployment is ${moneyMode()}")
+        }
         // Same positive + cap validation as the live Stripe path. Without
         // these guards, a dev deployment without Stripe keys (or a
         // misconfigured prod rollout that lost its keys) would accept

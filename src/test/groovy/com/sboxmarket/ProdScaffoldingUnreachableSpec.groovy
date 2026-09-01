@@ -165,11 +165,35 @@ class ProdScaffoldingUnreachableSpec extends Specification {
         guardedResult.statusCode == HttpStatus.NOT_FOUND
         openResult.statusCode == HttpStatus.NOT_FOUND
 
-        and: 'the guard 404 carries NO body'
-        guardedResult.body == null
+        and: 'the guard 404 now SAYS SO — a shut door emits a signal of its own'
+        guardedResult.body == [error: SteamAuthController.DEV_LOGIN_DISABLED]
 
         and: 'the open-door 404 names the real reason, and that reason is not the guard'
-        openResult.body == [error: 'no seed users']
+        openResult.body == [error: SteamAuthController.DEV_LOGIN_NO_SEED_USERS]
+
+        and: 'the two bodies are different, which is the only thing that separates them'
+        guardedResult.body != openResult.body
+    }
+
+    /**
+     * The guard used to answer with an EMPTY 404 — which is also what a missing
+     * route, a typo'd path, and a dead server produce. Proving a door is shut
+     * on an absence is the repo's "absence read as success" defect; the fix is
+     * that the shut door speaks.
+     */
+    def "the shut door emits a positive signal, not an absence"() {
+        given:
+        def controller = controllerWithUser(realEnv(['prod']), new SteamUser(id: 7L))
+
+        when:
+        def result = controller.devLogin(7L, '/profile', Mock(HttpServletRequest), Mock(HttpServletResponse))
+
+        then: 'there IS a body, and it is the guard that wrote it'
+        result.body != null
+        result.body.error == SteamAuthController.DEV_LOGIN_DISABLED
+
+        and: 'and it cannot be confused with the decoy that fooled a live probe'
+        result.body.error != SteamAuthController.DEV_LOGIN_NO_SEED_USERS
     }
 
     // ── DOOR 2: the dev deposit ─────────────────────────────────────
@@ -254,17 +278,82 @@ class ProdScaffoldingUnreachableSpec extends Specification {
      * true — createDepositSession must actually be the only way into
      * devModeDeposit, and !isLive() must be the only thing that opens it.
      */
-    def "devModeDeposit has exactly one production caller, guarded by !isLive()"() {
+    def "devModeDeposit has exactly one production caller, guarded by devFallbackAuthorized()"() {
         given:
         String src = new File('src/main/groovy/com/sboxmarket/service/StripeService.groovy').text
 
-        expect: 'the fallthrough is inside a !isLive() branch'
-        (src =~ /if\s*\(\s*!isLive\(\)\s*\)\s*\{[^}]*devModeDeposit\(/).find()
+        expect: 'the fallthrough is inside an AFFIRMATIVE authorisation branch'
+        (src =~ /if\s*\(\s*moneyMode\(\)\.devFallbackAuthorized\(\)\s*\)\s*\{[^}]*devModeDeposit\(/).find()
+
+        and: 'NOT inside the negation of isLive(), which is what made an unrecognised key free money'
+        !(src =~ /if\s*\(\s*!isLive\(\)\s*\)\s*\{[^}]*devModeDeposit\(/).find()
 
         and: 'and that is the only call site outside comments'
         src.readLines()
            .findAll { it.contains('devModeDeposit(') }
            .findAll { !it.trim().startsWith('*') && !it.trim().startsWith('//') }
            .size() == 2   // the declaration and the single guarded call
+    }
+
+    /**
+     * BY CONSTRUCTION, not by the caller. Per this repo's recurring "correct
+     * logic nobody calls" failure, a guard that lives only at the call site is
+     * one careless future caller away from being bypassed — and this method
+     * credits a real wallet balance against no payment.
+     *
+     * Driven through the METHOD, not through a source scan, so it is the
+     * behaviour that is pinned rather than the text.
+     */
+    @Unroll
+    def "devModeDeposit refuses to run at all on a #mode deployment"() {
+        given: 'the method is called DIRECTLY, as a future caller that forgot the guard would'
+        def stripe = new StripeService(secretKey: key)
+
+        when:
+        stripe.devModeDeposit(1L, new BigDecimal('10.00'))
+
+        then: 'it refuses before touching a repository — no wallet lookup, no credit'
+        def e = thrown(IllegalStateException)
+        e.message.contains(mode)
+
+        and: 'sanity: it refused because of the mode, not because collaborators were unwired'
+        stripe.moneyMode().toString() == mode
+
+        where:
+        mode            | key
+        'LIVE'          | 'sk_live_' + ('0' * 24)
+        'LIVE'          | 'rk_live_' + ('0' * 24)
+        'TEST'          | 'sk_test_' + ('0' * 24)
+        'INDETERMINATE' | 'sk_live_replace_me' + ('0' * 8)
+        'INDETERMINATE' | 'pk_live_' + ('0' * 24)
+        'INDETERMINATE' | 'changeme'
+    }
+
+    /**
+     * The half of the invariant commit e11b012 could not reach.
+     *
+     * {@link ProdConfigValidator} is {@code @Profile('prod')}, so its rejection
+     * of {@code sk_live_replace_me…} protects only a prod boot. The deposit
+     * door is NOT profile-gated, and the live JVM ran the DEFAULT profile — so
+     * the same key still met a false {@code isLive()} and fell through to
+     * {@code devModeDeposit}. The fix has to hold with no profile at all.
+     */
+    @Unroll
+    def "the free-deposit path is shut on the DEFAULT profile too: #label"() {
+        given: 'no prod profile, so ProdConfigValidator never runs'
+        def stripe = new StripeService(secretKey: key)
+
+        expect: 'only an affirmatively-unconfigured deployment may fabricate a credit'
+        stripe.moneyMode().devFallbackAuthorized() == fallbackAllowed
+
+        where:
+        label                          | key                              || fallbackAllowed
+        'the committed placeholder'    | 'sk_test_replace_me'             || true
+        'no key at all'                | null                             || true
+        'live-shaped with replace_me'  | 'sk_live_replace_me' + ('0' * 8) || false
+        'a real live key'              | 'sk_live_' + ('0' * 24)          || false
+        'a restricted live key'        | 'rk_live_' + ('0' * 24)          || false
+        'the publishable key pasted in'| 'pk_live_' + ('0' * 24)          || false
+        'a human placeholder'          | 'changeme'                       || false
     }
 }

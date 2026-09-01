@@ -21,11 +21,15 @@ is false, and `LiveMoneyGuard.isRealMoney()` is false. That unlocks the dev scaf
 Both were reachable on the public domain on 2026-08-31 and closed by taking the domain down.
 Publishing the tunnel again without the prod profile re-opens both.
 
-> **A 404 from dev-login is NOT proof the door is shut.** The controller has two 404s: the
-> guard's (empty body) and "that user id doesn't exist" (`{"error":"no seed users"}`). On
+> **A 404 from dev-login is NOT proof the door is shut.** The controller has two 404s. On
 > 2026-09-01 the live endpoint answered 404 **through the second branch** — the guard had
-> already been passed. Always read the body. This is pinned by
-> `ProdScaffoldingUnreachableSpec`.
+> already been passed, and the only reason nothing was minted is that no user carried the id
+> asked for. Always read the body. Pinned by `ProdScaffoldingUnreachableSpec`.
+>
+> As of 2026-09-01 the guard's 404 carries `{"error":"dev-login disabled: real-money
+> deployment"}` instead of an empty body, so a shut door emits a signal of its own.
+> `{"error":"no seed users"}` still means the guard was passed; an **empty** body now means
+> neither branch answered (wrong path, wrong host, dead server) and proves nothing.
 
 ## What actually runs today (measured 2026-09-01, not assumed)
 
@@ -203,8 +207,13 @@ grep "Prod config validation passed" /var/log/skinbox/skinbox.log
 # b) dev-login is dead — and check the BODY, not just the status.
 curl -s -i http://localhost:8082/api/auth/steam/dev-login | head -1
 curl -s    http://localhost:8082/api/auth/steam/dev-login
-#    -> 404 with an EMPTY body.
-#    -> {"error":"no seed users"} means the guard was PASSED. Prod is NOT active. Stop.
+#    -> {"error":"dev-login disabled: real-money deployment"}  = PASS. The guard
+#       answered. This is a POSITIVE signal from the door itself.
+#    -> {"error":"no seed users"}  = FAIL. The guard was PASSED and the only
+#       reason nothing was minted is that no user carried that id. Stop.
+#    -> an EMPTY 404 body = FAIL, or at least "unproven". It used to be the pass
+#       condition, and it is the same response a missing route, a typo'd path or
+#       a dead server gives. Never accept an absence as proof.
 
 # c) The app is up.
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8082/api/health   # 200
@@ -212,6 +221,9 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8082/api/health   # 20
 # d) Deposits go to Stripe, not to the dev credit path.
 #    In the Wallet UI, a deposit must redirect to a checkout.stripe.com URL.
 #    A response with "live": false and a "dev_…" reference means devModeDeposit ran.
+#    A 400 with code STRIPE_MODE_INDETERMINATE means the secret key is set to
+#    something the app cannot classify as either live or unconfigured — it is
+#    REFUSING rather than falling back to the free-credit path. Fix the key.
 ```
 
 ### 7. Only then: fix the cloudflared service

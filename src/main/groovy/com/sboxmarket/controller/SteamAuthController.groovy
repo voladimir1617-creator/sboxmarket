@@ -32,6 +32,19 @@ class SteamAuthController {
      *  deep links, short enough that an attacker can't smuggle anything large. */
     static final int NEXT_MAX_LEN = 200
 
+    /** The body the dev-login GUARD returns, so a shut door is provable rather
+     *  than merely quiet. The other 404 on this endpoint carries
+     *  {@link #DEV_LOGIN_NO_SEED_USERS}, which means the guard was PASSED —
+     *  the two are indistinguishable by status code, which is exactly how a
+     *  live, wide-open endpoint was once read as closed. Verification scripts
+     *  and specs must assert on these strings, never on the 404 alone. */
+    static final String DEV_LOGIN_DISABLED = 'dev-login disabled: real-money deployment'
+
+    /** The body of the OTHER 404 — reached only AFTER the guard has been
+     *  passed, when no user carries the requested id. Its presence is proof the
+     *  door is OPEN. */
+    static final String DEV_LOGIN_NO_SEED_USERS = 'no seed users'
+
     @Autowired SteamAuthService steamAuthService
     @Autowired SteamUserRepository steamUserRepository
     @Autowired(required = false) com.sboxmarket.service.AuditService auditService
@@ -62,12 +75,23 @@ class SteamAuthController {
                  @RequestParam(required = false, defaultValue = "/profile") String next,
                  HttpServletRequest req, HttpServletResponse resp) {
         if (LiveMoneyGuard.isRealMoney(env)) {
-            log.warn("dev-login refused — real-money deployment (profiles={})", env.activeProfiles)
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build()
+            log.warn("dev-login refused — real-money deployment (profiles={})", env?.activeProfiles)
+            // The body is the POINT, not decoration. This branch used to return
+            // `.build()` — an empty 404, indistinguishable from Spring's own
+            // "no such route" and from the OTHER 404 below. On 2026-09-01 the
+            // live endpoint answered 404 through that other branch
+            // (`{"error":"no seed users"}`) and the empty-vs-present body was
+            // the only thing separating "the guard held" from "the guard was
+            // passed and nothing happened to match the id I asked for".
+            //
+            // Proving a door is shut requires a signal FROM the door. An
+            // absence is not a proof — it is the same absence a missing route,
+            // a typo'd path, or a dead server produces.
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body([error: DEV_LOGIN_DISABLED])
         }
         SteamUser user = userId != null ? steamUserRepository.findById(userId).orElse(null)
                                         : steamUserRepository.findAll().find { it != null }
-        if (user == null) { return ResponseEntity.status(HttpStatus.NOT_FOUND).body([error: 'no seed users']) }
+        if (user == null) { return ResponseEntity.status(HttpStatus.NOT_FOUND).body([error: DEV_LOGIN_NO_SEED_USERS]) }
         try { req.session?.invalidate() } catch (Exception ignore) {}
         def fresh = req.getSession(true)
         fresh.setAttribute(SESSION_USER_ID, user.id)

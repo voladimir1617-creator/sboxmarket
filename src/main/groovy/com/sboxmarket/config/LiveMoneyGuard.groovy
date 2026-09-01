@@ -50,19 +50,34 @@ import org.springframework.stereotype.Component
  * relaxes the other, and the guard can only ever make the app MORE
  * restrictive than the profile alone would.
  *
- * <h3>Deliberately not a fail-closed default</h3>
+ * <h3>Not a fail-OPEN default any more</h3>
  *
- * An unset key with no {@code prod} profile reads as "not real money", which
- * keeps every existing local-dev and CI workflow working untouched. The
- * guard's job is to catch the misconfigured PRODUCTION box, where the live
- * key is present by definition; it is not a way to lock down developer
- * laptops, and making it one would only teach people to switch it off.
+ * An unset key with no {@code prod} profile still reads as "not real money",
+ * which keeps every existing local-dev and CI workflow working untouched — an
+ * absent key is a clear answer, not a missing one. But a key that is SET and
+ * unrecognisable is no longer waved through as a developer laptop: see
+ * {@link MoneyMode#INDETERMINATE}.
+ *
+ * <h3>This class no longer decides anything</h3>
+ *
+ * It is a thin projection of {@link MoneyMode}, which is the single authority.
+ * Its own copy of the rule ({@code prod} profile OR the key starts with
+ * {@code sk_live_}) disagreed with {@link ProdConfigValidator} about
+ * {@code rk_live_} — a restricted live key that the validator explicitly
+ * blesses and this guard did not recognise — so a deployment charging real
+ * cards with a restricted key served {@code /api/auth/steam/dev-login} to
+ * anyone who asked. Keeping the API and deleting the duplicate rule is the
+ * whole fix.
  */
 @Component
 @Slf4j
 class LiveMoneyGuard {
 
-    /** Prefix of a Stripe LIVE-mode secret key. Test keys are `sk_test_`. */
+    /** Prefix of a Stripe LIVE-mode secret key.
+     *  @deprecated the authoritative list is {@link MoneyMode#LIVE_PREFIXES},
+     *  which also carries {@code rk_live_}. Kept only so an existing reference
+     *  does not silently resolve to a stale rule. */
+    @Deprecated
     static final String LIVE_KEY_PREFIX = 'sk_live_'
 
     @Autowired
@@ -79,15 +94,12 @@ class LiveMoneyGuard {
      * {@link ProdConfigValidator#findViolations}, and so callers that already
      * hold an Environment (controllers) need not take a new dependency.
      *
-     * Reads the resolved {@code stripe.secret-key} property rather than the
-     * raw {@code STRIPE_SECRET_KEY} env var so it sees the value the app is
-     * ACTUALLY using — including one supplied by a mounted config file or a
-     * secrets manager rather than the process environment.
+     * Delegates to {@link MoneyMode#of(Environment)} so this guard,
+     * {@code StripeService} and {@link ProdConfigValidator} cannot answer
+     * "is this real money?" differently. A {@code null} Environment is a
+     * MISSING ANSWER and therefore counts as real money — the doors shut.
      */
     static boolean isRealMoney(Environment env) {
-        if (env == null) return false
-        if (env.activeProfiles?.toList()?.contains('prod')) return true
-        String key = env.getProperty('stripe.secret-key') ?: env.getProperty('STRIPE_SECRET_KEY')
-        return key != null && key.trim().startsWith(LIVE_KEY_PREFIX)
+        MoneyMode.of(env).handlesRealMoney()
     }
 }

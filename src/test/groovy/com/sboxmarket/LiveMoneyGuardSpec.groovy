@@ -70,9 +70,39 @@ class LiveMoneyGuardSpec extends Specification {
         LiveMoneyGuard.isRealMoney(env([], '  sk_live_abc  '))
     }
 
-    def "a null Environment is not treated as real money"() {
-        expect: "a context-less caller must not be locked out of its own tests"
-        !LiveMoneyGuard.isRealMoney(null)
+    /**
+     * FLIPPED 2026-09-01. This used to assert {@code !isRealMoney(null)} —
+     * "a context-less caller must not be locked out of its own tests".
+     *
+     * That is the same permissive default that every hole in this guard's
+     * history came from: a MISSING answer read as "no". A null Environment in
+     * production means the guard was never wired, and the safe reading of "I
+     * cannot tell" is "assume real money and shut the door". Tests that need a
+     * decision pass a real Environment — {@code ProdScaffoldingUnreachableSpec}
+     * and {@code MoneyModeSpec} both drive a StandardEnvironment.
+     */
+    def "a null Environment is a missing answer, and a missing answer is real money"() {
+        expect: "the door shuts when the guard cannot see its own configuration"
+        LiveMoneyGuard.isRealMoney(null)
+    }
+
+    @Unroll
+    def "a RESTRICTED live key (#label) is real money — the prefix this guard used to miss"() {
+        expect: "ProdConfigValidator blesses rk_live_ as a production key; so must this"
+        LiveMoneyGuard.isRealMoney(env([], key))
+
+        and: """recognised AS LIVE, not merely as unclassifiable.
+
+             Without this line the case is decoration: deleting `rk_live_` from
+             the prefix list makes the key INDETERMINATE, which ALSO returns
+             true from isRealMoney — so the assertion above passes with the bug
+             reintroduced. Verified by mutation on 2026-09-01."""
+        com.sboxmarket.config.MoneyMode.of(env([], key)) == com.sboxmarket.config.MoneyMode.LIVE
+
+        where:
+        label            | key
+        'plain'          | 'rk_live_' + ('0' * 24)
+        'with whitespace'| '  rk_live_' + ('0' * 24) + '  '
     }
 
     // ── dev-login ───────────────────────────────────────────────────

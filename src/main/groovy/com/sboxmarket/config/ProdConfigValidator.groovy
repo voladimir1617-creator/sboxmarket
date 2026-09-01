@@ -72,8 +72,14 @@ class ProdConfigValidator {
     /** Prefixes a *live* Stripe secret may carry. `rk_live_` (a restricted
      *  key, scoped to only the permissions this deployment needs) is a
      *  legitimate — arguably better — production choice than a full-access
-     *  `sk_live_`, so both are accepted. */
-    static final List<String> STRIPE_LIVE_SECRET_PREFIXES = ['sk_live_', 'rk_live_'].asImmutable()
+     *  `sk_live_`, so both are accepted.
+     *
+     *  Taken FROM {@link MoneyMode} rather than restated here. This list used
+     *  to be a second copy, and `LiveMoneyGuard` held a third that knew only
+     *  `sk_live_` — so a deployment running on a restricted live key was
+     *  blessed by this validator while the guard reported it as not-real-money
+     *  and served dev-login to strangers. One list, one answer. */
+    static final List<String> STRIPE_LIVE_SECRET_PREFIXES = MoneyMode.LIVE_PREFIXES
 
     /** Live publishable keys. This one is not secret (it ships to the browser),
      *  but a `pk_test_` here still means the Checkout the customer sees is a
@@ -97,8 +103,14 @@ class ProdConfigValidator {
      *
      *  No real Stripe key contains this marker, so rejecting it cannot lock
      *  out a legitimate deploy. Pinned by ProdScaffoldingUnreachableSpec,
-     *  which asserts the two checks can never disagree. */
-    static final String STRIPE_DEV_KEY_MARKER = 'replace_me'
+     *  which asserts the two checks can never disagree.
+     *
+     *  Taken from {@link MoneyMode} for the same reason as the prefix list —
+     *  and the disagreement it describes is now closed at the source too:
+     *  a live prefix carrying this marker classifies
+     *  {@link MoneyMode#INDETERMINATE}, so it opens no door on ANY profile,
+     *  not just the one where this validator runs. */
+    static final String STRIPE_DEV_KEY_MARKER = MoneyMode.DEV_MARKER
 
     /** Minimum number of characters AFTER the prefix. Real Stripe keys and
      *  signing secrets carry far more than this; the threshold exists to catch
@@ -211,6 +223,26 @@ class ProdConfigValidator {
                 'StripeService.isLive() tests for exactly this substring and would report the ' +
                 'deployment as NOT live — routing every deposit into devModeDeposit, which credits ' +
                 'the wallet against no payment.'.toString())
+        } else if (stripeKey != null && !stripeKey.trim().isEmpty() &&
+                   MoneyMode.ofKey(stripeKey) != MoneyMode.LIVE) {
+            // BY-CONSTRUCTION BACKSTOP, and the reason the invariant is now a
+            // property of the code rather than of two lists staying in sync.
+            //
+            // The branches above produce good, specific diagnostics — keep
+            // them. But each of them is a RESTATEMENT of a rule that also lives
+            // in MoneyMode, and every hole found so far was a restatement that
+            // drifted. This clause asks the authority directly: if the app
+            // would not classify this key LIVE, prod does not boot on it, no
+            // matter which specific branch above happened to miss it.
+            //
+            // Unreachable today — every value MoneyMode rejects is also caught
+            // above. That is the point: it is what makes "accepted here ⇒ LIVE
+            // there" true even after someone adds a prefix to one place only.
+            violations.add('STRIPE_SECRET_KEY does not classify as a LIVE deployment ' +
+                "(MoneyMode.ofKey → ${MoneyMode.ofKey(stripeKey)}) — refusing to start. " +
+                'A key this validator accepts MUST leave the app in live mode; otherwise the ' +
+                'deployment boots reporting a clean config while the money path runs the ' +
+                'simulated fallback. (The value is not shown here because it may be a real secret.)'.toString())
         }
 
         String publishableKey = environment.getProperty('STRIPE_PUBLISHABLE_KEY')
