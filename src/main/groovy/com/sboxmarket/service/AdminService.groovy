@@ -107,7 +107,25 @@ class AdminService {
         banGuard.assertNotBanned(userId)
     }
 
-    /** Called by SteamAuthService.upsertUser when a session is established. */
+    /** Called by SteamAuthService.upsertUser when a session is established —
+     *  on EVERY login, not only the first. That is deliberate (it is the
+     *  no-database-access recovery path for an operator who has locked
+     *  themselves out) but it has a consequence worth stating plainly: while
+     *  a Steam ID is in `admin.bootstrap-steam-ids`, it is a STANDING grant,
+     *  not a one-time bootstrap. `revokeAdmin` on such a user is undone at
+     *  their next login.
+     *
+     *  That used to happen with no trace at all: this is the one path that
+     *  can flip STEAM_USERS.ROLE to ADMIN with no admin in the loop, and it
+     *  wrote only a log line — so a persisted ADMIN role could not be told
+     *  apart from one an admin deliberately granted. It now writes the same
+     *  ADMIN_GRANTED audit row `grantAdmin` writes, with a NULL actor to mean
+     *  "granted by configuration, not by a person". Only on the transition,
+     *  so a bootstrap admin logging in daily does not spam the audit log.
+     *
+     *  The audit write is best-effort and swallowed: AuditService.log runs
+     *  reads on the caller's transaction, and a transient failure there must
+     *  not roll back a login. */
     @Transactional
     void promoteBootstrapAdmin(SteamUser user) {
         if (!bootstrapIds || !user?.steamId64) return
@@ -115,7 +133,15 @@ class AdminService {
         if (user.steamId64 in ids && user.role != 'ADMIN') {
             user.role = 'ADMIN'
             steamUserRepository.save(user)
-            log.info("Bootstrapped admin: ${user.steamId64}")
+            log.warn("Bootstrapped admin: ${user.steamId64} promoted to ADMIN by admin.bootstrap-steam-ids " +
+                     '(no admin approved this — it is a config grant). If this user was deliberately ' +
+                     'revoked, remove the ID from ADMIN_BOOTSTRAP_STEAM_IDS or it will re-promote on every login.')
+            try {
+                auditService?.log(AuditService.ADMIN_GRANTED, null, user.id, null,
+                    "Auto-promoted to ADMIN by admin.bootstrap-steam-ids (config grant, no acting admin): ${user.steamId64}")
+            } catch (Exception e) {
+                log.warn("ADMIN_GRANTED audit-log failed for bootstrap promotion of ${user.steamId64}: ${e.message}")
+            }
         }
     }
 

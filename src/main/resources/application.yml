@@ -296,11 +296,35 @@ steam:
 
 admin:
   # Comma-separated list of Steam ID 64s that get auto-promoted to ADMIN on
-  # login. The default below bakes in the operator's Steam ID so they're
-  # admin automatically on first boot with no env-var setup. Override at
-  # deploy time by setting ADMIN_BOOTSTRAP_STEAM_IDS (comma-separated) to
-  # add more admins or swap the owner.
-  bootstrap-steam-ids: ${ADMIN_BOOTSTRAP_STEAM_IDS:76561199839805014}
+  # login. THE DEFAULT IS EMPTY ON PURPOSE — see below. Set
+  # ADMIN_BOOTSTRAP_STEAM_IDS at deploy time to nominate the owner.
+  #
+  # This used to default to a Steam ID committed in this file, which meant
+  # "anyone who can log in as that account is admin" was a property of the
+  # SOURCE rather than of the deployment. The ID is deliberately not repeated
+  # here even as prose, so that grepping the config for a bare Steam ID stays a
+  # decisive check. Two things made that default worse than it looks, and they
+  # compounded instead of backing each other up:
+  #
+  #   1. ProdConfigValidator lists ADMIN_BOOTSTRAP_STEAM_IDS as REQUIRED, but
+  #      it is @Profile('prod'). The default here applies on every OTHER
+  #      profile. So the single lost SPRING_PROFILES_ACTIVE that silences the
+  #      validator is the same one that switches the committed default ON —
+  #      the guard and the hazard sat on opposite profiles. An empty default
+  #      puts them on the same side: lose the profile now and you get NO
+  #      admin, not a hardcoded one.
+  #
+  #   2. SteamAuthService.upsertUser calls promoteBootstrapAdmin on EVERY
+  #      login, not just the first. A listed ID is therefore a standing grant,
+  #      not a one-time bootstrap: revokeAdmin is silently undone at that
+  #      user's next login for as long as the ID is in this list. The
+  #      promotion is now audited (AuditService.ADMIN_GRANTED, actor null =
+  #      "granted by configuration, not by an admin") so a re-promotion after
+  #      a deliberate revocation is visible instead of silent. To actually
+  #      demote a bootstrap admin you must BOTH remove the ID from this list
+  #      AND call revokeAdmin — the role is persisted in STEAM_USERS.ROLE, so
+  #      emptying the list alone demotes nobody who is already ADMIN.
+  bootstrap-steam-ids: ${ADMIN_BOOTSTRAP_STEAM_IDS:}
 
 csr:
   # Maximum size of a single CSR goodwill credit, in USD. Anything above

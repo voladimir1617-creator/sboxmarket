@@ -22,12 +22,17 @@ import jakarta.servlet.http.HttpSession
  * admins included.
  *
  * Its gate was {@code env.activeProfiles.contains('prod')}. So is the demo
- * seeder's ({@code @Profile("!prod")}), so is {@link
- * com.sboxmarket.config.ProdConfigValidator}'s, and so is the override that
- * replaces application.yml's DEFAULT admin-bootstrap Steam id with a mandatory
- * env var. One missing, misspelled, or orchestrator-stripped
- * {@code SPRING_PROFILES_ACTIVE} loses all four at once — silently, on a box
- * that boots normally and takes real card payments.
+ * seeder's ({@code @Profile("!prod")}), and so is {@link
+ * com.sboxmarket.config.ProdConfigValidator}'s. One missing, misspelled, or
+ * orchestrator-stripped {@code SPRING_PROFILES_ACTIVE} loses all three at once
+ * — silently, on a box that boots normally and takes real card payments.
+ *
+ * A fourth used to belong on that list: application.yml carried a DEFAULT
+ * admin-bootstrap Steam id and application-prod.yml replaced it with a
+ * mandatory env var, so the same lost profile that silenced the validator also
+ * switched a committed admin ON. That one is gone rather than double-guarded —
+ * the default is now empty, so losing the profile yields no admin at all. See
+ * {@link AdminBootstrapIsNotCommittedSpec}.
  *
  * {@link LiveMoneyGuard} adds a second lock keyed on a fact that travels in its
  * own variable and cannot be forgotten: a {@code sk_live_} Stripe secret key is
