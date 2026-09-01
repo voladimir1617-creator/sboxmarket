@@ -492,10 +492,24 @@ sboxmarket/
 
 ## Seeded Data
 
-On startup, **SeedService** automatically seeds:
-- **30 real s&box items** (Neck Tattoo $1,227 → Fisherman Hat $1.99)
-- **3–7 listings per item** with randomised prices & sellers
-- **30 days of price history** per item with realistic trend simulation
+**Seeding is OPT-IN and fail-closed. It does NOT run on startup.** It requires
+`sbox.seed.demo-data=true`, or a deliberately activated `dev`/`test` profile. A
+bare `default` profile seeds nothing, and that is the point: the previous gates
+asked "is this obviously production?" rather than "is this a dev box?", so a
+`default` profile with a `sk_test_` Stripe key passed both and a fresh boot
+invented a market.
+
+What it fabricates when you DO opt in — worth knowing, because it is what a real
+buyer would otherwise be pricing against:
+- **30 s&box items**, **85 active listings**, **6 invented sellers** holding 50
+- **56 bids**, **171 SOLD rows**, and **3,510 price-history points**
+
+The sold rows and the 90-day charts are the dangerous half. Item names and Steam
+CDN renders are genuine (app 590830), so fabricated trades look real.
+
+To clear a database that was seeded before this gate existed:
+`sbox.seed.purge-demo-data=true` (deliberately not profile-restricted, so it can
+run wherever the bad data is).
 
 ---
 
