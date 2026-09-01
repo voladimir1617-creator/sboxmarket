@@ -37,9 +37,14 @@ class ProdConfigValidatorSpec extends Specification {
             SPRING_DATASOURCE_PASSWORD: 's3cr3t',
             CORS_ALLOWED_ORIGINS:       'https://skinbox.market',
             ADMIN_BOOTSTRAP_STEAM_IDS:  '76561197960287930',
-            STRIPE_SECRET_KEY:          'sk_live_abc123',
-            STRIPE_PUBLISHABLE_KEY:     'pk_live_abc123',
-            STRIPE_WEBHOOK_SECRET:      'whsec_abc123',
+            // Structurally live-shaped but transparently synthetic (all-zero
+            // bodies). These are NOT credentials and cannot authenticate to
+            // anything; they exist only to satisfy the shape checks below so
+            // that a test driving one specific failure isn't also tripping the
+            // others. Length matters: the guard rejects a truncated key.
+            STRIPE_SECRET_KEY:          'sk_live_' + ('0' * 24),
+            STRIPE_PUBLISHABLE_KEY:     'pk_live_' + ('0' * 24),
+            STRIPE_WEBHOOK_SECRET:      'whsec_' + ('0' * 32),
             STRIPE_SUCCESS_URL:         'https://skinbox.market/deposit/success',
             STRIPE_CANCEL_URL:          'https://skinbox.market/deposit/cancel',
             STEAM_REALM:                'https://skinbox.market',
@@ -179,5 +184,133 @@ class ProdConfigValidatorSpec extends Specification {
     def "the dev placeholder constant matches the value committed in EmailService"() {
         expect: 'guard against the constant drifting from EmailService.groovy:64'
         ProdConfigValidator.DEV_UNSUBSCRIBE_PLACEHOLDER == 'dev-only-do-not-use-in-production-7f3a9c'
+    }
+
+    /* ── The isLive() trap ────────────────────────────────────────────
+     * StripeService.isLive() is only:
+     *
+     *     secretKey && !secretKey.contains("replace_me")
+     *
+     * so ANY non-blank value that doesn't contain that literal flips the
+     * service into live mode. Before these guards, the sk_test_ check was
+     * the ONLY structural check on the key — which left a whole family of
+     * plausible-but-wrong values that boot "live" and fail at the FIRST
+     * REAL CHARGE, i.e. in front of a paying customer:
+     *
+     *   - the publishable key pasted into the secret slot (easy to do:
+     *     the dashboard shows both together, and only one is secret)
+     *   - the webhook signing secret pasted into the secret slot
+     *   - a truncated copy-paste (`sk_live_` + a few chars)
+     *   - a human placeholder: "changeme", "TODO", "dummy"
+     *
+     * Failing at boot instead is the whole point of this class. */
+    def "STRIPE_SECRET_KEY that is live-reading but structurally wrong (#badKey) → refuse to start"() {
+        given: 'a non-blank secret key that isLive() would happily accept'
+        Map<String, String> env = validEnv()
+        env.STRIPE_SECRET_KEY = badKey
+        stubEnv(env)
+
+        when:
+        List<String> violations = validator.findViolations()
+
+        then: 'rejected at boot, naming the var — never left to fail at the first charge'
+        violations.size() == 1
+        violations[0].contains('STRIPE_SECRET_KEY')
+        violations[0].toLowerCase().contains('refusing to start')
+
+        where:
+        badKey << [
+            'pk_live_' + ('0' * 24),   // publishable key in the secret slot
+            'whsec_' + ('0' * 32),     // webhook secret in the secret slot
+            'sk_live_abc',             // truncated copy-paste
+            'sk_live_',                // prefix only
+            'changeme',
+            'TODO',
+            'dummy',
+            'your-secret-key-here',
+        ]
+    }
+
+    /* The compose file's own default. ProdConfigValidator rejected
+     * `whsec_replace_me` but NOT `whsec_dummy`, so the documented
+     * `docker compose up` path booted a "live" app whose every webhook
+     * failed signature verification — the card is charged and the wallet is
+     * NEVER credited, because completeDeposit only ever runs off a verified
+     * event. Silent, and on the money path. */
+    def "STRIPE_WEBHOOK_SECRET that is a dummy or truncated value (#badSecret) → refuse to start"() {
+        given:
+        Map<String, String> env = validEnv()
+        env.STRIPE_WEBHOOK_SECRET = badSecret
+        stubEnv(env)
+
+        when:
+        List<String> violations = validator.findViolations()
+
+        then:
+        violations.size() == 1
+        violations[0].contains('STRIPE_WEBHOOK_SECRET')
+        violations[0].toLowerCase().contains('refusing to start')
+
+        where:
+        badSecret << [
+            'whsec_dummy',             // the docker-compose.yml default
+            'whsec_',
+            'sk_live_' + ('0' * 24),   // secret key in the webhook slot
+            'changeme',
+        ]
+    }
+
+    def "STRIPE_PUBLISHABLE_KEY that is a test or junk key (#badKey) → refuse to start"() {
+        given:
+        Map<String, String> env = validEnv()
+        env.STRIPE_PUBLISHABLE_KEY = badKey
+        stubEnv(env)
+
+        when:
+        List<String> violations = validator.findViolations()
+
+        then:
+        violations.size() == 1
+        violations[0].contains('STRIPE_PUBLISHABLE_KEY')
+        violations[0].toLowerCase().contains('refusing to start')
+
+        where:
+        badKey << [
+            'pk_test_dummy',           // the docker-compose.yml default
+            'pk_live_abc',             // truncated
+            'sk_live_' + ('0' * 24),   // SECRET key in the publishable slot
+            'changeme',
+        ]
+    }
+
+    /* A restricted key (rk_live_) is a legitimate production choice — it is
+     * how you give a deployment only the scopes it needs. The guard must not
+     * force the operator onto a full-access key. */
+    def "a live restricted key (rk_live_) is accepted"() {
+        given:
+        Map<String, String> env = validEnv()
+        env.STRIPE_SECRET_KEY = 'rk_live_' + ('0' * 24)
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().isEmpty()
+    }
+
+    /* Pins the exact docker-compose.yml defaults. If someone re-adds a
+     * plausible default for the secret key, or relaxes these, this fails. */
+    def "the docker-compose defaults cannot boot a prod instance"() {
+        given: 'the compose defaults for the two Stripe vars that HAVE defaults'
+        Map<String, String> env = validEnv()
+        env.STRIPE_PUBLISHABLE_KEY = 'pk_test_dummy'
+        env.STRIPE_WEBHOOK_SECRET = 'whsec_dummy'
+        stubEnv(env)
+
+        when:
+        List<String> violations = validator.findViolations()
+
+        then: 'both are refused — neither silently reaches a real customer'
+        violations.size() == 2
+        violations.any { it.contains('STRIPE_PUBLISHABLE_KEY') }
+        violations.any { it.contains('STRIPE_WEBHOOK_SECRET') }
     }
 }

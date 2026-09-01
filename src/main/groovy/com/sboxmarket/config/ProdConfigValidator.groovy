@@ -69,6 +69,40 @@ class ProdConfigValidator {
      *  the sk_test_ / DEV_UNSUBSCRIBE_PLACEHOLDER guards. */
     static final String STRIPE_WEBHOOK_PLACEHOLDER = 'whsec_replace_me'
 
+    /** Prefixes a *live* Stripe secret may carry. `rk_live_` (a restricted
+     *  key, scoped to only the permissions this deployment needs) is a
+     *  legitimate — arguably better — production choice than a full-access
+     *  `sk_live_`, so both are accepted. */
+    static final List<String> STRIPE_LIVE_SECRET_PREFIXES = ['sk_live_', 'rk_live_'].asImmutable()
+
+    /** Live publishable keys. This one is not secret (it ships to the browser),
+     *  but a `pk_test_` here still means the Checkout the customer sees is a
+     *  test-mode Checkout. */
+    static final String STRIPE_LIVE_PUBLISHABLE_PREFIX = 'pk_live_'
+
+    /** Stripe webhook signing secrets. */
+    static final String STRIPE_WEBHOOK_PREFIX = 'whsec_'
+
+    /** Minimum number of characters AFTER the prefix. Real Stripe keys and
+     *  signing secrets carry far more than this; the threshold exists to catch
+     *  a truncated copy-paste (`sk_live_abc`) and short human placeholders
+     *  (`whsec_dummy`), not to police Stripe's exact key length — which Stripe
+     *  has changed before and may change again. */
+    static final int STRIPE_MIN_BODY_CHARS = 16
+
+    /**
+     * True when {@code value} starts with one of {@code prefixes} AND carries at
+     * least {@link #STRIPE_MIN_BODY_CHARS} characters after it.
+     *
+     * Deliberately a shape check, not a validity check: only Stripe can say
+     * whether a well-formed key is a real one. The point is to convert the
+     * failures we CAN detect locally from a first-charge failure into a boot
+     * failure.
+     */
+    private static boolean wellFormedStripeValue(String value, List<String> prefixes, int minBody) {
+        prefixes.any { String p -> value.startsWith(p) && (value.length() - p.length()) >= minBody }
+    }
+
     /** Every env var that application-prod.yml templates as a bare `${VAR}`
      *  with no default and that the app cannot meaningfully run without.
      *  (STEAM_API_KEY, ACTUATOR_PORT, COOKIE_SECURE, SWAGGER_ENABLED, LOG_FILE,
@@ -133,6 +167,30 @@ class ProdConfigValidator {
         if (stripeKey != null && stripeKey.startsWith(STRIPE_TEST_KEY_PREFIX)) {
             violations.add("STRIPE_SECRET_KEY is a Stripe TEST key (starts with '${STRIPE_TEST_KEY_PREFIX}') " +
                 '— refusing to start (no real charges would be processed in production)'.toString())
+        } else if (stripeKey != null && !stripeKey.trim().isEmpty() &&
+                   !wellFormedStripeValue(stripeKey, STRIPE_LIVE_SECRET_PREFIXES, STRIPE_MIN_BODY_CHARS)) {
+            // THE isLive() TRAP. StripeService.isLive() is only
+            // `secretKey && !secretKey.contains("replace_me")`, so every value
+            // caught here — the publishable key pasted into the secret slot, a
+            // truncated key, "changeme" — reads as LIVE. Without this check the
+            // app boots, reports itself live, and fails at the FIRST REAL
+            // CHARGE, in front of a paying customer. Fail at boot instead.
+            //
+            // The value is never echoed: it may be a real secret. Only its
+            // length is reported, which is what diagnoses a truncated paste.
+            violations.add('STRIPE_SECRET_KEY is not a well-formed LIVE Stripe secret key — refusing to start. ' +
+                "Expected a value starting with ${STRIPE_LIVE_SECRET_PREFIXES.join(' or ')} followed by at least " +
+                "${STRIPE_MIN_BODY_CHARS} characters; got ${stripeKey.length()} characters total. " +
+                '(The value is not shown here because it may be a real secret.) ' +
+                'Note StripeService.isLive() would have accepted this and failed at the first real charge.'.toString())
+        }
+
+        String publishableKey = environment.getProperty('STRIPE_PUBLISHABLE_KEY')
+        if (publishableKey != null && !publishableKey.trim().isEmpty() &&
+            !wellFormedStripeValue(publishableKey, [STRIPE_LIVE_PUBLISHABLE_PREFIX], STRIPE_MIN_BODY_CHARS)) {
+            violations.add("STRIPE_PUBLISHABLE_KEY is not a well-formed LIVE publishable key (expected " +
+                "'${STRIPE_LIVE_PUBLISHABLE_PREFIX}…') — refusing to start (the Checkout shown to customers " +
+                'would be a test-mode Checkout, or the secret key has been pasted into the publishable slot)'.toString())
         }
 
         String webhookSecret = environment.getProperty('STRIPE_WEBHOOK_SECRET')
@@ -140,6 +198,21 @@ class ProdConfigValidator {
             violations.add("STRIPE_WEBHOOK_SECRET is the committed placeholder " +
                 "'${STRIPE_WEBHOOK_PLACEHOLDER}' — refusing to start (an attacker with the " +
                 'source could forge Stripe webhook events and credit wallets)'.toString())
+        } else if (webhookSecret != null && !webhookSecret.trim().isEmpty() &&
+                   !wellFormedStripeValue(webhookSecret, [STRIPE_WEBHOOK_PREFIX], STRIPE_MIN_BODY_CHARS)) {
+            // This is the one that bites SILENTLY, and docker-compose.yml's own
+            // default (`whsec_dummy`) used to sail straight through: it is not
+            // the `whsec_replace_me` placeholder, so nothing rejected it.
+            //
+            // A wrong signing secret does not stop a charge — it stops the
+            // CREDIT. Webhook.constructEvent throws, handleWebhookEvent raises
+            // SecurityException, the controller returns 400, and Stripe stops
+            // retrying. The customer's card is charged and their wallet is
+            // never credited, with no error anywhere the customer can see.
+            violations.add("STRIPE_WEBHOOK_SECRET is not a well-formed Stripe signing secret (expected " +
+                "'${STRIPE_WEBHOOK_PREFIX}…' plus at least ${STRIPE_MIN_BODY_CHARS} characters) — " +
+                'refusing to start (signature verification would reject EVERY event, so a paid deposit ' +
+                'would charge the card and never credit the wallet)'.toString())
         }
 
         // A present-but-localhost APP_PUBLIC_URL (e.g. copy-pasted from the
