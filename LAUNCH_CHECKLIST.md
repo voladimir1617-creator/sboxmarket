@@ -62,9 +62,34 @@ SPRING_JPA_DDL=validate          # fail-loud on schema drift
 
 Run order:
 1. Create the empty Postgres database
-2. Boot the jar — Flyway runs `V1`–`V19` migrations to create the schema
-3. Verify: `SELECT count(*) FROM items;` should be 25 (the catalogue seed)
+2. Boot the jar — Flyway runs all **87** migrations to create the schema
+3. Verify: `SELECT count(*) FROM flyway_schema_history WHERE success = false;`
+   should be **0**, and `SELECT count(*) FROM information_schema.tables
+   WHERE table_schema='public';` should be **38**
 4. Set up nightly backups (`pg_dump` cron + offsite copy)
+
+> **Do NOT expect a seeded catalogue.** An earlier version of step 3 said
+> `SELECT count(*) FROM items` should be 25. Demo seeding is now fail-closed
+> (it needs `sbox.seed.demo-data=true` or an explicit dev/test profile), so on
+> a prod boot that count is **0** and that is CORRECT. Reading it as a failed
+> migration would send you looking for a problem that is not there.
+
+**REHEARSED 2026-08-31 against real PostgreSQL 16.13 — this step passes.**
+All 87 migrations applied, `bool_and(success) = true`, 38 tables created, zero
+failures. A second boot with the `prod` profile reported *"No migration
+necessary"* and *"Started SboxMarketApplication in 10.122 seconds"* — meaning
+**`ddl-auto: validate` agreed with the Flyway-built schema exactly**. That
+second boot is the one that matters; the first only proves the DDL runs.
+
+45 of the 87 migrations use Postgres-specific DDL (`BIGSERIAL`, `JSONB`, `::`
+casts, `DO $$`, GIN/tsvector), so H2-in-PostgreSQL-mode is NOT a valid stand-in
+for this rehearsal and would give false results in both directions.
+
+**STILL UNPROVEN, and it is the case that bites in production:** the same
+migrations against a POPULATED database. A `NOT NULL` added where existing rows
+hold nulls, or a unique index over existing duplicates, fails only when there is
+data — and by then it is your data. Before going public, restore a copy of the
+live database and run the two boots above against it.
 
 ### 1.3 HTTPS + cookie hardening
 
