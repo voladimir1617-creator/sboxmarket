@@ -267,4 +267,75 @@ class SboxMarketApplication {
             seedService.purgeDemoData()
         } as CommandLineRunner
     }
+
+    /**
+     * One-shot reset of the fabricated MONEY state — the ledger, not the
+     * catalogue. See {@link com.sboxmarket.service.MoneyResetService} for what
+     * it removes and {@link com.sboxmarket.config.MoneyResetGate} for who may
+     * ask.
+     *
+     * <h3>Why a CommandLineRunner and not an admin endpoint</h3>
+     *
+     * An HTTP route — even one behind {@code requireAdmin} — is reachable by
+     * anyone who obtains a session, and this repo has spent the last several
+     * commits closing exactly that class of door. A runner adds NO network
+     * surface at all: the only way to reach it is to already have the ability
+     * to set an environment variable on the host and restart the process, which
+     * is strictly more privilege than any web attacker gets. It is also the
+     * shape the neighbouring one-shot destructive tool already uses
+     * ({@code purgeDemoDataOnStartup}), so it is the convention rather than a
+     * new one.
+     *
+     * <h3>Deliberately NOT profile-gated</h3>
+     *
+     * Same reasoning as the purge above: the tool must be able to run in
+     * whatever profile the operator is actually using. It is inert unless
+     * explicitly asked, and {@link com.sboxmarket.config.MoneyResetGate} — not
+     * the profile — is what refuses on a deployment that is not affirmatively
+     * SIMULATED.
+     *
+     * <h3>The dry run is unconditional</h3>
+     *
+     * The plan is built and printed on EVERY authorised invocation, including
+     * the destructive one, so the log of a real reset always contains the
+     * itemised statement of what it was about to do. The operator never gets a
+     * deletion whose only record is a total.
+     */
+    @Bean
+    CommandLineRunner moneyResetOnStartup(
+            com.sboxmarket.service.MoneyResetService moneyResetService,
+            Environment env) {
+        def logger = runnerLog()
+        return { args ->
+            // Absent opt-in is the overwhelmingly common case (every ordinary
+            // boot). Return silently rather than logging a refusal on every
+            // start — a guard that cries wolf on every boot is a guard nobody
+            // reads. A refusal is only interesting once someone has ASKED.
+            if (!com.sboxmarket.config.MoneyResetGate.optInGranted(env)) return
+
+            String refusal = com.sboxmarket.config.MoneyResetGate.refusalReason(env)
+            if (refusal != null) {
+                // Someone asked and was refused — say so loudly and by name.
+                logger.error(refusal)
+                return
+            }
+
+            def plan = moneyResetService.plan()
+            plan.mode = com.sboxmarket.config.MoneyMode.of(env)
+            plan.executeRequested = com.sboxmarket.config.MoneyResetGate.executeGranted(env)
+
+            // Printed to stdout as well as the log: this is a report a human is
+            // meant to READ, and the operator running it by hand should not have
+            // to go find a log file to see the answer.
+            println moneyResetService.render(plan)
+            logger.warn(moneyResetService.render(plan))
+
+            if (!plan.executeRequested) {
+                logger.warn(com.sboxmarket.config.MoneyResetGate.REASON_EXECUTE_NOT_REQUESTED)
+                return
+            }
+            def entry = moneyResetService.execute(plan)
+            logger.warn("MONEY RESET COMPLETE — audit row id=${entry?.id} eventType=${entry?.eventType}")
+        } as CommandLineRunner
+    }
 }

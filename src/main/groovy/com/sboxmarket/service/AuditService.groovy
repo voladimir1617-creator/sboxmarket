@@ -78,6 +78,13 @@ class AuditService {
     // reconciliation (skipped seller credit, refund > debit shortfall,
     // trade-protection payout/clawback shortfall).
     static final String MANUAL_PAYOUT_REQUIRED = 'MANUAL_PAYOUT_REQUIRED'
+    /** The operator-run money reset ({@code MoneyResetService}) deleted the
+     *  fabricated ledger and zeroed every wallet balance. Written with a NULL
+     *  actor — nobody signed in did this; it was run from the process
+     *  environment against a SIMULATED deployment. Exactly one row per reset,
+     *  written in the SAME transaction as the deletion so the ledger cannot
+     *  vanish without it. */
+    static final String MONEY_RESET         = 'MONEY_RESET'
 
     @Autowired AuditLogRepository auditLogRepository
     @Autowired SteamUserRepository steamUserRepository
