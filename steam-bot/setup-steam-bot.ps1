@@ -11,8 +11,18 @@
 [CmdletBinding()]
 param(
   [switch]$VerifyOnly,
-  [string]$BotDir = (Join-Path $PSScriptRoot ".")
+  [string]$BotDir = ""
 )
+
+# $PSScriptRoot is EMPTY inside a param() default under some invocation modes, and
+# Join-Path then throws "Cannot bind argument to parameter 'Path'" before the script has
+# printed a single line. Resolve it in the body, with two fallbacks, so the script works
+# however it is launched -- double-clicked, dot-sourced, or piped through powershell -File.
+if (-not $BotDir) {
+  $BotDir = $PSScriptRoot
+  if (-not $BotDir) { $BotDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
+  if (-not $BotDir) { $BotDir = (Get-Location).Path }
+}
 
 $ErrorActionPreference = "Stop"
 function Say($m){ Write-Host $m }

@@ -208,6 +208,24 @@ class SteamInventoryController {
             lastSyncedAt:  user.lastSyncedAt,
             steamId64:     user.steamId64
         ]
+        // ── Say so when the list is INCOMPLETE ───────────────────────────
+        // The fetch is capped at count=500 and does not paginate, so a seller
+        // holding more than that got a quietly short list in which the missing
+        // items were indistinguishable from items he does not own. This is the
+        // same defect as the empty-list causes, except it rides on a NON-empty
+        // 200 — so none of the `reason`/`unreadable` machinery below fires for
+        // it. Surface it explicitly instead.
+        Map trunc = steamInventoryService.truncationFor(user.steamId64)
+        if (trunc != null) {
+            resp.truncated = true
+            resp.totalInventoryCount = trunc.total
+            resp.shownCount = trunc.shown
+            resp.truncationMessage =
+                "Steam reports ${trunc.total} items in your s&box inventory but we can only load " +
+                "${trunc.shown} at a time, so this list is incomplete. Items missing here are NOT " +
+                "items you don't own. Tell us if you need to list one that isn't shown.".toString()
+        }
+
         // Re-probe AFTER the fetch — fetchInventory itself may have just
         // tripped the negative cache on this call (first 429 of the window).
         Long after = steamInventoryService.blockedUntilMs(user.steamId64)

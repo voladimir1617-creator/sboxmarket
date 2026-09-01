@@ -92,6 +92,8 @@ class SellFlowIntegrationSpec extends Specification {
      */
     List<Map> steamInventory = []
     Map       steamOutcome   = null
+    /** [total: n, shown: m] when the last fetch was capped, else null. */
+    Map       steamTruncation = null
 
     def setup() {
         mockMvc               = ctx.getBean(MockMvc)
@@ -145,6 +147,7 @@ class SellFlowIntegrationSpec extends Specification {
         steamInventoryService.blockedUntilMs(_ as String)  >> null
         steamInventoryService.lastOutcomeFor(_ as String)  >> { args -> steamOutcome }
         steamInventoryService.inferCategory(_ as Map)      >> 'Hats'
+        steamInventoryService.truncationFor(_ as String)   >> { args -> steamTruncation }
     }
 
     /** One tradable asset in the seller's Steam inventory. */
@@ -251,6 +254,52 @@ class SellFlowIntegrationSpec extends Specification {
         def body = result.response.contentAsString
         body.contains('"reason":"empty_or_wrong_context"')
         body.contains('"unreadable":false')
+    }
+
+    /**
+     * A large inventory must not arrive quietly short.
+     *
+     * The Steam fetch is capped at count=500 and does not paginate, so a
+     * seller holding more than that gets a truncated list in which the missing
+     * items look exactly like items he does not own. Unlike the seven
+     * empty-list causes this rides on a NON-empty 200, so none of the
+     * reason/unreadable machinery fires for it.
+     */
+    def "GET /api/steam/inventory — a capped fetch says the list is incomplete"() {
+        given:
+        inventoryHasTheItem()
+        steamTruncation = [total: 1337, shown: 500] as Map
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get("/api/steam/inventory").session(sellerSession)
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        def body = result.response.contentAsString
+        body.contains('"truncated":true')
+        body.contains('"totalInventoryCount":1337')
+        body.contains('"shownCount":500')
+
+        and: "and it says plainly that the gap is not proof of non-ownership"
+        body.contains('1337')
+        body.contains("NOT")
+    }
+
+    def "GET /api/steam/inventory — a complete fetch is not flagged as truncated"() {
+        given:
+        inventoryHasTheItem()
+        steamTruncation = null
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get("/api/steam/inventory").session(sellerSession)
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        !result.response.contentAsString.contains('"truncated"')
     }
 
     // ── 2. Listing creation ──────────────────────────────────────────────

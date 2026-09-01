@@ -11209,6 +11209,22 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       });
       const rarities = Array.from(new Set(steamList.map(s => s.rarity || 'Standard'))).sort();
       return h('div', null,
+        // Incomplete-list warning. The server caps the Steam fetch at 500
+        // assets and does not paginate, so a large inventory arrives short.
+        // Without this the missing items are indistinguishable from items the
+        // seller does not own — a silent wrong answer on a successful 200.
+        steamData?.truncated && h('div', {
+          style: {
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+            padding: '10px 12px', marginBottom: 12, borderRadius: 8,
+            border: '1px solid var(--border)', background: 'var(--bg-elevated, rgba(255,180,0,0.08))',
+            fontSize: 12, lineHeight: 1.5, color: 'var(--text-secondary)'
+          }
+        },
+          h(MaterialIcon, { name: 'warning', size: 16 }),
+          h('span', null, steamData.truncationMessage ||
+            `Showing ${steamData.shownCount} of ${steamData.totalInventoryCount} items — this list is incomplete.`)
+        ),
         // Summary chips: tradable / matched / new + estimated floor value
         // + liquid-value (what the tradable subset would fetch right now
         // if every match-ready row were quick-sold at its top buy order).

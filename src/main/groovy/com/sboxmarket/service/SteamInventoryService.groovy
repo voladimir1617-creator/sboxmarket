@@ -91,6 +91,53 @@ class SteamInventoryService {
     private static final int OUTCOME_MAX = 5000
     private final java.util.concurrent.ConcurrentHashMap<String, Map> lastOutcome = new java.util.concurrent.ConcurrentHashMap<>()
 
+    /**
+     * How many assets Steam says the user actually has, versus how many we
+     * asked for and mapped.
+     *
+     * ── Why this is tracked ───────────────────────────────────────────────
+     * The fetch URL is hardcoded to {@code count=500} and we do NOT paginate
+     * (Steam pages via {@code start_assetid} + {@code more_items}). A seller
+     * holding more than 500 s&box assets therefore got a silently TRUNCATED
+     * inventory: the 501st item onward simply was not there, and looked
+     * exactly like an item he does not own. Nothing anywhere said "there is
+     * more" — the same absence-read-as-success shape as the seven empty-list
+     * causes, but on a NON-empty response, so none of that machinery fired.
+     *
+     * Steam returns {@code total_inventory_count} on every inventory reply.
+     * Comparing it against what we mapped costs nothing and turns a silent
+     * wrong answer into a statable one.
+     */
+    private static final int TRUNC_MAX = 5000
+    private final java.util.concurrent.ConcurrentHashMap<String, Map> lastTruncation = new java.util.concurrent.ConcurrentHashMap<>()
+
+    /**
+     * {@code [total: <what Steam says he owns>, shown: <what we returned>]}
+     * when the last fetch was truncated, else null. Callers use this to tell
+     * the seller his list is incomplete instead of letting him believe the
+     * missing items are items he does not have.
+     */
+    Map truncationFor(String steamId64) {
+        if (!steamId64) return null
+        return lastTruncation.get(steamId64)
+    }
+
+    /** Record (or clear) the truncation verdict for a user, bounded. */
+    private void recordTruncation(String steamId64, Integer total, int shown) {
+        if (!steamId64) return
+        if (total == null || total <= shown) {
+            lastTruncation.remove(steamId64)
+            return
+        }
+        if (lastTruncation.size() >= TRUNC_MAX) {
+            try {
+                def first = lastTruncation.keys().nextElement()
+                if (first != null) lastTruncation.remove(first)
+            } catch (NoSuchElementException ignored) { /* raced to empty */ }
+        }
+        lastTruncation.put(steamId64, [total: total, shown: shown] as Map)
+    }
+
     /** Record the outcome of a fetch, bounded like the other two maps. */
     private List<Map> recordOutcome(String steamId64, String outcome, String detail = null, List<Map> items = []) {
         if (steamId64) {
@@ -282,6 +329,19 @@ class SteamInventoryService {
             // than reading an answer of zero.
             return recordOutcome(steamId64, OUTCOME_MALFORMED,
                     'Steam returned a shape we could not map (missing assets/descriptions)')
+        }
+        // Truncation check BEFORE we report success. `count=500` is a cap, not
+        // a promise, and we do not paginate — so a bigger inventory comes back
+        // quietly short. Steam always sends total_inventory_count.
+        Integer totalOwned = null
+        try {
+            def raw = json?.total_inventory_count
+            if (raw != null) totalOwned = (raw as Number).intValue()
+        } catch (Exception ignored) { /* absent or unparseable — treat as unknown */ }
+        recordTruncation(steamId64, totalOwned, out.size())
+        if (totalOwned != null && totalOwned > out.size()) {
+            log.warn("Steam inventory for ${steamId64} TRUNCATED: Steam reports ${totalOwned} assets, " +
+                     "we fetched ${out.size()} (count=500, no pagination)")
         }
         recordOutcome(steamId64, out.isEmpty() ? OUTCOME_EMPTY : OUTCOME_OK,
                 out.isEmpty() ? "no app ${SBOX_APP_ID} / context ${CONTEXT_ID} assets in the response".toString() : null)
