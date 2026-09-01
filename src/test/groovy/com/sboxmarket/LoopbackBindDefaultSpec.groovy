@@ -40,6 +40,22 @@ import spock.lang.Unroll
  * seventeenth guard would have left the premise broken for the next affordance
  * written against it.
  *
+ * <h3>CORRECTION, same day: the bind was the only layer, and it has a bypass</h3>
+ *
+ * The paragraph above is right about where the reachability repair belongs and
+ * wrong to have stopped there. A Cloudflare tunnel connects <b>from</b>
+ * loopback, and {@code ~/.cloudflared/config.yml} already maps
+ * {@code skinbox.market -> http://localhost:8082} with DNS pointing at it — so
+ * this bind, correct as it is, does not stand between that door and the public
+ * internet. "The scaffolding is not the defect" was a claim about a premise
+ * that had exactly one layer holding it up.
+ *
+ * {@code dev-login} is therefore now closed by default as well, on an
+ * affirmative opt-in rather than on the absence of a live Stripe key — see
+ * {@link com.sboxmarket.config.DevLoginGate} and {@code DevLoginRequiresOptInSpec}.
+ * That is not a seventeenth guard replacing this one: this spec still owns
+ * reachability, and it still matters for every other route the app serves.
+ *
  * <h3>Why the two profiles differ</h3>
  *
  * A container MUST bind the wildcard or Docker's published

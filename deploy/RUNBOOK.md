@@ -21,15 +21,34 @@ is false, and `LiveMoneyGuard.isRealMoney()` is false. That unlocks the dev scaf
 Both were reachable on the public domain on 2026-08-31 and closed by taking the domain down.
 Publishing the tunnel again without the prod profile re-opens both.
 
-> **A 404 from dev-login is NOT proof the door is shut.** The controller has two 404s. On
-> 2026-09-01 the live endpoint answered 404 **through the second branch** — the guard had
-> already been passed, and the only reason nothing was minted is that no user carried the id
-> asked for. Always read the body. Pinned by `ProdScaffoldingUnreachableSpec`.
+> **A 404 from dev-login is NOT proof the door is shut.** The controller has more than one
+> 404. On 2026-09-01 the live endpoint answered 404 **through the post-guard branch** — the
+> guard had already been passed, and the only reason nothing was minted is that no user
+> carried the id asked for. Always read the body. Pinned by `ProdScaffoldingUnreachableSpec`.
 >
-> As of 2026-09-01 the guard's 404 carries `{"error":"dev-login disabled: real-money
-> deployment"}` instead of an empty body, so a shut door emits a signal of its own.
-> `{"error":"no seed users"}` still means the guard was passed; an **empty** body now means
-> neither branch answered (wrong path, wrong host, dead server) and proves nothing.
+> As of 2026-09-01 every guard 404 carries a body beginning `dev-login disabled:`, so a shut
+> door emits a signal of its own. `{"error":"no seed users"}` still means the guard was
+> passed; an **empty** body means neither branch answered (wrong path, wrong host, dead
+> server) and proves nothing.
+
+> **The door is now closed by default, and that changes what "unlocks the dev scaffolding"
+> means above.** SIMULATED mode no longer authorises `dev-login` on its own — it never was
+> an authorisation, only a statement about money, and the state described above is what that
+> confusion looked like in production. The endpoint now needs BOTH: no real money AND an
+> affirmative `SBOX_DEV_LOGIN_ENABLED=true` in the server's **process environment**. See
+> `config/DevLoginGate.groovy`.
+>
+> That variable is read from the process environment and nowhere else — not `application.yml`,
+> not a profile, not a `-D` flag — precisely so it cannot be committed once and then inherited
+> by a deployment that never decided to have it. Do not add it to any config file, the
+> compose file, the Dockerfile or `skinbox.env.example`; a spec fails if you do.
+>
+> The refusals are tellable apart: `{"error":"dev-login disabled: real-money deployment"}`
+> means the money classification shut it (LIVE or INDETERMINATE), and
+> `{"error":"dev-login disabled: no SBOX_DEV_LOGIN_ENABLED=true opt-in in the process
+> environment"}` means nobody asked. Only the first is a statement about production.
+>
+> `devModeDeposit` is unchanged and still gated on `MoneyMode.devFallbackAuthorized()`.
 
 ## What actually runs today (measured 2026-09-01, not assumed)
 
@@ -200,10 +219,14 @@ so the default profile binds **loopback only**. Before that it bound the wildcar
 every device the operator owns) and `172.29.80.1` (WSL vSwitch). There is no inbound firewall
 rule for 8082, so nothing else was stopping it.
 
-That 302 is *correct* on a dev box: with no Stripe key the deployment is `MoneyMode.SIMULATED`
-and dev-login is supposed to work. The whole SIMULATED contract just assumes nobody but the
-developer can reach the port, and the wildcard bind quietly broke that assumption. The fix is
-the socket, not another guard.
+That 302 was *correct by the rules of the day*: with no Stripe key the deployment is
+`MoneyMode.SIMULATED` and dev-login was supposed to work. The whole SIMULATED contract just
+assumed nobody but the developer could reach the port, and the wildcard bind quietly broke
+that assumption. The socket fix restores reachability — but it was the *only* layer, and a
+Cloudflare tunnel connects **from** loopback, so `skinbox.market -> http://localhost:8082`
+walks past it. So the door itself is now closed by default too: it takes
+`SBOX_DEV_LOGIN_ENABLED=true` in the process environment. A fresh checkout, run with no
+special environment, serves no credential-free login on any address.
 
 `prod` overrides to `0.0.0.0` — a container MUST bind the wildcard or Docker's published
 `${APP_PORT:-8082}:8082` has nothing to forward to. For a deliberate LAN demo on the default
@@ -229,7 +252,11 @@ grep "Prod config validation passed" /var/log/skinbox/skinbox.log
 curl -s -i http://localhost:8082/api/auth/steam/dev-login | head -1
 curl -s    http://localhost:8082/api/auth/steam/dev-login
 #    -> {"error":"dev-login disabled: real-money deployment"}  = PASS. The guard
-#       answered. This is a POSITIVE signal from the door itself.
+#       answered, and it answered on MONEY, which is what prod must report.
+#    -> {"error":"dev-login disabled: no SBOX_DEV_LOGIN_ENABLED=true opt-in ..."}
+#       = the door is shut, but NOT because this box knows it is production.
+#       Safe, and still a FAIL for step 6: on a prod box the money classifier
+#       should be the thing refusing. Check STRIPE_SECRET_KEY and the profile.
 #    -> {"error":"no seed users"}  = FAIL. The guard was PASSED and the only
 #       reason nothing was minted is that no user carried that id. Stop.
 #    -> an EMPTY 404 body = FAIL, or at least "unproven". It used to be the pass

@@ -145,10 +145,24 @@ class LiveMoneyGuardSpec extends Specification {
         0 * req.getSession(_)
     }
 
-    def "dev-login still works on an ordinary local dev box"() {
-        given: "the endpoint is real QA scaffolding — locking it down everywhere would just get it removed"
+    /**
+     * REWRITTEN 2026-09-01. This used to pass a {@code Stub(Environment)} with
+     * the {@code dev} profile and assert a session was minted — i.e. it asserted
+     * that "not real money" was SUFFICIENT to open the door.
+     *
+     * It is not, any more, and that is the point of {@link com.sboxmarket.config.DevLoginGate}:
+     * not-real-money is a statement about MONEY, not a grant of permission. The
+     * door now also needs a named opt-in in the process environment, so the case
+     * has to supply one. What this spec still owns is the OTHER half — that
+     * {@code LiveMoneyGuard} does not veto an ordinary dev box — which is why it
+     * survives here rather than being deleted into
+     * {@code DevLoginRequiresOptInSpec}.
+     */
+    def "dev-login still works on an ordinary local dev box that asked for it"() {
+        given: "the endpoint is real QA scaffolding — locking it down with no way in would just get it removed"
         def user = new SteamUser(id: 42L, displayName: 'dev', sessionEpoch: 3L)
-        def controller = controllerFor(env(['dev'], 'sk_test_replace_me'), user)
+        def devEnv = SpecEnvs.optedIn(['dev'], ['STRIPE_SECRET_KEY': 'sk_test_replace_me'])
+        def controller = controllerFor(devEnv, user)
         HttpSession session = Mock()
         HttpServletRequest req = Mock() { getSession(true) >> session }
         HttpServletResponse resp = Mock()
@@ -159,6 +173,28 @@ class LiveMoneyGuardSpec extends Specification {
         then: "a session IS minted"
         1 * session.setAttribute(SteamAuthController.SESSION_USER_ID, 42L)
         1 * resp.sendRedirect('/profile')
+
+        and: "and the money guard is what did NOT stop it"
+        !LiveMoneyGuard.isRealMoney(devEnv)
+    }
+
+    def "the same ordinary dev box is refused when nobody asked for the door"() {
+        given: '''the pair to the case above, and the actual regression: identical
+                  deployment, identical money classification, no opt-in.'''
+        def user = new SteamUser(id: 42L, displayName: 'dev', sessionEpoch: 3L)
+        def devEnv = SpecEnvs.env(['dev'], ['STRIPE_SECRET_KEY': 'sk_test_replace_me'])
+        def controller = controllerFor(devEnv, user)
+        HttpServletRequest req = Mock()
+        HttpServletResponse resp = Mock()
+
+        when:
+        def result = controller.devLogin(42L, '/profile', req, resp)
+
+        then: 'no session, and the money guard is NOT the reason'
+        result.statusCode == HttpStatus.NOT_FOUND
+        result.body.error == com.sboxmarket.config.DevLoginGate.REASON_NOT_AUTHORIZED
+        !LiveMoneyGuard.isRealMoney(devEnv)
+        0 * req.getSession(_)
     }
 
     // ── the seeder ──────────────────────────────────────────────────

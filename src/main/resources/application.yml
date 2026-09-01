@@ -13,17 +13,23 @@ server:
   #     172.29.80.1     (the WSL/Hyper-V vSwitch)
   # There is no inbound firewall rule for 8082, so nothing else was stopping it.
   #
-  # And that door is open BY DESIGN on this profile: `dev-login` is gated on
-  # MoneyMode.handlesRealMoney(), the key here is the committed
+  # And that door WAS open BY DESIGN on this profile: `dev-login` was gated only
+  # on MoneyMode.handlesRealMoney(), the key here is the committed
   # `sk_test_replace_me` placeholder, so the deployment classifies SIMULATED and
-  # the scaffolding is correctly enabled — for a DEVELOPER LAPTOP. The whole
-  # SIMULATED contract assumes nobody but the developer can reach the port. The
-  # wildcard bind quietly broke that assumption, which is what turned a correct
-  # dev affordance into credential-free account takeover for anyone on the LAN.
+  # the scaffolding was enabled — for a DEVELOPER LAPTOP. The whole SIMULATED
+  # contract assumes nobody but the developer can reach the port. The wildcard
+  # bind quietly broke that assumption, which is what turned a dev affordance
+  # into credential-free account takeover for anyone on the LAN.
   #
-  # So the fix belongs HERE and not in another guard: the scaffolding is not the
-  # defect, its REACHABILITY is. A loopback bind restores the premise the
-  # SIMULATED mode was written against.
+  # The loopback bind restores that premise, and it is still the right fix for
+  # REACHABILITY. What it could not fix is that the premise had only one layer:
+  # a Cloudflare tunnel connects FROM loopback, so `skinbox.market ->
+  # http://localhost:8082` walks straight past this line. So as of 2026-09-01
+  # `dev-login` ALSO requires an affirmative opt-in — the SBOX_DEV_LOGIN_ENABLED
+  # process environment variable, see config/DevLoginGate.groovy — and a fresh
+  # checkout run with no special environment serves no credential-free login at
+  # all. Do not add that variable to this file or any other committed config:
+  # its whole value is that it cannot be inherited.
   #
   # This costs the intended topology nothing. cloudflared runs on this same host
   # and its ingress rule is already `skinbox.market -> http://localhost:8082`

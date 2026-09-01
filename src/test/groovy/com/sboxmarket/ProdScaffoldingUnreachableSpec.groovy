@@ -74,12 +74,23 @@ class ProdScaffoldingUnreachableSpec extends Specification {
      * call Spring makes when it reads SPRING_PROFILES_ACTIVE, so a change in
      * how profiles resolve shows up here instead of being papered over by a
      * mock that answers whatever we told it to.
+     *
+     * Delegates to {@link SpecEnvs} so the PROCESS ENVIRONMENT is empty unless a
+     * case asks for something. That matters since
+     * {@link com.sboxmarket.config.DevLoginGate} reads the {@code systemEnvironment}
+     * property source: left as the developer's real one, a machine that happens
+     * to export {@code SBOX_DEV_LOGIN_ENABLED=true} would flip this spec's
+     * answers depending on whose shell ran it.
      */
     private static Environment realEnv(List<String> profiles, Map<String, Object> props = [:]) {
-        def env = new StandardEnvironment()
-        if (profiles) env.setActiveProfiles(profiles as String[])
-        env.propertySources.addFirst(new MapPropertySource('spec', props))
-        env
+        SpecEnvs.env(profiles, [:], props)
+    }
+
+    /** The same, plus the dev-login opt-in in the process environment. */
+    private static Environment realEnvOptedIn(List<String> profiles, Map<String, Object> props = [:]) {
+        SpecEnvs.env(profiles,
+                     [(com.sboxmarket.config.DevLoginGate.OPT_IN_ENV_VAR): 'true'],
+                     props)
     }
 
     /** Instance (not static) — Spock refuses to create Mocks in static scope. */
@@ -93,10 +104,23 @@ class ProdScaffoldingUnreachableSpec extends Specification {
 
     // ── DOOR 1: dev-login ───────────────────────────────────────────
 
-    def "NEGATIVE CONTROL: on the default profile dev-login mints a real session for anyone"() {
-        given: 'the exact shape of the JVM that was serving the public domain — no profile, no Stripe key'
+    /**
+     * NARROWED 2026-09-01. The negative control used to be "no profile, no
+     * Stripe key" — and that WAS the shape of the JVM serving the public
+     * domain. It no longer mints anything: not-real-money stopped being
+     * sufficient authorisation when {@link com.sboxmarket.config.DevLoginGate}
+     * added the named opt-in (see {@code DevLoginRequiresOptInSpec}).
+     *
+     * The control still has a job, and it is the same job: prove that the prod
+     * cases below fail for the reason we claim. So it now opens the door as far
+     * as it can possibly be opened — SIMULATED, opted in — and shows that even
+     * then the prod profile shuts it. Without this, "prod is a 404" would be
+     * indistinguishable from "everything is a 404".
+     */
+    def "NEGATIVE CONTROL: with the opt-in granted and no real money, dev-login mints a session for anyone"() {
+        given: 'no profile, no Stripe key, and the process environment carrying the opt-in'
         def user = new SteamUser(id: 7L, displayName: 'victim', sessionEpoch: 2L)
-        def controller = controllerWithUser(realEnv([]), user)
+        def controller = controllerWithUser(realEnvOptedIn([]), user)
         HttpSession session = Mock()
         HttpServletRequest req = Mock() { getSession(true) >> session }
         HttpServletResponse resp = Mock()
@@ -107,6 +131,30 @@ class ProdScaffoldingUnreachableSpec extends Specification {
         then: 'they get a session as user 7, with no credential of any kind'
         1 * session.setAttribute(SteamAuthController.SESSION_USER_ID, 7L)
         1 * resp.sendRedirect('/profile')
+    }
+
+    /**
+     * The prod cases below must not pass merely because the opt-in is absent.
+     * This pins that the profile is doing the work: the ONLY difference from
+     * the control above is `prod`, and the refusal names money, not the opt-in.
+     */
+    def "and the prod profile shuts that same fully-opted-in door"() {
+        given: 'identical to the control above except for the profile'
+        def controller = controllerWithUser(realEnvOptedIn(['prod']),
+                                            new SteamUser(id: 7L, displayName: 'victim', sessionEpoch: 2L))
+        HttpServletRequest req = Mock()
+        HttpServletResponse resp = Mock()
+
+        when:
+        def result = controller.devLogin(7L, '/profile', req, resp)
+
+        then:
+        result.statusCode == HttpStatus.NOT_FOUND
+        0 * req.getSession(_)
+        0 * resp.sendRedirect(_)
+
+        and: 'and it refused on MONEY, not on the missing opt-in — the opt-in was there'
+        result.body.error == SteamAuthController.DEV_LOGIN_DISABLED
     }
 
     def "dev-login is DEAD under the prod profile even when the requested user exists"() {
@@ -154,8 +202,8 @@ class ProdScaffoldingUnreachableSpec extends Specification {
     def "a 404 from dev-login does not prove the door is shut — the body is what distinguishes them"() {
         given: 'prod, user exists → the guard 404'
         def guarded = controllerWithUser(realEnv(['prod']), new SteamUser(id: 7L))
-        and: 'no profile, user absent → the "no seed users" 404'
-        def openButEmpty = controllerWithUser(realEnv([]), null)
+        and: 'no profile, OPTED IN, user absent → the "no seed users" 404, which proves the door was OPEN'
+        def openButEmpty = controllerWithUser(realEnvOptedIn([]), null)
 
         when:
         def guardedResult = guarded.devLogin(7L, '/profile', Mock(HttpServletRequest), Mock(HttpServletResponse))

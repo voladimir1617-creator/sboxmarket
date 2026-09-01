@@ -1,5 +1,6 @@
 package com.sboxmarket.controller
 
+import com.sboxmarket.config.DevLoginGate
 import com.sboxmarket.config.LiveMoneyGuard
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.SteamUserRepository
@@ -32,13 +33,24 @@ class SteamAuthController {
      *  deep links, short enough that an attacker can't smuggle anything large. */
     static final int NEXT_MAX_LEN = 200
 
-    /** The body the dev-login GUARD returns, so a shut door is provable rather
-     *  than merely quiet. The other 404 on this endpoint carries
-     *  {@link #DEV_LOGIN_NO_SEED_USERS}, which means the guard was PASSED —
-     *  the two are indistinguishable by status code, which is exactly how a
+    /** The body the dev-login GUARD returns when the deployment can move real
+     *  money, so a shut door is provable rather than merely quiet. The other
+     *  404s on this endpoint carry {@link #DEV_LOGIN_NOT_AUTHORIZED} (also the
+     *  guard) and {@link #DEV_LOGIN_NO_SEED_USERS} (the guard was PASSED) —
+     *  all three are indistinguishable by status code, which is exactly how a
      *  live, wide-open endpoint was once read as closed. Verification scripts
-     *  and specs must assert on these strings, never on the 404 alone. */
-    static final String DEV_LOGIN_DISABLED = 'dev-login disabled: real-money deployment'
+     *  and specs must assert on these strings, never on the 404 alone.
+     *
+     *  Aliased from {@link DevLoginGate} rather than re-declared, so the guard
+     *  and the body it emits cannot drift apart. */
+    static final String DEV_LOGIN_DISABLED = DevLoginGate.REASON_REAL_MONEY
+
+    /** The body the dev-login guard returns on a deployment that handles no
+     *  real money but where <b>nobody asked for the door</b> — the DEFAULT
+     *  answer on a fresh checkout with no special environment. Distinct from
+     *  {@link #DEV_LOGIN_DISABLED} so the two refusals stay tellable apart,
+     *  and both start with {@link DevLoginGate#REFUSAL_PREFIX}. */
+    static final String DEV_LOGIN_NOT_AUTHORIZED = DevLoginGate.REASON_NOT_AUTHORIZED
 
     /** The body of the OTHER 404 — reached only AFTER the guard has been
      *  passed, when no user carries the requested id. Its presence is proof the
@@ -63,19 +75,27 @@ class SteamAuthController {
      *  every admin, for anyone who can reach the URL. Its gate is therefore
      *  the most safety-critical branch in the controller.
      *
-     *  Guarded by {@link LiveMoneyGuard}, which is true when the `prod`
-     *  profile is active OR a live Stripe key is configured. The profile check
-     *  alone made a forgotten / stripped `SPRING_PROFILES_ACTIVE` sufficient
-     *  to open this door on a box that was otherwise taking real payments —
-     *  one environment variable standing between a live marketplace and
-     *  credential-free impersonation. The live key cannot be forgotten,
-     *  because without it there is no money to steal. */
+     *  Guarded by {@link DevLoginGate}, which requires BOTH that no real money
+     *  can move here ({@link LiveMoneyGuard} — the `prod` profile or a live
+     *  Stripe key shuts it, as before) AND that someone has affirmatively
+     *  asked for the door via the {@code SBOX_DEV_LOGIN_ENABLED} process
+     *  environment variable.
+     *
+     *  The money half alone was never enough. It answers "is this obviously
+     *  production?", and the answer on the operator's own box is correctly NO —
+     *  no live Stripe key, so the deployment is SIMULATED and this door opened
+     *  by design, its only remaining control being that Tomcat binds
+     *  127.0.0.1. A Cloudflare tunnel connects FROM loopback, so that bind
+     *  does not stop it, and DNS already points at the tunnel. Being
+     *  un-forbidden is not the same as being asked for; see {@link DevLoginGate}
+     *  for the full argument. */
     @GetMapping("/dev-login")
     def devLogin(@RequestParam(required = false) Long userId,
                  @RequestParam(required = false, defaultValue = "/profile") String next,
                  HttpServletRequest req, HttpServletResponse resp) {
-        if (LiveMoneyGuard.isRealMoney(env)) {
-            log.warn("dev-login refused — real-money deployment (profiles={})", env?.activeProfiles)
+        String refusal = DevLoginGate.refusalReason(env)
+        if (refusal != null) {
+            log.warn("dev-login refused — {} (profiles={})", refusal, env?.activeProfiles)
             // The body is the POINT, not decoration. This branch used to return
             // `.build()` — an empty 404, indistinguishable from Spring's own
             // "no such route" and from the OTHER 404 below. On 2026-09-01 the
@@ -86,8 +106,10 @@ class SteamAuthController {
             //
             // Proving a door is shut requires a signal FROM the door. An
             // absence is not a proof — it is the same absence a missing route,
-            // a typo'd path, or a dead server produces.
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body([error: DEV_LOGIN_DISABLED])
+            // a typo'd path, or a dead server produces. The reason string comes
+            // from the gate itself, so the decision and the explanation are the
+            // same computation and cannot disagree.
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body([error: refusal])
         }
         SteamUser user = userId != null ? steamUserRepository.findById(userId).orElse(null)
                                         : steamUserRepository.findAll().find { it != null }
@@ -96,7 +118,8 @@ class SteamAuthController {
         def fresh = req.getSession(true)
         fresh.setAttribute(SESSION_USER_ID, user.id)
         fresh.setAttribute(SESSION_EPOCH, user.sessionEpoch ?: 0L)
-        log.warn("DEV-LOGIN (non-prod only) as ${user.displayName} (#${user.id})")
+        log.warn("DEV-LOGIN as ${user.displayName} (#${user.id}) — credential-free session minted because " +
+                 "${DevLoginGate.OPT_IN_ENV_VAR}=${DevLoginGate.OPT_IN_VALUE} is set in this process's environment")
         try { resp.sendRedirect(sanitizeNext(next)) } catch (Exception ignore) {}
         return null
     }

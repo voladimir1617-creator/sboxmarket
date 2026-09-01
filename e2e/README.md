@@ -20,9 +20,56 @@ Point it at another environment:
 E2E_BASE_URL=https://skinbox.market npx playwright test   # smoke prod
 ```
 
-The server must be running first (see the project ops notes: launch the
-detached jar on :8082). Auth uses the dev-login endpoint (`auth.setup.js`),
-so this targets a dev/staging build — not a real Steam login.
+## The server must be started with the dev-login opt-in
+
+Auth uses the dev-login endpoint (`auth.setup.js`), so this targets a dev build
+— not a real Steam login. **That endpoint is closed by default and has to be
+asked for.** `GET /api/auth/steam/dev-login` mints a one-year session for any
+user id with no credential of any kind, so "this is not production" is not by
+itself authorisation to serve it — that was the state of the running app on
+2026-09-01, and the loopback bind was its only control while a Cloudflare
+tunnel sat beside that lock connecting *from* loopback.
+
+So the app under test must be launched with `SBOX_DEV_LOGIN_ENABLED=true` in
+its **process environment**. It is read from there and from nowhere else — not
+from `application.yml`, not from a profile, not from a `-D` flag — so it cannot
+be inherited by a deployment that never decided to have it.
+
+```bash
+# bash — from the repo root
+SBOX_DEV_LOGIN_ENABLED=true \
+  java -Dloader.path=build/classes/groovy/main,build/resources/main \
+       -cp build/libs/sboxmarket-1.0.0.jar \
+       org.springframework.boot.loader.launch.PropertiesLauncher
+```
+
+```powershell
+# PowerShell — from the repo root
+$env:SBOX_DEV_LOGIN_ENABLED = 'true'
+java -Dloader.path=build/classes/groovy/main,build/resources/main `
+     -cp build/libs/sboxmarket-1.0.0.jar `
+     org.springframework.boot.loader.launch.PropertiesLauncher
+```
+
+Check it took, before blaming the tests:
+
+```bash
+curl -s http://localhost:8082/api/auth/steam/dev-login
+#  (nothing / a redirect)                       -> the door is open, run the suite
+#  {"error":"dev-login disabled: ..."}          -> the reason is in the body
+```
+
+`auth.setup.js` reads that same body and fails with it, so a shut door shows up
+as one line naming the variable rather than a 15-second timeout.
+
+**Never set it on a server that handles real money.** The gate refuses anyway —
+a live Stripe key or the `prod` profile shuts the door regardless of the
+variable — but the rule is worth stating: this is a QA affordance for a box
+whose accounts are worthless.
+
+Any environment you point `E2E_BASE_URL` at needs the same thing, which is why
+`E2E_BASE_URL=https://skinbox.market` cannot run the signed-in projects — and
+should not be able to.
 
 ## What's covered (20 specs)
 

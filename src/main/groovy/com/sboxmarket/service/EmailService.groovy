@@ -1,5 +1,6 @@
 package com.sboxmarket.service
 
+import com.sboxmarket.config.ProdConfigValidator
 import com.sboxmarket.model.SteamUser
 import groovy.util.logging.Slf4j
 import jakarta.annotation.PostConstruct
@@ -56,18 +57,35 @@ class EmailService {
     String publicUrl
 
     /** HMAC secret for signed one-click unsubscribe URLs (batch 891).
-     *  Picked up from env in prod; dev defaults to a nonsense string so
-     *  signatures generated in one dev run don't validate in another
-     *  (good — no accidental prod bypass). Change this and every
-     *  outstanding unsubscribe link stops working, which is the right
-     *  behavior if a prod secret is ever leaked. */
-    @Value('${app.unsubscribe.secret:dev-only-do-not-use-in-production-7f3a9c}')
+     *
+     *  <b>No committed fallback.</b> This used to default to the literal
+     *  {@code dev-only-do-not-use-in-production-7f3a9c}, and the comment here
+     *  claimed that meant "signatures generated in one dev run don't validate
+     *  in another (good — no accidental prod bypass)". That was exactly
+     *  backwards: a CONSTANT in public source is the same on every run, on
+     *  every machine, forever. {@code app.unsubscribe.secret} is absent from
+     *  {@code application.yml} and only required by {@code application-prod.yml},
+     *  so every non-prod deployment — including the one currently running —
+     *  signed its unsubscribe tokens with a value anybody reading this repo
+     *  could compute, and could therefore forge a valid token for any address
+     *  and silently mute that user's notifications.
+     *
+     *  Same fail-open shape as the dev-login door: a value that is missing is
+     *  filled in with a permissive committed default instead of being refused.
+     *  Now the default is EMPTY and {@link #init} mints a per-process random
+     *  secret, which is what the old comment thought it was describing.
+     *
+     *  Set {@code APP_UNSUBSCRIBE_SECRET} to keep links working across
+     *  restarts; prod already requires it and {@link com.sboxmarket.config.ProdConfigValidator}
+     *  refuses to boot on the published placeholder. */
+    @Value('${app.unsubscribe.secret:}')
     String unsubscribeSecret
 
     private boolean smtpReady = false
 
     @PostConstruct
     void init() {
+        hardenUnsubscribeSecret()
         smtpReady = mailSender != null && smtpHost && !smtpHost.isBlank()
         // Batch 895 — trim any trailing slash on the public URL once so
         // every email template can safely use `${publicUrl}/path` without
@@ -81,6 +99,41 @@ class EmailService {
             log.warn("EmailService: no SMTP host configured — running in LOG-SINK mode. " +
                      "Verification tokens will appear in the server log. Set SMTP_HOST to enable delivery.")
         }
+    }
+
+    /**
+     * Refuse to sign unsubscribe tokens with a value anyone can read.
+     *
+     * Two inputs are treated as "no secret was supplied": blank, and the
+     * literal placeholder this repo published for months
+     * ({@link ProdConfigValidator#DEV_UNSUBSCRIBE_PLACEHOLDER}). The second
+     * matters because the placeholder does not stop being public just because
+     * someone typed it into an env var — {@link ProdConfigValidator} already
+     * refuses to BOOT on it, but only under the {@code prod} profile, and the
+     * profile that actually runs here is {@code default}.
+     *
+     * The replacement is 32 bytes of {@link java.security.SecureRandom} minted
+     * per process. That is the fail-closed direction, and it is cheap: the only
+     * thing it costs is that links stop working across a restart, which is
+     * precisely what an unconfigured deployment should do (and what the old
+     * comment on this field wrongly claimed was already happening). Any
+     * deployment that wants durable links sets {@code APP_UNSUBSCRIBE_SECRET},
+     * and prod is already required to.
+     *
+     * Package-visible (not private) so a spec can drive it directly rather than
+     * inferring the behaviour from {@link #init}.
+     */
+    void hardenUnsubscribeSecret() {
+        String supplied = unsubscribeSecret?.trim()
+        boolean usable = supplied && supplied != ProdConfigValidator.DEV_UNSUBSCRIBE_PLACEHOLDER
+        if (usable) return
+        byte[] material = new byte[32]
+        new java.security.SecureRandom().nextBytes(material)
+        unsubscribeSecret = java.util.Base64.urlEncoder.withoutPadding().encodeToString(material)
+        log.warn('EmailService: app.unsubscribe.secret was {} — generated a random per-process ' +
+                 'secret instead of signing with a value published in this repository. One-click ' +
+                 'unsubscribe links will not survive a restart. Set APP_UNSUBSCRIBE_SECRET to fix that.',
+                 supplied ? 'the committed dev placeholder' : 'not set')
     }
 
     /** Make a caller-supplied URL absolute so the email CTA is clickable.
