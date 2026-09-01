@@ -61,6 +61,13 @@ class PassThroughFeePricingSpec extends Specification {
         walletRepository      : walletRepository,
         transactionRepository : transactionRepository,
         platformLedgerService : ledger,
+        // The three credit-arithmetic cases below drive completeDeposit on the
+        // SIMULATED path. Crediting there fabricates money-path state, so it is
+        // opt-in — the same DevCreditGate conjunction createDepositSession and
+        // devModeDeposit already sit behind, and the same line StripeServiceSpec
+        // carries. Without it `environment` is null, which resolves CLOSED and
+        // is why these specs refuse rather than credit.
+        environment           : SpecEnvs.creditOptedIn(),
         secretKey             : 'sk_test_replace_me',   // dev-mode unless overridden
         publishableKey        : 'pk_test_replace_me',
         webhookSecret         : 'whsec_replace_me',
@@ -368,13 +375,22 @@ class PassThroughFeePricingSpec extends Specification {
     }
 
     def "a pass-through deposit books BOTH legs and nets the treasury to zero — not a \$3.20 loss"() {
-        given: 'live mode, and a non-cs_ reference so the Session.retrieve verification branch is skipped'
+        given: 'live mode, with the Stripe interrogation stubbed at its seam rather than bypassed'
         service.secretKey = 'sk_live_book'
+        // This case needs live mode (the ledger booking below is isLive()-gated)
+        // AND it needs the credit to happen. It used to buy that with a non-cs_
+        // reference, whose ONLY effect was to skip the payment verification —
+        // the bypass this spec's own `given:` line used to advertise. That is a
+        // hole in production standing open so a bookkeeping test can reach the
+        // arithmetic behind it. Overriding the seam gets the same reach while
+        // the production path verifies unconditionally; what is asserted below
+        // (the two ledger legs) is unchanged.
+        service.metaClass.assertDepositPaidAtStripe = { String s, Transaction t -> null }
         def tx = new Transaction(id: 4L, walletId: 500L, type: 'DEPOSIT', status: 'PENDING',
             amount: new BigDecimal('100.00'), feeAmount: new BigDecimal('3.20'),
-            currency: 'USD', stripeReference: 'pi_book_1')
+            currency: 'USD', stripeReference: 'cs_book_1')
         def wallet = new Wallet(id: 500L, balance: BigDecimal.ZERO)
-        transactionRepository.findByStripeReference('pi_book_1') >> tx
+        transactionRepository.findByStripeReference('cs_book_1') >> tx
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction t ->
@@ -383,7 +399,7 @@ class PassThroughFeePricingSpec extends Specification {
         }
 
         when:
-        service.completeDeposit('pi_book_1')
+        service.completeDeposit('cs_book_1')
 
         then: "the user was credited net, so the cost is already borne — booking ONLY the debit counts it twice"
         wallet.balance == new BigDecimal('96.80')

@@ -2922,8 +2922,29 @@ class StripeService {
      *   3) Only then flip the row to COMPLETED and credit the wallet.
      *   4) Re-confirming an already-COMPLETED row is a no-op (idempotent).
      *
-     * In dev mode (no Stripe keys) we trust the local `devModeDeposit` flow
-     * — that path bypasses this entirely by writing `stripeReference="dev_..."`.
+     * Step 2 is MANDATORY, not conditional. It used to run under
+     * {@code if (isLive() && sessionId.startsWith('cs_'))}, so BOTH a
+     * deployment that could not reach Stripe AND a reference that was not a
+     * Checkout Session id skipped every check and fell through to the credit.
+     * Skipping a verification is not the same as passing it. Now each of those
+     * cases refuses:
+     *
+     * <ul>
+     *   <li><b>Stripe-configured, non-{@code cs_} reference</b> — refuse. Only
+     *       {@code createDepositSession} writes PENDING DEPOSIT rows and it
+     *       always stores {@code session.id}, so any other reference is a row
+     *       we cannot explain, let alone verify.</li>
+     *   <li><b>Not Stripe-configured</b> — there is no processor to ask, so a
+     *       credit here is fabricated money-path state and goes through the
+     *       same {@link com.sboxmarket.config.DevCreditGate} conjunction as
+     *       {@code devModeDeposit}: affirmatively SIMULATED <b>and</b> the
+     *       named opt-in present in the process environment. INDETERMINATE
+     *       refuses.</li>
+     * </ul>
+     *
+     * The genuine dev-mode deposit flow is unaffected: {@code devModeDeposit}
+     * writes {@code stripeReference="dev_…"} rows as COMPLETED, and a COMPLETED
+     * row short-circuits above without ever reaching the verification at all.
      */
     @Transactional
     void completeDeposit(String sessionId) {
@@ -2970,57 +2991,48 @@ class StripeService {
         // Live-mode verification — ask Stripe the ground truth. We ignore the
         // sessionId the client handed us for anything other than a lookup;
         // the authoritative answer comes from Stripe itself.
-        if (isLive() && sessionId.startsWith('cs_')) {
-            def session
-            try {
-                session = Session.retrieve(sessionId)
-            } catch (Exception e) {
-                // TRANSIENT failure — a Stripe API outage / timeout. Retrying
-                // WILL succeed once Stripe recovers, so this must NOT be
-                // thrown as IllegalState/IllegalArgument: StripeWebhookController
-                // ACKs those exception types with 200 (treating them as
-                // permanent domain failures), which would make Stripe stop
-                // retrying the checkout.session.completed event — and a user
-                // who genuinely paid would never see their wallet credited.
-                // A plain RuntimeException falls through the webhook
-                // controller's catch-all to a 500, so Stripe retries with
-                // backoff; on the synchronous /confirm-deposit path it maps
-                // to a 500 too (correct — a Stripe outage is a server fault,
-                // not a client error), and the user can retry.
-                log.warn("Stripe session retrieve failed for ${redactSession(sessionId)} (transient — retryable): ${e.message}")
-                throw new RuntimeException("Stripe session could not be verified — temporary Stripe error, retry", e)
+        if (isLive()) {
+            // A reference we cannot hand to Session.retrieve is a reference we
+            // cannot verify, and an unverifiable deposit must not be credited.
+            // This used to be part of the branch CONDITION
+            // (`isLive() && sessionId.startsWith('cs_')`), which meant a
+            // non-cs_ reference SKIPPED verification and fell straight through
+            // to the wallet credit. Skipping a check is not the same as
+            // passing it: `createDepositSession` only ever writes `session.id`,
+            // so a PENDING DEPOSIT row carrying anything else is already a row
+            // we cannot explain — precisely when we should refuse rather than
+            // pay. Refusing keeps "I cannot tell" CLOSED.
+            if (!sessionId.startsWith('cs_')) {
+                log.error("confirm-deposit refused: reference ${redactSession(sessionId)} is not a Stripe " +
+                          "Checkout Session id, so the payment cannot be verified — refusing to credit")
+                throw new IllegalStateException("Deposit reference cannot be verified with Stripe")
             }
-            if (session == null) {
-                throw new IllegalStateException("Stripe session not found")
-            }
-            def paymentStatus = session.paymentStatus  // 'paid' | 'unpaid' | 'no_payment_required'
-            if (!'paid'.equalsIgnoreCase(paymentStatus)) {
-                log.warn("confirm-deposit refused: session ${redactSession(sessionId)} payment_status=${paymentStatus}")
-                throw new IllegalStateException("Payment is not complete")
-            }
-            // Metadata and amount must match what we stored when we created
-            // the session — refuses replays that target a different wallet.
-            def metaWalletId = session.metadata?.get('walletId')
-            if (metaWalletId == null || metaWalletId.toString() != tx.walletId.toString()) {
-                log.error("confirm-deposit refused: session walletId=${metaWalletId} != tx.walletId=${tx.walletId}")
-                throw new IllegalStateException("Session / wallet mismatch")
-            }
-            def expectedCents = (tx.amount * 100).longValue()
-            if (session.amountTotal != null && session.amountTotal != expectedCents) {
-                log.error("confirm-deposit refused: session amount=${session.amountTotal} != tx amount=${expectedCents}")
-                throw new IllegalStateException("Amount mismatch")
-            }
-            // Currency must be USD. The amount check above is a bare cents
-            // equality with no currency dimension, and the wallet ledger is
-            // dollars. We only ever create USD sessions, so this rejects only
-            // a tampered/future non-USD session whose minor-unit total happens
-            // to equal expectedCents while representing a different real value
-            // (e.g. a zero-decimal currency). Defense-in-depth beside the
-            // amount / payment_status guards.
-            if (session.currency != null && !'usd'.equalsIgnoreCase(session.currency as String)) {
-                log.error("confirm-deposit refused: session currency=${session.currency} != usd")
-                throw new IllegalStateException("Currency mismatch")
-            }
+            assertDepositPaidAtStripe(sessionId, tx)
+        } else {
+            // NOT Stripe-configured — there is no processor to ask whether this
+            // deposit was paid, so crediting here fabricates money-path state
+            // exactly the way `devModeDeposit` does. This branch used to be
+            // ABSENT: the verification was a plain `if`, so `!isLive()` fell
+            // through to the credit with nothing checked at all. That is the
+            // same defect DevCreditGate closed at `createDepositSession`,
+            // `devModeDeposit` and `createConnectOnboardingLink` — and this,
+            // the credit primitive those three sit in front of, was the call
+            // site that still read "cannot verify" as "go ahead".
+            //
+            // Reachable without any code change: a PENDING row is created while
+            // a real key is configured, the user abandons Stripe Checkout
+            // without paying, the process is later restarted WITHOUT
+            // STRIPE_SECRET_KEY (so the placeholder default classifies
+            // SIMULATED), and the user then POSTs their own session id to
+            // /api/wallet/confirm-deposit and is credited the full amount.
+            //
+            // Same gate, same reader, same fail-closed default as its three
+            // siblings — deliberately not a fourth convention. SIMULATED
+            // without the named opt-in refuses, and INDETERMINATE refuses,
+            // so "I cannot tell" is CLOSED in every direction.
+            com.sboxmarket.config.MoneyMode mode = moneyMode()
+            refuseIfCreditNotAuthorized('confirm-deposit', mode)
+            refuseIfIndeterminate('confirm-deposit')
         }
 
         def wallet = walletRepository.findById(tx.walletId).orElseThrow()
@@ -3286,6 +3298,77 @@ class StripeService {
 
         log.info("[DEV MODE] credited \$${amount} to wallet $walletId")
         [checkoutUrl: null, sessionId: tx.stripeReference, transactionId: tx.id, live: false, newBalance: wallet.balance]
+    }
+
+    /**
+     * <b>Ask Stripe whether this deposit was actually paid, and throw if it was
+     * not.</b> Returns normally only when the session exists, reads
+     * {@code paid}, is stamped with THIS transaction's wallet, and matches its
+     * amount and currency.
+     *
+     * Extracted from {@link #completeDeposit} for the same reason
+     * {@link #assertTransferNotAlreadyRecorded} was extracted from the payout
+     * path: the body calls the static {@code Session.retrieve}, which no unit
+     * test can drive to success, so while the check lived inline the ONLY way a
+     * spec could reach the credit arithmetic behind it was to arrange for the
+     * check to be skipped. One spec did exactly that, and its own `given:`
+     * block said so — "a non-cs_ reference so the Session.retrieve verification
+     * branch is skipped". A verification whose bypass is load-bearing for the
+     * test suite is a verification the suite cannot tell you has stopped
+     * working. As a seam it is overridable in a spec, so the arithmetic is
+     * reachable WITHOUT the production path needing a hole in it.
+     */
+    protected void assertDepositPaidAtStripe(String sessionId, com.sboxmarket.model.Transaction tx) {
+        def session
+        try {
+            session = Session.retrieve(sessionId)
+        } catch (Exception e) {
+            // TRANSIENT failure — a Stripe API outage / timeout. Retrying
+            // WILL succeed once Stripe recovers, so this must NOT be
+            // thrown as IllegalState/IllegalArgument: StripeWebhookController
+            // ACKs those exception types with 200 (treating them as
+            // permanent domain failures), which would make Stripe stop
+            // retrying the checkout.session.completed event — and a user
+            // who genuinely paid would never see their wallet credited.
+            // A plain RuntimeException falls through the webhook
+            // controller's catch-all to a 500, so Stripe retries with
+            // backoff; on the synchronous /confirm-deposit path it maps
+            // to a 500 too (correct — a Stripe outage is a server fault,
+            // not a client error), and the user can retry.
+            log.warn("Stripe session retrieve failed for ${redactSession(sessionId)} (transient — retryable): ${e.message}")
+            throw new RuntimeException("Stripe session could not be verified — temporary Stripe error, retry", e)
+        }
+        if (session == null) {
+            throw new IllegalStateException("Stripe session not found")
+        }
+        def paymentStatus = session.paymentStatus  // 'paid' | 'unpaid' | 'no_payment_required'
+        if (!'paid'.equalsIgnoreCase(paymentStatus)) {
+            log.warn("confirm-deposit refused: session ${redactSession(sessionId)} payment_status=${paymentStatus}")
+            throw new IllegalStateException("Payment is not complete")
+        }
+        // Metadata and amount must match what we stored when we created
+        // the session — refuses replays that target a different wallet.
+        def metaWalletId = session.metadata?.get('walletId')
+        if (metaWalletId == null || metaWalletId.toString() != tx.walletId.toString()) {
+            log.error("confirm-deposit refused: session walletId=${metaWalletId} != tx.walletId=${tx.walletId}")
+            throw new IllegalStateException("Session / wallet mismatch")
+        }
+        def expectedCents = (tx.amount * 100).longValue()
+        if (session.amountTotal != null && session.amountTotal != expectedCents) {
+            log.error("confirm-deposit refused: session amount=${session.amountTotal} != tx amount=${expectedCents}")
+            throw new IllegalStateException("Amount mismatch")
+        }
+        // Currency must be USD. The amount check above is a bare cents
+        // equality with no currency dimension, and the wallet ledger is
+        // dollars. We only ever create USD sessions, so this rejects only
+        // a tampered/future non-USD session whose minor-unit total happens
+        // to equal expectedCents while representing a different real value
+        // (e.g. a zero-decimal currency). Defense-in-depth beside the
+        // amount / payment_status guards.
+        if (session.currency != null && !'usd'.equalsIgnoreCase(session.currency as String)) {
+            log.error("confirm-deposit refused: session currency=${session.currency} != usd")
+            throw new IllegalStateException("Currency mismatch")
+        }
     }
 
     /**
