@@ -36,6 +36,11 @@ class StripeServiceSpec extends Specification {
     StripeService service = new StripeService(
         walletRepository      : walletRepository,
         transactionRepository : transactionRepository,
+        // The simulated deposit path is opt-in as of DevCreditGate: SIMULATED is
+        // what the deployment IS, not a grant to fabricate credit. These specs
+        // exercise that path deliberately, so they ASK for it — the same act the
+        // operator performs at a shell, through the same one channel.
+        environment           : SpecEnvs.creditOptedIn(),
         secretKey             : 'sk_test_replace_me',   // dev-mode
         publishableKey        : 'pk_test_replace_me',
         webhookSecret         : 'whsec_replace_me',

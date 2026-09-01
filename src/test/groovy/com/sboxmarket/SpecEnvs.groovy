@@ -56,4 +56,19 @@ class SpecEnvs {
             [(com.sboxmarket.config.DevLoginGate.OPT_IN_ENV_VAR):
                  com.sboxmarket.config.DevLoginGate.OPT_IN_VALUE] + extraProcessEnv)
     }
+
+    /**
+     * The local-dev deployment WITH the fabricated-credit opt-in granted.
+     *
+     * A SEPARATE variable from {@link #optedIn}, and a separate helper, because
+     * they authorise different things: a QA harness that needs a session has not
+     * thereby asked for a money printer. A spec that wants the simulated deposit
+     * path has to say so, which is the same act the operator performs at a shell.
+     */
+    static ConfigurableEnvironment creditOptedIn(List<String> profiles = [],
+                                                 Map<String, Object> extraProcessEnv = [:]) {
+        env(profiles,
+            [(com.sboxmarket.config.DevCreditGate.OPT_IN_ENV_VAR):
+                 com.sboxmarket.config.DevCreditGate.OPT_IN_VALUE] + extraProcessEnv)
+    }
 }

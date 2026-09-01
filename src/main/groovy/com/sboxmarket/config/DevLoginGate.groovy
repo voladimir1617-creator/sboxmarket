@@ -195,6 +195,13 @@ class DevLoginGate {
      * Returns {@code null} for every "cannot tell": a non-configurable
      * Environment (a bare test stub), a missing source, an absent variable, or
      * a lookup that throws. Callers treat {@code null} as NO.
+     *
+     * <b>Shared, on purpose.</b> {@link DevCreditGate#optInGranted} calls this
+     * exact method rather than carrying its own copy. "What counts as the
+     * process environment" is the single property that makes an opt-in
+     * un-inheritable, and two implementations of it would be two chances to
+     * disagree about it — the "correct logic nobody calls" failure this repo
+     * keeps paying for. One reader, both gates.
      */
     static String processEnvValue(Environment env, String name) {
         if (!(env instanceof ConfigurableEnvironment)) return null

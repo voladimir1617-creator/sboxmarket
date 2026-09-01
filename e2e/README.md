@@ -51,6 +51,18 @@ java -Dloader.path=build/classes/groovy/main,build/resources/main `
      org.springframework.boot.loader.launch.PropertiesLauncher
 ```
 
+**That is the only variable this suite needs, and it is not the money one.**
+There is a second, separate opt-in — `SBOX_DEV_CREDIT_ENABLED` — which
+authorises the in-process fabricated wallet credit (`devModeDeposit`, up to
+$5,000 per wallet per 24h against no payment) and the simulated Stripe Connect
+onboarding. See `config/DevCreditGate.groovy`.
+
+**Do not set it to run these tests.** `wallet.spec.js` only renders the deposit
+*form*; nothing here submits a deposit, and the whole suite passes with the
+credit door shut. Two names exist precisely so that a harness needing a session
+does not silently also get a money printer — one variable answering both
+questions would be the same conflation `MoneyMode` was written to delete.
+
 Check it took, before blaming the tests:
 
 ```bash

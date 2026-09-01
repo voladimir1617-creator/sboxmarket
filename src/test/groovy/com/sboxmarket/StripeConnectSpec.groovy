@@ -35,6 +35,10 @@ class StripeConnectSpec extends Specification {
     StripeService service = new StripeService(
         walletRepository      : walletRepository,
         transactionRepository : transactionRepository,
+        // See DevCreditGate: the fabricated `dev_acct_` payout reference is
+        // money-path state, so writing it is opt-in and not merely un-forbidden.
+        // These specs exercise that branch on purpose, so they grant it.
+        environment           : SpecEnvs.creditOptedIn(),
         secretKey             : 'sk_test_replace_me',   // dev-mode by default
         publishableKey        : 'pk_test_replace_me',
         webhookSecret         : 'whsec_replace_me',

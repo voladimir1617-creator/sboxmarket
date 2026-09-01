@@ -274,12 +274,21 @@ class ProdScaffoldingUnreachableSpec extends Specification {
         ] as Map<String, Object>
     }
 
-    def "NEGATIVE CONTROL: the running default-profile config routes deposits into devModeDeposit"() {
+    def "NEGATIVE CONTROL: the running default-profile config is the one that could route deposits into devModeDeposit"() {
         given: 'application.yml ships stripe.secret-key = sk_test_replace_me when no env var is set'
         def stripe = new StripeService(secretKey: 'sk_test_replace_me')
 
-        expect: 'isLive() is false, which is the ONLY condition createDepositSession checks'
+        expect: 'isLive() is false — no Stripe call will be made, so there is nowhere else for a deposit to go'
         !stripe.isLive()
+
+        and: 'and the deployment classifies SIMULATED, which USED TO BE the only condition checked'
+        stripe.moneyMode().devFallbackAuthorized()
+
+        and: '''...and is no longer sufficient. This is the whole of the 2026-09-01 finding:
+                the mode is a CLASSIFICATION of the configuration, not a grant, and the box
+                that matches it exactly is every box nobody has configured yet.'''
+        !stripe.devCreditAuthorized()
+        stripe.devCreditRefusal() == com.sboxmarket.config.DevCreditGate.REASON_NOT_AUTHORIZED
     }
 
     /**
@@ -330,8 +339,15 @@ class ProdScaffoldingUnreachableSpec extends Specification {
         given:
         String src = new File('src/main/groovy/com/sboxmarket/service/StripeService.groovy').text
 
-        expect: 'the fallthrough is inside an AFFIRMATIVE authorisation branch'
-        (src =~ /if\s*\(\s*moneyMode\(\)\.devFallbackAuthorized\(\)\s*\)\s*\{[^}]*devModeDeposit\(/).find()
+        expect: '''the fallthrough is inside an AFFIRMATIVE authorisation branch — and as of
+                   2026-09-01 that branch is the CONJUNCTION (affirmatively SIMULATED AND an
+                   opt-in in the process environment), not the mode alone. See DevCreditGate.'''
+        (src =~ /if\s*\(\s*devCreditAuthorized\([^)]*\)\s*\)\s*\{[^}]*devModeDeposit\(/).find()
+
+        and: '''NOT the mode alone. `devFallbackAuthorized()` classifies the CONFIGURATION —
+                "no Stripe account is wired here" — which is the default state of every box
+                nobody has configured yet, including the one about to be published.'''
+        !(src =~ /if\s*\(\s*moneyMode\(\)\.devFallbackAuthorized\(\)\s*\)\s*\{[^}]*devModeDeposit\(/).find()
 
         and: 'NOT inside the negation of isLive(), which is what made an unrecognised key free money'
         !(src =~ /if\s*\(\s*!isLive\(\)\s*\)\s*\{[^}]*devModeDeposit\(/).find()

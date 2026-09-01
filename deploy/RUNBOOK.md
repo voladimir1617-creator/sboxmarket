@@ -48,7 +48,30 @@ Publishing the tunnel again without the prod profile re-opens both.
 > `{"error":"dev-login disabled: no SBOX_DEV_LOGIN_ENABLED=true opt-in in the process
 > environment"}` means nobody asked. Only the first is a statement about production.
 >
-> `devModeDeposit` is unchanged and still gated on `MoneyMode.devFallbackAuthorized()`.
+> **The free-credit door behind it is now closed the same way.** Closing `dev-login` shut the
+> shortcut *into* an account. It did not touch `devModeDeposit`, which credits up to **$5,000
+> per wallet per rolling 24 hours against no payment** whenever the deployment is SIMULATED —
+> and Steam sign-in is not a shortcut, it is the real front door, open to everyone. So on a
+> published SIMULATED origin a stranger signed in normally and credited themselves, with every
+> takeover door correctly shut behind them.
+>
+> As of this change the fabricated credit needs BOTH: affirmatively SIMULATED AND
+> `SBOX_DEV_CREDIT_ENABLED=true` in the server's **process environment**. Same channel, same
+> fail-closed default, same "cannot be committed" property — see `config/DevCreditGate.groovy`.
+> It is a **different variable** from `SBOX_DEV_LOGIN_ENABLED` on purpose: the e2e suite and
+> every QA harness set the login one, and a harness that needs a session has not thereby asked
+> for a money printer.
+>
+> The same gate covers the simulated Stripe Connect onboarding, which fabricates a `dev_acct_`
+> payout reference on the same "nobody configured Stripe here" reasoning.
+>
+> Both refusals are tellable apart and both carry the `dev-credit disabled:` prefix:
+> `dev-credit disabled: LIVE deployment — only SIMULATED may fabricate money-path state`
+> (the mode shut it) versus `dev-credit disabled: no SBOX_DEV_CREDIT_ENABLED=true opt-in in
+> the process environment` (nobody asked). On the wire the deposit endpoint answers `400`
+> with code `DEV_CREDIT_NOT_AUTHORIZED`.
+>
+> **A fresh checkout, run with no special environment, credits nothing and mints no session.**
 
 ## What actually runs today (measured 2026-09-01, not assumed)
 

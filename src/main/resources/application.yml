@@ -265,6 +265,22 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:false}
     operationsSorter: method
 
+# THE KEY BELOW IS A PLACEHOLDER, AND THAT IS AN HONEST ANSWER, NOT A PERMISSION.
+# `sk_test_replace_me` makes MoneyMode classify this deployment SIMULATED, which is
+# correct: no Stripe account is wired here. What that classification MUST NOT mean is
+# "you may therefore invent money". Until 2026-09-01 it did: createDepositSession fell
+# through to devModeDeposit and credited up to $5,000 per wallet per 24h against no
+# payment, reachable by anyone who could sign in with a real Steam account -- which is
+# the ordinary front door, not the dev-login shortcut that was closed separately.
+#
+# The fabricated credit (and the fabricated `dev_acct_` payout reference beside it) now
+# ALSO require SBOX_DEV_CREDIT_ENABLED=true in the PROCESS ENVIRONMENT. See
+# config/DevCreditGate.groovy. That variable is deliberately unreadable from this file,
+# from any profile yml, from a mounted config and from a -D flag, because every one of
+# those is committed once and then inherited by a deployment that never re-decided it.
+# Do not add it here or to docker-compose.yml, the Dockerfile or skinbox.env.example --
+# DevCreditRequiresOptInSpec fails if you do, and it reads these files with comments
+# stripped, so this warning is safe and a real setting would not be.
 stripe:
   secret-key:     ${STRIPE_SECRET_KEY:sk_test_replace_me}
   publishable-key: ${STRIPE_PUBLISHABLE_KEY:pk_test_replace_me}

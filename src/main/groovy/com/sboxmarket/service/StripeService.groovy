@@ -129,6 +129,25 @@ class StripeService {
 
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
+
+    /**
+     * The PROCESS ENVIRONMENT, and the only reason this service takes one.
+     *
+     * {@link com.sboxmarket.config.DevCreditGate} reads the
+     * {@code systemEnvironment} property source out of it to answer "did anyone
+     * actually ask for the fabricated credit?" — see that class for why it is
+     * that source specifically and not {@code getProperty}.
+     *
+     * {@code required = false} so the ~200 existing specs that build this
+     * service with {@code new StripeService(...)} and no Spring context still
+     * wire, exactly like every other optional collaborator here. A null
+     * Environment is not a loophole: it carries no opt-in, so it reads as NO
+     * and the gate is SHUT. A spec that means to exercise the simulated path
+     * grants it explicitly ({@code SpecEnvs.creditOptedIn()}), which is the
+     * same act the operator performs at a shell.
+     */
+    @Autowired(required = false) org.springframework.core.env.Environment environment
+
     @Autowired(required = false) AuditService auditService
     /** Platform's own ledger account — receives the PROCESSING_COST leg of
      *  every live deposit so the treasury balance is margin, not revenue.
@@ -574,6 +593,62 @@ class StripeService {
      * credited wallets against no payment on a deployment whose configuration
      * had just validated clean.
      */
+    /**
+     * <b>May this process fabricate money-path state right now?</b> —
+     * {@code null} when yes, otherwise the reason it is refused.
+     *
+     * {@link com.sboxmarket.config.MoneyMode#devFallbackAuthorized()} answers
+     * only half of that: it says the deployment is affirmatively unconfigured,
+     * which is a CLASSIFICATION. It was being read as a GRANT, and that is the
+     * whole defect — a placeholder Stripe key made every stranger who could
+     * sign in with a real Steam account eligible for $5,000 a day of credit
+     * against no payment.
+     *
+     * The gate adds the second half: someone has to have ASKED, by name, in
+     * this process's environment. See
+     * {@link com.sboxmarket.config.DevCreditGate}.
+     *
+     * Takes the mode as a parameter so a caller that already computed it does
+     * not compute it twice — {@code moneyMode()} is cheap, but a second read is
+     * a second chance for the branch and its own re-assertion to answer
+     * differently, which is precisely what the Connect write guards against.
+     */
+    String devCreditRefusal(com.sboxmarket.config.MoneyMode mode = moneyMode()) {
+        com.sboxmarket.config.DevCreditGate.refusalReason(mode, environment)
+    }
+
+    /** @see #devCreditRefusal */
+    boolean devCreditAuthorized(com.sboxmarket.config.MoneyMode mode = moneyMode()) {
+        devCreditRefusal(mode) == null
+    }
+
+    /**
+     * Refuse an action that would ONLY ever have worked by fabricating state,
+     * on a deployment that is entitled to fabricate but was never asked to.
+     *
+     * Without this the SIMULATED-but-not-opted-in caller falls through into the
+     * real Stripe branch carrying {@code sk_test_replace_me}, and dies somewhere
+     * inside the SDK with an authentication error that says nothing about the
+     * gate. Refusing HERE, with a branchable code, is the difference between a
+     * decision and an accident — the same reason
+     * {@link #refuseIfIndeterminate} exists.
+     *
+     * A non-SIMULATED deployment is NOT this method's business: it has a real
+     * Stripe path to take, and {@link #refuseIfIndeterminate} handles the
+     * unclassifiable case.
+     */
+    private void refuseIfCreditNotAuthorized(String action, com.sboxmarket.config.MoneyMode mode) {
+        if (!mode.devFallbackAuthorized()) return
+        String refusal = devCreditRefusal(mode)
+        if (refusal == null) return
+        log.error("DEV_CREDIT_NOT_AUTHORIZED refusing ${action}: ${refusal}")
+        throw new com.sboxmarket.exception.BadRequestException('DEV_CREDIT_NOT_AUTHORIZED',
+            'Payments are unavailable: this deployment has no payment processor configured, and its ' +
+            'in-process simulated money path has not been enabled. No card can be charged and nothing ' +
+            'will be credited. Contact support — this is a server configuration problem, not a problem ' +
+            'with your account.')
+    }
+
     private void refuseIfIndeterminate(String action) {
         if (moneyMode() == com.sboxmarket.config.MoneyMode.INDETERMINATE) {
             // The VALUE is never echoed — it may be a real secret. Its length
@@ -604,10 +679,27 @@ class StripeService {
         // Three-way now, because the question is three-way: only an
         // affirmatively-identified unconfigured deployment may fabricate a
         // credit, and "I cannot tell" refuses instead of guessing.
-        if (moneyMode().devFallbackAuthorized()) {
+        //
+        // Three-way was still not enough, because the third way was a
+        // CLASSIFICATION being read as a GRANT. `devFallbackAuthorized()` means
+        // "no Stripe account is wired here", which is the default state of every
+        // box nobody has configured yet — including the one that is about to be
+        // published. Steam sign-in is the real front door and it is open to
+        // everyone, so on a published SIMULATED deployment a stranger signed in
+        // normally and credited themselves $5,000 a day. Closing `dev-login`
+        // did not touch that.
+        //
+        // So the branch is now a CONJUNCTION: affirmatively unconfigured AND
+        // someone asked for it by name, in this process's environment. See
+        // DevCreditGate.
+        com.sboxmarket.config.MoneyMode mode = moneyMode()
+        if (devCreditAuthorized(mode)) {
             // fallback dev-mode: instant fake deposit so UI works without real keys
             return devModeDeposit(walletId, amount)
         }
+        // SIMULATED but nobody asked. There is no real Stripe path to fall
+        // through to, so say so here rather than dying inside the SDK.
+        refuseIfCreditNotAuthorized('deposit', mode)
         refuseIfIndeterminate('deposit')
         if (amount == null || amount <= BigDecimal.ZERO) {
             throw new IllegalArgumentException("Deposit amount must be positive")
@@ -1321,7 +1413,13 @@ class StripeService {
         // buy a wallet a fake `dev_acct_…` reference that the payout path will
         // later treat as an onboarded destination.
         refuseIfIndeterminate('Connect onboarding')
-        if (moneyMode().devFallbackAuthorized()) {
+        // Same conjunction as the deposit door, and for the same reason: a
+        // fabricated `dev_acct_` payout destination is money-path state written
+        // on the strength of "nobody configured Stripe here", which is not a
+        // grant. One gate, one variable, both fabrication sites — leaving the
+        // second one on the old rule is how two guards start disagreeing.
+        com.sboxmarket.config.MoneyMode mode = moneyMode()
+        if (devCreditAuthorized(mode)) {
             // Dev mode (no real Stripe keys): do NOT pretend to onboard a
             // real account. Mark the wallet as a SIMULATED connected
             // account so the rest of the UI/flow is exercisable locally,
@@ -1339,11 +1437,11 @@ class StripeService {
                 // leave permanent debris on a live seller's payout field.
                 // The branch above already forbids that; this makes forgetting
                 // the branch impossible rather than merely unlikely.
-                MoneyMode writeMode = moneyMode()
-                if (!writeMode.devFallbackAuthorized()) {
+                String writeRefusal = devCreditRefusal()
+                if (writeRefusal != null) {
                     throw new IllegalStateException(
-                        "REFUSING to write a simulated dev_acct_ payout reference on a ${writeMode} " +
-                        "deployment (wallet ${walletId}) — only ${MoneyMode.SIMULATED} may fabricate one")
+                        "REFUSING to write a simulated dev_acct_ payout reference " +
+                        "(wallet ${walletId}) — ${writeRefusal}")
                 }
                 wallet.stripeConnectAccountId = "dev_acct_${walletId}_${System.currentTimeMillis()}"
                 walletRepository.save(wallet)
@@ -1352,6 +1450,10 @@ class StripeService {
             return [onboardingUrl: connectRefreshUrl, live: false, simulated: true,
                     accountId: wallet.stripeConnectAccountId]
         }
+        // SIMULATED but nobody asked: there is no real Stripe account to create
+        // with a placeholder key, so refuse by decision instead of failing
+        // inside Account.create with an authentication error.
+        refuseIfCreditNotAuthorized('Connect onboarding', mode)
 
         // Create the Express connected account the first time. Express =
         // Stripe-hosted onboarding + dashboard; `transfers` capability is
@@ -3127,12 +3229,14 @@ class StripeService {
         // This is an IllegalStateException, not a BadRequestException: reaching
         // here on a non-simulated deployment is a programming error, not
         // anything the user did.
-        if (!moneyMode().devFallbackAuthorized()) {
-            log.error("devModeDeposit reached on a ${moneyMode()} deployment for wallet ${walletId} — " +
-                      'refusing to credit a wallet against no payment')
-            throw new IllegalStateException(
-                "devModeDeposit is only authorised when the deployment is SIMULATED (no Stripe key / a " +
-                "committed placeholder); this deployment is ${moneyMode()}")
+        //
+        // The lock is now the CONJUNCTION, not the mode alone: SIMULATED is
+        // what this deployment IS, not what anyone authorised it to do.
+        String refusal = devCreditRefusal()
+        if (refusal != null) {
+            log.error("devModeDeposit reached for wallet ${walletId} — " +
+                      "refusing to credit a wallet against no payment (${refusal})")
+            throw new IllegalStateException("devModeDeposit refused — ${refusal}")
         }
         // Same positive + cap validation as the live Stripe path. Without
         // these guards, a dev deployment without Stripe keys (or a
