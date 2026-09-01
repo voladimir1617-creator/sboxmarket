@@ -1,6 +1,6 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
-import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, platformFee, sellerPayout, useCustodyCopy } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -3162,6 +3162,12 @@ export function App() {
   // replaced with route-driven rendering. `routeName` is what we switch on.
   const route = useRoute();
   const routeName = route.name;
+
+  // Whether SkinBox holds sellers' items is a RUNTIME fact (whether the escrow
+  // bot is configured), not a constant — so the home-page custody copy is
+  // resolved from the server rather than hardcoded. Mode-neutral wording until
+  // the answer lands, so no paint ever asserts something that isn't true.
+  const custody = useCustodyCopy();
 
   // Toast state hoisted to the top of App() — earlier in the body, effects
   // at lines ~3986/4660+/4860 fire toasts before showToast is even declared.
@@ -6397,7 +6403,9 @@ export function App() {
       h('div', { className: 'csfloat-home-hero-inner' },
         h('div', { className: 'csfloat-home-hero-copy' },
           h('h1', { className: 'csfloat-home-hero-title' }, 'Buy & Sell s&box Skins on the Most Trusted Marketplace'),
-          h('p', { className: 'csfloat-home-hero-sub' }, 'The non-custodial s&box marketplace — verified sellers, escrowed trades, instant cash-out.'),
+          // Custody is a runtime fact (STEAM_BOT_BASE_URL), not a constant —
+          // custodyCopy resolves it so this line can't outlive the config.
+          h('p', { className: 'csfloat-home-hero-sub' }, custody.heroSub),
           h('div', { className: 'csfloat-home-hero-actions' },
             h('a', {
               className: 'csfloat-home-hero-cta primary',
@@ -6636,8 +6644,10 @@ export function App() {
     ),
     /* Home marketing — 3-up service tiles. Each tile = a glyph, a 2-3
        word headline, a 1-line blurb. Adapted to sboxmarket's actual
-       services (auctions, bargains, non-custodial Steam-trade escrow)
-       — no float values / StatTrak / Souvenirs since those are CS-only. */
+       services (auctions, bargains, Steam-trade escrow) — no float values
+       / StatTrak / Souvenirs since those are CS-only. The third tile's
+       custody wording comes from `custody` (server-resolved), because
+       whether we hold the items depends on STEAM_BOT_BASE_URL. */
     routeName === 'home' && h('section', { className: 'csfloat-home-tiles', 'aria-label': 'How SkinBox trades work' },
       h('div', { className: 'csfloat-home-tiles-inner' },
         h('div', { className: 'csfloat-home-tile' },
@@ -6660,9 +6670,8 @@ export function App() {
           h('div', { className: 'csfloat-home-tile-icon' },
             h(MaterialIcon, { name: 'shield', size: 22 })
           ),
-          h('div', { className: 'csfloat-home-tile-title' }, 'Non-Custodial'),
-          h('div', { className: 'csfloat-home-tile-blurb' },
-            'Skins move seller-to-buyer through Steam. SkinBox never holds custody, so escrow risk is zero.')
+          h('div', { className: 'csfloat-home-tile-title' }, custody.tileTitle),
+          h('div', { className: 'csfloat-home-tile-blurb' }, custody.tileBlurb)
         )
       )
     ),
@@ -9523,12 +9532,15 @@ export function App() {
             // exist server-side, so the calculator was quoting users
             // a lower take-home than they actually receive.
             const amt = Math.max(0, parseFloat(feeInput) || 0);
-            const platformFee = (amt * 0.02);
-            const take = Math.max(0, amt - platformFee);
+            // Shared helper — the server rounds the FEE half-up and subtracts,
+            // so deriving the take-home as `amt * 0.98` quoted a cent more than
+            // the wallet actually receives on any split-cent price.
+            const fee = platformFee(amt);
+            const take = Math.max(0, sellerPayout(amt));
             return h('div', { className: 'fee-calc-breakdown' },
               h('div', { className: 'fee-calc-line' },
                 h('span', null, 'Platform fee (2%)'),
-                h('strong', null, '−' + fmt(platformFee))
+                h('strong', null, '−' + fmt(fee))
               ),
               h('div', { className: 'fee-calc-line total' },
                 h('span', null, 'You receive'),

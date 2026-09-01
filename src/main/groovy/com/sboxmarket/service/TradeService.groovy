@@ -102,6 +102,15 @@ class TradeService {
     // the property-map constructor (no Spring context) still wire — the
     // helper falls back to inline execution when the manager is null.
     @Autowired(required = false) PlatformTransactionManager transactionManager
+    // Optional — the automated Steam-delivery orchestrator's attempt log, and
+    // the bot that writes it. Together they are the ONLY record of whether a
+    // bot-driven trade's Steam offer was merely SENT or actually ACCEPTED by
+    // the buyer. sweepPendingConfirm consults them before releasing money; see
+    // botOfferAwaitingAcceptance. `required = false` so the ~200 unit specs
+    // that build TradeService via the property-map constructor still wire, and
+    // so a deployment with no bot behaves exactly as it did before.
+    @Autowired(required = false) com.sboxmarket.repository.SteamDeliveryAttemptRepository steamDeliveryAttemptRepository
+    @Autowired(required = false) SteamTradeBotService steamTradeBotService
     // Optional — the Trade Protection add-on. When a trade carries a
     // protection record, the dispute / timeout-loss paths auto-claim it
     // (full item-price refund to the buyer, no support ticket) and the
@@ -1753,6 +1762,92 @@ class TradeService {
         }
     }
 
+    /** Steam offer states that mean the buyer actually took the item. Anything
+     *  else — active, sent, needs_confirmation, in escrow, declined, expired —
+     *  means they have not. */
+    static final List<String> ACCEPTED_OFFER_STATES =
+            ['accepted', 'delivered', 'verified'].asImmutable()
+
+    /**
+     * True when the BOT sent this trade's Steam offer and Steam has never
+     * reported the buyer accepting it.
+     *
+     * ── Why the auto-release sweep has to ask ─────────────────────────────
+     * {@code sweepPendingConfirm} released funds purely on the buyer being
+     * silent for {@code autoReleaseDays}. That is a sound rule for a manual
+     * trade — the seller says they sent it, we have no way to check, and a
+     * silent buyer cannot hold the seller's money hostage forever.
+     *
+     * It is NOT a sound rule for a bot-driven trade, because there we CAN
+     * check. {@code SteamDeliveryService} polls the Steam offer and knows
+     * whether the buyer accepted; if the trade is still sitting in
+     * PENDING_BUYER_CONFIRM at the deadline, we affirmatively know they did
+     * not. Releasing then paid the seller in full for an item still sitting in
+     * our own bot's inventory, took the buyer's money, and delivered nothing —
+     * with the Steam offer quietly expiring at day 14, six days after the
+     * money was gone.
+     *
+     * "We sent an offer" and "the buyer has the item" are different facts.
+     * Only the second one may release money.
+     *
+     * Fails CLOSED: if the delivery log cannot be read while the bot is live,
+     * we hold rather than pay out on an unknown. When no bot is configured at
+     * all (the launch configuration) no trade can be bot-driven, so this is
+     * always false and the sweep behaves exactly as it always has.
+     */
+    protected boolean botOfferAwaitingAcceptance(Trade t) {
+        if (t?.id == null) return false
+        // No bot => no bot-driven trades => legacy behaviour, untouched.
+        if (steamTradeBotService == null || !steamTradeBotService.enabled) return false
+        if (steamDeliveryAttemptRepository == null) return false
+        List rows
+        try {
+            rows = steamDeliveryAttemptRepository.findLatestWithOffer(
+                    t.id, org.springframework.data.domain.PageRequest.of(0, 1))
+        } catch (Exception e) {
+            log.warn("Trade #{}: delivery log unreadable ({}) — holding escrow rather than " +
+                    "auto-releasing on an unverified delivery", t.id, e.message)
+            return true
+        }
+        // No offer row => the bot never sent one => this is a manual trade the
+        // seller shipped themselves. The silence rule still applies to it.
+        if (rows == null || rows.isEmpty()) return false
+        String state = rows.get(0)?.offerState?.toLowerCase()
+        return !(state in ACCEPTED_OFFER_STATES)
+    }
+
+    /**
+     * The bot sent an offer, the buyer never accepted it, and the auto-release
+     * deadline has passed. Do NOT pay the seller — park the trade in DISPUTED
+     * so the money stays in escrow and a human decides.
+     *
+     * DISPUTED specifically because it is (a) an existing state with an
+     * existing staff adjudication queue, (b) money-neutral, and (c) outside
+     * this sweep's candidate query — so the trade is handled once rather than
+     * re-notified every 15 minutes forever.
+     */
+    @Transactional
+    protected void parkUndeliveredTrade(Trade trade) {
+        trade.note = "Delivery unverified — our bot sent the Steam trade offer but the buyer " +
+                "never accepted it within ${autoReleaseDays} days. Escrow held for review."
+        transitionTo(trade, 'DISPUTED')
+        auditService?.log(AuditService.TRADE_DISPUTED, null, trade.sellerUserId, trade.id,
+                "Auto-held after ${autoReleaseDays}d: Steam offer sent but never accepted — " +
+                "funds NOT released, item still in bot custody")
+        notificationService?.safePush(trade.buyerUserId, 'TRADE_DISPUTED',
+                "Action needed · ${trade.itemName ?: 'your trade'}",
+                "You never accepted the Steam trade offer for this purchase, so we have not paid " +
+                "the seller. Your funds are still held. Contact support to complete or refund it.",
+                trade.id, '/profile?tab=trades')
+        notificationService?.safePush(trade.sellerUserId, 'TRADE_DISPUTED',
+                "On hold · ${trade.itemName ?: 'your trade'}",
+                "The buyer never accepted the Steam trade offer, so this sale is on hold for " +
+                "review rather than being auto-released. Your item has not left our escrow.",
+                trade.id, '/profile?tab=trades')
+        log.warn("Trade #{} held at auto-release: bot offer never accepted by buyer {} — " +
+                "seller NOT credited, item still in custody", trade.id, trade.buyerUserId)
+    }
+
     @Scheduled(fixedDelay = 15L * 60L * 1000L, initialDelay = 5L * 60L * 1000L)
     void sweepPendingConfirm() {
         def cutoff = System.currentTimeMillis() - (autoReleaseDays * 24L * 60L * 60L * 1000L)
@@ -1781,6 +1876,14 @@ class TradeService {
                     // PENDING_BUYER_CONFIRM — the next sweep tick
                     // re-found it and DOUBLE-REFUNDED.
                     runInIsolatedTx { autoCancelBannedSellerTrade(trade) }
+                } else if (botOfferAwaitingAcceptance(trade)) {
+                    // The bot SENT a Steam offer and the buyer never accepted
+                    // it. Silence is not evidence of delivery here — it is
+                    // evidence of NON-delivery, because for a bot-driven trade
+                    // acceptance is something we positively observe. Releasing
+                    // would pay the seller in full for an item still sitting in
+                    // our own bot's inventory.
+                    runInIsolatedTx { parkUndeliveredTrade(trade) }
                 } else {
                     // autoRelease=true fires the buyer-side email
                     // (batch 601) — the 8-day-silent buyer probably

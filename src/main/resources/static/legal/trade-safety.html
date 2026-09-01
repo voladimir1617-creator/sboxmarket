@@ -46,20 +46,31 @@
     <h1>Trade Safety</h1>
     <div class="legal-meta">Last updated: 14 April 2026 · Read this before you trade anything.</div>
 
-    <div class="callout">
-      <strong>SkinBox is non-custodial.</strong> We never hold your skins. When a
-      trade clears, the seller sends a Steam trade offer <em>directly</em> to the
-      buyer using the Steam trade URL on file, and the buyer's wallet funds release
-      to the seller only after both sides confirm receipt in the SkinBox trade
-      thread. No bot account ever touches the items.
-    </div>
+    <!--
+      CUSTODY MODE PLACEHOLDERS — filled in server-side by TradeSafetyController
+      from the LIVE value of SteamEscrowService.isEscrowEnabled(). Do NOT write
+      a custody claim into this file directly; see that class for the rationale
+      and for both sets of copy.
+
+      Whether this platform holds sellers' items depends on a config value
+      (STEAM_BOT_BASE_URL). Statements about who holds the items, and about
+      whether a trade offer from us can be genuine, are therefore only true in
+      one mode and must never be baked in here. If this file is ever served
+      raw, bypassing the controller, the unfilled placeholders leave a page
+      that makes no such statement at all — incomplete, but never false.
+
+      This comment deliberately avoids repeating either mode's wording: the
+      whole file is shipped to the browser, so a claim in a comment is still a
+      claim someone can read in view-source.
+    -->
+    <!--SB:CUSTODY_CALLOUT-->
 
     <h2>Never do any of these</h2>
     <ul>
-      <li><strong>Never accept a trade offer from a SkinBox "bot" — we don't have one.</strong> Every legitimate trade comes from the other user in the transaction (their Steam profile matches the seller/buyer shown in the SkinBox trade page). If someone DMs you claiming to be "the SkinBox bot", it is a scam.</li>
+      <!--SB:CUSTODY_BOT_RULE-->
       <li><strong>Never paste your Steam password or Steam Guard code on a website that isn't steamcommunity.com.</strong> SkinBox uses Steam OpenID. You will be redirected to the real Steam login — check the URL bar.</li>
       <li><strong>Never DM trade with another SkinBox user outside the platform.</strong> The entire value SkinBox provides is escrow and dispute resolution. Side deals bypass both and are the single biggest source of loss on peer-to-peer markets.</li>
-      <li><strong>Never send items to a "middle man".</strong> There is no such thing on SkinBox. The buyer's wallet is locked by Stripe on purchase, the seller sends the Steam trade offer directly, and both sides confirm in the trade thread before the cash releases.</li>
+      <!--SB:CUSTODY_MIDDLEMAN_RULE-->
       <li><strong>Never trust a "support agent" who DMs you on Discord, Steam, or Telegram.</strong> Our only support channel is <a href="mailto:support@skinbox.market">support@skinbox.market</a> and the in-app support form.</li>
       <li><strong>Never install a browser extension that claims to inflate your SkinBox listings, auto-accept trades, or "boost" your earnings.</strong> These are keyloggers.</li>
     </ul>
@@ -67,7 +78,7 @@
     <h2>How to verify a Steam trade offer is really for a SkinBox sale</h2>
     <ol>
       <li>After a buyer commits on SkinBox, open the trade page (<code>/profile/trades</code>). The seller's and buyer's Steam profile URLs are printed there — those are the only two accounts that should appear on either end of the trade.</li>
-      <li>As the buyer, when the seller's Steam offer arrives in your mobile app or desktop client, verify the sender matches the seller shown on the SkinBox trade page. As the seller, verify the receiver matches the buyer's trade URL SkinBox passed you.</li>
+      <!--SB:CUSTODY_VERIFY_STEP-->
       <li>Verify the items in the Steam offer exactly match the listing. If anything differs — even the rarity tier, or the name looks off by one character — <strong>decline the offer</strong> and open a dispute from the SkinBox trade page.</li>
       <li>Accept the offer using Steam Guard Mobile Authenticator. Never accept via email confirmation alone.</li>
       <li>After the offer clears in Steam, click "Confirm received" on the SkinBox trade page. Only that click releases the wallet funds to the seller.</li>

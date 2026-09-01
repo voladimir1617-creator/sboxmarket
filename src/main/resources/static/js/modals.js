@@ -1,6 +1,6 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
 import { GridCard } from './cards.js?v=2';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -3051,6 +3051,9 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
 // page for content creators who want to refer buyers/sellers. Pure
 // presentation — no backend until a real affiliate program launches.
 export function AffiliateModal({ onClose }) {
+  // Custody is decided at runtime by whether the escrow bot is configured, so
+  // the "About Us" blurb below asks the server rather than asserting it.
+  const custody = useCustodyCopy();
   /* N3 cycle 9 — boss QA restated: chip row reads compact, promote to
      full .stall-stat-grid pattern (icon top, bold value middle,
      tracked-out caps label below). Same grid CSS as /stall/<n> hero,
@@ -3089,7 +3092,7 @@ export function AffiliateModal({ onClose }) {
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
         h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'About Us'),
         h('div', { style: { fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 } },
-          "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. We're building the tools s&box traders have been asking for — a real marketplace grid, auctions with live bidding, standing buy orders, non-custodial escrow, and a wallet that pays out in under 2 business days. We want affiliates who share that mission.")
+          `SkinBox is a peer-to-peer marketplace for s&box cosmetic items. We're building the tools s&box traders have been asking for — a real marketplace grid, auctions with live bidding, standing buy orders, ${custody.shortLabel} escrow, and a wallet that pays out in under 2 business days. We want affiliates who share that mission.`)
       ),
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
         h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'Requirements'),
@@ -8519,11 +8522,14 @@ function ProfileTradesTab({ me, privacy }) {
           ),
           h('div', { className: 'trade-confirm-row' },
             h('span', { className: 'trade-confirm-k' }, 'Platform fee (2%)'),
-            h('span', { className: 'trade-confirm-v muted' }, fmt((confirmTrade.price || 0) * 0.02))
+            h('span', { className: 'trade-confirm-v muted' }, fmt(platformFee(confirmTrade.price || 0)))
           ),
           h('div', { className: 'trade-confirm-row' },
             h('span', { className: 'trade-confirm-k' }, 'Seller will receive'),
-            h('span', { className: 'trade-confirm-v accent' }, fmt((confirmTrade.price || 0) * 0.98))
+            // sellerPayout(), not price * 0.98 — the server rounds the FEE and
+            // subtracts, so on a split-cent price (.25 / .75) the naive form
+            // promised the seller a cent the server will not pay.
+            h('span', { className: 'trade-confirm-v accent' }, fmt(sellerPayout(confirmTrade.price || 0)))
           )
         ),
         h('div', { className: 'trade-confirm-actions' },
@@ -8906,7 +8912,7 @@ function ProfileOffersTab() {
         isIncoming && isPending && (() => {
           const amt = parseFloat(o.amount) || 0;
           if (amt <= 0) return null;
-          const net = amt * 0.98;
+          const net = sellerPayout(amt);
           return h('div', {
             style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2 },
             title: 'Platform fee is 2%. Final payout lands in your wallet after buyer confirms receipt.'
@@ -10877,8 +10883,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         const isAuction = sellType === 'AUCTION';
         if (p <= 0) return h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 8 } },
           'A 2% platform fee is deducted when the item sells.');
-        const fee = +(p * 0.02).toFixed(2);
-        const net = +(p - fee).toFixed(2);
+        const fee = platformFee(p);
+        const net = sellerPayout(p);
         const floor = parseFloat(isSteam ? (item.suggestedPrice || 0) : (item.lowestPrice || 0));
         const vsFloor = (floor > 0 && p > 0) ? Math.round(((p - floor) / floor) * 100) : null;
         return h('div', {
@@ -12121,10 +12127,13 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   };
 
   const soldTotal = sold ? sold.reduce((s, l) => s + (parseFloat(l.price) || 0), 0) : 0;
-  // Net revenue = gross × 0.98 (2% platform fee taken at trade-
-  // verification per TradeService.release). Showing both makes the
-  // "fee already deducted" hint line concrete instead of vague.
-  const soldNet = soldTotal * 0.98;
+  // Net revenue. The 2% platform fee is charged PER TRADE (TradeService.open
+  // stores a per-trade feeAmount; release credits price − feeAmount), so the
+  // net of a stall is the sum of each sale's payout — not the payout of the
+  // summed gross. sellerPayoutTotal does exactly that, with the server's
+  // round-the-fee-then-subtract order. Showing both makes the "fee already
+  // deducted" hint line concrete instead of vague.
+  const soldNet = sellerPayoutTotal(sold ? sold.map(l => l.price) : []);
 
   // 30-day rolling rollup per CSFloat Visual §23 — sellers want a
   // concrete "last month" figure for tax / cash-flow without filtering
@@ -12149,7 +12158,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     return {
       count:   recent.length,
       gross,
-      net:     gross * 0.98,
+      net:     sellerPayoutTotal(recent.map(l => l.price)),
       topItem: topItemName,
       topItemGross: byItem[topItemName] || 0
     };
@@ -13200,8 +13209,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       const oldP = parseFloat(l.price) || 0;
                       if (!Number.isFinite(newP) || newP <= 0) return null;
                       if (Math.abs(newP - oldP) < 0.005) return null;
-                      const netNew = newP * 0.98;
-                      const netOld = oldP * 0.98;
+                      const netNew = sellerPayout(newP);
+                      const netOld = sellerPayout(oldP);
                       const delta = netNew - netOld;
                       const deltaStr = (delta >= 0 ? '+' : '') + fmt(delta);
                       const color = delta > 0 ? 'var(--green)'

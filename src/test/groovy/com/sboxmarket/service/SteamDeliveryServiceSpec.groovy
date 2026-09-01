@@ -119,7 +119,7 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * notificationService.safePush(2L, _, _, _, _, _)
     }
 
-    def "send: delivery uses the REAL bot-held custody asset (not the staging override) and marks it delivered"() {
+    def "send: delivery uses the REAL bot-held custody asset (not the staging override), and does NOT yet mark it delivered"() {
         given:
         def t = trade(state: SteamDeliveryService.STATE_AWAITING_SEND)
 
@@ -141,8 +141,16 @@ class SteamDeliveryServiceSpec extends Specification {
         // the bot is asked to send the CUSTODY asset 888, NOT the override 555
         1 * bot.sendOffer('https://steamcommunity.com/tradeoffer/new/?partner=2&token=abc', ['888'], 'sboxmarket delivery') >>
                 SteamBotResult.success([ok: true, offerId: '987', status: 'sent'])
-        // once sent, custody is marked DELIVERED so return-to-seller won't claw it back
-        1 * escrowService.markDelivered(10L)
+        // This assertion used to be `1 * escrowService.markDelivered(10L)`, on the
+        // reasoning that "once sent, custody is DELIVERED so return-to-seller won't
+        // claw it back". That was the bug: `status: 'sent'` means the offer left our
+        // side, NOT that the buyer accepted it. Marking custody DELIVERED here put
+        // the item permanently beyond return-to-seller while it was still physically
+        // in the bot's inventory, so a buyer who never clicked accept stranded it —
+        // and the auto-release sweep then paid the seller for it anyway.
+        // Custody now flips only when Steam reports the offer accepted; see
+        // pollOfferForTrade and DeliveryReleasesOnReceiptSpec.
+        0 * escrowService.markDelivered(_)
         1 * tradeService.sellerMarkSent(1L, 7L, _ as String)
     }
 

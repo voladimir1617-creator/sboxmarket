@@ -195,10 +195,15 @@ class SteamDeliveryService {
         if (res.ok) {
             recordAttempt(trade.id, res.offerId, res.status ?: 'sent', 'SEND', true, null)
             log.info("SteamDelivery: sent offer ${res.offerId} for trade ${trade.id} (status ${res.status})")
-            // The held asset has been sent onward to the buyer — mark custody
-            // DELIVERED so the return-to-seller path never tries to claw it
-            // back. Best-effort; no-op when escrow is disabled / not custody.
-            try { steamEscrowService?.markDelivered(trade.listingId) } catch (Exception ignore) {}
+            // NOTE: custody is deliberately NOT marked DELIVERED here.
+            // `res.ok` means the offer was SENT, not that the buyer took it —
+            // the item is still sitting in the bot's inventory and stays
+            // IN_CUSTODY until Steam reports the offer accepted (see
+            // pollOfferForTrade). Marking it DELIVERED on send took the item
+            // out of reach of the return-to-seller sweep while we still
+            // physically held it, so a buyer who simply never clicked accept
+            // left the item stranded in the bot account, flagged as handed
+            // over, with nothing able to give it back.
             // Mark the trade as sent on the SELLER's behalf — drives
             // PENDING_SELLER_SEND -> PENDING_BUYER_CONFIRM via the EXISTING
             // public transition. Reuse the already-resolved partner trade URL as
@@ -228,6 +233,12 @@ class SteamDeliveryService {
         recordAttempt(trade.id, offer.steamOfferId, status, 'POLL', true, null)
 
         if (res.accepted) {
+            // THE buyer actually has the item now — Steam says the offer was
+            // accepted. This, and only this, is delivery: custody moves
+            // IN_CUSTODY -> DELIVERED here rather than when we merely sent the
+            // offer, so up until this moment the return-to-seller sweep can
+            // still recover an item the buyer never took.
+            try { steamEscrowService?.markDelivered(trade.listingId) } catch (Exception ignore) {}
             // If the trade is still SELLER_SEND (mark-sent never landed),
             // advance it first so buyerConfirm's state gate is satisfied.
             if (trade.state == STATE_AWAITING_SEND) {

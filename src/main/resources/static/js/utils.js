@@ -89,6 +89,162 @@ export const fmtCompact = (n) => {
   return fmt(n);
 };
 
+// ── Custody mode — ONE source of truth, and it is the server ──────
+// Whether SkinBox physically holds sellers' items is decided at runtime by
+// whether STEAM_BOT_BASE_URL is set (SteamEscrowService.isEscrowEnabled()).
+// This UI used to assert "non-custodial" in four hardcoded places, and
+// /legal/trade-safety.html went further and told sellers that a trade offer
+// from a "SkinBox bot" is by definition a scam. Setting that one config value
+// makes the bot send every seller exactly that offer — so the copy silently
+// becomes false, and the safety page starts training sellers to refuse the
+// platform's own trade offer. Nothing connected the two.
+//
+// So: ask the server. `/api/custody` is served by TradeSafetyController from
+// the same flag that actually gates the deposit offer. Until the answer
+// arrives we use wording that is true in BOTH modes, so no render is ever
+// false — not even for the first paint.
+
+let _custody = null;              // null = not yet known
+let _custodyPromise = null;
+const _custodyListeners = new Set();
+
+/** Current custody mode, or null while unknown. */
+export const custodyMode = () => _custody;
+
+/** Fetch (once per page load) and cache the platform's custody mode. */
+export function loadCustody() {
+  if (_custodyPromise) return _custodyPromise;
+  _custodyPromise = fetch(API + '/custody', { credentials: 'same-origin' })
+    .then(r => (r.ok ? r.json() : null))
+    .then(j => {
+      if (j && typeof j.custodial === 'boolean') {
+        _custody = j.custodial ? 'BOT_CUSTODY' : 'NON_CUSTODIAL';
+        _custodyListeners.forEach(fn => { try { fn(_custody); } catch { /* a bad listener must not break the rest */ } });
+      }
+      return _custody;
+    })
+    .catch(() => null);           // stay on the mode-neutral copy
+  return _custodyPromise;
+}
+
+/**
+ * Copy that depends on whether we hold the items. Returns the mode-neutral
+ * variant until the server has answered — never a claim that could be false.
+ */
+export const custodyCopy = (mode = _custody) => {
+  if (mode === 'BOT_CUSTODY') return {
+    known:    true,
+    tileTitle: 'Escrow Protected',
+    tileBlurb: 'Listed skins sit in SkinBox escrow until they sell, then go straight to the buyer through Steam.',
+    heroSub:   'The s&box marketplace with escrow protection — verified sellers, secured trades, instant cash-out.',
+    shortLabel:'escrow-protected'
+  };
+  if (mode === 'NON_CUSTODIAL') return {
+    known:    true,
+    tileTitle: 'Non-Custodial',
+    tileBlurb: 'Skins move seller-to-buyer through Steam. SkinBox never holds custody, so escrow risk is zero.',
+    heroSub:   'The non-custodial s&box marketplace — verified sellers, escrowed trades, instant cash-out.',
+    shortLabel:'non-custodial'
+  };
+  // Mode-neutral: says how trades are protected without claiming who holds
+  // the item. True whichever way the server answers.
+  return {
+    known:    false,
+    tileTitle: 'Protected Trades',
+    tileBlurb: 'Every trade is escrowed end to end. Funds only reach the seller once the buyer has the item.',
+    heroSub:   'The s&box marketplace built on protected trades — verified sellers, escrowed trades, instant cash-out.',
+    shortLabel:'escrowed'
+  };
+};
+
+/** React hook: mode-correct copy, re-rendering once the server answers. */
+export function useCustodyCopy() {
+  const [mode, setMode] = useState(_custody);
+  useEffect(() => {
+    if (_custody) { setMode(_custody); return; }
+    let alive = true;
+    const listener = (m) => { if (alive) setMode(m); };
+    _custodyListeners.add(listener);
+    loadCustody();
+    return () => { alive = false; _custodyListeners.delete(listener); };
+  }, []);
+  return custodyCopy(mode);
+}
+
+// ── Platform fee / seller payout — ONE source of truth ────────────
+// MIRROR OF THE SERVER. `TradeService.FEE_RATE` is `new BigDecimal('0.02')`
+// and `TradeService.open()` stores
+//     feeAmount = (price * FEE_RATE).setScale(2, ROUND_HALF_UP)
+// while `TradeService.release()` credits the seller
+//     credit = price - feeAmount
+// i.e. the server rounds the FEE to cents and then subtracts it.
+//
+// Every payout figure in this UI used to be written by hand as
+// `price * 0.98` and then rounded by fmt() — which rounds the PAYOUT, not
+// the fee. Those two orders of operations disagree on every price whose
+// fee lands exactly on half a cent (any price ending .25 or .75): on
+// $1.25 the server takes a $0.03 fee and credits $1.22, while
+// `fmt(1.25 * 0.98)` renders $1.23. Measured over the 200,000 prices from
+// $0.01 to $2,000.00 the two disagreed on 3,711 of them (1.86%) and the
+// screen was one cent HIGH every single time — i.e. rounding went the
+// PLATFORM's way, against this app's stated rule that rounding goes the
+// user's way.
+//
+// So: compute the fee, round the FEE, subtract. Do it here, once. Callers
+// must never re-derive a payout with a bare 0.98 / 0.02 multiplication —
+// SellerPayoutParitySpec fails the build if they do.
+//
+// Expressed in integer cents so no float dust can survive into the
+// rendered figure. Verified against the server's BigDecimal rule on all
+// 10,000,000 cent values across the full server-allowed price range
+// ($0.01 .. $100,000.00): zero disagreements, on both fee and payout.
+
+/** Platform take rate as WHOLE PERCENT. Mirror of TradeService.FEE_RATE
+ *  (0.02). If the server constant ever moves, this must move with it —
+ *  SellerPayoutParitySpec reads both and fails when they diverge. */
+export const PLATFORM_FEE_PERCENT = 2;
+
+/**
+ * The platform fee the SERVER will charge on a sale of `price`.
+ * `price * PERCENT` is the fee expressed in cents (2% of P dollars is 2P
+ * cents), so one half-up rounding there reproduces the server's
+ * `setScale(2, ROUND_HALF_UP)` exactly.
+ * @param {number|string} price gross sale price in USD
+ * @returns {number} fee in USD, exact to the cent
+ */
+export const platformFee = (price) => {
+  const p = Number(price);
+  if (!Number.isFinite(p) || p <= 0) return 0;
+  return Math.round(p * PLATFORM_FEE_PERCENT) / 100;
+};
+
+/**
+ * What the seller's wallet will ACTUALLY be credited for a sale of
+ * `price` — the server's `price - feeAmount`, to the cent.
+ * @param {number|string} price gross sale price in USD
+ * @returns {number} net payout in USD, exact to the cent
+ */
+export const sellerPayout = (price) => {
+  const p = Number(price);
+  if (!Number.isFinite(p) || p <= 0) return 0;
+  return (Math.round(p * 100) - Math.round(p * PLATFORM_FEE_PERCENT)) / 100;
+};
+
+/**
+ * Net payout for a COLLECTION of sales. The server charges its fee per
+ * trade, so the net of many sales is the sum of each sale's payout — NOT
+ * the payout of the summed gross. Those differ whenever the individual
+ * roundings don't cancel, and summing first quietly overstates the
+ * seller's take on exactly the split-cent prices above.
+ * @param {Array<number|string>} prices gross sale prices in USD
+ * @returns {number} total net payout in USD, exact to the cent
+ */
+export const sellerPayoutTotal = (prices) => {
+  if (!Array.isArray(prices)) return 0;
+  const cents = prices.reduce((sum, p) => sum + Math.round(sellerPayout(p) * 100), 0);
+  return cents / 100;
+};
+
 /**
  * Auto-linkify http(s) URLs in a plain-text string. Returns a React
  * children-array suitable for a single text-rendering element. Each URL
