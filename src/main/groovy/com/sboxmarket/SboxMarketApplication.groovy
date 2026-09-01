@@ -64,6 +64,10 @@ class SboxMarketApplication {
     }
 
     static void main(String[] args) {
+        // MUST run BEFORE SpringApplication.run — the first H2 connection Hikari
+        // opens during context refresh is what starts the embedded server, and
+        // H2 reads h2.bindAddress once at that point. See hardenEmbeddedH2Bind.
+        hardenEmbeddedH2Bind()
         def ctx = SpringApplication.run(SboxMarketApplication, args)
         // Read the actual server.port from the Spring environment rather
         // than hardcoding 8080 — the startup banner was misleading when a
@@ -72,6 +76,52 @@ class SboxMarketApplication {
         def port = env.getProperty('server.port', '8080')
         def activeProfiles = env.activeProfiles?.join(',') ?: 'default'
         log.info("🎮 SBoxMarket started — http://localhost:${port} (profiles: ${activeProfiles})")
+    }
+
+    /**
+     * Pin H2's embedded TCP server to loopback.
+     *
+     * ── The exposure this closes ──────────────────────────────────────────
+     * The dev datasource URL carries {@code AUTO_SERVER=TRUE}
+     * (application.yml). That flag makes H2 start a TCP server the moment the
+     * file database is opened, so a second same-host process can share the
+     * live DB. H2's default bind address is the wildcard, and on a
+     * multi-homed box the server advertises (and accepts on) a routable
+     * interface: measured 2026-09-01 the listener answered on the machine's
+     * LAN address (192.168.68.70) and its Tailscale address
+     * (100.82.162.44:65359), while the HTTP port 8082 correctly refused both.
+     *
+     * The database password is EMPTY (username {@code SA}, no password), so
+     * the ONLY thing gating a remote connection is the random per-session key
+     * H2 writes into {@code data/sboxmarket.lock.db}. Anyone who can read that
+     * one local file — a backup, a file share, a directory-read bug, another
+     * account on the host — can then connect from anywhere on the LAN or
+     * tailnet as {@code SA} with no password and get full read/write on the
+     * wallet, listing and session tables. Proven by reading every wallet
+     * balance over the port with only the lock-file key.
+     *
+     * ── Why bind rather than drop AUTO_SERVER ─────────────────────────────
+     * {@code h2.bindAddress=127.0.0.1} keeps AUTO_SERVER working for its
+     * legitimate same-host use (the server still binds and answers on
+     * loopback) while removing the off-box surface entirely. Removing
+     * {@code AUTO_SERVER=TRUE} instead would reintroduce a boot-time
+     * {@code "Database may be already in use"} lock failure if the watchdog
+     * ever overlaps two instances, so the bind is the lower-risk fix.
+     *
+     * ── Scope ─────────────────────────────────────────────────────────────
+     * Inert on the prod (Postgres) profile — no H2 server exists there — and
+     * inert for the in-memory {@code mem:} databases the test suite uses,
+     * which never open a TCP server. Only set when the operator has not
+     * pinned {@code h2.bindAddress} themselves, so an explicit
+     * {@code -Dh2.bindAddress=…} still wins.
+     *
+     * @return the effective {@code h2.bindAddress} after hardening
+     */
+    static String hardenEmbeddedH2Bind() {
+        if (System.getProperty('h2.bindAddress') == null) {
+            System.setProperty('h2.bindAddress', '127.0.0.1')
+        }
+        return System.getProperty('h2.bindAddress')
     }
 
     /**

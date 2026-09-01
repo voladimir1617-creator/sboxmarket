@@ -462,8 +462,17 @@ class TradeService {
             // before sending a Steam trade offer — a fresh account with
             // no games/friends is a red flag. Null when the counterparty
             // is the system / no Steam id resolved.
+            //
+            // .toString() is load-bearing: this value drops into an UNTYPED
+            // Map slot, so the GString is NOT coerced to String the way a
+            // String-typed field/return would be. Without it Jackson
+            // serialises the GStringImpl itself — {values,strings,bytes,…} —
+            // and the client set href to that object, rendering the literal
+            // "[object Object]" on the trade-safety "verify ↗" / profile
+            // links (every trade). A dead verify link on the exact surface
+            // that tells sellers to vet the counterparty before sending.
             counterpartySteamProfileUrl: counterpartySteamId
-                ? "https://steamcommunity.com/profiles/${counterpartySteamId}"
+                ? "https://steamcommunity.com/profiles/${counterpartySteamId}".toString()
                 : null,
             // Counterparty avatar URL (batch 400). Lets the trade row
             // render a thumbnail-style identity chip next to the name so
