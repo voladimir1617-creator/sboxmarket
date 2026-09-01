@@ -309,6 +309,24 @@ class GlobalExceptionHandler {
             case 'CONFLICT':             return 'Conflict'
             case 'INSUFFICIENT_BALANCE': return ex.message  // safe — no internal info
             case 'RATE_LIMITED':         return 'Too many requests'
+            // Money-path refusals. These carry copy WE wrote for a customer, so the
+            // length rule below must not reach them -- it exists to catch an internal
+            // string leaking out by accident, not to censor deliberate wording.
+            //
+            // This was not theoretical. Every one of these was over the 140-char limit
+            // and rendered as 'Request could not be completed', so the reassuring half
+            // -- 'you have not been charged and nothing was added to your balance' --
+            // was exactly the part the customer never saw. CONNECT_ONBOARDING_REQUIRED
+            // missed the cutoff by THREE characters and left a seller with no next step.
+            //
+            // The messages are also now short enough to survive without this list. Both
+            // are deliberate: the list states the intent, the length keeps it true if
+            // someone later edits the copy.
+            case 'DEV_CREDIT_NOT_AUTHORIZED':
+            case 'STRIPE_MODE_INDETERMINATE':
+            case 'ADMIN_DAILY_CAP':
+            case 'CONNECT_ONBOARDING_REQUIRED':
+                return ex.message
             default:
                 // For explicit validation-style errors the message is usually
                 // user-actionable and safe ("Amount must be positive"), so we

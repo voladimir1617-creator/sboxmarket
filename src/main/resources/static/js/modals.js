@@ -15016,6 +15016,21 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   // backend serializes — DEPOSIT / SALE / PURCHASE / WITHDRAW / REFUND /
   // ADJUSTMENT_CREDIT / ADJUSTMENT_DEBIT. 'ALL' = no filter.
   const [txTypeFilter, setTxTypeFilter] = useState('ALL');
+  // A transaction reference as a CUSTOMER may see it.
+  //
+  // 5941d57 changed the admin credit stamp from 'admin' to 'admin_<adminUserId>'
+  // so the rolling 24h cap could be keyed per actor -- that is load-bearing and
+  // stays in the database. But this string is rendered in the user's OWN wallet
+  // history and in the copy-for-support text, so it was showing customers the
+  // internal id of the staff member who touched their account.
+  //
+  // Collapse it back for display only. Also covers 'admin_null', which would
+  // otherwise render literally if adminUserId were ever absent.
+  function customerFacingRef(ref) {
+    if (!ref) return ref;
+    return /^admin(_.*)?$/.test(ref) ? 'admin' : ref;
+  }
+
   // Free-text search over description + stripeReference. Great for
   // finding "that listing I bought" or "where did this withdrawal go"
   // without scrolling through 500 rows.
@@ -15519,7 +15534,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                                 title: new Date(tx.createdAt).toLocaleString()
                               }, '· ', timeAgo(tx.createdAt))
                             ),
-                            h('div', { className: 'wallet-tx-desc' }, tx.description || tx.stripeReference),
+                            h('div', { className: 'wallet-tx-desc' }, tx.description || customerFacingRef(tx.stripeReference)),
                             // Copyable transaction id — lets users quote the
                             // exact row in a support ticket ("my withdrawal
                             // #1042 is stuck") without screenshots. Small +
@@ -15535,7 +15550,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                               },
                               onClick: async (e) => {
                                 e.stopPropagation();
-                                const ref = '#' + tx.id + (tx.stripeReference ? ' (' + tx.stripeReference + ')' : '');
+                                const ref = '#' + tx.id + (tx.stripeReference ? ' (' + customerFacingRef(tx.stripeReference) + ')' : '');
                                 const btn = e.currentTarget;
                                 const prev = btn.textContent;
                                 const flash = () => {

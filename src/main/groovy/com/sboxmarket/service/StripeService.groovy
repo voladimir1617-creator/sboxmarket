@@ -643,10 +643,8 @@ class StripeService {
         if (refusal == null) return
         log.error("DEV_CREDIT_NOT_AUTHORIZED refusing ${action}: ${refusal}")
         throw new com.sboxmarket.exception.BadRequestException('DEV_CREDIT_NOT_AUTHORIZED',
-            'Payments are unavailable: this deployment has no payment processor configured, and its ' +
-            'in-process simulated money path has not been enabled. No card can be charged and nothing ' +
-            'will be credited. Contact support — this is a server configuration problem, not a problem ' +
-            'with your account.')
+            "Deposits are temporarily unavailable. You haven't been charged and nothing was added to " +
+            'your balance. Please try again later.')
     }
 
     private void refuseIfIndeterminate(String action) {
@@ -660,9 +658,8 @@ class StripeService {
                       "(${com.sboxmarket.config.MoneyMode.TEST_PREFIXES.join('/')}), nor a blank/placeholder. " +
                       'Refusing rather than falling back to the simulated path.')
             throw new com.sboxmarket.exception.BadRequestException('STRIPE_MODE_INDETERMINATE',
-                'Payments are unavailable: this deployment\'s Stripe configuration could not be identified as ' +
-                'either live or unconfigured, so no charge and no simulated credit will be made. ' +
-                'Contact support — this is a server configuration problem, not a problem with your account.')
+                "Payments are temporarily unavailable. You haven't been charged and nothing was added " +
+                'to your balance. Please try again later.')
         }
     }
 
@@ -1612,6 +1609,20 @@ class StripeService {
         // "create no Transfer and write a simulated `manual` row" — which on an
         // unclassifiable key would DEBIT a real balance and pay out nothing.
         // Refuse before the balance is touched.
+        //
+        // BOTH halves, and the second was missing until now. c269b82 and 55fcc44
+        // gated the money-IN side and left this one open, which turned a coherent
+        // two-way simulation into a ONE-WAY DOOR: the simulated withdrawal still
+        // debited the real recorded balance and wrote a COMPLETED dev_payout_ row
+        // for a payout that never happens, while the deposit path that used to
+        // restore it was shut. A user could zero a wallet against nothing and have
+        // no way back.
+        //
+        // Gating one direction of a two-way flow makes the other direction a
+        // different system. A deployment that may not fabricate a credit may not
+        // fabricate a payout either -- same conjunction, same gate, same reason.
+        com.sboxmarket.config.MoneyMode mode = moneyMode()
+        refuseIfCreditNotAuthorized('withdrawal', mode)
         refuseIfIndeterminate('withdrawal')
 
         def wallet = walletRepository.findById(walletId)
