@@ -10,8 +10,14 @@
 ' anything inside can hide it. wscript.exe is GUI-subsystem and Run(...,0) starts
 ' bash with no window from the first instruction -- the same pattern as
 ' keepalive-hidden.vbs and skinbox-watchdog-hidden.vbs.
+'
+' NOTE (2026-09-02): this launcher drives the POSTGRES backup, and this deployment
+' does not currently run Postgres -- the money lives in H2 at data\sboxmarket.mv.db.
+' The scheduled task has been pointed at deploy\h2-backup-hidden.vbs instead. This
+' file is kept, working, for a Postgres deployment; backup-db.sh now says plainly
+' which case it is in rather than failing with a bare non-zero forever.
 Option Explicit
-Dim sh, fso, here, repo, cmd
+Dim sh, fso, here, repo, cmd, rc
 Set sh  = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
@@ -24,5 +30,12 @@ cmd = """C:\Program Files\Git\bin\bash.exe"" -c ""bash '" & _
       Replace(repo, "\", "/") & "/deploy/backup-db.sh' >> " & _
       "/c/Users/WW/skinbox-backups/backup.log 2>&1"""
 
-' 0 = hidden window, False = do not wait.
-sh.Run cmd, 0, False
+' 0 = hidden window. True = WAIT, so the exit code below is the script's own.
+'
+' This was False, which returns immediately with 0 and makes wscript exit 0 no matter
+' what backup-db.sh goes on to do -- so Task Scheduler would record SUCCESS for a
+' backup that never happened. That is the same missing-signal-read-as-success defect
+' that let a dead pg_dump print "Backup OK" behind a successful gzip. A backup job
+' whose LastTaskResult is always 0 reports nothing at all.
+rc = sh.Run(cmd, 0, True)
+WScript.Quit rc

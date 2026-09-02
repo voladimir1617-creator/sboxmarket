@@ -752,6 +752,84 @@ app must be stopped *before* the build, because the running JVM holds
    the box but cannot read `C:\Users\WW\skinbox-backups`. That is a real gap and worth
    closing — it is not an internet-facing hole.
 
+### The scheduled H2 backup (built 2026-09-02)
+
+Everything above was a procedure a human ran by hand. Until now **nothing backed the
+H2 database up on a schedule** — the daily `SkinBox DB Backup` task ran the *Postgres*
+script against a container that is not running, `LastTaskResult` was **127**, and the
+three archives that existed were all taken by hand on one night.
+
+| file | role |
+|------|------|
+| `deploy/H2Backup.java` | takes the archive through the auto-server, then extracts it, opens the restored copy and compares **every table's** row count against live |
+| `deploy/h2-backup.ps1` | orchestrates, prunes only after a verified backup, writes the status file, exits non-zero on failure |
+| `deploy/h2-backup-hidden.vbs` | the launcher Task Scheduler points at — GUI-subsystem, so no console window, and it **waits** so the exit code is real |
+| `deploy/test-h2-backup.ps1` | 26 assertions; every mutation below was verified RED |
+
+**What proves a backup here is the read-back, not the exit code.** The archive is
+extracted, the restored copy is opened as a real database, and each table's count must
+land inside the live count taken immediately before and immediately after `BACKUP TO`.
+On a quiet machine that window is zero-width, so it is strict equality; under
+concurrent writes it stays correct instead of failing a good backup.
+
+**Retention runs only after a verified backup**, and two floors sit under it: the
+newest `-MinimumKeep` (default 7) archives are never eligible whatever their age, and
+the archive from the current run is never eligible at all. With four archives on disk
+the prune is arithmetically a no-op today — which is the correct behaviour.
+
+**Verified 2026-09-02**, live, app running: a 112,004-byte archive holding
+`sboxmarket.mv.db` at 380,928 bytes — the same size as the live file — restored and
+answering **35 tables matched**, 7 users / 9 wallets / 44 transactions / 37 audit rows.
+Whole run: 1.8 s. All three pre-existing archives untouched.
+
+Mutations verified RED (a green test that survives the bug is decoration):
+
+| mutation | result |
+|----------|--------|
+| retention allowed to run on a failure path | **3 of 4 archives destroyed** — the 2026-09-01 incident, reproduced |
+| the read-back stops comparing | an archive of a *different* database was ACCEPTED |
+| the Postgres preflight removed | "not applicable" collapses back into a bare failure |
+
+One assertion had to be sharpened to catch the first of those: at the default
+`MinimumKeep` of 7, the floor alone protected a population of four, so "the archives
+survived" passed even with the skip-on-failure guard deleted. The test now lowers the
+floor so only the guard stands between a failed run and four destroyed archives. **An
+assertion that cannot fail is not protecting anything.**
+
+**Two things that are not obvious and are load-bearing:**
+
+- The password reaches Java through the `H2_PASSWORD` **environment variable**, never
+  as an argument. PowerShell 5.1 silently drops an empty-string argument to a native
+  executable, so `-password "" -sql "…"` shifts the SQL into the password slot — and
+  the live SA password is empty today, so that trap is live on this machine. Both
+  phases print the password *length* they actually used, because a length is the only
+  way to see an argument that vanished. This also means the job keeps working
+  unchanged once the credential above is activated.
+- `IFEXISTS=TRUE` is on both URLs. A wrong path must fail loudly rather than be
+  answered by silently creating a **new empty database** whose zero rows then verify
+  against themselves.
+
+**How you know it ran.** Every run overwrites `data\h2-backup-status.json` with
+`last_run_at`, the outcome, the four money counts, and whether retention ran and why
+not. A stale timestamp there means the **scheduler** stopped — the one failure no
+amount of logging inside the script can report, and the reason the old job could fail
+150 times unnoticed. Same pattern as cs2bot's `data\keepalive-status.json`.
+
+### About `deploy/backup-db.sh` and the old task
+
+Kept, not deleted — it is a correct Postgres script and this repo still ships a
+Postgres `docker-compose.yml`. What changed is that it now says which case it is in:
+a preflight checks for `docker` and for a running `sbox-pg` before dumping, and
+refuses with **exit 3** and a message naming the H2 job instead of failing with a bare
+non-zero forever. Exit 3 is still non-zero — a Postgres backup that is not running
+must never read as success — it is simply distinguishable from exit 1, a dump that
+genuinely failed.
+
+`deploy/backup-db-hidden.vbs` had a second defect worth knowing about, now fixed: it
+called `Run(cmd, 0, False)`, which returns immediately with 0, so **wscript exited 0
+no matter what the backup did**. Task Scheduler would have recorded success for a
+backup that never happened. Both launchers now wait and propagate the real exit code.
+
 ---
 
 # ONE RESTART: shipping all three pending controls together

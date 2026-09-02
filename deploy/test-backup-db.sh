@@ -28,20 +28,60 @@ newsandbox() {
 }
 
 run() { PATH="$STUB:$PATH" BACKUP_DIR="$SANDBOX" bash "$SCRIPT" >"$SANDBOX/out" 2>&1; echo $?; }
+# A PATH with no docker on it at all, for the "this machine does not run Postgres" case.
+runbare() { PATH="$STUB:/usr/bin:/bin" BACKUP_DIR="$SANDBOX" bash "$SCRIPT" >"$SANDBOX/out" 2>&1; echo $?; }
 
-# ---------------------------------------------------------------- the incident
-echo "when the dump fails (docker down):"
+# The stubs must answer `docker inspect` as well as `docker exec`, because the script
+# now asks whether the container is running BEFORE it tries to dump. Without this the
+# three scenarios below would all be intercepted by the preflight and would silently
+# stop testing the thing they are named after.
+inspect_says_running='if [ "$1" = "inspect" ]; then echo true; exit 0; fi'
+
+# ------------------------------------------------- not a Postgres deployment at all
+# This is the case the machine was ACTUALLY in from April to September, and the case
+# the script had no way to express: it just failed, forever, into a log nobody read.
+echo "when this deployment does not run Postgres:"
+newsandbox
+RC=$(runbare)                                  # no docker anywhere on PATH
+[ "$RC" = "3" ] && ok "exits 3 -- non-zero, but distinguishable from a failed dump" \
+                || bad "expected exit 3 for 'no docker', got $RC"
+grep -qi "not applicable" "$SANDBOX/out" && ok "says it is not applicable, not merely 'failed'" \
+                                         || bad "gave no not-applicable message"
+grep -qi "h2-backup" "$SANDBOX/out" && ok "points at the H2 job that DOES protect this data" \
+                                    || bad "did not name the job that actually backs this deployment up"
+grep -qi "backup ok" "$SANDBOX/out" && bad "claimed OK with no Postgres at all" \
+                                    || ok "does not claim OK"
+[ -f "$OLD" ] && ok "the pre-existing backup SURVIVED" || bad "pruned backups on a no-op run"
+rm -rf "$SANDBOX"
+
+echo "when docker exists but the container is not running:"
 newsandbox
 cat > "$STUB/docker" <<'STUB'
 #!/bin/bash
-echo "cannot connect to the docker daemon" >&2
+if [ "$1" = "inspect" ]; then echo false; exit 0; fi
+echo "Error: No such container: sbox-pg" >&2
+exit 1
+STUB
+chmod +x "$STUB/docker"
+RC=$(run)
+[ "$RC" = "3" ] && ok "exits 3 on a stopped container" || bad "expected exit 3, got $RC"
+[ -f "$OLD" ] && ok "the pre-existing backup SURVIVED" || bad "pruned backups on a stopped container"
+rm -rf "$SANDBOX"
+
+# ---------------------------------------------------------------- the incident
+echo "when the container is up but the dump fails:"
+newsandbox
+cat > "$STUB/docker" <<STUB
+#!/bin/bash
+$inspect_says_running
+echo "pg_dump: error: connection to server failed" >&2
 exit 1
 STUB
 chmod +x "$STUB/docker"
 RC=$(run)
 
-[ "$RC" != "0" ] && ok "exits non-zero so the scheduler records a failure" \
-                 || bad "exited 0 on a failed dump (rc=$RC)"
+[ "$RC" = "1" ] && ok "exits non-zero so the scheduler records a failure" \
+                || bad "expected exit 1 on a failed dump, got $RC"
 grep -qi "backup ok" "$SANDBOX/out" && bad "printed 'Backup OK' after a failed dump" \
                                     || ok "does not claim OK after a failed dump"
 [ -f "$OLD" ] && ok "the pre-existing backup SURVIVED (no prune after failure)" \
@@ -53,8 +93,9 @@ rm -rf "$SANDBOX"
 # --------------------------------------------------- an empty but 'successful' dump
 echo "when the dump succeeds but produces nothing:"
 newsandbox
-cat > "$STUB/docker" <<'STUB'
+cat > "$STUB/docker" <<STUB
 #!/bin/bash
+$inspect_says_running
 exit 0
 STUB
 chmod +x "$STUB/docker"
@@ -67,13 +108,14 @@ rm -rf "$SANDBOX"
 # ------------------------------------------------------------------- happy path
 echo "when the dump genuinely works:"
 newsandbox
-cat > "$STUB/docker" <<'STUB'
+cat > "$STUB/docker" <<STUB
 #!/bin/bash
+$inspect_says_running
 # a plausible pg_dump: needs to exceed the minimum-size floor
 echo "--"
 echo "-- PostgreSQL database dump"
 echo "--"
-for i in $(seq 1 400); do echo "INSERT INTO listings VALUES ($i, 'skin', 1234);"; done
+for i in \$(seq 1 400); do echo "INSERT INTO listings VALUES (\$i, 'skin', 1234);"; done
 STUB
 chmod +x "$STUB/docker"
 RC=$(run)

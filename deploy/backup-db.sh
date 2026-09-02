@@ -32,6 +32,26 @@ fail() {
     exit 1
 }
 
+# A deployment that does not run Postgres at all is a DIFFERENT condition from a dump
+# that failed, and until now both looked the same: a bare non-zero and a line in a log
+# nobody read. This deployment currently stores its money in H2, so with Docker stopped
+# this script had nothing to do and no way to say so -- it failed 150 times from April
+# to September while the H2 database it was assumed to be protecting had no backup at
+# all. Exit 3 is still non-zero, because a Postgres backup that is not running must
+# never read as success; it is simply a code the operator can tell apart from exit 1.
+not_applicable() {
+    echo "[$(date)] POSTGRES BACKUP NOT APPLICABLE: $1" >&2
+    echo "[$(date)] This deployment's live data is H2 at data/sboxmarket.mv.db, not Postgres." >&2
+    echo "[$(date)] The scheduled job for that is deploy/h2-backup.ps1, launched via" >&2
+    echo "[$(date)]   deploy/h2-backup-hidden.vbs. See deploy/RUNBOOK.md." >&2
+    echo "[$(date)] retention prune SKIPPED -- existing backups left untouched" >&2
+    exit 3
+}
+
+command -v docker >/dev/null 2>&1 || not_applicable "docker is not on PATH"
+docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null | grep -qx true \
+    || not_applicable "the '$CONTAINER' container is not running"
+
 echo "[$(date)] Starting backup..."
 docker exec "$CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$BACKUP_FILE"
 # PIPESTATUS[0] is pg_dump. $? would be gzip, which succeeds even with no input.
