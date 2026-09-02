@@ -45,6 +45,13 @@ class HealthController {
     @Autowired(required = false) DataSource dataSource
     @Autowired(required = false) Environment environment
 
+    // `required = false` for the same reason AdminController wires the admin
+    // reporter that way: the Spock specs build this controller field by field,
+    // and the endpoint reports its own absence (as 503 — never as 200) instead
+    // of NPEing.
+    @Autowired(required = false)
+    com.sboxmarket.config.BackupFreshnessReporter backupFreshnessReporter
+
     // Batch 970 — register both slash variants. Docker HEALTHCHECK,
     // some k8s probe configs, and curl invocations append a trailing
     // slash; Spring Boot 3's PathPatternParser doesn't auto-match it.
@@ -273,6 +280,73 @@ class HealthController {
         ResponseEntity.ok()
             .header('Cache-Control', noStore)
             .body([status: 'UP', probes: ['good-uuid', 'poisoned-uuid']])
+    }
+
+    /**
+     * <b>Backup freshness probe — the only signal an uptime monitor can act
+     * on without a human being logged in.</b>
+     *
+     * <p>{@code deploy/h2-backup.ps1} writes {@code data\h2-backup-status.json}
+     * on every run. Until this endpoint, nothing read it — and the one failure
+     * that matters most cannot be reported from inside the backup job at all:
+     * a scheduler that stopped firing and a quiet machine produce identical
+     * evidence. This deployment has the receipt. The old Postgres backup task
+     * failed with exit 127 every day from April to September into a log
+     * nobody opened.</p>
+     *
+     * <h3>Why a status code, and why not this one</h3>
+     *
+     * 200 when the last run verified inside its window; <b>503 when it failed
+     * or when the timestamp is stale</b>, because an uptime monitor that reads
+     * only status codes is the consumer that alerts with nobody watching.
+     *
+     * <p>It is a SEPARATE path from {@code /api/health} and {@code /api/ready}
+     * on purpose. Those two are the Docker HEALTHCHECK, the deploy gate and the
+     * load-balancer targets, and {@code deploy/nginx.conf} /
+     * {@code deploy/edge-nginx.conf} match them with {@code location = } —
+     * exact, so a 503 here reaches none of that machinery. <b>A stale backup
+     * must never evict a healthy app from rotation.</b> Losing the marketplace
+     * because yesterday's archive is missing would turn a data-protection
+     * warning into the outage it was meant to prevent.</p>
+     *
+     * <h3>What it is allowed to say</h3>
+     *
+     * The state word and nothing else — no archive path, no database path, no
+     * row counts, no machine name, no timestamp. Naming the archive tells an
+     * anonymous caller which file on this box holds every wallet row; the row
+     * counts size the money. Those live on
+     * {@code GET /api/admin/security/backup-status} and the admin Health tile,
+     * behind the same auth that keeps the ADMIN Steam IDs off the public
+     * surface (see {@code UnconfiguredAdminReporter}).
+     *
+     * <p>The residual leak is one bit — "this deployment's backups are not
+     * current" — which is mild uplift to an attacker already on the box and is
+     * stated plainly rather than engineered around. It is worth it: the
+     * alternative is a signal only a logged-in human can see, on a project
+     * whose entire documented failure history is of signals no human looked
+     * at.</p>
+     */
+    @GetMapping(['/api/health/backup', '/api/health/backup/'])
+    ResponseEntity<Map> backup() {
+        def noStore = 'no-store, no-cache, must-revalidate'
+        if (backupFreshnessReporter == null) {
+            // The bean is missing (a slice test, or a stripped context). We
+            // cannot establish that a backup ran, so this is state 3 — never
+            // a 200. An absence read as a pass is the defect the reporter
+            // exists to end; it must not be reintroduced by its own wiring.
+            return ResponseEntity.status(503)
+                .header('Cache-Control', noStore)
+                .body([status: 'DOWN', backup: com.sboxmarket.config.BackupFreshnessReporter.STATE_STALE])
+        }
+        String state = backupFreshnessReporter.publicState()
+        if (state == com.sboxmarket.config.BackupFreshnessReporter.STATE_OK) {
+            return ResponseEntity.ok()
+                .header('Cache-Control', noStore)
+                .body([status: 'UP', backup: state])
+        }
+        ResponseEntity.status(503)
+            .header('Cache-Control', noStore)
+            .body([status: 'DOWN', backup: state])
     }
 
     private boolean jdbcSessionProbeRequired() {

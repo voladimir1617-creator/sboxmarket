@@ -815,6 +815,127 @@ not. A stale timestamp there means the **scheduler** stopped — the one failure
 amount of logging inside the script can report, and the reason the old job could fail
 150 times unnoticed. Same pattern as cs2bot's `data\keepalive-status.json`.
 
+### Who READS the status file (built 2026-09-02, second half)
+
+Writing that file closed half the gap. **Nothing read it**, which is the same shape as
+the defect it was built to end: a signal produced faithfully and consumed by nobody.
+`config/BackupFreshnessReporter` is the consumer.
+
+It matters more than it sounds, and the reason is worth stating once plainly: **no
+amount of logging inside a scheduled job can report that the job stopped being
+scheduled.** The log simply stops. A stopped scheduler and a quiet machine produce
+byte-identical evidence. The only thing that can see it is something *else* that is
+running, noticing the timestamp has not moved — which is why the check is on an
+`@Scheduled` hourly tick and not only on `ApplicationReadyEvent`. The app runs for
+days; a backup goes stale *while it is running*.
+
+**Three states, deliberately never collapsed:**
+
+| state | means | what to go look at |
+|-------|-------|--------------------|
+| `ok` | ran inside the window and the read-back verified every table | nothing |
+| `failed` | ran inside the window and did **not** verify | `skinbox-backups\h2-backup.log`. Retention is skipped on failure, so the archives on disk are intact |
+| `stale` | **we cannot establish that it ran at all** | Task Scheduler. The scheduler stopped, the machine slept through 04:00, the task was deleted, or the file was never written |
+
+**A missing status file is `stale`, not an error.** "No backup has ever run here" and
+"no backup has run since Tuesday" are the same fact about the data. An unreadable file
+is also `stale` — we cannot establish a run — but carries its own `reason`
+(`unreadable-status-file` vs `no-status-file`), because an absent file means the job
+was never wired up and a corrupt one means a write was interrupted. When a run
+*failed* **and** nothing has run since, `stale` is the reported state and `ranFailed`
+is reported alongside it; the banner says both.
+
+**Window: 26 hours** (`sbox.backup.max-age-minutes` to override). One full daily
+period plus two hours. Exactly 24h would flag an ordinary day the run drifted by a
+minute and would cry wolf on every DST shift, and a reporter that cries wolf is one
+the operator learns to close.
+
+**Where it surfaces, and why it is split:**
+
+- **`GET /api/health/backup` — public, 200 / 503, one word.** The body is
+  `{"status":"UP|DOWN","backup":"ok|failed|stale"}` and nothing else: no archive path,
+  no database path, no row counts, no machine name, no timestamp. An uptime monitor
+  that reads only status codes is the sole consumer that alerts with nobody logged in,
+  and this project's entire documented failure history is of signals no human looked
+  at. **Point Cloudflare / uptime-kuma at this URL** alongside
+  `/api/health/cookie-aware`.
+  - The leak is deliberately one bit — "this deployment's backups are not current". It
+    is mild uplift to an attacker already on the box (it makes destroying data look
+    more damaging) and it is stated here rather than engineered around, because the
+    alternative is a signal only a logged-in human can see. Everything that actually
+    names something worth taking is on the admin surface instead.
+  - It is a **separate path** from `/api/health` and `/api/ready` on purpose. Those
+    are the Docker HEALTHCHECK, the `run-local.sh` deploy gate and the LB targets, and
+    both nginx configs match them with `location = ` (exact), so a 503 here reaches
+    none of that machinery. **A stale backup must never evict a healthy app from
+    rotation** — that would turn a data-protection warning into the outage it exists
+    to prevent. There is a test that calls the liveness probe while the backup probe
+    is 503 and asserts it still answers 200.
+- **`GET /api/admin/security/backup-status`** — the full record: archive path,
+  database path, machine, per-table counts, retention decision, the resolved path it
+  looked at. Admin-authed for the same reason `UnconfiguredAdminReporter` keeps the
+  ADMIN Steam IDs off the anonymous surface.
+- **The admin Health tile** (`/api/admin/health`, the staff panel's Health tab) — an
+  "H2 backup" card beside Uptime / Heap / Stripe webhook, amber on `stale`, red on
+  `failed`, naming the `reason`. This is the one that matters day to day: a report
+  behind a URL the operator has to remember exists is most of the way back to a status
+  file nobody opens.
+- **The log** — a banner on boot and on every hourly tick while the state is not `ok`.
+  Kept because it is free, and explicitly *not* relied on. The 150-line exit-127 run
+  is what a log-only signal is worth on this machine.
+
+It is a report, not a gate: it never refuses a boot, a request or a trade, and the
+call site on the Health tile is wrapped so a throwing reporter cannot take the staff
+panel down with it.
+
+**Verified live 2026-09-02**, compiled class run from the app's own working directory
+against the real `data\h2-backup-status.json`: derived the path from the datasource
+URL to `C:\Users\WW\Desktop\sboxmarket\data\h2-backup-status.json`, found the file,
+and reported `state=ok`, `ageMinutes=37`, 35 tables, 7 / 9 / 44 / 37.
+
+**It is NOT in the running process.** The money app (PID as of writing started
+2026-09-01 22:10) is running `build/libs/sboxmarket-1.0.0.jar` built before any of
+this. `/api/health/backup` will 404 and the Health tile will show "Reporter not wired"
+until the next rebuild + restart. Ship it with the coordinated restart below rather
+than on its own — a reporter is not worth a separate outage.
+
+Mutations verified RED, each attributed to the test-case name that failed, each
+reverted with the file hash compared against the original afterwards:
+
+| mutation | failing test |
+|----------|--------------|
+| staleness comparison deleted (`stale = false`) | *a VERIFIED backup older than the window is STALE* (+5) |
+| a missing status file returns `ok` | *a MISSING status file is STALE — the third state, not an error* (+5) |
+| a missing status file throws instead | same test — a missing file must not be an error either |
+| `ok` read with Groovy truth instead of strict-true | *the string 'false' in the ok field produces FAILED, not ok* (+3) |
+| `ranFailed` dropped on the stale path | *a run that FAILED and then never ran again reports BOTH facts* |
+| `unreadable` reason collapsed into `no-status-file` | *an UNREADABLE status file is STALE, with its own reason* (+2) |
+| window widened to exactly 24h | *the window clears a daily job's full period* |
+| `@Component` removed | *the reporter is a @Component* |
+| `@Scheduled` tick removed | *the freshness check runs on a SCHEDULE, not only at boot* |
+| `@EventListener` boot hook removed | *the boot banner is an @EventListener on ApplicationReadyEvent* |
+| derivation ignores the database path | *the status path FOLLOWS the database — it is not a hard-coded guess* (+3) |
+| public probe returns 200 on every state | *the public probe answers 503 when the backup is …* (+3) |
+| a missing reporter bean reads as 200 | *the public probe answers 503 when the reporter bean is MISSING* |
+| public probe body carries the full report | *the public probe body carries the state word and NOTHING else* |
+| probe path moved onto a matched health path | *the public probe is a SEPARATE path from the load-balancer and Docker targets* |
+| `backup` dropped from `systemHealth()` | *the admin Health tile is fed the report* (+1) |
+| the Health tile's guard rethrows | *a throwing reporter does not take down the admin Health tile* |
+| `publicState()`'s catch returns `ok` | *publicState reports STALE when the report itself throws* |
+
+**TWO of those started out STILL GREEN, and both were real holes in the tests:**
+
+1. *the status path is derived from the database* passed with the derivation deleted,
+   because the fallback constant is `data/h2-backup-status.json` — so "a file named
+   h2-backup-status.json in a directory named data" was satisfied by the fallback just
+   as well as by the derivation. The test now points the database at
+   `./var/moneydb/`, a directory the fallback can never name. **An assertion a
+   different rule happens to satisfy is decoration.**
+2. `publicState()`'s exception fallback had no test at all: flipping its
+   `return STATE_STALE` to `return STATE_OK` left all 59 tests green. A branch whose
+   whole job is to refuse "an unhandled surprise means backups are fine" was itself
+   unprotected. It has its own test now.
+
 ### About `deploy/backup-db.sh` and the old task
 
 Kept, not deleted — it is a correct Postgres script and this repo still ships a
@@ -829,6 +950,124 @@ genuinely failed.
 called `Run(cmd, 0, False)`, which returns immediately with 0, so **wscript exited 0
 no matter what the backup did**. Task Scheduler would have recorded success for a
 backup that never happened. Both launchers now wait and propagate the real exit code.
+
+### OPERATOR: the task is still not repointed, and two commands are yours to run
+
+Measured 2026-09-02 02:20, read-only:
+
+```
+TaskName : SkinBox DB Backup      State    : Ready
+Action   : wscript.exe "C:\Users\WW\Desktop\sboxmarket\deploy\backup-db-hidden.vbs"
+Trigger  : daily 04:00 (-07:00)   LogonType: Interactive   RunLevel: Limited
+LastRun  : 09/01/2026 04:00:01    LastTaskResult: 127      NextRun: 09/02/2026 04:00
+```
+
+So **the H2 job is on no schedule at all** — the task still runs the Postgres script,
+which now refuses with exit 3 instead of 127. The manual archive taken at 02:09 is the
+last one; once this reporter ships it will go `stale` about 26 hours after that
+timestamp unless the task is repointed. *That is the signal working, not a bug.*
+
+Agents do not touch scheduled tasks — a task principal is standing machine
+configuration, and there is no way to change one without asserting something about who
+the machine runs jobs as. Both commands below are yours. Run them in an **elevated**
+PowerShell.
+
+**1. Repoint the action at the H2 job.** Preserves the trigger, principal and
+settings; only the action changes.
+
+```powershell
+$t = Get-ScheduledTask -TaskName 'SkinBox DB Backup'
+$t.Actions = (New-ScheduledTaskAction -Execute 'wscript.exe' `
+    -Argument '"C:\Users\WW\Desktop\sboxmarket\deploy\h2-backup-hidden.vbs"')
+Set-ScheduledTask -TaskName 'SkinBox DB Backup' -Action $t.Actions
+
+# prove it took, then force one run and read the real verdict
+Get-ScheduledTask -TaskName 'SkinBox DB Backup' | ForEach-Object { $_.Actions }
+Start-ScheduledTask -TaskName 'SkinBox DB Backup'
+Get-ScheduledTaskInfo -TaskName 'SkinBox DB Backup' | Select-Object LastRunTime, LastTaskResult
+Get-Content .\data\h2-backup-status.json
+```
+
+`LastTaskResult` 0 **and** `"ok": true` in the status file. Either one alone is the
+mistake this whole area exists to stop.
+
+**2. `LogonType: Interactive` — yes, this should change, and here is why.**
+
+An Interactive task only fires when that user has an interactive session. At 04:00
+with the operator logged out — or at the lock screen, or after a reboot nobody has
+signed into — **it simply never runs.** No error, no log line, nothing: exactly the
+silence a stopped scheduler produces. This is pre-existing (it was Interactive when it
+was the Postgres job too) and it is the single most likely way the new `stale` state
+will fire in practice.
+
+The fix is `S4U` — run whether or not the user is logged on, without storing a
+password. It cannot reach network shares (no outbound credential), which is fine here:
+the job reads a local file and writes to a local directory.
+
+```powershell
+# elevated. -LogonType S4U needs no password; -RunLevel Highest is optional
+# but keeps behaviour identical if the backup dir is ever ACL'd.
+$p = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\WW" `
+        -LogonType S4U -RunLevel Limited
+Set-ScheduledTask -TaskName 'SkinBox DB Backup' -Principal $p
+
+Get-ScheduledTask -TaskName 'SkinBox DB Backup' |
+    Select-Object -ExpandProperty Principal    # expect LogonType : S4U
+```
+
+Also worth setting, for the same reason (a laptop asleep at 04:00 never runs the job
+and the timestamp goes stale with nothing wrong):
+
+```powershell
+$s = New-ScheduledTaskSettingsSet -StartWhenAvailable `
+        -DontStopIfGoingOnBatteries -AllowStartIfOnBatteries
+Set-ScheduledTask -TaskName 'SkinBox DB Backup' -Settings $s
+```
+
+`-StartWhenAvailable` runs a missed daily trigger at the next opportunity instead of
+skipping the day.
+
+**What was NOT determined:** whether this account can actually hold an S4U principal.
+S4U requires the "Log on as a batch job" right, which a local admin normally has, but
+it is Group-Policy-controlled and was not read. If `Set-ScheduledTask` refuses, the
+fallback is `-LogonType Password` (which does store a credential) — and at that point
+the honest alternative is to leave it Interactive and rely on the `stale` signal you
+now have.
+
+### Limitation: the archives are on the same disk as the database
+
+`C:\Users\WW\skinbox-backups` and `data\sboxmarket.mv.db` are both on **C:**. One drive
+failure loses the database and every archive of it in the same event. Four verified
+archives on a dying disk is one copy, not four.
+
+This is stated rather than engineered around, because it is a real property of a
+localhost-only single-box deployment and pretending otherwise is worse than the gap.
+What the current setup *does* protect against is everything short of media failure:
+a bad migration, an `UPDATE` without a `WHERE`, a corrupted `.mv.db`, a wrong-headed
+money reset, ransomware caught early — and those are the likelier losses.
+
+**The cheapest genuine mitigation is a second physical destination for the same zip.**
+In rough order of cost:
+
+1. **A USB stick or external drive, copied by the same job.** ~$10 one-off, no
+   account, no network, no recurring cost. Add a copy step to `h2-backup.ps1` after
+   verification, guarded so a missing drive is a *reported* condition and never a
+   failure of the backup itself. The archive is ~112 KB; a decade fits on anything.
+2. **Any second machine on the LAN**, over an SMB share or `scp`. Free if a second box
+   exists, and it survives the disk *and* a machine-level compromise of C: only if the
+   share is not writable from the app's account — which it would be, so this is
+   weaker than it looks.
+3. **Off-site object storage** (B2 / R2 / S3). ~112 KB/day is a rounding error on any
+   free tier and it is the only option that survives fire, theft and ransomware that
+   walks mapped drives. It costs a credential, which is exactly what this project has
+   repeatedly decided not to spend, so it is listed last rather than recommended.
+
+Whichever is chosen, the same rule applies as everywhere else here: **the copy is not
+a backup until something reads it back.** A copy step that reports success for a zip
+that never arrived reproduces the exact defect this area was built to close, so verify
+the destination file's size and hash against the source before calling it done — and
+if the second location goes stale, that belongs in
+`data\h2-backup-status.json` too, so the reporter above surfaces it.
 
 ---
 
@@ -845,6 +1084,7 @@ copy on 2026-09-02 against `HEAD = 2f7343c`.
 | 1 | `service/MoneyResetService` + `config/MoneyResetGate` | Makes the fabricated-money reset *available*. It stays inert until asked with two separate environment variables. |
 | 2 | `config/H2CredentialGuard` | Refuses to start when a listening H2 has a blank/short password. |
 | 3 | `config/UnconfiguredAdminReporter` | Boot banner + `GET /api/admin/security/admin-grants` naming any persisted ADMIN no config explains. |
+| 4 | `config/BackupFreshnessReporter` | Reads `data\h2-backup-status.json`. Boot + hourly banner, an "H2 backup" card on the admin Health tile, `GET /api/admin/security/backup-status`, and a public `GET /api/health/backup` that 503s when the backup is stale or failed. Added 2026-09-02, after this section was written — it ships in the same restart, and like the other three it is a report and never a gate. |
 
 ### The premise, measured and not assumed
 
@@ -1211,18 +1451,31 @@ because it is.
 
 ---
 
-## Known gap: nothing backs up H2 on a schedule
+## Known gap: the H2 backup is BUILT but still not SCHEDULED
 
-The daily `SkinBox DB Backup` task runs `deploy/backup-db.sh`, which is the
-**Postgres** path — `pg_dump` against the `sbox-pg` container. The app runs on
-H2, and Docker is not running on this box. `LastTaskResult` is **127** and
-`skinbox-backups\backup.log` is a run of `No such file or directory`. A
-path fix landed in `backup-db-hidden.vbs` on 2026-09-01 21:22, after that last
-run, so it has not yet been observed working — and even when it does run it will
-back up a Postgres container that does not exist.
+*(Superseded in part on 2026-09-02 — see "The scheduled H2 backup" above. What
+remains true is the part that matters.)*
 
-**So the H2 backup in step 2 is the only backup of the money database, and it is
-manual.** Do not skip step 2 on the assumption that last night's job covered it.
+The job now exists and is proven: `deploy/h2-backup.ps1` takes the archive, extracts
+it, opens the restored copy and compares every table's row count against live.
+`config/BackupFreshnessReporter` reads the status file it writes and reports `ok` /
+`failed` / `stale` on the admin Health tile and at `GET /api/health/backup`.
+
+**But the daily `SkinBox DB Backup` task still runs `deploy/backup-db.sh`** — the
+Postgres path, `pg_dump` against a `sbox-pg` container that is not running. As of
+2026-09-02 02:20 its action is unchanged, `LastTaskResult` is **127** from the
+09/01 04:00 run, and the next trigger is 09/02 04:00. It will now refuse with exit 3
+naming the H2 job rather than failing at 127, which is more honest and still not a
+backup.
+
+**So the only archives of the money database are the four taken by hand, and nothing
+takes a new one on a schedule.** Two commands repoint the task and fix its
+`LogonType: Interactive` principal (which would skip 04:00 entirely with the operator
+logged out); both are in "OPERATOR: the task is still not repointed" above, and both
+are the operator's to run.
+
+Until then the freshness reporter will read `stale` roughly 26 hours after the last
+manual run — correctly. Do not read that as a bug in the reporter.
 
 ---
 

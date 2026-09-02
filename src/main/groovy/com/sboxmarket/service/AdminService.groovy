@@ -105,6 +105,7 @@ class AdminService {
     @Autowired(required = false) com.sboxmarket.repository.ApiKeyRepository apiKeyRepository
     @Autowired(required = false) ApiKeyService apiKeyService
     @Autowired(required = false) SteamMarketPriceService steamMarketPriceService
+    @Autowired(required = false) com.sboxmarket.config.BackupFreshnessReporter backupFreshnessReporter
     @Autowired(required = false) @Lazy StripeService stripeService
 
     // ── Auth guard helpers (delegated to dedicated components) ──────
@@ -360,8 +361,46 @@ class AdminService {
             // first event lands; UI renders "No events yet" when zero.
             stripeWebhook:  (stripeService != null
                                 ? stripeService.webhookTelemetry
-                                : null)
+                                : null),
+            // H2 backup freshness. On the tile the operator ALREADY reads,
+            // because a report that needs him to know a new URL exists is
+            // most of the way back to a status file nobody opens.
+            //
+            // Three states, kept apart: `ok` (ran and the read-back verified),
+            // `failed` (ran and did not verify), `stale` (we cannot establish
+            // that it ran at all — scheduler stopped, machine slept, task
+            // deleted, or the file was never written). A MISSING file is
+            // `stale`, not an error: no amount of logging inside a scheduled
+            // job can report that the job stopped being scheduled.
+            //
+            // Detail (archive path, row counts, machine) rides along here
+            // because this endpoint is already admin-authed; the public probe
+            // at /api/health/backup gets the state word alone. Null-safe like
+            // the two collaborators above so unit tests that don't wire the
+            // reporter keep passing.
+            backup:         backupFreshnessSnapshot()
         ]
+    }
+
+    /**
+     * The H2 backup freshness report for the Health tile, or null.
+     *
+     * <p>Wrapped exactly like the Hikari-pool and schema-version reads above:
+     * a diagnostic that can throw is a diagnostic that takes the staff panel
+     * down with it, and this repo has already been bitten by a control that
+     * turned into an outage. The UI renders a missing report as "Reporter not
+     * wired", which is honest — a report that could not be produced is not a
+     * pass.</p>
+     */
+    private Map backupFreshnessSnapshot() {
+        if (backupFreshnessReporter == null) return null
+        try {
+            return backupFreshnessReporter.currentReport()
+        } catch (Exception e) {
+            log.warn("Backup freshness report could not be read for the Health tile: " +
+                     "${e.class.name}: ${e.message}")
+            return null
+        }
     }
 
     // ── Withdrawals ─────────────────────────────────────────────────

@@ -233,6 +233,46 @@ function AdminHealthTab() {
           : ageMin < 1440 ? Math.round(ageMin / 60) + 'h ago'
           : Math.round(ageMin / 1440) + 'd ago';
         return card('Stripe webhook', wh.lastEventType || '(unknown)', 'Last event: ' + ageLabel);
+      })(),
+      // H2 backup freshness. The status file written by deploy/h2-backup.ps1
+      // used to be read by nothing at all — the same shape as the Postgres
+      // backup task that failed with exit 127 every day from April to
+      // September into a log nobody opened.
+      //
+      // THREE STATES, never collapsed:
+      //   ok     — ran, and the read-back verified every table's row count
+      //   failed — ran, and did not verify (scheduler alive, backup broken)
+      //   stale  — we cannot establish that it ran AT ALL. The scheduler
+      //            stopped, the machine slept through 04:00, the task was
+      //            deleted, or the file was never written. A MISSING file is
+      //            this state, not an error.
+      // `stale` wins over `failed` when both hold, and the card still says so.
+      (() => {
+        const b = data.backup;
+        if (!b) return card('H2 backup', '—', 'Reporter not wired');
+        const age = b.ageMinutes;
+        const ageLabel = age == null ? 'never recorded'
+          : age < 60 ? age + 'm ago'
+          : age < 1440 ? Math.round(age / 60) + 'h ago'
+          : Math.round(age / 1440) + 'd ago';
+        const tone = b.state === 'ok' ? null
+          : b.state === 'failed' ? 'var(--red)'
+          : 'var(--warn)';
+        const value = b.state === 'ok' ? 'Verified'
+          : b.state === 'failed' ? 'FAILED'
+          : 'STALE';
+        // Say WHY, always. "Stale" alone sends the operator to the wrong
+        // place half the time: an absent file needs the task wired up, an
+        // old timestamp needs the scheduler checked.
+        const why = b.state === 'ok'
+          ? `${b.tablesChecked || '?'} tables matched · ${ageLabel}`
+          : `${b.reason || 'unknown'} · ${ageLabel}` +
+            (b.state === 'stale' && b.ranFailed ? ' · last run also FAILED' : '');
+        return h('div', { className: 'health-card' },
+          h('div', { className: 'health-card-label' }, 'H2 backup'),
+          h('div', { className: 'health-card-value', style: tone ? { color: tone } : null }, value),
+          h('div', { className: 'health-card-hint', style: tone ? { color: tone } : null }, why)
+        );
       })()
     ),
     // SMTP validation — ops changes SMTP config + wants a live test

@@ -34,6 +34,7 @@ class AdminController {
     @Autowired(required = false) com.sboxmarket.service.ReviewService reviewService
     @Autowired(required = false) com.sboxmarket.repository.ApiKeyRepository apiKeyRepository
     @Autowired(required = false) com.sboxmarket.config.UnconfiguredAdminReporter unconfiguredAdminReporter
+    @Autowired(required = false) com.sboxmarket.config.BackupFreshnessReporter backupFreshnessReporter
 
     private Long requireAdmin(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -406,6 +407,35 @@ class AdminController {
                                       reason: 'UnconfiguredAdminReporter bean not present'])
         }
         ResponseEntity.ok([available: true] + unconfiguredAdminReporter.currentReport())
+    }
+
+    /**
+     * The FULL backup-freshness record — everything the public probe at
+     * {@code GET /api/health/backup} is not allowed to say.
+     *
+     * <p>The public probe returns one state word and a status code, because an
+     * uptime monitor is the only consumer that alerts with nobody logged in.
+     * Everything that identifies the deployment lives here instead: the
+     * archive path (which names the single file on this box holding every
+     * wallet row), the database path, the machine name, the per-table row
+     * counts, and the retention decision. Admin-authed for exactly the reason
+     * {@code UnconfiguredAdminReporter} keeps ADMIN Steam IDs off the
+     * anonymous surface — the detail names what is worth taking.</p>
+     *
+     * <p>Three states, never collapsed: {@code ok} (ran and the read-back
+     * verified), {@code failed} (ran and did not verify), {@code stale} (we
+     * cannot establish that it ran — the scheduler stopped, the machine slept,
+     * the task was deleted, or the status file was never written). A missing
+     * file is {@code stale}, not an error.</p>
+     */
+    @GetMapping("/security/backup-status")
+    ResponseEntity<Map> backupStatus(HttpServletRequest req) {
+        requireAdmin(req)
+        if (backupFreshnessReporter == null) {
+            return ResponseEntity.ok([available: false,
+                                      reason: 'BackupFreshnessReporter bean not present'])
+        }
+        ResponseEntity.ok([available: true] + backupFreshnessReporter.currentReport())
     }
 
     @PostMapping("/users/{id}/grant-admin")
