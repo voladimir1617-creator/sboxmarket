@@ -1,0 +1,9 @@
+# Registered here, and not called from main(), on purpose.
+#
+# H2CredentialGuard has to run before Hikari opens the first connection AND has
+# to be impossible to drop from a launch line — the same reasoning that made
+# `h2.bindAddress` a programmatic System.setProperty rather than a -D flag. An
+# EnvironmentPostProcessor listed here runs for EVERY SpringApplication in this
+# jar, including @SpringBootTest, so no boot path can quietly skip it.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+  com.sboxmarket.config.H2CredentialGuard

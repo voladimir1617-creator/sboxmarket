@@ -469,6 +469,120 @@ bash deploy/backup-db.sh
 
 ---
 
+## H2 backup and the auto-server
+
+`deploy/backup-db.sh` above is the **Postgres** path (`pg_dump` against the `sbox-pg`
+container). It does not touch the H2 file database the app actually runs on today.
+This section is that path, and it is the reason `AUTO_SERVER=TRUE` is still in the
+datasource URL.
+
+**Why an external process is needed at all.** The running app holds an exclusive OS
+handle on `data/sboxmarket.mv.db`. Copying the file underneath a live writer gives a
+torn copy, and an embedded open from a second process is refused outright — measured:
+
+```
+90020  Database may be already in use: ".../data/sboxmarket.mv.db".
+       Possible solutions: close all other connection(s); use the server mode
+```
+
+H2 names the remedy itself: *use the server mode*. `AUTO_SERVER=TRUE` is that server
+mode. Removing it would make a hot backup impossible without stopping the app.
+
+### Taking a backup (verified 2026-09-02)
+
+A client opens the **same path** the app opened. The embedded open fails with
+`DATABASE_ALREADY_OPEN_1`, H2 hands the client the server key, and the driver
+transparently reconnects over the loopback TCP server. `BACKUP TO` then runs
+server-side and writes a zip.
+
+```bash
+H2JAR="$HOME/.gradle/caches/modules-2/files-2.1/com.h2database/h2/2.2.224/*/h2-2.2.224.jar"
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+
+java -cp $H2JAR org.h2.tools.Shell \
+  -url "jdbc:h2:file:C:/Users/WW/Desktop/sboxmarket/data/sboxmarket;AUTO_SERVER=TRUE;MODE=PostgreSQL" \
+  -user sa -password "$SPRING_DATASOURCE_PASSWORD" \
+  -sql "BACKUP TO 'C:/Users/WW/skinbox-backups/h2-sboxmarket-$TS.zip'"
+```
+
+**Verify it, do not trust the exit code.** The lesson from `deploy/test-backup-db.sh`
+applies here too — a command that returns 0 is not a backup. Read the archive back:
+
+```bash
+unzip -l "C:/Users/WW/skinbox-backups/h2-sboxmarket-$TS.zip"    # expect sboxmarket.mv.db
+mkdir -p /tmp/restore && unzip -o ".../h2-sboxmarket-$TS.zip" -d /tmp/restore
+java -cp $H2JAR org.h2.tools.Shell \
+  -url "jdbc:h2:file:/tmp/restore/sboxmarket;MODE=PostgreSQL" -user sa -password "..." \
+  -sql "SELECT COUNT(*) FROM STEAM_USERS;"
+```
+
+A verified run on 2026-09-02 produced a 112,413-byte zip holding `sboxmarket.mv.db`
+at 368,640 bytes — byte-identical in size to the live file — and the restored copy
+answered the same row counts as the live database.
+
+Note the archive contains **only** `sboxmarket.mv.db`. It does *not* contain
+`sboxmarket.lock.db`, which is what makes it safe to keep: see below.
+
+### The credential, and why the bind is not enough
+
+Two independent controls now stand in front of this server:
+
+1. **Where it listens.** `SboxMarketApplication.hardenEmbeddedH2Bind()` sets
+   `h2.bindAddress=127.0.0.1` programmatically before Spring starts. Verified in the
+   running process: PID owns `127.0.0.1:50494` (H2) and `127.0.0.1:8082` (Tomcat),
+   both refused from the LAN and Tailscale addresses.
+2. **Who may connect.** `config/H2CredentialGuard` refuses to start the application
+   when the datasource opens an H2 listener and `spring.datasource.password` is blank
+   or under 16 characters.
+
+They do not share a switch — one is a system property, the other an environment
+variable — so no single lost variable disables both.
+
+**Do not mistake H2's server key for a credential.** `TcpServer.checkKeyAndGetDatabaseName`
+does refuse a connection whose database name is not the registered key; five
+path-shaped guesses were each refused with `28000`. But the key is the `id` property
+inside `data/sboxmarket.lock.db`, a cleartext file in the same directory as the
+database. Connecting with that value as the database name authenticated as `SA`
+**with an empty password** and read every wallet row. The key stops a blind peer who
+has only the port. It stops nobody who can read one file.
+
+### Activating the credential (requires one restart — read fully first)
+
+The guard is configuration-only. It does **not** change any existing database's
+password: H2 stores users inside the database, so setting the env var alone makes the
+app fail to *connect* (`28000`), not migrate. Both halves must move together.
+
+```powershell
+# 0. Take and VERIFY a backup first (above). There is no other safety net.
+
+# 1. Choose a secret >= 16 chars. Set it where the watchdog will inherit it:
+#    the task launches `Start-Process java` and inherits the USER environment.
+[Environment]::SetEnvironmentVariable('SPRING_DATASOURCE_PASSWORD','<secret>','User')
+
+# 2. Pause the watchdog so it cannot relaunch mid-migration.
+Disable-ScheduledTask -TaskName 'SkinBox Watchdog'
+
+# 3. Migrate the live database THROUGH the auto-server, while the app still runs:
+#    ALTER USER SA SET PASSWORD '<secret>';
+#    (existing pooled connections keep working; new ones would not, hence step 4)
+
+# 4. Rebuild and restart the app so it picks up both the new jar and the env var.
+#    Stop the java process, ./gradlew bootJar, relaunch from the repo root:
+#      java -jar build/libs/sboxmarket-1.0.0.jar
+#    -WorkingDirectory MUST be the repo root — the URL is relative and launching
+#    elsewhere silently creates a NEW EMPTY DATABASE.
+
+# 5. Re-enable the watchdog. Do not skip this.
+Enable-ScheduledTask -TaskName 'SkinBox Watchdog'
+```
+
+**If you would rather not run a password at all**, the other exit is equally safe and
+is one edit: remove `AUTO_SERVER=TRUE` from `SPRING_DATASOURCE_URL`. The guard goes
+silent because there is no longer a listener to guard. The cost is this section's
+backup procedure — with no server, a copy requires stopping the app.
+
+---
+
 ## Disk is full
 
 Symptom: `docker logs sbox-app` won't read, `docker build` fails with `no space left on device`, log rotation stops.

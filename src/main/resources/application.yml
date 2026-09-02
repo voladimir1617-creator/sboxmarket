@@ -165,6 +165,17 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/sboxmarket;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE;MODE=PostgreSQL}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
+    # NO committed default, and an empty one is REFUSED rather than accepted.
+    # The url above carries AUTO_SERVER=TRUE, which starts an H2 TCP server as
+    # soon as the file DB is opened; that server authenticates callers with THIS
+    # password. `h2.bindAddress` confines it to loopback, but the two must be
+    # independent controls, not one control and a formality — this database was
+    # already read once as SA/no-password over that port.
+    # com.sboxmarket.config.H2CredentialGuard refuses to start when the url opens
+    # a listener and this value is blank. Two safe ways out, both in
+    # deploy/RUNBOOK.md ("H2 backup and the auto-server"): set a real secret and
+    # migrate the DB to match, or drop AUTO_SERVER=TRUE and lose the hot-backup
+    # path. Do not "fix" a refusal by typing a literal here.
     password: ${SPRING_DATASOURCE_PASSWORD:}
 
   jpa:
