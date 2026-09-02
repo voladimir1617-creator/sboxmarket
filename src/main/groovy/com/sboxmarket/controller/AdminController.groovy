@@ -33,6 +33,7 @@ class AdminController {
     @Autowired com.sboxmarket.repository.ItemRepository itemRepository
     @Autowired(required = false) com.sboxmarket.service.ReviewService reviewService
     @Autowired(required = false) com.sboxmarket.repository.ApiKeyRepository apiKeyRepository
+    @Autowired(required = false) com.sboxmarket.config.UnconfiguredAdminReporter unconfiguredAdminReporter
 
     private Long requireAdmin(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -379,6 +380,32 @@ class AdminController {
             ]
         }
         ResponseEntity.ok(out)
+    }
+
+    /**
+     * On-demand read of the admin-grant report — which persisted ADMIN rows
+     * are NOT explained by `admin.bootstrap-steam-ids`, and which carry no
+     * ADMIN_GRANTED audit row at all.
+     *
+     * The same report is logged as a WARN banner on every boot; this exists so
+     * the operator does not have to have been watching the console at the
+     * moment the app started. Admin-authed rather than public on purpose: a
+     * list of which Steam IDs hold ADMIN names exactly the accounts worth
+     * attacking, which is a worse leak than the `startupAt` fingerprint
+     * HealthController already withholds from anonymous callers.
+     *
+     * `required = false` on the reporter so the Spock specs that build this
+     * controller field-by-field keep wiring; the endpoint then reports its own
+     * absence rather than NPEing.
+     */
+    @GetMapping("/security/admin-grants")
+    ResponseEntity<Map> adminGrants(HttpServletRequest req) {
+        requireAdmin(req)
+        if (unconfiguredAdminReporter == null) {
+            return ResponseEntity.ok([available: false,
+                                      reason: 'UnconfiguredAdminReporter bean not present'])
+        }
+        ResponseEntity.ok([available: true] + unconfiguredAdminReporter.currentReport())
     }
 
     @PostMapping("/users/{id}/grant-admin")

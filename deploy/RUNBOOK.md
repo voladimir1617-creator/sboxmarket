@@ -469,6 +469,117 @@ bash deploy/backup-db.sh
 
 ---
 
+## Revoking a persisted admin
+
+### What is on the box right now (measured 2026-09-02, live database)
+
+`STEAM_USERS` holds **7 rows, exactly one with `ROLE <> 'USER'`**:
+
+| id | role | steamId64 | note |
+|----|------|-----------|------|
+| 1–6 | USER | `76561199000000001`–`…006` | the fabricated `SeedService` sellers |
+| 33 | **ADMIN** | `76561199839805014` | the only real account in the database |
+
+`admin.bootstrap-steam-ids` resolves **empty**, and `ADMIN_BOOTSTRAP_STEAM_IDS` is set
+in neither the User nor the Machine environment. So the grant has **outlived the
+configuration that created it** — exactly the limitation
+`AdminBootstrapIsNotCommittedSpec` states in its own last test ("removing the default
+does NOT demote an existing admin"). It is now reported rather than assumed: see
+`UnconfiguredAdminReporter`, which logs a WARN banner on every boot and answers
+`GET /api/admin/security/admin-grants`.
+
+**Whose account is it.** `76561199839805014` was committed to `application.yml` as the
+bootstrap admin default in `05577b6`, the **initial commit**, authored by
+`voladimir1617-creator <voladimir1617@gmail.com>` on 2026-04-15 — the operator, naming
+his own Steam ID. The live Steam profile is public, established (level 55, 15 badges,
+1,086 items), and its persona matches the `DISPLAY_NAME` on the row; the persona
+recorded on this user's earliest sign-in audit row was `Chib skinbox.market`, carrying
+this project's own domain. **This is the operator's own account, not an intruder.**
+The residual limit is worth stating: none of that proves the Steam account is still
+under his control today, only that he designated it.
+
+**It was, however, invisible.** The audit log holds **zero** `ADMIN_GRANTED` rows for
+user 33 — only four `USER_SIGN_IN` rows — because the promotion predates the audit
+write added on 2026-09-01. Until now the most privileged row in the database was
+attested by nothing but itself.
+
+### Revoke is BLOCKED right now — read this before trying
+
+With a single ADMIN row, `AdminService.revokeAdmin` refuses **twice over**:
+
+- `CANT_REVOKE_SELF` — the only admin is necessarily the target, and self-revoke is refused.
+- `LAST_ADMIN` — `countByRole('ADMIN') <= 1`, and the lockout guard refuses to demote
+  the final admin.
+
+There is no caller who can run it. `POST /api/admin/users/33/revoke-admin` returns a
+400 whoever sends it.
+
+### The three paths, in the order they should be considered
+
+**1. Leave it (the default, and almost certainly right).**
+It is the operator's own account and the only admin on the deployment. Revoking it
+would leave **zero** admins and make the entire `/api/admin` surface — withdrawals,
+disputes, refunds, role grants — unreachable. Nothing needs to change; the situation
+is now visible, which was the actual defect.
+
+**2. Rotate to a different account (the safe sequence).**
+Needed if he wants admin on a different Steam account. The new account must sign in
+through Steam once first, so a `STEAM_USERS` row exists to grant against.
+
+```bash
+# Signed in as user 33 in a browser, copy the SBOX_SESSION cookie value.
+# <NEW_ID> is the STEAM_USERS.id of the new account, NOT its steamId64.
+
+curl -s -X POST http://localhost:8082/api/admin/users/<NEW_ID>/grant-admin \
+  -H "Cookie: SBOX_SESSION=<session-value>"
+
+# Now sign in as the NEW admin, take ITS cookie, and only then:
+curl -s -X POST http://localhost:8082/api/admin/users/33/revoke-admin \
+  -H "Cookie: SBOX_SESSION=<new-admin-session-value>"
+```
+
+Order matters: grant first. Reversing it hits `LAST_ADMIN` and nothing happens.
+
+**3. Emergency, account compromised, cannot log in.**
+Only if the Steam account is believed to be in someone else's hands. This leaves the
+deployment with **zero** admins, so set up the recovery net in the same sitting.
+
+```bash
+# a) Back up first. There is no other safety net.
+#    (See "H2 backup and the auto-server" below — take it, then VERIFY it.)
+
+# b) Demote through the auto-server, while the app is running:
+H2JAR="$HOME/.gradle/caches/modules-2/files-2.1/com.h2database/h2/2.2.224/*/h2-2.2.224.jar"
+java -cp $H2JAR org.h2.tools.Shell \
+  -url "jdbc:h2:file:C:/Users/WW/Desktop/sboxmarket/data/sboxmarket;AUTO_SERVER=TRUE;MODE=PostgreSQL" \
+  -user sa -password "$SPRING_DATASOURCE_PASSWORD" \
+  -sql "UPDATE STEAM_USERS SET ROLE='USER' WHERE ID=33;"
+
+# c) Recovery net — WITHOUT this you have locked yourself out.
+#    Set the bootstrap var to a Steam ID you control and restart. That account is
+#    promoted to ADMIN on its next login. This is the documented no-database-access
+#    recovery path (see AdminService.promoteBootstrapAdmin).
+[Environment]::SetEnvironmentVariable('ADMIN_BOOTSTRAP_STEAM_IDS','<your-steam-id64>','User')
+```
+
+Remember what the bootstrap list is while it is set: a **standing** grant, not a
+one-time bootstrap. `promoteBootstrapAdmin` runs on every login, so a revoke is undone
+at the next sign-in until the ID is removed from the variable again. Clear it once the
+new admin is established.
+
+### Confirming the state afterwards
+
+```bash
+curl -s http://localhost:8082/api/admin/security/admin-grants \
+  -H "Cookie: SBOX_SESSION=<session-value>"
+```
+
+`unconfigured` lists admins no config explains, `unaudited` lists admins with no
+`ADMIN_GRANTED` row, and `revocableViaApi: false` means the two refusals above are
+still in force. Pinned by `PersistedAdminIsReportedSpec`.
+
+---
+
 ## H2 backup and the auto-server
 
 `deploy/backup-db.sh` above is the **Postgres** path (`pg_dump` against the `sbox-pg`
@@ -580,6 +691,60 @@ Enable-ScheduledTask -TaskName 'SkinBox Watchdog'
 is one edit: remove `AUTO_SERVER=TRUE` from `SPRING_DATASOURCE_URL`. The guard goes
 silent because there is no longer a listener to guard. The cost is this section's
 backup procedure — with no server, a copy requires stopping the app.
+
+### REHEARSED end to end on a restored copy (2026-09-02)
+
+The sequence above was previously prose. It has now been walked start to finish
+against a **restored copy** of the live database — never the live one — using a boot
+jar built to a separate filename (`sboxmarket-rehearsal.jar`) so the live launch path
+and the running JVM's file handle were never touched. Restored copy verified identical
+to live before starting: 7 users / 1 admin / 37 audit rows / 9 wallets.
+
+First, the premise, confirmed rather than assumed: `H2CredentialGuard.class` is present
+in the rehearsal jar and **absent from the live `sboxmarket-1.0.0.jar`** (built
+2026-09-01 14:56). The guard is written, registered, unit-tested — and not enforcing
+anything on the running process.
+
+| # | Configuration | Result |
+|---|---------------|--------|
+| 1 | rebuilt jar, `AUTO_SERVER=TRUE`, **blank** password | **REFUSED.** `IllegalStateException: REFUSING TO START…` thrown from `H2CredentialGuard.postProcessEnvironment`, during `prepareEnvironment` — before Hikari opens a connection, exactly as designed. |
+| 2 | env var set, `ALTER USER` **not** run | Guard passes, driver refuses: `Wrong user name or password [28000-224]`. This is the documented trap, and it behaves as documented. |
+| 3 | `ALTER USER SA SET PASSWORD` on the copy | Blank credential then refused `28000`; new credential accepted. |
+| 4 | rebuilt jar + migrated database + password | **BOOTED** — `Started SboxMarketApplication in 10.3 seconds`. |
+| 5 | rollback: `ALTER USER SA SET PASSWORD ''` | Blank accepted again, secret then refused `28000`. Reversible in both directions. |
+| 6 | rebuilt jar, rolled back to blank | **REFUSED** again. Fail-closed in both directions; no fail-open branch. |
+
+This is the step the previous pass could not do: the guard was known to *parse* (Spring's
+own `SpringFactoriesLoader` resolves the registration, pinned by
+`H2CredentialNotEmptySpec`), but had never been observed **firing in a real boot of a
+real jar**. It fires.
+
+**Rollback, both routes, both verified:**
+
+- *Undo the migration.* `ALTER USER SA SET PASSWORD ''` restores the blank credential,
+  and the **existing** `sboxmarket-1.0.0.jar` — which contains no guard — then boots
+  against it (measured: started in 16.2 s). So reverting is: put the password back,
+  relaunch the old jar. No rebuild needed on the way back.
+- *Lost the secret.* Re-restoring `h2-sboxmarket-20260902T075102Z.zip` into a fresh
+  directory read clean with a **blank** password. The backup is a genuine way home.
+
+**Measured downtime: roughly 30 seconds.** `bootJar` took 3 s incremental (the classes
+are already compiled) and startup measured 10–16 s; the rest is stop and relaunch. The
+app must be stopped *before* the build, because the running JVM holds
+`build/libs/sboxmarket-1.0.0.jar` open.
+
+**Two limits worth knowing before you decide.**
+
+1. A password on the live database does **not** protect the backups. Both zips in
+   `C:\Users\WW\skinbox-backups` are copies of the whole database taken while the
+   credential was blank, and they read with a blank password — proven above, since that
+   is exactly what makes them a working rollback. Anyone who can read that directory
+   gets the wallet rows regardless of what SA's password becomes. Only backups taken
+   *after* the migration carry the new credential.
+2. The exposure this closes is already loopback-only (`h2.bindAddress=127.0.0.1`,
+   verified in the running process). The attacker this stops is one who is already on
+   the box but cannot read `C:\Users\WW\skinbox-backups`. That is a real gap and worth
+   closing — it is not an internet-facing hole.
 
 ---
 
