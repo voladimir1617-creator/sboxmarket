@@ -2,11 +2,13 @@
 
 One page. Paste-ready commands. If you are reading this during an outage, scroll to the matching section, run the bullets in order, then come back and update the runbook with what worked.
 
-> **Pending right now:** three committed controls — the money reset, the H2
-> credential guard, and the unconfigured-admin reporter — are **not in the
-> running jar**. They ship together in one ~30-second restart. See
-> **"ONE RESTART: shipping all three pending controls together"** below.
-> Rehearsed end to end on a restored copy, 2026-09-02.
+> **Pending right now:** **six** committed pieces of work — the money reset
+> (service + gate), the H2 credential guard, the unconfigured-admin reporter,
+> the backup freshness reporter, and the offsite second copy it reports on —
+> are **not in the running jar**. They ship together in one ~30-second restart.
+> See **"ONE RESTART: shipping all six pending controls together"** below.
+> Rehearsed end to end on a restored copy, re-rehearsed with all six on
+> 2026-09-02 against `HEAD = 5a136a7`.
 
 ---
 
@@ -1144,42 +1146,61 @@ $b = Join-Path 'D:\skinbox-backups' $a.Name
 
 ---
 
-# ONE RESTART: shipping all three pending controls together
+# ONE RESTART: shipping all six pending controls together
 
-Three separate pieces of work are committed and **none of them is in the running
+Six separate pieces of work are committed and **none of them is in the running
 process**. Each on its own would need a rebuild and a restart of the money app.
-Doing that three times is three outages and three chances to get it wrong. This
-section is the single coordinated sequence, rehearsed end to end on a restored
-copy on 2026-09-02 against `HEAD = 2f7343c`.
+Doing that six times is six outages and six chances to get it wrong. This
+section is the single coordinated sequence, re-rehearsed end to end on a restored
+copy on 2026-09-02 against `HEAD = 5a136a7`.
 
 | # | Piece | What it does once shipped |
 |---|-------|---------------------------|
-| 1 | `service/MoneyResetService` + `config/MoneyResetGate` | Makes the fabricated-money reset *available*. It stays inert until asked with two separate environment variables. |
-| 2 | `config/H2CredentialGuard` | Refuses to start when a listening H2 has a blank/short password. |
-| 3 | `config/UnconfiguredAdminReporter` | Boot banner + `GET /api/admin/security/admin-grants` naming any persisted ADMIN no config explains. |
-| 4 | `config/BackupFreshnessReporter` | Reads `data\h2-backup-status.json`. Boot + hourly banner, an "H2 backup" card on the admin Health tile, `GET /api/admin/security/backup-status`, and a public `GET /api/health/backup` that 503s when the backup is stale or failed. Added 2026-09-02, after this section was written — it ships in the same restart, and like the other three it is a report and never a gate. |
+| 1 | `service/MoneyResetService` | Makes the fabricated-money reset *available*. Inert until asked. |
+| 2 | `config/MoneyResetGate` | The two-variable opt-in in front of it. Dry run is the default; the execute flag alone does nothing. |
+| 3 | `config/H2CredentialGuard` | Refuses to start when a listening H2 has a blank/short password. The only one of the six that is a **gate**. |
+| 4 | `config/UnconfiguredAdminReporter` | Boot banner + `GET /api/admin/security/admin-grants` naming any persisted ADMIN no config explains. |
+| 5 | `config/BackupFreshnessReporter` | Reads `data\h2-backup-status.json`. Boot **and hourly** banner, an "H2 backup" card on the admin Health tile, `GET /api/admin/security/backup-status`, and a public `GET /api/health/backup` that 503s on anything but `ok`. |
+| 6 | the **offsite second copy** (`deploy/h2-backup.ps1` → `D:\skinbox-backups`, reported as state `ok-no-offsite`) | The script half already runs by hand; what ships in the restart is the app's ability to **report** on it. Until then nothing in the app can say the second copy stopped arriving. |
+
+Only #3 can refuse a boot. The other five are reports and opt-ins — they never
+block a boot, a request or a trade.
 
 ### The premise, measured and not assumed
 
 The live `build/libs/sboxmarket-1.0.0.jar` was built **2026-09-01 14:56**. All
-three commits are later (`28e6882` 15:31, `b51cf4f` 2026-09-02 00:58, `2f7343c`
-01:22). Reading the live jar's entry list directly:
+six commits are later (`28e6882` 15:31, `b51cf4f` 2026-09-02 00:58, `2f7343c`
+01:22, `4cf7b53` 02:15, `b83fde5` 02:52, `5a136a7` 04:05). Re-counted
+2026-09-02 04:08, reading the live jar's entry list directly:
 
 ```
-sboxmarket-1.0.0.jar     H2CredentialGuard 0   MoneyResetGate 0
-                         MoneyResetService 0   UnconfiguredAdminReporter 0
-                         META-INF/spring.factories 0
-sboxmarket-rehearsal.jar H2CredentialGuard 1   MoneyResetGate 1
-                         MoneyResetService 15  UnconfiguredAdminReporter 8
-                         META-INF/spring.factories 1
+                          H2Cred  MRGate  MRSvc  UnconfAdmin  BackupFresh  spring.factories
+sboxmarket-1.0.0.jar          0       0      0        0            0             0
+sboxmarket-rehearsal2.jar     1       1     15        8            1             1
 ```
 
-Zero, not "probably stale". Nothing below is enforcing anything today.
+Zero across the board, re-measured rather than carried forward — not "probably
+stale". Nothing below is enforcing or reporting anything today. (The older
+`sboxmarket-rehearsal.jar` from 01:32 carries five of the six and **0**
+`BackupFreshnessReporter`; it predates that work. Build a fresh one, or read
+the wrong answer.)
+
+**`compileGroovy` reporting `UP-TO-DATE` is not evidence the class is current.**
+On the re-rehearsal the repackage did exactly that, so the jar's
+`BackupFreshnessReporter.class` was checked for string constants that exist only
+in the newest commit — `ok-no-offsite`, `ONE COPY`, `offsite-not-reported`,
+`offsite-copy-not-current` — all four present. Cheap, and the alternative is
+shipping a class from two commits ago and believing otherwise.
 
 ### Live baseline at rehearsal time (re-measure before you start)
 
 `7` STEAM_USERS · `1` ADMIN (id 33) · `9` WALLETS totalling `30797.70` ·
 `44` TRANSACTIONS · `37` AUDIT_LOG · `254` LISTINGS · `39` ITEMS · `8` TRADES.
+
+**Re-confirmed 2026-09-02 04:12** against the live database (read-only, through
+the auto-server) *and* against the restored copy of
+`h2-sboxmarket-20260902T103203Z.zip` — identical row for row, which is what makes
+that archive a proven way home rather than just a file of the right size.
 
 ### Two numbers that are both right, so neither surprises you
 
@@ -1297,25 +1318,41 @@ Get-CimInstance Win32_Process -Filter "Name='java.exe'" |
 # 6. REBUILD.
 cd C:\Users\WW\Desktop\sboxmarket
 .\gradlew.bat bootJar --console=plain
-#   PRINTS: "BUILD SUCCESSFUL in Ns". Rehearsed at 2.5 s — the classes are
-#   already compiled, so this is a repackage, not a full build.
+#   PRINTS: "BUILD SUCCESSFUL in Ns". Rehearsed at 2.5 s, and 2.8 s on the
+#   re-rehearsal — the classes are already compiled, so this is a repackage,
+#   not a full build. If it takes minutes instead, another project's Gradle
+#   build is contending for the machine; `--offline` avoids the network wait.
 ```
 
 ```powershell
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. PROVE THE NEW JAR ACTUALLY CONTAINS THE THREE PIECES.
+# 7. PROVE THE NEW JAR ACTUALLY CONTAINS ALL SIX PIECES.
 #    Do not skip this. "A committed fix is not a shipped fix" has cost this
 #    project twice; this is the ten-second check that makes it impossible.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $za = [IO.Compression.ZipFile]::OpenRead('C:\Users\WW\Desktop\sboxmarket\build\libs\sboxmarket-1.0.0.jar')
-'H2CredentialGuard','MoneyResetGate','MoneyResetService','UnconfiguredAdminReporter','spring.factories' |
+'H2CredentialGuard','MoneyResetGate','MoneyResetService','UnconfiguredAdminReporter',
+'BackupFreshnessReporter','spring.factories' |
   ForEach-Object { $n=$_; "$n : " + @($za.Entries | Where-Object { $_.FullName -like "*$n*" }).Count }
 $za.Dispose()
-#   PRINTS five lines, EVERY count >= 1:
+#   PRINTS six lines, EVERY count >= 1:
 #     H2CredentialGuard : 1     MoneyResetGate : 1        MoneyResetService : 15
-#     UnconfiguredAdminReporter : 8            spring.factories : 1
+#     UnconfiguredAdminReporter : 8   BackupFreshnessReporter : 1   spring.factories : 1
 #   Any ZERO means you are about to restart into the same jar you already have.
 #   STOP and find out why before step 8.
+
+# 7b. AND PROVE THE CLASS IS FROM THE COMMIT YOU THINK IT IS.
+#     A present entry is not a current entry. `compileGroovy` reports
+#     UP-TO-DATE off a previous build, so step 7 can pass on a class compiled
+#     two commits ago. Check for a string that exists ONLY in the newest work:
+$za = [IO.Compression.ZipFile]::OpenRead('C:\Users\WW\Desktop\sboxmarket\build\libs\sboxmarket-1.0.0.jar')
+$e  = $za.Entries | Where-Object { $_.FullName -like '*BackupFreshnessReporter.class' }
+$ms = New-Object IO.MemoryStream; $e.Open().CopyTo($ms)
+$txt = [Text.Encoding]::ASCII.GetString($ms.ToArray()); $za.Dispose()
+'ok-no-offsite','ONE COPY','offsite-copy-not-current' | ForEach-Object { "$_ : " + $txt.Contains($_) }
+#   PRINTS three lines, all True. A False means the jar carries the older
+#   three-state reporter and the offsite half is NOT shipped, however green
+#   the build was.
 ```
 
 ```powershell
@@ -1330,6 +1367,18 @@ $za.Dispose()
 #    <springProfile name="prod">. So this app writes NO log file, and the
 #    watchdog's own hidden relaunch throws its console away. Every piece of
 #    evidence step 9 asks for exists solely on this process's stdout.
+#
+#    RE-CHECKED 2026-09-02 for the two NEW steps, because an earlier draft of
+#    this runbook sent the operator to a boot log that does not exist. It still
+#    holds: `<springProfile name="!prod">` binds root to CONSOLE alone, and on
+#    all four rehearsal boots the reporter banners landed on THIS redirect and
+#    nowhere else. Measured: stderr was **0 bytes** on every boot including the
+#    refusals — even `REFUSING TO START` arrives on stdout — so read $boot
+#    first, and keep "$boot.err" only as the belt-and-braces second file.
+#
+#    Do NOT substitute C:\Users\WW\skinbox-backups\h2-backup.log here. That
+#    file is real (6,690 bytes) and it is the BACKUP JOB's log, not the app's;
+#    it can tell you nothing about this restart.
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $boot  = "C:\Users\WW\skinbox-boot-$stamp.log"
 Start-Process 'C:\Program Files\Java\jdk-17\bin\java.exe' `
@@ -1341,8 +1390,9 @@ Start-Process 'C:\Program Files\Java\jdk-17\bin\java.exe' `
 
 ```powershell
 # ─────────────────────────────────────────────────────────────────────────────
-# 9. VERIFY ALL THREE, BY POSITIVE EVIDENCE. Give it ~15 s first.
-#    Rehearsed startup: "Started SboxMarketApplication in 13.015 seconds".
+# 9. VERIFY ALL SIX, BY POSITIVE EVIDENCE. Give it ~20 s first.
+#    Rehearsed startup across four boots: 14.6 s / 19.3 s / 17.6 s / 18.1 s.
+#    (The earlier 13.0 s figure was a lighter boot; budget ~20 s.)
 
 # a) The app is up.
 Invoke-WebRequest http://localhost:8082/api/health -UseBasicParsing | Select-Object -Exp StatusCode
@@ -1356,7 +1406,8 @@ Invoke-WebRequest http://localhost:8082/api/health -UseBasicParsing | Select-Obj
 #    28000 evidence, and the check then reported the opposite of the truth.
 Select-String -Path $boot,"$boot.err" -Pattern 'Added connection|REFUSING TO START|28000|Started SboxMarketApplication'
 #    WANT: "HikariPool-1 - Added connection conn1: url=jdbc:h2:file:./data/sboxmarket user=SA"
-#          "Started SboxMarketApplication in N seconds"   (rehearsed: 13.015 s)
+#          "Started SboxMarketApplication in N seconds"
+#          (re-rehearsed across four boots: 14.573 / 19.305 / 17.625 / 18.067 s)
 #    If instead the process EXITED with
 #      IllegalStateException: REFUSING TO START: this datasource opens an H2
 #      network listener (...) but spring.datasource.password is blank or shorter
@@ -1384,6 +1435,69 @@ Select-String -Path $boot -Pattern 'ADMIN GRANT REPORT|Admin-grant check' -Conte
 #    set it returns without logging, by design (a guard that cries wolf on every
 #    boot is a guard nobody reads). Its presence was proven at step 7; do not
 #    look for a log line here. It is exercised at steps 11-14.
+
+# e) BackupFreshnessReporter fired. Search the LOGGER NAME, case-sensitively.
+Select-String -Path $boot -Pattern 'BackupFreshnessReporter' -CaseSensitive
+#    Do NOT grep for 'H2 BACKUP'. Select-String is case-INSENSITIVE by default
+#    and H2CredentialGuard's own refusal text contains the phrase
+#    "H2 backup and the auto-server" — during the re-rehearsal that pattern
+#    reported the reporter as having run on a boot where it provably had not.
+#    A pattern that matches the wrong thing reports the strongest result.
+#
+#    EXACTLY ONE of these two always prints — silence here is a FAILURE:
+#
+#    CLEAN (what you should see, and what the rehearsal printed):
+#      INFO  c.s.config.BackupFreshnessReporter : H2 backup check: verified
+#      52m ago (35 tables matched), window 1560m.
+#
+#    OR a WARN banner, one of three headings:
+#      " H2 BACKUP IS STALE — no verified backup inside the window"
+#      " H2 BACKUP HAS ONE COPY — verified, and only on the primary disk"
+#      " H2 BACKUP FAILED — the last run did not verify"
+#    each followed by state / reason / status file / last_run_at / age, and a
+#    block naming the exact commands to run next. Window is 1560 min (26 h).
+#
+#    THE FIRST BOOT AFTER THIS RESTART WILL PROBABLY SAY `stale`, AND THAT IS
+#    CORRECT, NOT A BUG. `SkinBox DB Backup` still runs the Postgres script
+#    (LastTaskResult 3 as of 09/02 04:00) and `SkinBox H2 Backup` does not
+#    exist, so nothing writes a fresh status file on a schedule. It reads
+#    `stale` ~26 h after the last manual run. Repointing the task is in
+#    "OPERATOR: the task is still not repointed" and is yours to run.
+
+# f) /api/health/backup ANSWERS AT ALL. This is the cleanest single proof that
+#    the new code is live: on the CURRENT jar this route does not exist.
+Invoke-WebRequest http://localhost:8082/api/health/backup -UseBasicParsing
+#    BEFORE the restart -> 404  (measured on the running jar, 2026-09-02)
+#    AFTER  the restart -> 200 {"status":"UP","backup":"ok"}          when clean
+#                       -> 503 {"status":"DOWN","backup":"stale"}     |
+#                       -> 503 {"status":"DOWN","backup":"failed"}    | all four
+#                       -> 503 {"status":"DOWN","backup":"ok-no-offsite"}
+#    A 404 after the restart means the jar did not change. A 503 is the route
+#    WORKING — it is a backup verdict, not an app fault.
+#
+#    The body is the whole public surface: {status, backup} and nothing else.
+#    No archive path, no row counts, no machine name. Confirmed by reading it.
+
+# g) The 503 must NOT evict the app from rotation. Probe them in one breath —
+#    a 503 on its own is indistinguishable from a sick app, which is the trap
+#    this pairing exists to avoid:
+Invoke-WebRequest http://localhost:8082/api/health -UseBasicParsing | Select -Exp StatusCode
+Invoke-WebRequest http://localhost:8082/api/ready  -UseBasicParsing | Select -Exp StatusCode
+#    Rehearsed with the backup probe answering 503: /api/health returned 200
+#    {"status":"UP"} and /api/ready 200 {"status":"UP","db":"up"} at the same
+#    moment. Both nginx configs match those two with `location =`, so a stale
+#    backup can never take the site down.
+
+# h) The admin Health tile. Staff panel -> Health tab -> the "H2 backup" card.
+#    VERIFIED IN A BROWSER during the re-rehearsal (the previous pass could
+#    only assert this from source). All four branches render:
+#      ok             -> "Verified"   neutral, "35 tables matched · 49m ago · 2nd copy ok"
+#      ok-no-offsite  -> "ONE COPY"   amber,   "verified 48m ago, but only on the
+#                                     primary disk · <the job's own reason>"
+#      failed         -> "FAILED"     red,     "last-run-failed · 50m ago"
+#      stale          -> "STALE"      amber,   "no-status-file · never recorded"
+#    The tile repolls every 5 s, so it follows a state change with no reload —
+#    watched live, ONE COPY -> Verified, in the rehearsal.
 ```
 
 ```powershell
@@ -1394,10 +1508,17 @@ Get-ScheduledTask -TaskName 'SkinBox Watchdog' | Select-Object TaskName,State
 #   MUST read State = Ready.
 ```
 
-**Steps 1-10 are the whole coordinated activation. Measured downtime between
-step 5 and a 200 at step 9: roughly 30 seconds** (2.5 s repackage + ~13 s
-startup + stop/launch). Everything below is a separate decision you can take
-later, on its own schedule.
+**Steps 1-10 are the whole coordinated activation, and they ship all six.
+Measured downtime between step 5 and a 200 at step 9: roughly 30 seconds**
+(2.8 s repackage, re-measured on the re-rehearsal + ~18 s startup +
+stop/launch). Everything below is a separate decision you can take later, on
+its own schedule.
+
+Nothing in steps 1-10 turns the backup reporter *on* in the sense of changing
+behaviour — it reports from the first boot and every hour after. The offsite
+copy (#6) needs no activation either: `deploy/h2-backup.ps1` already writes
+`D:\skinbox-backups` when run, and there is one verified copy there now. What
+the restart changes is that the app can finally **say** when either stops.
 
 ---
 
@@ -1484,43 +1605,167 @@ transactions. The seeder did not re-mint.
 
 ---
 
-## Rollback — each piece independently, and what it costs you
+## Rollback — what is independent, what is not, and what each costs you
+
+**Read this first, because it is the question people get wrong.** Rollback here
+has two separate layers, and they do not have the same answer:
+
+- **Code presence is ALL-OR-NOTHING.** All six live in one jar. There is no way
+  to remove one class and keep the other five without a rebuild from a commit
+  that never had it. If you go back to `sboxmarket-1.0.0.jar`, you go back on
+  **all six at once**.
+- **Behaviour is INDEPENDENT for the two that have any.** Only
+  `H2CredentialGuard` and `MoneyResetService` change anything outside the log,
+  and each is switched by data/config rather than by code — a database
+  credential and two environment variables. Either can be reversed on its own,
+  with the new jar still running and **no rebuild**.
+
+The other four (`MoneyResetGate`, `UnconfiguredAdminReporter`,
+`BackupFreshnessReporter`, the offsite copy's reporting) have **nothing to roll
+back**. They write log lines and answer authed GETs. "Rolling them back" only
+ever means going back to the old jar.
 
 | Piece | How to undo | What you lose |
 |---|---|---|
-| **H2CredentialGuard** | `ALTER USER SA SET PASSWORD ''` through the auto-server, then relaunch. **No rebuild needed** — the *old* jar contains no guard and boots against a blank credential. Rehearsed: old jar started in 13.53 s with zero `REFUSING TO START` lines. | The auto-server goes back to accepting `SA` with an empty password from anything on the box that can read `data/sboxmarket.lock.db`. |
-| **UnconfiguredAdminReporter** | Nothing to undo. It is read-only — a log banner and an admin-authed GET. To silence it, revert to the old jar. | The boot-time notice that admin id 33 is explained by nothing, and the `/api/admin/security/admin-grants` endpoint. No data changes either way. |
+| **H2CredentialGuard** | `ALTER USER SA SET PASSWORD ''` through the auto-server, unset `SPRING_DATASOURCE_PASSWORD`, relaunch. **No rebuild needed** — the *old* jar contains no guard and boots against a blank credential. Re-rehearsed with six in play: old jar + blank + no env var started in **18.69 s**, zero `REFUSING TO START`. | The auto-server goes back to accepting `SA` with an empty password from anything on the box that can read `data/sboxmarket.lock.db`. |
+| **UnconfiguredAdminReporter** | Nothing to undo. Read-only — a log banner and an admin-authed GET. To silence it, revert to the old jar. | The boot-time notice that admin id 33 is explained by nothing, and `/api/admin/security/admin-grants`. No data changes either way. |
+| **BackupFreshnessReporter** | Nothing to undo. Read-only — it never writes the status file, only reads it. To silence it, revert to the old jar. | `/api/health/backup` goes back to **404** (measured), the "H2 backup" Health card disappears, `/api/admin/security/backup-status` goes back to 404, and the hourly tick stops. You are then back to the state where **a stopped backup scheduler and a healthy machine look identical** — which is the entire reason this exists. No data changes either way. |
+| **The offsite second copy** | `deploy/h2-backup.ps1 -NoOffsite`, or just leave `D:` alone. It is never fatal: six distinct reasons all leave exit 0 and the primary archive untouched. | The second disk. `C:` archives are unaffected — reverting the app jar does **not** delete or invalidate anything already on `D:`. |
 | **MoneyResetService (not run)** | Nothing to undo. Inert without both variables. | Nothing. |
 | **MoneyResetService (executed)** | **Restore the backup from step 2.** There is no in-app undo and no compensating transaction — the ledger *is* the record. | Everything written to the database since that backup was taken. Take the backup immediately before, not the night before. |
-| **All three at once** | Relaunch `sboxmarket-1.0.0.jar` rebuilt from a commit before `28e6882`, or restore the step-2 backup and put the blank password back. | All of the above together. |
+| **All six at once** | Relaunch `sboxmarket-1.0.0.jar` (it is still on disk, untouched). Optionally also put the blank password back. | All of the above together. |
 
-**Verified both directions.** On the restored copy: blank → secret (`ALTER USER`)
-made the blank credential fail with `28000` and the secret succeed; secret →
-blank reversed it exactly, with the secret then failing `28000` and blank
-succeeding. Neither direction is one-way.
+**The jar and the database roll back independently — verified, and it matters.**
+You do **not** have to un-migrate the database to go back to the old jar. On the
+restored copy, the old jar booted against the **migrated** database with the env
+var still set: `Added connection … user=SA`, started in **18.07 s**, and
+`/api/health/backup` answered **404** again. So the safe order on a bad restart
+is: relaunch the old jar first, decide about the credential afterwards. The two
+failure modes to avoid are the mismatches — old jar with a migrated database and
+*no* env var fails `28000`, and the new jar with a blank credential refuses to
+start.
+
+**Verified both directions, twice.** On the restored copy: blank → secret
+(`ALTER USER`) made the blank credential fail `28000` and the secret succeed;
+secret → blank reversed it exactly, secret then failing `28000` and blank
+succeeding. Then the new jar was pointed at the rolled-back blank credential and
+**refused again** — fail-closed in both directions, with no fail-open branch, and
+still true with six pieces in the jar rather than three.
+
+**Ordering, measured:** on a refused boot the two reporters produce **zero**
+lines (checked case-sensitively on the logger names). The guard throws during
+`prepareEnvironment`, long before `ApplicationReadyEvent`. So a refusal never
+half-ships: you get the refusal and nothing else, and the fix is step 3 or 4,
+not a rollback.
 
 ---
 
-## The two existing backup zips are BLANK-PASSWORD copies of the whole database
+## RE-REHEARSED with all six, 2026-09-02, `HEAD = 5a136a7`
 
-`C:\Users\WW\skinbox-backups\h2-sboxmarket-20260902T044625Z.zip` and
-`…20260902T075102Z.zip` were both taken while `SA`'s password was empty. Measured
-2026-09-02 — each extracts to a single `sboxmarket.mv.db` (368,640 and 380,928
-bytes) and each opened with a **blank password** and read `9` wallets totalling
-`30797.70`, `44` transactions and `7` users.
+The sequence above was previously rehearsed covering three pieces. It has now
+been walked again end to end with **six**, on a restored copy, under a
+separately-named jar (`sboxmarket-rehearsal2.jar`) on **port 8083**, so the live
+launch path and the running JVM's file handle were never touched. Confirmed
+after: the live `sboxmarket-1.0.0.jar` is still 87,607,228 bytes at
+2026-09-01 14:56:12, the live app is still the only `sboxmarket` JVM, `:8082`
+still answers `{"status":"UP"}`, the Watchdog is still `Ready`, and the archive
+count went 5/1 to 5/1 — nothing built, restarted, registered or deleted.
+
+**Premise re-counted, not carried forward.** Live jar: `H2CredentialGuard 0`,
+`MoneyResetGate 0`, `MoneyResetService 0`, `UnconfiguredAdminReporter 0`,
+`BackupFreshnessReporter 0`, `META-INF/spring.factories 0`. All six still absent.
+
+**Restored copy verified identical to live before starting** — `7` users / `1`
+admin / `9` wallets / `44` transactions / `37` audit / `254` listings / `39`
+items / `8` trades, read from the extracted archive and from live in the same
+session, matching row for row.
+
+| # | Configuration | Result — what it actually printed |
+|---|---|---|
+| 1 | new jar, `AUTO_SERVER=TRUE`, **blank** password | **REFUSED in 1.7 s, exit 1.** `IllegalStateException: REFUSING TO START: this datasource opens an H2 network listener … but spring.datasource.password is blank or shorter than 16 characters`. **Zero** lines from either reporter (checked case-sensitively on the logger names) — the guard throws before `ApplicationReadyEvent`. |
+| 2 | migrated + env var, **no** status file | **BOOTED, 14.573 s.** `Added connection conn1 … user=SA`. Then the `stale` banner: `state : stale`, `reason : no-status-file`, `age : (unknown) (window 1560 min)`, and the "NOTHING INSIDE THE BACKUP JOB CAN REPORT THIS" block. `/api/health/backup` → **503** `{"status":"DOWN","backup":"stale"}` while `/api/health` → **200** and `/api/ready` → **200**. |
+| 3 | same process, real status file dropped in | Flipped **503 `stale` → 200 `{"status":"UP","backup":"ok"}`** with no restart, once the 30 s parse cache expired. |
+| 4 | same process, `offsite.ok=false` | **503 `{"status":"DOWN","backup":"ok-no-offsite"}`.** |
+| 5 | new jar, `ok-no-offsite` present at boot | **BOOTED, 19.305 s**, banner ` H2 BACKUP HAS ONE COPY — verified, and only on the primary disk`, `reason : offsite-copy-not-current`, `age : 46 min (window 1560 min)`, `recorded outcome: ok`, and the job's own words for the destination. |
+| 6 | admin surfaces, real browser | `/api/admin/security/backup-status` → **200** with the full detail (archive path, `tablesChecked 35`, counts, the whole `offsite` block). Health tile card rendered **ONE COPY** in amber, then **Verified**, **FAILED**, **STALE** as the state was driven — all four branches, live, following the 5 s poll with no reload. |
+| 7 | new jar, real `ok` status file | **BOOTED, 17.625 s**, clean INFO line: `H2 backup check: verified 52m ago (35 tables matched), window 1560m.` `/api/health/backup` → **200**. |
+| 8 | rollback: **old** jar, database still migrated, env var still set | **BOOTED, 18.067 s.** `/api/health/backup` → **404**. The jar rolls back without un-migrating the database. |
+| 9 | rollback: `ALTER USER SA SET PASSWORD ''` | Blank accepted again, secret then refused `28000`. Reversible in both directions. |
+| 10 | rollback: **old** jar, blank password, env var unset | **BOOTED, 18.69 s**, zero `REFUSING TO START`. |
+| 11 | new jar again, blank password | **REFUSED** again, exit 1. Fail-closed in both directions with six in the jar. |
+
+**The public/admin split was read, not assumed.** `/api/health/backup` returned
+exactly `{"status":"UP","backup":"ok"}` — no archive path, no counts, no machine
+name. The archive path and row counts appeared only on the admin-authed route.
+
+**The "log that does not exist" trap has NOT returned.** `logback-spring.xml`
+still binds root to `CONSOLE` alone under `<springProfile name="!prod">`, and on
+every boot the reporter output landed on the step-8 redirect and nowhere else.
+`stderr` was **0 bytes on all five boots**, refusals included — so the refusal
+text arrives on **stdout**. The one log file the banners name that is *not* the
+app's — `C:\Users\WW\skinbox-backups\h2-backup.log`, cited in the `failed`
+banner — was confirmed to exist (6,690 bytes). The `stale` banner names
+`SkinBox DB Backup`, which exists; the `ok-no-offsite` banner names `D:` and
+`D:\skinbox-backups`, both of which exist.
+
+**Three harness defects found by RUNNING things, not reading them.** Worth
+recording because each would have produced a confident wrong answer:
+
+1. **A case-insensitive pattern reported the opposite of the truth.** Grepping
+   the refused boot for `'H2 BACKUP'` returned a hit, which reads as "the
+   reporter ran". It had not — `Select-String` is case-insensitive by default and
+   matched the phrase *"H2 backup and the auto-server"* inside
+   `H2CredentialGuard`'s own refusal message. Re-checked against the logger name
+   with `-CaseSensitive`: `BackupFreshnessReporter=0` on that boot. This is why
+   step 9(e) says to search the logger name.
+2. **A UTF-8 BOM made a valid status file read as `stale`.** A test variant
+   written with `Set-Content -Encoding utf8` gained a 3-byte BOM (`EF BB BF`),
+   `JsonSlurper` refused it, and the reporter correctly reported `stale`. The
+   reporter was right and the harness was wrong — and `h2-backup.ps1` already
+   guards this at line 604, writing through `UTF8Encoding($false)`. **Anything
+   that ever rewrites `h2-backup-status.json` by hand must do the same.**
+3. **PowerShell silently dropped an empty argument.** `-password ""` vanished
+   from a native `java.exe` call under Windows PowerShell 5.1, shifting the SQL
+   string into the password slot. The H2 blocks in this runbook are marked
+   ```bash``` for exactly this reason — **run them in bash, not PowerShell**.
+
+**What was NOT determined.** The `failed` and `ok-no-offsite` states were driven
+by writing status files by hand, not by making a real backup fail or unplugging
+`D:` — the state machine and every surface were exercised, but the job's own
+production of those states was not. The 26-hour window was never allowed to
+elapse, so `stale`-by-age was proven only via an absent file, not an old
+timestamp. And the money reset (steps 11-14) was **not** re-run here: it was
+rehearsed in the earlier pass and re-running it would have added nothing while
+risking a destructive step on a night when other agents hold the tree.
+
+---
+
+## Every existing backup zip is a BLANK-PASSWORD copy of the whole database
+
+All six archives (**5 on `C:`, 1 on `D:`**, counted 2026-09-02 04:30) were taken
+while `SA`'s password was empty. Measured: each extracts to a single
+`sboxmarket.mv.db`, and the newest — `…20260902T103203Z.zip`, 111,982 bytes on
+both disks — was extracted during the re-rehearsal, opened with a **blank
+password**, and read `7` users / `1` admin / `9` wallets / `44` transactions /
+`37` audit rows / `254` listings / `39` items / `8` trades. The live database was
+read read-only in the same breath and returned the same figures, so the archive
+is a faithful copy of live as of that moment, not merely a well-formed file.
 
 **That is precisely what makes them a working rollback.** If they demanded the
 new secret, losing the secret would lose the database with it. They do not, so
 the way home is always open.
 
 **And it means the new password does not protect them.** Anyone who can read
-that directory gets every wallet row regardless of what `SA`'s password becomes.
-The migration protects the *live listening database*, not the archives beside it.
-Only backups taken *after* step 4 carry the new credential — and those will need
-the secret to read, so do not lose it once you start relying on them.
+those directories gets every wallet row regardless of what `SA`'s password
+becomes. The migration protects the *live listening database*, not the archives
+beside it. Only backups taken *after* step 4 carry the new credential — and those
+will need the secret to read, so do not lose it once you start relying on them.
 
-Treat `C:\Users\WW\skinbox-backups` as being as sensitive as the database itself,
-because it is.
+**The offsite copy widens this, and it is the honest trade.** `D:\skinbox-backups`
+is a second unprotected copy on a second disk. It buys survival of a single drive
+failure and costs one more directory holding every wallet row. Treat **both**
+`C:\Users\WW\skinbox-backups` and `D:\skinbox-backups` as being as sensitive as
+the database itself, because they are.
 
 ---
 
@@ -1535,20 +1780,31 @@ it, opens the restored copy and compares every table's row count against live.
 `failed` / `stale` on the admin Health tile and at `GET /api/health/backup`.
 
 **But the daily `SkinBox DB Backup` task still runs `deploy/backup-db.sh`** — the
-Postgres path, `pg_dump` against a `sbox-pg` container that is not running. As of
-2026-09-02 02:20 its action is unchanged, `LastTaskResult` is **127** from the
-09/01 04:00 run, and the next trigger is 09/02 04:00. It will now refuse with exit 3
-naming the H2 job rather than failing at 127, which is more honest and still not a
-backup.
+Postgres path, `pg_dump` against a `sbox-pg` container that is not running.
 
-**So the only archives of the money database are the four taken by hand, and nothing
-takes a new one on a schedule.** Two commands repoint the task and fix its
-`LogonType: Interactive` principal (which would skip 04:00 entirely with the operator
-logged out); both are in "OPERATOR: the task is still not repointed" above, and both
-are the operator's to run.
+**Re-measured 2026-09-02 04:15, and the 09/02 04:00 run has now happened:**
+`State=Ready`, `LastTaskResult=`**`3`**, `LastRunTime=09/02 04:00:01`. The exit-3
+preflight works exactly as designed — `backup.log` for that run reads *"POSTGRES
+BACKUP NOT APPLICABLE: the 'sbox-pg' container is not running"*, names
+`deploy/h2-backup.ps1` as the job that should run instead, and records
+*"retention prune SKIPPED — existing backups left untouched"*. So the honest
+refusal is proven in production, not just in a test. (The **127** figure quoted
+in earlier drafts was from the 09/01 run and is now historical.)
+
+**`SkinBox H2 Backup` does not exist** — checked by name, 2026-09-02. The task
+was never repointed, so nothing writes a fresh status file on a schedule.
+
+**So every archive of the money database was taken by hand, and nothing takes a new
+one on a schedule.** Counted 2026-09-02 04:30: **5 on `C:\Users\WW\skinbox-backups`,
+1 on `D:\skinbox-backups`** (the newest, `…20260902T103203Z.zip`, present on both at
+111,982 bytes). Two commands repoint the task and fix its `LogonType: Interactive`
+principal (which would skip 04:00 entirely with the operator logged out); both are in
+"OPERATOR: the task is still not repointed" above, and both are the operator's to run.
 
 Until then the freshness reporter will read `stale` roughly 26 hours after the last
-manual run — correctly. Do not read that as a bug in the reporter.
+manual run — correctly. Do not read that as a bug in the reporter. It will read
+`ok-no-offsite` instead if a run lands on `C:` but not on `D:`, which is the same
+message with less alarm: the archive is good, there is only one of it.
 
 ---
 
