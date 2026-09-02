@@ -239,14 +239,20 @@ function AdminHealthTab() {
       // backup task that failed with exit 127 every day from April to
       // September into a log nobody opened.
       //
-      // THREE STATES, never collapsed:
-      //   ok     — ran, and the read-back verified every table's row count
-      //   failed — ran, and did not verify (scheduler alive, backup broken)
-      //   stale  — we cannot establish that it ran AT ALL. The scheduler
-      //            stopped, the machine slept through 04:00, the task was
-      //            deleted, or the file was never written. A MISSING file is
-      //            this state, not an error.
-      // `stale` wins over `failed` when both hold, and the card still says so.
+      // FOUR STATES, never collapsed:
+      //   ok            — ran, the read-back verified every table's row count,
+      //                   AND a verified copy reached a second physical disk
+      //   ok-no-offsite — the archive verified and there is only ONE copy of
+      //                   it, on the same drive as the database. Not `ok`: that
+      //                   is the hole the second copy closes. Not `stale`: an
+      //                   archive an hour old is not a stopped scheduler, and
+      //                   saying so teaches the operator to ignore the word.
+      //   failed        — ran, and did not verify (scheduler alive, backup broken)
+      //   stale         — we cannot establish that it ran AT ALL. The scheduler
+      //                   stopped, the machine slept through 04:00, the task was
+      //                   deleted, or the file was never written. A MISSING file
+      //                   is this state, not an error.
+      // Worst wins: stale > failed > ok-no-offsite > ok. The card still says so.
       (() => {
         const b = data.backup;
         if (!b) return card('H2 backup', '—', 'Reporter not wired');
@@ -260,12 +266,18 @@ function AdminHealthTab() {
           : 'var(--warn)';
         const value = b.state === 'ok' ? 'Verified'
           : b.state === 'failed' ? 'FAILED'
+          : b.state === 'ok-no-offsite' ? 'ONE COPY'
           : 'STALE';
         // Say WHY, always. "Stale" alone sends the operator to the wrong
         // place half the time: an absent file needs the task wired up, an
-        // old timestamp needs the scheduler checked.
+        // old timestamp needs the scheduler checked. For ONE COPY the thing
+        // to look at is the destination, so it is the job's own words about
+        // the destination that get shown — not the reason code.
         const why = b.state === 'ok'
-          ? `${b.tablesChecked || '?'} tables matched · ${ageLabel}`
+          ? `${b.tablesChecked || '?'} tables matched · ${ageLabel} · 2nd copy ok`
+          : b.state === 'ok-no-offsite'
+          ? `verified ${ageLabel}, but only on the primary disk · ` +
+            (b.offsiteReason || b.reason || 'no offsite result reported')
           : `${b.reason || 'unknown'} · ${ageLabel}` +
             (b.state === 'stale' && b.ranFailed ? ' · last run also FAILED' : '');
         return h('div', { className: 'health-card' },

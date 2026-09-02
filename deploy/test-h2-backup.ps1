@@ -90,6 +90,17 @@ function Invoke-Job {
         '-Password', $FixturePw,
         '-H2Jar', $H2Jar
     )
+    # EVERY test is hermetic about the second copy too. The script's production
+    # default is D:\skinbox-backups; without this, running the suite would fill
+    # the operator's real offsite directory with fixture archives -- the same
+    # shape as the incident where the test suite wrote into production data.
+    # -NoOffsiteVolumeCheck because a sandbox lives on C:, whose label is empty,
+    # and NO caller of this script is ever allowed to pass '' (PowerShell 5.1
+    # drops an empty-string argument and the next one slides into its slot).
+    if (-not $Extra.ContainsKey('OffsiteDir') -and -not $Extra.ContainsKey('NoOffsite')) {
+        $a += @('-OffsiteDir', (Join-Path $Sandbox 'off'))
+    }
+    if (-not $Extra.ContainsKey('OffsiteVolumeLabel')) { $a += '-NoOffsiteVolumeCheck' }
     foreach ($k in $Extra.Keys) {
         $a += "-$k"
         # `$v -ne $true` is NOT the test for "is this a switch": PowerShell coerces the
@@ -118,6 +129,25 @@ function Invoke-Tool {
 
 function Backup-Zips([string]$Sandbox) {
     return @(Get-ChildItem -Path (Join-Path $Sandbox 'bd') -Filter '*.zip' -File -ErrorAction SilentlyContinue)
+}
+
+function Offsite-Zips([string]$Sandbox) {
+    return @(Get-ChildItem -Path (Join-Path $Sandbox 'off') -Filter '*.zip' -File -ErrorAction SilentlyContinue)
+}
+
+# Lift ONE function out of the shipped script and make it callable, by parsing
+# the production file and re-declaring the function's own source text. There is
+# no test hook in h2-backup.ps1 and there must not be: the same reason
+# H2Backup.java splits `backup` and `verify` into two invocable commands rather
+# than trusting a single process to grade itself. This reads the bytes that ship.
+function Import-ScriptFunction([string]$Name) {
+    $errs = $null; $toks = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Script, [ref]$toks, [ref]$errs)
+    if ($errs -and $errs.Count) { throw "h2-backup.ps1 does not parse: $($errs[0].Message)" }
+    $fn = $ast.FindAll({ param($n)
+        $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $Name }, $true)
+    if (-not $fn -or $fn.Count -ne 1) { throw "expected exactly one function '$Name' in h2-backup.ps1, found $($fn.Count)" }
+    return $fn[0].Extent.Text
 }
 
 $sandboxes = @()
@@ -304,6 +334,538 @@ try {
     if (-not (Test-Path (Join-Path $sb 'typo-in-the-path.mv.db'))) { ok 'created no new empty database as a side effect' }
     else { bad 'CREATED an empty database at the typo path and would have backed it up' }
 } catch { bad "wrong-path test threw: $($_.Exception.Message)" }
+
+# ==================================================================================
+# THE SECOND COPY
+#
+# The archives and the database were both on C: until now. One drive failure lost
+# both, and four verified archives on a dying disk is one copy. The job now writes
+# each VERIFIED archive to a second physical device as well.
+#
+# Everything below asserts one of two things: that the copy is PROVEN by reading it
+# back at the destination, or that a destination which is missing, wrong, locked or
+# unwritable is REPORTED and never allowed to fail the backup. A backup that fails
+# because a secondary location is unavailable is worse than no secondary location.
+# ==================================================================================
+
+Write-Host "`noffsite positive control -- a verified archive reaches a second directory:"
+try {
+    $sb = Track (New-Sandbox)
+    $db = Join-Path $sb 'src'
+    New-ScratchDb -Base $db
+    $r = Invoke-Job -Sandbox $sb -DbBase $db
+
+    if ($r.Rc -eq 0) { ok 'exits 0' } else { bad "exited $($r.Rc)" }
+    if ($r.Status.offsite -and $r.Status.offsite.ok -eq $true) { ok 'status records offsite.ok = true' }
+    else { bad "offsite.ok was '$($r.Status.offsite.ok)' (reason: $($r.Status.offsite.reason))" }
+    $off = Offsite-Zips $sb
+    if ($off.Count -eq 1) { ok 'exactly one archive arrived at the destination' }
+    else { bad "found $($off.Count) archives at the destination" }
+
+    # The two files must be the same file. Compared HERE, independently of the
+    # script's own arithmetic -- a job that grades its own copy is the thing this
+    # whole area exists to stop.
+    $prim = (Backup-Zips $sb)[0]
+    if ($off.Count -eq 1) {
+        $ha = (Get-FileHash -LiteralPath $prim.FullName -Algorithm SHA256).Hash
+        $hb = (Get-FileHash -LiteralPath $off[0].FullName -Algorithm SHA256).Hash
+        if ($ha -eq $hb) { ok 'the copy is byte-identical to the primary archive' }
+        else { bad 'the copy DIFFERS from the primary archive' }
+        if ($off[0].Length -eq $prim.Length) { ok "same size on both disks ($($prim.Length) bytes)" }
+        else { bad "sizes differ: primary $($prim.Length), copy $($off[0].Length)" }
+        # The hash in the status file must be the hash of the file that is there.
+        if ($r.Status.offsite.sha256 -eq $hb) { ok 'the recorded sha256 is the destination file''s actual hash' }
+        else { bad "recorded sha256 $($r.Status.offsite.sha256) is not the file's $hb" }
+        if ([int64]$r.Status.offsite.bytes -eq $off[0].Length) { ok 'the recorded byte count matches the file' }
+        else { bad "recorded $($r.Status.offsite.bytes) bytes, file is $($off[0].Length)" }
+        if ($r.Status.offsite.path -eq $off[0].FullName) { ok 'the recorded path is where the file actually is' }
+        else { bad "recorded path $($r.Status.offsite.path) is not $($off[0].FullName)" }
+    }
+    if (-not (Get-ChildItem (Join-Path $sb 'off') -Filter '*.part' -File -ErrorAction SilentlyContinue)) {
+        ok 'left no .part artefact at the destination'
+    } else { bad 'left an unproven .part at the destination' }
+    if (Test-Path (Join-Path $sb "off\$($off[0].Name).expected")) { ok 'the expected-counts sidecar rode along' }
+    else { bad 'the sidecar did not reach the destination' }
+} catch { bad "offsite positive control threw: $($_.Exception.Message)" }
+
+# ====================================== an UNVERIFIED archive must never be propagated
+# ================== the copy happens only after verification -- STRUCTURALLY
+Write-Host "`noffsite -- the copy has exactly ONE call site, and it is after verification:"
+try {
+    # "Copy only what verified" is not a runtime condition here, it is the SHAPE of
+    # the script: Invoke-Offsite is called once, after $state.ok is set true. A
+    # structural property cannot be tested by flipping a boolean, so it is asserted
+    # on the parse tree. Add a second call site, or move this one above the
+    # read-back, and this goes red -- which is the whole risk: propagating an
+    # archive nothing has verified.
+    $errs = $null; $toks = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Script, [ref]$toks, [ref]$errs)
+    $calls = @($ast.FindAll({ param($n)
+        $n -is [System.Management.Automation.Language.CommandAst] -and
+        $n.GetCommandName() -eq 'Invoke-Offsite' }, $true))
+    if ($calls.Count -eq 1) { ok 'exactly one call site' } else { bad "$($calls.Count) call sites for Invoke-Offsite" }
+
+    $okAssign = @($ast.FindAll({ param($n)
+        $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+        $n.Left.Extent.Text -eq '$state.ok' -and $n.Right.Extent.Text -eq '$true' }, $true))
+    if ($okAssign.Count -eq 1) { ok 'exactly one place sets $state.ok = $true' }
+    else { bad "$($okAssign.Count) places set `$state.ok = `$true" }
+    if ($calls.Count -eq 1 -and $okAssign.Count -eq 1 -and
+        $calls[0].Extent.StartOffset -gt $okAssign[0].Extent.EndOffset) {
+        ok 'the copy is invoked AFTER the archive is marked verified'
+    } else { bad 'the copy is invoked before the archive is marked verified' }
+} catch { bad "call-site test threw: $($_.Exception.Message)" }
+
+Write-Host "`noffsite -- a failed backup copies NOTHING to the second location:"
+try {
+    $sb = Track (New-Sandbox)
+    $r = Invoke-Job -Sandbox $sb -DbBase (Join-Path $sb 'no-database-here')
+    if ($r.Rc -ne 0) { ok 'the run failed (control)' } else { bad 'the run did not fail' }
+    if ((Offsite-Zips $sb).Count -eq 0) { ok 'nothing was copied offsite' }
+    else { bad 'PROPAGATED an archive that never verified' }
+    if ($r.Status.offsite.ok -eq $false) { ok 'status records offsite.ok = false' } else { bad 'status claims an offsite copy' }
+    if ($r.Status.offsite.attempted -eq $false) { ok 'status records that no copy was even attempted' }
+    else { bad 'status claims a copy was attempted after a failed backup' }
+    if ($r.Status.offsite.reason) { ok "says WHY: $($r.Status.offsite.reason)" }
+    else { bad 'gave no reason for the absent copy' }
+} catch { bad "unverified-propagation test threw: $($_.Exception.Message)" }
+
+# ============================================ a MISSING VOLUME is reported, never fatal
+Write-Host "`noffsite -- a destination volume that is not there is REPORTED, not fatal:"
+try {
+    # A drive letter with no volume behind it: the unplugged-drive case, and the
+    # reassigned-letter case, and the never-set-up case, all at once.
+    $free = 90..69 | ForEach-Object { [char]$_ } | Where-Object { -not (Test-Path "$($_):\") } | Select-Object -First 1
+    if (-not $free) { bad 'no unused drive letter on this machine to test with' }
+    else {
+        $sb = Track (New-Sandbox)
+        $db = Join-Path $sb 'src'
+        New-ScratchDb -Base $db
+        $r = Invoke-Job -Sandbox $sb -DbBase $db -Extra @{ OffsiteDir = "$($free):\skinbox-backups" }
+
+        if ($r.Rc -eq 0) { ok "exits 0 with $($free): absent -- the backup did not fail" }
+        else { bad "THE BACKUP FAILED because a second location was missing (rc=$($r.Rc))" }
+        if ($r.Status.ok -eq $true -and $r.Status.outcome -eq 'ok') { ok 'the primary backup still verified' }
+        else { bad "primary outcome was '$($r.Status.outcome)'" }
+        if ((Backup-Zips $sb).Count -eq 1) { ok 'the primary archive is on disk' } else { bad 'no primary archive' }
+        if ($r.Status.offsite.ok -eq $false) { ok 'status records offsite.ok = false' } else { bad 'status claims a copy' }
+        if ("$($r.Status.offsite.reason)" -match 'not present') { ok "names the volume: $($r.Status.offsite.reason)" }
+        else { bad "reason did not name a missing volume: '$($r.Status.offsite.reason)'" }
+        if (-not (Test-Path "$($free):\")) { ok "created nothing on the absent $($free):" }
+        else { bad "CREATED a path on $($free): -- a letter is not an identity" }
+    }
+} catch { bad "missing-volume test threw: $($_.Exception.Message)" }
+
+# ================================== a volume that is NOT the expected one is refused
+Write-Host "`noffsite -- a drive letter whose volume label does not match is REFUSED:"
+try {
+    $sb = Track (New-Sandbox)
+    $db = Join-Path $sb 'src'
+    New-ScratchDb -Base $db
+    # The sandbox is on C:, whose label is not this. This is the reassigned-letter
+    # case: the path exists and is writable, and writing there would put the money
+    # database on a device nobody chose.
+    $r = Invoke-Job -Sandbox $sb -DbBase $db `
+                    -Extra @{ OffsiteDir = (Join-Path $sb 'off'); OffsiteVolumeLabel = 'NotThisVolume-8f21' }
+
+    if ($r.Rc -eq 0) { ok 'exits 0 -- a wrong volume is not a failed backup' } else { bad "exited $($r.Rc)" }
+    if ($r.Status.ok -eq $true) { ok 'the primary backup still verified' } else { bad 'the primary backup failed' }
+    if ($r.Status.offsite.ok -eq $false) { ok 'no copy was claimed' } else { bad 'claimed a copy onto an unidentified volume' }
+    if ((Offsite-Zips $sb).Count -eq 0) { ok 'WROTE NOTHING to the unidentified volume' }
+    else { bad 'wrote the money database to a volume whose label did not match' }
+    if ("$($r.Status.offsite.reason)" -match 'labelled') { ok "names the mismatch: $($r.Status.offsite.reason)" }
+    else { bad "reason did not name a label mismatch: '$($r.Status.offsite.reason)'" }
+    if ($r.Status.offsite.volume_label -ne $null) { ok "recorded the label it actually found: '$($r.Status.offsite.volume_label)'" }
+    else { bad 'did not record the label it found' }
+} catch { bad "wrong-volume test threw: $($_.Exception.Message)" }
+
+# ====================== the REAL production destination, identified by its real label
+Write-Host "`noffsite -- the shipped destination volume is a DIFFERENT physical disk:"
+try {
+    # Measured, not assumed. The whole point is a second failure domain: a second
+    # volume carved out of the same physical device is one copy wearing two names.
+    $dbDrive  = (Split-Path -Qualifier (Resolve-Path (Join-Path $Here '..')).Path)
+    $defDir   = (Select-String -Path $Script -Pattern "OffsiteDir\s+=\s+'([^']+)'" |
+                 Select-Object -First 1).Matches[0].Groups[1].Value
+    $offDrive = (Split-Path -Qualifier $defDir)
+    $diskOf = {
+        param($letter)
+        $p = Get-Partition -DriveLetter $letter.TrimEnd(':') -ErrorAction SilentlyContinue
+        if (-not $p) { return $null }
+        $vd = Get-VirtualDisk -ErrorAction SilentlyContinue |
+              Where-Object { ($_ | Get-Disk -ErrorAction SilentlyContinue).Number -eq $p.DiskNumber }
+        if ($vd) { return @($vd | Get-PhysicalDisk | ForEach-Object { $_.SerialNumber }) }
+        $d = Get-Disk -Number $p.DiskNumber -ErrorAction SilentlyContinue
+        if ($d) { return @($d.SerialNumber) }
+        return $null
+    }
+    $a = & $diskOf $dbDrive
+    $b = & $diskOf $offDrive
+    if (-not $a -or -not $b) {
+        bad "could not resolve the physical devices behind $dbDrive and $offDrive -- NOT DETERMINED"
+    } elseif (@($a | Where-Object { $b -contains $_ }).Count -eq 0) {
+        ok "$dbDrive [$($a -join ',')] and $offDrive [$($b -join ',')] share NO physical device"
+    } else {
+        bad "$dbDrive and $offDrive share a physical device [$($a -join ',')] -- that is one copy, not two"
+    }
+} catch { bad "physical-separation check threw: $($_.Exception.Message)" }
+
+# ============================= an unwritable destination is reported, never fatal
+Write-Host "`noffsite -- a destination that cannot be created is REPORTED, not fatal:"
+try {
+    $sb = Track (New-Sandbox)
+    $db = Join-Path $sb 'src'
+    New-ScratchDb -Base $db
+    # A FILE where the destination directory should be. New-Item cannot make a
+    # directory here, and the failure must land in the status file, not in the run.
+    $blocker = Join-Path $sb 'blocked'
+    Set-Content -Path $blocker -Value 'this is a file, not a directory' -Encoding ascii
+    $r = Invoke-Job -Sandbox $sb -DbBase $db -Extra @{ OffsiteDir = (Join-Path $blocker 'inside') }
+
+    if ($r.Rc -eq 0) { ok 'exits 0 -- an unwritable destination is not a failed backup' } else { bad "exited $($r.Rc)" }
+    if ($r.Status.ok -eq $true) { ok 'the primary backup still verified' } else { bad 'the primary backup failed' }
+    if ((Backup-Zips $sb).Count -eq 1) { ok 'the primary archive is on disk' } else { bad 'no primary archive' }
+    if ($r.Status.offsite.ok -eq $false -and $r.Status.offsite.reason) { ok "reported: $($r.Status.offsite.reason)" }
+    else { bad "did not report the unwritable destination (ok=$($r.Status.offsite.ok))" }
+} catch { bad "unwritable-destination test threw: $($_.Exception.Message)" }
+
+# ================== a copy that cannot take its final name is refused, not claimed
+Write-Host "`noffsite -- a copy that cannot be named is REFUSED and reported:"
+try {
+    $sb  = Track (New-Sandbox)
+    $src = Join-Path $sb 'source.zip'
+    [System.IO.File]::WriteAllBytes($src, (1..4096 | ForEach-Object { [byte]($_ % 251) }))
+    $dst = Join-Path $sb 'dest'; New-Item -ItemType Directory -Path $dst -Force | Out-Null
+
+    # Hold the destination name open with FileShare::None: Move-Item cannot land on
+    # it. A real condition -- a restore reading the archive, a scanner, a sync
+    # client -- and the honest answer is "no verified copy", never a claimed one.
+    $hold = Join-Path $dst 'source.zip'
+    [System.IO.File]::WriteAllBytes($hold, (New-Object byte[] 8))
+    $lock = New-Object System.IO.FileStream($hold, [System.IO.FileMode]::Open,
+                [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    # Defined and called inside ONE scope block, so the lifted function and any
+    # shadowed cmdlet beside it cannot leak into the rest of this suite.
+    try {
+        $res = & {
+            param($s, $d)
+            Invoke-Expression (Import-ScriptFunction 'Copy-Verified')
+            Copy-Verified -Source $s -DestDir $d
+        } $src $dst
+    } finally { $lock.Dispose() }
+
+    if ($res -and $res.Ok -eq $false) { ok 'refused to claim a copy it could not name' }
+    else { bad "claimed Ok=$($res.Ok) despite a locked destination name" }
+    if ("$($res.Reason)" -match 'could not name') { ok "says why: $($res.Reason)" }
+    else { bad "reason did not name the rename failure: '$($res.Reason)'" }
+    if (-not (Test-Path (Join-Path $dst 'source.zip.part'))) { ok 'left no .part behind' }
+    else { bad 'left an unproven .part wearing a partial name' }
+    if ((Get-Item $hold).Length -eq 8) { ok 'the file already at that name was not clobbered' }
+    else { bad 'overwrote the locked file' }
+} catch { bad "locked-destination test threw: $($_.Exception.Message)" }
+
+# ========================= THE READ-BACK: a short or altered copy must be REFUSED
+#
+# The defect this closes: a Copy-Item that "succeeded" is indistinguishable from one
+# that wrote a truncated file. The two cases below manufacture exactly that -- the
+# destination's MEASUREMENTS come back wrong while the copy itself reports success --
+# by shadowing the two cmdlets Copy-Verified uses to read the destination back.
+#
+# What is mocked is the measurement. What is ASSERTED is real and on the filesystem:
+# the function refuses, says which check failed, DELETES the bad .part, and leaves no
+# file wearing the archive's name. Remove either comparison from h2-backup.ps1 and
+# the matching case below goes red -- verified by doing it.
+Write-Host "`noffsite -- a copy whose SIZE differs at the destination is refused:"
+try {
+    $sb  = Track (New-Sandbox)
+    $src = Join-Path $sb 'source.zip'
+    [System.IO.File]::WriteAllBytes($src, (1..4096 | ForEach-Object { [byte]($_ % 251) }))
+    $dst = Join-Path $sb 'dest'; New-Item -ItemType Directory -Path $dst -Force | Out-Null
+
+    $res = & {
+        param($s, $d)
+        function Get-Item {
+            [CmdletBinding()] param([string]$LiteralPath)
+            $real = Microsoft.PowerShell.Management\Get-Item -LiteralPath $LiteralPath
+            if ($LiteralPath -like '*.part') { return [pscustomobject]@{ Length = $real.Length - 17 } }
+            return $real
+        }
+        Invoke-Expression (Import-ScriptFunction 'Copy-Verified')
+        Copy-Verified -Source $s -DestDir $d
+    } $src $dst
+
+    if ($res.Ok -eq $false) { ok 'REFUSED a copy whose destination size did not match' }
+    else { bad 'ACCEPTED a short copy -- the read-back is not reading' }
+    if ("$($res.Reason)" -match 'SIZE MISMATCH') { ok "named the check that failed: $($res.Reason)" }
+    else { bad "reason did not name a size mismatch: '$($res.Reason)'" }
+    if (-not (Test-Path (Join-Path $dst 'source.zip'))) { ok 'no file wears the archive name at the destination' }
+    else { bad 'a REJECTED copy is sitting there under the archive name' }
+    if (-not (Test-Path (Join-Path $dst 'source.zip.part'))) { ok 'the bad copy was discarded' }
+    else { bad 'the bad copy was left on the destination' }
+} catch { bad "size-mismatch test threw: $($_.Exception.Message)" }
+
+Write-Host "`noffsite -- a copy whose SHA-256 differs at the destination is refused:"
+try {
+    $sb  = Track (New-Sandbox)
+    $src = Join-Path $sb 'source.zip'
+    [System.IO.File]::WriteAllBytes($src, (1..4096 | ForEach-Object { [byte]($_ % 251) }))
+    $dst = Join-Path $sb 'dest'; New-Item -ItemType Directory -Path $dst -Force | Out-Null
+
+    # Same length, different content: the case a size check alone cannot see, and
+    # the reason the requirement is size AND hash rather than either.
+    $res = & {
+        param($s, $d)
+        function Get-FileHash {
+            [CmdletBinding()] param([string]$LiteralPath, [string]$Algorithm)
+            if ($LiteralPath -like '*.part') {
+                return [pscustomobject]@{ Hash = ('B' * 64); Path = $LiteralPath; Algorithm = $Algorithm }
+            }
+            return Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $LiteralPath -Algorithm $Algorithm
+        }
+        Invoke-Expression (Import-ScriptFunction 'Copy-Verified')
+        Copy-Verified -Source $s -DestDir $d
+    } $src $dst
+
+    if ($res.Ok -eq $false) { ok 'REFUSED a copy whose destination hash did not match' }
+    else { bad 'ACCEPTED an altered copy of the same length' }
+    if ("$($res.Reason)" -match 'SHA-256 MISMATCH') { ok "named the check that failed" }
+    else { bad "reason did not name a hash mismatch: '$($res.Reason)'" }
+    if (-not (Test-Path (Join-Path $dst 'source.zip'))) { ok 'no file wears the archive name at the destination' }
+    else { bad 'a REJECTED copy is sitting there under the archive name' }
+    if (-not (Test-Path (Join-Path $dst 'source.zip.part'))) { ok 'the bad copy was discarded' }
+    else { bad 'the bad copy was left on the destination' }
+} catch { bad "hash-mismatch test threw: $($_.Exception.Message)" }
+
+# ============================= the second copy is NOT pruned when the first is broken
+Write-Host "`noffsite retention -- never prune the surviving copy because the primary failed:"
+try {
+    $sb = Track (New-Sandbox)
+    New-Item -ItemType Directory -Path (Join-Path $sb 'off') -Force | Out-Null
+    # Four ancient offsite archives and NO database to back up. Floors lowered to 1
+    # on BOTH sides so that only the health gate stands between a failed run and
+    # four deleted copies -- with the production floor of 7 this assertion would
+    # pass even with the gate removed, which is an assertion that protects nothing.
+    $old = @()
+    for ($i = 1; $i -le 4; $i++) {
+        $p = Join-Path $sb "off\h2-sboxmarket-2026040${i}T000000Z.zip"
+        Set-Content -Path $p -Value 'the only surviving copy of the money database' -Encoding ascii
+        (Get-Item $p).LastWriteTime = (Get-Date).AddDays(-400)
+        $old += $p
+    }
+    $r = Invoke-Job -Sandbox $sb -DbBase (Join-Path $sb 'does-not-exist') `
+                    -Extra @{ MinimumKeep = 1; OffsiteMinimumKeep = 1; OffsiteRetainDays = 1 }
+
+    $survived = @($old | Where-Object { Test-Path $_ }).Count
+    if ($survived -eq 4) { ok 'ALL FOUR offsite archives survived a failed primary run' }
+    else { bad "only $survived of 4 offsite archives survived -- the only copies were pruned" }
+    if ($r.Status.offsite.prune.ran -eq $false) { ok 'status records that offsite retention did not run' }
+    else { bad 'status claims offsite retention ran after a failed backup' }
+    if ($r.Status.offsite.prune.skipped_because) { ok "says WHY: $($r.Status.offsite.prune.skipped_because)" }
+    else { bad 'gave no reason for skipping offsite retention' }
+} catch { bad "offsite-prune-on-failure test threw: $($_.Exception.Message)" }
+
+# ================================================= the prune's own guards, EXECUTED
+#
+# WHY THIS IS HERE AND NOT ONLY END-TO-END. The three assertions above are satisfied
+# by the job never reaching Invoke-OffsitePrune at all: `prune.ran` is false because
+# it is initialised false, and the archives survive because nothing looked at them.
+# Measured -- with the health gates deleted from Invoke-OffsitePrune, that case
+# stayed GREEN. An assertion a mutation cannot turn red is decoration, and this
+# project has paid for that lesson twice tonight.
+#
+# So the function is lifted out of the shipped script and CALLED, with a $state that
+# says the primary failed. Deleting the gate turns these cases red, because the
+# ancient archives really do get deleted.
+function Invoke-LiftedOffsitePrune {
+    param([string]$Dir, [bool]$PrimaryOk, [bool]$CopyOk,
+          [int]$RetainDays = 14, [int]$MinimumKeep = 1,
+          [int]$OffsiteRetainDays = 1, [int]$OffsiteMinimumKeep = 1)
+    & {
+        param($Dir, $PrimaryOk, $CopyOk, $RetainDays, $MinimumKeep, $OffsiteRetainDays, $OffsiteMinimumKeep, $Body)
+        function Write-Log([string]$m) { }
+        $Prefix  = 'h2-sboxmarket-'
+        $NoPrune = $false
+        $state = [ordered]@{
+            ok = $PrimaryOk
+            offsite = [ordered]@{
+                ok = $CopyOk
+                prune = [ordered]@{
+                    ran = $false; skipped_because = 'did not reach offsite retention'
+                    deleted = 0; retained = $null; retain_days = $null; minimum_keep = $null
+                }
+            }
+        }
+        Invoke-Expression $Body
+        Invoke-OffsitePrune $Dir $null
+        return $state.offsite.prune
+    } $Dir $PrimaryOk $CopyOk $RetainDays $MinimumKeep $OffsiteRetainDays $OffsiteMinimumKeep `
+      (Import-ScriptFunction 'Invoke-OffsitePrune')
+}
+
+# ============ THE LAST-RESORT CATCH, actually reached
+#
+# FOUND BY MUTATION, NOT BY READING. Replacing the outer catch in Invoke-Offsite with
+# a bare `throw` left the whole suite GREEN: every test drove a failure that one of
+# the INNER catches already handled, so the outer one -- the guarantee that a surprise
+# in the second-copy step can never fail the backup -- was never executed once. That
+# is the same shape as the untested exception fallback in BackupFreshnessReporter,
+# where flipping STALE to OK left 59 tests green. A guard nothing reaches is a guard
+# that is not there.
+#
+# The reachable route into it is real: Copy-Verified reads the source's length and
+# hash BEFORE its own try block, so an archive that disappears between the rename and
+# the copy -- antivirus quarantine, a hand-run cleanup, a sync client -- throws past
+# every inner catch. That is what this drives.
+function Invoke-LiftedOffsite {
+    param([string]$Zip, [string]$Dir)
+    & {
+        param($Zip, $Dir, $Bodies)
+        function Write-Log([string]$m) { }
+        $Prefix = 'h2-sboxmarket-'
+        $NoPrune = $false; $NoOffsite = $false; $NoOffsiteVolumeCheck = $true
+        $OffsiteDir = $Dir; $OffsiteVolumeLabel = 'unused'
+        $RetainDays = 14; $MinimumKeep = 7; $OffsiteRetainDays = 365; $OffsiteMinimumKeep = 30
+        $state = [ordered]@{
+            ok = $true
+            offsite = [ordered]@{
+                attempted = $false; ok = $false; reason = 'the run did not reach the offsite copy'
+                dir = $null; path = $null; bytes = $null; sha256 = $null
+                volume_label = $null; free_bytes = $null; newest_at = $null; count = $null
+                prune = [ordered]@{ ran = $false; skipped_because = 'did not reach offsite retention'
+                                    deleted = 0; retained = $null; retain_days = $null; minimum_keep = $null }
+            }
+        }
+        foreach ($b in $Bodies) { Invoke-Expression $b }
+        # If the outer catch is gone, this THROWS and the caller records it.
+        Invoke-Offsite $Zip
+        return @{ Threw = $false; State = $state }
+    } $Zip $Dir @(
+        (Import-ScriptFunction 'Resolve-OffsiteTarget')
+        (Import-ScriptFunction 'Copy-Verified')
+        (Import-ScriptFunction 'Measure-OffsiteContents')
+        (Import-ScriptFunction 'Invoke-OffsitePrune')
+        (Import-ScriptFunction 'Invoke-Offsite')
+    )
+}
+
+Write-Host "`noffsite -- a surprise inside the copy step can NEVER fail the backup:"
+try {
+    $sb  = Track (New-Sandbox)
+    $dst = Join-Path $sb 'off'; New-Item -ItemType Directory -Path $dst -Force | Out-Null
+    # An archive that is not there any more: past the free-space guard (which has its
+    # own catch), past Resolve-OffsiteTarget, and straight into Copy-Verified's
+    # unguarded read of the source. Only the outer catch stands between this and a
+    # terminating error taking down a run whose backup already verified.
+    $gone = Join-Path $sb 'vanished.zip'
+
+    $threw = $null; $res = $null
+    try { $res = Invoke-LiftedOffsite -Zip $gone -Dir $dst } catch { $threw = $_ }
+
+    if (-not $threw) { ok 'the offsite step swallowed it -- nothing escaped to fail the run' }
+    else { bad "AN EXCEPTION ESCAPED THE OFFSITE STEP: $($threw.Exception.Message)" }
+    if ($res -and $res.State.offsite.ok -eq $false) { ok 'recorded offsite.ok = false' }
+    else { bad 'did not record the failure' }
+    if ($res -and "$($res.State.offsite.reason)" -match 'threw') { ok "said what happened: $($res.State.offsite.reason)" }
+    else { bad "reason did not report the exception: '$($res.State.offsite.reason)'" }
+    if ($res -and $res.State.ok -eq $true) { ok 'the primary verdict was left alone' }
+    else { bad 'the offsite step changed the primary verdict' }
+} catch { bad "outer-catch test threw: $($_.Exception.Message)" }
+
+Write-Host "`noffsite retention -- the health gates, actually executed:"
+try {
+    # One ancient archive per case, far outside any window, with both floors at 1 so
+    # nothing but the gate can save it.
+    $mk = {
+        param($sb)
+        New-Item -ItemType Directory -Path (Join-Path $sb 'off') -Force | Out-Null
+        $p = Join-Path $sb 'off\h2-sboxmarket-20260401T000000Z.zip'
+        Set-Content -Path $p -Value 'the last surviving copy of the money database' -Encoding ascii
+        (Get-Item $p).LastWriteTime = (Get-Date).AddDays(-400)
+        return $p
+    }
+
+    # BOTH floors at zero. Measured: with MinimumKeep at 1 the newest-N floor alone
+    # saved the file, so "the copy survived" stayed GREEN with the health gate
+    # deleted -- an assertion no mutation could turn red. With the floors out of the
+    # way the gate is the only thing standing between a failed run and a deletion.
+    $sb1 = Track (New-Sandbox); $a1 = & $mk $sb1
+    $p1 = Invoke-LiftedOffsitePrune -Dir (Join-Path $sb1 'off') -PrimaryOk $false -CopyOk $true `
+                                    -RetainDays 1 -MinimumKeep 0 -OffsiteRetainDays 1 -OffsiteMinimumKeep 0
+    if (Test-Path $a1) { ok 'primary NOT ok: the 400-day-old copy survived' }
+    else { bad 'primary NOT ok: DELETED the last surviving copy' }
+    if ($p1.ran -eq $false -and "$($p1.skipped_because)" -match 'primary backup did not verify') {
+        ok "primary NOT ok: refused and said why -- $($p1.skipped_because)"
+    } else { bad "primary NOT ok: ran=$($p1.ran) because='$($p1.skipped_because)'" }
+
+    $sb2 = Track (New-Sandbox); $a2 = & $mk $sb2
+    $p2 = Invoke-LiftedOffsitePrune -Dir (Join-Path $sb2 'off') -PrimaryOk $true -CopyOk $false `
+                                    -RetainDays 1 -MinimumKeep 0 -OffsiteRetainDays 1 -OffsiteMinimumKeep 0
+    if (Test-Path $a2) { ok 'copy failed: the 400-day-old copy survived' }
+    else { bad 'copy failed: DELETED the last surviving copy' }
+    if ($p2.ran -eq $false -and "$($p2.skipped_because)" -match 'no verified copy') {
+        ok "copy failed: refused and said why -- $($p2.skipped_because)"
+    } else { bad "copy failed: ran=$($p2.ran) because='$($p2.skipped_because)'" }
+
+    # THE CONTROL. Without this the two cases above are satisfied by a function that
+    # never prunes anything at all, which is not the behaviour being claimed.
+    $sb3 = Track (New-Sandbox); $a3 = & $mk $sb3
+    $p3 = Invoke-LiftedOffsitePrune -Dir (Join-Path $sb3 'off') -PrimaryOk $true -CopyOk $true `
+                                    -RetainDays 1 -MinimumKeep 0 -OffsiteRetainDays 1 -OffsiteMinimumKeep 0
+    if (-not (Test-Path $a3)) { ok 'both healthy: an aged copy IS pruned (so the refusals mean something)' }
+    else { bad 'both healthy: pruned nothing -- the two refusals above prove nothing' }
+    if ($p3.ran -eq $true -and $p3.deleted -eq 1) { ok "both healthy: recorded ran=true, deleted=1" }
+    else { bad "both healthy: ran=$($p3.ran) deleted=$($p3.deleted)" }
+} catch { bad "offsite prune-guard test threw: $($_.Exception.Message)" }
+
+Write-Host "`noffsite retention -- not pruned when the primary verified but the COPY failed:"
+try {
+    $free = 90..69 | ForEach-Object { [char]$_ } | Where-Object { -not (Test-Path "$($_):\") } | Select-Object -First 1
+    $sb = Track (New-Sandbox)
+    $db = Join-Path $sb 'src'
+    New-ScratchDb -Base $db
+    New-Item -ItemType Directory -Path (Join-Path $sb 'off') -Force | Out-Null
+    # The destination the job is told to use is gone; the archives from when it
+    # worked are still in the sandbox's own 'off'. A good primary run must not be
+    # licence to prune a location this run could not even reach.
+    #
+    # WHAT THIS PROVES AND WHAT IT DOES NOT. This is an OUTCOME guard: after a run
+    # whose copy did not happen, the old copies are still there. It does not
+    # exercise the refusal inside Invoke-OffsitePrune -- an unreachable destination
+    # returns before the prune is called at all -- so the gate itself is executed
+    # directly in "the health gates, actually executed" below.
+    $old = Join-Path $sb 'off\h2-sboxmarket-20260401T000000Z.zip'
+    Set-Content -Path $old -Value 'an old but surviving second copy' -Encoding ascii
+    (Get-Item $old).LastWriteTime = (Get-Date).AddDays(-400)
+    $r = Invoke-Job -Sandbox $sb -DbBase $db `
+                    -Extra @{ OffsiteDir = "$($free):\skinbox-backups"; OffsiteMinimumKeep = 1; OffsiteRetainDays = 1 }
+    if ($r.Status.ok -eq $true) { ok 'the primary verified (control)' } else { bad 'the primary did not verify' }
+    if ($r.Status.offsite.prune.ran -eq $false) { ok 'offsite retention did not run' }
+    else { bad 'pruned an offsite location this run could not write to' }
+    if (Test-Path $old) { ok 'the 400-day-old second copy survived' } else { bad 'DELETED the surviving second copy' }
+} catch { bad "offsite-prune-without-copy test threw: $($_.Exception.Message)" }
+
+Write-Host "`noffsite retention -- keeps AT LEAST as long as the primary, and says so:"
+try {
+    $sb = Track (New-Sandbox)
+    $db = Join-Path $sb 'src'
+    New-ScratchDb -Base $db
+    New-Item -ItemType Directory -Path (Join-Path $sb 'off') -Force | Out-Null
+    $old = Join-Path $sb 'off\h2-sboxmarket-20260401T000000Z.zip'
+    Set-Content -Path $old -Value 'older than the offsite window, younger than the primary''s' -Encoding ascii
+    (Get-Item $old).LastWriteTime = (Get-Date).AddDays(-100)
+    # Asked for a SHORTER offsite retention than the primary's. The point of the
+    # second copy is surviving the loss of the first, so it must be clamped UP --
+    # a second copy that expires first is a second copy for the wrong window.
+    $r = Invoke-Job -Sandbox $sb -DbBase $db `
+                    -Extra @{ RetainDays = 365; MinimumKeep = 1; OffsiteRetainDays = 2; OffsiteMinimumKeep = 1 }
+
+    if ([int]$r.Status.offsite.prune.retain_days -eq 365) { ok 'offsite retention was raised to the primary''s 365d' }
+    else { bad "offsite retain_days was $($r.Status.offsite.prune.retain_days), not the primary's 365" }
+    if (Test-Path $old) { ok 'the 100-day-old copy survived a 2-day offsite window' }
+    else { bad 'DELETED a copy the primary would still be keeping' }
+    if ($r.Status.offsite.prune.ran -eq $true) { ok 'offsite retention did run (so the survival is the clamp, not a skip)' }
+    else { bad "offsite retention was skipped ($($r.Status.offsite.prune.skipped_because)) -- this proves nothing" }
+} catch { bad "offsite-retention-floor test threw: $($_.Exception.Message)" }
 
 # ---------------------------------------------------------------------------- cleanup
 foreach ($d in $sandboxes) {

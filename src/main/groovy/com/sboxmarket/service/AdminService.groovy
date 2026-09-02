@@ -366,14 +366,20 @@ class AdminService {
             // because a report that needs him to know a new URL exists is
             // most of the way back to a status file nobody opens.
             //
-            // Three states, kept apart: `ok` (ran and the read-back verified),
-            // `failed` (ran and did not verify), `stale` (we cannot establish
-            // that it ran at all — scheduler stopped, machine slept, task
-            // deleted, or the file was never written). A MISSING file is
-            // `stale`, not an error: no amount of logging inside a scheduled
-            // job can report that the job stopped being scheduled.
+            // Four states, kept apart: `ok` (ran, the read-back verified, and a
+            // verified copy reached a second physical disk), `ok-no-offsite`
+            // (the archive verified and there is only ONE copy of it, on the
+            // drive the database is on), `failed` (ran and did not verify),
+            // `stale` (we cannot establish that it ran at all — scheduler
+            // stopped, machine slept, task deleted, or the file was never
+            // written). A MISSING file is `stale`, not an error: no amount of
+            // logging inside a scheduled job can report that the job stopped
+            // being scheduled. And `ok-no-offsite` is neither of its neighbours
+            // — folding it into `ok` restores the one-disk hole, folding it into
+            // `stale` cries wolf over an archive that verified an hour ago.
             //
-            // Detail (archive path, row counts, machine) rides along here
+            // Detail (archive path, row counts, machine, the whole offsite
+            // block: destination, volume label, SHA-256, free space) rides along here
             // because this endpoint is already admin-authed; the public probe
             // at /api/health/backup gets the state word alone. Null-safe like
             // the two collaborators above so unit tests that don't wire the

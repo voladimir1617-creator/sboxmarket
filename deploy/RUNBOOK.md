@@ -1034,40 +1034,113 @@ fallback is `-LogonType Password` (which does store a credential) — and at tha
 the honest alternative is to leave it Interactive and rely on the `stale` signal you
 now have.
 
-### Limitation: the archives are on the same disk as the database
+### CLOSED: the archives are no longer on the same disk as the database
 
-`C:\Users\WW\skinbox-backups` and `data\sboxmarket.mv.db` are both on **C:**. One drive
-failure loses the database and every archive of it in the same event. Four verified
-archives on a dying disk is one copy, not four.
+**Was:** `C:\Users\WW\skinbox-backups` and `data\sboxmarket.mv.db` were both on **C:**.
+One drive failure lost the database and every archive of it in the same event. Four
+verified archives on a dying disk is one copy, not four. The previous note here
+recommended buying a ~$10 USB stick.
 
-This is stated rather than engineered around, because it is a real property of a
-localhost-only single-box deployment and pretending otherwise is worse than the gap.
-What the current setup *does* protect against is everything short of media failure:
-a bad migration, an `UPDATE` without a `WHERE`, a corrupted `.mv.db`, a wrong-headed
-money reset, ransomware caught early — and those are the likelier losses.
+**Now:** no purchase was needed — this machine already has three drives, and two of
+them are separate physical devices. Measured 2026-09-02:
 
-**The cheapest genuine mitigation is a second physical destination for the same zip.**
-In rough order of cost:
+| Letter | Physical disk | Device | Free / total |
+|---|---|---|---|
+| `C:` | disk 0 | Samsung SSD 990 PRO **1TB**, NVMe, boot+system, serial `0025_384C_41A0_F708` | 211.3 GB / 930.5 |
+| `D:` | disk 1 (via a *Simple* Storage Space) | Samsung SSD 990 PRO **2TB**, NVMe, serial `0025_3842_5143_2D4F` | 203.2 GB / 1853.4 |
+| `E:` | disk 3 | Seagate Portable, **USB** | 1325.2 GB / 4657.5 |
 
-1. **A USB stick or external drive, copied by the same job.** ~$10 one-off, no
-   account, no network, no recurring cost. Add a copy step to `h2-backup.ps1` after
-   verification, guarded so a missing drive is a *reported* condition and never a
-   failure of the backup itself. The archive is ~112 KB; a decade fits on anything.
-2. **Any second machine on the LAN**, over an SMB share or `scp`. Free if a second box
-   exists, and it survives the disk *and* a machine-level compromise of C: only if the
-   share is not writable from the app's account — which it would be, so this is
-   weaker than it looks.
-3. **Off-site object storage** (B2 / R2 / S3). ~112 KB/day is a rounding error on any
-   free tier and it is the only option that survives fire, theft and ransomware that
-   walks mapped drives. It costs a credential, which is exactly what this project has
-   repeatedly decided not to spend, so it is listed last rather than recommended.
+`h2-backup.ps1` now writes every **verified** archive to `D:\skinbox-backups` as well.
+At ~112 KB a day that is ~40 MB a decade against 203 GB free.
 
-Whichever is chosen, the same rule applies as everywhere else here: **the copy is not
-a backup until something reads it back.** A copy step that reports success for a zip
-that never arrived reproduces the exact defect this area was built to close, so verify
-the destination file's size and hash against the source before calling it done — and
-if the second location goes stale, that belongs in
-`data\h2-backup-status.json` too, so the reporter above surfaces it.
+**Why D: and not E:.** Both are genuinely different physical devices from C: — the
+Storage Space on D: was checked, not assumed: `Get-VirtualDisk | Get-PhysicalDisk`
+reports disk 1 as its only backing device, so it is not a second name for C:. D: wins
+the default because it is **internal**. The job fires unattended at 04:00, and a
+portable drive that is unplugged half the time would make "no second copy" a daily
+false alarm — which is how a report dies. E: is strictly better against fire, theft
+and ransomware *while it is unplugged*, and it is one parameter away:
+
+```powershell
+# rotate to the portable drive instead
+-OffsiteDir 'E:\skinbox-backups' -OffsiteVolumeLabel 'Seagate Portable Drive'
+```
+
+**What still is not covered.** Both defaults are inside the same box. Fire, theft, and
+ransomware that walks every mounted volume take both. The only fix for that is
+off-site storage (B2 / R2 / S3 — ~112 KB/day is a rounding error on any free tier),
+which costs a credential this project has repeatedly decided not to spend. Unplugging
+E: and rotating it by hand is the free approximation.
+
+#### How the copy cannot lie, and cannot break the backup
+
+- **Only a VERIFIED archive is copied.** The copy step is called once, after the
+  read-back matched live — the same gate retention already sits behind. Copying an
+  unproven archive propagates a bad one.
+- **The copy is read back AT THE DESTINATION**, by length *and* SHA-256, and the
+  bytes are written through to the device (`FILE_FLAG_WRITE_THROUGH` +
+  `FlushFileBuffers`) before anything is claimed. `Copy-Item` returning without an
+  error only means the API accepted the request — the same class of evidence as
+  `gzip` exiting 0 on an empty pipe. It lands as `.part` and is renamed only after it
+  matches, so a rejected copy never wears an archive's name.
+- **A missing, wrong, full or unwritable destination is REPORTED, never fatal.** The
+  run still exits 0, the primary archive is untouched, and the reason lands in
+  `data\h2-backup-status.json` under `offsite.reason`. A backup that fails because a
+  secondary location is unavailable is worse than having no secondary location.
+- **A drive letter is checked for identity, not just presence.** `D:` is matched
+  against the volume label `Storage space` before a byte is written. If the letter is
+  ever reassigned the copy is skipped and reported, rather than writing the money
+  database onto whatever device answered to `D:` that morning. Override with
+  `-OffsiteVolumeLabel`, or disable with `-NoOffsiteVolumeCheck`. **If the label
+  changes** (a reformat, a rename), every run reports `ok-no-offsite` with a reason
+  naming both labels, and the fix is to pass the new label — nothing is lost and
+  nothing is written to the wrong place in the meantime.
+- **Retention there is its own, longer decision.** 365 days and a floor of 30, both
+  clamped *up* to the primary's if ever configured lower — the point of a second copy
+  is surviving the loss of the first, so it must never be the shorter-lived of the
+  two. And it is pruned only when the primary verified **and** this run placed a
+  verified copy: deleting old copies on a run that could not make a new one is
+  deleting the only surviving copy.
+
+#### The new state on the admin tile and the probe
+
+`BackupFreshnessReporter` now has **four** states, not three:
+
+| state | meaning | probe |
+|---|---|---|
+| `ok` | verified inside the window, **and** a verified copy is on the second disk | 200 |
+| `ok-no-offsite` | verified inside the window, **one copy only** | 503 |
+| `failed` | ran inside the window and did not verify | 503 |
+| `stale` | cannot establish that a run happened at all | 503 |
+
+`ok-no-offsite` is deliberately neither of its neighbours. Folding it into `ok`
+restores the one-disk hole; folding it into `stale` cries wolf over an archive that
+verified an hour ago. The staff Health tile shows it as **ONE COPY** in warn colour
+with the job's own reason; the log banner points at the destination rather than at
+Task Scheduler.
+
+**Expected on first deploy:** until the scheduled task next runs the new script, the
+status file has no `offsite` block, so the state is `ok-no-offsite` with reason
+`offsite-not-reported` and `/api/health/backup` answers 503. That is correct — there
+is no second copy yet. It clears on the first run of the new job.
+
+#### One-time operator step
+
+None for `D:` — the job creates `D:\skinbox-backups` itself on a volume whose label
+matches. Nothing about the scheduled task changes; the repoint command is already
+above. To confirm after the first run:
+
+```powershell
+Get-Content data\h2-backup-status.json | ConvertFrom-Json |
+    Select-Object -ExpandProperty offsite
+
+Get-ChildItem D:\skinbox-backups -Filter '*.zip' | Select-Object Name, Length, LastWriteTime
+
+# and prove the two copies are the same file, independently of the job's own claim
+$a = Get-ChildItem C:\Users\WW\skinbox-backups -Filter '*.zip' | Sort-Object LastWriteTime | Select-Object -Last 1
+$b = Join-Path 'D:\skinbox-backups' $a.Name
+(Get-FileHash $a.FullName).Hash -eq (Get-FileHash $b).Hash    # expect True
+```
 
 ---
 

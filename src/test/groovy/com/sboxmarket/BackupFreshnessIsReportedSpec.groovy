@@ -66,6 +66,11 @@ class BackupFreshnessIsReportedSpec extends Specification {
      * repo has shipped it more than once. Every field name below is a contract
      * with the PowerShell that emits it, cross-checked against the script
      * itself in the last test in this file.</p>
+     *
+     * <p><b>One exception to "byte-for-byte", stated rather than glossed:</b>
+     * the {@code offsite} block. That run predates the second copy and wrote no
+     * such block; see {@link #OFFSITE_OK} for exactly which of its numbers came
+     * from which real run.</p>
      */
     private static Map liveRecord(Map overrides = [:]) {
         [
@@ -81,9 +86,59 @@ class BackupFreshnessIsReportedSpec extends Specification {
             tables_checked:  '35',
             counts:          [steam_users: 7, wallets: 9, transactions: 44, audit_log: 37],
             prune:           [ran: true, skipped_because: null, deleted: 0, retained: 4],
+            offsite:         OFFSITE_OK.collectEntries { k, v -> [k, v] },
             duration_ms:     1768,
             error:           null,
         ] + overrides
+    }
+
+    /**
+     * <b>The second copy, as the script records it when it worked.</b>
+     *
+     * <p>Until 2026-09-02 there was no such block. The archives and the database
+     * were both on C:, so four verified archives were <i>one</i> copy and a
+     * single drive failure took all of them. {@code h2-backup.ps1} now writes
+     * each VERIFIED archive to D: as well — a Simple Storage Space whose only
+     * backing device is physical disk 1, a different NVMe from the one C: lives
+     * on — and reads it back <i>there</i> by length and SHA-256 before recording
+     * any of this.</p>
+     *
+     * <p><b>Where these numbers come from, exactly.</b> This is a composite of
+     * two consecutive real runs, and saying so matters more than pretending
+     * otherwise: the 09:09:45Z run above <i>predates the feature</i> and could
+     * not have had an offsite block at all. So {@code dir}, {@code volume_label},
+     * {@code free_bytes}, {@code count} and the retention numbers are copied
+     * from {@code data\h2-backup-status.json} as written at 2026-09-02T10:32:06Z
+     * — the first run that ever made a second copy — while {@code path},
+     * {@code bytes} and {@code sha256} are the real values <i>of the archive the
+     * record above names</i>, measured on disk, so the composite is internally
+     * consistent instead of describing two different files. {@code prune.ran} is
+     * the ordinary-run value; the recorded run was invoked with {@code -NoPrune}
+     * so that a first live exercise of new code could not delete anything.</p>
+     */
+    private static final Map OFFSITE_OK = [
+        attempted:    true,
+        ok:           true,
+        reason:       null,
+        dir:          'D:\\skinbox-backups',
+        path:         'D:\\skinbox-backups\\h2-sboxmarket-20260902T090943Z.zip',
+        bytes:        112004,
+        sha256:       'B5376E7AA612B731F583078BA6575E677B886E02C38CEF032869B9F721F2279F',
+        volume_label: 'Storage space',
+        free_bytes:   218163998720,
+        newest_at:    '2026-09-02T09:09:45Z',
+        count:        1,
+        prune:        [ran: true, skipped_because: null, deleted: 0,
+                       retained: 1, retain_days: 365, minimum_keep: 30],
+    ]
+
+    /** The same block as the job writes it when the copy did NOT happen. */
+    private static Map offsiteMissing(String reason) {
+        [attempted: false, ok: false, reason: reason,
+         dir: 'D:\\skinbox-backups', path: null, bytes: null, sha256: null,
+         volume_label: null, free_bytes: null, newest_at: null, count: null,
+         prune: [ran: false, skipped_because: 'this run placed no verified copy here',
+                 deleted: 0, retained: null, retain_days: null, minimum_keep: null]]
     }
 
     // ══ STATE 1: ran and verified ═══════════════════════════════════
@@ -311,6 +366,190 @@ class BackupFreshnessIsReportedSpec extends Specification {
         !text.contains('both are true')
     }
 
+    // ══ STATE 1b: verified, and on ONE disk ═════════════════════════
+    //
+    // The hole this closes was stated in the RUNBOOK and not engineered around:
+    // C:\Users\WW\skinbox-backups and data\sboxmarket.mv.db were both on C:, so
+    // one drive failure lost the database and every archive of it in the same
+    // event. h2-backup.ps1 now copies each VERIFIED archive to a second physical
+    // device. This state is what the reporter says when that copy is not there —
+    // and the whole point is that it is neither of its neighbours.
+
+    def "a verified backup with NO second copy is its own state — not ok, not stale"() {
+        given: 'the archive verified eleven minutes ago; the second copy did not happen'
+        def r = BackupFreshnessReporter.assess(
+            liveRecord(last_run_at: stamp(11),
+                       offsite: offsiteMissing('the volume D:\\ is not present -- drive absent, or the letter changed')),
+            NOW, WINDOW)
+
+        expect: 'its own word'
+        r.state == BackupFreshnessReporter.STATE_OK_NO_OFFSITE
+
+        and: '''NOT ok. Saying ok here rebuilds the exact hole the second copy
+                closes, and the public probe carries the state word and nothing
+                else — a fact that is not in the word does not leave the box.'''
+        r.state != BackupFreshnessReporter.STATE_OK
+
+        and: '''NOT stale. The archive verified eleven minutes ago; the scheduler
+                is alive. Calling this stale sends the operator to Task Scheduler
+                and teaches him that the word means nothing.'''
+        r.state != BackupFreshnessReporter.STATE_STALE
+        !r.stale
+
+        and: 'NOT failed — the run did verify'
+        r.state != BackupFreshnessReporter.STATE_FAILED
+        !r.ranFailed
+        r.ran
+        r.ranVerified
+
+        and: 'and it is loud, because a silent one-copy state is what we had before'
+        r.loud
+        r.reason == BackupFreshnessReporter.REASON_OFFSITE_NOT_CURRENT
+    }
+
+    def "the job's OWN words about the destination ride along, not just a reason code"() {
+        // "offsite-copy-not-current" tells the operator nothing about WHICH of
+        // the six ways it can fail happened. The script already knows; the
+        // reporter's job is to carry it, not to re-derive it.
+        given:
+        def r = BackupFreshnessReporter.assess(
+            liveRecord(last_run_at: stamp(11),
+                       offsite: offsiteMissing("volume D:\\ is labelled 'Scratch' but 'Storage space' was expected")),
+            NOW, WINDOW)
+
+        expect:
+        r.offsiteReason.contains('Storage space')
+        !r.offsiteOk
+        r.offsitePath == null
+
+        and: 'and the banner puts it in front of the operator'
+        BackupFreshnessReporter.banner(r).contains('Storage space')
+    }
+
+    def "a status file with NO offsite block at all is a DIFFERENT reason from a failed copy"() {
+        // The two mean opposite things. No block: the machine is still running
+        // a h2-backup.ps1 from before the second copy existed — ship the job.
+        // A block saying ok:false: the job ran and the destination is the
+        // problem — go look at the drive. Same verdict, different fix; this is
+        // the same split as no-status-file versus unreadable-status-file, and
+        // it exists for the same reason.
+        given:
+        def older = liveRecord(last_run_at: stamp(11))
+        older.remove('offsite')
+        def tried = liveRecord(last_run_at: stamp(11),
+                               offsite: offsiteMissing('the volume D:\\ is not present'))
+
+        when:
+        def absent  = BackupFreshnessReporter.assess(older, NOW, WINDOW)
+        def failed  = BackupFreshnessReporter.assess(tried, NOW, WINDOW)
+
+        then: 'the same verdict'
+        absent.state == BackupFreshnessReporter.STATE_OK_NO_OFFSITE
+        failed.state == BackupFreshnessReporter.STATE_OK_NO_OFFSITE
+
+        and: '''and DIFFERENT reasons — asserted against each other, not merely
+                against their own constants. Comparing each to its own constant
+                is satisfied by defining the two constants identically, which is
+                exactly the collapse this test exists to forbid.'''
+        absent.reason != failed.reason
+
+        and: 'and each is the one it should be'
+        absent.reason == BackupFreshnessReporter.REASON_OFFSITE_NOT_REPORTED
+        failed.reason == BackupFreshnessReporter.REASON_OFFSITE_NOT_CURRENT
+
+        and: 'an absence never certifies a copy'
+        !absent.offsiteOk
+        absent.offsiteReason == null
+    }
+
+    def "the record this machine wrote WITH a verified second copy is plain ok"() {
+        // The control. Without it every assertion above is satisfied by a
+        // reporter that can never say `ok` at all.
+        given:
+        def r = BackupFreshnessReporter.assess(liveRecord(last_run_at: stamp(11)), NOW, WINDOW)
+
+        expect:
+        r.state == BackupFreshnessReporter.STATE_OK
+        r.offsiteOk
+        !r.loud
+        r.offsitePath.startsWith('D:')
+        r.offsiteNewestAt == '2026-09-02T09:09:45Z'
+    }
+
+    @Unroll
+    def "offsite ok=#value is treated as a verified copy=#verified — no stringified flag reads as one"() {
+        // Same coercion trap as the primary `ok` field, in a field that arrives
+        // through JSON from PowerShell. The string "false" is truthy in Groovy.
+        given:
+        def r = BackupFreshnessReporter.assess(
+            liveRecord(last_run_at: stamp(11), offsite: OFFSITE_OK + [ok: value]), NOW, WINDOW)
+
+        expect:
+        r.offsiteOk == verified
+        r.state == (verified ? BackupFreshnessReporter.STATE_OK
+                             : BackupFreshnessReporter.STATE_OK_NO_OFFSITE)
+
+        where:
+        value   || verified
+        true    || true
+        'true'  || true
+        false   || false
+        'false' || false
+        1       || false
+        null    || false
+    }
+
+    @Unroll
+    def "#label subsumes a missing second copy, and still reports it"() {
+        // Precedence: stale > failed > ok-no-offsite. "Nothing has backed this
+        // database up in three days" says everything "there is one copy of last
+        // night's archive" would have — but the offsite facts still ride along,
+        // so the precedence costs no information. Flattening a state into one of
+        // its halves is this project's signature defect.
+        given:
+        def r = BackupFreshnessReporter.assess(
+            liveRecord(record + [offsite: offsiteMissing('the volume D:\\ is not present')]),
+            NOW, WINDOW)
+
+        expect:
+        r.state == expected
+        r.state != BackupFreshnessReporter.STATE_OK_NO_OFFSITE
+        r.state != BackupFreshnessReporter.STATE_OK
+
+        and: 'the second-copy facts survive the precedence'
+        !r.offsiteOk
+        r.offsiteReason.contains('not present')
+
+        where:
+        label                     | record                                        || expected
+        'a stale timestamp'       | [last_run_at: '2020-01-01T00:00:00Z']          || BackupFreshnessReporter.STATE_STALE
+        'a fresh run that failed' | [ok: false, last_run_at: stamp(5)]             || BackupFreshnessReporter.STATE_FAILED
+    }
+
+    def "the ONE COPY banner is not the STALE banner and not the FAILED one"() {
+        // Three states arriving through the same warn-level log must not read
+        // the same. The stale banner sends the operator to Task Scheduler; that
+        // is the wrong place entirely when the archive verified minutes ago.
+        given:
+        def text = BackupFreshnessReporter.banner(
+            BackupFreshnessReporter.assess(
+                liveRecord(last_run_at: stamp(11),
+                           offsite: offsiteMissing('the volume D:\\ is not present')),
+                NOW, WINDOW))
+
+        expect: 'it says what is actually true'
+        text.contains('ONE COPY')
+        text.contains('same disk as the database')
+
+        and: 'and does NOT send him to the scheduler, which is running fine'
+        !text.contains('Get-ScheduledTask')
+        !text.contains('IS STALE')
+        !text.contains('did not verify')
+
+        and: 'it names where to look instead'
+        text.contains('skinbox-backups')
+    }
+
     // ══ the window ══════════════════════════════════════════════════
 
     def "the window clears a daily job's full period, so a healthy backup is never cried wolf over"() {
@@ -536,6 +775,36 @@ class BackupFreshnessIsReportedSpec extends Specification {
         'unreadable'                | '{ truncated'                                                    || BackupFreshnessReporter.STATE_STALE
     }
 
+    def "the public probe answers 503 for a verified backup with only ONE copy, and names it"() {
+        // The deliberate call. `ok-no-offsite` means the money database HAS a
+        // read-back-verified archive from tonight — sitting on the disk it lives
+        // on. That was this deployment's permanent condition until 2026-09-02
+        // and it is what a quietly unplugged second drive leaves behind, so it
+        // must reach the ONLY consumer that speaks with nobody logged in. The
+        // probe is exact-matched out of the nginx and Docker health targets, so
+        // a 503 here evicts nothing and costs no outage.
+        given:
+        File f = tmp.resolve('h2-backup-status.json').toFile()
+        f.setText(new groovy.json.JsonBuilder(
+            liveRecord(last_run_at: nowStampMinus(5),
+                       offsite: offsiteMissing('the volume D:\\ is not present'))).toString(), 'UTF-8')
+        def c = new HealthController(backupFreshnessReporter: reporterFor(f))
+
+        when:
+        def resp = c.backup()
+
+        then:
+        resp.statusCode.value() == 503
+
+        and: '''and the body carries the DISTINCT word, so a monitor that reads
+                the body can tell a missing second copy from a stopped
+                scheduler. Collapsing the two here would undo the whole point
+                of keeping them apart in assess().'''
+        resp.body.backup == BackupFreshnessReporter.STATE_OK_NO_OFFSITE
+        resp.body.backup != BackupFreshnessReporter.STATE_STALE
+        resp.body.backup != BackupFreshnessReporter.STATE_OK
+    }
+
     def "the public probe answers 503 when the reporter bean is MISSING"() {
         // An absence must never read as a pass — the substitution this whole
         // feature exists to refuse must not sneak back in through its own
@@ -682,6 +951,34 @@ class BackupFreshnessIsReportedSpec extends Specification {
         r.dbPath.contains('sboxmarket')
         r.counts.transactions == 44
         r.prune.retained == 4
+
+        and: '''including the WHOLE second-copy block — the destination, the
+                label of the volume it is on, the SHA-256 that was read back
+                there and how many copies are sitting on it. Admin-only by
+                placement, exactly like `zip`: it names a second machine-
+                readable location of the money database.'''
+        r.offsite.dir == 'D:\\skinbox-backups'
+        r.offsite.volume_label == 'Storage space'
+        r.offsite.sha256 != null
+        r.offsite.count == 1
+        r.offsite.prune.retain_days == 365
+    }
+
+    def "the public probe leaks NOTHING about the second copy"() {
+        // The admin block above names a second location of the money database.
+        // The public probe gets one word, and the word must not become a path.
+        given:
+        File f = tmp.resolve('h2-backup-status.json').toFile()
+        f.setText(new groovy.json.JsonBuilder(
+            liveRecord(last_run_at: nowStampMinus(5))).toString(), 'UTF-8')
+
+        when:
+        def body = new HealthController(backupFreshnessReporter: reporterFor(f)).backup().body
+
+        then:
+        body.keySet() == ['status', 'backup'] as Set
+        !body.toString().contains('D:')
+        !body.toString().contains('skinbox-backups')
     }
 
     // ══ the registration, not merely the code ═══════════════════════
@@ -751,6 +1048,48 @@ class BackupFreshnessIsReportedSpec extends Specification {
         new com.sboxmarket.service.AdminService().systemHealth().backup == null
     }
 
+    def "a one-copy backup reaches the Health tile as its own state, not as ok"() {
+        // One layer up from assess(), where the collapse would actually hurt:
+        // the tile renders data.backup.state, and this arriving as `ok` would
+        // paint "Verified" over a database whose only archive is on the drive
+        // it lives on.
+        given:
+        File f = tmp.resolve('h2-backup-status.json').toFile()
+        f.setText(new groovy.json.JsonBuilder(
+            liveRecord(last_run_at: nowStampMinus(5),
+                       offsite: offsiteMissing('the volume D:\\ is not present'))).toString(), 'UTF-8')
+        def svc = new com.sboxmarket.service.AdminService(backupFreshnessReporter: reporterFor(f))
+
+        when:
+        def health = svc.systemHealth()
+
+        then:
+        health.backup.state == BackupFreshnessReporter.STATE_OK_NO_OFFSITE
+        health.backup.state != BackupFreshnessReporter.STATE_OK
+        health.backup.state != BackupFreshnessReporter.STATE_STALE
+
+        and: 'with the destination detail the card needs to say WHERE to look'
+        health.backup.offsiteReason.contains('not present')
+        health.backup.offsite.dir == 'D:\\skinbox-backups'
+    }
+
+    def "the staff panel renders the one-copy state instead of falling through to STALE"() {
+        // The tile's state ladder is a chain of ternaries with a final `else`.
+        // Before this feature that else was 'STALE', so a new state added in
+        // Groovy would have silently rendered as STALE in the browser — the
+        // collapse happening in the one place nobody would have looked. Pinned
+        // against the shipped source because the panel is React-in-JS with no
+        // test runner in this project.
+        given:
+        String js = new File('src/main/resources/static/js/staff-modals.js').getText('UTF-8')
+
+        expect: 'the state has a branch of its own'
+        js.contains("b.state === 'ok-no-offsite'")
+
+        and: 'and it does not read as the two states it must stay distinct from'
+        js.contains("'ONE COPY'")
+    }
+
     def "a stale backup reaches the Health tile as stale, not as a missing field"() {
         // The UI reads data.backup.state. A stale backup arriving as an absent
         // key would render the same as "reporter not wired" — the exact
@@ -786,6 +1125,56 @@ class BackupFreshnessIsReportedSpec extends Specification {
         and: '''and it writes the same default location this reporter derives —
                 the sibling of the database it archives.'''
         src.contains('h2-backup-status.json')
+
+        and: '''every second-copy field this reporter reads is one the script
+                emits. `offsite.ok` and `offsite.reason` are the two the state
+                turns on; the rest are what the admin tile and banner show, and
+                a rename on either side has to fail somewhere.'''
+        ['offsite', 'attempted', 'sha256', 'volume_label', 'free_bytes',
+         'newest_at', 'retain_days', 'minimum_keep'].every { src.contains(it) }
+    }
+
+    def "the script's own default destination is on a DIFFERENT volume from the database"() {
+        // THE CLAIM THIS FILE EXISTS TO PROTECT. The point of the second copy is
+        // a second failure domain; a default that landed back on C: would be one
+        // copy wearing two names, and it would pass every other test here. This
+        // is the case that catches a future edit pointing the offsite copy home.
+        given: 'the two defaults the script ships with'
+        String src = new File('deploy/h2-backup.ps1').getText('UTF-8')
+        String backupDir  = psStringDefault(src, 'BackupDir')
+        String offsiteDir = psStringDefault(src, 'OffsiteDir')
+
+        and: '''and the volume the DATABASE is on — which is not a literal in the
+                script at all. h2-backup.ps1 derives $DbPath from its own location
+                ($Repo = the parent of $PSScriptRoot, then data\\sboxmarket), so the
+                database is always on the volume the checkout is on. Resolved here
+                the same way, rather than assumed to be C:.'''
+        String dbVolume = volumeOf(new File('data').absoluteFile.path)
+
+        expect: '''both defaults were actually FOUND. Without this the comparisons
+                   below are `null != "D:"`, which is true — a regex that matched
+                   nothing would report the strongest possible result. That is the
+                   precise shape of the bug this test itself shipped with: the
+                   pattern was written as a slashy string, `$BackupDir` inside one
+                   is a GString property reference rather than text, and it threw
+                   at runtime having compiled cleanly.'''
+        backupDir  != null
+        offsiteDir != null
+
+        and: 'and what was captured really is a rooted path, not an empty capture'
+        backupDir.length()  > 3
+        offsiteDir.length() > 3
+        backupDir[1]  == ':'
+        offsiteDir[1] == ':'
+
+        and: 'the second copy is not on the volume the primary archives are on'
+        volumeOf(offsiteDir) != volumeOf(backupDir)
+
+        and: 'nor on the volume the database itself lives on — the actual claim'
+        volumeOf(offsiteDir) != dbVolume
+
+        and: 'and the primary archives ARE beside the database, which is why this matters'
+        volumeOf(backupDir) == dbVolume
     }
 
     // ── helpers ─────────────────────────────────────────────────────
@@ -798,6 +1187,33 @@ class BackupFreshnessIsReportedSpec extends Specification {
             configuredStatusPath:    f.absolutePath,
             datasourceUrl:           '',
             configuredMaxAgeMinutes: 0L)
+    }
+
+    /**
+     * The single-quoted default of a {@code [string] $Name = '...'} parameter in
+     * {@code deploy/h2-backup.ps1}, or {@code null} if it is not there.
+     *
+     * <p><b>The pattern is built from single-quoted strings, never a slashy
+     * one.</b> Groovy's {@code /.../} is a GString, so {@code $BackupDir} inside
+     * it is a <i>property reference on the spec class</i>, not the four
+     * characters of a PowerShell variable name. The first version of the caller
+     * did exactly that: {@code compileTestGroovy} returned 0 and the case threw
+     * {@code MissingPropertyException} on execution. In this language a clean
+     * compile says nothing about whether a spec's references exist, so the
+     * escaping lives here, once, behind a name.</p>
+     */
+    private static String psStringDefault(String src, String param) {
+        def p = java.util.regex.Pattern.compile(
+            '(?m)^[ \\t]*\\[string\\][ \\t]*\\$' + java.util.regex.Pattern.quote(param) +
+            '[ \\t]*=[ \\t]*\'([^\']*)\'')
+        def m = p.matcher(src)
+        m.find() ? m.group(1) : null
+    }
+
+    /** {@code 'D:\skinbox-backups'} -> {@code 'D:'}. Case-folded, because a
+     *  drive letter's case is display, not identity. */
+    private static String volumeOf(String path) {
+        path == null ? null : (path.length() >= 2 ? path.substring(0, 2).toUpperCase() : null)
     }
 
     /** Real wall-clock stamp, for the tests that go through currentReport()

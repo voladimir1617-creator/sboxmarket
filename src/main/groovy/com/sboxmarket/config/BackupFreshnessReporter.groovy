@@ -33,16 +33,29 @@ import java.time.format.DateTimeParseException
  * the check is on a {@link Scheduled} tick and not only on boot: the app runs
  * for days, and a backup goes stale <i>while it is running</i>.</p>
  *
- * <h3>The three states, kept apart on purpose</h3>
+ * <h3>The four states, kept apart on purpose</h3>
  *
  * Collapsing these is this project's signature defect — an absence read as a
- * pass. So {@link #assess} returns exactly one of three, and never invents a
- * fourth:
+ * pass. So {@link #assess} returns exactly one of four, and never invents a
+ * fifth:
  *
  * <ol>
- *   <li>{@code ok} — a run happened inside the window and its read-back
- *       verified. The archive was extracted, opened, and every table's row
- *       count matched live.</li>
+ *   <li>{@code ok} — a run happened inside the window, its read-back verified,
+ *       <b>and a verified copy reached the second physical device.</b> The
+ *       archive was extracted, opened, every table's row count matched live,
+ *       and the copy on the other disk was read back and matched by size and
+ *       SHA-256.</li>
+ *   <li>{@code ok-no-offsite} — <b>the database is backed up, on one disk.</b>
+ *       The primary run verified inside the window; the second copy did not
+ *       happen, or the status file predates the job that makes one. Its own
+ *       state because the two facts have opposite fixes and opposite
+ *       urgencies: {@code stale} means "there may be no current backup at
+ *       all", this means "there is one, and it is sitting on the same drive as
+ *       the database it protects". Folding it into {@code ok} would rebuild
+ *       the exact hole this feature closes — four verified archives on a dying
+ *       disk is one copy. Folding it into {@code stale} would cry wolf about a
+ *       backup that verified an hour ago, and a reporter that cries wolf is one
+ *       the operator learns to close.</li>
  *   <li>{@code failed} — a run happened inside the window and reported
  *       failure. Retention was skipped; the archives on disk are the older
  *       ones. Something is wrong with the backup, but the scheduler is
@@ -55,19 +68,22 @@ import java.time.format.DateTimeParseException
  *       both are louder than any exception.</li>
  * </ol>
  *
- * <p>{@code stale} takes precedence over {@code failed} when both hold, because
- * "nothing has backed this database up in three days" subsumes "the last
- * attempt errored" — but {@code ranFailed} and the recorded {@code error} are
- * reported alongside it, so the precedence loses no information. An unreadable
- * status file is also {@code stale} (we cannot establish that a run happened)
- * and carries its own {@code reason} code, so it is never confused with a file
- * that is simply absent.</p>
+ * <p>Precedence runs {@code stale} → {@code failed} → {@code ok-no-offsite} →
+ * {@code ok}, worst first, because each earlier state subsumes the ones after
+ * it: "nothing has backed this database up in three days" says everything
+ * "there is only one copy of last night's archive" would have. Nothing is lost
+ * to the precedence — {@code ranFailed}, the recorded {@code error} and the
+ * whole {@code offsite} block are reported alongside whichever state wins. An
+ * unreadable status file is also {@code stale} (we cannot establish that a run
+ * happened) and carries its own {@code reason} code, so it is never confused
+ * with a file that is simply absent.</p>
  *
  * <h3>Where this is surfaced, and why the split</h3>
  *
  * <ul>
  *   <li><b>{@code GET /api/health/backup} — public, one word.</b> 200 when
- *       {@code ok}, 503 when {@code failed} or {@code stale}, and the body
+ *       {@code ok}, 503 when {@code failed}, {@code stale} or
+ *       {@code ok-no-offsite}, and the body
  *       carries the state word and nothing else: no path, no row count, no
  *       hostname, no timestamp. An uptime monitor that only reads status codes
  *       is the only consumer that alerts without a human logged in, and this
@@ -102,10 +118,14 @@ import java.time.format.DateTimeParseException
 @Slf4j
 class BackupFreshnessReporter {
 
-    // ── the three states ────────────────────────────────────────────
+    // ── the four states ─────────────────────────────────────────────
     static final String STATE_OK     = 'ok'
     static final String STATE_FAILED = 'failed'
     static final String STATE_STALE  = 'stale'
+    /** Verified, inside the window — and on one disk only. Deliberately its own
+     *  word rather than a flag on {@code ok}: the public probe carries the state
+     *  and nothing else, so a boolean nobody transmits is a boolean nobody sees. */
+    static final String STATE_OK_NO_OFFSITE = 'ok-no-offsite'
 
     // ── why, underneath the state. Never collapsed into the state
     //    itself: "the file is absent" and "the file is corrupt" are the
@@ -117,6 +137,16 @@ class BackupFreshnessReporter {
     static final String REASON_TOO_OLD          = 'last-run-too-old'
     static final String REASON_RUN_FAILED       = 'last-run-failed'
     static final String REASON_NOT_VERIFIED     = 'last-run-not-verified'
+    /** The status file carries no {@code offsite} block at all — written by a
+     *  version of {@code h2-backup.ps1} from before the second copy existed, so
+     *  we cannot establish that one was made. Distinct from the block below for
+     *  the same reason an absent status file is distinct from a corrupt one:
+     *  this one means "ship the new job", that one means "go look at the
+     *  destination". */
+    static final String REASON_OFFSITE_NOT_REPORTED = 'offsite-not-reported'
+    /** The job ran, tried (or deliberately skipped) the second copy, and did not
+     *  place one. {@code offsiteReason} carries the job's own words for why. */
+    static final String REASON_OFFSITE_NOT_CURRENT  = 'offsite-copy-not-current'
 
     /**
      * Sentinel handed to {@link #assess} when the file exists but could not be
@@ -182,6 +212,14 @@ class BackupFreshnessReporter {
             maxAgeMinutes: maxAgeMinutes,
             outcome:       null,
             error:         null,
+            // The second copy. `false` is the loud default for the same reason
+            // `state` starts STALE: a path that forgets to set it must report a
+            // problem, never a pass. There is no third value here — "we could
+            // not tell" is false, because an unproven second copy is not one.
+            offsiteOk:      false,
+            offsiteReason:  null,
+            offsitePath:    null,
+            offsiteNewestAt: null,
             // Pre-set loud, so a branch added later that forgets to set it
             // defaults to "say something" rather than to silence. Absence
             // read as a pass is the failure this whole class is about.
@@ -208,6 +246,18 @@ class BackupFreshnessReporter {
 
         out.outcome = str(status.outcome)
         out.error   = str(status.error)
+
+        // The second copy, read here rather than at the decision below so that a
+        // stale or failed primary still REPORTS what it knows about the offsite
+        // location. "It failed AND the second copy is three weeks old" must not
+        // be flattened into whichever half wins the precedence.
+        Map offsite = (status.offsite instanceof Map) ? (Map) status.offsite : null
+        if (offsite != null) {
+            out.offsiteOk       = isStrictlyTrue(offsite.ok)
+            out.offsiteReason   = str(offsite.reason)
+            out.offsitePath     = str(offsite.path)
+            out.offsiteNewestAt = str(offsite.newest_at)
+        }
 
         // The run's own verdict. Read the SAME way AdminController parses its
         // confirm gate: Boolean.TRUE or the exact string "true", nothing else.
@@ -275,7 +325,33 @@ class BackupFreshnessReporter {
             return out
         }
 
-        // ── state 1: ran, inside the window, read back and verified.
+        // ── state 1b: the primary verified, and there is no current second copy.
+        //
+        // The database IS backed up. It is backed up onto the disk it lives on,
+        // which is what "four verified archives" was worth on 2026-09-02: one
+        // copy. This is not `ok` — saying ok here rebuilds the hole the second
+        // copy exists to close, and the public probe carries the state word and
+        // nothing else, so anything not in the word does not leave the box.
+        // Neither is it `stale`: an archive that verified an hour ago is not a
+        // stopped scheduler, and reporting it as one teaches the operator to
+        // ignore the word that means a stopped scheduler.
+        if (offsite == null) {
+            // No block at all: an older h2-backup.ps1 wrote this file. We cannot
+            // establish a second copy, and an absence must never certify one.
+            out.state  = STATE_OK_NO_OFFSITE
+            out.reason = REASON_OFFSITE_NOT_REPORTED
+            out.loud   = true
+            return out
+        }
+        if (!out.offsiteOk) {
+            out.state  = STATE_OK_NO_OFFSITE
+            out.reason = REASON_OFFSITE_NOT_CURRENT
+            out.loud   = true
+            return out
+        }
+
+        // ── state 1: ran, inside the window, read back and verified — and a
+        // verified copy of that same archive is on a second physical device.
         out.state = STATE_OK
         out.loud  = false
         out
@@ -403,6 +479,11 @@ class BackupFreshnessReporter {
             report.counts        = (status.counts instanceof Map) ? status.counts : null
             report.prune         = (status.prune instanceof Map) ? status.prune : null
             report.durationMs    = str(status.duration_ms)
+            // The whole offsite block: destination, volume label, byte count,
+            // SHA-256, free space, how many copies are there and how old the
+            // newest one is. Admin-only by placement, exactly like `zip` above —
+            // it names a second machine-readable location of the money database.
+            report.offsite       = (status.offsite instanceof Map) ? status.offsite : null
         }
         report
     }
@@ -467,6 +548,8 @@ class BackupFreshnessReporter {
         lines << '=================================================================='
         if (report.state == STATE_STALE) {
             lines << ' H2 BACKUP IS STALE — no verified backup inside the window'
+        } else if (report.state == STATE_OK_NO_OFFSITE) {
+            lines << ' H2 BACKUP HAS ONE COPY — verified, and only on the primary disk'
         } else {
             lines << ' H2 BACKUP FAILED — the last run did not verify'
         }
@@ -491,6 +574,21 @@ class BackupFreshnessReporter {
                 lines << ''
                 lines << ' AND the last run that DID happen reported failure — both are true.'
             }
+        } else if (report.state == STATE_OK_NO_OFFSITE) {
+            lines << " offsite reason : ${report.offsiteReason ?: '(the job reported no offsite result at all)'}"
+            // '(none recorded)', NOT '(none has ever arrived)'. When the volume
+            // was unreachable the job could not look, and reporting "there has
+            // never been a second copy" on the strength of a directory we could
+            // not read is an absence dressed up as a finding.
+            lines << " newest copy    : ${report.offsiteNewestAt ?: '(none recorded)'}"
+            lines << ''
+            lines << ' THE ARCHIVE VERIFIED. It is on the same disk as the database it'
+            lines << ' protects, so one drive failure takes both. Nothing is broken and'
+            lines << ' nothing is urgent — but this is the state that was permanent until'
+            lines << ' 2026-09-02, and it is the state a quietly unplugged second drive'
+            lines << ' leaves behind. Check the destination:'
+            lines << "   Get-Volume -DriveLetter D | Select-Object FileSystemLabel, SizeRemaining"
+            lines << "   Get-ChildItem D:\\skinbox-backups -Filter '*.zip' | Select-Object -Last 3"
         } else {
             lines << ' The scheduler is alive; the backup itself did not verify. Retention'
             lines << ' is skipped on any failure, so the archives already on disk are intact.'

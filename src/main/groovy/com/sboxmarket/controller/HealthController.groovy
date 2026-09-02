@@ -296,9 +296,23 @@ class HealthController {
      *
      * <h3>Why a status code, and why not this one</h3>
      *
-     * 200 when the last run verified inside its window; <b>503 when it failed
-     * or when the timestamp is stale</b>, because an uptime monitor that reads
-     * only status codes is the consumer that alerts with nobody watching.
+     * 200 when the last run verified inside its window <b>and a verified copy
+     * of it reached a second physical device</b>; <b>503 for every other
+     * state</b> — {@code failed}, {@code stale}, and {@code ok-no-offsite} —
+     * because an uptime monitor that reads only status codes is the consumer
+     * that alerts with nobody watching.
+     *
+     * <p>{@code ok-no-offsite} answers 503 deliberately, and the choice is not
+     * free. It means the database HAS a current, read-back-verified archive —
+     * sitting on the same disk as the database. That was the permanent state of
+     * this deployment until 2026-09-02 and it is what a quietly unplugged
+     * second drive leaves behind, so it must reach the one consumer that speaks
+     * without a human present. The cost of 503 here is a false alarm; the cost
+     * of 200 is that the second copy can stop for six months in silence, which
+     * is the shape of every incident in {@code deploy/RUNBOOK.md}. The body
+     * still carries the distinct word, so a monitor that reads it can tell the
+     * cases apart — and the default destination is an INTERNAL disk precisely
+     * so this does not fire on a normal day.
      *
      * <p>It is a SEPARATE path from {@code /api/health} and {@code /api/ready}
      * on purpose. Those two are the Docker HEALTHCHECK, the deploy gate and the
