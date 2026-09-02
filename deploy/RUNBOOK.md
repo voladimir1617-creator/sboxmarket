@@ -2,6 +2,12 @@
 
 One page. Paste-ready commands. If you are reading this during an outage, scroll to the matching section, run the bullets in order, then come back and update the runbook with what worked.
 
+> **Pending right now:** three committed controls — the money reset, the H2
+> credential guard, and the unconfigured-admin reporter — are **not in the
+> running jar**. They ship together in one ~30-second restart. See
+> **"ONE RESTART: shipping all three pending controls together"** below.
+> Rehearsed end to end on a restored copy, 2026-09-02.
+
 ---
 
 # GO LIVE — bringing skinbox.market up safely
@@ -745,6 +751,400 @@ app must be stopped *before* the build, because the running JVM holds
    verified in the running process). The attacker this stops is one who is already on
    the box but cannot read `C:\Users\WW\skinbox-backups`. That is a real gap and worth
    closing — it is not an internet-facing hole.
+
+---
+
+# ONE RESTART: shipping all three pending controls together
+
+Three separate pieces of work are committed and **none of them is in the running
+process**. Each on its own would need a rebuild and a restart of the money app.
+Doing that three times is three outages and three chances to get it wrong. This
+section is the single coordinated sequence, rehearsed end to end on a restored
+copy on 2026-09-02 against `HEAD = 2f7343c`.
+
+| # | Piece | What it does once shipped |
+|---|-------|---------------------------|
+| 1 | `service/MoneyResetService` + `config/MoneyResetGate` | Makes the fabricated-money reset *available*. It stays inert until asked with two separate environment variables. |
+| 2 | `config/H2CredentialGuard` | Refuses to start when a listening H2 has a blank/short password. |
+| 3 | `config/UnconfiguredAdminReporter` | Boot banner + `GET /api/admin/security/admin-grants` naming any persisted ADMIN no config explains. |
+
+### The premise, measured and not assumed
+
+The live `build/libs/sboxmarket-1.0.0.jar` was built **2026-09-01 14:56**. All
+three commits are later (`28e6882` 15:31, `b51cf4f` 2026-09-02 00:58, `2f7343c`
+01:22). Reading the live jar's entry list directly:
+
+```
+sboxmarket-1.0.0.jar     H2CredentialGuard 0   MoneyResetGate 0
+                         MoneyResetService 0   UnconfiguredAdminReporter 0
+                         META-INF/spring.factories 0
+sboxmarket-rehearsal.jar H2CredentialGuard 1   MoneyResetGate 1
+                         MoneyResetService 15  UnconfiguredAdminReporter 8
+                         META-INF/spring.factories 1
+```
+
+Zero, not "probably stale". Nothing below is enforcing anything today.
+
+### Live baseline at rehearsal time (re-measure before you start)
+
+`7` STEAM_USERS · `1` ADMIN (id 33) · `9` WALLETS totalling `30797.70` ·
+`44` TRANSACTIONS · `37` AUDIT_LOG · `254` LISTINGS · `39` ITEMS · `8` TRADES.
+
+### Two numbers that are both right, so neither surprises you
+
+`$30,575.00` is the **DEPOSIT** total — 9 rows, every one carrying a `dev_`
+reference, **0** carrying anything else (so no real Stripe charge exists to
+destroy). `$30,797.70` is the **wallet balance** total, which is what gets
+zeroed. The report prints both. They are different figures for different things.
+
+### Before you touch anything
+
+- **Do not skip step 1.** The `SkinBox Watchdog` task fires every 2 minutes and
+  relaunches `java -jar` whenever health is not 200 and no matching process
+  exists. Mid-restart it will either steal port 8082 or attach a second writer
+  to H2.
+- Step 5 must come before step 6: the running JVM holds the jar open. Measured,
+  on this box, attempting to open it for write while the app runs:
+  `The process cannot access the file '…\sboxmarket-1.0.0.jar' because it is
+  being used by another process.` A build into that path fails, it does not
+  silently win.
+- Steps 3 and 4 are the only *irreversible-ish* ones and both have a proven way
+  back (see "Rollback" below).
+
+---
+
+## The sequence
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. STOP THE WATCHDOG FIRST. Nothing else is safe until this returns.
+Disable-ScheduledTask -TaskName 'SkinBox Watchdog'
+#   PRINTS: a table row -> TaskPath \  TaskName SkinBox Watchdog  State Disabled
+#   VERIFY, do not assume:
+Get-ScheduledTask -TaskName 'SkinBox Watchdog' | Select-Object TaskName,State
+#   MUST read State = Disabled. If it still reads Ready, STOP — a relaunch
+#   mid-sequence is exactly the failure this step exists to prevent.
+```
+
+```bash
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. BACK UP, AND VERIFY THE BACKUP BY READING IT BACK.
+#    The app is still running here; this goes through the auto-server, which is
+#    the only way to copy the database while it is held open.
+H2JAR=$(ls ~/.gradle/caches/modules-2/files-2.1/com.h2database/h2/2.2.224/*/h2-2.2.224.jar)
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+ZIP="C:/Users/WW/skinbox-backups/h2-sboxmarket-$TS.zip"
+
+java -cp "$H2JAR" org.h2.tools.Shell \
+  -url "jdbc:h2:file:C:/Users/WW/Desktop/sboxmarket/data/sboxmarket;AUTO_SERVER=TRUE;MODE=PostgreSQL" \
+  -user sa -password "" -sql "BACKUP TO '$ZIP'"
+#   PRINTS: nothing at all on success. That silence is why the next two commands
+#   are not optional — exit code 0 is not a backup.
+
+unzip -l "$ZIP"
+#   PRINTS: one entry, sboxmarket.mv.db, whose size matches data/sboxmarket.mv.db.
+#   Rehearsed: a 112,332-byte zip holding sboxmarket.mv.db at 380,928 bytes,
+#   the same size as the live file.
+
+unzip -o "$ZIP" -d /tmp/verify-$TS
+java -cp "$H2JAR" org.h2.tools.Shell \
+  -url "jdbc:h2:file:/tmp/verify-$TS/sboxmarket;MODE=PostgreSQL" -user sa -password "" \
+  -sql "SELECT COUNT(*) FROM STEAM_USERS; SELECT COUNT(*) FROM TRANSACTIONS;"
+#   PRINTS: the row counts. They MUST equal the live baseline above (7 and 44).
+#   This is the whole check: extracted AND re-queried, never exit code.
+#   If this prints an error or different counts, STOP. You have no safety net.
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. SET THE DATABASE PASSWORD (>= 16 chars) WHERE THE WATCHDOG INHERITS IT.
+#    User scope, because the watchdog relaunches via Start-Process and inherits
+#    the USER environment. This is a persistent variable holding a credential —
+#    it is your decision, and it is the reason this runbook stops short of doing
+#    it for you.
+[Environment]::SetEnvironmentVariable('SPRING_DATASOURCE_PASSWORD','<secret>','User')
+#   PRINTS: nothing. Verify presence WITHOUT echoing the value:
+([Environment]::GetEnvironmentVariable('SPRING_DATASOURCE_PASSWORD','User')).Length
+#   MUST print a number >= 16. If it prints nothing or 0, the guard will refuse
+#   to boot at step 8 — which is correct behaviour, not a bug.
+```
+
+```bash
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. MIGRATE THE DATABASE TO MATCH — while the app is STILL RUNNING.
+#    H2 stores users inside the database, so step 3 alone changes what the app
+#    SENDS, not what the database EXPECTS. Both halves must move together.
+#    Existing pooled connections keep working; that is why this is safe here.
+java -cp "$H2JAR" org.h2.tools.Shell \
+  -url "jdbc:h2:file:C:/Users/WW/Desktop/sboxmarket/data/sboxmarket;AUTO_SERVER=TRUE;MODE=PostgreSQL" \
+  -user sa -password "" -sql "ALTER USER SA SET PASSWORD '<secret>';"
+#   PRINTS: nothing on success.
+#   VERIFY both directions — a refusal alone is indistinguishable from a dead
+#   server, so you need the paired result:
+java -cp "$H2JAR" org.h2.tools.Shell -url "<same url>" -user sa -password "" -sql "SELECT 1;"
+#     -> MUST fail with:  Wrong user name or password [28000-224]
+java -cp "$H2JAR" org.h2.tools.Shell -url "<same url>" -user sa -password "<secret>" -sql "SELECT 1;"
+#     -> MUST print 1.
+#   Blank refused AND secret accepted, in the same breath, is the pass condition.
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. STOP THE APP. From here the clock is running (~30 s).
+$p = Get-CimInstance Win32_Process -Filter "Name='java.exe'" |
+     Where-Object { $_.CommandLine -like '*sboxmarket-1.0.0.jar*' }
+$p | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+#   Then PROVE it died. A kill that hit the wrong thing is a silent no-op:
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" |
+  Where-Object { $_.CommandLine -like '*sboxmarket-1.0.0.jar*' } | Measure-Object |
+  Select-Object -ExpandProperty Count
+#   MUST print 0. If it prints 1, the jar is still locked and step 6 WILL fail.
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. REBUILD.
+cd C:\Users\WW\Desktop\sboxmarket
+.\gradlew.bat bootJar --console=plain
+#   PRINTS: "BUILD SUCCESSFUL in Ns". Rehearsed at 2.5 s — the classes are
+#   already compiled, so this is a repackage, not a full build.
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. PROVE THE NEW JAR ACTUALLY CONTAINS THE THREE PIECES.
+#    Do not skip this. "A committed fix is not a shipped fix" has cost this
+#    project twice; this is the ten-second check that makes it impossible.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$za = [IO.Compression.ZipFile]::OpenRead('C:\Users\WW\Desktop\sboxmarket\build\libs\sboxmarket-1.0.0.jar')
+'H2CredentialGuard','MoneyResetGate','MoneyResetService','UnconfiguredAdminReporter','spring.factories' |
+  ForEach-Object { $n=$_; "$n : " + @($za.Entries | Where-Object { $_.FullName -like "*$n*" }).Count }
+$za.Dispose()
+#   PRINTS five lines, EVERY count >= 1:
+#     H2CredentialGuard : 1     MoneyResetGate : 1        MoneyResetService : 15
+#     UnconfiguredAdminReporter : 8            spring.factories : 1
+#   Any ZERO means you are about to restart into the same jar you already have.
+#   STOP and find out why before step 8.
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. START — AND CAPTURE THE OUTPUT, or step 9 has nothing to read.
+#    Working directory MUST be the repo root: the datasource URL is relative
+#    (./data/sboxmarket) and launching elsewhere silently creates a NEW EMPTY
+#    DATABASE.
+#
+#    THE REDIRECT IS NOT OPTIONAL. Under the default profile logback-spring.xml
+#    binds the root logger to CONSOLE only — the file appender lives inside
+#    <springProfile name="prod">. So this app writes NO log file, and the
+#    watchdog's own hidden relaunch throws its console away. Every piece of
+#    evidence step 9 asks for exists solely on this process's stdout.
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$boot  = "C:\Users\WW\skinbox-boot-$stamp.log"
+Start-Process 'C:\Program Files\Java\jdk-17\bin\java.exe' `
+  -ArgumentList '-jar','build/libs/sboxmarket-1.0.0.jar' `
+  -WorkingDirectory 'C:\Users\WW\Desktop\sboxmarket' `
+  -RedirectStandardOutput $boot -RedirectStandardError "$boot.err" -WindowStyle Hidden
+"boot log -> $boot"
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. VERIFY ALL THREE, BY POSITIVE EVIDENCE. Give it ~15 s first.
+#    Rehearsed startup: "Started SboxMarketApplication in 13.015 seconds".
+
+# a) The app is up.
+Invoke-WebRequest http://localhost:8082/api/health -UseBasicParsing | Select-Object -Exp StatusCode
+#    -> 200
+
+# b) H2CredentialGuard PASSED (rather than "did not appear"). The proof that it
+#    ran and was satisfied is that Hikari opened a connection at all — the guard
+#    throws during prepareEnvironment, before Hikari exists.
+#    Search POSITIVELY. Never pipe this through a `-notmatch`/`grep -v`: a
+#    filter written to tidy the output once removed the very line carrying the
+#    28000 evidence, and the check then reported the opposite of the truth.
+Select-String -Path $boot,"$boot.err" -Pattern 'Added connection|REFUSING TO START|28000|Started SboxMarketApplication'
+#    WANT: "HikariPool-1 - Added connection conn1: url=jdbc:h2:file:./data/sboxmarket user=SA"
+#          "Started SboxMarketApplication in N seconds"   (rehearsed: 13.015 s)
+#    If instead the process EXITED with
+#      IllegalStateException: REFUSING TO START: this datasource opens an H2
+#      network listener (...) but spring.datasource.password is blank or shorter
+#      than 16 characters
+#    then step 3 did not reach this process. Re-check the User variable.
+#    If it exited with "Wrong user name or password [28000-224]" instead, the
+#    guard passed and step 4 is what did not take. Re-run step 4.
+
+# c) UnconfiguredAdminReporter fired.
+Select-String -Path $boot -Pattern 'ADMIN GRANT REPORT|Admin-grant check' -Context 0,8
+#    Expect a WARN banner:
+#      ==================================================================
+#       ADMIN GRANT REPORT — a persisted ADMIN is not explained by config
+#      ==================================================================
+#       ADMIN rows in STEAM_USERS : 1
+#       admin.bootstrap-steam-ids : (empty)
+#       NOT IN BOOTSTRAP LIST     : user id=33 steamId64=76561199839805014 ...
+#       NO ADMIN_GRANTED AUDIT    : user id=33 ...
+#    A CLEAN deployment instead logs one INFO line: "Admin-grant check: N ADMIN
+#    row(s), all explained by ...". Exactly one of those two ALWAYS prints — so
+#    a silent boot means the reporter did not run, and that is a failure, not a
+#    pass. That is the whole point of it saying something when clean.
+
+# d) MoneyResetService is present and CORRECTLY SILENT. With neither variable
+#    set it returns without logging, by design (a guard that cries wolf on every
+#    boot is a guard nobody reads). Its presence was proven at step 7; do not
+#    look for a log line here. It is exercised at steps 11-14.
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 10. RE-ENABLE THE WATCHDOG. DO NOT SKIP THIS.
+Enable-ScheduledTask -TaskName 'SkinBox Watchdog'
+Get-ScheduledTask -TaskName 'SkinBox Watchdog' | Select-Object TaskName,State
+#   MUST read State = Ready.
+```
+
+**Steps 1-10 are the whole coordinated activation. Measured downtime between
+step 5 and a 200 at step 9: roughly 30 seconds** (2.5 s repackage + ~13 s
+startup + stop/launch). Everything below is a separate decision you can take
+later, on its own schedule.
+
+---
+
+## The money reset (steps 11-14) — a separate decision, deliberately
+
+The restart above *ships* the reset tool. It does not run it, and nothing runs
+it until you set two environment variables. Read `MoneyResetGate` if you want
+the reasoning; the short version is that the dry run is the deliverable and the
+execute flag alone does nothing.
+
+**Set these in the SHELL you launch from, not with `SetEnvironmentVariable`.**
+A User-scope `SBOX_MONEY_RESET_ENABLED` would make every watchdog relaunch dump
+every wallet balance into the log file. Process scope, one launch, then gone.
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 11. Stop the app (step 5), then run ONE boot with the opt-in only.
+$env:SBOX_MONEY_RESET_ENABLED = 'true'
+& 'C:\Program Files\Java\jdk-17\bin\java.exe' -jar build/libs/sboxmarket-1.0.0.jar
+#   (run it in the FOREGROUND for this one — the report is printed to stdout
+#   precisely so you do not have to go find a log file.)
+#
+#   PRINTS a framed report. The lines that matter:
+#     MONEY RESET — DRY RUN (nothing has been changed)
+#     deployment            : SIMULATED
+#     invoked by            : SBOX_MONEY_RESET_ENABLED=true
+#     destructive execution : NOT requested — SBOX_MONEY_RESET_EXECUTE is unset
+#     ... per-wallet table ...            TOTAL REMOVED   30797.70
+#     ... transactions by type ...        TOTAL REMOVED   44    31101.90
+#       of the DEPOSIT rows:
+#         9 carry a 'dev_' reference (fabricated, no payment) totalling 30575.00
+#         0 carry any other reference (a real Stripe charge would appear here)
+#     Nothing was changed. To execute, re-run with BOTH: ...
+#
+#   READ THE '0 carry any other reference' LINE. If it is NON-ZERO, the report
+#   says so in capitals and you should stop: real payment rows may exist.
+#
+#   If instead it prints "money-reset refused: TEST deployment — only SIMULATED
+#   may have its money state reset", real Stripe keys are now configured and
+#   this tool is closed for good. That is by design: do the reset BEFORE the
+#   keys go in, not after.
+#
+#   The app continues booting normally after the report — the dry run does not
+#   stop it. Ctrl-C when you have read it.
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 12. ONLY IF THE PLAN ABOVE IS WHAT YOU WANT: re-run with BOTH variables.
+$env:SBOX_MONEY_RESET_ENABLED = 'true'
+$env:SBOX_MONEY_RESET_EXECUTE = 'true'
+& 'C:\Program Files\Java\jdk-17\bin\java.exe' -jar build/libs/sboxmarket-1.0.0.jar
+#   PRINTS the same itemised plan first (always — a deletion whose only record
+#   is a total is not acceptable), then:
+#     MONEY RESET — EXECUTING (this run WILL delete)
+#     destructive execution : REQUESTED (SBOX_MONEY_RESET_EXECUTE=true)
+#     EXECUTING NOW.
+#     MONEY RESET: deleted 44 transaction rows (9 fabricated dev_ deposits
+#       totalling $30575.00) and zeroed $30797.70 across 9 wallet balances.
+#       Accounts, listings, items, trades and audit history preserved.
+#     MONEY RESET COMPLETE — audit row id=<n> eventType=MONEY_RESET
+```
+
+```powershell
+# ─────────────────────────────────────────────────────────────────────────────
+# 13. VERIFY THE RESULT MATCHES THE PLAN. Ctrl-C, then query.
+#     WALLETS      -> 9 rows, SUM(BALANCE) = 0.00     (rows KEPT, not deleted)
+#     TRANSACTIONS -> 0
+#     AUDIT_LOG    -> 38  (37 + exactly one MONEY_RESET row)
+#     STEAM_USERS  -> 7, ADMIN 1;  LISTINGS 254, ITEMS 39, TRADES 8 (untouched)
+#
+# 14. CLEAR THE VARIABLES and relaunch normally (step 8). Confirm they are gone:
+Get-ChildItem Env: | Where-Object { $_.Name -like 'SBOX_MONEY_RESET*' }
+#     MUST print nothing.
+```
+
+**Why the wallet ROWS are kept and only zeroed.** `SeedService.seed()`
+re-creates the demo wallet at $250.00 whenever `walletRepository.count() == 0`.
+That guard is an idempotency probe, not a gate — so a reset that DELETED wallet
+rows would re-fabricate $250 on the next boot by a path nobody would look at.
+Nine zeroed rows hold `count()` at 9 forever. **Rehearsed:** after executing the
+reset, a clean reboot of the app left `9` wallet rows at `0.00` and `0`
+transactions. The seeder did not re-mint.
+
+---
+
+## Rollback — each piece independently, and what it costs you
+
+| Piece | How to undo | What you lose |
+|---|---|---|
+| **H2CredentialGuard** | `ALTER USER SA SET PASSWORD ''` through the auto-server, then relaunch. **No rebuild needed** — the *old* jar contains no guard and boots against a blank credential. Rehearsed: old jar started in 13.53 s with zero `REFUSING TO START` lines. | The auto-server goes back to accepting `SA` with an empty password from anything on the box that can read `data/sboxmarket.lock.db`. |
+| **UnconfiguredAdminReporter** | Nothing to undo. It is read-only — a log banner and an admin-authed GET. To silence it, revert to the old jar. | The boot-time notice that admin id 33 is explained by nothing, and the `/api/admin/security/admin-grants` endpoint. No data changes either way. |
+| **MoneyResetService (not run)** | Nothing to undo. Inert without both variables. | Nothing. |
+| **MoneyResetService (executed)** | **Restore the backup from step 2.** There is no in-app undo and no compensating transaction — the ledger *is* the record. | Everything written to the database since that backup was taken. Take the backup immediately before, not the night before. |
+| **All three at once** | Relaunch `sboxmarket-1.0.0.jar` rebuilt from a commit before `28e6882`, or restore the step-2 backup and put the blank password back. | All of the above together. |
+
+**Verified both directions.** On the restored copy: blank → secret (`ALTER USER`)
+made the blank credential fail with `28000` and the secret succeed; secret →
+blank reversed it exactly, with the secret then failing `28000` and blank
+succeeding. Neither direction is one-way.
+
+---
+
+## The two existing backup zips are BLANK-PASSWORD copies of the whole database
+
+`C:\Users\WW\skinbox-backups\h2-sboxmarket-20260902T044625Z.zip` and
+`…20260902T075102Z.zip` were both taken while `SA`'s password was empty. Measured
+2026-09-02 — each extracts to a single `sboxmarket.mv.db` (368,640 and 380,928
+bytes) and each opened with a **blank password** and read `9` wallets totalling
+`30797.70`, `44` transactions and `7` users.
+
+**That is precisely what makes them a working rollback.** If they demanded the
+new secret, losing the secret would lose the database with it. They do not, so
+the way home is always open.
+
+**And it means the new password does not protect them.** Anyone who can read
+that directory gets every wallet row regardless of what `SA`'s password becomes.
+The migration protects the *live listening database*, not the archives beside it.
+Only backups taken *after* step 4 carry the new credential — and those will need
+the secret to read, so do not lose it once you start relying on them.
+
+Treat `C:\Users\WW\skinbox-backups` as being as sensitive as the database itself,
+because it is.
+
+---
+
+## Known gap: nothing backs up H2 on a schedule
+
+The daily `SkinBox DB Backup` task runs `deploy/backup-db.sh`, which is the
+**Postgres** path — `pg_dump` against the `sbox-pg` container. The app runs on
+H2, and Docker is not running on this box. `LastTaskResult` is **127** and
+`skinbox-backups\backup.log` is a run of `No such file or directory`. A
+path fix landed in `backup-db-hidden.vbs` on 2026-09-01 21:22, after that last
+run, so it has not yet been observed working — and even when it does run it will
+back up a Postgres container that does not exist.
+
+**So the H2 backup in step 2 is the only backup of the money database, and it is
+manual.** Do not skip step 2 on the assumption that last night's job covered it.
 
 ---
 
