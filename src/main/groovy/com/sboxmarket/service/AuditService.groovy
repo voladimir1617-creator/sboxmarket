@@ -78,6 +78,16 @@ class AuditService {
     // reconciliation (skipped seller credit, refund > debit shortfall,
     // trade-protection payout/clawback shortfall).
     static final String MANUAL_PAYOUT_REQUIRED = 'MANUAL_PAYOUT_REQUIRED'
+    /** A Trade Protection auto-payout that the platform DECLINED to make
+     *  automatically because it holds positive evidence contradicting the
+     *  claim — the Steam delivery log records the buyer accepting the offer.
+     *  Pairs with {@code TRADE_PROTECTION_CLAIMED}: without this row a
+     *  refused claim and an unprotected trade are both just silence, and
+     *  "we paid nobody because there was no cover" reads identically to
+     *  "we withheld a real cover on evidence". The cover is NOT cancelled —
+     *  it stays ACTIVE for staff to resolve either way — so this row is the
+     *  only record that an automatic payout was withheld and why. */
+    static final String TRADE_PROTECTION_CLAIM_REFUSED = 'TRADE_PROTECTION_CLAIM_REFUSED'
     /** The operator-run money reset ({@code MoneyResetService}) deleted the
      *  fabricated ledger and zeroed every wallet balance. Written with a NULL
      *  actor — nobody signed in did this; it was run from the process

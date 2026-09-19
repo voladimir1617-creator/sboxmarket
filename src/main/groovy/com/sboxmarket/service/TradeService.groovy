@@ -974,11 +974,65 @@ class TradeService {
         // via a direct admin claim). See the symmetric reverseClaim
         // logic in release() for the case where staff overturn an
         // already-paid buyer claim.
+        //
+        // SECOND gate, same family, buyer side: `actor == buyer` asks WHO
+        // filed, never WHETHER the complaint can already be disproved. The
+        // seller-side reasoning above names the exact scam it does not stop —
+        // "buyer accepted the Steam offer then ghosted buyerConfirm" — and
+        // only catches it when the SELLER is awake enough to file first. If
+        // the buyer files first, the same buyer keeps the item and is paid
+        // the full cover, out of platform funds, in the same second.
+        //
+        // We own the disproving signal. SteamDeliveryService writes the
+        // accepted POLL row to the delivery log BEFORE it attempts
+        // buyerConfirm, so a trade can sit in PENDING_BUYER_CONFIRM with
+        // `offerState = 'accepted'` already recorded against it — the buyer
+        // demonstrably has the item and the dispute window is still open.
+        // That row, and only that row, refuses the payout.
+        //
+        // THREE states, not two. "Received" is the only one that refuses:
+        //   received     — an accepted/delivered/verified offer row exists.
+        //   not received — a real offer row in any other state.   PAYS.
+        //   cannot tell  — no bot, no offer row, no repository, or a read
+        //                  that threw.                            PAYS.
+        // The middle and the last must not collapse into each other. The
+        // escrow fix three methods down makes "I cannot tell whether the
+        // buyer got the item" HOLD the seller's money; its mirror is that
+        // "I CAN tell they got it" refuses the buyer's claim. It is NOT
+        // that an unanswered question refuses the claim — there the
+        // unproven proposition is "the buyer is lying", and the loser of a
+        // wrong guess is a defrauded customer, which is the entire thing
+        // the cover is sold to prevent. Absent evidence must keep paying.
+        String receivedState = null
         if (actorUserId == t.buyerUserId) {
-            try {
-                tradeProtectionService?.autoClaim(t.id, 'Trade disputed by buyer')
-            } catch (Exception e) {
-                log.warn("Protection auto-claim failed for disputed trade ${t.id}: ${e.message}")
+            receivedState = acceptedDeliveryStateFor(t)
+            if (receivedState != null) {
+                // Refused, not denied. The cover stays ACTIVE and escrow
+                // stays frozen: the trade is DISPUTED, both parties and every
+                // admin are pinged below, and the auto-release sweep skips
+                // DISPUTED deliberately. Staff resolve it either way —
+                // forceCancelTrade refunds this buyer in full through
+                // cancel()'s refundBuyer, forceReleaseTrade pays the seller.
+                // All this gate removes is the INSTANT, unreviewed payout on
+                // a claim we can already contradict.
+                log.warn("Trade #{}: buyer {} filed a dispute but the delivery log records the " +
+                        "Steam offer as '{}' — protection auto-claim REFUSED, routed to staff",
+                        t.id, actorUserId, receivedState)
+                // A privilege/payout change that writes no audit row makes
+                // two very different histories look identical: "unprotected
+                // trade, nothing to claim" and "protected trade, claim
+                // refused on evidence" are both silence otherwise. Name the
+                // evidence in the row so the refusal is reviewable.
+                auditService?.log(AuditService.TRADE_PROTECTION_CLAIM_REFUSED, null, t.buyerUserId, t.id,
+                    "Auto-claim refused on buyer-filed dispute: Steam delivery log records " +
+                    "offerState='${receivedState}' for trade #${t.id}, i.e. the buyer received the " +
+                    "item. Cover left ACTIVE and escrow frozen for staff resolution.")
+            } else {
+                try {
+                    tradeProtectionService?.autoClaim(t.id, 'Trade disputed by buyer')
+                } catch (Exception e) {
+                    log.warn("Protection auto-claim failed for disputed trade ${t.id}: ${e.message}")
+                }
             }
         }
         // Admin fan-out (batch 500). Disputes used to land silently in
@@ -991,12 +1045,22 @@ class TradeService {
         if (notificationService != null && steamUserRepository != null) {
             try {
                 def filerLabel = (actorUserId == t.buyerUserId) ? 'Buyer' : 'Seller'
+                // The evidence has to reach the human at the moment of
+                // decision, not only the audit tab. The default staff remedy
+                // for a buyer dispute is forceCancelTrade, which refunds the
+                // buyer in full — on THIS trade that would hand over the item
+                // and the money, the same hole the auto-claim gate just
+                // closed, merely routed through a person. So say what we know.
+                def evidenceNote = receivedState == null ? '' :
+                    " ⚠ Our Steam delivery log records this offer as '${receivedState}'" +
+                    " — the buyer appears to HAVE the item. Protection auto-payout was refused;" +
+                    " check before refunding."
                 steamUserRepository.findByRole('ADMIN').each { admin ->
                     try {
                         notificationService.push(admin.id, 'TRADE_DISPUTED',
                             "⚠ New trade dispute · ${itemName}",
                             "${filerLabel} filed a dispute on trade #${t.id}" +
-                                (bodySnippet.isEmpty() ? '.' : ": ${bodySnippet}"),
+                                (bodySnippet.isEmpty() ? '.' : ": ${bodySnippet}") + evidenceNote,
                             t.id, '/admin?tab=trades&filter=DISPUTED')
                     } catch (Exception e) {
                         log.warn("TRADE_DISPUTED admin-push failed for uid=${admin.id}: ${e.message}")
@@ -1776,6 +1840,65 @@ class TradeService {
      *  means they have not. */
     static final List<String> ACCEPTED_OFFER_STATES =
             ['accepted', 'delivered', 'verified'].asImmutable()
+
+    /**
+     * POSITIVE evidence only: the Steam offer state recorded against this
+     * trade when — and only when — that state means the buyer took the item.
+     * Returns the state itself ({@code 'accepted'} / {@code 'delivered'} /
+     * {@code 'verified'}) so callers can name the evidence in an audit row,
+     * and {@code null} for every other answer.
+     *
+     * ── Why this is NOT {@code !botOfferAwaitingAcceptance(t)} ────────────
+     * There are THREE epistemic states here and negating a two-valued
+     * predicate collapses two of them:
+     *
+     *   received      an offer row in an ACCEPTED_OFFER_STATES state.
+     *   not received  an offer row in any other state.
+     *   cannot tell   no offer row, no repository, or a read that threw.
+     *
+     * {@code botOfferAwaitingAcceptance} answers a different question —
+     * "may I release the SELLER's money?" — and there both "not received"
+     * and "cannot tell" must HOLD, so it folds them together and returns
+     * true for both. Negating it would therefore return "received" for
+     * "cannot tell", and the caller that refuses a protection payout on
+     * "received" would refuse it for every manual trade, every deployment
+     * with no delivery log wired, and every transient database blip. That
+     * is the opposite mistake to the one the escrow fix corrected, and it is
+     * the worse one: holding a seller's money for review inconveniences a
+     * seller, while refusing the cover strands a defrauded buyer with
+     * nothing, which is the exact event the cover is sold against.
+     *
+     * So this method fails OPEN. Every unknown returns null and the claim
+     * proceeds.
+     *
+     * Deliberately NOT gated on {@code steamTradeBotService.enabled}: the
+     * evidence is the recorded acceptance, not the current configuration.
+     * An accepted offer row means Steam told us this buyer took this item,
+     * and unsetting STEAM_BOT_BASE_URL afterwards does not un-receive it —
+     * gating on the flag would put a money control behind an env var, which
+     * is how the delivery defect above stayed invisible in the first place.
+     * With no bot there are no offer rows anyway, so this costs nothing.
+     */
+    protected String acceptedDeliveryStateFor(Trade t) {
+        try {
+            if (t?.id == null) return null
+            // Not wired => cannot tell => pay. (Contrast the sweep, where the
+            // same absence HOLDS: opposite question, opposite safe default.)
+            if (steamDeliveryAttemptRepository == null) return null
+            def rows = steamDeliveryAttemptRepository.findLatestWithOffer(
+                    t.id, org.springframework.data.domain.PageRequest.of(0, 1))
+            // No offer row => the bot never shipped this one => a manual trade
+            // we cannot check => cannot tell => pay.
+            if (rows == null || rows.isEmpty()) return null
+            String state = rows.get(0)?.offerState?.toLowerCase()
+            return (state in ACCEPTED_OFFER_STATES) ? state : null
+        } catch (Exception e) {
+            log.warn("Trade #{}: delivery log unreadable ({}) — receipt UNKNOWN, so the " +
+                    "protection claim proceeds rather than being refused on an unknown",
+                    t?.id, e.message)
+            return null
+        }
+    }
 
     /**
      * True when the BOT sent this trade's Steam offer and Steam has never

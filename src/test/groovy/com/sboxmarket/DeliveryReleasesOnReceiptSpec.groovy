@@ -17,6 +17,7 @@ import com.sboxmarket.service.SteamDeliveryService
 import com.sboxmarket.service.SteamEscrowService
 import com.sboxmarket.service.SteamTradeBotService
 import com.sboxmarket.service.TextSanitizer
+import com.sboxmarket.service.TradeProtectionService
 import com.sboxmarket.service.TradeService
 import com.sboxmarket.service.security.AdminAuthorization
 import com.sboxmarket.service.security.BanGuard
@@ -48,11 +49,18 @@ import spock.lang.Unroll
  * ({@code STEAM_BOT_BASE_URL}). It is unreachable with the bot off, which is
  * exactly why it would have been discovered in production.
  *
- * ── The two halves ────────────────────────────────────────────────────────
+ * ── The three halves ──────────────────────────────────────────────────────
  * CUSTODY: the item is only DELIVERED once Steam says the buyer accepted, so
  * until then the return path can still recover it.
  * MONEY:   the auto-release sweep asks whether the buyer accepted before
- * paying, and holds when the answer is no.
+ * paying the SELLER, and holds when the answer is no.
+ * COVER:   the Trade Protection auto-payout asks the same delivery log before
+ * paying the BUYER, and refuses when the answer is yes.
+ *
+ * The last two are mirrors, not copies, and the difference is the whole point:
+ * the same "I cannot tell" HOLDS the seller's money and PAYS the buyer's
+ * cover, because a wrong guess costs a different person each time. See the
+ * three-state note above Half 3.
  */
 class DeliveryReleasesOnReceiptSpec extends Specification {
 
@@ -364,29 +372,262 @@ class DeliveryReleasesOnReceiptSpec extends Specification {
         stale.state == 'DISPUTED'
     }
 
-    // ── NOT LANDED: the buyer-side acceptance gate ─────────────────
+    // ══ Half 3 — COVER: positive receipt refuses the auto-payout ════════
     //
-    // The working tree of 2026-09-17 also carried ~100 lines of specs for a
-    // SECOND, buyer-side fix: `dispute()` fires
-    // `tradeProtectionService.autoClaim` on every BUYER-filed dispute, gated
-    // only on `actor == buyer` — existence and idempotency, not evidence. So a
-    // buyer who ACCEPTED the bot's Steam offer (offerState='accepted' sitting
-    // in the delivery log this very class reads) can dispute and be paid the
-    // full protection cover anyway. The platform owns the disproving signal
-    // and the payout path never asks for it.
+    // History, kept because it is the point. The working tree of 2026-09-17
+    // carried ~100 lines of specs for this buyer-side fix and they were NOT
+    // committed, because the gate they assert had never been written and
+    // because the tree they sat in did not compile at all (Spock forbids
+    // instance-field access from a `where:` block), so all 5,137 specs were
+    // unrunnable and that code was never once executed. The finding was
+    // recorded as prose here instead. Measured 2026-09-19 against that tree,
+    // the case below failed with `1 * autoClaim(7, 'Trade disputed by
+    // buyer')`. The gate is now built and these are the specs.
     //
-    // Those specs were NOT committed, because the gate they assert was never
-    // written: measured 2026-09-19 against this tree, the case
-    // "a buyer who ACCEPTED the Steam offer does not get an automatic
-    // protection payout" fails with `1 * autoClaim(7, 'Trade disputed by
-    // buyer')`. A spec for unbuilt work is not a guard; committing it green
-    // would have required building the gate, and changing who gets paid on a
-    // disputed trade is a money decision that deserves its own deliberate
-    // change rather than riding along with an escrow fix.
+    // THE HOLE: `dispute()` fired `tradeProtectionService.autoClaim` on every
+    // BUYER-filed dispute, gated only on `actor == buyer` — existence and
+    // idempotency, not evidence. A buyer who ACCEPTED the bot's Steam offer
+    // (offerState='accepted' sitting in the delivery log this very class
+    // reads) could dispute and be paid the full cover on top of the item. The
+    // platform owned the disproving signal and the payout path never asked.
     //
-    // Recorded here so the finding is not lost with the working tree. The
-    // asymmetry the design intended: only an AFFIRMATIVE acceptance may block
-    // the payout — no bot, no offer row, an unreadable log or an exception
-    // must all still pay, because there the unproven claim is "the buyer is
-    // lying" and the loser of a wrong guess is a defrauded customer.
+    // THE ASYMMETRY, and the reason this is three states rather than two:
+    // only an AFFIRMATIVE acceptance may refuse the payout. No bot, no offer
+    // row, an unwired repository or a read that throws must ALL still pay,
+    // because there the unproven proposition is "the buyer is lying" and the
+    // loser of a wrong guess is a defrauded customer — precisely what the
+    // cover is sold against. That is the exact inverse of Half 2 above, where
+    // the same unknowns HOLD the seller's money; the question is different,
+    // so the safe default is different. Collapsing "not received" into
+    // "cannot tell" is this repo's signature defect and is what each of the
+    // cannot-tell cases below exists to prevent.
+
+    TradeProtectionService protection            = Mock()
+    AuditService           coverAudit            = Mock()
+    NotificationService    coverNotifications    = Mock()
+    TradeRepository        coverTradeRepository  = Mock()
+    SteamUserRepository    coverUserRepository   = Mock()
+    SteamDeliveryAttemptRepository coverAttemptRepo = Mock()
+    /** Read through a closure stub rather than re-declared per spec: Spock
+     *  gives the FIRST matching declaration precedence, so a second
+     *  `findByRole('ADMIN') >> [...]` in a spec body would be silently
+     *  ignored in favour of the one in the builder below. */
+    List<SteamUser> coverAdmins = []
+
+    /** @param wireLog false builds the service with NO delivery-attempt
+     *                 repository at all — "cannot tell", not "not received". */
+    private TradeService disputer(boolean wireLog = true) {
+        def svc = new TradeService(
+            tradeRepository       : coverTradeRepository,
+            walletRepository      : walletRepository,
+            transactionRepository : transactionRepository,
+            notificationService   : coverNotifications,
+            auditService          : coverAudit,
+            banGuard              : banGuard,
+            adminAuthorization    : adminAuthorization,
+            steamUserRepository   : coverUserRepository,
+            textSanitizer         : textSanitizer,
+            tradeProtectionService: protection,
+            autoReleaseDays       : 8L,
+            sellerResponseDays    : 3L,
+            steamDeliveryAttemptRepository : wireLog ? coverAttemptRepo : null,
+            steamTradeBotService  : new SteamTradeBotService(baseUrl: 'http://127.0.0.1:4000')
+        )
+        coverTradeRepository.save(_) >> { Trade t -> t }
+        banGuard.assertNotBanned(_) >> {}
+        coverUserRepository.findByRole('ADMIN') >> { coverAdmins }
+        return svc
+    }
+
+    private Trade disputable() {
+        new Trade(id: 7L, listingId: 100L, itemId: 1L, itemName: 'AK-47 | Redline',
+                  buyerUserId: 10L, buyerWalletId: 500L,
+                  sellerUserId: 20L, sellerWalletId: 600L,
+                  price: new BigDecimal('50.00'), feeAmount: new BigDecimal('1.00'),
+                  state: 'PENDING_BUYER_CONFIRM')
+    }
+
+    // ── RECEIVED: the one state that refuses ────────────────────────
+
+    @Unroll
+    def "a buyer whose offer the log records as '#offerState' gets NO automatic payout"() {
+        given: "the delivery poller wrote the acceptance before buyerConfirm ran," +
+               " so the trade is still disputable while we already know the buyer has it"
+        def t = disputable()
+        def svc = disputer()
+        coverTradeRepository.findById(7L) >> Optional.of(t)
+        coverAttemptRepo.findLatestWithOffer(7L, _ as Pageable) >>
+                [new SteamDeliveryAttempt(id: 1L, tradeId: 7L, steamOfferId: '987',
+                                          offerState: offerState, phase: 'POLL', success: true)]
+
+        when:
+        svc.dispute(10L, 7L, 'never got it')
+
+        then: "the cover is NOT paid out automatically — the buyer has the item"
+        0 * protection.autoClaim(_, _)
+
+        and: "and the refusal is written down, naming the evidence, so that" +
+             " 'unprotected trade' and 'cover withheld on evidence' are not both silence"
+        // Matched on the interpolated field, not a bare word: "Steam delivery
+        // log" would satisfy a naive contains('delivered')-style check on its
+        // own, and a spec that passes on a substring of the text explaining
+        // the rule is not testing the rule.
+        1 * coverAudit.log(AuditService.TRADE_PROTECTION_CLAIM_REFUSED, null, 10L, 7L,
+                           { String d -> d.contains("offerState='${offerState}'") }) >> null
+
+        where:
+        offerState << ['accepted', 'delivered', 'verified']
+    }
+
+    // ── NOT RECEIVED: a real offer row saying anything else still pays ──
+
+    @Unroll
+    def "a buyer whose offer is only '#offerState' is still paid the cover"() {
+        given:
+        def t = disputable()
+        def svc = disputer()
+        coverTradeRepository.findById(7L) >> Optional.of(t)
+        coverAttemptRepo.findLatestWithOffer(7L, _ as Pageable) >>
+                [new SteamDeliveryAttempt(id: 1L, tradeId: 7L, steamOfferId: '987',
+                                          offerState: offerState, phase: 'POLL', success: true)]
+
+        when:
+        svc.dispute(10L, 7L, 'never got it')
+
+        then: "this buyer really did not receive the item — the cover is what they bought"
+        1 * protection.autoClaim(7L, 'Trade disputed by buyer')
+
+        and:
+        0 * coverAudit.log(AuditService.TRADE_PROTECTION_CLAIM_REFUSED, _, _, _, _)
+
+        where:
+        offerState << ['sent', 'active', 'needs_confirmation', 'declined',
+                       'expired', 'canceled', 'in_escrow', null]
+    }
+
+    // ── CANNOT TELL: every unknown keeps paying ─────────────────────
+    //
+    // Four different ways of not knowing. Each is a separate case because the
+    // cheap implementation — negating the sweep's `botOfferAwaitingAcceptance`
+    // — returns "received" for all four and would strand every one of these
+    // claimants.
+
+    def "CANNOT TELL: no offer row at all (a manual trade) still pays"() {
+        given: "the seller shipped it themselves; the bot never sent an offer"
+        def t = disputable()
+        def svc = disputer()
+        coverTradeRepository.findById(7L) >> Optional.of(t)
+        coverAttemptRepo.findLatestWithOffer(7L, _ as Pageable) >> []
+
+        when:
+        svc.dispute(10L, 7L, 'never got it')
+
+        then: "an absent delivery log reads as CANNOT TELL, never as RECEIVED"
+        1 * protection.autoClaim(7L, 'Trade disputed by buyer')
+        0 * coverAudit.log(AuditService.TRADE_PROTECTION_CLAIM_REFUSED, _, _, _, _)
+    }
+
+    def "CANNOT TELL: the delivery log is not wired at all and it still pays"() {
+        given: "the bot is live but no attempt repository is injected"
+        def t = disputable()
+        def svc = disputer(false)
+        coverTradeRepository.findById(7L) >> Optional.of(t)
+
+        when:
+        svc.dispute(10L, 7L, 'never got it')
+
+        then: "the same epistemic state as the throw below, and the same answer." +
+              " Half 2 makes this HOLD the seller's money; here it must PAY the buyer," +
+              " because the question is the other way round."
+        1 * protection.autoClaim(7L, 'Trade disputed by buyer')
+        0 * coverAudit.log(AuditService.TRADE_PROTECTION_CLAIM_REFUSED, _, _, _, _)
+    }
+
+    def "CANNOT TELL: the delivery log throws and it still pays"() {
+        given:
+        def t = disputable()
+        def svc = disputer()
+        coverTradeRepository.findById(7L) >> Optional.of(t)
+        coverAttemptRepo.findLatestWithOffer(7L, _ as Pageable) >> { throw new RuntimeException('db down') }
+
+        when:
+        svc.dispute(10L, 7L, 'never got it')
+
+        then: "fail OPEN. Refusing a cover on a database blip strands a defrauded" +
+              " buyer with nothing — strictly worse than the hole being closed."
+        1 * protection.autoClaim(7L, 'Trade disputed by buyer')
+        0 * coverAudit.log(AuditService.TRADE_PROTECTION_CLAIM_REFUSED, _, _, _, _)
+    }
+
+    def "CANNOT TELL: a row with no offer state at all still pays"() {
+        given: "a delivery attempt exists but Steam never told us what became of it"
+        def t = disputable()
+        def svc = disputer()
+        coverTradeRepository.findById(7L) >> Optional.of(t)
+        coverAttemptRepo.findLatestWithOffer(7L, _ as Pageable) >>
+                [new SteamDeliveryAttempt(id: 1L, tradeId: 7L, steamOfferId: '987',
+                                          offerState: null, phase: 'POLL', success: true)]
+
+        when:
+        svc.dispute(10L, 7L, 'never got it')
+
+        then:
+        1 * protection.autoClaim(7L, 'Trade disputed by buyer')
+    }
+
+    // ── The gate fires HERE and nowhere else ────────────────────────
+
+    def "a SELLER-filed dispute still never auto-claims, accepted offer or not"() {
+        given: "the pre-existing actor gate, unchanged by this fix"
+        def t = disputable()
+        def svc = disputer()
+        coverTradeRepository.findById(7L) >> Optional.of(t)
+
+        when:
+        svc.dispute(20L, 7L, 'buyer took it and ghosted')
+
+        then:
+        0 * protection.autoClaim(_, _)
+
+        and: "and it is not recorded as an evidence-based refusal either — the" +
+             " seller-side gate is about WHO filed, and conflating the two rows" +
+             " would make the audit log lie about why nobody was paid"
+        0 * coverAudit.log(AuditService.TRADE_PROTECTION_CLAIM_REFUSED, _, _, _, _)
+        0 * coverAttemptRepo.findLatestWithOffer(_, _)
+    }
+
+    // ── Refused is not denied: it must reach a human ────────────────
+
+    def "a refused claim still surfaces for manual resolution rather than vanishing"() {
+        given:
+        def t = disputable()
+        def svc = disputer()
+        coverTradeRepository.findById(7L) >> Optional.of(t)
+        coverAttemptRepo.findLatestWithOffer(7L, _ as Pageable) >>
+                [new SteamDeliveryAttempt(id: 1L, tradeId: 7L, steamOfferId: '987',
+                                          offerState: 'accepted', phase: 'POLL', success: true)]
+        coverAdmins = [new SteamUser(id: 99L)]
+
+        when:
+        svc.dispute(10L, 7L, 'never got it')
+
+        then: "the trade lands in the state staff adjudicate, with the money still" +
+              " frozen in escrow and the cover still ACTIVE — AdminService" +
+              " forceReleaseTrade / forceCancelTrade both accept DISPUTED, and" +
+              " forceCancelTrade refunds this buyer in full if staff rule for them"
+        t.state == 'DISPUTED'
+        0 * protection.autoClaim(_, _)
+        0 * protection.expire(_)
+
+        and: "the counterparty is told a dispute is live against them"
+        1 * coverNotifications.push(20L, 'TRADE_DISPUTED', _, _, 7L, _)
+
+        and: "and every admin is pinged WITH the evidence, because the default staff" +
+             " remedy for a buyer dispute is force-cancel-and-refund, which on this" +
+             " trade would hand over the item and the money — the very hole just" +
+             " closed, merely routed through a person"
+        1 * coverNotifications.push(99L, 'TRADE_DISPUTED', _,
+                { String body -> body.contains("'accepted'") && body.contains('refused') },
+                7L, '/admin?tab=trades&filter=DISPUTED')
+    }
 }
