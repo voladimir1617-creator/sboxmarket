@@ -305,3 +305,100 @@ attribute pipeline, which is the product CSFloat is named after.
   (Unturned, Steam cards, PAYDAY 2, Killing Floor 2) are **lower bounds**.
   Correcting them lowers avg take further, so the direction is safe — TF2's
   correction moved it from $0.1117 to $0.0059, a 19x error caught before use.
+
+---
+
+# RE-MEASURED 2026-09-19 — the growth question above is answered: NO
+
+`FINDINGS.md:292` left one thing open: *"Whether s&box is growing. Two observations
+days apart (200 -> 203 items) is not a growth measurement."* Eighteen days later it
+is one. Data and scripts: `../2026-09-19-sbox-resize/`.
+
+**Same method, not a new one.** The 2026-09-01 capture was re-run verbatim —
+`census.py` with `sort_column=price&sort_dir=desc`, full census (stride 1,
+22 pages, **zero aborts**), then `fees.py` (shipped `TradeService` 2% HALF_UP +
+`PlatformLedgerService` Stripe rates) and `turnover.py`/`gmv2.py` at k=45. The
+pipeline reproduces both archived headlines exactly — $699.50 whole-book-once and
+158 trades/day against the published 156 (the 2-trade gap is `total_items` 203 vs
+the 201 `final2.py` used) — so the two columns below are comparable.
+
+| MEASURED | 2026-09-01 | 2026-09-19 | multiple |
+|---|---|---|---|
+| distinct items (`total_count`) | 203 | **214** | x1.054 |
+| distinct items in census | 201 | 210 | x1.045 |
+| standing listings | 10,930 | **11,098** | x1.015 |
+| book value (lowest ask) | $35,034.56 | **$30,793.39** | **x0.879** |
+| **revenue if the WHOLE book trades once** | **$699.50** | **$617.57** | **x0.883** |
+| avg take per standing listing | $0.0640 | $0.0556 | x0.870 |
+| median item price | $1.61 | $1.68 | x1.043 |
+| trades/day (n=45, 90% CI) | 158 (108-212) | 171 (86-281) | x1.084, **CIs overlap** |
+| Steam GMV/yr (90% CI) | $76,318 ($39k-$123k) | $112,044 ($35k-$219k) | **CIs overlap** |
+
+**The book shrank 12%.** Not a fat-tail artefact: across the **197 items present in
+both captures** the per-item lowest ask moved by a median factor of **0.844** (p10
+0.528, p90 1.278). Item *variety* grew — 13 new names appeared (a Zipper Jacket set,
+Pirate Hat, Hockey Helmet, Donut/Golf Backpack), 4 left — while item *value* fell.
+More SKUs, less money.
+
+**Turnover did not measurably change.** 158 -> 171 trades/day looks like +8% and is
+not distinguishable from zero: the 90% bootstrap CIs (108-212, 86-281) overlap
+almost entirely, and the fresh sample had *fewer* items selling (18 of 45 vs 22 of
+45). Per `FINDINGS.md:73`, the closure rests on the trade count alone, and the trade
+count has not moved.
+
+**Player base — decaying, from a permitted source.** s&box released **2026-04-28**
+(store page, MEASURED 2026-09-19). Steam's own review histogram
+(`store.steampowered.com/appreviewhistogram/590830`, a robots-permitted path)
+publishes weekly counts for the whole life of the game: **3,511** in launch week,
+then 524, 307, 181, 123, 91, 77, 63, 42, 50, 38, 37, 35, 22, 31, 20, 19, 26, **28**
+(the week this was first measured), 24, 39 (partial). Flat post-launch tail at
+~1/130th of launch, 128 reviews in the last 30 days. No inflection.
+
+**Sources checked before fetching, 2026-09-19:**
+- `steamcommunity.com/robots.txt` — `Disallow: /actions/ /linkfilter/ /tradeoffer/
+  /trade/ /email/`. `/market/` is not disallowed; nothing blocked was fetched.
+- `store.steampowered.com/robots.txt` — `Disallow: /share/ /news/externalpost/
+  /account/... /login/?*guestpasskey= /join/?*redir= /email/ /widget/`. `/app/` and
+  `/appreviewhistogram/` are not disallowed.
+- Steam Subscriber Agreement (49,463 chars) searched for robot/spider/scrape/crawl/
+  automated/data mining/harvest: the only "automated" clauses concern cheating,
+  account creation and gameplay statistics. Nothing forbids reading public pages.
+- **`api.steampowered.com/robots.txt` — `User-Agent: * / Disallow: /`.** The official
+  `GetNumberOfCurrentPlayers` endpoint is therefore **off-limits**; the concurrent-
+  player figure quoted in the prior pass ("39.2 listings per concurrent player") has
+  no recorded source in this repo and was **not** reproduced. The review histogram is
+  used instead.
+- **SteamDB — permissive robots.txt, refused in terms.** Its FAQ: *"We also do not
+  allow scraping/crawling on SteamDB"* and, for research, *"Not without permission."*
+  Not fetched beyond that policy page.
+- `sbox.game/robots.txt` allows `/` (bar `/t/`, `/ugc/`) and ships an `llms.txt`, but
+  the site is a client-rendered shell (4,101 bytes) and publishes no player or item
+  counts server-side.
+
+**The rail constraint is unchanged and survives every take rate.** On the new median
+$1.68 item the buyer pays $2.03 and the seller banks $1.40; **Stripe takes $0.60, the
+platform $0.03 — 20x.** Raising the take does not fix it: at 10% the rail is still
+3.5x the business, and at **Steam's own 15%** — an upper bound on any take rate — the
+platform gets $0.25 against the rail's $0.60, still 2.4x.
+
+**The bar (>= 0.0100 $/mo per $ of capital): FAILS, and the gap widened.**
+
+| cost base | trades/day needed at the shipped 2% | = share of the market |
+|---|---|---|
+| $20/mo hosting | 18 | 10.6% |
+| $500/mo | 455 | **IMPOSSIBLE — 2.7x the whole market** |
+| $2,500/mo | 2,275 | **IMPOSSIBLE** |
+
+100% capture of every real s&box trade at 2% is **$188/mo**; at Steam's own 15% it is
+**$1,402/mo**, which needs **35.7% of all s&box Steam GMV** merely to cover $500/mo.
+Against $10,000 of capital the gross ceiling is 0.0188 $/mo per $ before any cost at
+all, and **−0.0312 net of a $500/mo cost base**. There is no capital figure at which
+this clears the bar, because revenue is capped below the operating cost.
+
+**VERDICT: the market did not grow. It shrank.** The number that closed this project
+is now **$617.57** (MEASURED 2026-09-19, full census, n=210 items / 11,098 listings,
+zero aborts) against **$691** originally and **$699.50** on re-census 18 days ago —
+**x0.883**. Do not re-measure this a third time on the size hypothesis. The only thing
+that would reopen it is the thing `skinbox-market-is-too-small-to-pay` already names:
+per-asset pricing (float, pattern, phase, stickers) on a different game, which is a
+different product.
