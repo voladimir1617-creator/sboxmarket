@@ -1,0 +1,914 @@
+{"_start": 0, "h": "Advanced Jewel of Life", "p": 49, "n": 131}
+{"_start": 0, "h": "Advanced Jewel of Wind", "p": 42, "n": 76}
+{"_start": 0, "h": "Advanced Jewel of Strife", "p": 47, "n": 158}
+{"_start": 0, "h": "High-Grade Jewel of Life", "p": 15, "n": 428}
+{"_start": 0, "h": "Ancient Wisdom Bracelet (Tier 4)", "p": 61, "n": 55}
+{"_start": 0, "h": "Advanced Jewel of Fortitude", "p": 38, "n": 44}
+{"_start": 0, "h": "High-Grade Jewel of Strife", "p": 13, "n": 637}
+{"_start": 0, "h": "Ancient Hero's Brooch (Tier 4)", "p": 61, "n": 50}
+{"_start": 0, "h": "Diamond Pouch", "p": 772, "n": 46}
+{"_start": 0, "h": "Ancient Blessing Necklace (Tier 4)", "p": 60, "n": 44}
+{"_start": 100, "h": "Obsidian Staff (Tier 5)", "p": 39, "n": 45}
+{"_start": 100, "h": "Elite Mage's Boots (Tier 5)", "p": 26, "n": 78}
+{"_start": 100, "h": "Elite Mage's Pauldrons (Tier 5)", "p": 25, "n": 85}
+{"_start": 100, "h": "Hunter Cloak (Tier 3)", "p": 3, "n": 6341}
+{"_start": 100, "h": "Warrior's Cloak (Tier 5)", "p": 31, "n": 51}
+{"_start": 100, "h": "White Bow (Tier 5)", "p": 26, "n": 63}
+{"_start": 100, "h": "Elite Mage's Robe (Tier 5)", "p": 26, "n": 68}
+{"_start": 100, "h": "Silver Rounds (Tier 5)", "p": 27, "n": 70}
+{"_start": 100, "h": "Dark Soldier Gloves (Tier 5)", "p": 34, "n": 30}
+{"_start": 100, "h": "Guardian's Pauldrons (Tier 5)", "p": 26, "n": 69}
+{"_start": 200, "h": "Heroic Gale Ring (Tier 5)", "p": 335, "n": 15}
+{"_start": 200, "h": "Ancient Wisdom Bracelet (Tier 3)", "p": 18, "n": 39}
+{"_start": 200, "h": "Ancient Focus Belt (Tier 5)", "p": 313, "n": 10}
+{"_start": 200, "h": "Apprentice's Spellbook", "p": 295, "n": 2}
+{"_start": 200, "h": "Worn Gale Ring (Tier 3)", "p": 7, "n": 108}
+{"_start": 200, "h": "Spellbook of Wisdom (Tier 4)", "p": 6, "n": 110}
+{"_start": 200, "h": "Rare Wisdom Bracelet (Tier 3)", "p": 12, "n": 58}
+{"_start": 200, "h": "Watcher's Gloves (Tier 4)", "p": 6, "n": 129}
+{"_start": 200, "h": "Special Jewel of Destruction", "p": 53, "n": 54}
+{"_start": 200, "h": "Warrior's Armor (Tier 4)", "p": 10, "n": 81}
+{"_start": 300, "h": "White Bow (Tier 4)", "p": 9, "n": 57}
+{"_start": 300, "h": "Warrior's Shield (Tier 6)", "p": 239, "n": 6}
+{"_start": 300, "h": "Warrior's Armor (Tier 3)", "p": 6, "n": 58}
+{"_start": 300, "h": "Varisada (Tier 5)", "p": 39, "n": 38}
+{"_start": 300, "h": "Heroic Focus Belt (Tier 3)", "p": 38, "n": 4}
+{"_start": 300, "h": "High-Grade Jewel of Steel", "p": 5, "n": 803}
+{"_start": 300, "h": "Ancient Gale Ring (Tier 5)", "p": 339, "n": 8}
+{"_start": 300, "h": "Ancient Hero's Brooch (Tier 5)", "p": 394, "n": 2}
+{"_start": 300, "h": "Ancient Wisdom Bracelet (Tier 5)", "p": 591, "n": 4}
+{"_start": 300, "h": "Crossbow (Tier 4)", "p": 4, "n": 162}
+{"_start": 400, "h": "Durendal (Tier 6)", "p": 1361, "n": 2}
+{"_start": 400, "h": "Noble Helmet (Tier 4)", "p": 39, "n": 6}
+{"_start": 400, "h": "Dark Soldier Gloves (Tier 6)", "p": 255, "n": 12}
+{"_start": 400, "h": "Ornate Quiver (Tier 3)", "p": 6, "n": 16}
+{"_start": 400, "h": "Radiant Wisdom Bracelet (Tier 3)", "p": 9, "n": 97}
+{"_start": 400, "h": "Imperial Sword (Tier 6)", "p": 218, "n": 4}
+{"_start": 400, "h": "Elite Mage's Boots (Tier 6)", "p": 218, "n": 11}
+{"_start": 400, "h": "Watcher's Quiver (Tier 6)", "p": 1423, "n": 2}
+{"_start": 400, "h": "Astria Staff (Tier 5)", "p": 57, "n": 14}
+{"_start": 400, "h": "Elite Mage's Hat (Tier 6)", "p": 375, "n": 9}
+{"_start": 500, "h": "Sturdy Wisdom Bracelet (Tier 3)", "p": 7, "n": 53}
+{"_start": 500, "h": "Hellfire Bow (Tier 6)", "p": 311, "n": 6}
+{"_start": 500, "h": "Superior Jewel of Wind", "p": 1258, "n": 2}
+{"_start": 500, "h": "Legendary Blessing Necklace (Tier 4)", "p": 173, "n": 4}
+{"_start": 500, "h": "Staff of Enlightenment (Tier 5)", "p": 158, "n": 1}
+{"_start": 500, "h": "Legendary Guardian Earrings (Tier 5)", "p": 761, "n": 1}
+{"_start": 500, "h": "Crystal Staff (Tier 6)", "p": 242, "n": 7}
+{"_start": 500, "h": "Assassin's Boots (Tier 4)", "p": 36, "n": 3}
+{"_start": 500, "h": "Apprentice Mage's Cloak (Tier 5)", "p": 16, "n": 23}
+{"_start": 500, "h": "Noble Armor (Tier 4)", "p": 31, "n": 7}
+{"_start": 600, "h": "Triple Crossbow (Tier 5)", "p": 63, "n": 6}
+{"_start": 600, "h": "Epic Hero's Brooch (Tier 5)", "p": 363, "n": 11}
+{"_start": 600, "h": "Noble Cloak (Tier 6)", "p": 1097, "n": 4}
+{"_start": 600, "h": "Heroic Wisdom Bracelet (Tier 5)", "p": 357, "n": 13}
+{"_start": 600, "h": "Valentine (Tier 3)", "p": 7, "n": 54}
+{"_start": 600, "h": "Royal Mage's Cloak (Tier 6)", "p": 190, "n": 3}
+{"_start": 600, "h": "Technique Shield (Tier 6)", "p": 284, "n": 20}
+{"_start": 600, "h": "Handgun (Tier 6)", "p": 356, "n": 6}
+{"_start": 600, "h": "Warrior's Gloves (Tier 3)", "p": 6, "n": 71}
+{"_start": 600, "h": "Varisada (Tier 6)", "p": 310, "n": 8}
+{"_start": 700, "h": "Gunpowder (Tier 5)", "p": 19, "n": 10}
+{"_start": 700, "h": "Technique Cloak (Tier 4)", "p": 15, "n": 16}
+{"_start": 700, "h": "Elite Pauldrons (Tier 6)", "p": 881, "n": 7}
+{"_start": 700, "h": "Dark Soldier Pauldrons (Tier 6)", "p": 452, "n": 11}
+{"_start": 700, "h": "Elite Armor (Tier 6)", "p": 921, "n": 2}
+{"_start": 700, "h": "Topaz Staff (Tier 5)", "p": 16, "n": 59}
+{"_start": 700, "h": "Worn Gale Ring (Tier 5)", "p": 77, "n": 14}
+{"_start": 700, "h": "Sturdy Shield (Tier 5)", "p": 18, "n": 25}
+{"_start": 700, "h": "Silver Gun (Tier 6)", "p": 621, "n": 6}
+{"_start": 700, "h": "Ancient Focus Belt (Tier 3)", "p": 17, "n": 41}
+{"_start": 800, "h": "Royal Helmet (Tier 6)", "p": 633, "n": 2}
+{"_start": 800, "h": "Legendary Hero's Brooch (Tier 4)", "p": 190, "n": 1}
+{"_start": 800, "h": "Technique Gloves (Tier 6)", "p": 365, "n": 15}
+{"_start": 800, "h": "Watcher's Boots (Tier 6)", "p": 179, "n": 10}
+{"_start": 800, "h": "Spellbook of Spirits (Tier 6)", "p": 243, "n": 5}
+{"_start": 800, "h": "Warrior's Shield (Tier 3)", "p": 4, "n": 56}
+{"_start": 800, "h": "Rare Blessing Necklace (Tier 3)", "p": 13, "n": 113}
+{"_start": 800, "h": "Staff of Radiance (Tier 5)", "p": 28, "n": 31}
+{"_start": 800, "h": "Special Jewel of Elements", "p": 50, "n": 45}
+{"_start": 800, "h": "Royal Mage's Cloak (Tier 4)", "p": 5, "n": 92}
+{"_start": 900, "h": "Mana Shield (Tier 5)", "p": 16, "n": 35}
+{"_start": 900, "h": "Heroic Focus Belt (Tier 4)", "p": 82, "n": 25}
+{"_start": 900, "h": "Worn Armor (Tier 3)", "p": 4, "n": 3090}
+{"_start": 900, "h": "Executioner's Sword (Tier 4)", "p": 4, "n": 257}
+{"_start": 900, "h": "Topaz Staff (Tier 3)", "p": 4, "n": 468}
+{"_start": 900, "h": "Ranger Helmet (Tier 3)", "p": 4, "n": 203}
+{"_start": 900, "h": "Apprentice Mage's Cloak (Tier 4)", "p": 4, "n": 62}
+{"_start": 900, "h": "Gold-Patterned Shield (Tier 4)", "p": 5, "n": 216}
+{"_start": 900, "h": "Imperial Sword (Tier 5)", "p": 16, "n": 37}
+{"_start": 900, "h": "Watcher's Pauldrons (Tier 6)", "p": 155, "n": 7}
+{"_start": 10, "h": "High-Grade Jewel of Elements", "p": 5, "n": 539}
+{"_start": 10, "h": "High-Grade Jewel of Wind", "p": 13, "n": 439}
+{"_start": 10, "h": "Ancient Gale Ring (Tier 4)", "p": 64, "n": 44}
+{"_start": 10, "h": "Rare Hero's Brooch (Tier 5)", "p": 169, "n": 23}
+{"_start": 10, "h": "Special Jewel of Fortitude", "p": 437, "n": 1}
+{"_start": 10, "h": "Advanced Jewel of Valor", "p": 34, "n": 84}
+{"_start": 10, "h": "Ranger Pauldrons", "p": 469, "n": 3}
+{"_start": 10, "h": "Gunpowder Shot", "p": 253, "n": 5}
+{"_start": 10, "h": "Rare Focus Belt (Tier 4)", "p": 31, "n": 44}
+{"_start": 10, "h": "Ranger Helmet", "p": 514, "n": 3}
+{"_start": 20, "h": "Special Jewel of Arcana", "p": 92, "n": 13}
+{"_start": 20, "h": "Advanced Jewel of Wildness", "p": 16, "n": 83}
+{"_start": 20, "h": "High-Grade Jewel of Luck", "p": 14, "n": 206}
+{"_start": 20, "h": "Sealed Spellbook (Tier 5)", "p": 27, "n": 56}
+{"_start": 20, "h": "High-Grade Jewel of Fortitude", "p": 9, "n": 486}
+{"_start": 20, "h": "Uni Bow (Tier 5)", "p": 83, "n": 37}
+{"_start": 20, "h": "Dark Sword (Tier 5)", "p": 25, "n": 85}
+{"_start": 20, "h": "Jeweled Staff (Tier 5)", "p": 24, "n": 96}
+{"_start": 20, "h": "Rare Blessing Necklace (Tier 4)", "p": 32, "n": 72}
+{"_start": 20, "h": "Elite Pauldrons (Tier 5)", "p": 51, "n": 29}
+{"_start": 30, "h": "Ranger Armor", "p": 151, "n": 2}
+{"_start": 30, "h": "Rare Hero's Brooch (Tier 4)", "p": 30, "n": 65}
+{"_start": 30, "h": "Advanced Jewel of Destruction", "p": 15, "n": 167}
+{"_start": 30, "h": "Great Sword", "p": 43, "n": 3}
+{"_start": 30, "h": "High-Grade Jewel of Abundance", "p": 11, "n": 187}
+{"_start": 30, "h": "Elite Mage's Cloak (Tier 5)", "p": 26, "n": 69}
+{"_start": 30, "h": "Advanced Jewel of Luck", "p": 42, "n": 115}
+{"_start": 30, "h": "Valentine (Tier 5)", "p": 40, "n": 80}
+{"_start": 30, "h": "Topaz Staff", "p": 177, "n": 6}
+{"_start": 30, "h": "Crossbow", "p": 301, "n": 3}
+{"_start": 40, "h": "High-Grade Jewel of Valor", "p": 8, "n": 360}
+{"_start": 40, "h": "Silver Gun (Tier 5)", "p": 36, "n": 81}
+{"_start": 40, "h": "Hunter Bow", "p": 21, "n": 7}
+{"_start": 40, "h": "High-Grade Jewel of Wildness", "p": 5, "n": 798}
+{"_start": 40, "h": "Rare Gale Ring (Tier 5)", "p": 157, "n": 21}
+{"_start": 40, "h": "Advanced Jewel of Steel", "p": 15, "n": 159}
+{"_start": 40, "h": "Ornate Quiver (Tier 5)", "p": 93, "n": 27}
+{"_start": 40, "h": "Advanced Jewel of Elements", "p": 15, "n": 114}
+{"_start": 40, "h": "Rare Wisdom Bracelet (Tier 4)", "p": 32, "n": 76}
+{"_start": 40, "h": "Ancient-Patterned Shield (Tier 5)", "p": 24, "n": 88}
+{"_start": 50, "h": "Ranger Gloves", "p": 88, "n": 2}
+{"_start": 50, "h": "Ranger Boots", "p": 62, "n": 7}
+{"_start": 50, "h": "Special Jewel of Abundance", "p": 104, "n": 28}
+{"_start": 50, "h": "Warrior's Armor (Tier 6)", "p": 253, "n": 9}
+{"_start": 50, "h": "Elite Mage's Gloves (Tier 5)", "p": 28, "n": 63}
+{"_start": 50, "h": "Rare Wisdom Bracelet (Tier 5)", "p": 155, "n": 33}
+{"_start": 50, "h": "Warrior's Mask (Tier 5)", "p": 27, "n": 62}
+{"_start": 50, "h": "Crescent Staff (Tier 5)", "p": 23, "n": 73}
+{"_start": 50, "h": "Ancient Focus Belt (Tier 4)", "p": 60, "n": 50}
+{"_start": 50, "h": "Special Jewel of Wind", "p": 245, "n": 10}
+{"_start": 60, "h": "Elite Gloves (Tier 5)", "p": 53, "n": 32}
+{"_start": 60, "h": "Elite Armor (Tier 5)", "p": 53, "n": 30}
+{"_start": 60, "h": "Radiant Gale Ring (Tier 4)", "p": 19, "n": 62}
+{"_start": 60, "h": "Advanced Jewel of Arcana", "p": 15, "n": 72}
+{"_start": 60, "h": "High-Grade Jewel of Magic Resistance", "p": 5, "n": 659}
+{"_start": 60, "h": "Elite Cloak (Tier 5)", "p": 42, "n": 52}
+{"_start": 60, "h": "Superior Spellbook (Tier 5)", "p": 39, "n": 41}
+{"_start": 60, "h": "Green-Feather Quiver (Tier 5)", "p": 29, "n": 84}
+{"_start": 60, "h": "Warrior's Gloves (Tier 5)", "p": 28, "n": 58}
+{"_start": 60, "h": "Advanced Jewel of Magic Resistance", "p": 15, "n": 172}
+{"_start": 70, "h": "Elite Helmet (Tier 5)", "p": 46, "n": 41}
+{"_start": 70, "h": "Guardian's Cloak (Tier 5)", "p": 28, "n": 73}
+{"_start": 70, "h": "Warrior's Shield (Tier 5)", "p": 27, "n": 54}
+{"_start": 70, "h": "Elite Mage's Hat (Tier 5)", "p": 28, "n": 63}
+{"_start": 70, "h": "Warrior's Boots (Tier 5)", "p": 27, "n": 62}
+{"_start": 70, "h": "Crystal Staff (Tier 5)", "p": 27, "n": 68}
+{"_start": 70, "h": "Black Iron Sword (Tier 5)", "p": 26, "n": 78}
+{"_start": 70, "h": "Advanced Jewel of Abundance", "p": 19, "n": 73}
+{"_start": 70, "h": "Elite Boots (Tier 5)", "p": 39, "n": 43}
+{"_start": 70, "h": "Shining Hero's Brooch (Tier 5)", "p": 94, "n": 28}
+{"_start": 80, "h": "Radiant Guardian Earrings (Tier 4)", "p": 19, "n": 76}
+{"_start": 80, "h": "Shining Hero's Brooch (Tier 4)", "p": 19, "n": 72}
+{"_start": 80, "h": "Rare Guardian Earrings (Tier 4)", "p": 32, "n": 76}
+{"_start": 80, "h": "Advanced Jewel of Resistance", "p": 15, "n": 101}
+{"_start": 80, "h": "Warrior's Pauldrons (Tier 5)", "p": 30, "n": 41}
+{"_start": 80, "h": "Hunter Pauldrons", "p": 18, "n": 7}
+{"_start": 80, "h": "Rare Gale Ring (Tier 4)", "p": 31, "n": 66}
+{"_start": 80, "h": "Light Helmet (Tier 5)", "p": 16, "n": 62}
+{"_start": 80, "h": "Leather Quiver", "p": 85, "n": 3}
+{"_start": 80, "h": "Rune Spellbook", "p": 63, "n": 7}
+{"_start": 90, "h": "Advanced Ammo (Tier 5)", "p": 49, "n": 52}
+{"_start": 90, "h": "Executioner's Sword (Tier 5)", "p": 20, "n": 68}
+{"_start": 90, "h": "Gold-Patterned Shield (Tier 5)", "p": 18, "n": 61}
+{"_start": 90, "h": "Handgun (Tier 4)", "p": 5, "n": 222}
+{"_start": 90, "h": "High-Grade Jewel of Arcana", "p": 6, "n": 707}
+{"_start": 90, "h": "Gunpowder Shot (Tier 5)", "p": 18, "n": 43}
+{"_start": 90, "h": "Watcher's Gloves (Tier 5)", "p": 21, "n": 51}
+{"_start": 90, "h": "Light Pauldrons (Tier 5)", "p": 18, "n": 51}
+{"_start": 90, "h": "Advanced Quiver (Tier 5)", "p": 16, "n": 58}
+{"_start": 90, "h": "Light Gloves (Tier 5)", "p": 15, "n": 56}
+{"_start": 110, "h": "Tri-Color Ammo (Tier 5)", "p": 40, "n": 32}
+{"_start": 110, "h": "Radiant Focus Belt (Tier 4)", "p": 21, "n": 60}
+{"_start": 110, "h": "Radiant Wisdom Bracelet (Tier 4)", "p": 19, "n": 62}
+{"_start": 110, "h": "Radiant Blessing Necklace (Tier 4)", "p": 20, "n": 70}
+{"_start": 110, "h": "Guardian's Boots (Tier 5)", "p": 26, "n": 64}
+{"_start": 110, "h": "Iron Sword (Tier 4)", "p": 4, "n": 61}
+{"_start": 110, "h": "Spellbook of Wisdom (Tier 5)", "p": 26, "n": 86}
+{"_start": 110, "h": "Technique Armor (Tier 4)", "p": 12, "n": 15}
+{"_start": 110, "h": "Light Armor (Tier 5)", "p": 18, "n": 60}
+{"_start": 110, "h": "Spellbook of Magic (Tier 5)", "p": 16, "n": 86}
+{"_start": 120, "h": "Light Cloak (Tier 5)", "p": 16, "n": 61}
+{"_start": 120, "h": "Advanced Ammo (Tier 4)", "p": 9, "n": 69}
+{"_start": 120, "h": "Hellfire Bow (Tier 5)", "p": 16, "n": 81}
+{"_start": 120, "h": "Advanced Spellbook (Tier 5)", "p": 18, "n": 78}
+{"_start": 120, "h": "Warrior's Shield (Tier 4)", "p": 6, "n": 94}
+{"_start": 120, "h": "Ancient Gale Ring (Tier 3)", "p": 18, "n": 40}
+{"_start": 120, "h": "Sealed Spellbook (Tier 4)", "p": 6, "n": 56}
+{"_start": 120, "h": "Modified Pistol (Tier 4)", "p": 15, "n": 17}
+{"_start": 120, "h": "Elite Mage's Gloves (Tier 4)", "p": 6, "n": 83}
+{"_start": 120, "h": "Warrior's Gloves (Tier 4)", "p": 8, "n": 56}
+{"_start": 130, "h": "Sturdy Guardian Earrings (Tier 4)", "p": 16, "n": 69}
+{"_start": 130, "h": "Light Armor", "p": 190, "n": 6}
+{"_start": 130, "h": "Ranger Cloak", "p": 46, "n": 4}
+{"_start": 130, "h": "Warrior's Pauldrons (Tier 4)", "p": 10, "n": 54}
+{"_start": 130, "h": "Ruby Staff", "p": 31, "n": 3}
+{"_start": 130, "h": "Hunter Helmet", "p": 66, "n": 5}
+{"_start": 130, "h": "Elite Mage's Pauldrons (Tier 4)", "p": 5, "n": 102}
+{"_start": 130, "h": "Elite Mage's Cloak (Tier 4)", "p": 6, "n": 98}
+{"_start": 130, "h": "Worn Helmet (Tier 4)", "p": 4, "n": 54}
+{"_start": 130, "h": "Advanced Spellbook (Tier 4)", "p": 5, "n": 219}
+{"_start": 140, "h": "Sturdy Shield", "p": 60, "n": 4}
+{"_start": 140, "h": "Worn Armor", "p": 35, "n": 1}
+{"_start": 140, "h": "Watcher's Cloak (Tier 4)", "p": 6, "n": 140}
+{"_start": 140, "h": "Large-Caliber Rounds (Tier 4)", "p": 4, "n": 223}
+{"_start": 140, "h": "Chrysaor", "p": 124, "n": 6}
+{"_start": 140, "h": "Royal Mage's Gloves", "p": 189, "n": 1}
+{"_start": 140, "h": "Red-Patterned Staff", "p": 510, "n": 3}
+{"_start": 140, "h": "Hunter Bow (Tier 4)", "p": 5, "n": 94}
+{"_start": 140, "h": "Leather Quiver (Tier 4)", "p": 5, "n": 121}
+{"_start": 140, "h": "Light Helmet (Tier 4)", "p": 5, "n": 141}
+{"_start": 150, "h": "Light Helmet (Tier 4)", "p": 5, "n": 141}
+{"_start": 150, "h": "Royal Mage's Boots (Tier 4)", "p": 4, "n": 94}
+{"_start": 150, "h": "Worn Spellbook", "p": 110, "n": 4}
+{"_start": 150, "h": "Hunter Armor", "p": 247, "n": 4}
+{"_start": 150, "h": "Special Jewel of Magic Resistance", "p": 51, "n": 29}
+{"_start": 150, "h": "Watcher's Boots (Tier 5)", "p": 15, "n": 62}
+{"_start": 150, "h": "Valentine (Tier 4)", "p": 11, "n": 67}
+{"_start": 150, "h": "Ancient Hero's Brooch (Tier 3)", "p": 18, "n": 32}
+{"_start": 150, "h": "Radiant Guardian Earrings (Tier 3)", "p": 9, "n": 35}
+{"_start": 150, "h": "Warrior's Cloak (Tier 4)", "p": 10, "n": 57}
+{"_start": 160, "h": "Crescent Staff (Tier 4)", "p": 6, "n": 69}
+{"_start": 160, "h": "Black Iron Sword (Tier 4)", "p": 7, "n": 103}
+{"_start": 160, "h": "Dark Sword (Tier 6)", "p": 299, "n": 6}
+{"_start": 160, "h": "Elite Cloak (Tier 4)", "p": 9, "n": 40}
+{"_start": 160, "h": "Staff of Divine Punishment (Tier 5)", "p": 20, "n": 91}
+{"_start": 160, "h": "Dark Soldier Armor (Tier 4)", "p": 9, "n": 16}
+{"_start": 160, "h": "Warrior's Mask (Tier 4)", "p": 8, "n": 71}
+{"_start": 160, "h": "Watcher's Boots (Tier 4)", "p": 5, "n": 133}
+{"_start": 160, "h": "Watcher's Pauldrons (Tier 4)", "p": 5, "n": 155}
+{"_start": 160, "h": "Warrior's Armor (Tier 5)", "p": 28, "n": 53}
+{"_start": 170, "h": "Handgun (Tier 5)", "p": 21, "n": 90}
+{"_start": 170, "h": "Hellfire Bow (Tier 4)", "p": 4, "n": 212}
+{"_start": 170, "h": "Sturdy Guardian Earrings (Tier 5)", "p": 74, "n": 24}
+{"_start": 170, "h": "Advanced Quiver (Tier 4)", "p": 5, "n": 165}
+{"_start": 170, "h": "Dark Soldier Pauldrons (Tier 5)", "p": 34, "n": 25}
+{"_start": 170, "h": "Elite Mage's Boots (Tier 4)", "p": 7, "n": 105}
+{"_start": 170, "h": "Elite Shield (Tier 5)", "p": 39, "n": 44}
+{"_start": 170, "h": "Gold Bar", "p": 1552, "n": 38}
+{"_start": 170, "h": "Rare Guardian Earrings (Tier 5)", "p": 156, "n": 29}
+{"_start": 170, "h": "Radiant Focus Belt (Tier 5)", "p": 94, "n": 24}
+{"_start": 180, "h": "Chrysaor (Tier 5)", "p": 16, "n": 52}
+{"_start": 180, "h": "Heroic Wisdom Bracelet (Tier 4)", "p": 69, "n": 18}
+{"_start": 180, "h": "Imperial Sword (Tier 4)", "p": 4, "n": 145}
+{"_start": 180, "h": "Mana Shield (Tier 4)", "p": 4, "n": 159}
+{"_start": 180, "h": "Light Pauldrons (Tier 4)", "p": 5, "n": 107}
+{"_start": 180, "h": "Ancient Wisdom Bracelet (Tier 6)", "p": 1726, "n": 2}
+{"_start": 180, "h": "Ranger Shield", "p": 126, "n": 6}
+{"_start": 180, "h": "Guardian's Cloak (Tier 6)", "p": 265, "n": 15}
+{"_start": 180, "h": "Royal Mage's Boots", "p": 591, "n": 3}
+{"_start": 180, "h": "Rune Spellbook (Tier 5)", "p": 16, "n": 27}
+{"_start": 190, "h": "Worn Focus Belt (Tier 3)", "p": 6, "n": 156}
+{"_start": 190, "h": "Warrior's Boots (Tier 4)", "p": 7, "n": 79}
+{"_start": 190, "h": "Sturdy Gale Ring (Tier 5)", "p": 80, "n": 17}
+{"_start": 190, "h": "Silver Gun (Tier 4)", "p": 7, "n": 105}
+{"_start": 190, "h": "Rare Focus Belt (Tier 5)", "p": 153, "n": 28}
+{"_start": 190, "h": "Rare Blessing Necklace (Tier 5)", "p": 164, "n": 30}
+{"_start": 190, "h": "Radiant Guardian Earrings (Tier 5)", "p": 101, "n": 21}
+{"_start": 190, "h": "Radiant Gale Ring (Tier 5)", "p": 97, "n": 36}
+{"_start": 190, "h": "Technique Gloves (Tier 5)", "p": 29, "n": 35}
+{"_start": 190, "h": "Light Boots (Tier 4)", "p": 6, "n": 113}
+{"_start": 210, "h": "Warrior's Armor (Tier 4)", "p": 10, "n": 81}
+{"_start": 210, "h": "Technique Pauldrons (Tier 5)", "p": 28, "n": 35}
+{"_start": 210, "h": "Green-Feather Quiver (Tier 4)", "p": 6, "n": 117}
+{"_start": 210, "h": "Guardian's Helmet (Tier 5)", "p": 27, "n": 60}
+{"_start": 210, "h": "Guardian's Shield (Tier 5)", "p": 26, "n": 76}
+{"_start": 210, "h": "Gunpowder Shot (Tier 4)", "p": 4, "n": 187}
+{"_start": 210, "h": "Ancient-Patterned Shield (Tier 4)", "p": 6, "n": 144}
+{"_start": 210, "h": "Dark Sword (Tier 4)", "p": 6, "n": 130}
+{"_start": 210, "h": "Radiant Wisdom Bracelet (Tier 5)", "p": 95, "n": 21}
+{"_start": 210, "h": "Ranger Shield (Tier 5)", "p": 15, "n": 59}
+{"_start": 220, "h": "Rare Guardian Earrings (Tier 3)", "p": 13, "n": 47}
+{"_start": 220, "h": "Watcher's Hat (Tier 5)", "p": 20, "n": 76}
+{"_start": 220, "h": "Jeweled Staff (Tier 4)", "p": 6, "n": 138}
+{"_start": 220, "h": "Large-Caliber Rounds (Tier 5)", "p": 21, "n": 58}
+{"_start": 220, "h": "Moonlight Rose (Tier 5)", "p": 28, "n": 30}
+{"_start": 220, "h": "Watcher's Hat (Tier 4)", "p": 6, "n": 146}
+{"_start": 220, "h": "Light Boots (Tier 5)", "p": 17, "n": 67}
+{"_start": 220, "h": "Hunter Bow (Tier 5)", "p": 28, "n": 17}
+{"_start": 220, "h": "Red-Patterned Staff (Tier 5)", "p": 18, "n": 63}
+{"_start": 220, "h": "Light Cloak (Tier 6)", "p": 170, "n": 6}
+{"_start": 230, "h": "Valentine (Tier 6)", "p": 563, "n": 5}
+{"_start": 230, "h": "Watcher's Cloak (Tier 5)", "p": 18, "n": 57}
+{"_start": 230, "h": "Guardian's Gloves (Tier 6)", "p": 370, "n": 5}
+{"_start": 230, "h": "Rare Hero's Brooch (Tier 3)", "p": 13, "n": 42}
+{"_start": 230, "h": "Staff of Divine Punishment (Tier 4)", "p": 4, "n": 206}
+{"_start": 230, "h": "Royal Mage's Hat (Tier 4)", "p": 5, "n": 69}
+{"_start": 230, "h": "Shining Hero's Brooch (Tier 3)", "p": 9, "n": 40}
+{"_start": 230, "h": "Apprentice Mage's Boots", "p": 58, "n": 8}
+{"_start": 230, "h": "Spellbook of Arcana (Tier 5)", "p": 28, "n": 30}
+{"_start": 230, "h": "Technique Boots (Tier 5)", "p": 32, "n": 25}
+{"_start": 240, "h": "Training Quiver (Tier 5)", "p": 17, "n": 46}
+{"_start": 240, "h": "Worn Pauldrons (Tier 4)", "p": 4, "n": 58}
+{"_start": 240, "h": "Guardian's Helmet (Tier 4)", "p": 8, "n": 68}
+{"_start": 240, "h": "Epic Hero's Brooch (Tier 5)", "p": 363, "n": 11}
+{"_start": 240, "h": "Elite Mage's Hat (Tier 4)", "p": 6, "n": 84}
+{"_start": 240, "h": "Ancient Guardian Earrings (Tier 5)", "p": 399, "n": 3}
+{"_start": 240, "h": "Hunter Gloves", "p": 43, "n": 3}
+{"_start": 240, "h": "Steel Shield (Tier 4)", "p": 4, "n": 83}
+{"_start": 240, "h": "Sword of Light (Tier 5)", "p": 27, "n": 65}
+{"_start": 240, "h": "Sword of Death (Tier 5)", "p": 32, "n": 26}
+{"_start": 250, "h": "Sturdy Wisdom Bracelet (Tier 5)", "p": 75, "n": 19}
+{"_start": 250, "h": "Sturdy Hero's Brooch (Tier 5)", "p": 76, "n": 20}
+{"_start": 250, "h": "Spellbook of Spirits (Tier 5)", "p": 27, "n": 69}
+{"_start": 250, "h": "Special Jewel of Valor", "p": 144, "n": 37}
+{"_start": 250, "h": "Special Jewel of Life", "p": 174, "n": 14}
+{"_start": 250, "h": "Soldier's Shield (Tier 5)", "p": 17, "n": 61}
+{"_start": 250, "h": "Silver Rounds (Tier 6)", "p": 342, "n": 14}
+{"_start": 250, "h": "Royal Mage's Robe (Tier 5)", "p": 16, "n": 50}
+{"_start": 250, "h": "Ranger Armor (Tier 5)", "p": 15, "n": 57}
+{"_start": 250, "h": "Radiant Blessing Necklace (Tier 3)", "p": 8, "n": 25}
+{"_start": 260, "h": "Intermediate Spellbook (Tier 5)", "p": 16, "n": 73}
+{"_start": 260, "h": "Noble Gloves (Tier 6)", "p": 507, "n": 3}
+{"_start": 260, "h": "MC Valentine (Tier 5)", "p": 37, "n": 26}
+{"_start": 260, "h": "Sturdy Focus Belt (Tier 4)", "p": 16, "n": 69}
+{"_start": 260, "h": "Silver Rounds (Tier 4)", "p": 8, "n": 29}
+{"_start": 260, "h": "Ranger Pauldrons (Tier 5)", "p": 17, "n": 42}
+{"_start": 260, "h": "Worn Gale Ring", "p": 139, "n": 1}
+{"_start": 260, "h": "Crossbow (Tier 3)", "p": 4, "n": 339}
+{"_start": 260, "h": "Watcher's Pauldrons (Tier 5)", "p": 18, "n": 74}
+{"_start": 260, "h": "Hunter Cloak", "p": 115, "n": 1}
+{"_start": 270, "h": "Iron Sword", "p": 53, "n": 9}
+{"_start": 270, "h": "Royal Mage's Hat", "p": 360, "n": 1}
+{"_start": 270, "h": "Light Gloves", "p": 339, "n": 6}
+{"_start": 270, "h": "Gunpowder", "p": 51, "n": 8}
+{"_start": 270, "h": "Apprentice's Staff", "p": 93, "n": 6}
+{"_start": 270, "h": "Steel Shield", "p": 73, "n": 1}
+{"_start": 270, "h": "Common Sword", "p": 63, "n": 4}
+{"_start": 270, "h": "Beretta", "p": 110, "n": 1}
+{"_start": 270, "h": "Watcher's Armor (Tier 4)", "p": 6, "n": 140}
+{"_start": 270, "h": "Uni Bow (Tier 4)", "p": 13, "n": 23}
+{"_start": 280, "h": "Superior Spellbook (Tier 4)", "p": 8, "n": 53}
+{"_start": 280, "h": "Sturdy Hero's Brooch (Tier 4)", "p": 16, "n": 67}
+{"_start": 280, "h": "Sturdy Focus Belt (Tier 5)", "p": 74, "n": 23}
+{"_start": 280, "h": "Sturdy Blessing Necklace (Tier 5)", "p": 78, "n": 15}
+{"_start": 280, "h": "Soldier's Shield (Tier 4)", "p": 4, "n": 127}
+{"_start": 280, "h": "Royal Mage's Gloves (Tier 5)", "p": 16, "n": 36}
+{"_start": 280, "h": "Ranger Pauldrons (Tier 4)", "p": 3, "n": 196}
+{"_start": 280, "h": "Radiant Gale Ring (Tier 3)", "p": 9, "n": 88}
+{"_start": 280, "h": "Radiant Blessing Necklace (Tier 5)", "p": 95, "n": 26}
+{"_start": 280, "h": "Light Gloves (Tier 4)", "p": 5, "n": 117}
+{"_start": 290, "h": "Hunter Armor (Tier 4)", "p": 4, "n": 106}
+{"_start": 290, "h": "Guardian's Gloves (Tier 5)", "p": 27, "n": 68}
+{"_start": 290, "h": "Elite Mage's Robe (Tier 4)", "p": 6, "n": 92}
+{"_start": 290, "h": "Machina-Ornamented Staff (Tier 6)", "p": 443, "n": 3}
+{"_start": 290, "h": "Executioner's Sword (Tier 6)", "p": 210, "n": 6}
+{"_start": 290, "h": "Staff of Radiance (Tier 4)", "p": 15, "n": 11}
+{"_start": 290, "h": "Elite Helmet (Tier 4)", "p": 10, "n": 23}
+{"_start": 290, "h": "Dark Soldier Helmet (Tier 5)", "p": 35, "n": 25}
+{"_start": 290, "h": "Ancient Guardian Earrings (Tier 4)", "p": 58, "n": 49}
+{"_start": 290, "h": "Ancient Guardian Earrings (Tier 3)", "p": 18, "n": 45}
+{"_start": 310, "h": "Ancient Wisdom Bracelet (Tier 5)", "p": 591, "n": 4}
+{"_start": 310, "h": "Crossbow (Tier 4)", "p": 4, "n": 162}
+{"_start": 310, "h": "Crossbow (Tier 5)", "p": 16, "n": 53}
+{"_start": 310, "h": "엘리트 갑옷", "p": 744, "n": 1}
+{"_start": 310, "h": "로열 버밀리온", "p": 330, "n": 1}
+{"_start": 310, "h": "영롱한 날개 수정", "p": 744, "n": 1}
+{"_start": 310, "h": "Meteor Shooter (Tier 3)", "p": 216, "n": 1}
+{"_start": 310, "h": "Silver Staff (Tier 4)", "p": 687, "n": 1}
+{"_start": 310, "h": "Legendary Gale Ring (Tier 6)", "p": 9067, "n": 1}
+{"_start": 310, "h": "Royal Cloak (Tier 5)", "p": 230, "n": 1}
+{"_start": 320, "h": "Superior Jewel of Valor", "p": 703, "n": 1}
+{"_start": 320, "h": "Astria Staff (Tier 4)", "p": 179, "n": 2}
+{"_start": 320, "h": "Stardust Staff (Tier 5)", "p": 295, "n": 1}
+{"_start": 320, "h": "Gold-Ornamented Shield (Tier 4)", "p": 59, "n": 1}
+{"_start": 320, "h": "Stormbringer (Tier 5)", "p": 369, "n": 1}
+{"_start": 320, "h": "Stormbringer (Tier 6)", "p": 2861, "n": 1}
+{"_start": 320, "h": "Reaper's Sword (Tier 6)", "p": 1423, "n": 2}
+{"_start": 320, "h": "Royal Armor (Tier 5)", "p": 88, "n": 1}
+{"_start": 320, "h": "Superior Jewel of Resistance", "p": 1465, "n": 1}
+{"_start": 320, "h": "Great One Boots (Tier 5)", "p": 281, "n": 1}
+{"_start": 330, "h": "Assassin's Helmet (Tier 4)", "p": 31, "n": 4}
+{"_start": 330, "h": "Royal Boots (Tier 5)", "p": 99, "n": 2}
+{"_start": 330, "h": "Silver Bow (Tier 6)", "p": 322, "n": 4}
+{"_start": 330, "h": "Legendary Blessing Necklace (Tier 5)", "p": 1097, "n": 2}
+{"_start": 330, "h": "Superior Jewel of Destruction", "p": 363, "n": 3}
+{"_start": 330, "h": "Worn Armor (Tier 5)", "p": 28, "n": 10}
+{"_start": 330, "h": "Great One Gloves (Tier 6)", "p": 4432, "n": 1}
+{"_start": 330, "h": "Obsidian Staff (Tier 3)", "p": 7, "n": 11}
+{"_start": 330, "h": "Sage's Spellbook (Tier 4)", "p": 35, "n": 11}
+{"_start": 330, "h": "Guardian's Armor (Tier 6)", "p": 369, "n": 7}
+{"_start": 340, "h": "Technique Headband (Tier 4)", "p": 12, "n": 23}
+{"_start": 340, "h": "Sword of Death (Tier 6)", "p": 357, "n": 3}
+{"_start": 340, "h": "Royal Magazine (Tier 4)", "p": 77, "n": 4}
+{"_start": 340, "h": "Assassin's Pauldrons (Tier 4)", "p": 36, "n": 11}
+{"_start": 340, "h": "Light Gloves (Tier 6)", "p": 190, "n": 7}
+{"_start": 340, "h": "Common Sword (Tier 5)", "p": 23, "n": 13}
+{"_start": 340, "h": "Hunter Armor (Tier 6)", "p": 172, "n": 2}
+{"_start": 340, "h": "Worn Wisdom Bracelet (Tier 6)", "p": 426, "n": 2}
+{"_start": 340, "h": "Technique Shield (Tier 4)", "p": 15, "n": 7}
+{"_start": 340, "h": "Warrior's Gloves (Tier 3)", "p": 6, "n": 71}
+{"_start": 350, "h": "Handgun (Tier 6)", "p": 356, "n": 6}
+{"_start": 350, "h": "Varisada (Tier 6)", "p": 310, "n": 8}
+{"_start": 350, "h": "Elite Mage's Pauldrons (Tier 6)", "p": 269, "n": 7}
+{"_start": 350, "h": "Royal Vermilion (Tier 6)", "p": 1480, "n": 6}
+{"_start": 350, "h": "Common Sword (Tier 4)", "p": 4, "n": 97}
+{"_start": 350, "h": "Soldier's Shield (Tier 6)", "p": 241, "n": 6}
+{"_start": 350, "h": "Dark Soldier Gloves (Tier 4)", "p": 11, "n": 14}
+{"_start": 350, "h": "Steel Shield (Tier 5)", "p": 16, "n": 21}
+{"_start": 350, "h": "Heroic Blessing Necklace (Tier 3)", "p": 28, "n": 15}
+{"_start": 350, "h": "Assassin's Cloak (Tier 6)", "p": 491, "n": 6}
+{"_start": 360, "h": "Stormbringer (Tier 5)", "p": 369, "n": 1}
+{"_start": 360, "h": "Worn Armor (Tier 6)", "p": 633, "n": 1}
+{"_start": 360, "h": "Royal Cloak (Tier 6)", "p": 1480, "n": 1}
+{"_start": 360, "h": "Royal Mage's Pauldrons (Tier 6)", "p": 192, "n": 3}
+{"_start": 360, "h": "Gold-Ornamented Shield (Tier 4)", "p": 59, "n": 1}
+{"_start": 360, "h": "Great One Armor (Tier 6)", "p": 728, "n": 1}
+{"_start": 360, "h": "Assassin's Shield (Tier 6)", "p": 851, "n": 4}
+{"_start": 360, "h": "Astria Staff (Tier 6)", "p": 370, "n": 4}
+{"_start": 360, "h": "Hunter Bow (Tier 6)", "p": 311, "n": 2}
+{"_start": 360, "h": "Pistol Kiru (Tier 6)", "p": 1757, "n": 1}
+{"_start": 370, "h": "Dark Soldier Gloves (Tier 4)", "p": 11, "n": 14}
+{"_start": 370, "h": "Uni Bow (Tier 3)", "p": 11, "n": 16}
+{"_start": 370, "h": "Crossbow (Tier 6)", "p": 315, "n": 3}
+{"_start": 370, "h": "Royal Vermilion (Tier 6)", "p": 1480, "n": 6}
+{"_start": 370, "h": "Archer-Patterned Quiver (Tier 4)", "p": 15, "n": 16}
+{"_start": 370, "h": "Hunter Boots (Tier 3)", "p": 3, "n": 4214}
+{"_start": 370, "h": "Worn Cloak (Tier 5)", "p": 18, "n": 20}
+{"_start": 370, "h": "Heroic Blessing Necklace (Tier 3)", "p": 28, "n": 15}
+{"_start": 370, "h": "Ancient Gale Ring (Tier 6)", "p": 1624, "n": 4}
+{"_start": 370, "h": "Steel Shield (Tier 5)", "p": 16, "n": 21}
+{"_start": 380, "h": "Dark Soldier Shield (Tier 3)", "p": 10, "n": 9}
+{"_start": 380, "h": "Worn Boots (Tier 4)", "p": 4, "n": 58}
+{"_start": 380, "h": "Legendary Focus Belt (Tier 5)", "p": 628, "n": 7}
+{"_start": 380, "h": "Guardian's Shield (Tier 6)", "p": 231, "n": 15}
+{"_start": 380, "h": "Warrior's Cloak (Tier 3)", "p": 5, "n": 51}
+{"_start": 380, "h": "Warrior's Mask (Tier 3)", "p": 5, "n": 43}
+{"_start": 380, "h": "Grand Spellbook (Tier 5)", "p": 35, "n": 21}
+{"_start": 380, "h": "Black Iron Sword (Tier 3)", "p": 5, "n": 56}
+{"_start": 380, "h": "Guardian's Boots (Tier 4)", "p": 8, "n": 42}
+{"_start": 380, "h": "Worn Focus Belt (Tier 4)", "p": 14, "n": 63}
+{"_start": 390, "h": "Light Armor (Tier 6)", "p": 181, "n": 12}
+{"_start": 390, "h": "MC Valentine (Tier 4)", "p": 8, "n": 19}
+{"_start": 390, "h": "Elite Boots (Tier 6)", "p": 549, "n": 3}
+{"_start": 390, "h": "Radiant Blessing Necklace (Tier 6)", "p": 537, "n": 4}
+{"_start": 390, "h": "Rune Spellbook (Tier 6)", "p": 227, "n": 1}
+{"_start": 390, "h": "Elite Gloves (Tier 6)", "p": 460, "n": 7}
+{"_start": 390, "h": "Legendary Gale Ring (Tier 4)", "p": 173, "n": 5}
+{"_start": 390, "h": "Light Helmet (Tier 6)", "p": 179, "n": 4}
+{"_start": 390, "h": "Radiant Wisdom Bracelet (Tier 6)", "p": 591, "n": 2}
+{"_start": 390, "h": "Special Jewel of Luck", "p": 238, "n": 23}
+{"_start": 410, "h": "Heroic Guardian Earrings (Tier 5)", "p": 360, "n": 16}
+{"_start": 410, "h": "귀족의 방패", "p": 82, "n": 1}
+{"_start": 410, "h": "Worn Gloves", "p": 43, "n": 1}
+{"_start": 410, "h": "Worn Boots", "p": 87, "n": 1}
+{"_start": 410, "h": "Great One Headband (Tier 5)", "p": 977, "n": 2}
+{"_start": 410, "h": "Great One Pauldrons (Tier 4)", "p": 218, "n": 1}
+{"_start": 410, "h": "Royal Cloak (Tier 5)", "p": 230, "n": 1}
+{"_start": 410, "h": "Worn Blessing Necklace (Tier 6)", "p": 1267, "n": 1}
+{"_start": 410, "h": "Royal Quiver (Tier 6)", "p": 2591, "n": 2}
+{"_start": 410, "h": "Ruby Staff (Tier 6)", "p": 947, "n": 1}
+{"_start": 420, "h": "Abyss Boots (Tier 6)", "p": 1800, "n": 1}
+{"_start": 420, "h": "Assassin's Shield (Tier 6)", "p": 851, "n": 4}
+{"_start": 420, "h": "Legendary Hero's Brooch (Tier 5)", "p": 739, "n": 1}
+{"_start": 420, "h": "Ranger Shield (Tier 6)", "p": 233, "n": 5}
+{"_start": 420, "h": "Astria Staff (Tier 6)", "p": 370, "n": 4}
+{"_start": 420, "h": "Hunter Bow (Tier 6)", "p": 311, "n": 2}
+{"_start": 420, "h": "Pistol Kiru (Tier 6)", "p": 1757, "n": 1}
+{"_start": 420, "h": "Great One Gloves (Tier 5)", "p": 97, "n": 2}
+{"_start": 420, "h": "Tri-Color Ammo (Tier 3)", "p": 13, "n": 9}
+{"_start": 420, "h": "Dark Soldier Gloves (Tier 3)", "p": 13, "n": 8}
+{"_start": 430, "h": "Mythic Hero's Brooch (Tier 5)", "p": 943, "n": 1}
+{"_start": 430, "h": "Grand Spellbook (Tier 3)", "p": 19, "n": 4}
+{"_start": 430, "h": "Superior Jewel of Steel", "p": 510, "n": 1}
+{"_start": 430, "h": "Mana Shield (Tier 6)", "p": 170, "n": 6}
+{"_start": 430, "h": "Short Bow (Tier 4)", "p": 223, "n": 1}
+{"_start": 430, "h": "Royal Gloves (Tier 6)", "p": 633, "n": 1}
+{"_start": 430, "h": "Dark Soldier Helmet (Tier 6)", "p": 310, "n": 6}
+{"_start": 430, "h": "Light Armor (Tier 6)", "p": 181, "n": 12}
+{"_start": 430, "h": "MC Valentine (Tier 4)", "p": 8, "n": 19}
+{"_start": 430, "h": "Light Helmet (Tier 6)", "p": 179, "n": 4}
+{"_start": 440, "h": "Elite Gloves (Tier 6)", "p": 460, "n": 7}
+{"_start": 440, "h": "Legendary Gale Ring (Tier 4)", "p": 173, "n": 5}
+{"_start": 440, "h": "Rune Spellbook (Tier 6)", "p": 227, "n": 1}
+{"_start": 440, "h": "Elite Boots (Tier 6)", "p": 549, "n": 3}
+{"_start": 440, "h": "Radiant Blessing Necklace (Tier 6)", "p": 537, "n": 4}
+{"_start": 440, "h": "Radiant Gale Ring (Tier 6)", "p": 659, "n": 3}
+{"_start": 440, "h": "GS Sword (Tier 5)", "p": 109, "n": 6}
+{"_start": 440, "h": "Iron Sword (Tier 5)", "p": 16, "n": 38}
+{"_start": 440, "h": "Technique Boots (Tier 4)", "p": 15, "n": 19}
+{"_start": 440, "h": "Varisada (Tier 3)", "p": 6, "n": 20}
+{"_start": 450, "h": "Noble Boots (Tier 6)", "p": 986, "n": 1}
+{"_start": 450, "h": "Worn Guardian Earrings (Tier 5)", "p": 87, "n": 11}
+{"_start": 450, "h": "Assassin's Gloves (Tier 4)", "p": 38, "n": 5}
+{"_start": 450, "h": "Noble Boots (Tier 5)", "p": 58, "n": 6}
+{"_start": 450, "h": "Noble Quiver (Tier 6)", "p": 1627, "n": 5}
+{"_start": 450, "h": "Royal Mage's Gloves (Tier 6)", "p": 220, "n": 4}
+{"_start": 450, "h": "Iron Shield (Tier 5)", "p": 17, "n": 27}
+{"_start": 450, "h": "Royal Magazine (Tier 4)", "p": 77, "n": 4}
+{"_start": 450, "h": "Sword of Death (Tier 6)", "p": 357, "n": 3}
+{"_start": 450, "h": "Light Gloves (Tier 6)", "p": 190, "n": 7}
+{"_start": 460, "h": "Spellbook of Arcana (Tier 4)", "p": 15, "n": 14}
+{"_start": 460, "h": "Grand Spellbook (Tier 6)", "p": 248, "n": 7}
+{"_start": 460, "h": "Noble Cloak (Tier 5)", "p": 59, "n": 10}
+{"_start": 460, "h": "Apprentice Mage's Gloves (Tier 4)", "p": 6, "n": 43}
+{"_start": 460, "h": "Noble Quiver (Tier 4)", "p": 57, "n": 6}
+{"_start": 460, "h": "Heroic Gale Ring (Tier 6)", "p": 2064, "n": 4}
+{"_start": 460, "h": "Assassin's Pauldrons (Tier 6)", "p": 633, "n": 3}
+{"_start": 460, "h": "Gunpowder (Tier 4)", "p": 4, "n": 100}
+{"_start": 460, "h": "Sturdy Guardian Earrings (Tier 6)", "p": 524, "n": 1}
+{"_start": 460, "h": "Trinity Staff (Tier 4)", "p": 11, "n": 18}
+{"_start": 470, "h": "Assassin's Armor (Tier 5)", "p": 54, "n": 17}
+{"_start": 470, "h": "Tri-Color Ammo (Tier 4)", "p": 12, "n": 13}
+{"_start": 470, "h": "Apprentice Mage's Headband (Tier 4)", "p": 5, "n": 101}
+{"_start": 470, "h": "Technique Boots (Tier 6)", "p": 342, "n": 15}
+{"_start": 470, "h": "Great Sword (Tier 3)", "p": 3, "n": 2185}
+{"_start": 470, "h": "Assassin's Gloves (Tier 6)", "p": 709, "n": 4}
+{"_start": 470, "h": "Radiant Wisdom Bracelet (Tier 6)", "p": 591, "n": 2}
+{"_start": 470, "h": "Shining Hero's Brooch (Tier 6)", "p": 1373, "n": 1}
+{"_start": 470, "h": "엘리트 갑옷", "p": 744, "n": 1}
+{"_start": 470, "h": "로열 버밀리온", "p": 330, "n": 1}
+{"_start": 480, "h": "Meteor Shooter (Tier 3)", "p": 216, "n": 1}
+{"_start": 480, "h": "Iron Sword (Tier 6)", "p": 219, "n": 1}
+{"_start": 480, "h": "Legendary Gale Ring (Tier 6)", "p": 9067, "n": 1}
+{"_start": 480, "h": "Legendary Focus Belt (Tier 6)", "p": 7222, "n": 1}
+{"_start": 480, "h": "Legendary Blessing Necklace (Tier 6)", "p": 3611, "n": 1}
+{"_start": 480, "h": "Legendary Gale Ring (Tier 5)", "p": 679, "n": 2}
+{"_start": 480, "h": "Noble Helmet (Tier 6)", "p": 561, "n": 2}
+{"_start": 480, "h": "Pistol Kiru (Tier 5)", "p": 284, "n": 1}
+{"_start": 480, "h": "Royal Mage's Boots (Tier 6)", "p": 250, "n": 1}
+{"_start": 480, "h": "Assassin's Cloak (Tier 4)", "p": 24, "n": 2}
+{"_start": 490, "h": "Royal Magazine (Tier 5)", "p": 66, "n": 13}
+{"_start": 490, "h": "Ancient Focus Belt (Tier 6)", "p": 1628, "n": 4}
+{"_start": 490, "h": "Assassin's Armor (Tier 5)", "p": 54, "n": 17}
+{"_start": 490, "h": "Noble Cloak (Tier 5)", "p": 59, "n": 10}
+{"_start": 490, "h": "Gunpowder (Tier 4)", "p": 4, "n": 100}
+{"_start": 490, "h": "Assassin's Pauldrons (Tier 6)", "p": 633, "n": 3}
+{"_start": 490, "h": "Silver Staff (Tier 4)", "p": 687, "n": 1}
+{"_start": 490, "h": "Great One Headband (Tier 5)", "p": 977, "n": 2}
+{"_start": 490, "h": "Training Quiver (Tier 6)", "p": 703, "n": 2}
+{"_start": 490, "h": "Iron Sword (Tier 6)", "p": 219, "n": 1}
+{"_start": 510, "h": "Valentine (Tier 3)", "p": 7, "n": 54}
+{"_start": 510, "h": "Technique Shield (Tier 6)", "p": 284, "n": 20}
+{"_start": 510, "h": "Advanced Spellbook (Tier 6)", "p": 179, "n": 6}
+{"_start": 510, "h": "Dark Soldier Shield (Tier 3)", "p": 10, "n": 9}
+{"_start": 510, "h": "Guardian's Shield (Tier 6)", "p": 231, "n": 15}
+{"_start": 510, "h": "Great One Gloves (Tier 4)", "p": 63, "n": 2}
+{"_start": 510, "h": "Elite Mage's Cloak (Tier 6)", "p": 231, "n": 7}
+{"_start": 510, "h": "Light Boots (Tier 6)", "p": 163, "n": 10}
+{"_start": 510, "h": "Trinity Staff (Tier 6)", "p": 273, "n": 13}
+{"_start": 510, "h": "Worn Boots (Tier 4)", "p": 4, "n": 58}
+{"_start": 520, "h": "Noble Shield (Tier 5)", "p": 47, "n": 8}
+{"_start": 520, "h": "룬 마법서", "p": 11781, "n": 1}
+{"_start": 520, "h": "영롱한 날개 수정", "p": 744, "n": 1}
+{"_start": 520, "h": "Worn Helmet", "p": 363, "n": 1}
+{"_start": 520, "h": "Iron Shield", "p": 31, "n": 2}
+{"_start": 520, "h": "Hunter Boots", "p": 69, "n": 2}
+{"_start": 520, "h": "Watcher's Cloak", "p": 315, "n": 1}
+{"_start": 520, "h": "Advanced Quiver", "p": 949, "n": 1}
+{"_start": 520, "h": "Royal Pauldrons (Tier 5)", "p": 327, "n": 1}
+{"_start": 520, "h": "Great One Pauldrons (Tier 6)", "p": 1900, "n": 1}
+{"_start": 530, "h": "Apprentice's Spellbook (Tier 6)", "p": 444, "n": 3}
+{"_start": 530, "h": "Royal Cloak (Tier 6)", "p": 1480, "n": 1}
+{"_start": 530, "h": "Worn Armor (Tier 6)", "p": 633, "n": 1}
+{"_start": 530, "h": "Great One Armor (Tier 6)", "p": 728, "n": 1}
+{"_start": 530, "h": "Royal Mage's Pauldrons (Tier 6)", "p": 192, "n": 3}
+{"_start": 530, "h": "Noble Boots (Tier 4)", "p": 38, "n": 3}
+{"_start": 530, "h": "Spellbook of Mysteries (Tier 4)", "p": 31, "n": 5}
+{"_start": 530, "h": "Superior Jewel of Magic Resistance", "p": 510, "n": 1}
+{"_start": 530, "h": "Trinity Staff (Tier 3)", "p": 28, "n": 7}
+{"_start": 530, "h": "Assassin's Armor (Tier 6)", "p": 943, "n": 6}
+{"_start": 540, "h": "Grand Spellbook (Tier 4)", "p": 10, "n": 9}
+{"_start": 540, "h": "Forbidden Spellbook (Tier 6)", "p": 507, "n": 1}
+{"_start": 540, "h": "Noble Boots (Tier 6)", "p": 986, "n": 1}
+{"_start": 540, "h": "Staff of Divine Punishment (Tier 6)", "p": 220, "n": 8}
+{"_start": 540, "h": "Assassin's Boots (Tier 6)", "p": 440, "n": 3}
+{"_start": 540, "h": "Great One Armor (Tier 5)", "p": 254, "n": 2}
+{"_start": 540, "h": "GS Sword (Tier 6)", "p": 351, "n": 3}
+{"_start": 540, "h": "Noble Armor (Tier 6)", "p": 721, "n": 3}
+{"_start": 540, "h": "Royal Shield (Tier 5)", "p": 117, "n": 3}
+{"_start": 540, "h": "Superior Jewel of Fortitude", "p": 680, "n": 4}
+{"_start": 550, "h": "Superior Jewel of Life", "p": 752, "n": 5}
+{"_start": 550, "h": "Machina-Ornamented Staff (Tier 4)", "p": 77, "n": 9}
+{"_start": 550, "h": "Heroic Blessing Necklace (Tier 6)", "p": 2656, "n": 5}
+{"_start": 550, "h": "Royal Mage's Robe (Tier 6)", "p": 234, "n": 2}
+{"_start": 550, "h": "Dark Soldier Boots (Tier 4)", "p": 11, "n": 13}
+{"_start": 550, "h": "Worn Spellbook (Tier 4)", "p": 4, "n": 123}
+{"_start": 550, "h": "Worn Gloves (Tier 5)", "p": 17, "n": 18}
+{"_start": 550, "h": "Rapid Staff (Tier 6)", "p": 269, "n": 5}
+{"_start": 550, "h": "Superior Jewel of Strife", "p": 5298, "n": 2}
+{"_start": 550, "h": "Ancient Focus Belt (Tier 6)", "p": 1628, "n": 4}
+{"_start": 560, "h": "Ancient Focus Belt (Tier 6)", "p": 1628, "n": 4}
+{"_start": 560, "h": "Worn Armor (Tier 4)", "p": 5, "n": 54}
+{"_start": 560, "h": "Royal Magazine (Tier 5)", "p": 66, "n": 13}
+{"_start": 560, "h": "Superior Jewel of Life", "p": 752, "n": 5}
+{"_start": 560, "h": "Worn Pauldrons (Tier 5)", "p": 17, "n": 38}
+{"_start": 560, "h": "Dark Soldier Boots (Tier 4)", "p": 11, "n": 13}
+{"_start": 560, "h": "Machina-Ornamented Staff (Tier 4)", "p": 77, "n": 9}
+{"_start": 560, "h": "Heroic Blessing Necklace (Tier 6)", "p": 2656, "n": 5}
+{"_start": 560, "h": "Noble Pauldrons (Tier 6)", "p": 441, "n": 9}
+{"_start": 560, "h": "Radiant Wisdom Bracelet (Tier 3)", "p": 9, "n": 97}
+{"_start": 570, "h": "Special Jewel of Luck", "p": 238, "n": 23}
+{"_start": 570, "h": "Technique Boots (Tier 4)", "p": 15, "n": 19}
+{"_start": 570, "h": "Iron Sword (Tier 5)", "p": 16, "n": 38}
+{"_start": 570, "h": "Varisada (Tier 3)", "p": 6, "n": 20}
+{"_start": 570, "h": "Apprentice Mage's Headband (Tier 5)", "p": 18, "n": 21}
+{"_start": 570, "h": "Noble Pauldrons (Tier 5)", "p": 48, "n": 9}
+{"_start": 570, "h": "Apprentice Mage's Gloves (Tier 5)", "p": 17, "n": 22}
+{"_start": 570, "h": "Worn Guardian Earrings (Tier 6)", "p": 1196, "n": 1}
+{"_start": 570, "h": "Guardian's Pauldrons (Tier 4)", "p": 7, "n": 56}
+{"_start": 570, "h": "Apprentice Mage's Headband (Tier 4)", "p": 5, "n": 101}
+{"_start": 580, "h": "Royal Mage's Cloak", "p": 184, "n": 3}
+{"_start": 580, "h": "Rapid Staff", "p": 474, "n": 6}
+{"_start": 580, "h": "Light Helmet", "p": 510, "n": 2}
+{"_start": 580, "h": "Light Cloak", "p": 761, "n": 1}
+{"_start": 580, "h": "Gold-Patterned Shield", "p": 440, "n": 2}
+{"_start": 580, "h": "Spellbook of Magic", "p": 402, "n": 2}
+{"_start": 580, "h": "Worn Pauldrons", "p": 31, "n": 5}
+{"_start": 580, "h": "Imperial Sword", "p": 290, "n": 2}
+{"_start": 580, "h": "Light Pauldrons", "p": 318, "n": 4}
+{"_start": 580, "h": "Apprentice Mage's Cloak", "p": 72, "n": 5}
+{"_start": 590, "h": "Rapid Staff (Tier 6)", "p": 269, "n": 5}
+{"_start": 590, "h": "Ancient Focus Belt (Tier 6)", "p": 1628, "n": 4}
+{"_start": 590, "h": "Royal Magazine (Tier 5)", "p": 66, "n": 13}
+{"_start": 590, "h": "Apprentice Mage's Gloves (Tier 4)", "p": 6, "n": 43}
+{"_start": 590, "h": "Gunpowder (Tier 4)", "p": 4, "n": 100}
+{"_start": 590, "h": "Assassin's Pauldrons (Tier 6)", "p": 633, "n": 3}
+{"_start": 590, "h": "Heroic Gale Ring (Tier 6)", "p": 2064, "n": 4}
+{"_start": 590, "h": "Noble Pauldrons (Tier 5)", "p": 48, "n": 9}
+{"_start": 590, "h": "Hunter Armor (Tier 3)", "p": 3, "n": 1504}
+{"_start": 590, "h": "Apprentice Mage's Gloves (Tier 5)", "p": 17, "n": 22}
+{"_start": 610, "h": "Guardian's Pauldrons (Tier 4)", "p": 7, "n": 56}
+{"_start": 610, "h": "Worn Guardian Earrings (Tier 6)", "p": 1196, "n": 1}
+{"_start": 610, "h": "Iron Sword (Tier 5)", "p": 16, "n": 38}
+{"_start": 610, "h": "Varisada (Tier 3)", "p": 6, "n": 20}
+{"_start": 610, "h": "Technique Boots (Tier 4)", "p": 15, "n": 19}
+{"_start": 610, "h": "Apprentice Mage's Headband (Tier 5)", "p": 18, "n": 21}
+{"_start": 610, "h": "Special Jewel of Luck", "p": 238, "n": 23}
+{"_start": 610, "h": "Radiant Blessing Necklace (Tier 6)", "p": 537, "n": 4}
+{"_start": 610, "h": "Worn Blessing Necklace (Tier 5)", "p": 71, "n": 21}
+{"_start": 610, "h": "Noble Pauldrons (Tier 4)", "p": 29, "n": 4}
+{"_start": 620, "h": "Advanced Quiver (Tier 3)", "p": 4, "n": 32}
+{"_start": 620, "h": "Warrior's Gloves (Tier 6)", "p": 279, "n": 10}
+{"_start": 620, "h": "Black Iron Sword (Tier 6)", "p": 222, "n": 11}
+{"_start": 620, "h": "Assassin's Cloak (Tier 5)", "p": 42, "n": 7}
+{"_start": 620, "h": "Great Sword (Tier 5)", "p": 16, "n": 25}
+{"_start": 620, "h": "Sylphid (Tier 4)", "p": 5, "n": 200}
+{"_start": 620, "h": "죽음의 검", "p": 811, "n": 1}
+{"_start": 620, "h": "룬 마법서", "p": 11781, "n": 1}
+{"_start": 620, "h": "금괴", "p": 579, "n": 2}
+{"_start": 620, "h": "Worn Guardian Earrings", "p": 1408, "n": 1}
+{"_start": 630, "h": "Heroic Focus Belt (Tier 5)", "p": 365, "n": 14}
+{"_start": 630, "h": "Elite Cloak (Tier 6)", "p": 636, "n": 3}
+{"_start": 630, "h": "Guardian's Cloak (Tier 4)", "p": 8, "n": 58}
+{"_start": 630, "h": "Advanced Quiver (Tier 6)", "p": 237, "n": 9}
+{"_start": 630, "h": "Worn Blessing Necklace (Tier 5)", "p": 71, "n": 21}
+{"_start": 630, "h": "Topaz Staff (Tier 4)", "p": 4, "n": 160}
+{"_start": 630, "h": "Warrior's Pauldrons (Tier 3)", "p": 5, "n": 33}
+{"_start": 630, "h": "Ruby Staff (Tier 5)", "p": 21, "n": 37}
+{"_start": 630, "h": "Worn Cloak (Tier 3)", "p": 3, "n": 2525}
+{"_start": 630, "h": "Crescent Staff (Tier 3)", "p": 5, "n": 56}
+{"_start": 640, "h": "Assassin's Boots (Tier 5)", "p": 48, "n": 12}
+{"_start": 640, "h": "Noble Pauldrons (Tier 4)", "p": 29, "n": 4}
+{"_start": 640, "h": "Green-Feather Quiver (Tier 6)", "p": 375, "n": 8}
+{"_start": 640, "h": "Worn Blessing Necklace (Tier 4)", "p": 14, "n": 69}
+{"_start": 640, "h": "Ranger Shield (Tier 3)", "p": 3, "n": 183}
+{"_start": 640, "h": "Assassin's Shield (Tier 4)", "p": 29, "n": 5}
+{"_start": 640, "h": "Worn Guardian Earrings (Tier 4)", "p": 15, "n": 65}
+{"_start": 640, "h": "Worn Wisdom Bracelet (Tier 3)", "p": 7, "n": 119}
+{"_start": 640, "h": "Ranger Helmet (Tier 5)", "p": 16, "n": 48}
+{"_start": 640, "h": "Elite Shield (Tier 4)", "p": 7, "n": 39}
+{"_start": 650, "h": "Varisada (Tier 4)", "p": 8, "n": 50}
+{"_start": 650, "h": "Light Pauldrons (Tier 3)", "p": 3, "n": 95}
+{"_start": 650, "h": "Worn Blessing Necklace (Tier 3)", "p": 7, "n": 84}
+{"_start": 650, "h": "Dark Soldier Pauldrons (Tier 3)", "p": 12, "n": 11}
+{"_start": 650, "h": "Hunter Helmet (Tier 5)", "p": 16, "n": 31}
+{"_start": 650, "h": "MC Valentine (Tier 6)", "p": 1008, "n": 10}
+{"_start": 650, "h": "Apprentice's Spellbook (Tier 5)", "p": 15, "n": 44}
+{"_start": 650, "h": "Hunter Pauldrons (Tier 3)", "p": 3, "n": 1801}
+{"_start": 650, "h": "Dark Soldier Cloak (Tier 3)", "p": 13, "n": 13}
+{"_start": 650, "h": "Royal Mage's Gloves (Tier 4)", "p": 4, "n": 107}
+{"_start": 660, "h": "Assassin's Helmet (Tier 5)", "p": 41, "n": 12}
+{"_start": 660, "h": "Royal Mage's Pauldrons (Tier 5)", "p": 18, "n": 31}
+{"_start": 660, "h": "Assassin's Shield (Tier 5)", "p": 42, "n": 15}
+{"_start": 660, "h": "Triple Crossbow (Tier 6)", "p": 1106, "n": 6}
+{"_start": 660, "h": "Apprentice Mage's Robe (Tier 4)", "p": 5, "n": 48}
+{"_start": 660, "h": "Royal Mage's Cloak (Tier 5)", "p": 16, "n": 50}
+{"_start": 660, "h": "Guardian's Pauldrons (Tier 6)", "p": 307, "n": 10}
+{"_start": 660, "h": "Elite Cloak (Tier 3)", "p": 8, "n": 39}
+{"_start": 660, "h": "Royal Magazine (Tier 6)", "p": 628, "n": 6}
+{"_start": 660, "h": "Apprentice Mage's Boots (Tier 5)", "p": 19, "n": 35}
+{"_start": 670, "h": "Assassin's Gloves (Tier 5)", "p": 57, "n": 13}
+{"_start": 670, "h": "Moonlight Rose (Tier 6)", "p": 255, "n": 8}
+{"_start": 670, "h": "Rare Hero's Brooch (Tier 6)", "p": 1013, "n": 3}
+{"_start": 670, "h": "Elite Helmet (Tier 3)", "p": 10, "n": 23}
+{"_start": 670, "h": "Obsidian Staff (Tier 4)", "p": 9, "n": 23}
+{"_start": 670, "h": "Advanced Ammo (Tier 6)", "p": 402, "n": 8}
+{"_start": 670, "h": "Radiant Focus Belt (Tier 6)", "p": 483, "n": 7}
+{"_start": 670, "h": "Noble Gloves (Tier 4)", "p": 12, "n": 6}
+{"_start": 670, "h": "Silver Bow (Tier 4)", "p": 4, "n": 150}
+{"_start": 670, "h": "Chrysaor (Tier 6)", "p": 146, "n": 5}
+{"_start": 680, "h": "Watcher's Hat (Tier 6)", "p": 168, "n": 7}
+{"_start": 680, "h": "Warrior's Mask (Tier 6)", "p": 280, "n": 4}
+{"_start": 680, "h": "Dark Soldier Helmet (Tier 3)", "p": 10, "n": 10}
+{"_start": 680, "h": "Dark Soldier Helmet (Tier 4)", "p": 11, "n": 34}
+{"_start": 680, "h": "Machina-Ornamented Staff (Tier 5)", "p": 50, "n": 9}
+{"_start": 680, "h": "Worn Spellbook (Tier 5)", "p": 18, "n": 21}
+{"_start": 680, "h": "Warrior's Pauldrons (Tier 6)", "p": 258, "n": 10}
+{"_start": 680, "h": "Warrior's Gloves (Tier 6)", "p": 279, "n": 10}
+{"_start": 680, "h": "Tri-Color Ammo (Tier 6)", "p": 641, "n": 4}
+{"_start": 680, "h": "Royal Mage's Robe (Tier 4)", "p": 5, "n": 101}
+{"_start": 690, "h": "Great Sword (Tier 5)", "p": 16, "n": 25}
+{"_start": 690, "h": "Dark Soldier Shield (Tier 5)", "p": 36, "n": 16}
+{"_start": 690, "h": "Ancient-Patterned Shield (Tier 6)", "p": 238, "n": 2}
+{"_start": 690, "h": "Leather Quiver (Tier 3)", "p": 3, "n": 2327}
+{"_start": 690, "h": "Gunpowder (Tier 5)", "p": 19, "n": 10}
+{"_start": 690, "h": "Technique Cloak (Tier 4)", "p": 15, "n": 16}
+{"_start": 690, "h": "Elite Pauldrons (Tier 6)", "p": 881, "n": 7}
+{"_start": 690, "h": "Dark Soldier Pauldrons (Tier 6)", "p": 452, "n": 11}
+{"_start": 690, "h": "Elite Armor (Tier 6)", "p": 921, "n": 2}
+{"_start": 690, "h": "Topaz Staff (Tier 5)", "p": 16, "n": 59}
+{"_start": 710, "h": "Sturdy Shield (Tier 3)", "p": 3, "n": 5340}
+{"_start": 710, "h": "Epic Hero's Brooch (Tier 3)", "p": 32, "n": 11}
+{"_start": 710, "h": "Technique Cloak (Tier 6)", "p": 237, "n": 15}
+{"_start": 710, "h": "Elite Mage's Robe (Tier 6)", "p": 261, "n": 4}
+{"_start": 710, "h": "Sylphid (Tier 3)", "p": 3, "n": 66}
+{"_start": 710, "h": "Warrior's Boots (Tier 6)", "p": 310, "n": 13}
+{"_start": 710, "h": "Dark Soldier Boots (Tier 3)", "p": 15, "n": 9}
+{"_start": 710, "h": "Ranger Helmet (Tier 5)", "p": 16, "n": 48}
+{"_start": 710, "h": "Elite Shield (Tier 4)", "p": 7, "n": 39}
+{"_start": 710, "h": "Ranger Armor (Tier 4)", "p": 4, "n": 166}
+{"_start": 720, "h": "Light Boots (Tier 3)", "p": 4, "n": 63}
+{"_start": 720, "h": "Hunter Gloves (Tier 4)", "p": 5, "n": 78}
+{"_start": 720, "h": "Worn Hero's Brooch (Tier 5)", "p": 70, "n": 17}
+{"_start": 720, "h": "Hunter Helmet (Tier 4)", "p": 5, "n": 132}
+{"_start": 720, "h": "Hunter Boots (Tier 5)", "p": 15, "n": 29}
+{"_start": 720, "h": "Heroic Wisdom Bracelet (Tier 3)", "p": 28, "n": 11}
+{"_start": 720, "h": "Hunter Pauldrons (Tier 4)", "p": 4, "n": 114}
+{"_start": 720, "h": "Elite Helmet (Tier 6)", "p": 696, "n": 6}
+{"_start": 720, "h": "Advanced Quiver (Tier 6)", "p": 237, "n": 9}
+{"_start": 720, "h": "Noble Gloves (Tier 5)", "p": 55, "n": 14}
+{"_start": 730, "h": "Hunter Boots (Tier 5)", "p": 15, "n": 29}
+{"_start": 730, "h": "Hunter Gloves (Tier 4)", "p": 5, "n": 78}
+{"_start": 730, "h": "Worn Hero's Brooch (Tier 5)", "p": 70, "n": 17}
+{"_start": 730, "h": "Sturdy Gale Ring (Tier 4)", "p": 16, "n": 73}
+{"_start": 730, "h": "Heroic Gale Ring (Tier 3)", "p": 40, "n": 9}
+{"_start": 730, "h": "Leather Quiver (Tier 5)", "p": 20, "n": 28}
+{"_start": 730, "h": "Worn Gloves (Tier 4)", "p": 4, "n": 77}
+{"_start": 730, "h": "Technique Armor (Tier 6)", "p": 244, "n": 14}
+{"_start": 730, "h": "Royal Mage's Pauldrons (Tier 4)", "p": 5, "n": 84}
+{"_start": 730, "h": "Light Boots (Tier 3)", "p": 4, "n": 63}
+{"_start": 740, "h": "Rapid Staff (Tier 5)", "p": 18, "n": 67}
+{"_start": 740, "h": "Apprentice's Spellbook (Tier 4)", "p": 4, "n": 221}
+{"_start": 740, "h": "Noble Armor (Tier 5)", "p": 40, "n": 13}
+{"_start": 740, "h": "Elite Helmet (Tier 6)", "p": 696, "n": 6}
+{"_start": 740, "h": "Dark Soldier Boots (Tier 6)", "p": 512, "n": 11}
+{"_start": 740, "h": "Royal Vermilion (Tier 5)", "p": 50, "n": 14}
+{"_start": 740, "h": "Warrior's Cloak (Tier 6)", "p": 248, "n": 9}
+{"_start": 740, "h": "Hunter Boots (Tier 4)", "p": 5, "n": 60}
+{"_start": 740, "h": "Watcher's Boots (Tier 6)", "p": 179, "n": 10}
+{"_start": 740, "h": "Warrior's Shield (Tier 3)", "p": 4, "n": 56}
+{"_start": 750, "h": "Assassin's Boots (Tier 5)", "p": 48, "n": 12}
+{"_start": 750, "h": "Technique Headband (Tier 5)", "p": 28, "n": 44}
+{"_start": 750, "h": "Heroic Blessing Necklace (Tier 4)", "p": 75, "n": 19}
+{"_start": 750, "h": "Royal Helmet (Tier 6)", "p": 633, "n": 2}
+{"_start": 750, "h": "Legendary Hero's Brooch (Tier 4)", "p": 190, "n": 1}
+{"_start": 750, "h": "Watcher's Boots (Tier 6)", "p": 179, "n": 10}
+{"_start": 750, "h": "Special Jewel of Elements", "p": 50, "n": 45}
+{"_start": 750, "h": "Warrior's Shield (Tier 3)", "p": 4, "n": 56}
+{"_start": 750, "h": "Royal Mage's Cloak (Tier 4)", "p": 5, "n": 92}
+{"_start": 750, "h": "Radiant Focus Belt (Tier 3)", "p": 8, "n": 77}
+{"_start": 760, "h": "Spellbook of Spirits (Tier 4)", "p": 6, "n": 51}
+{"_start": 760, "h": "Elite Shield (Tier 6)", "p": 281, "n": 6}
+{"_start": 760, "h": "Obsidian Staff (Tier 6)", "p": 265, "n": 13}
+{"_start": 760, "h": "Noble Helmet (Tier 5)", "p": 50, "n": 12}
+{"_start": 760, "h": "Ranger Cloak (Tier 5)", "p": 17, "n": 47}
+{"_start": 760, "h": "Beretta (Tier 4)", "p": 5, "n": 86}
+{"_start": 760, "h": "Apprentice Mage's Pauldrons (Tier 4)", "p": 3, "n": 50}
+{"_start": 760, "h": "Intermediate Spellbook (Tier 3)", "p": 3, "n": 300}
+{"_start": 760, "h": "Worn Helmet (Tier 3)", "p": 3, "n": 2476}
+{"_start": 760, "h": "Ancient Guardian Earrings (Tier 6)", "p": 1900, "n": 4}
+{"_start": 770, "h": "Ranger Gloves (Tier 4)", "p": 4, "n": 170}
+{"_start": 770, "h": "Hunter Cloak (Tier 5)", "p": 17, "n": 27}
+{"_start": 770, "h": "Modified Pistol (Tier 5)", "p": 29, "n": 40}
+{"_start": 770, "h": "Royal Mage's Boots (Tier 5)", "p": 16, "n": 30}
+{"_start": 770, "h": "Guardian's Boots (Tier 6)", "p": 308, "n": 11}
+{"_start": 770, "h": "Worn Helmet (Tier 5)", "p": 16, "n": 33}
+{"_start": 770, "h": "Staff of Radiance (Tier 6)", "p": 238, "n": 11}
+{"_start": 770, "h": "Ranger Pauldrons (Tier 3)", "p": 3, "n": 218}
+{"_start": 770, "h": "Ranger Armor (Tier 3)", "p": 3, "n": 230}
+{"_start": 770, "h": "Ancient Blessing Necklace (Tier 3)", "p": 18, "n": 32}
+{"_start": 780, "h": "Watcher's Boots (Tier 6)", "p": 179, "n": 10}
+{"_start": 780, "h": "Warrior's Shield (Tier 3)", "p": 4, "n": 56}
+{"_start": 780, "h": "Royal Mage's Cloak (Tier 4)", "p": 5, "n": 92}
+{"_start": 780, "h": "Technique Gloves (Tier 6)", "p": 365, "n": 15}
+{"_start": 780, "h": "Noble Shield (Tier 6)", "p": 460, "n": 9}
+{"_start": 780, "h": "Worn Wisdom Bracelet (Tier 5)", "p": 73, "n": 14}
+{"_start": 780, "h": "Obsidian Staff (Tier 6)", "p": 265, "n": 13}
+{"_start": 780, "h": "Elite Shield (Tier 6)", "p": 281, "n": 6}
+{"_start": 780, "h": "Technique Headband (Tier 5)", "p": 28, "n": 44}
+{"_start": 780, "h": "Radiant Focus Belt (Tier 3)", "p": 8, "n": 77}
+{"_start": 790, "h": "Iron Sword (Tier 3)", "p": 3, "n": 2997}
+{"_start": 790, "h": "Light Pauldrons (Tier 6)", "p": 147, "n": 11}
+{"_start": 790, "h": "Elite Pauldrons (Tier 4)", "p": 11, "n": 34}
+{"_start": 790, "h": "Warrior's Boots (Tier 3)", "p": 4, "n": 49}
+{"_start": 790, "h": "Dark Soldier Shield (Tier 6)", "p": 291, "n": 9}
+{"_start": 790, "h": "Technique Armor (Tier 5)", "p": 29, "n": 34}
+{"_start": 790, "h": "Watcher's Armor (Tier 5)", "p": 19, "n": 56}
+{"_start": 790, "h": "Worn Hero's Brooch (Tier 4)", "p": 15, "n": 82}
+{"_start": 790, "h": "Trinity Staff (Tier 5)", "p": 32, "n": 24}
+{"_start": 790, "h": "Superior Jewel of Arcana", "p": 851, "n": 4}
+{"_start": 810, "h": "Legendary Hero's Brooch (Tier 4)", "p": 190, "n": 1}
+{"_start": 810, "h": "Rare Blessing Necklace (Tier 3)", "p": 13, "n": 113}
+{"_start": 810, "h": "Elite Pauldrons (Tier 3)", "p": 6, "n": 14}
+{"_start": 810, "h": "Sealed Spellbook (Tier 3)", "p": 5, "n": 58}
+{"_start": 810, "h": "Advanced Ammo (Tier 3)", "p": 5, "n": 102}
+{"_start": 810, "h": "Worn Gale Ring (Tier 4)", "p": 13, "n": 66}
+{"_start": 810, "h": "Elite Armor (Tier 3)", "p": 8, "n": 25}
+{"_start": 810, "h": "Technique Headband (Tier 5)", "p": 28, "n": 44}
+{"_start": 810, "h": "Radiant Focus Belt (Tier 3)", "p": 8, "n": 77}
+{"_start": 810, "h": "Worn Guardian Earrings (Tier 3)", "p": 6, "n": 139}
+{"_start": 820, "h": "Heroic Focus Belt (Tier 4)", "p": 82, "n": 25}
+{"_start": 820, "h": "Worn Armor (Tier 3)", "p": 4, "n": 3090}
+{"_start": 820, "h": "Topaz Staff (Tier 3)", "p": 4, "n": 468}
+{"_start": 820, "h": "Ranger Helmet (Tier 3)", "p": 4, "n": 203}
+{"_start": 820, "h": "Hellfire Bow (Tier 3)", "p": 5, "n": 40}
+{"_start": 820, "h": "Light Cloak (Tier 3)", "p": 4, "n": 46}
+{"_start": 820, "h": "Sword of Light (Tier 4)", "p": 6, "n": 92}
+{"_start": 820, "h": "Technique Gloves (Tier 4)", "p": 14, "n": 16}
+{"_start": 820, "h": "Technique Headband (Tier 6)", "p": 307, "n": 10}
+{"_start": 820, "h": "Iron Shield (Tier 3)", "p": 5, "n": 3113}
+{"_start": 830, "h": "Special Jewel of Steel", "p": 47, "n": 32}
+{"_start": 830, "h": "Legendary Wisdom Bracelet (Tier 4)", "p": 145, "n": 4}
+{"_start": 830, "h": "Ruby Staff (Tier 3)", "p": 4, "n": 4340}
+{"_start": 830, "h": "Worn Focus Belt (Tier 5)", "p": 85, "n": 16}
+{"_start": 830, "h": "Worn Pauldrons (Tier 3)", "p": 3, "n": 2592}
+{"_start": 830, "h": "Spellbook of Magic (Tier 6)", "p": 163, "n": 8}
+{"_start": 830, "h": "Advanced Spellbook (Tier 3)", "p": 5, "n": 54}
+{"_start": 830, "h": "Elite Gloves (Tier 4)", "p": 7, "n": 33}
+{"_start": 830, "h": "Elite Pauldrons (Tier 3)", "p": 6, "n": 14}
+{"_start": 830, "h": "Sealed Spellbook (Tier 3)", "p": 5, "n": 58}
+{"_start": 840, "h": "Elite Armor (Tier 3)", "p": 8, "n": 25}
+{"_start": 840, "h": "Heroic Blessing Necklace (Tier 5)", "p": 373, "n": 11}
+{"_start": 840, "h": "Guardian's Shield (Tier 4)", "p": 7, "n": 51}
+{"_start": 840, "h": "Special Jewel of Resistance", "p": 42, "n": 51}
+{"_start": 840, "h": "Sturdy Blessing Necklace (Tier 4)", "p": 14, "n": 55}
+{"_start": 840, "h": "Chrysaor (Tier 3)", "p": 3, "n": 225}
+{"_start": 840, "h": "Light Gloves (Tier 3)", "p": 3, "n": 52}
+{"_start": 840, "h": "Guardian's Gloves (Tier 4)", "p": 7, "n": 81}
+{"_start": 840, "h": "Special Jewel of Strife", "p": 312, "n": 17}
+{"_start": 840, "h": "Intermediate Spellbook (Tier 4)", "p": 4, "n": 229}
+{"_start": 850, "h": "Silver Bow (Tier 5)", "p": 15, "n": 63}
+{"_start": 850, "h": "Superior Jewel of Arcana", "p": 851, "n": 4}
+{"_start": 850, "h": "Dark Soldier Cloak (Tier 6)", "p": 339, "n": 14}
+{"_start": 850, "h": "Technique Cloak (Tier 5)", "p": 28, "n": 37}
+{"_start": 850, "h": "Advanced Spellbook (Tier 3)", "p": 5, "n": 54}
+{"_start": 850, "h": "Elite Gloves (Tier 4)", "p": 7, "n": 33}
+{"_start": 850, "h": "Dark Soldier Armor (Tier 6)", "p": 525, "n": 13}
+{"_start": 850, "h": "Worn Focus Belt (Tier 5)", "p": 85, "n": 16}
+{"_start": 850, "h": "Worn Pauldrons (Tier 3)", "p": 3, "n": 2592}
+{"_start": 850, "h": "Spellbook of Magic (Tier 6)", "p": 163, "n": 8}
+{"_start": 860, "h": "Modified Pistol (Tier 6)", "p": 494, "n": 11}
+{"_start": 860, "h": "Guardian's Armor (Tier 5)", "p": 27, "n": 56}
+{"_start": 860, "h": "White Bow (Tier 6)", "p": 831, "n": 12}
+{"_start": 860, "h": "Sturdy Guardian Earrings (Tier 3)", "p": 7, "n": 127}
+{"_start": 860, "h": "Elite Boots (Tier 4)", "p": 11, "n": 36}
+{"_start": 860, "h": "Ancient Focus Belt (Tier 3)", "p": 18, "n": 38}
+{"_start": 860, "h": "Assassin's Armor (Tier 4)", "p": 39, "n": 7}
+{"_start": 860, "h": "Ranger Shield (Tier 4)", "p": 4, "n": 153}
+{"_start": 860, "h": "Rune Spellbook (Tier 4)", "p": 3, "n": 123}
+{"_start": 860, "h": "Apprentice Mage's Boots (Tier 4)", "p": 4, "n": 69}
+{"_start": 870, "h": "Elite Gloves (Tier 4)", "p": 7, "n": 33}
+{"_start": 870, "h": "Sturdy Guardian Earrings (Tier 3)", "p": 7, "n": 127}
+{"_start": 870, "h": "Imperial Sword (Tier 5)", "p": 16, "n": 37}
+{"_start": 870, "h": "Watcher's Pauldrons (Tier 6)", "p": 155, "n": 7}
+{"_start": 870, "h": "Gold-Patterned Shield (Tier 6)", "p": 175, "n": 7}
+{"_start": 870, "h": "Uni Bow (Tier 6)", "p": 1311, "n": 8}
+{"_start": 870, "h": "Ruby Staff (Tier 4)", "p": 4, "n": 130}
+{"_start": 870, "h": "Iron Shield (Tier 4)", "p": 4, "n": 65}
+{"_start": 870, "h": "Assassin's Armor (Tier 4)", "p": 39, "n": 7}
+{"_start": 870, "h": "Ancient Focus Belt (Tier 3)", "p": 18, "n": 38}
+{"_start": 880, "h": "Light Cloak (Tier 4)", "p": 5, "n": 148}
+{"_start": 880, "h": "Special Jewel of Wildness", "p": 50, "n": 47}
+{"_start": 880, "h": "Ranger Boots (Tier 4)", "p": 4, "n": 170}
+{"_start": 880, "h": "Elite Armor (Tier 4)", "p": 10, "n": 31}
+{"_start": 880, "h": "Training Quiver (Tier 4)", "p": 4, "n": 162}
+{"_start": 880, "h": "Archer-Patterned Quiver (Tier 6)", "p": 259, "n": 16}
+{"_start": 880, "h": "Ranger Cloak (Tier 4)", "p": 4, "n": 116}
+{"_start": 880, "h": "Rare Gale Ring (Tier 3)", "p": 12, "n": 113}
+{"_start": 880, "h": "Hunter Boots (Tier 6)", "p": 200, "n": 1}
+{"_start": 880, "h": "Heroic Guardian Earrings (Tier 4)", "p": 83, "n": 21}
+{"_start": 890, "h": "Mana Shield (Tier 5)", "p": 16, "n": 34}
+{"_start": 890, "h": "Training Quiver (Tier 4)", "p": 4, "n": 162}
+{"_start": 890, "h": "Archer-Patterned Quiver (Tier 6)", "p": 259, "n": 16}
+{"_start": 890, "h": "Elite Boots (Tier 4)", "p": 11, "n": 36}
+{"_start": 890, "h": "Epic Hero's Brooch (Tier 4)", "p": 66, "n": 25}
+{"_start": 890, "h": "Royal Mage's Hat (Tier 5)", "p": 16, "n": 61}
+{"_start": 890, "h": "Worn Wisdom Bracelet (Tier 4)", "p": 14, "n": 58}
+{"_start": 890, "h": "MC Valentine (Tier 5)", "p": 37, "n": 25}
+{"_start": 890, "h": "Training Quiver (Tier 5)", "p": 15, "n": 47}
+{"_start": 890, "h": "Assassin's Cloak (Tier 6)", "p": 490, "n": 6}
+{"_start": 910, "h": "Heroic Gale Ring (Tier 4)", "p": 63, "n": 28}
+{"_start": 910, "h": "Technique Shield (Tier 5)", "p": 29, "n": 38}
+{"_start": 910, "h": "High-Grade Jewel of Destruction", "p": 5, "n": 634}
+{"_start": 910, "h": "Red-Patterned Staff (Tier 4)", "p": 4, "n": 232}
