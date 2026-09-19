@@ -1,0 +1,22 @@
+==============================================================================
+DOES RE-EXTRACTING THE APPID LIST FIX IT?
+==============================================================================
+  list captured 2026-09-19 14:08 : 10,101 appids
+  list captured 2026-09-19 22:2x : 10,101 appids
+  ADDED by the re-extract        : 0
+  REMOVED by the re-extract      : 0
+
+  MARKETS MEASURED LIVE, AND WHETHER THE LIST CONTAINS THEM:
+     3419430  old True  new True    Bongo Cat             540 items,  1,521 trades/day
+     3678970  old True  new True    TBH: Task Bar Hero  1,064 items, 70,046 trades/day
+     4891320  old True  new True    WoG: War of Genesis   914 items, 96,910 trades/day
+     4892010  old False new False   Bomb Farm             270 items, 20,310 trades/day
+     4952980  old True  new True    My Party Is Grinding  found in the head walk, not sized
+     5033210  old False new False   Desk Top Racer        found in the head walk, not sized
+
+  2 of 6 measured-live markets are ABSENT from a freshly extracted list.
+
+  VERDICT: the list is not stale, it is not a population. Re-extraction
+  is inert -- it returns the same 10,101 appids. The head walk over the whole
+  market's top items is the only instrument that has ever surfaced these
+  games, and completing a per-appid census over this frame could not.

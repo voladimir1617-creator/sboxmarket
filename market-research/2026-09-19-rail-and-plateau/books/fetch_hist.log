@@ -1,0 +1,84 @@
+=== WoG: War of Genesis (4891320): 103 sampled items of 914 in book, 3 already captured ===
+  [WoG: War of Genesis] Watcher's Quiver (Tier 6)                UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] Royal Helmet (Tier 6)                    UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] 5/103 Dark Soldier Pauldrons (Tier 6)       17 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 10/103 Varisada (Tier 6)                     28 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 15/103 Watcher's Boots (Tier 6)              17 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] Staff of Enlightenment (Tier 5)          UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] 20/103 Special Jewel of Destruction          93 pts  pace 3.00s  429s 0
+Traceback (most recent call last):
+  File "C:\Users\WW\Desktop\sboxmarket\market-research\2026-09-19-rail-and-plateau\fetch_hist.py", line 80, in run
+    pts = history(appid, r["h"], pace)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\WW\Desktop\sboxmarket\market-research\2026-09-19-rail-and-plateau\histlib.py", line 139, in history
+    raise Abort("NO-HISTORY-BLOCK")
+histlib.Abort: NO-HISTORY-BLOCK
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\WW\Desktop\sboxmarket\market-research\2026-09-19-rail-and-plateau\fetch_hist.py", line 112, in <module>
+    metas.append(run(ap, lab, vf, tot, pace))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\WW\Desktop\sboxmarket\market-research\2026-09-19-rail-and-plateau\fetch_hist.py", line 85, in run
+    print("  [%s] %-40s UNREAD %s" % (label, r["h"][:40], e.state), flush=True)
+  File "C:\Users\WW\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\ub8ec' in position 24: character maps to <undefined>
+=== WoG: War of Genesis (4891320): 103 sampled items of 914 in book, 21 already captured ===
+  [WoG: War of Genesis] Watcher's Quiver (Tier 6)                UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] Royal Helmet (Tier 6)                    UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] Staff of Enlightenment (Tier 5)          UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] 룬 마법서                                    UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] 25/103 Noble Quiver (Tier 6)                  4 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 30/103 Technique Gloves (Tier 6)             12 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 로열 버밀리온                                  UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] 35/103 Elite Mage's Boots (Tier 6)           32 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 40/103 Worn Hero's Brooch (Tier 5)           40 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 45/103 Dark Soldier Pauldrons (Tier 5)       52 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 50/103 Radiant Wisdom Bracelet (Tier 4)     203 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 55/103 Hunter Boots (Tier 5)                 42 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 60/103 Watcher's Gloves (Tier 4)            217 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 65/103 Crossbow (Tier 3)                     70 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] Advanced Quiver                          UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] 70/103 Assassin's Gloves (Tier 6)             2 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 75/103 Dark Soldier Gloves (Tier 6)          15 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 80/103 Worn Guardian Earrings (Tier 5)       37 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] Apprentice Mage's Cloak                  UNREAD NO-HISTORY-BLOCK
+  [WoG: War of Genesis] 85/103 Noble Armor (Tier 4)                   1 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 90/103 Imperial Sword (Tier 5)              173 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 95/103 Elite Cloak (Tier 4)                  88 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] 100/103 Hellfire Bow (Tier 4)                224 pts  pace 3.00s  429s 0
+  [WoG: War of Genesis] done. aborts={'NO-HISTORY-BLOCK': 7}
+=== Bomb Farm (4892010): 31 sampled items of 270 in book, 0 already captured ===
+  [Bomb Farm] 0/31 White Oracle Skin                      2 pts  pace 3.00s  429s 0
+  [Bomb Farm] Ash Ring Lv 80 (Mythic)                  UNREAD NO-HISTORY-BLOCK
+  [Bomb Farm] Gold Boots (Rare)                        UNREAD NO-HISTORY-BLOCK
+  [Bomb Farm] 5/31 Ash Weapon Lv 80 (Legendary)           1 pts  pace 3.00s  429s 0
+  [Bomb Farm] Ash Leggings Lv 80 (Legendary)           UNREAD NO-HISTORY-BLOCK
+  [Bomb Farm] Brass Boots Lv 90 (Rare)                 UNREAD NO-HISTORY-BLOCK
+  [Bomb Farm] 10/31 Autumn Amulet Lv 50 (Mythic)           1 pts  pace 3.00s  429s 0
+  [Bomb Farm] Coal Boots Lv 30 (Mythic)                UNREAD NO-HISTORY-BLOCK
+  [Bomb Farm] 15/31 Ash Weapon Lv 80 (Rare)               28 pts  pace 3.00s  429s 0
+  [Bomb Farm] 20/31 Hero Cage (Act 3)                    287 pts  pace 3.00s  429s 0
+  [Bomb Farm] 25/31 Hero Cage (Act 2)                    505 pts  pace 3.00s  429s 0
+  [Bomb Farm] 30/31 Ember Helmet Lv 10 (Rare)             79 pts  pace 3.00s  429s 0
+  [Bomb Farm] done. aborts={'NO-HISTORY-BLOCK': 5}
+=== TBH: Task Bar Hero (3678970): 60 sampled items of 1064 in book, 0 already captured ===
+  [TBH: Task Bar Hero] 0/60 Eclipse Amulet (Cosmic) A              9 pts  pace 3.00s  429s 0
+  [TBH: Task Bar Hero] 5/60 Emerald Ring (Divine) A               41 pts  pace 3.00s  429s 0
+  [TBH: Task Bar Hero] 10/60 Limitless Hatchet (Celestial) A      129 pts  pace 3.00s  429s 0
+  [TBH: Task Bar Hero] 15/60 Limitless Axe (Divine) A             103 pts  pace 3.00s  429s 0
+  [TBH: Task Bar Hero] 20/60 Limitless Scepter (Celestial) A      608 pts  pace 3.00s  429s 0
+  [TBH: Task Bar Hero] 25/60 Empire Boots (Immortal) A            376 pts  pace 3.00s  429s 0
+=== TBH: Task Bar Hero (3678970): 22 sampled items of 1064 in book, 29 already captured ===
+  [TBH: Task Bar Hero] 15/22 Dimensional Shield (Celestial) A       1 pts  pace 3.00s  429s 0
+=== Bongo Cat (3419430): 22 sampled items of 540 in book, 0 already captured ===
+  [Bongo Cat] 0/22 Trumpet                               56 pts  pace 3.00s  429s 0
+  [Bongo Cat] 5/22 Paw Ushanka                          697 pts  pace 3.00s  429s 0
+  [Bongo Cat] 10/22 Little Raincoat                      510 pts  pace 3.00s  429s 0
+  [Bongo Cat] 15/22 Face Grimace Emoji                   137 pts  pace 3.00s  429s 0
+  [Bongo Cat] 20/22 Rubber Duck                          574 pts  pace 3.00s  429s 0
+  [Bongo Cat] done. aborts=none
+FETCH-HIST-DONE

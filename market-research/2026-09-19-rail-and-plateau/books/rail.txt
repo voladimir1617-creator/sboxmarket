@@ -1,0 +1,107 @@
+
+==============================================================================
+1. WHO PAYS THE RAIL — the shipped answer, not the assumed one
+==============================================================================
+  Deposit leg  StripeService:3059  credited = tx.amount - tx.feeAmount
+  Payout leg   StripeService:1723  netPayout = amount - payoutFeeCharged
+  => platform variable margin on BOTH money legs is exactly $0.00, and the
+     2.9%+$0.30 cannot make it insolvent at any volume. The prior pass's
+     "1.777% < 3.15%, the platform loses money at every volume" compares a
+     revenue rate against somebody else's cost.
+
+  What the pass-through does NOT cover, because it is priced per ACCOUNT and
+  application.yml has no knob for it:
+     Stripe Connect  $2.00 per monthly ACTIVE ACCOUNT  (published)
+     -> a seller who withdraws once in a month costs the platform $2.00
+        REGARDLESS of how little they withdrew. It is the only cost in
+        the model that does not shrink with the trade size, and it is the
+        one a sub-dollar market cannot carry. Priced in takerate.py.
+
+==============================================================================
+2. THE USER'S ROUND TRIP ON STRIPE, at the SHIPPED rates
+==============================================================================
+  Deposit, then withdraw the whole credited balance. No trade, so this
+  is the pure cost of moving money in and out.
+
+   deposit    fee in   credited   fee out    net out  round-trip
+     $1.00     $0.32      $0.68     $0.25      $0.43     57.00%   BRUTAL
+     $2.00     $0.35      $1.65     $0.25      $1.40     30.00%   BRUTAL
+     $5.00     $0.44      $4.56     $0.26      $4.30     14.00%    HIGH
+    $10.00     $0.59      $9.41     $0.27      $9.14      8.60%    HIGH
+    $20.00     $0.88     $19.12     $0.29     $18.83      5.85%    HIGH
+    $50.00     $1.75     $48.25     $0.37     $47.88      4.24%      ok
+   $100.00     $3.20     $96.80     $0.49     $96.31      3.69%      ok
+
+  MIN_DEPOSIT is $1.00 and MIN_WITHDRAW is $1.00 (DepositRequest.groovy:9,
+  WithdrawRequest.groovy:11). At the shipped minimum the round trip takes
+  57% of the money before a single trade happens. There is no
+  configuration in the repo that raises that floor.
+
+==============================================================================
+3. THE SAME ROUND TRIP ON THE CRYPTO RAIL, at the PUBLISHED schedule
+==============================================================================
+  1.5% in (the shipped is-fixed-rate=true band), 0% out, plus ONE network
+  fee on each leg. The network fee is the only term with no schedule, so
+  the published reference points are used as columns rather than a guess.
+
+  deposit          $0.00       $0.05       $0.60       $3.50       $5.00
+             ChangeNOW P         BSC TRC20 hop i  USDT-TRC20    Ethereum
+  $2.00             1.5%        6.5%       61.5%         n/a         n/a
+  $5.00             1.6%        3.6%       25.6%      141.6%         n/a
+  $10.00            1.5%        2.5%       13.5%       71.5%      101.5%
+  $20.00            1.5%        2.0%        7.5%       36.5%       51.5%
+  $50.00            1.5%        1.7%        3.9%       15.5%       21.5%
+  $100.00           1.5%        1.6%        2.7%        8.5%       11.5%
+
+  Stripe, same deposits, for comparison:
+  round trip  $2.00 30.0%  $5.00 14.0%  $10.00 8.6%  $20.00 5.8%  $50.00 4.2%  $100.00 3.7%
+
+==============================================================================
+4. WHERE THE TWO RAILS CROSS — solved, not asserted
+==============================================================================
+  Crypto beats Stripe on a deposit D when the per-transfer network fee N
+  satisfies   1.5%D + N + 0%(D-fee) + N  <  2.9%D + $0.30 + 0.25%C + $0.25
+
+     deposit     break-even N/leg   at 1.0% (floating)   verdict against the published numbers
+       $1.00              $0.2750              $0.2800   crypto wins ONLY on a cheap chain (BSC-class, $0.05)
+       $2.00              $0.2850              $0.2900   crypto wins ONLY on a cheap chain (BSC-class, $0.05)
+       $5.00              $0.3100              $0.3250   crypto wins ONLY on a cheap chain (BSC-class, $0.05)
+      $10.00              $0.3550              $0.3800   crypto wins ONLY on a cheap chain (BSC-class, $0.05)
+      $20.00              $0.4350              $0.4850   crypto wins ONLY on a cheap chain (BSC-class, $0.05)
+      $50.00              $0.6850              $0.8100   crypto wins on an optimised TRC20 hop, not on their default
+     $100.00              $1.0950              $1.3450   crypto wins on an optimised TRC20 hop, not on their default
+     $500.00              $4.3800              $5.6300   crypto wins even on USDT-TRC20
+
+  Read against NOWPayments' OWN published default of $3.50 per USDT-TRC20
+  payout, the crypto rail is DEARER than Stripe on every deposit below
+  about $500. The crypto rail only wins on a cheap chain, and their own
+  cheap-chain figure ($0.05, BSC) wins at every deposit size in the table.
+  So the question is not 'crypto or card' -- it is WHICH CHAIN, and that
+  is a term nobody has picked. `rustyroyale.payout.nowpayments.currency`
+  has NO DEFAULT for exactly this reason, and the comment in
+  NowPaymentsPayoutGateway says so: 'a guess here sends real money over
+  the wrong chain'.
+
+==============================================================================
+5. THE FLOOR — what each rail refuses to move at all
+==============================================================================
+  Stripe        MIN_DEPOSIT $1.00 (ours, not Stripe's). Round trip 57%.
+  NOWPayments   "about $2 for one half of the coins that we support and
+                about $3-5 for another" -- and the minimum itself moves
+                with the network fee, so the floor rises exactly when the
+                rail gets expensive. A crypto rail RAISES the shipped
+                minimum deposit from $1.00 to $2.00-$5.00.
+  NOWPayments payout minimum: NOT PUBLISHED. The only adjacent published
+                figure is "The minimum conversion amount is $1".
+
+  What the crypto rail actually buys, stated exactly: it removes the
+  $0.30 + $0.25 FIXED legs and the $2.00/month Connect account fee, and
+  replaces them with one network fee per transfer whose size is chosen by
+  the chain. On a cheap chain that is a 6-to-30x reduction in the fixed
+  cost of moving a small balance. On the chain their own calculator
+  defaults to, it is 7x WORSE. The rail is not the decision; the chain is.
+
+  And the cost neither table shows: the seller must hold a crypto wallet
+  and an address to be paid to. That is a product barrier, not a fee, and
+  it is being asked of somebody cashing out a few dollars of idle-game
+  loot.
