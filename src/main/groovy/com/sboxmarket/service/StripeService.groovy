@@ -123,8 +123,74 @@ class StripeService {
             depositFeePercent:   platformLedgerService?.processingFeePercent ?: zero,
             depositFeeFixed:     platformLedgerService?.processingFeeFixed   ?: zero,
             withdrawalFeePercent: platformLedgerService?.payoutFeePercent    ?: zero,
-            withdrawalFeeFixed:  platformLedgerService?.payoutFeeFixed       ?: zero
+            withdrawalFeeFixed:  platformLedgerService?.payoutFeeFixed       ?: zero,
+            // The per-account leg and the minimums derived from it. Shipped
+            // to the client for the same reason the rates are: these are the
+            // terms of the transaction, and a form that accepts an amount the
+            // server will refuse is a worse disclosure than no form at all.
+            // The client must not recompute them - it renders what it is told.
+            perAccountMonthlyFee:      perAccountMonthlyFee(),
+            perAccountWaiverAt:        perAccountWaiverAt(),
+            minDeposit:                minDeposit(),
+            minWithdrawal:             minWithdrawal(false),
+            minWithdrawalFirstOfMonth: minWithdrawal(true)
         ]
+    }
+
+    /**
+     * The per-account monthly payout charge actually in force - zero when
+     * pass-through pricing is off (dev mode creates no Transfer, so Stripe
+     * bills no account) or no ledger service is wired.
+     */
+    BigDecimal perAccountMonthlyFee() {
+        (!isLive() || platformLedgerService == null) ? BigDecimal.ZERO.setScale(2)
+            : ((platformLedgerService.payoutAccountMonthlyFee ?: BigDecimal.ZERO) as BigDecimal)
+                  .setScale(2, java.math.RoundingMode.HALF_UP)
+    }
+
+    /** Withdrawal size at or above which the per-account charge is absorbed. */
+    BigDecimal perAccountWaiverAt() {
+        (!isLive() || platformLedgerService == null) ? BigDecimal.ZERO.setScale(2)
+                                                     : platformLedgerService.perAccountBreakEvenGmv()
+    }
+
+    /**
+     * Minimum deposit at the CURRENT rates, derived - see
+     * {@link PlatformLedgerService#minDeposit}. Zero when no fee is charged,
+     * because a minimum whose whole justification is the fee share cannot
+     * survive the fee being zero.
+     */
+    BigDecimal minDeposit() {
+        (!isLive() || platformLedgerService == null) ? BigDecimal.ZERO.setScale(2)
+                                                     : platformLedgerService.minDeposit()
+    }
+
+    /** Minimum withdrawal at the current rates - see
+     *  {@link PlatformLedgerService#minWithdrawal}. */
+    BigDecimal minWithdrawal(boolean perAccountChargeApplies) {
+        (!isLive() || platformLedgerService == null) ? BigDecimal.ZERO.setScale(2)
+                                                     : platformLedgerService.minWithdrawal(perAccountChargeApplies)
+    }
+
+    /**
+     * Has this wallet already triggered the per-account monthly charge in the
+     * current UTC calendar month?
+     *
+     * Stripe bills the ACCOUNT once a month, so the second payout of a month
+     * rides the charge the first one paid. PENDING counts as billed: a queued
+     * payout is an intent to move money this month, and counting only
+     * COMPLETED would charge the user twice when a payout settles late. The
+     * imprecision that leaves runs the other way - a payout that later FAILS
+     * leaves the month looking billed when Stripe may not have billed it -
+     * and erring toward NOT charging twice is the direction a pass-through
+     * has to err in.
+     */
+    boolean perAccountChargeAlreadyBilled(Long walletId) {
+        if (walletId == null || transactionRepository == null) return false
+        long monthStart = java.time.YearMonth.now(java.time.ZoneOffset.UTC)
+                .atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        def sum = transactionRepository.sumWithdrawalsSince(walletId, monthStart) ?: BigDecimal.ZERO
+        (sum as BigDecimal) > BigDecimal.ZERO
     }
 
     @Autowired WalletRepository walletRepository
@@ -736,6 +802,29 @@ class StripeService {
             throw new com.sboxmarket.exception.BadRequestException("DEPOSIT_BELOW_FEE",
                 "A \$${amount.toPlainString()} deposit does not cover the \$${processingFee.toPlainString()} payment-processing fee. " +
                 "Deposit a larger amount.")
+        }
+        // Derived minimum deposit. The fee-swallow refusal above stops the
+        // arithmetic going negative; this one stops it being EXTORTIONATE,
+        // which is a different failure and has a different threshold. At the
+        // shipped $1.00 the processor takes 32% of the deposit and 57% of a
+        // round trip. The figure comes from platform.max-fee-share and the
+        // published rates - change either and this moves with it.
+        BigDecimal minDepositAmt = minDeposit()
+        if (minDepositAmt > BigDecimal.ZERO && amount < minDepositAmt) {
+            log.warn("DEPOSIT_BELOW_MINIMUM for wallet ${walletId}: \$${amount} vs \$${minDepositAmt} minimum")
+            // The share is read defensively: an unset platform.max-fee-share
+            // leaves it null, shareFloor already degrades gracefully to the
+            // fee-swallow floor, and a NullPointerException raised while
+            // BUILDING A REFUSAL MESSAGE would turn a clean 400 into a 500 on
+            // the money path. The sentence loses a clause; the refusal holds.
+            def sharePct = platformLedgerService?.maxFeeShare
+            throw new com.sboxmarket.exception.BadRequestException("DEPOSIT_BELOW_MINIMUM",
+                "The minimum deposit is \$${minDepositAmt.toPlainString()}." +
+                (sharePct != null
+                    ? " Below that, more than " +
+                      "${sharePct.multiply(new BigDecimal('100')).stripTrailingZeros().toPlainString()}% " +
+                      "of what you send is payment-processing fee rather than balance."
+                    : " Below that, the payment-processing fee is a large share of what you send."))
         }
         BigDecimal netCredit = amount - processingFee
 
@@ -1706,6 +1795,39 @@ class StripeService {
         // gated on isLive() exactly the way the deposit side is gated by
         // createDepositSession returning early into devModeDeposit.
         BigDecimal payoutFeeCharged = isLive() ? payoutFee(amount) : BigDecimal.ZERO.setScale(2)
+
+        // -- The per-account leg: the cost that is not a rate ---------
+        //
+        // Stripe Connect bills $2.00 for each connected account that moves
+        // money in a calendar month - fixed, per ACCOUNT, not per dollar.
+        // Three outcomes, and only one of them charges the user:
+        //   already billed this month -> nothing. The charge is sunk, and
+        //       billing it again would be over-recovery dressed as a fee.
+        //   amount >= the break-even  -> booked as a platform COST with no
+        //       recovery: commission on that much volume already paid it.
+        //   below the break-even      -> passed through, exactly like the
+        //       percentage legs, because the take rate on this payout did
+        //       not pay for it and something has to.
+        //
+        // Folded INTO payoutFeeCharged deliberately. Every downstream path -
+        // the net payout, the fee-swallow refusal, tx.feeAmount, and the
+        // cancel/reversal re-credits that read that row back - already reads
+        // that one variable. A parallel field would be a second thing to
+        // keep in step, and the reversal paths are exactly where a second
+        // thing gets forgotten.
+        BigDecimal perAccountCharge = BigDecimal.ZERO.setScale(2)
+        BigDecimal perAccountCost   = BigDecimal.ZERO.setScale(2)
+        if (isLive() && platformLedgerService != null && !perAccountChargeAlreadyBilled(walletId)) {
+            def monthly = (platformLedgerService.payoutAccountMonthlyFee ?: BigDecimal.ZERO) as BigDecimal
+            if (monthly > BigDecimal.ZERO) {
+                perAccountCost = monthly.setScale(2, java.math.RoundingMode.HALF_UP)
+                if (amount < platformLedgerService.perAccountBreakEvenGmv()) {
+                    perAccountCharge = perAccountCost
+                    payoutFeeCharged = (payoutFeeCharged + perAccountCharge) as BigDecimal
+                }
+            }
+        }
+
         // Refuse rather than pay out zero-or-negative. At 0.25% + $0.25 the
         // fee swallows anything under ~$0.26, and a misconfigured fixed leg
         // moves that threshold arbitrarily high. The @DecimalMin("1.00") on
@@ -1720,6 +1842,46 @@ class StripeService {
                 "A \$${amount.toPlainString()} withdrawal does not cover the \$${payoutFeeCharged.toPlainString()} payout fee. " +
                 "Withdraw a larger amount.")
         }
+        // ORDER: this runs AFTER the fee-swallow refusal above, deliberately.
+        // Both can refuse the same request, and the arithmetic one has to
+        // win: "the fees leave you nothing" is a fact about the amount,
+        // while "below the minimum" is a policy about it, and a user told
+        // the policy reason for a request that could never have paid out is
+        // being told to try an amount that will fail the same way.
+        // -- Minimum withdrawal, and the sweep that stops it stranding -
+        //
+        // The minimum is DERIVED from the payout rates and whichever
+        // per-account charge applies to THIS payout, so it is $23.08 on the
+        // first payout of a month and $2.57 on any after it. Nothing here
+        // hardcodes either figure; both move with the config.
+        //
+        // The sweep exemption is the load-bearing half. A minimum a balance
+        // cannot reach is a minimum that KEEPS the balance, and the platform
+        // keeping a seller's money is not an acceptable answer to the
+        // platform's own cost problem. Emptying the wallet is therefore
+        // always allowed, down to the point where the fees stop leaving
+        // anything - the feeExceedsAmount refusal below, which is arithmetic
+        // rather than policy.
+        //
+        // A sweep is not a way around the charge: it pays the per-account
+        // charge like any other payout. That is what stops it being farmed.
+        // "The platform absorbs it on a sweep" was considered and is a
+        // faucet - deposit $10, sweep it, and the platform is out $2.00
+        // having earned nothing, repeatable per throwaway account.
+        BigDecimal minWithdrawAmt = minWithdrawal(perAccountCharge > BigDecimal.ZERO)
+        BigDecimal balanceNow = ((wallet.balance ?: BigDecimal.ZERO) as BigDecimal)
+                .setScale(2, java.math.RoundingMode.HALF_UP)
+        boolean sweep = (amount.compareTo(balanceNow) == 0)
+        if (minWithdrawAmt > BigDecimal.ZERO && amount < minWithdrawAmt && !sweep) {
+            log.warn("WITHDRAW_BELOW_MINIMUM for wallet ${walletId}: \$${amount} vs \$${minWithdrawAmt} minimum " +
+                     "(balance \$${balanceNow})")
+            throw new com.sboxmarket.exception.BadRequestException("WITHDRAW_BELOW_MINIMUM",
+                "The minimum withdrawal is \$${minWithdrawAmt.toPlainString()} right now. " +
+                "You can also take your whole \$${balanceNow.toPlainString()} balance out in one go at any " +
+                "amount the fees still leave something of - a full-balance withdrawal is never blocked by " +
+                "this minimum.")
+        }
+
         BigDecimal netPayout = amount - payoutFeeCharged
 
         // Debit the wallet first, then FLUSH so the @Version optimistic-lock
@@ -1916,14 +2078,27 @@ class StripeService {
         // roll back a payout that has already left the platform). The
         // try/catch here only guards the estimate arithmetic, which runs
         // before the deferral.
-        if (isLive() && platformLedgerService != null && payoutFeeCharged > BigDecimal.ZERO) {
+        // `perAccountCost` is added to the COST leg whether or not it was
+        // recovered from the user. That asymmetry is the point: when the
+        // withdrawal clears the break-even the charge is real and absorbed,
+        // and booking only the recovered part would leave the treasury
+        // residual reading ~zero on a month the platform genuinely paid
+        // $2.00 per active seller. This is the first time that charge has
+        // appeared in the ledger at all.
+        if (isLive() && platformLedgerService != null
+                && (payoutFeeCharged > BigDecimal.ZERO || perAccountCost > BigDecimal.ZERO)) {
             try {
-                def cost = platformLedgerService.estimatePayoutCost(amount)
+                def cost = (((platformLedgerService.estimatePayoutCost(amount) ?: BigDecimal.ZERO) as BigDecimal)
+                            + perAccountCost) as BigDecimal
                 platformLedgerService.postPassThroughProcessing(
                     cost, payoutFeeCharged, stripeRef,
-                    "Estimated payout cost on \$${amount.toPlainString()} withdrawal".toString(),
-                    "Payout fee recovered from user on \$${amount.toPlainString()} withdrawal " +
-                        "(paid out \$${netPayout.toPlainString()})".toString())
+                    ("Estimated payout cost on \$${amount.toPlainString()} withdrawal" +
+                        (perAccountCost > BigDecimal.ZERO
+                            ? " (incl. \$${perAccountCost.toPlainString()} monthly per-account charge" +
+                              (perAccountCharge > BigDecimal.ZERO ? ', passed through)' : ', absorbed)')
+                            : '')).toString(),
+                    ("Payout fee recovered from user on \$${amount.toPlainString()} withdrawal " +
+                        "(paid out \$${netPayout.toPlainString()})").toString())
             } catch (Exception e) {
                 log.error("Payout-cost estimate failed for withdrawal tx ${tx.id} " +
                           "(payout unaffected; platform margin misstated by this row): ${e.message}", e)

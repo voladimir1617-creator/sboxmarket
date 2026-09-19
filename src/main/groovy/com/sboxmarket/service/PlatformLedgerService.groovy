@@ -159,6 +159,42 @@ class PlatformLedgerService {
     /** Fixed per-payout processor charge in dollars. Stripe Connect US: $0.25. */
     @Value('${platform.payout-fee-fixed:0.25}') BigDecimal payoutFeeFixed
 
+    /**
+     * Fixed processor charge per MONTHLY ACTIVE payout account, in dollars.
+     *
+     * <h4>The leg that is not a rate</h4>
+     *
+     * Stripe Connect bills USD 2.00 for each connected account that moves
+     * money in a calendar month - once, per ACCOUNT, however much it moved.
+     * Every other cost modelled here is a percentage plus a per-TRANSACTION
+     * fixed leg; this one attaches to a PERSON. Until 2026-09-19 it was
+     * absent from the model entirely, and the omission was not small: at the
+     * shipped USD 1.00 minimum withdrawal a seller yields USD 0.02 of
+     * commission against USD 2.00 of cost.
+     *
+     * Set to 0.00 for a rail with no per-account charge (a crypto payout
+     * chain, say). Zero is not a special case - it collapses every threshold
+     * derived below to its percentage-only form, which is the correct answer
+     * for that rail. Nothing downstream hardcodes what this number implies;
+     * the thresholds are computed from it.
+     */
+    @Value('${platform.payout-account-monthly-fee:2.00}') BigDecimal payoutAccountMonthlyFee
+
+    /**
+     * The largest share of a deposit or payout that may be processor fee, as
+     * a FRACTION (0.10 == 10%). The one judgement call in the derivations
+     * below; everything else is arithmetic on rates the processor publishes.
+     *
+     * A fixed fee leg means the fee's SHARE of a transaction rises without
+     * bound as the amount falls. At the shipped USD 1.00 minimum, 2.9% +
+     * USD 0.30 is 32% of the deposit, and depositing USD 1.00 then
+     * withdrawing what lands costs 57% of it before a single trade
+     * (USD 5 -> 14.0%, USD 10 -> 8.6%, USD 100 -> 3.69%). A minimum is the
+     * only control that bounds that share, which is why it belongs here,
+     * beside the rates that set it, and not in a validation annotation.
+     */
+    @Value('${platform.max-fee-share:0.10}') BigDecimal maxFeeShare
+
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
     @Autowired(required = false) PlatformTransactionManager transactionManager
@@ -450,6 +486,142 @@ class PlatformLedgerService {
         if (gross == null) return true
         def net = netOf(gross, fee)
         net == null || net <= BigDecimal.ZERO
+    }
+
+    // -- Minimums, DERIVED (never hardcoded) -------------------------
+
+    /**
+     * The platform's take rate as a fraction (0.02 == 2%).
+     *
+     * Read off {@link TradeService#FEE_RATE} rather than copied: the
+     * break-even below is the per-account charge DIVIDED BY this number, and
+     * a second copy would leave it silently wrong the day the rate moved.
+     */
+    BigDecimal takeRate() {
+        TradeService.FEE_RATE
+    }
+
+    /**
+     * GMV one monthly-active payout account must produce before the take rate
+     * has paid for the per-account charge its activity triggers.
+     *
+     * <pre>
+     *   breakEven = payoutAccountMonthlyFee / takeRate
+     *             = 2.00 / 0.02
+     *             = $100.00
+     * </pre>
+     *
+     * Not a minimum - a WAIVER LINE. At or above it the charge is absorbed
+     * out of commission already earned and booked as a platform cost; below
+     * it, the payout that triggers the charge pays it (see
+     * {@code StripeService.requestWithdrawal}). Zero when there is no
+     * per-account charge to recover.
+     *
+     * <h4>What this number is NOT</h4>
+     *
+     * UNIT-ECONOMICS.md recorded USD 101.95 for this figure on 2026-09-19.
+     * No combination of the shipped constants produces it: 2.00 / 0.02 is
+     * exactly 100.00, and the withdrawal-side twin (a balance that is pure
+     * sale proceeds implies GMV = balance / (1 - takeRate), so the break-even
+     * on the WITHDRAWN amount is 2.00 * 0.98 / 0.02 = 98.00) is not it
+     * either. 100.00 is the figure used, and it is the conservative one.
+     *
+     * The withdrawn amount is a PROXY for GMV, not GMV. A seller whose
+     * balance is sale proceeds generated MORE GMV than they withdraw, so the
+     * proxy errs toward charging; a user who only deposits and withdraws
+     * generated none at all, and this line waives the charge for them above
+     * $100 anyway. Closing that needs per-seller monthly GMV, which nothing
+     * here records today.
+     */
+    BigDecimal perAccountBreakEvenGmv() {
+        def f = (payoutAccountMonthlyFee ?: BigDecimal.ZERO) as BigDecimal
+        def r = takeRate()
+        if (f <= BigDecimal.ZERO || r == null || r <= BigDecimal.ZERO) return BigDecimal.ZERO.setScale(2)
+        f.divide(r, 2, RoundingMode.CEILING)
+    }
+
+    /**
+     * Smallest deposit whose processor fee stays inside {@link #maxFeeShare}.
+     *
+     * <pre>
+     *   minDeposit = processingFeeFixed / (maxFeeShare - processingFeePercent/100)
+     *              = 0.30 / (0.10 - 0.029)
+     *              = $4.23      (fee $0.42, which is 9.93% of it)
+     * </pre>
+     */
+    BigDecimal minDeposit() {
+        shareFloor(processingFeeFixed, processingFeePercent, BigDecimal.ZERO, 'deposit')
+    }
+
+    /**
+     * Smallest withdrawal whose fees stay inside {@link #maxFeeShare}.
+     *
+     * <pre>
+     *   minWithdrawal = (payoutFeeFixed + perAccountCharge?)
+     *                   / (maxFeeShare - payoutFeePercent/100)
+     *
+     *   first payout of a month: (0.25 + 2.00) / 0.0975 = $23.08
+     *   any payout after it:      0.25         / 0.0975 = $2.57
+     * </pre>
+     *
+     * Two answers because the per-account charge falls once a month, on
+     * whichever payout comes first.
+     *
+     * A withdrawal below the applicable figure is refused UNLESS it empties
+     * the wallet: see {@code WalletController.withdraw}. That sweep is the
+     * guarantee that raising this minimum never strands a balance, and it is
+     * load-bearing, not a courtesy.
+     */
+    BigDecimal minWithdrawal(boolean perAccountChargeApplies) {
+        shareFloor(payoutFeeFixed, payoutFeePercent,
+                   perAccountChargeApplies ? (payoutAccountMonthlyFee ?: BigDecimal.ZERO) : BigDecimal.ZERO,
+                   'withdrawal')
+    }
+
+    /**
+     * {@code gross >= fixedTotal / (share - pct)} is the smallest amount at
+     * which {@code fee/gross <= share}. Solved, not searched.
+     *
+     * Two degenerate configs, both resolved toward LETTING MONEY MOVE - a
+     * mis-set share must not become an outage on the money path:
+     * <ul>
+     *   <li>{@code share <= pct}: no amount can satisfy it. Fall back to the
+     *       smallest amount the fee does not swallow outright, and warn.</li>
+     *   <li>{@code fixed == 0}: every amount satisfies it, so the floor is a
+     *       cent.</li>
+     * </ul>
+     */
+    private BigDecimal shareFloor(BigDecimal fixedCfg, BigDecimal pctCfg,
+                                  BigDecimal extraFixed, String leg) {
+        def penny = new BigDecimal('0.01')
+        def fixed = (((fixedCfg ?: BigDecimal.ZERO) as BigDecimal)
+                     + ((extraFixed ?: BigDecimal.ZERO) as BigDecimal)) as BigDecimal
+        def pct   = (((pctCfg ?: BigDecimal.ZERO) as BigDecimal) / new BigDecimal('100')) as BigDecimal
+        if (fixed <= BigDecimal.ZERO) return penny
+        def share = (maxFeeShare ?: BigDecimal.ZERO) as BigDecimal
+        def denom = (share - pct) as BigDecimal
+        if (denom <= BigDecimal.ZERO) {
+            log.warn("platform.max-fee-share ({}) is not above the {} percentage leg ({}) - no amount " +
+                     "satisfies it; falling back to the fee-swallow floor", share, leg, pct)
+            return netPositiveFloor(fixed, pct)
+        }
+        def floorAmt = fixed.divide(denom, 2, RoundingMode.CEILING)
+        floorAmt < penny ? penny : floorAmt
+    }
+
+    /** Smallest whole-cent gross that still pays out something after the fee. */
+    private BigDecimal netPositiveFloor(BigDecimal fixed, BigDecimal pct) {
+        def penny = new BigDecimal('0.01')
+        def denom = (BigDecimal.ONE - pct) as BigDecimal
+        if (denom <= BigDecimal.ZERO) return (fixed.setScale(2, RoundingMode.CEILING) + penny) as BigDecimal
+        def g = fixed.divide(denom, 2, RoundingMode.CEILING)
+        if (g < penny) g = penny
+        // CEILING can land exactly ON break-even, where the net is zero and
+        // feeExceedsAmount refuses. One more cent is the first payable amount.
+        if (feeExceedsAmount(g, feeCharged(g, (pct * new BigDecimal('100')) as BigDecimal, fixed))) {
+            g = (g + penny) as BigDecimal
+        }
+        g
     }
 
     private BigDecimal feeCharged(BigDecimal gross, BigDecimal pctCfg, BigDecimal fixedCfg) {

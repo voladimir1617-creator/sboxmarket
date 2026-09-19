@@ -15091,13 +15091,36 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
     setError('');
     const num = parseFloat(amount);
     if (!num || num <= 0) { setError('Enter a valid amount'); return; }
-    // Both deposit and withdraw have a $1.00 server floor (@DecimalMin on
-    // DepositRequest / WithdrawRequest); mirror it client-side for BOTH so a
-    // sub-$1 amount gets an actionable inline message instead of a generic
-    // "Request body failed validation" server round-trip. Pre-fix (batch 1080)
-    // only the withdraw side mirrored it — a sub-$1 deposit (e.g. $0.50)
-    // passed the client and bounced off the server's @DecimalMin instead.
-    if (num < 1) { setError(tab === 'withdraw' ? 'Minimum withdrawal is $1.00' : 'Minimum deposit is $1.00'); return; }
+    // Mirror the server's minimum so a too-small amount gets an actionable
+    // inline message instead of a generic "Request body failed validation"
+    // round-trip.
+    //
+    // The number is READ, never recomputed. It used to be a hardcoded $1.00
+    // on both legs, matching the @DecimalMin on the request DTOs; both are
+    // now DERIVED server-side from the processor rates and the per-account
+    // payout charge (PlatformLedgerService.minDeposit / minWithdrawal), so a
+    // second copy here would be wrong the moment a rate moved. The $1.00
+    // fallback is the DTO floor that still applies underneath, and is what
+    // this sees before /api/wallet has loaded or when pass-through pricing
+    // is off.
+    //
+    // Withdrawals use the per-wallet figure: the per-account charge falls
+    // once a calendar month, so the minimum is higher on this wallet's first
+    // payout of the month. A full-balance withdrawal is exempt from it
+    // server-side and must not be blocked here either — that exemption is
+    // the reason a raised minimum cannot strand a balance.
+    const serverMin = tab === 'withdraw'
+      ? parseFloat((wallet && wallet.minWithdrawalNow) || 0)
+      : parseFloat((feeSchedule && feeSchedule.minDeposit) || 0);
+    const bal = parseFloat((wallet && wallet.balance) || 0);
+    const isSweep = tab === 'withdraw' && bal > 0 && Math.abs(num - bal) < 0.005;
+    const minAmt = Math.max(1, serverMin || 0);
+    if (num < minAmt && !isSweep) {
+      setError(tab === 'withdraw'
+        ? 'Minimum withdrawal is $' + minAmt.toFixed(2) + ' — or withdraw your full balance in one go.'
+        : 'Minimum deposit is $' + minAmt.toFixed(2) + '.');
+      return;
+    }
     if (num > 10000) { setError('Maximum per transaction is $10,000'); return; }
     // A withdrawal with no payout destination creates a PENDING row that
     // staff can never fulfill — block it client-side before submit.

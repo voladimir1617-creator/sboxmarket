@@ -42,8 +42,17 @@ import org.springframework.transaction.support.TransactionTemplate
 @Slf4j
 class TradeService {
 
-    /** Platform fee taken from the seller on a VERIFIED release. 2% by default. */
-    private static final BigDecimal FEE_RATE = new BigDecimal('0.02')
+    /**
+     * Platform fee taken from the seller on a VERIFIED release. 2% by default.
+     *
+     * Deliberately NOT private. This is the platform's take rate, and
+     * {@link PlatformLedgerService} divides the per-account processor charge
+     * by it to derive the payout break-even — the GMV an account has to
+     * produce before the commission has paid for the charge its existence
+     * triggers. A second copy of this number elsewhere would leave that
+     * threshold silently wrong the day the rate moved, so there is one.
+     */
+    static final BigDecimal FEE_RATE = new BigDecimal('0.02')
 
     /** Auto-release window — trades that have been sitting in PENDING_BUYER_CONFIRM
      *  for longer than this are released to the seller automatically by a

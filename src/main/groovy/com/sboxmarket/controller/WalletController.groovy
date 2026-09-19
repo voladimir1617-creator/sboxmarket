@@ -226,6 +226,15 @@ class WalletController {
             // is entitled to them before they commit, and Stripe's own
             // published rates are where they came from.
             feeSchedule:        stripeService.passThroughFeeSchedule(),
+            // The withdrawal minimum that applies to THIS wallet right now.
+            // feeSchedule carries both figures, but only the server knows
+            // which one binds: the per-account charge falls once a calendar
+            // month, so the minimum is higher on this wallet's first payout
+            // of the month than on its second. A client that guessed would
+            // either over-refuse a legitimate withdrawal or promise one the
+            // server will bounce, and both are worse than no hint at all.
+            minWithdrawalNow:   stripeService.minWithdrawal(
+                                    !stripeService.perAccountChargeAlreadyBilled(wallet.id)),
             frozen:             Boolean.TRUE.equals(wallet.frozen),
             frozenReason:       wallet.frozenReason,
             frozenAt:           wallet.frozenAt

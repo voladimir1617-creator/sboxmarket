@@ -203,9 +203,9 @@ gross** and logged loudly rather than thrown: the card has already been charged
 by then, so refusing would strand the user's money at Stripe behind a PENDING
 row. Errors resolve in the user's favour and surface to a human.
 
-## Solvency is per-account, not per-trade (recorded 2026-09-19, NOT implemented)
+## Solvency is per-account, not per-trade (implemented 2026-09-19)
 
-Every figure above treats the platform's cost as a *rate* — a percentage of
+Every figure above treats the platform's cost as a *rate* - a percentage of
 each trade. The payout rail does not work that way. **Stripe Connect bills
 USD 2.00 per monthly active account**, charged once a month for each connected
 account that moves money, regardless of how much it moved.
@@ -214,27 +214,118 @@ That is a fixed cost attached to a *seller*, not to a *trade*, and the 2% take
 rate cannot absorb it at small volumes:
 
 - A seller who withdraws in a given month costs USD 2.00 on its own.
-- At a 2% take rate, covering that requires **~USD 101.95 of GMV from that
+- At a 2% take rate, covering that requires **USD 100.00 of GMV from that
   seller in that month** before the platform breaks even on them.
-- The shipped minimum withdrawal is **USD 1.00**
-  (`WithdrawRequest.@DecimalMin("1.00")`). A seller who withdraws USD 1.00
-  yields USD 0.02 of revenue against USD 2.00 of cost — a **100x** loss on
-  that account, and no take-rate change fixes it, because the problem is not
-  the rate.
+- The shipped minimum withdrawal was **USD 1.00**. A seller who withdrew
+  USD 1.00 yielded USD 0.02 of revenue against USD 2.00 of cost - a **100x**
+  loss on that account, and no take-rate change fixes it, because the problem
+  is not the rate.
 
-Raising the take rate is the wrong lever: it scales with trade size, and the
-cost does not. The two levers that actually bite are:
+> **Correction.** An earlier revision of this section put the break-even at
+> USD 101.95. No combination of the shipped constants produces that figure.
+> `2.00 / 0.02` is exactly **100.00**, and the withdrawal-side twin - a
+> balance that is pure sale proceeds implies `GMV = balance / (1 - 0.02)`, so
+> the break-even on the *withdrawn* amount is `2.00 * 0.98 / 0.02` = **98.00**
+> - is not it either. The code uses 100.00, the conservative of the two, and
+> derives it rather than storing it.
 
-1. **A minimum withdrawal near USD 100**, so an account that triggers the
-   USD 2.00 charge has already produced the GMV to cover it. This is a
-   one-constant change to `WithdrawRequest`, but it is a product decision
-   (it strands small balances) and is deliberately not made here.
-2. **A payout chain with a sub-USD 0.30 transfer fee**, which removes the
-   per-account floor instead of pricing around it.
+### What is now in the code
 
-Not implemented. Recorded because the arithmetic is cheap to lose and the
-minimum-withdrawal constant reads like a validation detail rather than the
-solvency control it actually is.
+Two knobs in `application.yml`, and nothing downstream hardcodes what they
+imply:
+
+| Config | Default | What it is |
+| --- | --- | --- |
+| `platform.payout-account-monthly-fee` | `2.00` | The per-monthly-active-account charge. Set `0.00` for a rail that has none. |
+| `platform.max-fee-share` | `0.10` | Largest share of a deposit or payout that may be processor fee. The only judgement call. |
+
+Everything else is solved from those and the four published rates
+(`PlatformLedgerService`):
+
+```
+take rate r              = TradeService.FEE_RATE              = 0.02
+per-account charge F     = payout-account-monthly-fee         = $2.00
+max fee share s          = max-fee-share                      = 0.10
+
+per-account waiver line  = F / r         = 2.00 / 0.02        = $100.00
+minimum deposit          = 0.30 / (0.10 - 0.029)              = $4.23
+minimum withdrawal, 1st of month
+                         = (0.25 + 2.00) / (0.10 - 0.0025)    = $23.08
+minimum withdrawal, after
+                         =  0.25 / (0.10 - 0.0025)            = $2.57
+```
+
+`TradeService.FEE_RATE` stopped being `private` for this: the break-even is
+that constant's divisor, and a second copy of the take rate would have left
+the threshold silently wrong the day the rate moved.
+
+The closed form solves on the *unrounded* fee, so it is conservative by a cent
+or two - the charged fee is FLOORed in the user's favour, which puts the true
+$4.23 boundary at $4.21. Conservative is the right direction for a minimum.
+
+### What the charge does on the money path
+
+`StripeService.requestWithdrawal` now has three outcomes, and only one of them
+charges the user:
+
+1. **Already billed this month** - nothing. Stripe bills the *account* once a
+   calendar month, so the second payout of a month rides the charge the first
+   one paid. Billing it again would be over-recovery dressed as a fee.
+2. **Withdrawal >= the waiver line** - booked as a platform `PROCESSING_COST`
+   with **no recovery**. Commission on that much volume already paid for it.
+   This is the first time the charge has appeared in the ledger at all; before
+   today the treasury residual read ~zero on a month the platform genuinely
+   paid USD 2.00 per active seller.
+3. **Withdrawal below the waiver line** - passed through, exactly like the
+   percentage legs, and folded into `payoutFeeCharged` so that every
+   downstream path (net payout, the fee-swallow refusal, `tx.feeAmount`, the
+   cancel and reversal re-credits) carries it without a second field to keep
+   in step.
+
+### A raised minimum must not strand money
+
+It does not. **A full-balance withdrawal is exempt from the minimum**, at any
+amount the fees still leave something of. A seller sitting on USD 12 with a
+USD 23.08 minimum withdraws the whole USD 12 and receives USD 9.72
+(USD 0.28 payout fee + USD 2.00 per-account charge). A *partial* withdrawal
+below the minimum is refused, and the refusal names the sweep.
+
+Two alternatives were considered and rejected:
+
+- **"The platform absorbs it on a sweep."** That is a faucet: deposit USD 10,
+  sweep it, and the platform is out USD 2.00 having earned nothing - repeatable
+  once per throwaway account. The sweep pays the charge like any other payout,
+  which is precisely what stops the exemption being farmed.
+- **A hard USD 100 minimum with no exemption.** That is the platform keeping a
+  seller's money to solve the platform's own cost problem.
+
+The one balance that still cannot leave is one smaller than the fees on it -
+under about USD 2.26 on the first payout of a month. That is arithmetic, not
+policy: no rail sends USD 2.00 when sending costs USD 2.25. It stays the
+user's, spendable on the platform, and withdrawable the moment the balance
+grows or the operator moves to a rail with no per-account charge. Set
+`payout-account-monthly-fee: 0.00` and the same balance walks straight out.
+
+### Other fees with a fixed leg that is not modelled
+
+Audited 2026-09-19. Two remain, both recorded and neither implemented:
+
+1. **Stripe's dispute fee (USD 15.00 flat, US).** `charge.dispute.created`
+   flips the deposit to `DISPUTED` and notifies admins, but books **no**
+   `PROCESSING_COST`. The caveat below has always said disputes are excluded
+   from every figure; what is new is that the *ledger* excludes them too, so
+   the treasury residual understates cost by USD 15.00 per dispute. It is a
+   fixed charge with no percentage leg, the same shape as the Connect fee.
+2. **`TradeService.FEE_RATE` has no floor.** A USD 0.50 trade yields USD 0.01
+   of commission. Its sibling `TradeProtectionService` applies the *same* 2%
+   with a `MIN_FEE` of USD 0.25 for exactly this reason, and the two have
+   disagreed since protection shipped. Not a processor charge, so nothing is
+   being under-recovered against Stripe - but it is the same blindness on the
+   revenue side, and it bites hardest exactly where this product is aimed:
+   sub-dollar items, where a 2% commission rounds to a cent or to nothing.
+
+The four pass-through rates themselves are clean: `processing-fee-*` and
+`payout-fee-*` each carry both a percentage and a fixed leg.
 
 ## Caveats
 

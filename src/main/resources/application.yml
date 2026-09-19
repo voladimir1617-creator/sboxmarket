@@ -388,6 +388,55 @@ platform:
   payout-fee-percent:     ${PLATFORM_PAYOUT_FEE_PERCENT:0.25}
   payout-fee-fixed:       ${PLATFORM_PAYOUT_FEE_FIXED:0.25}
 
+  # ── The cost that is not a rate ──────────────────────────────────────
+  # Stripe Connect bills $2.00 for every connected account that moves money
+  # in a calendar month. Once. Per ACCOUNT. However much it moved.
+  #
+  # This is the only charge here with no percentage leg, and it was missing
+  # from the model until 2026-09-19 — every figure in UNIT-ECONOMICS.md
+  # treated platform cost as a rate. It is not passed through at cost like
+  # the four rates above; it is passed through ONLY on a payout too small
+  # for the take rate to have paid for it (see the waiver below).
+  #
+  # Set to 0.00 for a rail with no per-account charge — a crypto payout
+  # chain, for instance. Zero is not a special case: every threshold below
+  # is computed from this number and collapses correctly when it is zero.
+  payout-account-monthly-fee: ${PLATFORM_PAYOUT_ACCOUNT_MONTHLY_FEE:2.00}
+
+  # The largest share of a deposit or payout that may be processor fee
+  # (0.10 == 10%). The ONE judgement call in the block; everything below is
+  # arithmetic on the rates above.
+  max-fee-share: ${PLATFORM_MAX_FEE_SHARE:0.10}
+
+  # ── What those two knobs derive (nothing below is a constant) ────────
+  # Recorded here because the arithmetic is cheap to lose and every one of
+  # these numbers moves when a rate above moves. Computed in
+  # PlatformLedgerService; enforced in StripeService, where the rates live.
+  #
+  #   take rate r                 = TradeService.FEE_RATE          = 0.02
+  #   per-account charge F        = payout-account-monthly-fee     = $2.00
+  #   max fee share s             = max-fee-share                  = 0.10
+  #
+  #   per-account waiver line     = F / r          = 2.00 / 0.02   = $100.00
+  #       GMV one monthly-active account must produce before commission has
+  #       paid for the charge its activity triggers. At or above it the
+  #       charge is absorbed and booked as cost; below it, passed through.
+  #       (UNIT-ECONOMICS.md said $101.95 on 2026-09-19. Nothing here
+  #        produces that. The withdrawal-side twin is F(1-r)/r = $98.00.)
+  #
+  #   minimum deposit             = 0.30 / (0.10 - 0.029)          = $4.23
+  #   minimum withdrawal, 1st/mo  = (0.25 + 2.00) / (0.10-0.0025)  = $23.08
+  #   minimum withdrawal, after   =  0.25 / (0.10 - 0.0025)        = $2.57
+  #
+  # The shipped minimums before this were $1.00 on both legs, where the
+  # processor takes 32% of a deposit and 57% of a deposit-and-withdraw round
+  # trip ($5 → 14.0%, $10 → 8.6%, $100 → 3.69%).
+  #
+  # A raised minimum must never strand a balance: a FULL-BALANCE withdrawal
+  # is exempt from the minimum at any amount the fees still leave something
+  # of. It pays the per-account charge like any other payout, which is what
+  # stops the exemption being farmed.
+
 # Outgoing-email settings read by EmailService.
 app:
   email:
