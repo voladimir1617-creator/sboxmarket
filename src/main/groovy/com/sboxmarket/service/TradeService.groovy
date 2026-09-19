@@ -1808,7 +1808,21 @@ class TradeService {
         if (t?.id == null) return false
         // No bot => no bot-driven trades => legacy behaviour, untouched.
         if (steamTradeBotService == null || !steamTradeBotService.enabled) return false
-        if (steamDeliveryAttemptRepository == null) return false
+        // Bot live, delivery log NOT WIRED. This used to `return false` — pay
+        // the seller — three lines above a catch block that returns true for
+        // the same question. Unreadable-because-it-threw and
+        // unreadable-because-it-is-absent are one epistemic state ("I cannot
+        // tell whether the buyer got the item") and they had opposite money
+        // outcomes; the docstring's "Fails CLOSED" was true of only one of
+        // them. The bot being enabled is exactly what makes releasing wrong
+        // here: we have already established that this deployment has
+        // bot-driven trades whose acceptance we are meant to positively
+        // observe, and we have just lost the only place that records it.
+        if (steamDeliveryAttemptRepository == null) {
+            log.warn("Trade #{}: bot escrow is live but the delivery log is not wired — holding " +
+                    "escrow rather than auto-releasing on an unverified delivery", t.id)
+            return true
+        }
         List rows
         try {
             rows = steamDeliveryAttemptRepository.findLatestWithOffer(

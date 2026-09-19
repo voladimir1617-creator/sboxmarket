@@ -65,3 +65,7 @@ cycle*.png
 *.png
 cloudflared.log
 cloudflared/
+
+# Python bytecode from market-research scratch scripts
+__pycache__/
+*.pyc

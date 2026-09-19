@@ -203,6 +203,39 @@ gross** and logged loudly rather than thrown: the card has already been charged
 by then, so refusing would strand the user's money at Stripe behind a PENDING
 row. Errors resolve in the user's favour and surface to a human.
 
+## Solvency is per-account, not per-trade (recorded 2026-09-19, NOT implemented)
+
+Every figure above treats the platform's cost as a *rate* — a percentage of
+each trade. The payout rail does not work that way. **Stripe Connect bills
+USD 2.00 per monthly active account**, charged once a month for each connected
+account that moves money, regardless of how much it moved.
+
+That is a fixed cost attached to a *seller*, not to a *trade*, and the 2% take
+rate cannot absorb it at small volumes:
+
+- A seller who withdraws in a given month costs USD 2.00 on its own.
+- At a 2% take rate, covering that requires **~USD 101.95 of GMV from that
+  seller in that month** before the platform breaks even on them.
+- The shipped minimum withdrawal is **USD 1.00**
+  (`WithdrawRequest.@DecimalMin("1.00")`). A seller who withdraws USD 1.00
+  yields USD 0.02 of revenue against USD 2.00 of cost — a **100x** loss on
+  that account, and no take-rate change fixes it, because the problem is not
+  the rate.
+
+Raising the take rate is the wrong lever: it scales with trade size, and the
+cost does not. The two levers that actually bite are:
+
+1. **A minimum withdrawal near USD 100**, so an account that triggers the
+   USD 2.00 charge has already produced the GMV to cover it. This is a
+   one-constant change to `WithdrawRequest`, but it is a product decision
+   (it strands small balances) and is deliberately not made here.
+2. **A payout chain with a sub-USD 0.30 transfer fee**, which removes the
+   per-account floor instead of pricing around it.
+
+Not implemented. Recorded because the arithmetic is cheap to lose and the
+minimum-withdrawal constant reads like a validation detail rather than the
+solvency control it actually is.
+
 ## Caveats
 
 - **Stripe rates are list prices.** Negotiated rates, non-card methods, and

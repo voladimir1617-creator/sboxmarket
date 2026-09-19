@@ -103,7 +103,36 @@ services:
       # the app with another, turning a clear config error into a boot failure
       # that reads as a database outage.
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/skinbox.env (a strong random value) and start with --env-file deploy/skinbox.env - this must match POSTGRES_PASSWORD on the db service}
-      ADMIN_BOOTSTRAP_STEAM_IDS: ${ADMIN_BOOTSTRAP_STEAM_IDS:-76561197960287930}
+      # NO DEFAULT, for the same reason as STRIPE_SECRET_KEY below and
+      # DB_PASSWORD above — and this one was the last `:-` in the block.
+      #
+      # It used to carry a `:-` fallback holding a literal Steam ID. (The ID is
+      # deliberately not repeated here, even as prose, so that grepping the
+      # launch surface for a bare Steam ID stays a decisive check — the same
+      # convention application.yml's admin block adopted, and the one
+      # AdminBootstrapIsNotCommittedSpec now enforces over every launch file.)
+      # That is a committed identity, and `admin.bootstrap-steam-ids` is a
+      # STANDING grant: AdminService.promoteBootstrapAdmin flips STEAM_USERS.ROLE to
+      # ADMIN for every listed ID on EVERY login. So an unset variable handed
+      # administrative control of a production deployment to an account the
+      # operator does not own — an absence resolving to a grant, which is the
+      # one thing the admin block in application.yml exists to forbid.
+      #
+      # application.yml's default was emptied in September for exactly this
+      # reason, and application-prod.yml resolves a bare
+      # `${ADMIN_BOOTSTRAP_STEAM_IDS}` with no fallback of its own — so
+      # whatever THIS line substitutes IS the admin list. The hazard moved
+      # here and the guard did not follow it.
+      #
+      # Worse, the two controls failed together: ProdConfigValidator lists
+      # ADMIN_BOOTSTRAP_STEAM_IDS as REQUIRED and a committed default SATISFIES
+      # that presence check, so one line both supplied the hardcoded admin and
+      # silenced the validator meant to catch a missing one.
+      #
+      # `:?` fails at `docker compose up` time, before any container starts,
+      # exactly like STRIPE_SECRET_KEY. Nominating the owner is a deploy-time
+      # decision, and it has to be MADE rather than inherited.
+      ADMIN_BOOTSTRAP_STEAM_IDS: ${ADMIN_BOOTSTRAP_STEAM_IDS:?set ADMIN_BOOTSTRAP_STEAM_IDS to YOUR Steam ID 64 in deploy/skinbox.env and start with --env-file deploy/skinbox.env - every ID listed is auto-promoted to ADMIN on every login, so this must never carry a default}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://skinbox.market}
       # NO DEFAULT, on purpose. This used to default to `sk_test_dummy`, which
       # ProdConfigValidator rejects outright ("STRIPE_SECRET_KEY is a Stripe
@@ -138,12 +167,28 @@ services:
       # HMAC secret that signs one-click email unsubscribe links. application-prod.yml
       # references ${APP_UNSUBSCRIBE_SECRET} with NO default, so emailService (and the
       # apiKeyService -> apiKeyAuthFilter chain that injects it) fails to construct
-      # without it: a bare `docker compose up` smoke boot dies at startup with
-      # "Could not resolve placeholder 'APP_UNSUBSCRIBE_SECRET'". Provide a local
-      # dummy so the smoke boot works; a real deploy MUST override this via
-      # deploy/skinbox.env with a strong random secret (rotating it invalidates any
-      # outstanding unsubscribe links).
-      APP_UNSUBSCRIBE_SECRET: ${APP_UNSUBSCRIBE_SECRET:-local-dev-unsubscribe-secret-change-me}
+      # without it.
+      #
+      # NO DEFAULT. This line used to carry a `:-` fallback holding a working
+      # literal, so that a bare `docker compose up` smoke boot would not die on
+      # an unresolved placeholder. Two things were wrong with that:
+      #
+      #   1. The stated reason is void — STRIPE_SECRET_KEY above already uses
+      #      `:?`, so a bare `docker compose up` has not worked for months.
+      #   2. It was a live HMAC secret published in this repository. Anyone with
+      #      a clone could forge an unsubscribe token for any address and mute a
+      #      user's notification emails.
+      #
+      # ProdConfigValidator does check for a committed placeholder, but by EXACT
+      # EQUALITY against one literal it knows by name — and this was a second,
+      # different literal it had never heard of. So the guard passed, and the
+      # REQUIRED_VARS presence check was SATISFIED by the very fallback that was
+      # the problem: one line supplied the weak secret and silenced the check
+      # meant to catch a missing one. Same pairing as ADMIN_BOOTSTRAP_STEAM_IDS
+      # above, same fix — supply nothing, so there is nothing to bless.
+      #
+      # Rotating this invalidates any outstanding unsubscribe links.
+      APP_UNSUBSCRIBE_SECRET: ${APP_UNSUBSCRIBE_SECRET:?set APP_UNSUBSCRIBE_SECRET in deploy/skinbox.env to a strong random value (openssl rand -base64 48) and start with --env-file deploy/skinbox.env - it is the HMAC key that signs one-click unsubscribe links, so a value committed to this repo makes every one of them forgeable}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://skinbox.market}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}

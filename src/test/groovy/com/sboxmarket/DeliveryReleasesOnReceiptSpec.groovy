@@ -304,4 +304,89 @@ class DeliveryReleasesOnReceiptSpec extends Specification {
         sellerWallet.balance == BigDecimal.ZERO
         stale.state == 'DISPUTED'
     }
+
+    /**
+     * The case above proves a delivery log that THROWS holds the money. This
+     * one is the same question asked three lines earlier in the same method,
+     * and it used to get the opposite answer.
+     *
+     * <pre>
+     *   if (steamDeliveryAttemptRepository == null) return false   // release
+     *   try { rows = ...findLatestWithOffer(...) }
+     *   catch (Exception e) { return true }                        // hold
+     * </pre>
+     *
+     * Unreadable-because-it-threw and unreadable-because-it-is-not-wired are
+     * the same epistemic state — "I cannot tell whether the buyer got the
+     * item" — and they had opposite money outcomes. The method's own docstring
+     * already states the intended rule: <i>"Fails CLOSED: if the delivery log
+     * cannot be read while the bot is live, we hold rather than pay out on an
+     * unknown."</i> The {@code == null} branch contradicted it.
+     *
+     * The bot being LIVE is what makes this branch reachable and wrong: the
+     * enabled-bot check runs first, so by the time the null test is reached we
+     * already know bot-driven trades exist on this deployment and that
+     * acceptance is something we are supposed to positively observe. The
+     * "no bot configured" case is a different question and still releases —
+     * asserted separately above, and unchanged.
+     */
+    def "a delivery log that is not wired holds the money, exactly as one that throws does"() {
+        given: "the bot is live, but the delivery-attempt repository is absent"
+        def stale = staleConfirm()
+        def svc = new TradeService(
+            tradeRepository               : tradeRepository,
+            walletRepository              : walletRepository,
+            transactionRepository         : transactionRepository,
+            notificationService           : notificationService,
+            auditService                  : auditService,
+            banGuard                      : banGuard,
+            adminAuthorization            : adminAuthorization,
+            textSanitizer                 : textSanitizer,
+            autoReleaseDays               : 8L,
+            sellerResponseDays            : 3L,
+            steamDeliveryAttemptRepository : null,
+            steamTradeBotService          : new SteamTradeBotService(baseUrl: 'http://127.0.0.1:4000')
+        )
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        tradeRepository.save(_) >> { Trade t -> t }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        banGuard.isBanned(_) >> false
+        tradeRepository.findPendingConfirmOlderThan(_) >> [stale]
+
+        when:
+        svc.sweepPendingConfirm()
+
+        then: "the seller is not paid for an item we cannot show the buyer received"
+        sellerWallet.balance == BigDecimal.ZERO
+
+        and: "and it is parked for a human, not left silently stuck"
+        stale.state == 'DISPUTED'
+    }
+
+    // ── NOT LANDED: the buyer-side acceptance gate ─────────────────
+    //
+    // The working tree of 2026-09-17 also carried ~100 lines of specs for a
+    // SECOND, buyer-side fix: `dispute()` fires
+    // `tradeProtectionService.autoClaim` on every BUYER-filed dispute, gated
+    // only on `actor == buyer` — existence and idempotency, not evidence. So a
+    // buyer who ACCEPTED the bot's Steam offer (offerState='accepted' sitting
+    // in the delivery log this very class reads) can dispute and be paid the
+    // full protection cover anyway. The platform owns the disproving signal
+    // and the payout path never asks for it.
+    //
+    // Those specs were NOT committed, because the gate they assert was never
+    // written: measured 2026-09-19 against this tree, the case
+    // "a buyer who ACCEPTED the Steam offer does not get an automatic
+    // protection payout" fails with `1 * autoClaim(7, 'Trade disputed by
+    // buyer')`. A spec for unbuilt work is not a guard; committing it green
+    // would have required building the gate, and changing who gets paid on a
+    // disputed trade is a money decision that deserves its own deliberate
+    // change rather than riding along with an escrow fix.
+    //
+    // Recorded here so the finding is not lost with the working tree. The
+    // asymmetry the design intended: only an AFFIRMATIVE acceptance may block
+    // the payout — no bot, no offer row, an unreadable log or an exception
+    // must all still pay, because there the unproven claim is "the buyer is
+    // lying" and the loser of a wrong guess is a defrauded customer.
 }

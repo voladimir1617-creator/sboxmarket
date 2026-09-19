@@ -75,6 +75,25 @@ DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Helper: spin up an app container by name on the sbox-net network with no
 # published port. Used for both the blue (deploy target) and — on a fresh
 # install — the initial sbox-app primary.
+#
+# ADMIN_BOOTSTRAP_STEAM_IDS below has NO default and will abort this script if
+# it is unset. That is deliberate. It used to pass a literal Steam ID — the ID
+# is not repeated here even as prose, so that grepping the launch surface for a
+# bare Steam ID stays a decisive check (the convention application.yml's admin
+# block adopted, now enforced over every launch file by
+# AdminBootstrapIsNotCommittedSpec).
+#
+# `admin.bootstrap-steam-ids` is a STANDING grant: the app re-promotes every
+# listed ID to ADMIN on EVERY login, so revokeAdmin is undone at that user's
+# next sign-in. A literal here made administrative control a property of this
+# SOURCE TREE rather than of the deployment, and this script runs with
+# SPRING_PROFILES_ACTIVE=prod against the real database.
+#
+# The same literal was removed from application.yml in September and pinned by
+# AdminBootstrapIsNotCommittedSpec — which named three files and did not name
+# this one. Nominating the owner is a deploy-time decision:
+#
+#   export ADMIN_BOOTSTRAP_STEAM_IDS=<your steamid64>
 # ----------------------------------------------------------------------------
 run_app_container() {
   local container_name="$1"
@@ -108,7 +127,7 @@ run_app_container() {
     -e STEAM_API_KEY= \
     -e STEAM_REALM="http://localhost:${EDGE_PORT}/" \
     -e STEAM_RETURN_URL="http://localhost:${EDGE_PORT}/api/auth/steam/return" \
-    -e ADMIN_BOOTSTRAP_STEAM_IDS=76561199839805014 \
+    -e ADMIN_BOOTSTRAP_STEAM_IDS="${ADMIN_BOOTSTRAP_STEAM_IDS:?export ADMIN_BOOTSTRAP_STEAM_IDS=<your steamid64> before running this script - every ID listed is auto-promoted to ADMIN on EVERY login, so it must be a deploy-time decision and never a literal in this file}" \
     -e CSR_CREDIT_CAP=25.00 \
     -e LOG_FILE=/var/log/skinbox/skinbox.log \
     -e SMTP_HOST= \
@@ -120,7 +139,7 @@ run_app_container() {
     -e APP_EMAIL_FROM=noreply@localhost \
     -e APP_EMAIL_FROM_NAME=SkinBox \
     -e APP_PUBLIC_URL="${PUBLIC_URL}" \
-    -e APP_UNSUBSCRIBE_SECRET="${APP_UNSUBSCRIBE_SECRET:-local-prod-unsub-secret-not-for-real-deploys}" \
+    -e APP_UNSUBSCRIBE_SECRET="${APP_UNSUBSCRIBE_SECRET:?export APP_UNSUBSCRIBE_SECRET=\$(openssl rand -base64 48) before running this script - it is the HMAC key that signs one-click unsubscribe links, and this script runs the prod profile, so a literal committed here makes every link forgeable by anyone with a clone}" \
     -e SENTRY_DSN= \
     -e SENTRY_ENV=local \
     -e TRADE_AUTO_RELEASE_DAYS=8 \

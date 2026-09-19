@@ -5,6 +5,7 @@ import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.AdminService
 import com.sboxmarket.service.AuditService
 import spock.lang.Specification
+import spock.lang.Unroll
 
 /**
  * <b>Admin must be a property of the DEPLOYMENT, never of the source.</b>
@@ -94,6 +95,171 @@ class AdminBootstrapIsNotCommittedSpec extends Specification {
         expect: 'the operator is not told a default exists, and is not handed the old ID'
         !example.contains(COMMITTED_ID)
         example.contains('ADMIN_BOOTSTRAP_STEAM_IDS=')
+    }
+
+    // ── EVERY LAUNCH SURFACE, NOT THE THREE FILES WE REMEMBERED ─────
+
+    /**
+     * The four cases above name three files by hand. That is the whole
+     * weakness: they pin the places the committed ID <i>used</i> to live, and
+     * say nothing about the place it moves to next.
+     *
+     * It moved. On 2026-09-17 the ID was gone from all three, every one of
+     * those cases was green, and {@code docker-compose.yml} — the file that
+     * actually starts production, {@code SPRING_PROFILES_ACTIVE: prod} on the
+     * line above — read:
+     *
+     * <pre>ADMIN_BOOTSTRAP_STEAM_IDS: ${ADMIN_BOOTSTRAP_STEAM_IDS:-76561197960287930}</pre>
+     *
+     * and {@code deploy/run-local.sh}, which is what serves skinbox.market
+     * through the tunnel, read {@code -e ADMIN_BOOTSTRAP_STEAM_IDS=76561199839805014}
+     * — the literal this spec's own {@code COMMITTED_ID} constant names.
+     *
+     * <h3>It is the same defect, not a cousin</h3>
+     *
+     * {@code application-prod.yml} resolves {@code ${ADMIN_BOOTSTRAP_STEAM_IDS}}
+     * with no fallback of its own, so whatever compose substitutes IS the
+     * admin list. Absent variable → compose supplies an identity → the app
+     * grants ADMIN to it on login, on every login. An absence resolved to a
+     * grant, which is the one thing this file exists to forbid.
+     *
+     * And the two controls failed together again, the other way round from
+     * last time: {@link com.sboxmarket.config.ProdConfigValidator} requires
+     * {@code ADMIN_BOOTSTRAP_STEAM_IDS} to be present and non-blank, and the
+     * compose default SATISFIES that check. One line both supplied the
+     * hardcoded admin and silenced the validator that was supposed to catch a
+     * missing one.
+     *
+     * <h3>Why these cases are shaped differently</h3>
+     *
+     * A named-file list cannot catch a relocation, so these two walk the tree
+     * and match on file NAME SHAPE — every compose file, Dockerfile, env file,
+     * unit file, shell/PowerShell launcher and Spring yml, wherever it lives.
+     * A launcher added tomorrow in a directory nobody has thought of yet is
+     * covered on the day it lands, without anyone remembering to extend a list.
+     */
+
+    /** Generated output, vendored code and scratch state — never a
+     *  deployment's launch configuration. Pruned by NAME at any depth. */
+    static final List<String> PRUNED_DIRS = [
+        '.git', '.gradle', '.idea', 'build', 'node_modules', '.claude',
+        'data', '.tmp', '.playwright-mcp', '.ship-blocks', 'out', 'bin',
+    ].asImmutable()
+
+    /** A Steam ID 64. Every real one begins 7656119 and runs 17 digits. */
+    static final java.util.regex.Pattern BARE_STEAM_ID = ~/7656119\d{10}/
+
+    /** Any assignment of the bootstrap variable, in any of the syntaxes the
+     *  launch surface uses: {@code KEY: value} (compose/yml),
+     *  {@code KEY=value} (env files, {@code docker run -e}),
+     *  {@code bootstrap-steam-ids: value} (Spring). Captures the value. */
+    static final java.util.regex.Pattern ASSIGNS_BOOTSTRAP =
+        ~/(?m)^.*?(?:ADMIN_BOOTSTRAP_STEAM_IDS|bootstrap-steam-ids)\s*[:=]\s*(.*)$/
+
+    /** A run of digits long enough to be an identity rather than a port, a
+     *  timeout or a version. Applied to the VALUE of an assignment, so it
+     *  catches any ID format, not only Steam's. */
+    static final java.util.regex.Pattern EMBEDDED_IDENTITY = ~/\d{8,}/
+
+    private static boolean isLaunchSurface(File f) {
+        String n = f.name.toLowerCase()
+        if (n.startsWith('dockerfile')) return true
+        if (n.startsWith('.env') || n.contains('.env.')) return true
+        ['.yml', '.yaml', '.sh', '.ps1', '.bat', '.cmd', '.env',
+         '.service', '.properties', '.conf', '.vbs'].any { n.endsWith(it) }
+    }
+
+    /** Every file on the launch surface, found by walking rather than by
+     *  listing. Returns absolute-free relative paths for readable failures. */
+    private static List<File> launchSurface() {
+        List<File> found = []
+        List<File> queue = [new File('.')]
+        while (!queue.isEmpty()) {
+            File dir = queue.remove(0)
+            File[] kids = dir.listFiles()
+            if (kids == null) continue
+            for (File k : kids) {
+                if (k.isDirectory()) {
+                    if (!(k.name in PRUNED_DIRS)) queue << k
+                } else if (isLaunchSurface(k)) {
+                    found << k
+                }
+            }
+        }
+        found
+    }
+
+    private static String rel(File f) {
+        f.path.replace('\\', '/').replaceFirst(/^\.\//, '')
+    }
+
+    def "the launch-surface walk actually finds the files it claims to check"() {
+        // A sweep that matches nothing passes for free. This is the positive
+        // control for the two cases below: if the walk breaks — wrong working
+        // directory, a prune that eats too much, an extension list that stops
+        // matching — they go vacuously green and the next committed admin
+        // ships. Assert the walk reaches the files whose contents the
+        // hand-written cases above already depend on.
+        given:
+        def paths = launchSurface().collect { rel(it) } as Set
+
+        expect: 'the two files that actually start this platform are in scope'
+        'docker-compose.yml' in paths
+        'deploy/run-local.sh' in paths
+
+        and: 'so are the Spring configs, the image build and the env template'
+        'src/main/resources/application.yml' in paths
+        'src/main/resources/application-prod.yml' in paths
+        'Dockerfile' in paths
+        'deploy/skinbox.env.example' in paths
+
+        and: 'and the surface is a real sweep, not a handful of lucky hits'
+        paths.size() >= 15
+    }
+
+    def "no launch file anywhere in the tree carries a bare Steam ID"() {
+        // The decisive check application.yml's own comment asks for: "the ID is
+        // deliberately not repeated here even as prose, so that grepping the
+        // config for a bare Steam ID stays a decisive check". This is that grep,
+        // over every file that can hand a value to a running container.
+        given:
+        def offenders = launchSurface().findAll { BARE_STEAM_ID.matcher(it.text).find() }
+            .collect { File f ->
+                def m = BARE_STEAM_ID.matcher(f.text)
+                m.find()
+                "${rel(f)} contains Steam ID ${m.group()}".toString()
+            }
+
+        expect: 'admin is a property of the DEPLOYMENT, never of the source'
+        offenders == []
+    }
+
+    @Unroll
+    def "no launch file assigns the bootstrap variable an identity: #path"() {
+        // Belt to the case above, and independent of Steam's ID format: the
+        // VALUE handed to ADMIN_BOOTSTRAP_STEAM_IDS must be a variable
+        // reference, a placeholder, or nothing — never a concrete account.
+        // `${ADMIN_BOOTSTRAP_STEAM_IDS:-76561197960287930}` is an assignment
+        // whose value embeds an identity, and that is what this rejects.
+        given:
+        def m = ASSIGNS_BOOTSTRAP.matcher(new File(path).text)
+        def values = []
+        while (m.find()) values << m.group(1)
+
+        expect: 'at least one assignment, so a renamed key cannot make this vacuous'
+        !values.isEmpty()
+
+        and: 'and no assignment carries a hardcoded identity'
+        values.findAll { EMBEDDED_IDENTITY.matcher(it).find() } == []
+
+        where:
+        path << [
+            'docker-compose.yml',
+            'deploy/run-local.sh',
+            'src/main/resources/application.yml',
+            'src/main/resources/application-prod.yml',
+            'deploy/skinbox.env.example',
+        ]
     }
 
     // ── the every-login promotion, now audited ──────────────────────

@@ -181,6 +181,73 @@ class UnsubscribeSecretNotCommittedSpec extends Specification {
         !(prod =~ /APP_UNSUBSCRIBE_SECRET\s*:/).find()
     }
 
+    /**
+     * The case above pins the two Spring ymls. Those were never where the
+     * literal ended up.
+     *
+     * The guard in {@link ProdConfigValidator} is an EXACT-EQUALITY test
+     * against one literal, {@code DEV_UNSUBSCRIBE_PLACEHOLDER}. A second
+     * committed placeholder therefore walks straight past it — and two exist:
+     * {@code docker-compose.yml} (which the runbook calls "the intended
+     * runtime", {@code SPRING_PROFILES_ACTIVE: prod}) and
+     * {@code deploy/run-local.sh} (also prod profile), each supplying its own
+     * {@code :-} fallback that the validator has never heard of. The presence
+     * check in {@code REQUIRED_VARS} is then SATISFIED by that fallback, so
+     * prod boots clean on a secret anyone with a clone can read, and every
+     * unsubscribe token on the deployment is forgeable.
+     *
+     * This is the same shape as the Stripe key one section down in the same
+     * validator, which was hardened from a list of known-bad values into a
+     * by-construction backstop precisely because "every hole found so far was
+     * a restatement that drifted". The unsubscribe check never got that
+     * treatment, and there is no runtime authority to ask for a shared secret
+     * — so the invariant is enforced HERE instead, over the shipped files: a
+     * file that hands a value to a running container must supply NO value.
+     *
+     * {@code deploy/skinbox.env.example} is deliberately not in this list. It
+     * is a template the operator copies and edits, its value is a visible
+     * CHANGE_ME instruction rather than a working secret, and it is the one
+     * file whose job is to tell the operator what to set.
+     */
+    @Unroll
+    def "no launch file supplies a default for the unsubscribe secret: #path"() {
+        given: 'every assignment of the variable in a file that starts a container'
+        def m = (new File(path).text) =~ /(?m)^.*?APP_UNSUBSCRIBE_SECRET\s*[:=]\s*(.*)$/
+        def values = []
+        while (m.find()) values << m.group(1)
+
+        expect: 'the assignment is present, so a rename cannot make this vacuous'
+        !values.isEmpty()
+
+        and: '''and none of them carries a `:-` fallback. `${VAR}` and `${VAR:?message}`
+                are both fine — the first fails at container start, the second before any
+                container starts. `${VAR:-literal}` is the defect: it puts a working HMAC
+                secret in the repository and satisfies the validator's presence check with it.'''
+        values.findAll { it.contains(':-') } == []
+
+        where:
+        path << ['docker-compose.yml', 'deploy/run-local.sh']
+    }
+
+    def "SELF-TEST: the :- detector would catch a re-introduced default"() {
+        // Positive control for the case above. A matcher that silently stopped
+        // matching would make it green forever, which is exactly how the
+        // literal survived in two files while a whole spec watched two others.
+        given:
+        def line = '      APP_UNSUBSCRIBE_SECRET: ${APP_UNSUBSCRIBE_SECRET:-local-dev-unsubscribe-secret-change-me}'
+        def m = line =~ /(?m)^.*?APP_UNSUBSCRIBE_SECRET\s*[:=]\s*(.*)$/
+
+        expect: 'the shape that shipped is matched, and recognised as a default'
+        m.find()
+        m.group(1).contains(':-')
+
+        and: 'while the two acceptable shapes are not'
+        !('APP_UNSUBSCRIBE_SECRET: ${APP_UNSUBSCRIBE_SECRET}' =~ /APP_UNSUBSCRIBE_SECRET\s*[:=]\s*(.*)$/)
+            .with { it.find(); it.group(1) }.contains(':-')
+        !('APP_UNSUBSCRIBE_SECRET: ${APP_UNSUBSCRIBE_SECRET:?set it}' =~ /APP_UNSUBSCRIBE_SECRET\s*[:=]\s*(.*)$/)
+            .with { it.find(); it.group(1) }.contains(':-')
+    }
+
     def "SELF-TEST: the comment stripper strips, so the assertions above are not vacuous"() {
         given:
         String sample = 'a: 1   # unsubscribe: fake\n# app.unsubscribe.secret: fake\nb: 2'
