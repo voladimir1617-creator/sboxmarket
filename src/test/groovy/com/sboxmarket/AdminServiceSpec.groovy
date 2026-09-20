@@ -1049,6 +1049,34 @@ class AdminServiceSpec extends Specification {
 
     // ── dashboardStats (aggregate path) ───────────────────────────
 
+    def "the 30-day net margin subtracts the processor's dispute fee"() {
+        given: "a month with one \$100 of commission and one disputed card deposit"
+        steamUserRepository.count() >> 1L
+        walletRepository.sumAllBalances() >> BigDecimal.ZERO
+        transactionRepository.countByTypeStatus('WITHDRAW', 'PENDING') >> 0L
+        transactionRepository.sumByTypeStatus('WITHDRAW', 'PENDING') >> BigDecimal.ZERO
+        supportTicketRepository.countOpen() >> 0L
+        steamUserRepository.countBanned() >> 0L
+        listingRepository.countActive() >> 0L
+        tradeRepository.countByState(_) >> 0L
+        transactionRepository.sumByTypeSinceCompleted(
+            com.sboxmarket.service.PlatformLedgerService.TYPE_FEE, 'COMPLETED', _) >> new BigDecimal('100.00')
+        transactionRepository.sumByTypeSinceCompleted(
+            com.sboxmarket.service.PlatformLedgerService.TYPE_DISPUTE_COST, 'COMPLETED', _) >> new BigDecimal('15.00')
+        transactionRepository.sumByTypeSinceCompleted(_, _, _) >> BigDecimal.ZERO
+
+        when:
+        def stats = service.dashboardStats()
+
+        then: "the dispute fee is reported on its own line, not buried in processing cost"
+        stats.disputeCost30d == new BigDecimal('15.00')
+        stats.processingCost30d == new BigDecimal('0.00')
+
+        and: "and it is DEDUCTED — a cost the treasury pays but this panel omits is a " +
+             "cost the operator never sees, which is how it went unbooked to begin with"
+        stats.netMargin30d == new BigDecimal('85.00')
+    }
+
     def "dashboardStats uses indexed aggregates, not findAll scans"() {
         given:
         steamUserRepository.count() >> 42L

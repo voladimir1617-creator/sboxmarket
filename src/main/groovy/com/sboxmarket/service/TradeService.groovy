@@ -51,6 +51,34 @@ class TradeService {
      * produce before the commission has paid for the charge its existence
      * triggers. A second copy of this number elsewhere would leave that
      * threshold silently wrong the day the rate moved, so there is one.
+     *
+     * <h4>It has NO floor, and that is the deliberate half of a pair</h4>
+     *
+     * {@code TradeProtectionService.PROTECTION_RATE} is also {@code 0.02}
+     * and IS floored, at {@code MIN_FEE = $0.25}. Reviewed 2026-09-20 on a
+     * report that this was "the same rate implemented two ways". It is not.
+     * They are two different charges that happen to share a headline number:
+     *
+     * <ul>
+     *   <li>THIS one is the platform's commission, taken from the SELLER on
+     *       every release, unavoidable, and the divisor of the payout
+     *       break-even. A floor on it would be a price rise on every trade
+     *       and would break that derivation.</li>
+     *   <li>The other is an OPTIONAL premium the BUYER pays to opt in to
+     *       cover. A floor is coherent on an opt-in product — nobody is
+     *       forced to buy $0.25 of insurance — and incoherent on a
+     *       commission nobody can decline.</li>
+     * </ul>
+     *
+     * The two are free to diverge and must not be merged. What IS worth
+     * knowing is the consequence of this one being unfloored: at the
+     * HALF_UP rounding used below, any trade priced under $0.25 yields a
+     * fee of {@code $0.00}. The platform runs those trades for nothing.
+     * That is a PRICING decision, not a defect, and it is left as it is
+     * deliberately — a floor here is a product change, and this market's
+     * median trade sits below the rounding floor, so a floor would reprice
+     * essentially the whole book. {@code SellerCommissionIsUnflooredSpec}
+     * pins both halves so neither can be "fixed" into the other by accident.
      */
     static final BigDecimal FEE_RATE = new BigDecimal('0.02')
 

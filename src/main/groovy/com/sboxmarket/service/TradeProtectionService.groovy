@@ -56,11 +56,24 @@ class TradeProtectionService {
     /** Protection fee as a fraction of the item price. 2% — deliberately
      *  the same headline rate as the trade fee so it reads as familiar,
      *  but it is a SEPARATE, buyer-paid charge and does not touch the
-     *  existing seller-side 2% fee model. */
+     *  existing seller-side 2% fee model.
+     *
+     *  <p>NOT a duplicate of {@link TradeService#FEE_RATE}, and not a
+     *  candidate for being merged with it. Reviewed 2026-09-20 on a report
+     *  that the two were one rate written twice. They share a number and
+     *  nothing else: that one is a compulsory seller commission and the
+     *  divisor of the payout break-even; this one is an optional premium a
+     *  buyer chooses to pay for cover. They are allowed to diverge, and the
+     *  day one of them moves the other must NOT follow automatically.
+     *  Pinned by {@code SellerCommissionIsUnflooredSpec}. */
     static final BigDecimal PROTECTION_RATE = new BigDecimal('0.02')
 
     /** Floor on the protection fee. A 2% cut of a $1 item is a rounding
-     *  artefact; $0.25 keeps cheap-item cover economically meaningful. */
+     *  artefact; $0.25 keeps cheap-item cover economically meaningful.
+     *
+     *  <p>The seller commission has no equivalent and must not grow one by
+     *  imitation: a floor is coherent on an opt-in product and is a price
+     *  rise on a charge nobody can decline. See {@link TradeService#FEE_RATE}. */
     static final BigDecimal MIN_FEE = new BigDecimal('0.25')
 
     @Autowired TradeProtectionRepository tradeProtectionRepository

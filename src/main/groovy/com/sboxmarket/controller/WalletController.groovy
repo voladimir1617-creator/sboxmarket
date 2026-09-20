@@ -235,6 +235,23 @@ class WalletController {
             // server will bounce, and both are worse than no hint at all.
             minWithdrawalNow:   stripeService.minWithdrawal(
                                     !stripeService.perAccountChargeAlreadyBilled(wallet.id)),
+            // Whether the per-account charge would land on THIS wallet's next
+            // payout. `minWithdrawalNow` already folds it in, but a minimum
+            // cannot be inverted back into a fee, and the modal needs the fee
+            // itself: the "you receive $X" preview added only the percentage
+            // legs, so a $10 first-of-month withdrawal was previewed at
+            // "− $0.27 · you receive $9.73" and actually paid $2.27 and
+            // received $7.73. A seller cannot consent to a charge they are
+            // shown the wrong number for, and a $2.00 surprise on a $10
+            // payout is the kind that arrives as a chargeback.
+            //
+            // A boolean, not a computed fee: the client must not decide when
+            // the charge applies, only render the charge the server says is
+            // due. The amount comparison against feeSchedule.perAccountWaiverAt
+            // is the one piece of arithmetic it does, and it is the same
+            // comparison StripeService.requestWithdrawal makes.
+            perAccountChargeDue: stripeService.perAccountMonthlyFee() > BigDecimal.ZERO &&
+                                 !stripeService.perAccountChargeAlreadyBilled(wallet.id),
             frozen:             Boolean.TRUE.equals(wallet.frozen),
             frozenReason:       wallet.frozenReason,
             frozenAt:           wallet.frozenAt

@@ -403,6 +403,26 @@ platform:
   # is computed from this number and collapses correctly when it is zero.
   payout-account-monthly-fee: ${PLATFORM_PAYOUT_ACCOUNT_MONTHLY_FEE:2.00}
 
+  # ── The cost that is not a rate, twice over ──────────────────────────
+  # Stripe bills a FIXED fee for handling a card dispute - $15.00 in the US -
+  # and KEEPS it whether the dispute is won or lost. It is the largest single
+  # per-event cost here: one dispute costs more than the 2% commission on
+  # $750 of GMV.
+  #
+  # Until 2026-09-20 charge.dispute.created flipped the deposit row, alerted
+  # admins and emailed the user, and booked NOTHING. A disputed trade read as
+  # free in the treasury and in the admin margin panel.
+  #
+  # Booked as DISPUTE_COST, not PROCESSING_COST, on purpose. PROCESSING_COST
+  # is half of a pair whose residual against PROCESSING_RECOVERY is the
+  # diagnostic described above; this charge has no recovery leg - nobody
+  # reimburses it - so folding it in would drag that residual $15 negative
+  # per dispute and destroy the only signal the four rates have.
+  #
+  # Set to 0.00 for a rail that charges nothing for a dispute. Zero books no
+  # row at all, which is the correct record of a cost not incurred.
+  dispute-fee: ${PLATFORM_DISPUTE_FEE:15.00}
+
   # The largest share of a deposit or payout that may be processor fee
   # (0.10 == 10%). The ONE judgement call in the block; everything below is
   # arithmetic on the rates above.

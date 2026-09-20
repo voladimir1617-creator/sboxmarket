@@ -150,7 +150,7 @@ class BuyFlowIntegrationSpec extends Specification {
         body.contains('"correlationId"')
 
         and: "structured details (batch 963) let the frontend render 'Top up \$X'"
-        // Listing is \$50, wallet is \$10 → shortfall \$40. Batch 983 also
+        // Listing is $50, wallet is $10 → shortfall $40. Batch 983 also
         // depends on writeJson forwarding these fields into the returned
         // error object; this pins the server-side contract they rely on.
         body.contains('"details"')
@@ -368,13 +368,45 @@ class BuyFlowIntegrationSpec extends Specification {
         result.response.contentAsString.contains('amount')
     }
 
-    def "POST /api/wallet/withdraw — 400 VALIDATION_FAILED when amount is below \$1 minimum"() {
+    def "POST /api/wallet/withdraw — a sub-dollar amount is no longer refused by bean validation"() {
+        // This used to assert the opposite, and the opposite was the bug.
+        //
+        // WithdrawRequest carried @DecimalMin("1.00"). Bean validation runs
+        // BEFORE the controller, so it sat underneath the full-balance sweep
+        // exemption and cancelled it for every balance under a dollar — the
+        // one case that exemption exists for. A $0.60 balance on a rail with
+        // no per-account charge is payable ($0.25 fee, $0.35 net) and was
+        // returned 400 by a validation constant three layers from the rates
+        // that justify it.
+        //
+        // The real minimum is DERIVED (PlatformLedgerService.minWithdrawal)
+        // and enforced where the rates live, with WITHDRAWAL_BELOW_FEE and
+        // WITHDRAW_BELOW_MINIMUM as its codes. Whatever else stops this
+        // request — balance, payout setup, dev mode — it must not be the
+        // annotation, so this pins the ABSENCE of that refusal rather than
+        // whichever downstream gate happens to answer first.
         when:
         def result = mockMvc.perform(
             MockMvcRequestBuilders.post("/api/wallet/withdraw")
                 .session(session)
                 .contentType("application/json")
                 .content('{"amount":0.50,"destination":"acct_1"}')
+        ).andReturn()
+
+        then:
+        !result.response.contentAsString.contains('"code":"VALIDATION_FAILED"')
+    }
+
+    def "POST /api/wallet/withdraw — 400 VALIDATION_FAILED below a cent, the floor that remains"() {
+        // Arithmetic, not policy: there is no payable amount below a cent, so
+        // the annotation still refuses one. Pinned so lowering the minimum did
+        // not quietly remove the floor altogether.
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/wallet/withdraw")
+                .session(session)
+                .contentType("application/json")
+                .content('{"amount":0.001,"destination":"acct_1"}')
         ).andReturn()
 
         then:

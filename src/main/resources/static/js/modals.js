@@ -15081,9 +15081,32 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
     const raw = (gross * (parseFloat(pct) || 0)) / 100 + (parseFloat(fixed) || 0);
     return Math.max(0, Math.floor(Math.round(raw * 1e6) / 1e4) / 100);
   };
-  const previewFee = !feesActive || !(amt > 0) ? 0 : (tab === 'deposit'
+  const previewRateFee = !feesActive || !(amt > 0) ? 0 : (tab === 'deposit'
     ? feeFor(amt, feeSchedule.depositFeePercent, feeSchedule.depositFeeFixed)
     : feeFor(amt, feeSchedule.withdrawalFeePercent, feeSchedule.withdrawalFeeFixed));
+  // The leg that is not a rate, and the reason the preview was wrong.
+  //
+  // Stripe Connect bills a fixed charge per monthly-active payout account.
+  // The server passes it through on a payout BELOW the break-even and
+  // absorbs it at or above (StripeService.requestWithdrawal), so on a $10
+  // first-of-month withdrawal the real deduction is $0.27 + $2.00 — and
+  // this preview, built only from the percentage legs, promised $0.27 and
+  // "you receive $9.73" against an actual $7.73. Disclosure that is wrong
+  // by 20% of the payout is worse than none: the user consents to a number
+  // that never existed.
+  //
+  // Three inputs, all SERVER-SUPPLIED, none inferred: whether the charge is
+  // due on this wallet this month (`perAccountChargeDue`), how much it is
+  // (`perAccountMonthlyFee`), and the amount at or above which it is waived
+  // (`perAccountWaiverAt`). The single comparison below is the same one the
+  // server makes. All three collapse to zero on a rail with no per-account
+  // charge and in dev mode, where the line simply does not render.
+  const perAccountFee   = parseFloat((feeSchedule && feeSchedule.perAccountMonthlyFee) || 0) || 0;
+  const perAccountWaive = parseFloat((feeSchedule && feeSchedule.perAccountWaiverAt) || 0) || 0;
+  const perAccountDue   = !!(wallet && wallet.perAccountChargeDue);
+  const previewAccountFee = (tab === 'withdraw' && feesActive && perAccountDue
+      && amt > 0 && perAccountFee > 0 && amt < perAccountWaive) ? perAccountFee : 0;
+  const previewFee = previewRateFee + previewAccountFee;
   const previewNet = Math.max(0, amt - previewFee);
 
   const submit = async () => {
@@ -15104,6 +15127,12 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
     // this sees before /api/wallet has loaded or when pass-through pricing
     // is off.
     //
+    // The absolute floor below is a CENT, matching WithdrawRequest's
+    // @DecimalMin after it was lowered from $1.00. It used to be $1.00 here
+    // too, and the pair of them cancelled the full-balance sweep exemption
+    // for any balance under a dollar — the one case the exemption exists
+    // for.
+    //
     // Withdrawals use the per-wallet figure: the per-account charge falls
     // once a calendar month, so the minimum is higher on this wallet's first
     // payout of the month. A full-balance withdrawal is exempt from it
@@ -15114,7 +15143,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       : parseFloat((feeSchedule && feeSchedule.minDeposit) || 0);
     const bal = parseFloat((wallet && wallet.balance) || 0);
     const isSweep = tab === 'withdraw' && bal > 0 && Math.abs(num - bal) < 0.005;
-    const minAmt = Math.max(1, serverMin || 0);
+    const minAmt = Math.max(0.01, serverMin || 0);
     if (num < minAmt && !isSweep) {
       setError(tab === 'withdraw'
         ? 'Minimum withdrawal is $' + minAmt.toFixed(2) + ' — or withdraw your full balance in one go.'
@@ -15999,11 +16028,26 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                       // stays visually identical to the old behaviour
                       // instead of showing a "− $0.00" the user has to
                       // parse.
-                      previewFee > 0 && h('div', { className: 'wallet-fee-row' },
+                      previewRateFee > 0 && h('div', { className: 'wallet-fee-row' },
                         h('span', null, tab === 'deposit'
                           ? 'Payment processing fee'
                           : 'Payout fee'),
-                        h('strong', null, '− $' + previewFee.toFixed(2))
+                        h('strong', null, '− $' + previewRateFee.toFixed(2))
+                      ),
+                      // Its OWN line, not folded into the payout fee. It is
+                      // a once-a-month charge with a waiver, so a seller who
+                      // sees it merged into a per-payout fee draws the wrong
+                      // conclusion about their next withdrawal — and the way
+                      // out (withdraw the waiver amount or more, once) is
+                      // only actionable if the charge is named.
+                      previewAccountFee > 0 && h('div', { className: 'wallet-fee-row' },
+                        h('span', null, 'Monthly payout account fee'),
+                        h('strong', null, '− $' + previewAccountFee.toFixed(2))
+                      ),
+                      previewAccountFee > 0 && h('div', { className: 'wallet-fee-note' },
+                        'Your payment provider charges this once a calendar month, on your first '
+                        + 'payout. It is waived on a withdrawal of $' + perAccountWaive.toFixed(2)
+                        + ' or more.'
                       ),
                       h('div', { className: 'wallet-fee-row total' },
                         h('span', null, tab === 'deposit' ? 'Wallet credit' : 'You receive'),

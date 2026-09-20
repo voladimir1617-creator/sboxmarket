@@ -129,12 +129,31 @@ class PlatformLedgerService {
     static final String TYPE_PROCESSING_COST   = 'PROCESSING_COST'
     /** A Trade Protection claim paid out to a buyer — the cover being consumed. */
     static final String TYPE_PROTECTION_PAYOUT = 'PROTECTION_PAYOUT'
+    /**
+     * The processor's fixed charge for handling a card dispute — Stripe's
+     * USD 15.00 chargeback fee.
+     *
+     * <h4>Why it is not {@link #TYPE_PROCESSING_COST}</h4>
+     *
+     * Both are money the processor takes, but PROCESSING_COST is one half of
+     * a PAIR: every debit of it is expected to have a matching
+     * {@link #TYPE_PROCESSING_RECOVERY} credit, and the residual between the
+     * two is the operator's documented signal that a configured rate is
+     * wrong (see the note above {@code platform:} in application.yml). A
+     * dispute fee has NO recovery leg — it is never passed through to
+     * anyone — so booking it as PROCESSING_COST would drag that residual
+     * negative by $15 a dispute and break the only diagnostic the operator
+     * has on their four rates. Separate type, same {@link #COST_TYPES}, same
+     * effect on margin.
+     */
+    static final String TYPE_DISPUTE_COST      = 'DISPUTE_COST'
 
     /** Types that CREDIT the treasury. */
     static final List<String> REVENUE_TYPES =
         [TYPE_FEE, TYPE_PROTECTION_FEE, TYPE_PROTECTION_REVERSAL, TYPE_PROCESSING_RECOVERY].asImmutable()
     /** Types that DEBIT the treasury. */
-    static final List<String> COST_TYPES = [TYPE_PROCESSING_COST, TYPE_PROTECTION_PAYOUT].asImmutable()
+    static final List<String> COST_TYPES =
+        [TYPE_PROCESSING_COST, TYPE_PROTECTION_PAYOUT, TYPE_DISPUTE_COST].asImmutable()
 
     /**
      * Payment-processor percentage rate applied to a deposit, as a percent
@@ -179,6 +198,26 @@ class PlatformLedgerService {
      * the thresholds are computed from it.
      */
     @Value('${platform.payout-account-monthly-fee:2.00}') BigDecimal payoutAccountMonthlyFee
+
+    /**
+     * Fixed processor charge for handling a card dispute, in dollars.
+     * Stripe US bills USD 15.00 per dispute and does NOT refund it when the
+     * dispute is won.
+     *
+     * <h4>The cost that appeared nowhere</h4>
+     *
+     * Until this knob existed, {@code charge.dispute.created} flipped the
+     * deposit row to DISPUTED, alerted admins and emailed the user — and
+     * booked nothing. The platform paid USD 15.00 and the ledger showed a
+     * dispute as free. It is the single largest per-event cost in the model:
+     * one dispute costs more than the entire commission on USD 750 of GMV at
+     * the 2% take rate.
+     *
+     * Set to 0.00 for a rail that charges nothing for a dispute. Zero is not
+     * a special case — it books no row at all, which is the correct answer
+     * for a cost that was not incurred.
+     */
+    @Value('${platform.dispute-fee:15.00}') BigDecimal disputeFee
 
     /**
      * The largest share of a deposit or payout that may be processor fee, as
@@ -364,6 +403,44 @@ class PlatformLedgerService {
     Transaction postProtectionReversal(BigDecimal recovered, Long tradeId, Long listingId) {
         credit(TYPE_PROTECTION_REVERSAL, recovered, 'trade_protection_reversal',
             "Trade Protection claim reversed on trade #${tradeId}".toString(), listingId)
+    }
+
+    /**
+     * Book the processor's fixed dispute-handling charge as a cost.
+     *
+     * <h4>Not refunded when the dispute is won</h4>
+     *
+     * Stripe keeps the USD 15.00 whether the dispute is won or lost, so this
+     * is booked ONCE at {@code charge.dispute.created} and never reversed at
+     * {@code charge.dispute.closed}. A "refund it on a win" branch was
+     * considered and is simply wrong about how the rail prices disputes; it
+     * would understate cost on exactly the outcome an operator is most
+     * likely to look at.
+     *
+     * <h4>Idempotency belongs to the caller</h4>
+     *
+     * Stripe retries webhooks. This method does not dedupe — the caller
+     * books only on the observed DISPUTED state transition of a matched
+     * deposit row, which is a database fact and survives a process restart,
+     * where an in-memory guard would not. An unmatched dispute books
+     * nothing rather than risk booking $15 on every retry.
+     *
+     * No-ops on a zero / unset {@link #disputeFee}. Best-effort and
+     * deferred, like the other cost postings: a bookkeeping failure must
+     * never roll back the caller's DISPUTED flip, which is the thing that
+     * actually holds the user's withdrawals.
+     *
+     * @param disputeId the processor's dispute id, recorded as the reference
+     * @param disputedAmount the amount under dispute, for the description only
+     */
+    void postDisputeFee(String disputeId, BigDecimal disputedAmount) {
+        def fee = (disputeFee ?: BigDecimal.ZERO) as BigDecimal
+        if (fee <= BigDecimal.ZERO) return
+        def description = ("Processor dispute fee on ${disputeId ?: 'unknown dispute'}" +
+            (disputedAmount != null ? " (\$${disputedAmount.toPlainString()} under dispute)" : '')).toString()
+        deferOrRun {
+            debit(TYPE_DISPUTE_COST, fee, disputeId ?: 'stripe_dispute', description, null)
+        }
     }
 
     /**

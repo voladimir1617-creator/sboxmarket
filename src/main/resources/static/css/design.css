@@ -1499,6 +1499,10 @@ body:has(.modal-backdrop), body:has(.cart-confirm-backdrop), body:has(.shortcuts
 .wallet-fee-breakdown { padding: 14px; margin-top: 8px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm); font-family: var(--mono); font-size: 12.5px; display: flex; flex-direction: column; gap: 6px; }
 .wallet-fee-row { display: flex; justify-content: space-between; padding: 4px 0; color: var(--ink-3); }
 .wallet-fee-row.total { padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--line); color: var(--ink); font-weight: 600; }
+/* Explanatory line under a fee row — used for the once-a-month payout
+   account charge, where the charge is only actionable if the user is told
+   it is monthly and what waives it. */
+.wallet-fee-note { color: var(--ink-3); opacity: .8; font-size: 11.5px; line-height: 1.45; padding: 2px 0 4px; }
 .wallet-submit { width: 100%; height: 38px; background: var(--ink); color: var(--bg); border: 1px solid var(--ink); border-radius: var(--r-sm); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: filter 140ms ease, transform 140ms ease; }
 .wallet-submit:hover:not(:disabled) { filter: brightness(0.95); transform: translateY(-1px); }
 .wallet-submit:disabled { opacity: 0.4; cursor: not-allowed; }

@@ -8,7 +8,26 @@ import jakarta.validation.constraints.Size
 
 class WithdrawRequest {
     @NotNull(message = "amount is required")
-    @DecimalMin(value = "1.00", message = "minimum withdrawal is \$1.00")
+    // A CENT, not a dollar — and the change is load-bearing.
+    //
+    // The real minimum is DERIVED server-side from the payout rates and the
+    // per-account charge (PlatformLedgerService.minWithdrawal), and it comes
+    // with an exemption: a FULL-BALANCE withdrawal is never blocked by it,
+    // because a minimum a balance cannot reach is a minimum that keeps the
+    // balance. A hardcoded $1.00 here sat UNDERNEATH that exemption and
+    // silently cancelled it for exactly the sellers it was written for — a
+    // $0.60 balance on a rail with no per-account charge is payable
+    // ($0.25 fee, $0.35 net), the wallet modal offers the sweep, the
+    // derived minimum exempts it, and this annotation returned 400 before
+    // any of that code ran. Stranded, by a validation constant three layers
+    // away from the rates that justify it.
+    //
+    // The floor that remains is arithmetic, not policy: below a cent there
+    // is no payable amount at all. Everything above a cent is decided where
+    // the rates live — StripeService refuses WITHDRAWAL_BELOW_FEE when the
+    // fees leave nothing and WITHDRAW_BELOW_MINIMUM when the amount is under
+    // the derived minimum AND leaves a balance behind.
+    @DecimalMin(value = "0.01", message = "minimum withdrawal is \$0.01")
     // Cap per-call at $10,000 to match the deposit cap. Anything larger
     // needs to go through the admin-approved manual payout path. Without
     // this cap a user with an inflated balance (bug, mis-credit, admin

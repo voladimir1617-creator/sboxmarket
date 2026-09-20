@@ -251,15 +251,25 @@ class PlatformLedgerServiceSpec extends Specification {
         def revenue = PlatformLedgerService.REVENUE_TYPES
         def cost    = PlatformLedgerService.COST_TYPES
 
-        expect: "an unclassified type would silently drop out of the margin arithmetic"
+        // Every TYPE_ constant the class declares, found by REFLECTION rather
+        // than listed by hand. A hand-written list is a census that only looks
+        // where it was told to, so the type it forgets is exactly the one that
+        // drops out of margin() unnoticed. DISPUTE_COST was added on
+        // 2026-09-20 and this block needed no edit, which is the point.
+        and: "the types the class actually declares"
+        def declared = PlatformLedgerService.declaredFields
+            .findAll { it.name.startsWith('TYPE_') && java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            .collect { it.accessible = true; it.get(null) as String }
+
+        expect: "the reflection found something — an empty census proves nothing"
+        declared.size() >= 6
+
+        and: "an unclassified type would silently drop out of the margin arithmetic"
         revenue.intersect(cost).isEmpty()
-        (revenue + cost).containsAll([
-            PlatformLedgerService.TYPE_FEE,
-            PlatformLedgerService.TYPE_PROTECTION_FEE,
-            PlatformLedgerService.TYPE_PROTECTION_REVERSAL,
-            PlatformLedgerService.TYPE_PROCESSING_COST,
-            PlatformLedgerService.TYPE_PROTECTION_PAYOUT,
-        ])
+        (revenue + cost).containsAll(declared)
+
+        and: "and nothing is classified that is not a declared type"
+        declared.containsAll(revenue + cost)
     }
 
     def "every ledger type fits the transactions.type column"() {

@@ -231,9 +231,19 @@ class AdminService {
                 com.sboxmarket.service.PlatformLedgerService.TYPE_PROTECTION_PAYOUT, 'COMPLETED', since30d) ?: BigDecimal.ZERO
         def protectionReversal30d = transactionRepository.sumByTypeSinceCompleted(
                 com.sboxmarket.service.PlatformLedgerService.TYPE_PROTECTION_REVERSAL, 'COMPLETED', since30d) ?: BigDecimal.ZERO
+        // The dispute fee. Its own line because it is the largest single
+        // per-event cost in the model (USD 15 — more than the commission on
+        // USD 750 of GMV at a 2% take rate) and because it has no offsetting
+        // recovery: unlike PROCESSING_COST, nobody reimburses it. Summed
+        // here as well as classified in COST_TYPES — a cost that reaches the
+        // treasury balance but not this panel is a cost the operator never
+        // sees, which is how it went unbooked for as long as it did.
+        def disputeCost30d      = transactionRepository.sumByTypeSinceCompleted(
+                com.sboxmarket.service.PlatformLedgerService.TYPE_DISPUTE_COST, 'COMPLETED', since30d) ?: BigDecimal.ZERO
         def netMargin30d = ((feeRevenue30d as BigDecimal) + (protectionRevenue30d as BigDecimal)
                           + (protectionReversal30d as BigDecimal)
-                          - (processingCost30d as BigDecimal) - (protectionCost30d as BigDecimal))
+                          - (processingCost30d as BigDecimal) - (protectionCost30d as BigDecimal)
+                          - (disputeCost30d as BigDecimal))
 
         [
             users:                    steamUserRepository.count(),
@@ -263,6 +273,7 @@ class AdminService {
             protectionRevenue30d:     (protectionRevenue30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             processingCost30d:        (processingCost30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             protectionCost30d:        (protectionCost30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            disputeCost30d:           (disputeCost30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             netMargin30d:             (netMargin30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP)
         ]
     }

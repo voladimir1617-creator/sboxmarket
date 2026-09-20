@@ -238,6 +238,7 @@ imply:
 | --- | --- | --- |
 | `platform.payout-account-monthly-fee` | `2.00` | The per-monthly-active-account charge. Set `0.00` for a rail that has none. |
 | `platform.max-fee-share` | `0.10` | Largest share of a deposit or payout that may be processor fee. The only judgement call. |
+| `platform.dispute-fee` | `15.00` | Processor's flat charge for handling a card dispute. Set `0.00` for a rail that has none. |
 
 Everything else is solved from those and the four published rates
 (`PlatformLedgerService`):
@@ -271,8 +272,8 @@ charges the user:
 1. **Already billed this month** - nothing. Stripe bills the *account* once a
    calendar month, so the second payout of a month rides the charge the first
    one paid. Billing it again would be over-recovery dressed as a fee.
-2. **Withdrawal >= the waiver line** - booked as a platform `PROCESSING_COST`
-   with **no recovery**. Commission on that much volume already paid for it.
+2. **Withdrawal >= the waiver line** - booked as a platform cost with **no
+   recovery**. Commission on that much volume already paid for it.
    This is the first time the charge has appeared in the ledger at all; before
    today the treasury residual read ~zero on a month the platform genuinely
    paid USD 2.00 per active seller.
@@ -306,23 +307,75 @@ user's, spendable on the platform, and withdrawable the moment the balance
 grows or the operator moves to a rail with no per-account charge. Set
 `payout-account-monthly-fee: 0.00` and the same balance walks straight out.
 
-### Other fees with a fixed leg that is not modelled
+### The two holes the minimum left open (closed 2026-09-20)
 
-Audited 2026-09-19. Two remain, both recorded and neither implemented:
+The derived minimum and its sweep exemption were both correct, and both were
+defeated one layer away from the rates that justify them.
 
-1. **Stripe's dispute fee (USD 15.00 flat, US).** `charge.dispute.created`
-   flips the deposit to `DISPUTED` and notifies admins, but books **no**
-   `PROCESSING_COST`. The caveat below has always said disputes are excluded
-   from every figure; what is new is that the *ledger* excludes them too, so
-   the treasury residual understates cost by USD 15.00 per dispute. It is a
-   fixed charge with no percentage leg, the same shape as the Connect fee.
-2. **`TradeService.FEE_RATE` has no floor.** A USD 0.50 trade yields USD 0.01
-   of commission. Its sibling `TradeProtectionService` applies the *same* 2%
-   with a `MIN_FEE` of USD 0.25 for exactly this reason, and the two have
-   disagreed since protection shipped. Not a processor charge, so nothing is
-   being under-recovered against Stripe - but it is the same blindness on the
-   revenue side, and it bites hardest exactly where this product is aimed:
-   sub-dollar items, where a 2% commission rounds to a cent or to nothing.
+1. **`WithdrawRequest` carried `@DecimalMin("1.00")`.** Bean validation runs
+   *before* the controller, so a USD 0.60 sweep - payable on a rail with no
+   per-account charge, and explicitly exempted by the derived minimum - was
+   rejected 400 by a validation constant three layers away. The exemption
+   existed and could not be reached by the balances it was written for. The
+   annotation is now `0.01`; the floor that remains is arithmetic (below a
+   cent nothing is payable), and every decision above a cent is made where
+   the rates live.
+2. **The wallet modal's fee preview omitted the per-account charge.** It was
+   built from the percentage legs only, so a USD 10 first-of-month withdrawal
+   was previewed as `− $0.27 · you receive $9.73` against an actual USD 2.27
+   and USD 7.73. `/api/wallet` now carries `perAccountChargeDue` beside the
+   schedule's `perAccountMonthlyFee` and `perAccountWaiverAt`, and the modal
+   renders the charge on its own line with the waiver named - the client is
+   told when the charge applies, it does not decide.
+
+**What a seller with a small balance now sees and gets.** Take USD 8.00 on
+the first payout of a calendar month. The modal shows *Wallet debited $8.00 ·
+Payout fee − $0.27 · Monthly payout account fee − $2.00 · You receive $5.73*,
+with a note that the account fee falls once a month and is waived at USD
+100.00. Sweeping is always offered: the USD 23.08 minimum is not applied to a
+full-balance withdrawal. Below about USD 2.26 on that first payout the fees
+exceed the balance and it is refused as `WITHDRAWAL_BELOW_FEE` - arithmetic,
+not policy, and it disappears on the second payout of the month (minimum USD
+2.57, sweep exempt, fee USD 0.25) or on a rail with `payout-account-monthly-fee:
+0.00`, where the same USD 0.60 walks straight out.
+
+### Other fees with a fixed leg
+
+Audited 2026-09-19, resolved 2026-09-20.
+
+1. **Stripe's dispute fee - now booked.** `charge.dispute.created` flipped the
+   deposit to `DISPUTED` and notified admins while booking nothing, so a
+   disputed trade read as free. It is the largest single per-event cost in the
+   model: one dispute costs more than the 2% commission on USD 750 of GMV. It
+   is now `platform.dispute-fee` (default `15.00`, `0.00` for a rail that
+   charges none) and books a `DISPUTE_COST` debit.
+
+   `DISPUTE_COST`, not `PROCESSING_COST`, on purpose: `PROCESSING_COST` is
+   half of a pair whose residual against `PROCESSING_RECOVERY` is the
+   operator's only check on the four configured rates, and a charge with no
+   recovery leg would drag that residual USD 15 negative per dispute. Same
+   `COST_TYPES`, same effect on `margin()`, its own line in the admin panel's
+   30-day net margin. Booked once, on the observed DISPUTED state transition
+   of a matched deposit row - not on webhook delivery, which Stripe retries -
+   and never reversed on a win, because Stripe keeps it on a win.
+
+2. **`TradeService.FEE_RATE` has no floor - and that was reported wrong.**
+   The report was that this and `TradeProtectionService.PROTECTION_RATE` are
+   "the same rate implemented two ways". They are not. They are two different
+   charges that share a headline number: `FEE_RATE` is a compulsory *seller*
+   commission and the divisor of the payout break-even; `PROTECTION_RATE` is
+   an optional *buyer* premium for cover. A floor is coherent on a product
+   nobody is forced to buy and is a price rise on a charge nobody can decline,
+   and flooring the commission would also break the break-even derivation.
+
+   Left divergent, deliberately, and now pinned by
+   `SellerCommissionIsUnflooredSpec` so a tidy-up commit that unifies them
+   fails with the reason attached. The consequence worth stating plainly:
+   because the commission is unfloored and rounded HALF_UP, **any trade
+   priced under USD 0.25 yields USD 0.00 of commission** - the platform runs
+   those trades for nothing. That is a pricing decision, not a defect, and
+   changing it reprices essentially the whole book, since this market's median
+   trade sits below the rounding floor.
 
 The four pass-through rates themselves are clean: `processing-fee-*` and
 `payout-fee-*` each carry both a percentage and a fixed leg.
@@ -336,7 +389,8 @@ The four pass-through rates themselves are clean: `processing-fee-*` and
   fee. The recovery is the exact amount withheld; the cost is modelled.
 - **Chargebacks got worse, not better.** A disputed deposit costs the platform
   the gross plus Stripe's dispute fee, and the user's fee reimbursement goes
-  back with it. Excluded from every figure above; it pushes one way.
+  back with it. The USD 15 handling fee is now booked (`DISPUTE_COST`); the
+  *gross* clawback still is not, so this still pushes one way.
 - **The trade table assumes the full balance trades each time.** Partial-balance
   trades reduce revenue per hop, never increase it. The 2% also *decays* the
   balance: a $96.80 item resold nets its seller $94.86, so "N trades" is an

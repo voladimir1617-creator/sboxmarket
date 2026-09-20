@@ -2855,8 +2855,16 @@ class StripeService {
         // the FIRST observation (tx is non-DISPUTED before this call,
         // OR there's no matching tx — the latter still gets one alert).
         boolean isFirstObservation = (tx == null || tx.status != 'DISPUTED')
+        // The STATE TRANSITION, captured before the mutation below performs
+        // it. `isFirstObservation` is not the same predicate: it is also true
+        // for an UNMATCHED dispute (tx == null), and stays true on every
+        // Stripe retry of one, because there is no row whose status can
+        // remember that we already saw it. That is tolerable for an admin
+        // alert and NOT tolerable for booking money — see the dispute-fee
+        // posting below.
+        boolean flippedToDisputed = (tx != null && tx.status != 'DISPUTED')
         // Mark the tx as disputed (or audit-only if not found).
-        if (tx != null && tx.status != 'DISPUTED') {
+        if (flippedToDisputed) {
             tx.status = 'DISPUTED'
             tx.description = (tx.description ?: '') + " — DISPUTED via Stripe (${dispute.id})"
             tx.updatedAt = System.currentTimeMillis()
@@ -2873,6 +2881,39 @@ class StripeService {
             return
         }
         log.error("CHARGEBACK opened — Stripe dispute=${dispute.id} amount=\$${amount} reason=${dispute.reason} charge=${chargeId} matchedTx=${tx?.id}")
+        // ── The USD 15 that appeared nowhere ────────────────────────
+        //
+        // Stripe bills a fixed dispute-handling fee (USD 15.00 in the US) the
+        // moment a cardholder disputes a charge, and KEEPS it whether the
+        // dispute is later won or lost. Everything above this line records
+        // that the dispute happened; none of it recorded that it cost
+        // anything, so a disputed trade read as free in the treasury and in
+        // the admin margin panel. At the 2% take rate one dispute costs more
+        // than the commission on USD 750 of GMV.
+        //
+        // Booked on the observed DISPUTED transition ONLY. Stripe retries
+        // webhooks on any 5xx, and `isFirstObservation` above is true on
+        // every retry of an UNMATCHED dispute — gating money on it would
+        // book USD 15 per delivery attempt. An unmatched dispute therefore
+        // books nothing and says so: the fee is real, but guessing how many
+        // times it was incurred is worse than a log line an operator can
+        // reconcile against the Stripe dashboard.
+        //
+        // Best-effort: the ledger posting is deferred and swallowed. A
+        // bookkeeping failure must not roll back the DISPUTED flip, which is
+        // what actually holds this user's withdrawals.
+        if (platformLedgerService != null) {
+            if (flippedToDisputed) {
+                try {
+                    platformLedgerService.postDisputeFee(dispute.id, amount)
+                } catch (Exception e) {
+                    log.warn("Dispute-fee posting failed for dispute=${dispute.id}: ${e.message}")
+                }
+            } else {
+                log.warn("Dispute ${dispute.id} matched no deposit row — processor dispute fee " +
+                         "(\$${platformLedgerService.disputeFee}) NOT booked; reconcile manually")
+            }
+        }
         // Resolve the wallet owner so the audit row is visible on the
         // user's /security-activity feed. Pre-fix (null, null) — same
         // shape closed for sibling deposit/withdraw events in commits
