@@ -73,12 +73,51 @@ class TradeService {
      * The two are free to diverge and must not be merged. What IS worth
      * knowing is the consequence of this one being unfloored: at the
      * HALF_UP rounding used below, any trade priced under $0.25 yields a
-     * fee of {@code $0.00}. The platform runs those trades for nothing.
-     * That is a PRICING decision, not a defect, and it is left as it is
-     * deliberately — a floor here is a product change, and this market's
-     * median trade sits below the rounding floor, so a floor would reprice
-     * essentially the whole book. {@code SellerCommissionIsUnflooredSpec}
-     * pins both halves so neither can be "fixed" into the other by accident.
+     * fee of {@code $0.00} (2% of $0.249 is $0.00498, which rounds to zero;
+     * $0.25 is the first price that yields a cent). The platform runs those
+     * trades for nothing. That is a PRICING decision, not a defect, and it
+     * is left as it is deliberately.
+     *
+     * <h4>The reason given for leaving it was wrong; the decision survives</h4>
+     *
+     * This javadoc used to say "this market's median trade sits below the
+     * rounding floor, so a floor would reprice essentially the whole book".
+     * That sentence had no source and it is false on every measurement in
+     * the repo. Measured 2026-09-20 against the s&box Steam Community
+     * Market book already checked into
+     * {@code market-research/2026-09-19-sbox-resize/books/rows_590830_pd.jsonl}
+     * (214 items) and {@code .../2026-09-01-steam-market-sizing/books/vol_590830.jsonl}:
+     *
+     * <ul>
+     *   <li>median listed item price <b>$1.65</b> — 6.6x the floor, not below it;</li>
+     *   <li>by listing depth (11,209 listings) only <b>12.0%</b> sit under $0.25;</li>
+     *   <li>by 24h units sold the volume-weighted median trade is <b>$0.64</b>
+     *       and <b>11.4%</b> of units are under $0.25 — though that cut is
+     *       n=35 and should be re-measured before anything is built on it.</li>
+     * </ul>
+     *
+     * So the sub-$0.25 band is roughly an eighth of the book, not most of it.
+     *
+     * <h4>What the band is actually worth, which is why it stays</h4>
+     *
+     * A sub-$0.25 trade is not "pure cost": a trade is an internal wallet
+     * transfer and costs the platform nothing at the processor. Stripe
+     * charges on DEPOSIT and PAYOUT, and both legs are already floored far
+     * above this band ($4.23 and $2.57/$23.08, {@code PlatformLedgerService}).
+     * The band is zero-REVENUE, not loss-making.
+     *
+     * Sizing the prize: switching this rounding to CEILING — a one-cent
+     * floor, the cheapest instrument available — would earn <b>$44.52 in
+     * total</b> if every one of the 11,209 s&box listings in existence
+     * traded here exactly once. Against that, it charges the cheapest
+     * sellers up to <b>4x the headline rate</b> (a $0.12 item pays $0.01 =
+     * 8.3%), and the alternative of a $0.25 minimum LISTING price would
+     * exclude 14.5% of the catalogue outright and demand a 108% markup on
+     * the cheapest item. Neither is worth $44.52. Left unfloored on the
+     * arithmetic, not on the vibe.
+     *
+     * {@code SellerCommissionIsUnflooredSpec} pins both halves so neither
+     * can be "fixed" into the other by accident.
      */
     static final BigDecimal FEE_RATE = new BigDecimal('0.02')
 

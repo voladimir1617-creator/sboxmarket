@@ -37,6 +37,43 @@ Rates live in `application.yml` under `platform:` — `processing-fee-percent`
 `payout-fee-fixed` (0.25). **These are what the user is charged**, so an
 operator on a negotiated rate must set them or be overcharging real people.
 
+**Where they come from** (checked 2026-09-20; until that date not one figure
+in this document had a source, which is how a fabricated USD 101.95 survived
+beside them):
+
+| Figure | Published as | Source, read 2026-09-20 |
+| --- | --- | --- |
+| `processing-fee-percent` 2.9 / `processing-fee-fixed` 0.30 | "2.9% + 30¢ per successful transaction for domestic cards" | <https://stripe.com/pricing> |
+| `payout-fee-percent` 0.25 / `payout-fee-fixed` 0.25 | "0.25% + 25¢ per payout sent" | <https://stripe.com/connect/pricing> ("You handle pricing") |
+| `payout-account-monthly-fee` 2.00 | "$2 per monthly active account" — "active in any month payouts are sent to its bank account or debit card" | <https://stripe.com/connect/pricing> ("You handle pricing"; the other column is "No fee") |
+| `dispute-fee` 15.00 | "Dispute received fee $15.00 for each dispute you receive" | <https://stripe.com/pricing> |
+
+All six are correct as shipped. `FeeConstantsAreCitedSpec` fails if a default
+moves without its quote moving, or if a citation is deleted. To re-check: open
+the two pages, compare, move the date.
+
+**Three published charges this model does NOT carry**, each correct to omit
+today and each a trap the day it is not:
+
+1. **The second dispute fee.** <https://stripe.com/pricing>: "Dispute
+   countered fee $15.00 for each dispute you respond to manually. You get this
+   fee back for won disputes. You don't get this fee back for lost disputes."
+   A dispute conceded costs $15.00, contested-and-won $15.00, and
+   **contested-and-lost $30.00**. The model books $15.00 flat. Nothing in the
+   codebase contests a dispute (it is a human action in the Stripe dashboard,
+   with no webhook that knows the outcome), so there is no event to hang the
+   second leg off — but read the shipped $15.00 as a **floor** on dispute
+   cost, not the whole of it.
+2. **Card-origin surcharges.** <https://stripe.com/pricing>: "+ 1.5% for
+   international cards", "+ 1% if currency conversion is required", "+ 0.5%
+   for manually entered cards". The single 2.9% assumes every buyer holds a
+   domestic card. A non-US buyer costs more than is booked and the platform,
+   not the buyer, eats the gap.
+3. **Instant payouts.** <https://stripe.com/connect/pricing>: "1% of payout
+   volume" — 4x the standard Connect payout rate. Adding an instant-payout
+   button without adding that rate would make the platform eat the difference
+   on every use.
+
 ## The arithmetic
 
 | deposit | processing fee | credited | 2% per trade | payout fee | user finally receives | user round-trip cost |
@@ -236,9 +273,9 @@ imply:
 
 | Config | Default | What it is |
 | --- | --- | --- |
-| `platform.payout-account-monthly-fee` | `2.00` | The per-monthly-active-account charge. Set `0.00` for a rail that has none. |
-| `platform.max-fee-share` | `0.10` | Largest share of a deposit or payout that may be processor fee. The only judgement call. |
-| `platform.dispute-fee` | `15.00` | Processor's flat charge for handling a card dispute. Set `0.00` for a rail that has none. |
+| `platform.payout-account-monthly-fee` | `2.00` | The per-monthly-active-account charge. Stripe Connect, "$2 per monthly active account" (<https://stripe.com/connect/pricing>, read 2026-09-20). Set `0.00` for a rail that has none. |
+| `platform.max-fee-share` | `0.10` | Largest share of a deposit or payout that may be processor fee. The only judgement call — **no external source exists for this one and none should be invented**. |
+| `platform.dispute-fee` | `15.00` | Processor's flat charge for handling a card dispute. Stripe's "Dispute received fee $15.00" (<https://stripe.com/pricing>, read 2026-09-20); the separate "countered" fee is not booked — see above. Set `0.00` for a rail that has none. |
 
 Everything else is solved from those and the four published rates
 (`PlatformLedgerService`):
@@ -373,9 +410,38 @@ Audited 2026-09-19, resolved 2026-09-20.
    fails with the reason attached. The consequence worth stating plainly:
    because the commission is unfloored and rounded HALF_UP, **any trade
    priced under USD 0.25 yields USD 0.00 of commission** - the platform runs
-   those trades for nothing. That is a pricing decision, not a defect, and
-   changing it reprices essentially the whole book, since this market's median
-   trade sits below the rounding floor.
+   those trades for nothing. That is a pricing decision, not a defect.
+
+   **The reason previously given for it was false.** This document said
+   "changing it reprices essentially the whole book, since this market's
+   median trade sits below the rounding floor". That sentence had no source
+   and no measurement disagrees with it by less than 2.6x. Measured
+   2026-09-20 against the s&box Steam Community Market book already in this
+   repo (`market-research/2026-09-19-sbox-resize/books/rows_590830_pd.jsonl`,
+   214 items; `market-research/2026-09-01-steam-market-sizing/books/vol_590830.jsonl`):
+
+   | cut | median | share under USD 0.25 |
+   | --- | --- | --- |
+   | 214 distinct items, lowest ask | **USD 1.65** | 14.5% (31 items) |
+   | 11,209 listings, by depth | ~USD 0.55 | **12.0%** (1,341 listings) |
+   | 35 units sold in 24h, volume-weighted | **USD 0.64** | 11.4% (4 units) — *n=35, thin; re-measure before building on it* |
+
+   So the band is about an eighth of the book, not most of it.
+
+   **It stays unfloored anyway, now on arithmetic rather than assertion.** A
+   sub-USD 0.25 trade is not "pure cost": a trade is an internal wallet
+   transfer and costs nothing at the processor. Stripe charges on deposit and
+   payout, and both are already floored far above this band (USD 4.23 and
+   USD 2.57 / 23.08). The band is zero-**revenue**, not loss-making. Sizing
+   the prize: switching the rounding to CEILING - a one-cent floor, the
+   cheapest instrument there is - earns **USD 44.52 in total** if every one of
+   the 11,209 s&box listings in existence traded here exactly once. What it
+   costs a seller: a USD 0.12 item pays USD 0.01, an effective **8.3% against
+   a 2% headline**, up to 4x the advertised rate on the cheapest items. The
+   alternative, a USD 0.25 minimum listing price, excludes 14.5% of the
+   catalogue outright and demands a 108% markup on the cheapest item. Neither
+   is worth USD 44.52. **Do nothing** - and this paragraph exists so it is not
+   re-litigated from intuition a third time.
 
 The four pass-through rates themselves are clean: `processing-fee-*` and
 `payout-fee-*` each carry both a percentage and a fixed leg.

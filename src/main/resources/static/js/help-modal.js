@@ -9,7 +9,7 @@ import { navigate, paths } from './router.js';
 const FAQ = [
   {
     q: 'What is SkinBox?',
-    a: "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. Sellers set their own price, and every listing is backed by a real Steam account. The platform is cheaper than going through the Steam store — a flat 2% on each sale vs Steam's 12%. Deposits and withdrawals are free."
+    a: "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. Sellers set their own price, and every listing is backed by a real Steam account. The platform is cheaper than going through the Steam store — a flat 2% on each sale vs Steam's 12%. Moving money in and out is separate and is not free: card deposits and bank payouts carry the payment processor's own charge, passed through at cost with no markup, and the wallet screen shows you the exact figure before you confirm."
   },
   {
     q: 'How do I sign in?',
@@ -53,7 +53,7 @@ const FAQ = [
   },
   {
     q: 'Why is SkinBox cheaper than Steam?',
-    a: "Steam charges 12% on Workshop sales. SkinBox charges a flat 2% to the seller at sale time — that's the only fee. Deposits and withdrawals are free; Stripe merchant fees are paid by SkinBox, not the user. The green '−X%' chip on each card shows exactly how much you save versus the Steam store price."
+    a: "Steam charges 12% on Workshop sales. SkinBox charges a flat 2% to the seller at sale time — that is the only fee SkinBox keeps, and it is the only one that funds the site. Moving money is a separate cost and is not free: card deposits and bank payouts carry Stripe's own charge, which is passed through at cost with no markup added. The wallet screen shows the exact deduction and the exact amount you will receive before you confirm anything. The green '−X%' chip on each card shows how much you save versus the Steam store price."
   },
   {
     q: 'My purchase is stuck, what do I do?',

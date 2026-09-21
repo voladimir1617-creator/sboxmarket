@@ -1828,12 +1828,21 @@ class StripeService {
             }
         }
 
-        // Refuse rather than pay out zero-or-negative. At 0.25% + $0.25 the
-        // fee swallows anything under ~$0.26, and a misconfigured fixed leg
-        // moves that threshold arbitrarily high. The @DecimalMin("1.00") on
-        // WithdrawRequest makes this unreachable from the API at today's
-        // rates — which is exactly why it belongs HERE, where the rate lives,
-        // rather than being assumed from a DTO annotation three layers away.
+        // Refuse rather than pay out zero-or-negative. At 0.25% + $0.25
+        // (https://stripe.com/connect/pricing, read 2026-09-20) the fee
+        // swallows anything under ~$0.26, and a misconfigured fixed leg
+        // moves that threshold arbitrarily high.
+        //
+        // This used to say the @DecimalMin("1.00") on WithdrawRequest made
+        // the branch unreachable from the API. That annotation is now
+        // @DecimalMin("0.01") — lowered so the full-balance sweep exemption
+        // could reach sub-dollar balances — so the branch IS reachable: a
+        // wallet holding $0.20 sweeps, the fee exceeds the balance, and this
+        // refuses. That is the correct answer (there is no payable amount at
+        // $0.20) and SmallBalanceIsNotStrandedSpec pins both sides of it.
+        // Which is exactly why the guard belongs HERE, where the rate lives,
+        // rather than being assumed from a DTO annotation three layers away
+        // that someone else is free to move.
         // Checked BEFORE the debit so a refusal never leaves a balance short.
         if (platformLedgerService != null && payoutFeeCharged > BigDecimal.ZERO
                 && platformLedgerService.feeExceedsAmount(amount, payoutFeeCharged)) {

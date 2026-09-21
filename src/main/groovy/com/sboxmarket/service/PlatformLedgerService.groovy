@@ -161,27 +161,52 @@ class PlatformLedgerService {
      * Configurable because negotiated rates and non-card methods differ —
      * an operator on a different rate MUST set this or the margin figure
      * is wrong in the optimistic direction.
+     *
+     * <p>Source: https://stripe.com/pricing — "2.9% + 30¢ per successful
+     * transaction for domestic cards", read 2026-09-20. DOMESTIC cards.
+     * The same page lists "+ 1.5% for international cards", "+ 1% if
+     * currency conversion is required" and "+ 0.5% for manually entered
+     * cards"; none of the three is modelled, so a non-US buyer costs more
+     * than this books and the platform eats the difference.
      */
     @Value('${platform.processing-fee-percent:2.9}') BigDecimal processingFeePercent
 
-    /** Fixed per-transaction processor charge in dollars. Stripe US: $0.30. */
+    /** Fixed per-transaction processor charge in dollars. Stripe US: $0.30.
+     *  Source: https://stripe.com/pricing — "2.9% + 30¢ per successful
+     *  transaction for domestic cards", read 2026-09-20. */
     @Value('${platform.processing-fee-fixed:0.30}') BigDecimal processingFeeFixed
 
     /**
      * Processor percentage rate on a PAYOUT (money out), as a percent.
-     * Stripe Connect US: roughly 0.25% + $0.25 per payout. Separate from the
+     * Stripe Connect US: 0.25% + $0.25 per payout. Separate from the
      * deposit rate because the two legs are priced differently and a single
      * knob would force the operator to be wrong on one of them.
+     *
+     * <p>Source: https://stripe.com/connect/pricing — "0.25% + 25¢ per
+     * payout sent", read 2026-09-20, in the "You handle pricing" column
+     * (the marketplace model this product is on). "Roughly" was wrong to
+     * write: the figure is exact and published. The same page prices
+     * Instant Payouts at "1% of payout volume" — 4x this — which is NOT
+     * modelled because no instant-payout path exists yet.
      */
     @Value('${platform.payout-fee-percent:0.25}') BigDecimal payoutFeePercent
 
-    /** Fixed per-payout processor charge in dollars. Stripe Connect US: $0.25. */
+    /** Fixed per-payout processor charge in dollars. Stripe Connect US: $0.25.
+     *  Source: https://stripe.com/connect/pricing — "0.25% + 25¢ per payout
+     *  sent", read 2026-09-20. */
     @Value('${platform.payout-fee-fixed:0.25}') BigDecimal payoutFeeFixed
 
     /**
      * Fixed processor charge per MONTHLY ACTIVE payout account, in dollars.
      *
      * <h4>The leg that is not a rate</h4>
+     *
+     * Source: https://stripe.com/connect/pricing — "$2 per monthly active
+     * account", defined on that page as "An account is active in any month
+     * payouts are sent to its bank account or debit card", read 2026-09-20.
+     * Billed under "You handle pricing" only; the "Stripe handles pricing"
+     * column shows "No fee" for the same row, so this cost follows from the
+     * marketplace model rather than from using Connect at all.
      *
      * Stripe Connect bills USD 2.00 for each connected account that moves
      * money in a calendar month - once, per ACCOUNT, however much it moved.
@@ -203,6 +228,24 @@ class PlatformLedgerService {
      * Fixed processor charge for handling a card dispute, in dollars.
      * Stripe US bills USD 15.00 per dispute and does NOT refund it when the
      * dispute is won.
+     *
+     * <p>Source: https://stripe.com/pricing — "Dispute received fee $15.00
+     * for each dispute you receive. In rare cases, network fees also
+     * apply.", read 2026-09-20.
+     *
+     * <h4>The half of this charge that is not booked</h4>
+     *
+     * The same page, same date: "Dispute countered fee $15.00 for each
+     * dispute you respond to manually. You get this fee back for won
+     * disputes. You don't get this fee back for lost disputes." So the true
+     * exposure is USD 15.00 conceded, USD 15.00 contested-and-won, and
+     * USD 30.00 contested-and-LOST. This knob books USD 15.00 flat, which
+     * is right for the first two and half the third. Deliberate: nothing in
+     * this codebase contests a dispute — responding is a human action in the
+     * Stripe dashboard and no webhook here can know the outcome — so the
+     * countered leg has no event to hang off. Book it the day an operator
+     * starts contesting, not before, and read a flat USD 15.00 until then as
+     * a FLOOR on dispute cost rather than the whole of it.
      *
      * <h4>The cost that appeared nowhere</h4>
      *
