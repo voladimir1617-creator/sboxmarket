@@ -3143,7 +3143,9 @@ button[disabled], button:disabled, .btn[disabled] { filter: saturate(0.6); point
 .site-footer-secure-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--ink-3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 8px; border: 1px solid var(--line-2); border-radius: 4px; }
 .listing-grid > .grid-card { animation: card-image-fade-in 280ms ease-out 1; }
 .csfloat-hero-stack-card.pos-2 { opacity: 0.78; filter: brightness(0.88); }
-:root { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-lg: 16px; --fs-xl: 22px; }
+/* Legacy type alias set. Re-pointed at the one --t-* ladder (declared at the
+   foot of this file) — value-for-value, so nothing re-flows. */
+:root { --fs-xs: var(--t-11); --fs-sm: var(--t-12); --fs-md: var(--t-13); --fs-lg: var(--t-16); --fs-xl: var(--t-22); }
 .csfloat-band-arrow .material-symbols-rounded { transition: color 140ms ease; }
 .csfloat-band-arrow:hover .material-symbols-rounded { color: var(--cta); }
 .grid-card:has(.grid-cart-btn.in) { border-color: color-mix(in oklab, var(--cta) 35%, var(--line)); }
@@ -4774,7 +4776,9 @@ to { transform: scale(1); opacity: 1; }
 @media (max-width: 1099px) { .csfloat-desktop-up-only { display: none !important; }
 }
 .btn-accent:focus-visible { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px oklch(0.55 0.18 250 / 0.6), 0 8px 24px oklch(0.55 0.18 250 / 0.32); }
-:root { --csfloat-radius-card: 8px; --csfloat-radius-input: 6px; --csfloat-radius-pill: 999px; --csfloat-radius-tile: 10px; --csfloat-radius-modal: 12px; --csfloat-shadow-card: 0 1px 2px rgba(0,0,0,0.3); --csfloat-shadow-card-hover: 0 14px 36px rgba(0,0,0,0.55); --csfloat-shadow-modal: 0 20px 60px rgba(0,0,0,0.65); --csfloat-transition: 200ms cubic-bezier(0.2, 0.8, 0.2, 1); --csfloat-transition-fast: 120ms cubic-bezier(0.2, 0.8, 0.2, 1); --csfloat-transition-slow: 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* Legacy radius alias set. Re-pointed at the one radius ladder (foot of file)
+   — value-for-value, so no corner changes. */
+:root { --csfloat-radius-card: var(--r-ctl); --csfloat-radius-input: var(--r-sm); --csfloat-radius-pill: var(--r-pill); --csfloat-radius-tile: var(--r-md); --csfloat-radius-modal: var(--r-modal); --csfloat-shadow-card: 0 1px 2px rgba(0,0,0,0.3); --csfloat-shadow-card-hover: 0 14px 36px rgba(0,0,0,0.55); --csfloat-shadow-modal: 0 20px 60px rgba(0,0,0,0.65); --csfloat-transition: 200ms cubic-bezier(0.2, 0.8, 0.2, 1); --csfloat-transition-fast: 120ms cubic-bezier(0.2, 0.8, 0.2, 1); --csfloat-transition-slow: 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 .csfloat-card-base { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--csfloat-radius-card); box-shadow: var(--csfloat-shadow-card); transition: border-color var(--csfloat-transition), transform var(--csfloat-transition), box-shadow var(--csfloat-transition), background var(--csfloat-transition); }
 .csfloat-card-base:hover { border-color: var(--line-2); transform: translateY(-2px); box-shadow: var(--csfloat-shadow-card-hover); }
 .csfloat-panel { background: var(--bg-1); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
@@ -20792,9 +20796,17 @@ body[data-page="404"] main h1, .error-404 h1, .not-found h1, [class*="error-page
 .search-input:focus::placeholder, input[type="search"]:focus::placeholder { color: rgb(158, 167, 177) !important; opacity: 1 !important; }
 .filter-chip:hover, .wallet-tx-filter-chip:hover, .stall-filter-chips .filter-chip:hover, .active-filters .filter-chip:hover { background-color: rgba(193, 206, 255, 0.08) !important; border-color: transparent !important; color: rgb(255, 255, 255) !important; transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1), color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
 .filter-chip:active, .wallet-tx-filter-chip:active, .stall-filter-chips .filter-chip:active { background-color: rgba(193, 206, 255, 0.12) !important; transform: none !important; transition: background-color 80ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
-:root, html, body { background-color: rgb(21, 23, 28) !important; }
+/* The page ground and the shell typeface read their tokens instead of
+   repeating the literals. Same pixels (--bg is rgb(21,23,28), --font-sans is
+   the same Roboto stack plus an Arial fallback), but changing the token now
+   actually changes the app — before this, --bg could be set to anything and
+   the page stayed rgb(21,23,28). */
+:root, html, body { background-color: var(--bg) !important; }
+/* NOTE: this is pure #fff, NOT --ink (rgb(242,244,247)). Two different
+   "primary text" values are shipped side by side; reconciling them moves
+   pixels, so it is named in the stream report rather than changed here. */
 html, body { color: rgb(255, 255, 255) !important; }
-html, body { font-family: Roboto, "Helvetica Neue", sans-serif !important; }
+html, body { font-family: var(--font-sans) !important; }
 html { font-size: 16px !important; }
 body { font-size: 16px !important; }
 .price, .price-value, [class*="price"] code, code.price, .mono, .num-mono, .tabular, [class*="tabular"], .price-display, .listing-price, .item-price { font-family: "Roboto Mono", Roboto, "Helvetica Neue", monospace !important; font-variant-numeric: tabular-nums !important; }
@@ -21231,7 +21243,7 @@ body input.price-input::placeholder { color: rgb(158, 167, 177) !important; opac
 body input.price-input:hover { border-color: rgba(255, 255, 255, 0.12) !important; }
 body input.price-input:focus, body input.price-input:focus-visible { border-color: rgb(35, 123, 255) !important; box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.18) !important; outline: none !important; }
 body aside.sidebar { background-color: transparent !important; background-image: none !important; padding: 0 !important; border-radius: 0 !important; border: 0 !important; box-shadow: none !important; }
-body { background-color: rgb(21, 23, 28) !important; }
+body { background-color: var(--bg) !important; }  /* was the rgb(21,23,28) literal; same pixels, token-driven */
 body { padding-left: 60px !important; padding-right: 60px !important; }
 body nav.csfloat-subnav .csfloat-subnav-inner { margin-left: 0 !important; margin-right: auto !important; justify-content: flex-start !important; }
 body nav.csfloat-subnav { background-color: transparent !important; background-image: none !important; }
@@ -27216,7 +27228,7 @@ html body nav.nav .nav-links { min-width: 0; }
 body:has(.modal-backdrop), body:has(.cart-confirm-backdrop), body:has(.shortcuts-backdrop) { }
 body:has(.modal-backdrop) .csfloat-fab, body:has(.cart-confirm-backdrop) .csfloat-fab, body:has(.shortcuts-backdrop) .csfloat-fab { display: none !important; }
 :root { --bg: rgb(21, 23, 28) !important; --bg-1: rgb(30, 33, 39) !important; --bg-2: rgb(38, 41, 48) !important; --bg-3: rgb(46, 50, 58) !important; }
-body { background: rgb(21, 23, 28) !important; }
+body { background: var(--bg) !important; }  /* was the rgb(21,23,28) literal; same pixels, token-driven */
 .grid-card, .card, .market-stats-strip > div, .market-stat { border-radius: 0 !important; background: rgb(38, 41, 48) !important; }
 .grid-card .grid-thumb, .grid-card .grid-body { border-radius: 0 !important; }
 body .grid-card, body .card, .listing-grid .grid-card, body .market-stat { border-radius: 0 !important; background: rgb(38, 41, 48) !important; }
@@ -27489,7 +27501,7 @@ html body .csfloat-home-hero, html body .csfloat-home-preview, html body .csfloa
 :root {
   --ctl-h: 36px;            /* standard control height */
   --ctl-h-cta: 40px;        /* primary / CTA height */
-  --ctl-r: 8px;             /* the ONE button/input/chip radius */
+  --ctl-r: var(--r-ctl);    /* the ONE button/input/chip radius (= 8px, foot of file) */
   --ctl-pad: 0 14px;        /* standard horizontal padding */
   --ctl-pad-cta: 0 16px;    /* primary horizontal padding */
   --ctl-fs: 14px;           /* button label size */
@@ -27916,18 +27928,17 @@ html body .item-demand-chip {
   --surface:        rgb(27, 29, 36);          /* card / panel / modal / sidebar bg */
   --surface-2:      rgb(31, 33, 40);          /* inset / nested surface (sparingly) */
   --surface-line:   rgba(255, 255, 255, 0.07);/* the one subtle card/panel border */
-  /* --- RADIUS --- one for cards/panels, one for inner controls/inputs --- */
-  --r-card:         10px;                      /* cards, panels, modals, sidebars */
-  --r-ctl:          8px;                       /* buttons, inputs, chips (= --ctl-r) */
-  /* keep existing --r-md (10px) aligned to card radius */
-  --r-md:           10px;
-  /* --- SPACING --- 8px-based scale: 4 / 8 / 12 / 16 / 20 / 24 / 32 / 48 --- */
-  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
-  --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 48px;
-  --card-pad: 16px;                            /* default card internal padding */
-  /* --- TYPE --- 12 / 13 / 14 / 16 / 20 / 24 / 32 / 42 --- */
-  --fs-1: 12px; --fs-2: 13px; --fs-3: 14px; --fs-4: 16px;
-  --fs-5: 20px; --fs-6: 24px; --fs-7: 32px; --fs-8: 42px;
+  /* --- RADIUS --- one for cards/panels, one for inner controls/inputs ---
+     --r-ctl now lives on the single ladder at the foot of this file; --r-card
+     and --r-md are the same 10px rung, so both point at it. */
+  --r-card:         var(--r-md);               /* cards, panels, modals, sidebars */
+  /* --- SPACING --- re-pointed at the one --s-* ladder, value-for-value --- */
+  --sp-1: var(--s-4);  --sp-2: var(--s-8);  --sp-3: var(--s-12); --sp-4: var(--s-16);
+  --sp-5: var(--s-20); --sp-6: var(--s-24); --sp-7: var(--s-32); --sp-8: var(--s-48);
+  --card-pad: var(--s-16);                     /* default card internal padding */
+  /* --- TYPE --- re-pointed at the one --t-* ladder, value-for-value --- */
+  --fs-1: var(--t-12); --fs-2: var(--t-13); --fs-3: var(--t-14); --fs-4: var(--t-16);
+  --fs-5: var(--t-20); --fs-6: var(--t-24); --fs-7: var(--t-32); --fs-8: var(--t-42);
 }
 
 /* ---------------------------------------------------------------------------
@@ -28596,4 +28607,137 @@ details:not([open]) > .faq-a {
   body:has(.mobile-filters-fab) .app-back-to-top {
     bottom: calc(85px + 52px + 14px + env(safe-area-inset-bottom, 0px)) !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN-SYSTEM SCALES — the rungs that were referenced but never declared.
+
+   `design/Design System.html` + `design/_design.css` define a strict spacing
+   scale (--s-*), a strict type scale (--t-*) and a radius/shadow ladder. NONE
+   of them existed in this stylesheet: a browser probe of the running app
+   resolved --s-4 … --s-80, --t-10 … --t-60, --r-xl, --shadow-3, --ink-5,
+   --blue-glow, --container and --font-mono to the EMPTY STRING, all 32 of
+   them. Any markup copied out of design/ therefore collapsed its padding to
+   nothing rather than failing visibly — the "missing signal rendered as a
+   healthy one" defect, in CSS.
+
+   Meanwhile four separate attempts at "the ONE scale" had accumulated above:
+     · type     --fs-xs…--fs-xl (L3146)  and  --fs-1…--fs-8 (L27914)
+     · spacing  --sp-1…--sp-8 (L27914)
+     · radius   --r-xs…--r-lg (L11), --csfloat-radius-* (L4777),
+                --ctl-r (L27489), --r-card/--r-ctl (L27914)
+   Three type scales, one spacing scale, four radius ladders — and the design
+   system's own scale in none of them.
+
+   This block declares each rung ONCE. The legacy names above are edited in
+   place to point here; every substitution is value-for-value, so the rendered
+   pixels do not move.
+
+   GUARDED BY: src/test/groovy/com/sboxmarket/DesignTokenContractSpec.groovy,
+   which reads this file off the CLASSPATH (build/resources/main — what the
+   server actually serves, so an edit that never got through processResources
+   fails there rather than passing against a source file nobody is shipping)
+   and asserts four things: no fallback-less var() names an undeclared
+   property; every ladder rung below is declared exactly once; every token
+   design/_design.css names exists here; and color-scheme is declared on :root
+   OUTSIDE every at-rule. Each of the four was verified RED by re-introducing
+   the defect it describes — the colour-scheme one only after a first version
+   passed while the real declaration was deleted, because its regex was
+   matching the @media copy at L5992.
+
+   NOT adopted, deliberately: the design system's typefaces (Geist / Geist
+   Mono, pulled from a jsdelivr CDN by design/_design.css). This app
+   self-hosts Roboto + Roboto Mono under /fonts and makes no third-party
+   font request; swapping that is the operator's call, not a fidelity fix.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Colour scheme — stated, not assumed. The app is single-scheme dark by
+     decision: design/_design.css declares no light palette, and nothing in
+     js/ or the served HTML ever sets html[data-theme]. Declaring it here (not
+     only in index.html's inline critical block, and not only inside a
+     prefers-color-scheme:dark media query as at L5988) means form controls,
+     scrollbars and the canvas agree with the ground on a light-preference OS
+     too. */
+  color-scheme: dark;
+
+  /* ── Spacing (design/_design.css) ───────────────────────────────────── */
+  --s-4:  4px;   --s-8:  8px;   --s-10: 10px;  --s-12: 12px;  --s-14: 14px;
+  --s-16: 16px;  --s-18: 18px;  --s-20: 20px;  --s-22: 22px;  --s-24: 24px;
+  --s-28: 28px;  --s-32: 32px;  --s-40: 40px;  --s-56: 56px;  --s-80: 80px;
+  /* app extension: 48px, the last rung of the --sp-* ladder this replaces */
+  --s-48: 48px;
+
+  /* ── Type (design/_design.css) ──────────────────────────────────────── */
+  --t-10: 10px;  --t-11: 11px;  --t-12: 12px;  --t-13: 13px;  --t-14: 14px;
+  --t-15: 15px;  --t-18: 18px;  --t-22: 22px;  --t-28: 28px;  --t-40: 40px;
+  --t-60: 60px;
+  /* app extensions: sizes the shipped --fs-* ladders already use and the
+     design scale skips. Declared here so there is still ONE ladder. */
+  --t-16: 16px;  --t-20: 20px;  --t-24: 24px;  --t-32: 32px;  --t-42: 42px;
+
+  /* ── Radius — one ladder, eight rungs, absorbing all four legacy sets ── */
+  /* --r-xs/--r-sm/--r-md/--r-lg are declared at L11 and keep their values. */
+  --r-ctl:   8px;    /* buttons, inputs, chips (was --ctl-r, --csfloat-radius-card) */
+  --r-modal: 12px;   /* modals (was --csfloat-radius-modal) */
+  --r-xl:    20px;   /* design/_design.css */
+  --r-pill:  999px;  /* was --csfloat-radius-pill */
+
+  /* ── Elevation ──────────────────────────────────────────────────────── */
+  --shadow-3: 0 28px 80px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,0.05) inset;
+
+  /* ── Ink ramp, fifth rung. Derived from --ink-4 so it tracks the ramp
+        instead of being a fifth hand-picked grey. ─────────────────────── */
+  --ink-5: color-mix(in oklab, var(--ink-4) 72%, var(--bg));
+
+  /* ── Focus ring the design system names but the app never declared ──── */
+  --blue-glow: 0 0 0 4px color-mix(in oklch, var(--blue) 22%, transparent);
+
+  /* ── Aliases, so two names never hold two different numbers ─────────── */
+  --container: var(--page-maxw);
+  --font-mono: var(--mono);
+}
+
+/* The light palette at L17 is unreachable — nothing sets html[data-theme].
+   It is left in place (it is not this stream's to delete) but it must not be
+   able to paint light surfaces while the canvas still reports `dark`: that is
+   exactly the "one theme's text on the other theme's ground" failure. If it is
+   ever switched on, the native controls now follow the ground it paints.
+   It would still need the ~664 hardcoded rgb(158,167,177) / 512 rgb(35,123,255)
+   literals below tokenised before it rendered correctly — see the stream
+   report. */
+html[data-theme="light"] { color-scheme: light; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   "COULD NOT LOAD" MUST NOT LOOK LIKE "NOTHING HERE".
+
+   app.js already computes the distinction and marks it in the DOM with a
+   stable, e2e-asserted testid (`market-load-error` / `item-load-error` vs
+   `market-empty` / `item-not-found`) — but both branches render the same
+   neutral `.empty-state`, so a backend 500 and a genuinely empty shelf were
+   pixel-identical. A user reads the empty one as "there is nothing" and
+   leaves; the error one means "try again".
+
+   Keyed off the testid suffix, which is a contract the tests already hold, so
+   no page markup has to change. `.is-error` / `[data-state="error"]` are
+   accepted too, for streams that would rather set a class.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html body .empty-state:has([data-testid$="load-error"]),
+html body .empty-state.is-error,
+html body .empty-state[data-state="error"] {
+  border: 1px solid color-mix(in oklab, var(--warn) 42%, transparent) !important;
+  border-left-width: 3px !important;
+  border-radius: var(--r-md) !important;
+  background: color-mix(in oklab, var(--warn) 7%, transparent) !important;
+  padding: var(--s-24) var(--s-20) !important;
+  text-align: left !important;
+}
+html body .empty-state:has([data-testid$="load-error"]) .empty-state-icon,
+html body .empty-state.is-error .empty-state-icon,
+html body .empty-state[data-state="error"] .empty-state-icon {
+  color: var(--warn) !important;
+}
+html body .empty-state:has([data-testid$="load-error"]) .empty-state-title,
+html body .empty-state.is-error .empty-state-title,
+html body .empty-state[data-state="error"] .empty-state-title {
+  color: var(--warn) !important;
 }
