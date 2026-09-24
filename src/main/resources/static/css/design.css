@@ -22530,8 +22530,16 @@ body .legal-doc :target { background: rgba(82, 148, 255, 0.08) !important; borde
 .wallet-tx:last-child { border-bottom: 0 !important; }
 .wallet-tx-main { min-width: 0 !important; display: flex !important; flex-direction: column !important; gap: 3px !important; }
 .wallet-tx-right { display: flex !important; flex-direction: column !important; align-items: flex-end !important; gap: 6px !important; }
-.nav-link[href$="/db" i] { color: rgb(33, 118, 255) !important; font-weight: 500 !important; }
-.nav-link[href$="/db" i]:hover, .nav-link[href$="/db" i].active { color: rgb(35, 123, 255) !important; }
+/* REMOVED: `.nav-link[href$="/db" i] { color: rgb(33,118,255) }` pinned the
+   Database link to the ACTIVE colour at rest, on every route. Measured on
+   /market: Database reported .active === false and still computed
+   rgb(35,123,255), identical to the genuinely-active Market link, while the
+   other three links were grey. The nav therefore showed two current pages
+   everywhere, and on /db itself the active link was indistinguishable from
+   its always-on colour -- the signal was dead on all five routes.
+   Its companion `:hover, .active` rule went with it: it only restated what
+   the generic nav-link rules already say. A second copy of the same pin lived
+   at the nav.nav layer; see the note there. */
 .wallet-tx-icon { width: 40px !important; height: 40px !important; border-radius: 50% !important; display: grid !important; place-items: center !important; font-size: 16px !important; font-weight: 600 !important; flex-shrink: 0 !important; letter-spacing: 0 !important; line-height: 1 !important; }
 .wallet-tx-icon.in { background: rgba(76,175,80,0.12) !important; color: #4caf50 !important; }
 .wallet-tx-icon.out { background: rgba(244,67,54,0.12) !important; color: #f44336 !important; }
@@ -27317,8 +27325,14 @@ body .toolbar .view-btns button.active { background: rgb(35, 123, 255) !importan
 nav.nav .nav-link, .nav > .nav-links > .nav-link, .nav-inner > .nav-links > .nav-link { font-size: 14px !important; font-weight: 500 !important; }
 nav.nav .nav-link.active, nav.nav .nav-link[aria-current="page"], .nav > .nav-links > .nav-link.active, .nav > .nav-links > .nav-link[aria-current="page"] { color: rgb(35, 123, 255) !important; font-weight: 500 !important; }
 nav.nav .nav-link.active:hover, nav.nav .nav-link[aria-current="page"]:hover { color: rgb(35, 123, 255) !important; }
-nav.nav .nav-link[href$="/db"], nav.nav .nav-link[href$="/database"], nav.nav .nav-link[href*="/database"] { color: rgb(35, 123, 255) !important; }
-nav.nav .nav-link[href$="/db"]:hover, nav.nav .nav-link[href$="/database"]:hover, nav.nav .nav-link[href*="/database"]:hover { color: rgb(35, 123, 255) !important; }
+/* REMOVED: the second copy of the Database colour pin (the first was at the
+   .nav-link layer). Same defect: it coloured /db with the active blue whether
+   or not /db was the current route, so `.nav-link.active` immediately above
+   could no longer say anything. The likely origin is a parity pass that
+   sampled csfloat's computed colours from a screenshot taken WHILE on the
+   database page, freezing an active-state value as the resting value.
+   Database now follows the same two rules as every other nav link: grey at
+   rest (L27317), active blue when .active (L27318). */
 nav.nav .steam-btn, button.steam-btn, html body nav.nav .steam-btn { border-radius: 4px !important; }
 nav.nav .nav-icon-btn { border-radius: 4px !important; }
 nav.nav .nav-picker-chip { border-radius: 4px !important; }
@@ -28740,4 +28754,220 @@ html body .empty-state:has([data-testid$="load-error"]) .empty-state-title,
 html body .empty-state.is-error .empty-state-title,
 html body .empty-state[data-state="error"] .empty-state-title {
   color: var(--warn) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A CONTROL THAT TAKES FOCUS MUST SHOW IT.
+
+   Measured in a real browser on /market (computed styles, focus vs resting):
+
+     .steam-btn      "Sign in through Steam", the primary CTA for every
+                     signed-out visitor. The ONLY computed change on focus was
+                     outline-offset -- an offset on an outline whose style is
+                     `none`, i.e. nothing -- plus a 24% white overlay that the
+                     button also uses for hover. No ring.
+     .search-input   The marketplace search box. outline-style stayed `none`,
+                     border stayed 0px, box-shadow stayed `none`. Its wrapper
+                     .search-wrap was byte-identical on :focus-within, so
+                     nothing compensated. No feedback at all.
+     .price-input    The $ Min / $ Max filters. border-width went 1px -> 0px on
+                     focus, so the control became LESS visible than at rest.
+                     Mechanism: an earlier rule sets `border: 0px !important`,
+                     and the later rules that "fix" it set only border-COLOR --
+                     a colour on a zero-width border paints nothing.
+     .nav-link       Got a WHITE 3px ring while .nav-icon-btn, .btn, select and
+     .nav-logo       the footer links in the same shell all get the blue 2px
+                     ring at 2px offset. Two focus languages in one nav bar.
+
+   Not a one-off: 38 rules in this stylesheet target :focus/:focus-visible on
+   those three controls alone. Each pass re-specified the treatment at higher
+   specificity, and the last one in each chain removes the indicator instead of
+   replacing it -- a parity pass pinning csfloat's `outline: 0` without
+   supplying the ring csfloat draws some other way.
+
+   This block does not join that argument by adding a 39th competing rule with
+   a new look. It restates the ring the rest of the shell ALREADY resolves to
+   (measured: 2px solid blue, 2px offset) and extends it to the four controls
+   that lost it. The `:is(...)` repetition is not decoration: it raises
+   specificity one class above `html body nav.nav .steam-btn:focus-visible`
+   (0,3,3), which is the rule that currently wins, so this does not depend on
+   staying last in the file.
+
+   outline is used rather than border/box-shadow precisely because the rules
+   being overridden zero the border and pin the box-shadow to a material
+   elevation -- outline is the one channel they do not touch.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* The one focus ring. Blue, because that is what the shell already resolves
+     to on .btn / .nav-icon-btn / select / footer links. */
+  --focus-ring:        2px solid color-mix(in oklab, var(--cta) 70%, transparent);
+  --focus-ring-offset: 2px;
+}
+
+/* Buttons and links in the shell, including the CTA whose ring was stripped. */
+html body nav.nav .steam-btn:is(.steam-btn):focus-visible,
+html body .toolbar .steam-btn:is(.steam-btn):focus-visible,
+html body button.steam-btn:is(.steam-btn):focus-visible,
+html body nav.nav .nav-link:is(.nav-link):focus-visible,
+html body nav.nav a.nav-logo:is(.nav-logo):focus-visible {
+  outline: var(--focus-ring) !important;
+  outline-offset: var(--focus-ring-offset) !important;
+}
+
+/* Text inputs. The wrapper carries the ring for the composed search field,
+   because .search-input sits inside .search-wrap and an outline at a positive
+   offset would be drawn under/clipped by the wrapper's own chrome. This is
+   what --blue-glow (declared by design/_design.css, previously referenced by
+   nothing in this app) is for. */
+html body .search-wrap:is(.search-wrap):focus-within,
+html body .nav-search:is(.nav-search):focus-within {
+  box-shadow: var(--blue-glow) !important;
+  border-color: color-mix(in oklab, var(--cta) 55%, var(--line-2)) !important;
+}
+html body input.price-input:is(.price-input):focus-visible,
+html body input.fee-calc-input:is(.fee-calc-input):focus-visible {
+  outline: var(--focus-ring) !important;
+  outline-offset: var(--focus-ring-offset) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE STREAM — WAVE 190.  Phone/tablet layout only. No token is
+   defined here; this block consumes the scales the design-system stream owns
+   and changes nothing above 900px.
+
+   Everything below is anchored to a number measured in the running app at
+   375x812 (iPhone 13) and 768x1024, not to an impression.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.1  THE STACKED GUTTER.  Three nested containers each apply a
+   desktop-scale horizontal padding, and on a phone they add up.
+
+   MEASURED at 375px, /market, walking the chain from <body> to .listing-grid:
+     BODY            pad 16px  ->  343px
+     MAIN#main.layout pad 24px ->  295px
+     DIV.main        pad 16px  ->  263px
+     .listing-grid   =  263px of 375px  ==  70% of the screen.
+   112px -- 30% of a phone screen -- is gutter, and the two grid columns come
+   out 123.5px wide.
+
+   MEASURED at 375px, /item/12, the same walk to .similar-strip:
+     BODY 12px, MAIN.modal.item-page 14px, .modal-body 24px  ->  265px (71%).
+
+   MEASURED at 768px, /market: 87px of gutter per side, grid 595 of 768 (77%),
+   which is what holds the tablet to 2 columns of 289px.
+
+   None of these paddings is wrong on its own; the fault is that they nest.
+   Collapse the INNER two on small screens and let <body> own the one gutter.
+   Vertical padding is untouched -- only the inline axis is at fault.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  html body main#main.layout,
+  html body main.layout,
+  html body .layout:has(> .sidebar),
+  html body .layout:has(> aside.sidebar) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  html body main.layout > .main,
+  html body .layout > .main,
+  html body main#main.layout > .main {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+/* The item page is a full-page modal, so it has its own chain. Keep a small
+   inset inside the modal card (it has a visible border; content flush to it
+   reads as a clipping bug) but drop it from 24px to 12px. */
+@media (max-width: 640px) {
+  html body main.modal.item-page,
+  html body .modal.item-page {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  html body main.modal.item-page > .modal-body,
+  html body .modal.item-page > .modal-body,
+  html body .full-page-mode .modal-body {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.2  THE MARKET TOOLBAR WRAPPED INTO A RAGGED CENTRED COLUMN.
+
+   `.toolbar` is flex-wrap:wrap, and three of its children carry
+   `margin-left: auto` so they sit hard right on ONE desktop row:
+     L896    .toolbar .toolbar-refresh            { margin-left: auto }
+     L20371  .toolbar .sort-select, .sort-picker,
+             .toolbar > div:has(> .sort-picker)   { order: 3; margin-left: auto }
+
+   On a phone the toolbar wraps to six rows and each auto margin then centres
+   or right-aligns ITS OWN row. MEASURED at 375px: .sort-picker resolved
+   margin-left 80.89px, .discount-select 47.5px, .toolbar-refresh 47.5px --
+   six rows, none sharing a left edge, 274px tall, so the first listing card
+   starts ~700px down a 812px screen.
+
+   An auto margin is a one-row idea. Neutralise it once the bar has wrapped.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  html body .toolbar > *,
+  html body .toolbar .sort-select,
+  html body .toolbar .sort-picker,
+  html body .toolbar .toolbar-refresh,
+  html body .toolbar > div:has(> .sort-picker) {
+    margin-left: 0 !important;
+  }
+  /* Search owns its own full-width row; the rest flow left-to-right and wrap
+     normally, so every row shares the same left edge as the grid below. */
+  html body .toolbar {
+    justify-content: flex-start !important;
+    row-gap: 10px !important;
+  }
+  html body .toolbar .search-wrap,
+  html body .toolbar .search-wrap[role="search"] {
+    flex: 1 0 100% !important;
+    width: 100% !important;
+  }
+  /* The sort picker was pushed to order:3 for the desktop right-hand slot;
+     with the auto margin gone it should simply follow the search box. */
+  html body .toolbar .sort-select,
+  html body .toolbar .sort-picker,
+  html body .toolbar > div:has(> .sort-picker) {
+    order: 0 !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.3  THE ONLY TRUE HORIZONTAL PAGE SCROLL IN THE APP: /cookies.
+
+   MEASURED at 375px: the <table> in legal/cookies.html renders L40 R409 --
+   369px of min-content inside a 335px column -- and the document scrolls
+   34px sideways. It is the one page where the `html,body{overflow-x:hidden}`
+   clamp at L20547 does not save the layout, because that clamp is scoped to
+   <=640px and the table still forces the document wider.
+
+   The rule lives in an inline <style> in cookies.html (not this stream's
+   file), which is why this override carries !important: the inline block is
+   parsed after /css/design.css and wins at equal specificity.
+
+   `table-layout: fixed` makes the declared width authoritative, so the table
+   can no longer be widened by its content -- no sideways swipe needed for a
+   three-column cookie table. overflow-wrap keeps the long cookie names from
+   punching out of their own cell.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  html body .legal-doc table {
+    table-layout: fixed !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  html body .legal-doc th,
+  html body .legal-doc td {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
 }

@@ -198,6 +198,58 @@ class DesignTokenContractSpec extends Specification {
         css.substring(start + 1, open).trim()
     }
 
+    // ── The shipped-vs-committed guard ───────────────────────────────────────
+    //
+    // index.html loads the stylesheet as `/css/design.css?v=NNN` and the static
+    // handler sets a 7-day browser cache. The token is hand-maintained; the
+    // comment above it in index.html just says "bump on every CSS change".
+    //
+    // Nothing enforced that, and it is not hypothetical: the focus-ring and
+    // nav fixes in this stylesheet were verified byte-correct over HTTP and
+    // still did not appear in the browser, because the token had not moved and
+    // the cached copy was served for a page that had already been visited. A
+    // CSS fix that ships without a token bump reaches no returning visitor for
+    // a week, while every check a developer runs — the file on disk, the file
+    // over curl, the test suite — says it shipped.
+    //
+    // So the pair is recorded. Change design.css and this fails until the token
+    // moves too. IF YOU ARE HERE AFTER EDITING design.css: bump ?v= in
+    // static/index.html, then paste the two values the failure message prints.
+    private static final String RECORDED_CSS_SHA = '39e43bd01060'
+    private static final String RECORDED_ASSET_TOKEN = '301'
+
+    private static String cssHash() {
+        def text = read('/static/css/design.css').replace('\r', '')
+        java.security.MessageDigest.getInstance('SHA-256')
+                .digest(text.getBytes('UTF-8'))
+                .encodeHex().toString().substring(0, 12)
+    }
+
+    private static String assetToken() {
+        def m = (read('/static/index.html') =~ /design\.css\?v=([^"']+)/)
+        m.find() ? m.group(1) : null
+    }
+
+    def "a change to design.css moves the cache-busting token with it"() {
+        given:
+        def hash = cssHash()
+        def token = assetToken()
+
+        expect:
+        token != null
+        (hash == RECORDED_CSS_SHA && token == RECORDED_ASSET_TOKEN) ||
+                { throw new AssertionError(
+                        "design.css and/or the ?v= token changed without the recorded pair being updated.\n" +
+                        "Returning visitors hold a 7-day cached copy keyed on that token, so a CSS change\n" +
+                        "that does not move it is invisible to them however correct the file is.\n\n" +
+                        "  design.css sha256-12 : recorded ${RECORDED_CSS_SHA} -> now ${hash}\n" +
+                        "  index.html ?v=        : recorded ${RECORDED_ASSET_TOKEN} -> now ${token}\n\n" +
+                        "Fix: bump ?v= in src/main/resources/static/index.html (it must differ from\n" +
+                        "${RECORDED_ASSET_TOKEN}), then update this spec:\n" +
+                        "  RECORDED_CSS_SHA     = '${hash}'\n" +
+                        "  RECORDED_ASSET_TOKEN = '<the token you just set>'") }()
+    }
+
     def "the colour scheme is stated unconditionally, not only when the OS already agrees"() {
         given:
         def css = stripComments(read('/static/css/design.css'))
