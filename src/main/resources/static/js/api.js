@@ -2,6 +2,46 @@
 // request shaping, error handling and the API base path are in one spot.
 import { API } from './utils.js';
 
+// ── Service-health broadcast ──────────────────────────────────
+// `sb:service-unavailable` / `sb:service-restored` drive the top-of-app
+// "SkinBox is temporarily unavailable" banner (app.js ~5291 listener,
+// ~5684 render). Two separate things stopped it ever appearing.
+//
+//  1. THE STATUS LIST WAS AN ENUMERATION. `safeJson` fired the event for
+//     503, 502 and 504 only — and 500, the single most common way a Spring
+//     app fails, was not on it. MEASURED with every /api/ call forced:
+//     at 503 the banner rendered and the listener counted 3 events; at 500
+//     it rendered nothing and counted ZERO. An allowlist of failure codes
+//     is the same defect as an allowlist of success codes — whatever it
+//     forgets reads as healthy.
+//
+//  2. ONLY `safeJson` FIRED THEM. ~30 helpers in this file and 9 call
+//     sites in app.js call `fetch` directly, so the home page, the market
+//     grid and the catalogue could each fail end-to-end without the banner
+//     ever being asked to appear.
+//
+// (1) is fixed by taking the whole 5xx CLASS rather than a longer list.
+// Every 5xx is the server stating that IT failed — not that the request
+// was wrong — and there is no 5xx that means "carry on": 500/502/503/504
+// are the outage codes in practice, and 501/505/507/508/511 are equally
+// "this server cannot serve you right now". 4xx deliberately stays out and
+// stays per-endpoint, because a 401/403/404/409 is a specific, true answer
+// about THIS request that only the calling code can interpret.
+//
+// (2) is fixed by broadcasting from the one place every call already goes
+// through — the fetch interceptor below — instead of asking 40 call sites
+// to remember.
+export function isOutageStatus(status) {
+  return Number.isFinite(status) && status >= 500 && status <= 599;
+}
+function sbDispatch(name) {
+  try { window.dispatchEvent(new CustomEvent(name)); } catch (_) {}
+}
+function noteApiStatus(status) {
+  if (isOutageStatus(status)) sbDispatch('sb:service-unavailable');
+  else if (status >= 200 && status < 400) sbDispatch('sb:service-restored');
+}
+
 // ── CSRF interceptor ──────────────────────────────────────────
 // The server plants an `sbox_csrf` double-submit cookie on every response.
 // For any non-GET request to /api/** we have to echo it back in the
@@ -27,7 +67,25 @@ import { API } from './utils.js';
       req.credentials = req.credentials || 'same-origin';
       req.headers = Object.assign({}, req.headers || {}, { 'X-CSRF-Token': csrfToken() });
     }
-    return native(input, req);
+    const p = native(input, req);
+    // Health broadcast for EVERY /api/ call — including the ~30 helpers in
+    // this file and the 9 in app.js that never touch `safeJson`, which is
+    // why a blanket 5xx used to leave the home page, the market grid and
+    // the catalogue silently empty with no banner.
+    //
+    // Two deliberate exclusions:
+    //  · `/api/client-errors` — the client-error reporter. Its own failure
+    //    must not be able to raise an outage banner about itself.
+    //  · `sb:session-expired` is NOT dispatched here. A 401 is the NORMAL
+    //    answer for an anonymous visitor on /api/watchlist, /api/cart and
+    //    /api/profile/me, so broadcasting it from a blanket interceptor
+    //    would toast "sign in again" on every signed-out page load.
+    //    `safeJson` keeps its own, debounced, read-path 401 dispatch.
+    if (!isApi || url.indexOf('/api/client-errors') >= 0) return p;
+    return p.then(
+      (r) => { noteApiStatus(r && r.status); return r; },
+      (e) => { sbDispatch('sb:service-unavailable'); throw e; }
+    );
   };
 })();
 
@@ -109,14 +167,22 @@ async function safeJson(url, opts, meta) {
       if (r.status === 401) {
         try { window.dispatchEvent(new CustomEvent('sb:session-expired')); } catch (_) {}
       }
-      // Maintenance / outage broadcast (batch 711). 503 on any read
-      // means the pod is rejecting traffic — typically /api/ready's
-      // DB probe is failing over or the admin flipped maintenance
-      // mode. Flip the SPA into a "SkinBox is temporarily unavailable"
-      // banner instead of flashing empty-state cards across the UI.
-      // Debounced inside the App listener. 502/504 from the edge nginx
-      // mean the upstream pod is crashing/timing out — same UX intent.
-      if (r.status === 503 || r.status === 502 || r.status === 504) {
+      // Maintenance / outage broadcast (batch 711). Any 5xx on a read
+      // means the server is telling us IT failed — /api/ready's DB probe
+      // failing over, maintenance mode, an unhandled exception, or an
+      // edge nginx reporting the upstream pod as crashing/timing out.
+      // Flip the SPA into a "SkinBox is temporarily unavailable" banner
+      // instead of flashing empty-state cards across the UI. Debounced
+      // inside the App listener.
+      //
+      // This used to enumerate 503/502/504 and MISSED 500 — measured, a
+      // hard 500 on every endpoint produced no banner at all. See the
+      // isOutageStatus() note at the top of this file for why the whole
+      // 5xx class is the right unit. The interceptor above now fires the
+      // same event for every /api/ call; this stays as the read-path's
+      // own guarantee so the signal does not depend on window.fetch
+      // still being ours.
+      if (isOutageStatus(r.status)) {
         try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
       }
       // Suppress the warn for callers that have explicitly opted into
@@ -735,13 +801,27 @@ export async function fetchWallet() {
   } catch (_) { return null; }
 }
 
+/** Sibling of the fetchDatabase defect — a non-2xx returned a bare `[]`,
+ *  which is "you have no transactions", said while the ledger is
+ *  unreachable. This function's contract is an ARRAY (the caller does
+ *  `Array.isArray(tx) ? tx : []`), so switching to an object shape would
+ *  have collapsed into the same false empty; the failure flag rides on
+ *  the empty array instead. Consumers that only iterate are unaffected;
+ *  a consumer that wants to tell the two apart reads `.error`, the same
+ *  key fetchNotifications / fetchSteamInventory / fetchBuyOrdersWithTotal
+ *  already use. */
+function failedList() {
+  const out = [];
+  out.error = true;
+  return out;
+}
 export async function fetchTransactions() {
   try {
     const r = await fetch(`${API}/wallet/transactions`, { credentials: 'same-origin' });
-    if (!r.ok) return [];
+    if (!r.ok) return failedList();
     const data = await r.json();
-    return Array.isArray(data) ? data : [];
-  } catch (_) { return []; }
+    return Array.isArray(data) ? data : failedList();
+  } catch (_) { return failedList(); }
 }
 
 // Buyer-side spending summary (batch 846). Shape:
@@ -1143,10 +1223,25 @@ export async function fetchDatabase(params = {}) {
   });
   try {
     const r = await fetch(`${API}/database?${q}`);
-    if (!r.ok) return { items: [], total: 0, indexed: 0 };
+    // `error: true` — the same contract fetchNotifications() above already
+    // uses, and its consumer already reads (`if (res && res.error)`).
+    //
+    // Without it, `{items:[],total:0,indexed:0}` is a POSITIVE CLAIM — "the
+    // server answered, and the catalogue is empty" — returned at the exact
+    // moment the catalogue is unreachable. MEASURED with /api/database
+    // forced to 500 and to 503: /db rendered "Database · 0 indexed",
+    // "0 results" and "Catalogue is empty — The item catalogue is still
+    // syncing. Check back in a minute.", with no banner and no retry, and
+    // byte-for-byte identically to a genuinely-empty 200. Unpatched the
+    // same page reads "39 indexed".
+    //
+    // The consumer's try/catch could never help: this function does not
+    // throw, so `loadErr` could not flip and its error branch was dead code.
+    if (!r.ok) return { items: [], total: 0, indexed: 0, error: true };
     const data = await r.json();
-    return (data && typeof data === 'object') ? data : { items: [], total: 0, indexed: 0 };
-  } catch (_) { return { items: [], total: 0, indexed: 0 }; }
+    // A 200 whose body is not an object is just as unreadable as a 500.
+    return (data && typeof data === 'object') ? data : { items: [], total: 0, indexed: 0, error: true };
+  } catch (_) { return { items: [], total: 0, indexed: 0, error: true }; }
 }
 
 // ── Loadouts ────────────────────────────────────────────────────
@@ -1258,6 +1353,16 @@ export async function deleteLoadout(id) {
 }
 
 // ── Admin ───────────────────────────────────────────────────────
+/** Deliberately NOT given the `error: true` flag the catalogue / inbox /
+ *  inventory helpers carry, and this is the argument for the asymmetry.
+ *  Those fetchers answer "what do you have?" and a fabricated empty list is
+ *  a FALSE CLAIM ABOUT THE USER'S DATA. This one answers "may you?", and a
+ *  non-2xx answering "no" is both the safe reading and the correct one: a
+ *  broken permission check must never open the admin panel. It is also the
+ *  ORDINARY response here — every signed-out and non-staff visitor gets a
+ *  non-2xx on this endpoint, so an `error` flag would be raised on the vast
+ *  majority of page loads and would train any consumer to ignore it.
+ *  Same reasoning for csrCheck() below. */
 export async function adminCheck() {
   try {
     const r = await fetch(`${API}/admin/check`, { credentials: 'same-origin' });
@@ -1860,10 +1965,13 @@ export async function csrStats() { return (await safeJson(`${API}/csr/stats`)) |
 export async function csrLookup(q) {
   try {
     const r = await fetch(`${API}/csr/users/lookup?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
-    if (!r.ok) return { matches: [] };
+    // Sibling of the fetchDatabase defect: `{matches:[]}` on a 5xx tells a
+    // CSR agent "no such user" while the lookup is down — the one answer
+    // that must never be fabricated on a support desk.
+    if (!r.ok) return { matches: [], error: true };
     const data = await r.json();
-    return (data && typeof data === 'object') ? data : { matches: [] };
-  } catch (_) { return { matches: [] }; }
+    return (data && typeof data === 'object') ? data : { matches: [], error: true };
+  } catch (_) { return { matches: [], error: true }; }
 }
 export async function csrTickets(status, search) {
   // Batch 581 — mirror admin ticket search: free-text narrows the
@@ -1933,7 +2041,12 @@ export async function fetchTrades() {
 export async function fetchTradesWithTotal() {
   try {
     const res = await fetch(`${API}/trades`, { credentials: 'same-origin' });
-    if (!res.ok) return { items: [], total: 0 };
+    // Sibling of the fetchDatabase defect. `{items:[],total:0}` is "you have
+    // no trades" — a false statement made while the trade list is down. The
+    // Profile → Trades consumer had already routed AROUND this helper with a
+    // raw fetch precisely because of it (modals.js ~7308); the flag makes the
+    // helper itself safe to use again.
+    if (!res.ok) return { items: [], total: 0, error: true };
     const items = await res.json();
     const totalHeader = res.headers.get('X-Total-Count');
     const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
@@ -1943,7 +2056,7 @@ export async function fetchTradesWithTotal() {
       total: Number.isFinite(parsed) ? parsed : fallback
     };
   } catch {
-    return { items: [], total: 0 };
+    return { items: [], total: 0, error: true };
   }
 }
 export async function tradeAccept(id) {

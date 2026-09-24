@@ -165,7 +165,15 @@ class OpenGraphController {
     // site convention) doesn't 404. Spring MVC's path-pattern parser
     // (default in Spring Boot 3) no longer auto-matches the trailing
     // slash variant. Same treatment on stall + loadout below.
-    @GetMapping(value = ['/item/{id}', '/item/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
+    // `{id:[0-9]+}`, matching router.js's own `/^\/item\/(\d+)\/?$/`. Before
+    // this, `/item/abc` reached the handler, failed Long.parseLong and was
+    // answered by notFoundSpaShell() — which returns 200 ON PURPOSE for a
+    // MISSING ENTITY. A malformed id is not a missing entity: it is a path
+    // this app has no route for, and the client router already treats it that
+    // way. Constraining the pattern lets it fall through to the SPA-404
+    // handler and get a real 404, while `/item/999999` (well-formed, absent)
+    // keeps the documented 200 + noindex behaviour untouched.
+    @GetMapping(value = ['/item/{id:[0-9]+}', '/item/{id:[0-9]+}/'], produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> itemPage(@PathVariable String id, HttpServletRequest req) {
         refreshTemplate()
         if (template == null) {
@@ -352,8 +360,10 @@ class OpenGraphController {
         sb.toString()
     }
 
-    /** Same treatment for /stall/{id} — seller stall shares. */
-    @GetMapping(value = ['/stall/{id}', '/stall/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
+    /** Same treatment for /stall/{id} — seller stall shares. Digits-only for
+     *  the same reason as itemPage above: `/stall/abc` is a routing miss, not
+     *  a missing seller, and router.js already refuses it. */
+    @GetMapping(value = ['/stall/{id:[0-9]+}', '/stall/{id:[0-9]+}/'], produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> stallPage(@PathVariable String id, HttpServletRequest req) {
         refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')
@@ -630,7 +640,9 @@ class OpenGraphController {
      * to the default preview so we never leak the owner's name / value from
      * a protected resource.
      */
-    @GetMapping(value = ['/loadout/{id}', '/loadout/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
+    // Digits-only, same reasoning as itemPage / stallPage: `/loadout/abc` is
+    // a path with no route, not a loadout that is missing.
+    @GetMapping(value = ['/loadout/{id:[0-9]+}', '/loadout/{id:[0-9]+}/'], produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> loadoutPage(@PathVariable String id, HttpServletRequest req) {
         refreshTemplate()
         if (template == null) return ResponseEntity.status(404).body('')

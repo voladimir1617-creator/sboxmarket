@@ -1,7 +1,14 @@
 package com.sboxmarket.config
 
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.io.ClassPathResource
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
+import org.springframework.stereotype.Controller
+import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry
@@ -257,41 +264,189 @@ class WebConfig implements WebMvcConfigurer {
         registry.addViewController('/legal/cookies').setViewName('forward:/legal/cookies.html')
         registry.addViewController('/legal/responsible-disclosure').setViewName('forward:/legal/responsible-disclosure.html')
 
-        // SPA history-API routing — any non-API URL without a file extension
-        // should serve index.html so the client-side router can pick it up.
-        // These patterns cover the full CSFloat-style URL surface:
-        //   /search, /db, /item/{id}, /stall/{id}, /loadout, /loadout/{id},
-        //   /profile, /wallet, /watchlist, /sell, /offers, /buy-orders,
-        //   /notifications, /support, /admin, /csr, /help, /login, /logout
+        // SPA history-API routing — a REAL client route serves index.html so
+        // the client-side router can pick it up.
         //
-        // The `[^.]*` guard keeps real static assets (`/css/styles.css`,
-        // `/js/app.js`, favicon.ico) out of the fallback.
+        // WHAT THIS USED TO BE, AND WHY IT WAS WRONG.
         //
-        // Sensitive paths (h2-console, swagger-ui, api-docs) get real 404s via
-        // a dedicated @RestController (BlockedPathsController) — the
+        // These six registrations used to be generic depth-1/2/3 globs:
+        //
+        //     registry.addViewController("/{path:[^.]*}")        -> index.html
+        //     registry.addViewController("/{a:[^.]*}/{b:[^.]*}") -> index.html
+        //     ... and a trailing-slash variant of each.
+        //
+        // The `[^.]*` guard kept real static assets out of the fallback, and
+        // that is all it did. EVERY dot-free path of depth 1-3 matched, so
+        // every URL on this host answered `200 OK`. MEASURED: /nope-404,
+        // /item/abc, /stall/abc, /totally/made/up, /db/nope and /zzz/ all
+        // returned 200 while rendering the SPA's branded "404 · nothing here"
+        // panel. The page was right and the status line lied, so a crawler,
+        // an uptime monitor, a link checker and an e2e status assertion each
+        // had no way to tell a dead link from a live page — the same defect
+        // family as an empty list returned for a failed fetch: a missing
+        // thing reported as a present, healthy one.
+        //
+        // The fix is to say which routes EXIST (SPA_ROUTES below, mirrored
+        // from static/js/router.js) and let spaUnknownPathFallback() answer
+        // everything else with a real 404 that still renders the SPA shell.
+        // A glob cannot distinguish the two cases; an enumeration can.
+        //
+        // Sensitive paths (h2-console, swagger-ui, api-docs, actuator) still
+        // get their own real 404s via BlockedPathsController — the
         // registry.addRedirectViewController API only accepts 3xx codes.
+        //
+        // Trailing-slash variants are registered alongside each pattern:
+        // Spring Boot 3's PathPatternParser no longer auto-matches a trailing
+        // slash, and router.js accepts both shapes (`/^\/db\/?$/`), so
+        // `/db/`, `/help/`, `/profile/` must resolve exactly as `/db` does.
+        SPA_ROUTES.each { String pattern ->
+            registry.addViewController(pattern).setViewName('forward:/index.html')
+            if (pattern != '/') {
+                registry.addViewController(pattern + '/').setViewName('forward:/index.html')
+            }
+        }
 
-        registry.addViewController("/{path:[^.]*}")
-                .setViewName("forward:/index.html")
-        registry.addViewController("/{segment:[^.]*}/{path:[^.]*}")
-                .setViewName("forward:/index.html")
-        registry.addViewController("/{segment:[^.]*}/{sub:[^.]*}/{path:[^.]*}")
-                .setViewName("forward:/index.html")
+        // …and the old globs stay, pointed at the 404 view instead of at
+        // index.html. Everything the enumeration above did NOT claim — and
+        // that no alias, no clean-URL forward and no @GetMapping claimed
+        // either — is by definition a path this app does not have.
+        //
+        // This is one SimpleUrlHandlerMapping and it picks the MOST SPECIFIC
+        // pattern, not the first registered: `/db` beats `/{path:[^.]*}`, and
+        // `/changelog` beats it too, exactly as the clean-URL aliases above
+        // have always relied on. So a real route is a 200 and only the
+        // leftovers reach SpaNotFoundController.
+        //
+        // Depth 1-3 plus trailing-slash variants, unchanged from the globs
+        // that were here before, so nothing that used to resolve stops
+        // resolving. Deeper unknown paths keep falling through to the
+        // resource handler's own bare 404, as they always did.
+        ['/{path:[^.]*}',
+         '/{segment:[^.]*}/{path:[^.]*}',
+         '/{segment:[^.]*}/{sub:[^.]*}/{path:[^.]*}',
+         '/{path:[^.]*}/',
+         '/{segment:[^.]*}/{path:[^.]*}/',
+         '/{segment:[^.]*}/{sub:[^.]*}/{path:[^.]*}/'].each { String glob ->
+            registry.addViewController(glob).setViewName('forward:' + SPA_NOT_FOUND_PATH)
+        }
+    }
 
-        // Batch 969 — trailing-slash variants. Spring Boot 3's
-        // PathPatternParser no longer auto-matches a trailing slash on
-        // a registered pattern, so `/help/`, `/search/`, `/db/`,
-        // `/loadout/`, `/profile/` etc. all 404'd even though the SPA
-        // router (`router.js`) happily accepts both shapes. Re-register
-        // each depth with an explicit trailing `/` so crawlers +
-        // inbound-link copy/paste + old-school URL bars all resolve.
-        // Keeps the `[^.]*` guard so real static assets don't fall
-        // into the fallback.
-        registry.addViewController("/{path:[^.]*}/")
-                .setViewName("forward:/index.html")
-        registry.addViewController("/{segment:[^.]*}/{path:[^.]*}/")
-                .setViewName("forward:/index.html")
-        registry.addViewController("/{segment:[^.]*}/{sub:[^.]*}/{path:[^.]*}/")
-                .setViewName("forward:/index.html")
+    /**
+     * The real client routes, mirrored one-for-one from the {@code ROUTES}
+     * table in {@code static/js/router.js}. Anything not here is a path the
+     * SPA itself resolves to its {@code notfound} route, so the server must
+     * not claim 200 for it.
+     *
+     * The regex constraints are the router's own: {@code /item/:id} and
+     * {@code /stall/:id} are `(\d+)` there, and router.js documents why
+     * (`/stall/abc` used to mount the stall modal and fire three API calls
+     * that all 400'd before the 404 panel rendered). A server-side glob that
+     * accepted `/stall/abc` with a 200 was disagreeing with the client about
+     * what exists.
+     *
+     * NOT listed here, deliberately: the reflexive aliases registered above
+     * as redirect view controllers (`/database`, `/home`, `/terms`, `/me`,
+     * `/buy`, ...). Those resolve with a 3xx to a real route and registering
+     * them twice would be an ambiguous mapping.
+     */
+    private static final List<String> SPA_ROUTES = [
+        '/',
+        '/market', '/search', '/cart', '/db', '/sell', '/loadout',
+        '/profile', '/wallet', '/watchlist', '/offers', '/buy-orders',
+        '/notifications', '/support', '/help', '/faq', '/settings',
+        '/affiliate', '/admin', '/csr',
+        '/item/{id:[0-9]+}',
+        '/stall/{id:[0-9]+}',
+        '/loadout/{id:[0-9]+}',
+        '/profile/{tab:personal|listings|transactions|buyorders|autobids|trades|offers|reviews|support|developers}',
+        '/wallet/{tab:deposit|withdraw|history}',
+        '/watchlist/{tab:all|drops}',
+        '/offers/{tab:incoming|outgoing}',
+        '/me/stall',
+        '/me/stall/{tab:active|sold|analytics}'
+    ].asImmutable()
+
+    /** Internal forward target for "this path matches no route". Reachable
+     *  directly too, and honestly answers 404 when it is. */
+    static final String SPA_NOT_FOUND_PATH = '/spa-404'
+}
+
+/**
+ * Serves the SPA shell with a real {@code 404 Not Found} for any path the
+ * route table above did not claim.
+ *
+ * BOTH HALVES MATTER. The body is still index.html, so the client router
+ * boots, resolves its {@code notfound} route and paints the same branded
+ * "404 · nothing here" panel a mistyping human has always seen — nothing
+ * regresses for a reader. The STATUS is now 404, so everything that reads
+ * status rather than pixels (crawlers, uptime monitors, link checkers,
+ * {@code expect(response.status()).toBe(404)}) is told the truth.
+ *
+ * WHY A FORWARD AND NOT A {@code RouterFunction}. The obvious shape — a
+ * {@code RouterFunction} bean with a "no dot, not /api, GET" predicate —
+ * was written first and MEASURED to be wrong: {@code RouterFunctionMapping}
+ * was consulted ahead of the view-controller mapping in this application, so
+ * that predicate was asked about {@code /}, {@code /db}, {@code /legal/terms}
+ * and {@code /css/design.css} BEFORE the mappings that own them, and would
+ * have 404'd every real route. Routing the leftovers here through the SAME
+ * handler mapping that owns the real routes removes the ordering question
+ * entirely: one mapping, most-specific-pattern-wins, which is the rule the
+ * clean-URL aliases in WebConfig have always depended on.
+ *
+ * NOT changed here: {@code OpenGraphController.notFoundSpaShell()} still
+ * answers 200 for a well-formed URL whose ENTITY is missing
+ * ({@code /item/999999}). That is a separate, deliberate, documented decision
+ * with its own rationale, and overturning it was not in scope. This class is
+ * about paths that match no route at all.
+ */
+@Controller
+class SpaNotFoundController {
+
+    // Literals, not WebConfig.SPA_NOT_FOUND_PATH: annotation attributes need
+    // compile-time constants. If that constant is ever changed, change these
+    // with it — a mismatch shows up immediately as a forward loop or a 404
+    // with an empty body on every unknown path.
+    @RequestMapping(value = ['/spa-404', '/spa-404/'])
+    ResponseEntity<String> notFound(HttpServletRequest request) {
+        // On a forward this is the URL the caller actually asked for; on a
+        // direct hit it is null and the request URI is already /spa-404.
+        String original = (request.getAttribute('jakarta.servlet.forward.request_uri') ?: request.requestURI) as String
+
+        // An unknown /api/** path must not be answered with a page. Every
+        // client of that prefix parses JSON, and handing it an HTML document
+        // — which the old catch-all did, with a 200 on top — is the same lie
+        // in a different content type.
+        if (original != null && (original == '/api' || original.startsWith('/api/'))) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header('Cache-Control', 'no-cache, must-revalidate')
+                    .body('{"error":"not found"}')
+        }
+
+        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.TEXT_HTML)
+                // Never let a CDN or a browser pin a 404 for a path a later
+                // release might turn into a real route.
+                .header('Cache-Control', 'no-cache, must-revalidate')
+                .header('X-Robots-Tag', 'noindex')
+                .body(spaShellHtml())
+    }
+
+    /**
+     * index.html as a String, re-read per request. It is a few KB and the OS
+     * page cache owns it; holding it in a field would mean an edit to the
+     * shell kept serving the copy taken at boot — the same "running old code"
+     * trap the build/resources copy already sets in this repo.
+     */
+    private static String spaShellHtml() {
+        try {
+            return new ClassPathResource('static/index.html').inputStream.getText('UTF-8')
+        } catch (Exception ignored) {
+            // The shell is missing — say so plainly rather than 500ing. Still
+            // a 404: the path the caller asked for still does not exist.
+            return '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+                   '<title>404 · nothing here</title></head><body>' +
+                   '<h1>404 · nothing here</h1></body></html>'
+        }
     }
 }

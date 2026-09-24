@@ -76,11 +76,20 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
     }
   };
   const [loading, setLoading] = useState(true);
-  // Audit fix — catalogue fetch had try/finally but no catch, so a
-  // rejected /api/database left `data` at its {items:[],total:0}
-  // initial value and the table showed the "Catalogue is empty" copy,
-  // masking the failure as an empty-but-healthy result. `loadErr`
-  // flips on a throw so the render shows a real error + Retry instead.
+  // THE PREVIOUS COMMENT HERE WAS FALSE AND IS DELETED. It claimed an
+  // audit had fixed this by flipping `loadErr` "on a throw" — but
+  // fetchDatabase() does not throw. It caught everything and returned
+  // {items:[],total:0,indexed:0}, so the catch below never ran, `loadErr`
+  // could never become true, and the error branch at ~line 308 was
+  // unreachable code sitting under a comment that said it worked.
+  // MEASURED: /api/database forced to 500 and to 503 both rendered
+  // "Database · 0 indexed", "0 results" and "Catalogue is empty — The item
+  // catalogue is still syncing. Check back in a minute." — no banner, no
+  // retry, indistinguishable from a healthy empty catalogue.
+  //
+  // `loadErr` now flips on the `error: true` key fetchDatabase returns
+  // (the fetchNotifications contract, see load() below), AND still on a
+  // throw. A false reassurance above broken code is worse than silence.
   const [loadErr, setLoadErr] = useState(false);
   // Batch 972 — search debounce. `searchInput` is the raw text in the
   // field (updates per-keystroke); `search` is the debounced value
@@ -141,10 +150,16 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         maxPrice: parseB(maxPrice),
         limit: PAGE_SIZE, offset: page * PAGE_SIZE
       });
-      if (reqId === loadReqId.current) setData(res);
+      if (reqId !== loadReqId.current) return;
+      // fetchDatabase never throws — it returns `{error:true}` on an HTTP
+      // error / network drop, exactly like fetchNotifications (api.js) and
+      // exactly as the NotificationsModal consumer below reads it. Detect
+      // that explicitly: the catch beneath is a backstop, not the mechanism.
+      if (res && res.error) setLoadErr(true);
+      else setData(res);
     } catch (_) {
-      // Network / 5xx — flag so the render swaps the "empty catalogue"
-      // copy for an error panel with a Retry that re-runs this load().
+      // Backstop only — an unexpected throw (a future refactor, a bug in
+      // the helper) must not fall through to the "Catalogue is empty" copy.
       if (reqId === loadReqId.current) setLoadErr(true);
     } finally {
       if (reqId === loadReqId.current) setLoading(false);
@@ -171,7 +186,16 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
 
-  return h(InfoModal, { title: `Database · ${Number(data.indexed || 0).toLocaleString()} indexed`, onClose },
+  // The header must not assert a catalogue size we could not read.
+  // "Database · 0 indexed" was the FIRST thing the walk saw under a forced
+  // 500, and it survived the fix below it — the table told the truth while
+  // the title above it still stated a count of zero. A number we never
+  // received is not zero; it is unknown, and the honest render omits it.
+  return h(InfoModal, {
+    title: loadErr
+      ? 'Database'
+      : `Database · ${Number(data.indexed || 0).toLocaleString()} indexed`,
+    onClose },
     /* Boss QA D1 — the in-row "addbar Database 80" pill (formerly the
        csfloat-db-hero block) duplicated the page header that already
        reads "Database · N indexed" at the top, so it was killed. The
