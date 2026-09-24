@@ -541,6 +541,33 @@ export async function fetchListingsForItem(itemId) {
   return Array.isArray(data) ? data : [];
 }
 
+/**
+ * How long a seller has to send the Steam trade offer before the purchase
+ * cancels itself and refunds the buyer — the ONLY bound on the wait a buyer
+ * accepts when he pays for someone else's listing.
+ *
+ * Returns `{ sellerResponseDays: <number> }` or **null** when we could not
+ * find out. Null is deliberate and load-bearing: the caller must render the
+ * mechanism WITHOUT a deadline rather than substitute a plausible-looking
+ * number, because a wrong deadline quoted at the moment money moves is worse
+ * than no deadline at all. The server owns this value
+ * (`trade.seller-response-days`, read by TradeService's auto-cancel sweep);
+ * a copy hard-coded in this file would be a second policy the day ops edits
+ * the first.
+ *
+ * Deliberately does NOT use `throwOnFailure`. The delivery line is an
+ * enhancement to a page that must still render when a policy lookup fails;
+ * the honest degraded state is "no number", and the caller marks it as such.
+ */
+export async function fetchDeliveryPolicy() {
+  const data = await safeJson(`${API}/listings/delivery-policy`);
+  const days = data && Number(data.sellerResponseDays);
+  // A non-positive or unparseable deadline is not a deadline — treat it the
+  // same as no answer rather than telling a buyer "cancels after 0 days".
+  if (!Number.isFinite(days) || days <= 0) return null;
+  return { sellerResponseDays: days };
+}
+
 /** "More from this seller" rail on the ItemModal. Returns up to 8
  *  other active visible listings from the same seller, excluding
  *  the item the modal is currently showing. Null-guarded: returns

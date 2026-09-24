@@ -264,6 +264,72 @@ test.describe('The seller journey — what he is shown', () => {
     await expect(card).not.toHaveAttribute('role', 'button');
   });
 
+  test('the summary strip counts what he can still list, not what he owns', async ({ page }) => {
+    // The strip is the FIRST thing on the page, above the grid. It counted
+    // every Steam-tradable copy as "tradable" and valued every one of them,
+    // listed or not — so a seller with fifty copies and forty already on
+    // sale read "50 tradable · $500 est. value" while the grid below him
+    // said, correctly, that he could list ten. The summary was the last
+    // place still making the old claim, and it is the number he reads first.
+    await stubSteamInventory(page, [steamRow({
+      name: 'Lunar Trousers', assetId: '900100',
+      assetIds: Array.from({ length: 50 }, (_, i) => String(901000 + i)),
+      quantity: 50, suggestedPrice: 10,
+      listedCount: 40, listableQuantity: 10, unlistableReason: null,
+    })]);
+    await stubQuietMarket(page);
+
+    await page.goto('/sell');
+    const listable = page.getByTestId('sell-summary-listable');
+    await expect(listable).toBeVisible({ timeout: 20_000 });
+    await expect(listable).toContainText(/10\s*can list now/i);
+    // And it says where the other forty went, rather than leaving him to
+    // work out why the two numbers differ.
+    await expect(page.getByTestId('sell-summary-listed')).toContainText(/40\s*already listed/i);
+    // Total still means every copy he holds.
+    await expect(page.locator('.sell-summary')).toContainText(/50\s*total/i);
+    // The estimate is over the ten he can sell, not the fifty he holds:
+    // the other forty are already priced in My Stall and counting them here
+    // quotes the same money to him twice.
+    await expect(page.locator('.sell-summary')).toContainText(/\$100\.00/);
+    await expect(page.locator('.sell-summary')).not.toContainText(/\$500\.00/);
+  });
+
+  test('a listing whose reply we could not read is neither a success nor a failure', async ({ page }) => {
+    // `writeJson` parses with `try { body = await r.json(); } catch { body = null; }`,
+    // so a 2xx whose body is not JSON — a proxy's HTML error page, a
+    // truncated response, a 204 — reaches the sell form as `null`. Reading
+    // `res.code` off it threw a TypeError past a `finally` that only cleared
+    // `busy`: the modal stayed open and NOTHING was said, on the one click
+    // that decides whether the operator's skin is for sale.
+    //
+    // Both guesses are worse than the truth. "It failed" sends him to list
+    // again, and the double-list guard then refuses the copy he has just
+    // successfully listed. "It worked" sends him to a stall that may be
+    // empty. The POST may well have been applied; the ANSWER is what is
+    // missing, and that is what the screen has to say.
+    await stubSteamInventory(page, [steamRow({ name: 'Torn Reply Hat', suggestedPrice: 3 })]);
+    await stubQuietMarket(page);
+    await page.route('**/api/steam/list', (r) => r.fulfill({
+      status: 200, contentType: 'text/html', body: '<html>gateway hiccup</html>',
+    }));
+
+    await openFirstItem(page);
+    const priceInput = page.locator('.wallet-amount-input, input[type="number"]').first();
+    await expect(priceInput).toBeVisible({ timeout: 10_000 });
+    await priceInput.fill('3.00');
+    await page.getByRole('button', { name: /List for Sale/i }).click();
+
+    await expect(page.locator('text=/could not read the reply/i').first())
+      .toBeVisible({ timeout: 10_000 });
+    // It names the one action that resolves the ambiguity without risking a
+    // second listing.
+    await expect(page.locator('text=/Check My Stall before listing this item again/i').first())
+      .toBeVisible();
+    // And it does NOT claim the listing went up.
+    await expect(page.locator('text=/^Listed "/i')).toHaveCount(0);
+  });
+
   test('an unreadable inventory is not reported as an empty one', async ({ page }) => {
     // The oldest member of this defect family, re-pinned here because the
     // sell page is where it hurts most: the seller concludes his items have

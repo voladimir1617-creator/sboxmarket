@@ -22,10 +22,119 @@ import {
   fetchListings, fetchItem, fetchItemsByIds, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, fetchMyAuthoredReviews, fetchPendingReviews, deleteReview, replyToReview, fetchBuyOrderCountForItem,
   fetchBuyOrdersForItem,
-  fetchWalletSpend
+  fetchWalletSpend, fetchDeliveryPolicy
 } from './api.js';
 
 export { InfoModal };
+
+/**
+ * WHAT THE BUYER ACTUALLY RECEIVES, AND WHEN — stated on the page where the
+ * buying decision is made, not discovered afterwards.
+ *
+ * The wallet debit is instant and the site says so in several places. What
+ * arrives is not. On a listing owned by another user, delivery is a human
+ * being sending a Steam trade offer by hand; the money sits in escrow until
+ * the buyer confirms it arrived, and if the seller never sends it the trade
+ * auto-cancels and refunds. A buyer who expected an instant item and instead
+ * waits on a person opens a dispute — this codebase has already paid for
+ * exactly that ambiguity on the escrow path.
+ *
+ * Until now the ONLY surface that said any of this was the multi-item cart
+ * confirm. The single-item Buy Now path — the common one — went from an item
+ * page that said nothing to a dialog that said "an escrow trade opens with
+ * the seller", which names a mechanism and answers neither question. The same
+ * purchase made two ways gave two different pictures of what the buyer was
+ * agreeing to.
+ *
+ * `sellerUserId == null` is the platform's own inventory: held by SkinBox,
+ * delivered in-platform, nobody to wait on. Anything else is a person.
+ *
+ * `days` comes from the server (GET /api/listings/delivery-policy, the same
+ * `trade.seller-response-days` the auto-cancel sweep enforces) and is null
+ * when that lookup failed. A failed lookup renders the mechanism WITHOUT a
+ * deadline — never a plausible-looking guess — and says so in
+ * `data-delivery-deadline`, so "we did not ask" and "3 days" are different
+ * states on the page and in the tests, not the same sentence.
+ */
+export function DeliveryExpectation({ sellerUserId, days, compact }) {
+  // THREE states, not two. `null` is the platform's own inventory — a real
+  // answer. `undefined` means we never resolved the listing row, and
+  // collapsing that into the platform branch would print "Delivered
+  // in-platform. There is no seller to wait on" about a purchase that may
+  // well be waiting on a person. That is this codebase's whole defect family
+  // in one line of copy, on the money path, so it gets its own branch.
+  const unknown = sellerUserId === undefined;
+  const fromSeller = !unknown && sellerUserId != null;
+  if (unknown) {
+    return h('div', {
+      className: 'delivery-expectation',
+      'data-testid': 'delivery-expectation-unknown',
+      'data-delivery-deadline': 'unknown',
+      style: {
+        display: 'flex', gap: 8, alignItems: 'flex-start', textAlign: 'left',
+        margin: compact ? '2px 0 12px' : '10px 0 4px',
+        padding: '9px 12px', borderRadius: 8,
+        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+        fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)'
+      }
+    },
+      h(MaterialIcon, { name: 'help', size: 16 }),
+      h('span', null,
+        h('strong', { style: { color: 'var(--text-primary)' } }, 'We could not confirm how this one is delivered. '),
+        'Treat it as a seller listing: your wallet is charged straight away and the item may have to be sent to you by hand. ',
+        'Reload the page before buying if you want the exact answer.')
+    );
+  }
+  return h('div', {
+    className: 'delivery-expectation',
+    'data-testid': fromSeller ? 'delivery-expectation-seller' : 'delivery-expectation-platform',
+    'data-delivery-deadline': fromSeller ? (days == null ? 'unknown' : String(days)) : 'n/a',
+    style: {
+      display: 'flex', gap: 8, alignItems: 'flex-start', textAlign: 'left',
+      margin: compact ? '2px 0 12px' : '10px 0 4px',
+      padding: '9px 12px', borderRadius: 8,
+      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+      fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)'
+    }
+  },
+    h(MaterialIcon, { name: fromSeller ? 'schedule' : 'bolt', size: 16 }),
+    fromSeller
+      ? h('span', null,
+          h('strong', { style: { color: 'var(--text-primary)' } }, 'Delivery is not instant. '),
+          'Your wallet is charged straight away, but the seller has to send you a Steam trade offer by hand. ',
+          'Your money stays in escrow until you confirm the item arrived',
+          days == null
+            // We could not read the policy. Say what always holds and stop —
+            // a deadline invented here would be a promise the server has not
+            // made.
+            ? h('span', null, ', and if the seller never sends it the purchase cancels itself and you are refunded in full.')
+            : h('span', null, ', and if they have not sent it within ',
+                h('strong', { style: { color: 'var(--text-primary)' } }, days, days === 1 ? ' day' : ' days'),
+                ' the purchase cancels itself and you are refunded in full.')
+        )
+      : h('span', null,
+          h('strong', { style: { color: 'var(--text-primary)' } }, 'Delivered in-platform. '),
+          'SkinBox holds this item itself, so there is no seller to wait on and no Steam trade offer to accept.')
+  );
+}
+
+/**
+ * One fetch of the delivery deadline per mount, shared by the item rail and
+ * the Buy Now confirm so the two cannot disagree. `null` while in flight AND
+ * on failure — both render the number-free sentence, which is true in either
+ * case; only the deadline itself is withheld.
+ */
+export function useDeliveryPolicy() {
+  const [days, setDays] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetchDeliveryPolicy()
+      .then(p => { if (alive && p) setDays(p.sellerResponseDays); })
+      .catch(() => { /* stays null — the copy degrades, it does not invent */ });
+    return () => { alive = false; };
+  }, []);
+  return days;
+}
 
 // ── Item detail ──────────────────────────────────────────────────
 export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onCreateBuyOrder, onAddToCart, cartHas, watchlist, onToggleStar, isPageMode }) {
@@ -51,6 +160,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // only inserting a review step in front of it.
   const [buyConfirm, setBuyConfirm] = useState(null);
   const [buyConfirmBusy, setBuyConfirmBusy] = useState(false);
+  // The seller-response deadline, fetched once and shared by the rail's
+  // delivery line and the Buy Now confirm — one number, so the page and the
+  // dialog it opens cannot quote different deadlines. Null until it lands,
+  // and null forever if the lookup fails; see DeliveryExpectation.
+  const deliveryDays = useDeliveryPolicy();
   // Open the confirm dialog instead of buying immediately. `listingItem`
   // is the listing's own item when present (Active Listings rows carry
   // l.item); falls back to the modal's main `item` so the dialog always
@@ -721,7 +835,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               },
                 h(MaterialIcon, { name: 'forum', size: 14 }),
                 me ? (offerOpen ? 'Cancel Offer' : 'Bargain') : 'Sign in to bargain'
-              )
+              ),
+              // The buying decision is made HERE, next to the price — not in
+              // the dialog that opens after the buyer has already decided,
+              // and not after the money has moved. Keyed off the same
+              // `cheap` listing the Buy button targets, so the line always
+              // describes the purchase the button would make.
+              h(DeliveryExpectation, {
+                sellerUserId: cheap.sellerUserId,
+                days: deliveryDays
+              })
             );
           })(),
           h('div', { className: 'modal-stats' },
@@ -2343,6 +2466,26 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           h('div', { className: 'cart-confirm-title', id: 'buy-confirm-title' }, 'Confirm purchase'),
           h('div', { className: 'cart-confirm-sub' },
             'Review your purchase. Your wallet is charged the listing price and an escrow trade opens with the seller.'),
+          // "An escrow trade opens with the seller" names a mechanism and
+          // answers neither question a buyer has at this moment: what do I
+          // get, and when. The multi-item cart confirm has said so since the
+          // delivery-expectation fix; this single-item path — the common one
+          // — did not, so the same purchase made two ways described itself
+          // two different ways. Resolve the listing so the line reflects the
+          // row actually being bought (an Active Listings row may not be the
+          // cheapest one), and fall back to the cheapest BUY_NOW the rail
+          // targets when the id is not in the array.
+          (() => {
+            const row = (listings || []).find(l => l && l.id === bc.listingId) || cheapestBuyNow;
+            return h(DeliveryExpectation, {
+              // `undefined` when no row resolved — NOT null. Null is the
+              // platform's own inventory and would print a confident
+              // "nothing to wait on" about a listing we failed to look up.
+              sellerUserId: row ? row.sellerUserId : undefined,
+              days: deliveryDays,
+              compact: true
+            });
+          })(),
           // Item row — image + name, mirroring csfloat's confirm dialog
           // which shows what you're about to buy at the top.
           h('div', {
@@ -10290,6 +10433,19 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // no sales yet.
   const [pickedRecentMedian, setPickedRecentMedian] = useState(null);
   const [pickedRecentCount, setPickedRecentCount]   = useState(0);
+  // Did the market answer when we asked it what this item is worth?
+  //   null  — still asking (the form must not quote a price yet)
+  //   false — it answered (possibly "nothing", which is a real answer)
+  //   true  — we could not get an answer
+  // Without this the third case was rendered as the second: a failed
+  // probe hid the chips and the form printed a "Suggested price" built
+  // from whatever it happened to have, with nothing on screen saying the
+  // question had failed. Same defect family as the empty-inventory
+  // reasons above, one screen further into the flow.
+  const [priceProbeErr, setPriceProbeErr] = useState(false);
+  // The catalogue id of the current pick, so the Retry button can re-ask
+  // without re-opening the item.
+  const [pickedItemId, setPickedItemId] = useState(null);
   // Competing-listings snapshot for the picked item (batch 360). Tells
   // the seller "N sellers already listing, floor $X" so they can price
   // competitively without manually browsing. Fetched once per pick via
@@ -10447,15 +10603,30 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // have a catalogue id; Steam items may not yet, so we only fire when
   // id is present. Median > average here because one outlier sale
   // shouldn't drag the recommendation around.
+  //
+  // ── A refused quote is not "no sales" ────────────────────────────────
+  // Both price probes below used to end in `catch (_) { /* silent */ }`,
+  // and the median one went through `fetchRecentSales`, which swallows a
+  // non-200 into `[]`. So a 500, a dropped connection and an item that has
+  // genuinely never sold all produced the SAME screen: no chip, and a
+  // "Suggested price" line computed as if the market had answered. The
+  // seller could not tell that we had failed to ask. `priceProbeErr`
+  // splits those two states apart and gives him a retry.
   const loadRecentMedian = async (itemId) => {
     setPickedRecentMedian(null);
     setPickedRecentCount(0);
-    if (!itemId) return;
+    if (!itemId) return true;
     try {
-      const rows = await fetchRecentSales(itemId);
-      if (!Array.isArray(rows) || rows.length === 0) return;
-      const prices = rows.map(r => parseFloat(r.price)).filter(n => Number.isFinite(n) && n > 0);
-      if (prices.length === 0) return;
+      // Direct fetch, not fetchRecentSales(): that helper returns [] for
+      // both "no sales" and "the request failed", which is precisely the
+      // distinction this state exists to preserve.
+      const r = await fetch(`/api/items/${itemId}/recent-sales`, { credentials: 'same-origin' });
+      if (!r.ok) return false;
+      const rows = await r.json();
+      if (!Array.isArray(rows)) return false;
+      if (rows.length === 0) return true;   // asked, answered: no sales yet
+      const prices = rows.map(x => parseFloat(x.price)).filter(n => Number.isFinite(n) && n > 0);
+      if (prices.length === 0) return true;
       prices.sort((a, b) => a - b);
       const mid = Math.floor(prices.length / 2);
       const median = prices.length % 2 === 0
@@ -10463,32 +10634,51 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         : prices[mid];
       setPickedRecentMedian(median);
       setPickedRecentCount(prices.length);
-    } catch (_) { /* silent — chip just hides */ }
+      return true;
+    } catch (_) { return false; }
   };
   // Competing-listings probe (batch 360). Hits the public item-listings
   // endpoint, counts ACTIVE listings and projects the floor so the form
   // can render "N sellers already listing · floor $X". Self-listings are
   // EXCLUDED from the count — a seller doesn't compete with themselves.
+  // Returns false when we could not get an answer (see loadRecentMedian).
   const loadCompeting = async (itemId) => {
     setPickedCompeting({ count: 0, floor: null });
-    if (!itemId) return;
+    if (!itemId) return true;
     try {
       const r = await fetch(`/api/listings/item/${itemId}`, { credentials: 'same-origin' });
-      if (!r.ok) return;
+      if (!r.ok) return false;
       const rows = await r.json();
-      if (!Array.isArray(rows)) return;
+      if (!Array.isArray(rows)) return false;
       const mine = me?.id;
       const competing = rows.filter(l =>
         l && l.status === 'ACTIVE' && !l.hidden &&
         l.listingType === 'BUY_NOW' &&
         (mine == null || l.sellerUserId !== mine));
-      if (competing.length === 0) return;
+      if (competing.length === 0) return true;
       const floor = competing
         .map(l => parseFloat(l.price))
         .filter(n => Number.isFinite(n) && n > 0)
         .sort((a, b) => a - b)[0];
       setPickedCompeting({ count: competing.length, floor });
-    } catch (_) { /* silent — chip just hides */ }
+      return true;
+    } catch (_) { return false; }
+  };
+  // Run both probes for one item and record whether the market answered.
+  // `null` = still asking (so the form can say "checking…" instead of
+  // quoting a price it has not got yet), false = answered, true = refused.
+  const loadPriceProbes = async (itemId) => {
+    setPriceProbeErr(null);
+    if (!itemId) {
+      // No catalogue row: there is nothing to ask ABOUT. That is a known
+      // state, not a failure — an uncatalogued item has no market yet.
+      setPriceProbeErr(false);
+      return;
+    }
+    const [okMedian, okCompeting] = await Promise.all([
+      loadRecentMedian(itemId), loadCompeting(itemId)
+    ]);
+    setPriceProbeErr(!(okMedian && okCompeting));
   };
 
   // Reset every form field that's NOT auto-seeded by start* below, so a
@@ -10505,10 +10695,53 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     setSellAutoPct('');
     setSellDescription('');
   };
+  // ── Why a Steam row cannot be listed, if it cannot ───────────────────
+  // Returns 'ALREADY_LISTED', 'NOT_TRADABLE' or null. The server now sends
+  // `unlistableReason` (and `listableQuantity`) per row; older payloads —
+  // and any cached response from before that deploy — carry neither, so
+  // fall back to the tradable flag, which is all this UI ever had.
+  //
+  // The point is to answer BEFORE the seller fills in a price. Both of
+  // these were previously discovered only by submitting the form and
+  // reading a red server error, and the ALREADY_LISTED one was not even
+  // true of the item he had selected — it was true of the one copy the
+  // payload happened to nominate.
+  const steamRowBlock = (si) => {
+    if (si?.unlistableReason === 'ALREADY_LISTED') return 'ALREADY_LISTED';
+    if (si?.unlistableReason === 'NOT_TRADABLE')   return 'NOT_TRADABLE';
+    if (si?.unlistableReason === null && si?.listableQuantity != null) return null;
+    return si?.tradable ? null : 'NOT_TRADABLE';
+  };
+  // ── One answer to "what is this worth, and how do we know?" ──────────
+  // Returns the anchor AND its basis, because a number with no basis is
+  // what produced "Suggested price: $0.00" on every item that has no live
+  // listing. `basis: null` means we have no reference at all — the caller
+  // must say so in words rather than print a zero.
+  //
+  // Order is deliberate: the live floor is what a buyer can pay right now,
+  // the median of real sales is what the market has actually been paying,
+  // and the Steam Market reference is the last resort because it is
+  // another venue's price, not ours.
+  const priceAnchorFor = (item, isSteam, median) => {
+    const floor = parseFloat(isSteam ? item?.suggestedPrice : item?.lowestPrice);
+    if (Number.isFinite(floor) && floor > 0) return { value: floor, basis: 'floor' };
+    if (median != null && Number.isFinite(median) && median > 0) return { value: median, basis: 'median' };
+    const steam = parseFloat(item?.steamPrice);
+    if (Number.isFinite(steam) && steam > 0) return { value: steam, basis: 'steam' };
+    return { value: 0, basis: null };
+  };
   const startPickSteam = (si) => {
     resetSellFormFields();
     setPicking({ kind: 'steam', item: si });
-    setPrice(parseFloat(si.suggestedPrice || 0).toFixed(2));
+    // Seed the field from a price we actually HAVE. The old line was
+    // `setPrice(parseFloat(si.suggestedPrice || 0).toFixed(2))`, which
+    // typed "0.00" into the asking-price box for every item with no live
+    // listing — a number the seller did not choose, in the one field that
+    // decides what he is paid, and one the server then rejects with
+    // "Price must be at least $0.01" if he trusts it. An empty box with a
+    // placeholder says what is true: we do not have a price for this yet.
+    const seed = priceAnchorFor(si, true);
+    setPrice(seed.value > 0 ? seed.value.toFixed(2) : '');
     setError('');
     // The catalogue item id on a Steam inventory row is `catalogueId`
     // (the same field the bulk demand-lookup + every grid chip reads).
@@ -10517,8 +10750,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     // listings probes silently fired with undefined and their chips
     // never rendered for catalogued Steam items.
     const itemId = si?.catalogueId;
-    loadRecentMedian(itemId);
-    loadCompeting(itemId);
+    setPickedItemId(itemId ?? null);
+    loadPriceProbes(itemId);
   };
   const startPickInternal = (l) => {
     resetSellFormFields();
@@ -10526,16 +10759,15 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     // Floor may be null for an item with no other live listings (first
     // seller back on a freshly-spawned skin). parseFloat(null) is NaN
     // and `.toFixed(2)` then yields the literal string "NaN" — which
-    // leaks into the price input's `value` AND into the `suggested`
-    // placeholder built at line ~9922, so the seller sees a "NaN" field.
-    // Mirror the Steam path's `|| 0` fallback so the field starts at
-    // "0.00" (submit's `!p || p <= 0` guard still blocks an accidental
-    // free-list).
-    const floor = parseFloat(l?.item?.lowestPrice);
-    setPrice((Number.isFinite(floor) ? floor : 0).toFixed(2));
+    // leaked into the price input's `value` AND into the placeholder, so
+    // the seller saw a "NaN" field. It then became "0.00", which is not
+    // NaN but is still a price nobody quoted; now an unknown price seeds
+    // an EMPTY field and says so above it.
+    const seed = priceAnchorFor(l?.item, false);
+    setPrice(seed.value > 0 ? seed.value.toFixed(2) : '');
     setError('');
-    loadRecentMedian(l?.item?.id);
-    loadCompeting(l?.item?.id);
+    setPickedItemId(l?.item?.id ?? null);
+    loadPriceProbes(l?.item?.id);
   };
 
   // Quick-Sell — one-click list-at-best-bid. Skips the full Pick + Form
@@ -10648,6 +10880,31 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       } else {
         res = await relistItem(picking.listingId, p, opts);
       }
+      // ── THE REPLY WE COULD NOT READ ──────────────────────────────────
+      // `writeJson` returns the parsed body on any 2xx, and parses with
+      // `try { body = await r.json(); } catch { body = null; }` — so a 2xx
+      // whose body is not JSON (a proxy's HTML error page, a truncated
+      // response, a 204) arrives here as `null`. `res.code` then threw a
+      // TypeError out of `submit`, past a `finally` that only cleared
+      // `busy`: the modal stayed open, nothing was said, and the seller had
+      // no way to know whether his item was now on sale.
+      //
+      // Guessing either way is worse than saying so. Call it a failure and
+      // he lists again — and the double-list guard answers ALREADY_LISTED
+      // about the copy he just successfully listed, which is the confusing
+      // refusal this whole stream exists to remove. Call it a success and
+      // he goes looking in a stall that may be empty. The POST may well
+      // have been applied; what we do not have is the answer.
+      if (!res || typeof res !== 'object') {
+        setError(
+          'We sent your listing but could not read the reply, so we do not know whether it went up. ' +
+          'Check My Stall before listing this item again — if it is there, it worked.'
+        );
+        // Refresh the stall behind the modal so the answer he is being sent
+        // to look for is already loaded when he gets there.
+        try { await onRefresh(); } catch (_) {}
+        return;
+      }
       if (res.code || res.error) { setError(res.message || res.error); return; }
       // Batch 884 — success toast. Previous flow closed silently: user
       // clicked List, modal went away, and their only feedback that
@@ -10695,26 +10952,22 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   if (picking) {
     const item = picking.item;
     const isSteam = picking.kind === 'steam';
-    // Same NaN guard as startPickInternal — `item.lowestPrice` is null
-    // for a never-listed item, and parseFloat(null).toFixed(2) yields
-    // the string "NaN" which would surface as the input's placeholder
-    // text. Steam path's `|| 0` is symmetric; mirror it for the
-    // internal-relist path so the placeholder reads "0.00" instead.
-    const __floor = parseFloat(item.lowestPrice);
-    const __steam = parseFloat(item.steamPrice);
-    // A never-listed platform item has a null `lowestPrice`, which used to
-    // collapse the suggestion to "$0.00" even when the panel right below it
-    // shows a real Steam reference and last-sold median. Fall back through
-    // the same anchors the price chips offer — floor → last-sold median →
-    // Steam price — so the placeholder is always a useful starting point.
-    const suggested = isSteam
-      ? parseFloat(item.suggestedPrice || 0).toFixed(2)
-      : (
-          (Number.isFinite(__floor) && __floor > 0) ? __floor
-          : (pickedRecentMedian != null && pickedRecentMedian > 0) ? pickedRecentMedian
-          : (Number.isFinite(__steam) && __steam > 0) ? __steam
-          : 0
-        ).toFixed(2);
+    // A never-listed item has no live floor, which used to collapse the
+    // suggestion to "$0.00" on BOTH tabs (the internal tab was given a
+    // fallback chain; the Steam tab was not, and its rows did not even
+    // carry `steamPrice` until the projection was fixed). One helper now
+    // answers for both, and it reports the BASIS as well as the number so
+    // the form can say where the figure came from — or say, in words,
+    // that there is no figure. `suggested` stays a string for the
+    // placeholder; anchor.basis === null means "do not quote a price".
+    // Blocked, and why — computed once for the warning line and the button.
+    const pickBlock = isSteam ? steamRowBlock(item) : null;
+    const anchor = priceAnchorFor(item, isSteam, pickedRecentMedian);
+    const suggested = anchor.value > 0 ? anchor.value.toFixed(2) : '';
+    const anchorLabel = anchor.basis === 'floor'  ? 'lowest active listing right now'
+                      : anchor.basis === 'median' ? `median of the last ${pickedRecentCount} sale${pickedRecentCount === 1 ? '' : 's'} here`
+                      : anchor.basis === 'steam'  ? 'Steam Community Market reference'
+                      : null;
     return h(InfoModal, { title: 'List Item for Sale', onClose },
       h('div', { style: { display: 'flex', gap: 18, marginBottom: 20 } },
         h('div', { style: { width: 120, aspectRatio: '1', borderRadius: 10, background: 'radial-gradient(ellipse at 50% 35%, rgba(30,165,255,0.14) 0%, transparent 65%), linear-gradient(180deg, #1a2236 0%, #0d1320 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 8 } },
@@ -10728,10 +10981,67 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         h('div', null,
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 } }, item.category || 'Steam item'),
           h('div', { style: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10 } }, item.name),
-          isSteam && !item.tradable && h('div', { style: { fontSize: 11, color: 'var(--red)', marginBottom: 8, fontWeight: 700 } }, 'Not tradable on Steam right now'),
+          // Say which of the two blocks applies, and what to do about it.
+          // 'Not tradable on Steam right now' was the only sentence here, so
+          // the OTHER reason a list attempt gets refused — every copy of
+          // this stack is already on sale — arrived as a server error after
+          // the seller had priced it.
+          isSteam && pickBlock === 'NOT_TRADABLE' && h('div', { style: { fontSize: 11, color: 'var(--red)', marginBottom: 8, fontWeight: 700 } },
+            'Not tradable on Steam right now',
+            h('span', { style: { display: 'block', fontWeight: 400, color: 'var(--text-secondary)', marginTop: 2 } },
+              'Steam holds new or recently-traded items for up to 7 days. It becomes listable here the moment Steam releases it — nothing to do on our side.')),
+          isSteam && pickBlock === 'ALREADY_LISTED' && h('div', { style: { fontSize: 11, color: 'var(--red)', marginBottom: 8, fontWeight: 700 } },
+            (item.quantity || 1) > 1
+              ? `All ${item.quantity} copies are already listed`
+              : 'This item is already listed',
+            h('span', { style: { display: 'block', fontWeight: 400, color: 'var(--text-secondary)', marginTop: 2 } },
+              'It is on sale right now — change the price or cancel it in ',
+              h('a', { href: '/me/stall', style: { color: 'var(--accent)', fontWeight: 700 } }, 'My Stall'),
+              '.')),
+          // A partially-listed stack is NOT blocked: there are free copies.
+          // Say how many, because the ×N badge alone reads as "all of these
+          // are available" and the seller has no other way to tell.
+          isSteam && !pickBlock && (item.listedCount > 0) && h('div', {
+            style: { fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8, fontWeight: 600 }
+          }, `${item.listedCount} of ${item.quantity} already listed · listing copy ${item.listedCount + 1}`),
           h(RarityBadge, { rarity: item.rarity || 'Standard' }),
-          h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 12 } },
-            'Suggested price: ', h('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, fmt(suggested))),
+          // ── The suggested price, its basis, or the reason there isn't one ──
+          // Four distinct states, which this line used to render as two.
+          // "$0.00" was printed for an item nobody has listed, for an item
+          // with no Steam reference, AND for an item whose price lookup had
+          // just failed — three different situations, one confident number
+          // that was never true (a listing cannot be $0.00; the server
+          // rejects anything under a cent).
+          priceProbeErr === null
+            ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 12 } },
+                'Checking what this item is going for…')
+          : priceProbeErr === true
+            ? h('div', {
+                style: {
+                  fontSize: 12, marginTop: 12, padding: '8px 10px', borderRadius: 6,
+                  background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.3)',
+                  color: '#f87171', fontWeight: 600
+                }
+              },
+                "Couldn't check this item's market price.",
+                h('span', { style: { display: 'block', fontWeight: 400, color: 'var(--text-secondary)', marginTop: 2 } },
+                  'This is a connection problem on our side, not a price of zero — you can still set your own price and list.'),
+                h('button', {
+                  type: 'button',
+                  className: 'btn btn-ghost',
+                  style: { marginTop: 6, padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)' },
+                  onClick: () => loadPriceProbes(pickedItemId)
+                }, 'Retry price check')
+              )
+          : anchor.basis
+            ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 12 } },
+                'Suggested price: ',
+                h('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, fmt(anchor.value)),
+                h('span', { style: { display: 'block', fontSize: 11, marginTop: 2 } }, 'Based on the ', anchorLabel, '.'))
+            : h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 12 } },
+                h('span', { style: { fontWeight: 700, color: 'var(--text-primary)' } }, 'No price reference for this item yet.'),
+                h('span', { style: { display: 'block', fontSize: 11, marginTop: 2, color: 'var(--text-muted)' } },
+                  'Nothing like it is listed here right now and it has no recorded sales, so you are setting the first price.')),
           // Competitive-landscape chip (batch 360). Only renders when
           // there's at least one competing active listing on this item
           // so a niche/new item's sell form stays uncluttered.
@@ -10816,7 +11126,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         type: 'number', min: '0.01', step: '0.01',
         inputMode: 'decimal', enterKeyHint: 'done',
         'aria-label': sellType === 'AUCTION' ? 'Starting bid' : 'Asking price',
-        placeholder: suggested,
+        // Empty when we have no anchor: a placeholder of "0.00" reads as a
+        // suggestion, and $0.00 is not a price this market will accept.
+        placeholder: suggested || 'Set your price',
         value: price,
         onChange: e => setPrice(e.target.value)
       }),
@@ -11001,7 +11313,18 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       error && h('div', { className: 'wallet-error' }, error),
       h('div', { style: { display: 'flex', gap: 10, marginTop: 20 } },
         h('button', { className: 'btn btn-ghost', style: { flex: 1, border: '1px solid var(--border)', justifyContent: 'center', padding: 13 }, onClick: () => setPicking(null) }, 'Back'),
-        h('button', { className: 'btn btn-accent', style: { flex: 1, justifyContent: 'center', padding: 13 }, disabled: busy || (isSteam && !item.tradable), onClick: submit }, busy ? 'Listing…' : 'List for Sale')
+        h('button', {
+          className: 'btn btn-accent',
+          style: { flex: 1, justifyContent: 'center', padding: 13 },
+          // Blocked for either reason, not just the tradable one.
+          disabled: busy || (isSteam && !!pickBlock),
+          title: isSteam && pickBlock === 'ALREADY_LISTED'
+            ? 'Every copy of this item you own is already on sale — cancel one in My Stall to relist it'
+            : isSteam && pickBlock === 'NOT_TRADABLE'
+              ? 'Steam will not let this item move yet'
+              : null,
+          onClick: submit
+        }, busy ? 'Listing…' : 'List for Sale')
       )
     );
   }
@@ -11244,16 +11567,35 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // implementation reported.
           const qty = (s) => Number(s.quantity) > 0 ? Number(s.quantity) : 1;
           const totalAssets = steamList.reduce((a, s) => a + qty(s), 0);
-          const tradableAssets = steamList.filter(s => s.tradable).reduce((a, s) => a + qty(s), 0);
           const lockedAssets = steamList.filter(s => !s.tradable).reduce((a, s) => a + qty(s), 0);
+          // ── "tradable" was not the question he is asking ─────────────────
+          // This chip counted every Steam-tradable copy, listed or not. A
+          // seller holding fifty Lunar Trousers with forty already on sale
+          // read "50 tradable · $500 est. value" — two numbers describing an
+          // inventory he cannot sell, in the strip he reads FIRST, above a
+          // grid that (now) tells him the truth item by item. The summary
+          // was the last place still making the old claim.
+          //
+          // `listableQuantity` comes from the server and is already
+          // "tradable AND not already listed". Older payloads (and anything
+          // cached from before that deploy) do not carry it, so fall back to
+          // the tradable count, which is all this UI ever had.
+          const copiesListable = (s) => Number.isFinite(Number(s.listableQuantity))
+            ? Number(s.listableQuantity)
+            : (s.tradable ? qty(s) : 0);
+          const listableAssets = steamList.reduce((a, s) => a + copiesListable(s), 0);
+          const listedAssets   = steamList.reduce((a, s) => a + (Number(s.listedCount) || 0), 0);
           // Floor-sum across catalogued items (uncatalogued rows have
           // no reference price so they don't contribute). Only counts
           // tradable items — a locked inventory row is unsellable so
           // including it in the value would overpromise. Multiplied by
           // quantity now that one row can represent a stack.
+          // ...and over the copies he can still LIST, not every tradable
+          // copy. Counting the forty already on sale here quotes their value
+          // to him twice: once in this estimate and once in My Stall.
           const estValue = steamList
-            .filter(s => s.tradable && s.catalogueId)
-            .reduce((acc, s) => acc + (parseFloat(s.suggestedPrice) || 0) * qty(s), 0);
+            .filter(s => s.catalogueId)
+            .reduce((acc, s) => acc + (parseFloat(s.suggestedPrice) || 0) * copiesListable(s), 0);
           // Liquid-value — sum of bestBid across tradable items that
           // have a standing buy order. This is the exact wallet credit
           // the seller would realise if they hit Quick Sell on every
@@ -11277,8 +11619,19 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           return h('div', { className: 'sell-summary' },
             h('div', { className: 'sell-summary-chip' },
               h('span', { className: 'sell-summary-num' }, totalAssets), ' total'),
-            h('div', { className: 'sell-summary-chip ok' },
-              h('span', { className: 'sell-summary-num' }, tradableAssets), ' tradable'),
+            h('div', {
+              className: 'sell-summary-chip ok',
+              'data-testid': 'sell-summary-listable',
+              title: 'Copies you can put up for sale right now: tradable on Steam and not already listed here.'
+            }, h('span', { className: 'sell-summary-num' }, listableAssets), ' can list now'),
+            // Only when there is something to say. A seller with nothing on
+            // sale does not need a zero, but a seller with forty on sale
+            // needs to know why "can list now" is smaller than "total".
+            listedAssets > 0 && h('div', {
+              className: 'sell-summary-chip accent',
+              'data-testid': 'sell-summary-listed',
+              title: 'Copies already on sale here. Reprice or cancel them in My Stall.'
+            }, h('span', { className: 'sell-summary-num' }, listedAssets), ' already listed'),
             h('div', { className: 'sell-summary-chip warn' },
               h('span', { className: 'sell-summary-num' }, lockedAssets), ' locked'),
             h('div', { className: 'sell-summary-chip accent' },
@@ -11287,7 +11640,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
               h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.catalogueId).length), ' new to sboxmarket'),
             estValue > 0 && h('div', {
               className: 'sell-summary-chip accent',
-              title: 'Sum of the floor price across every tradable, catalogued asset (stacks counted by quantity). A rough "what\'s this inventory worth?" number — actual sale prices can land above or below.'
+              title: 'Sum of the floor price across the catalogued copies you can still list (stacks counted by quantity; copies already on sale are in My Stall, not here). A rough "what\'s this inventory worth?" number — actual sale prices can land above or below.'
             }, h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(estValue)), ' est. value'),
             liquidCount > 0 && h('div', {
               className: 'sell-summary-chip ok',
@@ -11384,19 +11737,29 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           : h('div', { className: 'inventory-grid' },
         filtered.map(si => h('div', {
           key: si.assetId,
-          className: `inventory-item ${si.tradable ? '' : 'disabled'} ${bulkSelected.has(si.assetId) ? 'bulk-selected' : ''}`,
+          // `block` is null, 'NOT_TRADABLE' or 'ALREADY_LISTED'. A row whose
+          // every copy is already on sale now LOOKS unavailable, instead of
+          // looking identical to a listable one and failing on submit.
+          className: `inventory-item ${steamRowBlock(si) ? 'disabled' : ''} ${bulkSelected.has(si.assetId) ? 'bulk-selected' : ''}`,
           style: bulkSelected.has(si.assetId)
             ? { outline: '2px solid var(--accent)', outlineOffset: 2 }
             : null,
-          onClick: () => startPickSteam(si),
-          role: 'button',
-          tabIndex: si.tradable ? 0 : -1,
-          'aria-disabled': !si.tradable,
-          'aria-label': si.tradable
+          // A blocked row is not a button. It used to be one: `role="button"`
+          // with `aria-disabled="true"` and a live onClick, which told
+          // assistive tech the control was unavailable while sighted users
+          // could click it into a form that could only fail. Now it carries
+          // no button semantics at all, and the reason plus the way out are
+          // ON the card — nothing to click, nothing to find out the hard way.
+          onClick: steamRowBlock(si) ? undefined : () => startPickSteam(si),
+          role: steamRowBlock(si) ? null : 'button',
+          tabIndex: steamRowBlock(si) ? null : 0,
+          'aria-label': !steamRowBlock(si)
             ? `List ${si.name} for sale${bulkSelected.has(si.assetId) ? ' (selected for bulk)' : ''}`
-            : `${si.name} — not tradable`,
+            : steamRowBlock(si) === 'ALREADY_LISTED'
+              ? `${si.name} — already listed, not available to list again`
+              : `${si.name} — not tradable on Steam right now`,
           onKeyDown: (e) => {
-            if (!si.tradable) return;
+            if (steamRowBlock(si)) return;
             const tag = (e.target?.tagName || '').toLowerCase();
             if (tag === 'input' || tag === 'button' || tag === 'label') return;
             if (e.key === 'Enter' || e.key === ' ') {
@@ -11408,7 +11771,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // Bulk-select checkbox (batch 370) — absolute positioned in the
           // top-left. stopPropagation so clicking the checkbox doesn't
           // also trigger the per-row Pick flow.
-          si.tradable && h('label', {
+          // Not offered on a row with no listable copy: bulk-listing it
+          // would send an assetId the server is going to refuse, and the
+          // failure would arrive as one line in a "Listed 4 · 1 failed"
+          // toast with a code in it.
+          !steamRowBlock(si) && h('label', {
             style: {
               position: 'absolute', top: 4, left: 4,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -11482,7 +11849,10 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // on the next sweep → wallet credit lands without the seller
           // ever opening the pricing form.
           (() => {
-            if (!si.tradable) return null;
+            // Same false promise if every copy is already listed: the click
+            // would POST an assetId the server refuses, and the seller would
+            // get "Could not quick-sell" with no reason he can act on.
+            if (steamRowBlock(si)) return null;
             const d = si.catalogueId && inventoryBuyOrderDemand[String(si.catalogueId)];
             if (!d || !d.bestBid) return null;
             const best = parseFloat(d.bestBid);
@@ -11502,7 +11872,28 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
               onClick: e => { e.stopPropagation(); quickSell('steam', si, best); }
             }, busyThis ? 'Listing…' : `⚡ Quick Sell · ${fmt(best)}`);
           })(),
-          !si.tradable && h('div', { style: { fontSize: 9, color: 'var(--red)', fontWeight: 700, marginTop: 2 } }, 'NOT TRADABLE')
+          // The two blocked states, and the partially-listed one. Previously
+          // only "NOT TRADABLE" existed, so a copy that could not be listed
+          // because it was ALREADY listed looked exactly like one that could.
+          steamRowBlock(si) === 'NOT_TRADABLE' &&
+            h('div', { style: { fontSize: 9, color: 'var(--red)', fontWeight: 700, marginTop: 2 } }, 'NOT TRADABLE'),
+          steamRowBlock(si) === 'ALREADY_LISTED' &&
+            h('div', {
+              style: { fontSize: 9, color: 'var(--red)', fontWeight: 700, marginTop: 2 },
+              title: 'Already on sale — reprice or cancel it in My Stall'
+            }, (si.quantity || 1) > 1 ? `ALL ${si.quantity} LISTED` : 'ALREADY LISTED'),
+          // The way out, on the card, because the card is no longer clickable.
+          steamRowBlock(si) === 'ALREADY_LISTED' &&
+            h('a', {
+              href: '/me/stall',
+              style: { fontSize: 9, color: 'var(--accent)', fontWeight: 700, marginTop: 2, display: 'inline-block' },
+              onClick: e => e.stopPropagation()
+            }, 'Manage in My Stall'),
+          !steamRowBlock(si) && si.listedCount > 0 &&
+            h('div', {
+              style: { fontSize: 9, color: 'var(--text-secondary)', fontWeight: 700, marginTop: 2 },
+              title: `${si.listedCount} of your ${si.quantity} copies are on sale; ${si.listableQuantity} can still be listed`
+            }, `${si.listedCount} OF ${si.quantity} LISTED`)
         ))
       )
       );
