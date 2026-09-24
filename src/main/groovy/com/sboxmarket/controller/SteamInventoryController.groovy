@@ -162,27 +162,69 @@ class SteamInventoryController {
             def key = "${s.classId ?: ''}_${s.instanceId ?: s.assetId}".toString()
             def g = grouped.get(key)
             if (g == null) {
-                g = [first: s, assetIds: new java.util.ArrayList<String>(), tradableCount: 0]
+                g = [first: s, assetIds: new java.util.ArrayList<String>(),
+                     tradableAssetIds: new java.util.ArrayList<String>()]
                 grouped.put(key, g)
             }
             (g.assetIds as List).add(s.assetId?.toString())
-            if (s.tradable) {
-                g.tradableCount = (g.tradableCount as int) + 1
-                if (g.tradableAssetId == null) g.tradableAssetId = s.assetId?.toString()
-            }
+            // Keep EVERY tradable copy, not just the first one. The
+            // representative below has to skip copies that are already on
+            // sale, and it cannot do that from a single remembered id.
+            if (s.tradable) (g.tradableAssetIds as List).add(s.assetId?.toString())
         }
+
+        // ── Which copies are already on sale ────────────────────────────
+        // A listed asset does NOT leave the seller's Steam inventory (with
+        // bot-escrow off he still holds it; with escrow on it is in flight),
+        // so every copy keeps coming back in this payload. Nothing here said
+        // so, and the representative assetId was always the FIRST tradable
+        // copy — the same one every time.
+        //
+        // What that did to a seller holding a stack: he lists one Lunar
+        // Trousers out of fifty, the grid still shows "×50" and the badge's
+        // own tooltip tells him to "repeat to list more", and every repeat
+        // POSTs the SAME assetId and is refused ALREADY_LISTED — "cancel it
+        // before listing it again" — for 49 copies he has never listed. The
+        // answer is correct about the asset and wrong about the question.
+        //
+        // One indexed query, both statuses the ALREADY_LISTED guard itself
+        // counts, so the grid cannot disagree with the POST it leads to.
+        Set<String> liveAssetIds = new HashSet<String>(
+            listingRepository.findLiveAssetIdsBySeller(uid,
+                ['ACTIVE', com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW]) ?: []
+        )
         def enriched = grouped.values().collect { g ->
             def s = g.first as Map
             def existing = catalogue[(s.name ?: '').toString().toLowerCase()]
             def assetIdsList = g.assetIds as List<String>
+            List<String> tradableIds = (g.tradableAssetIds as List<String>) ?: []
+            // Copies of THIS stack that already carry a live listing.
+            List<String> listedIds = assetIdsList.findAll { liveAssetIds.contains(it) }
+            // A copy is listable when it is tradable on Steam AND not already
+            // on sale here. Both conditions are what POST /api/steam/list
+            // checks, in that order, so this is the same question asked early
+            // enough to be useful.
+            List<String> listableIds = tradableIds.findAll { !liveAssetIds.contains(it) }
             [
-                // Pick a tradable asset as the representative when one
-                // exists — listing flow needs a tradable assetId or it
-                // throws NOT_TRADABLE — falling back to the first asset
-                // for fully-locked stacks so the row still renders.
-                assetId:     g.tradableAssetId ?: assetIdsList[0],
+                // Prefer a copy that can actually be listed. Falling back to a
+                // tradable-but-listed id keeps the old behaviour for a stack
+                // where every copy is already up (the POST then answers
+                // ALREADY_LISTED, which by then is the true answer), and to the
+                // first asset for a fully-locked stack so the row still renders.
+                assetId:     listableIds[0] ?: tradableIds[0] ?: assetIdsList[0],
                 assetIds:    assetIdsList,
                 quantity:    assetIdsList.size(),
+                // How many of those copies you have already put up, and how
+                // many you can still put up. The UI can then say "3 of 50
+                // listed" instead of offering all 50 and refusing 49 of them.
+                listedCount:      listedIds.size(),
+                listableQuantity: listableIds.size(),
+                // Why this row cannot be listed, when it cannot be — named
+                // here rather than discovered by the seller on submit.
+                // null when at least one copy is listable.
+                unlistableReason: listableIds.isEmpty()
+                    ? (tradableIds.isEmpty() ? 'NOT_TRADABLE' : 'ALREADY_LISTED')
+                    : null,
                 name:        s.name,
                 type:        s.type,
                 iconUrl:     s.iconUrl,
@@ -191,7 +233,29 @@ class SteamInventoryController {
                 category:    existing?.category ?: steamInventoryService.inferCategory(s),
                 rarity:      existing?.rarity ?: 'Standard',
                 catalogueId: existing?.id,
-                suggestedPrice: existing?.lowestPrice ?: BigDecimal.ZERO
+                suggestedPrice: existing?.lowestPrice ?: BigDecimal.ZERO,
+                // ── The second price anchor, which this projection never sent ──
+                //
+                // `suggestedPrice` is the LIVE FLOOR (Item.lowestPrice), and it
+                // is BigDecimal.ZERO for any catalogued item that has no active
+                // listing right now — which is the normal state of a niche item
+                // and the guaranteed state of the FIRST copy anyone ever lists.
+                // The sell form rendered that zero as the sentence "Suggested
+                // price: $0.00", i.e. an answer, when the truth was that we had
+                // no live comparable at all.
+                //
+                // The platform-inventory tab never had this problem: those rows
+                // are Listing entities carrying the whole Item, so the form can
+                // fall back floor -> last-sold median -> Steam reference. Steam
+                // rows are a hand-built projection, and `steamPrice` was simply
+                // not in it, so the same fallback could not run and the "Steam"
+                // price chip plus the "you are above the Steam market price"
+                // warning were both unreachable on the Steam tab — the one tab
+                // a seller importing his own Steam skins actually uses.
+                //
+                // Null when the item is uncatalogued or Steam never priced it;
+                // the client distinguishes null (unknown) from a number.
+                steamPrice:  existing?.steamPrice
             ]
         }
         // `count` was historically the number of items the frontend

@@ -35,6 +35,31 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
      */
     boolean existsBySellerUserIdAndAssetIdAndStatusIn(Long sellerUserId, String assetId, Collection<String> statuses)
 
+    /**
+     * The same question as {@link #existsBySellerUserIdAndAssetIdAndStatusIn},
+     * asked once for a whole inventory instead of once per asset.
+     *
+     * {@code GET /api/steam/inventory} needs to know which of the seller's
+     * Steam assets already carry a live listing, so the Sell grid can say
+     * "3 of 50 listed" and hand the pick flow a copy that is actually free —
+     * rather than offering every copy and letting the POST refuse it. Asking
+     * the exists-query per asset would be up to 500 round trips on one page
+     * load; this is one, and it returns ids only (no JOIN FETCH, no entity
+     * hydration).
+     *
+     * Callers pass the same live-status set the double-list guard uses, so the
+     * grid and the guard cannot drift apart. Rows with a NULL assetId (legacy
+     * and seed listings) are excluded because they identify no physical copy.
+     */
+    @Query("""
+        SELECT l.assetId FROM Listing l
+        WHERE l.sellerUserId = :uid
+          AND l.assetId IS NOT NULL
+          AND l.status IN :statuses
+    """)
+    List<String> findLiveAssetIdsBySeller(@Param("uid") Long uid,
+                                          @Param("statuses") Collection<String> statuses)
+
     /** Public marketplace "cheapest first" query — excludes hidden rows
      *  so vacation-mode / per-listing Hide doesn't leak into the grid. */
     @Query("""
