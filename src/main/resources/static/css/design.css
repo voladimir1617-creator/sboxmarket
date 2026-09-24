@@ -28667,11 +28667,32 @@ details:not([open]) > .faq-a {
 :root {
   /* Colour scheme — stated, not assumed. The app is single-scheme dark by
      decision: design/_design.css declares no light palette, and nothing in
-     js/ or the served HTML ever sets html[data-theme]. Declaring it here (not
-     only in index.html's inline critical block, and not only inside a
-     prefers-color-scheme:dark media query as at L5988) means form controls,
-     scrollbars and the canvas agree with the ground on a light-preference OS
-     too. */
+     js/ or the served HTML ever sets html[data-theme]. Previously the only
+     unconditional declaration lived in index.html's inline critical block,
+     and design.css declared it solely inside `@media (prefers-color-scheme:
+     dark)` at L5992 — the one condition under which it changes nothing.
+
+     WHAT WAS MEASURED, because the first version of this comment claimed more
+     than the evidence supported. Emulating a light-preference OS and probing
+     a native `input[type=date]`:
+
+       color-scheme: dark   (shipped)     background rgb(59,59,59), text white
+       color-scheme: normal (pre-fix)     background rgb(59,59,59), text white
+       color-scheme: light only           background rgb(255,255,255), text WHITE
+
+     So the pre-fix state did NOT visibly break in this browser: Chrome kept
+     the widget dark under `normal`. The earlier claim that form controls and
+     scrollbars disagreed with the ground on a light-preference OS was wrong,
+     and the commit that introduced it (4898987) repeats it — read this, not
+     that.
+
+     What the third row shows is why the declaration still belongs here. The
+     moment the scheme resolves light — the unreachable html[data-theme=light]
+     palette at L17 being switched on, or any UA that treats `normal` as light
+     — this app paints white text on a white widget, because `html, body
+     { color: rgb(255,255,255) !important }` is unconditional. Pinning the
+     scheme is insurance against a demonstrated failure, not a repair of a
+     currently visible one. */
   color-scheme: dark;
 
   /* ── Spacing (design/_design.css) ───────────────────────────────────── */

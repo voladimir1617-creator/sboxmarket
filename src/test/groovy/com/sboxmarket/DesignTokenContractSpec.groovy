@@ -215,8 +215,8 @@ class DesignTokenContractSpec extends Specification {
     // So the pair is recorded. Change design.css and this fails until the token
     // moves too. IF YOU ARE HERE AFTER EDITING design.css: bump ?v= in
     // static/index.html, then paste the two values the failure message prints.
-    private static final String RECORDED_CSS_SHA = '39e43bd01060'
-    private static final String RECORDED_ASSET_TOKEN = '301'
+    private static final String RECORDED_CSS_SHA = '8f9a7261e505'
+    private static final String RECORDED_ASSET_TOKEN = '302'
 
     private static String cssHash() {
         def text = read('/static/css/design.css').replace('\r', '')
