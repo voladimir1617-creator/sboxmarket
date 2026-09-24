@@ -227,6 +227,33 @@ test.describe('tablet smoke', () => {
     expect(cols, 'market grid columns at exactly 768px').toBe(3);
   });
 
+  // `@media (max-width: 800px) { .toolbar > * { width: 100% } }` stacks every
+  // toolbar control to the full row. Below ~720px something narrower already
+  // supersedes it and the chips render at their natural size; nothing does in
+  // the 721-800 band, so iPad portrait was the only width still showing them
+  // as full-width grey bars. MEASURED .new-chip at four widths:
+  //     375 -> 56px    768 -> 707px    900 -> 56px    1000 -> 56px
+  test('tablet toolbar chips are chips, not full-width bars', async ({ page }) => {
+    await page.goto('/market');
+    await expect(page.locator('.grid-card').first()).toBeVisible({ timeout: 15_000 });
+
+    const widths = await page.evaluate(() => {
+      const w = (s) => {
+        const e = document.querySelector(s);
+        return e ? Math.round(e.getBoundingClientRect().width) : -1;
+      };
+      return { deals: w('.deals-chip'), fresh: w('.new-chip'), sort: w('.sort-picker') };
+    });
+    // -1 means the control is absent, which must not read as "narrow enough".
+    expect(widths.deals, '.deals-chip present').toBeGreaterThan(0);
+    expect(widths.fresh, '.new-chip present').toBeGreaterThan(0);
+    expect(widths.sort, '.sort-picker present').toBeGreaterThan(0);
+
+    expect(widths.deals, '% Deals chip width at 768px').toBeLessThanOrEqual(200);
+    expect(widths.fresh, 'New chip width at 768px').toBeLessThanOrEqual(200);
+    expect(widths.sort, 'sort picker width at 768px').toBeLessThanOrEqual(300);
+  });
+
   test('tablet market keeps the screen width', async ({ page }) => {
     await page.goto('/market');
     await expect(page.locator('.grid-card').first()).toBeVisible({ timeout: 15_000 });

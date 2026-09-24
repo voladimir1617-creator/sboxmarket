@@ -29153,3 +29153,39 @@ html body input.fee-calc-input:is(.fee-calc-input):focus-visible {
      and friends). WCAG 2.2 SC 2.5.8 exempts a link inline in a sentence;
      forcing a 44px box on them would break the line height of the paragraph.
    ─────────────────────────────────────────────────────────────────────────── */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.9  TABLET-ONLY: EVERY TOOLBAR CONTROL RENDERED AS A FULL-WIDTH BAR.
+
+   `@media (max-width: 800px) { .toolbar > * { width: 100% } }` stacks every
+   toolbar child to the full row. On a phone that intent has already been
+   superseded -- something narrower wins below ~720px and the chips render at
+   their natural size. Nothing supersedes it in the 721-800 band, so iPad
+   portrait is the only width where it still lands.
+
+   MEASURED on /market, the same four controls at four widths:
+
+                      375px        768px        900px       1000px
+     .deals-chip       75px        683px         75px         75px
+     .new-chip         56px        707px         56px         56px
+     .sort-picker     182px        707px        182px        182px
+     .type-toggle     209px        209px        209px        209px
+
+   A 707px-wide "New" chip is not a chip. 768 is the odd one out between its
+   own neighbours on both sides -- the same band-edge shape as 190.5, and
+   visible in the tablet screenshot as three full-width grey bars where the
+   phone and the desktop both show compact pills.
+
+   Restore content sizing across that band and keep only the search box full
+   width, which is the one control that genuinely wants the row.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 721px) and (max-width: 800px) {
+  html body .toolbar > * {
+    width: auto !important;
+  }
+  html body .toolbar > .search-wrap,
+  html body .toolbar > .search-wrap[role="search"] {
+    width: 100% !important;
+    flex: 1 0 100% !important;
+  }
+}
