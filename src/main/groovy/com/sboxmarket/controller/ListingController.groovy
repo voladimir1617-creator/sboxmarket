@@ -1405,6 +1405,42 @@ class ListingController {
     }
 
     /**
+     * The seller-response deadline, served so the buy surfaces can state it
+     * instead of guessing it.
+     *
+     * <b>Why this endpoint exists.</b> A buyer on /item/:id is told his wallet
+     * is charged instantly. For a listing owned by another user, what he gets
+     * back is not the item — it is a wait for a human being to send a Steam
+     * trade offer by hand. The only bound on that wait lives here, in
+     * {@code trade.seller-response-days}, read by
+     * TradeService.autoCancelStaleSellerTrade; nothing served it to the
+     * client, so every buy surface either said nothing about the deadline or
+     * would have had to hard-code a copy of a tunable number. A number copied
+     * into the SPA is a number that drifts silently the first time ops changes
+     * the property — and a wrong deadline shown at the moment money moves is
+     * how a dispute starts. This is the same value the auto-cancel sweep, the
+     * seller nudge and the refund notification all quote.
+     *
+     * Public and unauthenticated on purpose: it is a published policy figure,
+     * carries no user data, and the buyer who most needs it has not signed in
+     * yet. The literal path is matched ahead of {@code /{id}} by Spring's
+     * pattern comparator, so it does not collide with a listing lookup.
+     */
+    @GetMapping("/delivery-policy")
+    ResponseEntity<Map> deliveryPolicy() {
+        ResponseEntity.ok([sellerResponseDays: sellerResponseDays] as Map)
+    }
+
+    /**
+     * Days a seller has to send the Steam trade offer before the platform
+     * cancels the trade and refunds the buyer in full. Default and property
+     * name are deliberately IDENTICAL to TradeService's — two declarations of
+     * one policy would be two policies the day one of them is changed.
+     */
+    @org.springframework.beans.factory.annotation.Value('${trade.seller-response-days:3}')
+    long sellerResponseDays
+
+    /**
      * Bulk freshness probe for the cart. The cart is persisted
      * client-side, so by the time a buyer opens /cart one or more
      * rows may have been bought by someone else (status != ACTIVE)
