@@ -7469,9 +7469,26 @@ export function App() {
           'aria-live': 'polite',
           'aria-atomic': 'true'
         },
-          h('strong', null, dedupedListings.length), ' listings found',
-          category !== 'All' && h('span', null, ' in ', h('strong', null, category)),
-          search && h('span', null, ' matching ', h('strong', null, `"${search}"`))
+          // A FAILED request yields an UNKNOWN count, not zero. Printing
+          // "0 listings found" directly above the "Couldn't load listings"
+          // panel asserts the marketplace is empty when we simply don't
+          // know — and with a category filter on it went further and
+          // asserted "0 listings found in Hats". This block is
+          // role=status/aria-live/atomic, so a screen reader was actively
+          // ANNOUNCED the false count on every failure. Say which case it
+          // is instead: unknown, still loading, or a real count.
+          // Stale rows (loadError with listings still on screen) keep their
+          // count — those rows are real, and the stale-results notice below
+          // is what explains they may not match the current filters.
+          (loadError && dedupedListings.length === 0)
+            ? 'Listings unavailable'
+            : (loading && dedupedListings.length === 0)
+              ? 'Loading listings…'
+              : h('span', null,
+                  h('strong', null, dedupedListings.length), ' listings found',
+                  category !== 'All' && h('span', null, ' in ', h('strong', null, category)),
+                  search && h('span', null, ' matching ', h('strong', null, `"${search}"`))
+                )
         ),
         // STALE-RESULTS NOTICE. The empty-state below can only speak when
         // the grid is empty — but a failed refresh while rows are already
