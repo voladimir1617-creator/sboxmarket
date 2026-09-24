@@ -28992,3 +28992,164 @@ html body input.fee-calc-input:is(.fee-calc-input):focus-visible {
     padding-right: 8px !important;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.4  THE ITEM PAGE KEPT ITS 14px INNER PADDING.
+
+   190.1 dropped `.modal-body` from 24px to 12px and the similar strip went
+   265 -> 289px, but the modal card itself did not move: it still measured
+   `pad 14px/14px`. The rule that holds it is
+
+     L19958  @media (max-width: 768px) {
+               .site-root.full-page-mode .modal.item-page { padding: 14px !important } }
+
+   four classes (0-4-0). 190.1's `html body main.modal.item-page` is 0-2-3, so
+   it loses on class count even with !important -- the override was inert, and
+   an inert override that still reads as "fixed" is the defect this codebase
+   keeps paying for. Match the class count and win honestly.
+
+   Only the inline axis is overridden; the 14px top/bottom padding stays.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  html body .site-root.full-page-mode .modal.item-page,
+  html body .site-root.full-page-mode main.modal.item-page {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.5  A ONE-PIXEL CLIFF AT EXACTLY 768px -- iPad portrait.
+
+   Two rules claim the market grid and their bands touch instead of meeting:
+
+     A  @media (min-width: 768px) and (max-width: 1023px)
+          .listing-grid            { repeat(3, minmax(0,1fr)) !important }
+     B  @media (max-width: 768px)
+          main.layout .listing-grid { repeat(2, minmax(0,1fr)) !important }
+
+   768 satisfies BOTH. B is later and more specific (element+2 classes beats
+   1 class), so B wins and A never applies at the one width it was written
+   for. MEASURED on the running app:
+
+       766px -> 2 cols (344px)      769px -> 3 cols (206px)
+       767px -> 2 cols (345px)      770px -> 3 cols (206px)
+       768px -> 2 cols (345px)   <-- the cliff
+
+   A "max-width: 768px" query is a down-band; its edge belongs at 767.98px so
+   it stops where the up-band starts. Rather than edit B in place (another
+   stream may be holding that region of the file) this re-asserts A's own
+   declared intent across the overlap, at a specificity that reaches.
+
+   This is the author's number, not a new one: 3 columns is exactly what the
+   app already renders at 769px.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  html body main.layout .listing-grid,
+  html body main#main.layout .listing-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.6  TAP TARGETS ON THE ITEM PAGE.
+
+   MEASURED at 375px on /item/12, every standalone control under 30px tall:
+     .chart-range-btn   39x28, 41x28, 41x28, 38x28, 45x28   (7D 1M 3M 1Y ALL)
+     .modal-demand-chip 80x22                               ("1 listing")
+     .modal-seller-name 70x17                               (the seller link)
+     a "Visit stall ->"  58x13
+
+   Deliberately NOT touched: the inline links inside legal prose
+   (privacy@skinbox.market, "Refund Policy", the stall's item-name links).
+   WCAG 2.2 SC 2.5.8 exempts a link inline in a sentence, and forcing 44px on
+   those would break the line box around them. They were measured, considered
+   and left.
+
+   Height and padding only -- font-size belongs to the type scale, which is
+   the design-system stream's to set, not this one's.
+
+   NOT OVERRIDDEN, and this is a deliberate hand-off rather than an oversight:
+   `.chart-range-btn` is pinned to 28px by
+
+     L25878  body .modal.item-page .chart-range .chart-range-btn
+               { height:28px !important; min-height:28px !important }
+
+   under a block headed "CSFLOAT-1:1 PARITY ship #128772", which states the
+   canonical csfloat `.mat-button-toggle-group.slim` spec it is matching. That
+   is the parity stream's decision, not a miss. It also passes WCAG 2.2 SC
+   2.5.8 (AA), whose floor is 24x24 -- 28x39 clears it; only the AAA 44px
+   target in this brief is unmet. Beating it would need a 4-class selector
+   purely to win a specificity race against a documented intent, so the
+   finding goes to that stream instead:
+
+     src/main/resources/static/css/design.css L25878 (and the parity block at
+     L26977) -- five range chips render 28px tall on a phone. If parity is to
+     be kept at desktop width, a <=720px branch raising them to 44px would
+     satisfy both; the parent `.chart-range` (38px tall, L25877) has to grow
+     with them or the taller child overflows its pill.
+
+   Same reasoning, same owner, for `.modal-demand-chip` (80x22).
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  /* The seller block's two links are the route to the stall; they are their
+     own row, not words in a sentence, so they get a real target. */
+  html body .modal-seller-name,
+  html body .modal.item-page .modal-seller-name {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: 44px !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.7  THE SAME STACKED GUTTER ON THE CART AND SELL PAGES.
+
+   190.1 fixed `main.layout` (market, database) and `.modal-body` (item page).
+   The cart, sell, wallet and every other full-page panel are a THIRD chain --
+   `.info-modal` / `.info-modal-body` -- and were untouched.
+
+   MEASURED at 375px on /cart with three real items added through the UI:
+     BODY                   pad 16px  ->  343px
+     DIV#main.info-modal    pad  0px  ->  343px
+     DIV.info-modal-body    pad 24px  ->  293px
+     .cart-row              pad 14px  ->  291px of content
+
+   That 293px column is why the item names truncate to "Halloween ..." and
+   "Gumball Mac..." in the cart -- a buyer on a phone cannot read what they
+   are about to pay for. Same 24px -> 12px as the item page.
+
+   Vertical padding untouched.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  html body .info-modal-body,
+  html body .modal.info-modal > .info-modal-body,
+  html body .full-page-mode .info-modal-body {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   190.8  CHECKED AND DELIBERATELY NOT CHANGED -- recorded so the next pass
+   does not re-measure them.
+
+   · The fixed bottom nav's safe-area inset. Already correct in BOTH places:
+       L16014  .csfloat-mobile-nav { padding: 6px 8px calc(6px + env(safe-area-inset-bottom,0px)) }
+       body    { padding-bottom: calc(80px + env(safe-area-inset-bottom,0px)) }  @<=720px
+     Note for whoever measures this next: headless Chromium resolves env()
+     safe-area insets to 0, so a Playwright run CANNOT distinguish a correct
+     inset from a missing one. This was confirmed by reading the declarations,
+     not by a rendered measurement, and that is the only way to confirm it here.
+
+   · `.similar-strip` on the item page. Its cards extend to x=1498 at 375px,
+     which reads as 1123px of clipped content -- but the strip computes
+     `overflow-x: auto`, so it is a swipeable rail and every card is reachable.
+     An earlier version of this stream's probe called it a defect because it
+     stopped walking ancestors at the first `overflow:hidden` (the rounded
+     `.similar-card` itself) and never saw the scroller above it.
+
+   · Inline links in legal prose measuring ~19px tall (privacy@skinbox.market
+     and friends). WCAG 2.2 SC 2.5.8 exempts a link inline in a sentence;
+     forcing a 44px box on them would break the line height of the paragraph.
+   ─────────────────────────────────────────────────────────────────────────── */
