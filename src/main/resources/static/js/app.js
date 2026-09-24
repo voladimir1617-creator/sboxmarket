@@ -3690,6 +3690,22 @@ export function App() {
   const [modalLoading, setModalLoading] = useState(
     () => /^\/item\/\d+\/?$/.test((window.location.pathname || ''))
   );
+  // Why /item/:id needs a THIRD state beyond {loading, loaded}.
+  //
+  // `selected === null` was doing double duty: "the catalogue says this id
+  // does not exist" AND "we never got an answer". Both rendered the same
+  // dead-end panel — "Item not found · has been removed or never existed" —
+  // so during a backend outage every item link in the marketplace told the
+  // buyer, with a specific invented explanation, that the thing they were
+  // about to buy was gone. Absence read as a fact.
+  //
+  // `itemLoadError` holds the fault so the render can say "couldn't load"
+  // and offer a retry. `itemRetry` is bumped by that retry button and is a
+  // dependency of the fetch effect, so a retry re-runs the load in place
+  // rather than reloading the whole SPA. Same split the stall page already
+  // makes with `__notFound` vs `__error`.
+  const [itemLoadError, setItemLoadError] = useState(null);
+  const [itemRetry, setItemRetry]         = useState(0);
 
   // wallet
   const [wallet, setWallet]             = useState(null);
@@ -5088,7 +5104,18 @@ export function App() {
         return merged;
       });
       setHasMore(next.length >= 100);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      // Page 2 FAILED — which is not the same as page 2 being empty, and
+      // the difference is the whole rest of the catalogue. Before
+      // fetchListings threw, a failed page-2 fetch came back as `[]` and
+      // fell into the `next.length === 0` branch above, which calls
+      // setHasMore(false): the Load-more button silently disappeared and
+      // the user was told, by its absence, that they had reached the end.
+      // Now the button STAYS (hasMore untouched) and the click is
+      // acknowledged as a failure the user can repeat.
+      showToast("Couldn't load more listings — tap Load more to retry", 'err');
+    }
     finally { setLoadingMore(false); }
   }, [loadingMore, hasMore, sort, category, rarity, minPrice, maxPrice,
       search, listingTypeFilter, listings.length]);
@@ -5118,6 +5145,9 @@ export function App() {
     if (routeName !== 'item' || !route.params?.id) return;
     let alive = true;
     setModalLoading(true);
+    // Clear any previous fault so a retry (or a nav to a different id) does
+    // not render the old error under the new load.
+    setItemLoadError(null);
     (async () => {
       try {
         const [itemListings, history] = await Promise.all([
@@ -5136,8 +5166,12 @@ export function App() {
         let item = itemListings[0]?.item ||
                    listings.find(l => String(l.item?.id) === String(route.params.id))?.item;
         if (!item) {
-          try { item = await fetchItem(route.params.id); }
-          catch (_) { item = null; }
+          // NO local catch here. `fetchItem` now returns null ONLY for a
+          // real "not in the catalogue" and THROWS when the lookup could
+          // not be made at all; swallowing that back into `item = null`
+          // would re-create the exact bug this block is fixing — the fault
+          // has to reach the outer catch to become a visible error state.
+          item = await fetchItem(route.params.id);
           if (!alive) return;
         }
         if (item) {
@@ -5178,12 +5212,20 @@ export function App() {
         // Fetch failed — same hazard as the not-found branch: drop the
         // stale selection so a previous item's modal doesn't linger
         // under a URL whose load just errored.
-        if (alive) setSelected(null);
+        if (alive) {
+          setSelected(null);
+          // ...and RECORD that this was a failure, not an absence. Without
+          // this the render falls through to the "removed or never existed"
+          // panel and states as fact something we never managed to ask.
+          setItemLoadError(e?.message || 'Could not load this item');
+          const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
+          document.title = currentPrefix + "Couldn't load item · SkinBox";
+        }
       }
       finally { if (alive) setModalLoading(false); }
     })();
     return () => { alive = false; };
-  }, [routeName, route.params?.id]);
+  }, [routeName, route.params?.id, itemRetry]);
   // If the URL leaves /item/:id, clear the selection so the modal disappears.
   useEffect(() => { if (routeName !== 'item') setSelected(null); }, [routeName]);
 
@@ -7431,6 +7473,35 @@ export function App() {
           category !== 'All' && h('span', null, ' in ', h('strong', null, category)),
           search && h('span', null, ' matching ', h('strong', null, `"${search}"`))
         ),
+        // STALE-RESULTS NOTICE. The empty-state below can only speak when
+        // the grid is empty — but a failed refresh while rows are already
+        // on screen is the quieter half of the same defect: the fetch for
+        // the filter you just picked died, the PREVIOUS filter's rows stay
+        // up, and the count above them reads as though they answered your
+        // query. Nothing on the page was false, and nothing on it was true
+        // either. This says so, without throwing away rows the user can
+        // still browse.
+        loadError && listings.length > 0 && h('div', {
+          className: 'empty-state-sub',
+          'data-testid': 'market-stale-warning',
+          role: 'status',
+          style: {
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            margin: '0 0 12px', padding: '10px 14px', borderRadius: 8,
+            background: 'rgba(248,113,113,0.10)',
+            border: '1px solid rgba(248,113,113,0.35)',
+            color: '#fca5a5', textAlign: 'left'
+          }
+        },
+          h(MaterialIcon, { name: 'cloud_off', size: 18 }),
+          h('span', { style: { flex: 1, minWidth: 180 } },
+            "Couldn't refresh listings — these are the last results we loaded, so they may not match your current filters."),
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '4px 14px' },
+            onClick: () => { setLoadError(null); load(false); }
+          }, 'Retry')
+        ),
         loading
           ? h('div', { className: 'listing-grid' },
               // Skeleton grid — reserves layout while listings fetch. 12
@@ -7501,7 +7572,14 @@ export function App() {
                   h('div', { className: 'empty-state-icon' },
                     h(MaterialIcon, { name: isError ? 'cloud_off' : (listingTypeFilter === 'AUCTION' ? 'gavel' : 'inventory_2'), size: 42 })
                   ),
-                  h('div', { className: 'empty-state-title' }, title),
+                  h('div', {
+                    className: 'empty-state-title',
+                    // Machine-readable so the e2e guard asserts on the STATE
+                    // (fault vs genuinely-empty), not on copy that will be
+                    // reworded. This is the distinction the whole fix is
+                    // about, so it gets a stable name.
+                    'data-testid': isError ? 'market-load-error' : 'market-empty'
+                  }, title),
                   h('div', { className: 'empty-state-sub' }, sub),
                   h('div', { className: 'empty-state-actions' },
                     isError && h('button', {
@@ -9108,6 +9186,47 @@ export function App() {
               }, `· ${sellers.size} sellers — expect ${sellers.size} separate trade offers`);
             })())
         ),
+        // WHAT "DELIVERED" MEANS, AT THE MOMENT THE MONEY MOVES.
+        //
+        // The wallet debit IS instant, and the site says so in several
+        // places ("funds are charged from your balance instantly", "instant
+        // cash-out"). Delivery is not: for a seller listing it is a human
+        // being sending a Steam trade offer by hand, and if they never do,
+        // TradeService.autoCancelStaleSellerTrade refunds the buyer days
+        // later. A buyer who expected the item to appear and instead waits
+        // on a person files a dispute — this codebase has already paid for
+        // exactly that ambiguity on the escrow path, so the distinction is
+        // stated here rather than left to be inferred from "escrow".
+        //
+        // The two cases are genuinely different and get different text: a
+        // platform listing (sellerUserId == null) is delivered in-platform
+        // with no counterparty to wait on. No timeframe is quoted, because
+        // the real deadline lives in `trade.seller-response-days` on the
+        // server and a number copied into the SPA is a number that drifts.
+        (() => {
+          const anySeller = cart.some(it => it.sellerUserId != null);
+          return h('div', {
+            className: 'cart-confirm-sub',
+            'data-testid': anySeller ? 'delivery-expectation-seller' : 'delivery-expectation-platform',
+            style: {
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+              margin: '2px 0 12px', padding: '9px 12px', borderRadius: 8,
+              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+              textAlign: 'left'
+            }
+          },
+            h(MaterialIcon, { name: anySeller ? 'schedule' : 'bolt', size: 16 }),
+            h('span', null, anySeller
+              ? h('span', null,
+                  h('strong', null, 'Delivery is not instant. '),
+                  'Your wallet is charged now, but the seller has to send you a Steam trade offer by hand. ',
+                  'Your money stays in escrow until you confirm the item arrived — and if the seller never sends it, ',
+                  'the purchase cancels itself and you are refunded in full.')
+              : h('span', null,
+                  h('strong', null, 'Delivered in-platform. '),
+                  'These listings are held by SkinBox, so there is no seller to wait on and no Steam trade offer to accept.'))
+          );
+        })(),
         h('div', { className: 'cart-confirm-list' },
           cart.slice(0, 12).map(it => {
             // Use fresh server price when cartFreshness has loaded — keeps
@@ -9353,12 +9472,34 @@ export function App() {
           role: 'region',
           'aria-labelledby': 'item-not-found-title'
         },
+          // Two different facts, two different panels. `itemLoadError` set
+          // means the lookup FAILED; only its absence licenses the
+          // "removed or never existed" claim. Previously both rendered the
+          // not-found copy, so an outage told every buyer their item was
+          // gone — a claim the app had no evidence for, with no way back.
           h('div', { style: { marginBottom: 12, display: 'flex', justifyContent: 'center' }, 'aria-hidden': 'true' },
-            h(MaterialIcon, { name: 'search_off', size: 40, color: 'var(--text-muted)' })),
-          h('h1', { id: 'item-not-found-title', style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' } }, 'Item not found'),
+            h(MaterialIcon, {
+              name: itemLoadError ? 'cloud_off' : 'search_off',
+              size: 40, color: 'var(--text-muted)' })),
+          h('h1', {
+            id: 'item-not-found-title',
+            'data-testid': itemLoadError ? 'item-load-error' : 'item-not-found',
+            style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }
+          }, itemLoadError ? "Couldn't load this item" : 'Item not found'),
           h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
-            'The item you were looking for has been removed or never existed. It may have been merged into another entry by the catalogue sync.'),
-          h('a', { className: 'btn btn-accent', href: '/market' }, 'Back to marketplace')
+            itemLoadError
+              ? "We couldn't reach the marketplace to look this item up, so we can't tell you whether it's still for sale. This is usually temporary — try again in a moment."
+              : 'The item you were looking for has been removed or never existed. It may have been merged into another entry by the catalogue sync.'),
+          h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+            itemLoadError && h('button', {
+              className: 'btn btn-accent',
+              onClick: () => setItemRetry(n => n + 1)
+            }, 'Retry'),
+            h('a', {
+              className: itemLoadError ? 'btn btn-ghost' : 'btn btn-accent',
+              style: itemLoadError ? { border: '1px solid var(--border)' } : undefined,
+              href: '/market'
+            }, 'Back to marketplace'))
         )
       )
     ),

@@ -53,7 +53,48 @@ async function fetchT(url, opts, ms) {
   }
 }
 
+/**
+ * "We could not read the server" — thrown by `safeJson` ONLY for callers that
+ * opted in with `meta.throwOnFailure`.
+ *
+ * <b>Why this type exists.</b> `safeJson` returns `null` for every kind of
+ * failure, and its list-shaped callers all collapsed that `null` into `[]`.
+ * An empty array is a POSITIVE claim — "the server answered, and the answer is
+ * nothing" — so a 500 on `/api/listings` rendered the marketplace's
+ * "Marketplace is empty · Be the first to list an item" empty-state, and a 500
+ * on `/api/items/{id}` rendered "Item not found · has been removed or never
+ * existed". Both are confident, specific, FALSE statements made at the exact
+ * moment the platform is broken, and neither offered a Retry.
+ *
+ * That is this codebase's recurring defect: a missing signal rendered as a
+ * healthy one. The stall page already got this right (`__notFound` vs
+ * `__error` → "Couldn't load this stall" + Retry); the market grid and the
+ * item page did not. `status` is 0 for a transport-level failure (offline,
+ * DNS, TLS, abort/timeout) and the HTTP status otherwise.
+ *
+ * Statuses a caller listed in `meta.expect` are NOT failures — `expect` means
+ * "this status is a normal outcome for this endpoint" (a 404 from
+ * `/listings/item/{id}` is genuinely "no listings"), so those still return
+ * `null` and never throw.
+ */
+export class ApiUnavailableError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiUnavailableError';
+    this.status = status || 0;
+  }
+}
+
 async function safeJson(url, opts, meta) {
+  // Opt-in only. Every existing caller passes no meta (or only `expect`) and
+  // keeps the exact null-on-failure contract it was written against.
+  const strict = !!(meta && meta.throwOnFailure);
+  // The throw CANNOT happen inside the try below: this function's own
+  // catch would swallow it and hand back the very null we are trying to
+  // stop returning. So the fault is RECORDED here and raised once, after
+  // the try/catch, at the single exit at the bottom.
+  let failure = null;
+  let body = null;
   try {
     const r = await fetchT(url, opts, READ_TIMEOUT_MS);
     if (!r.ok) {
@@ -87,18 +128,25 @@ async function safeJson(url, opts, meta) {
       // me→null), so its console.warn was pure noise — a stale read after a
       // session expiry painted a red "HTTP 401" line per poll. Mute it like the
       // opt-in expected statuses. (wave-146 audit)
-      const muted = r.status === 401 ||
-        (meta && Array.isArray(meta.expect) && meta.expect.indexOf(r.status) >= 0);
+      // A status the caller declared EXPECTED is a real answer, not a
+      // fault — `/listings/item/{id}` 404s for an item nobody has listed,
+      // and that genuinely means "no listings". Those never throw.
+      const expected = !!(meta && Array.isArray(meta.expect) && meta.expect.indexOf(r.status) >= 0);
+      const muted = r.status === 401 || expected;
       if (!muted) console.warn(`[${url}] HTTP ${r.status}`);
-      return null;
+      if (strict && !expected) failure = new ApiUnavailableError(`HTTP ${r.status} from ${url}`, r.status);
+      // `body` stays null — falls through to the tail, which returns null
+      // for a non-strict caller exactly as before.
+    } else {
+      // Clear the maintenance banner as soon as a real response lands —
+      // lets the UI auto-recover without a manual refresh when the pod
+      // comes back.
+      try { window.dispatchEvent(new CustomEvent('sb:service-restored')); } catch (_) {}
+      body = await r.json();
     }
-    // Clear the maintenance banner as soon as a real response lands —
-    // lets the UI auto-recover without a manual refresh when the pod
-    // comes back.
-    try { window.dispatchEvent(new CustomEvent('sb:service-restored')); } catch (_) {}
-    return await r.json();
   } catch (e) {
-    // Network-level failure (offline, DNS, TLS, timeout, CORS abort).
+    // Network-level failure (offline, DNS, TLS, timeout, CORS abort) — and
+    // also a 200 whose body is not JSON, which is just as unreadable.
     // Pre-fix this swallowed silently — every dependent fetch returned
     // null, every consumer rendered "no listings / no items / no orders"
     // empty states, and the user had no signal that the network was
@@ -109,8 +157,18 @@ async function safeJson(url, opts, meta) {
     // (sb:service-restored) so the UI auto-recovers without a refresh.
     try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
     console.error(`[${url}] fetch failed:`, e);
-    return null;
+    if (strict) {
+      failure = new ApiUnavailableError(
+        (e && e.name === 'AbortError')
+          ? `request to ${url} timed out after ${READ_TIMEOUT_MS}ms`
+          : `network failure on ${url}: ${e && e.message ? e.message : e}`,
+        0);
+    }
   }
+  // One exit, one decision. A strict caller gets the fault; every other
+  // caller gets the null it has always got.
+  if (failure) throw failure;
+  return body;
 }
 
 /**
@@ -231,13 +289,23 @@ export async function fetchListings(params = {}) {
   Object.entries(params).forEach(([k, v]) => {
     if (v !== null && v !== undefined && v !== '') q.append(k, v);
   });
-  const data = await safeJson(`${API}/listings?${q}`);
+  // THROWS on failure — see ApiUnavailableError. "The market is empty" and
+  // "we could not read the market" are different facts and the shop window
+  // must not state the first when the second is true. Every caller of this
+  // function already had a catch/`.catch()` written for a rejection that
+  // could never happen (the market grid's `setLoadError`, the buy-order and
+  // loadout pickers' `setPoolErr(true)`); this is what makes them live.
+  const data = await safeJson(`${API}/listings?${q}`, undefined, { throwOnFailure: true });
   // ListingController returns a bare array when limit==100 && offset==0,
   // and a { items, total, limit, offset } wrapper otherwise. Unwrap so
   // every caller sees a plain array regardless of which branch fired.
   if (Array.isArray(data)) return data;
   if (data && Array.isArray(data.items)) return data.items;
-  return [];
+  // A 200 we cannot parse into a list is also "we could not read the
+  // market" — NOT an empty market. Falling through to `return []` here is
+  // the same lie by a different route.
+  throw new ApiUnavailableError(
+    `listings response from ${API}/listings was not a list`, 0);
 }
 
 export async function fetchHistory(itemId) {
@@ -260,7 +328,12 @@ export async function fetchItem(itemId) {
   // (so Chrome doesn't auto-log a fetch 404 to console). Translate the
   // sentinel back to null so every existing caller's truthy/null check
   // keeps working without changes.
-  const data = await safeJson(`${API}/items/${itemId}`, undefined, { expect: [404] });
+  // THROWS on failure, not on absence. `null` from here now means exactly
+  // one thing — "the catalogue answered, and this id is not in it" (a 404,
+  // or the 200 `{notFound:true}` sentinel). A 500 or a dead socket raises
+  // instead, so the item page can tell "removed" from "unreachable".
+  const data = await safeJson(`${API}/items/${itemId}`,
+    undefined, { expect: [404], throwOnFailure: true });
   if (data && data.notFound) return null;
   return data || null;
 }
@@ -458,7 +531,13 @@ export async function setSellerMuted(sellerId, muted) {
  *  Uses the dedicated /api/listings/item/{id} endpoint instead of the
  *  general /api/listings query which doesn't support itemId filtering. */
 export async function fetchListingsForItem(itemId) {
-  const data = await safeJson(`${API}/listings/item/${itemId}`, undefined, { expect: [404] });
+  // THROWS on failure, but NOT on 404: `expect: [404]` says a 404 here is a
+  // real answer ("nobody has this item listed"), which is exactly the case
+  // the item page must keep rendering. Anything else — 500, offline,
+  // timeout — is unreadable, and the item page now says so instead of
+  // claiming the item "has been removed or never existed".
+  const data = await safeJson(`${API}/listings/item/${itemId}`,
+    undefined, { expect: [404], throwOnFailure: true });
   return Array.isArray(data) ? data : [];
 }
 
