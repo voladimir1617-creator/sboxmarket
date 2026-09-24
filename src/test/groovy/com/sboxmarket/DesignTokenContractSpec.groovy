@@ -250,6 +250,35 @@ class DesignTokenContractSpec extends Specification {
                         "  RECORDED_ASSET_TOKEN = '<the token you just set>'") }()
     }
 
+    def "the could-not-load styling still keys on a testid the app actually emits"() {
+        given: "the selector design.css uses to make a fault look unlike an empty shelf"
+        def css = stripComments(read('/static/css/design.css'))
+        def app = read('/static/js/app.js')
+
+        when: 'every [data-testid$="..."] suffix the stylesheet keys on is collected'
+        def suffixes = [] as Set
+        def m = (css =~ /\[data-testid\$=\s*["']([^"']+)["']\s*\]/)
+        while (m.find()) { suffixes << m.group(1) }
+
+        then:
+        // This is a coupling across two files owned by two different streams.
+        // app.js decides whether a surface is empty or faulted and marks it
+        // ('market-load-error' vs 'market-empty'); design.css is the only thing
+        // that makes the two LOOK different — same neutral .empty-state markup
+        // otherwise. Rename the testid on the JS side and nothing fails, no
+        // console warning appears, and a backend 500 silently goes back to
+        // being pixel-identical to "there is nothing here" — which reads as
+        // "nobody is selling" and sends the user away instead of retrying.
+        !suffixes.isEmpty()
+        def orphaned = suffixes.findAll { suffix -> !(app =~ /["'][A-Za-z0-9_-]*\Q${suffix}\E["']/) }.sort()
+        orphaned.isEmpty() ||
+                { throw new AssertionError(
+                        "design.css styles the could-not-load state via a testid suffix that app.js no " +
+                        "longer emits: ${orphaned.join(', ')}.\n" +
+                        "The rule is now dead, so a failed fetch renders identically to an empty result.\n" +
+                        "Either restore the testid in app.js or update the selector in design.css.") }()
+    }
+
     def "the colour scheme is stated unconditionally, not only when the OS already agrees"() {
         given:
         def css = stripComments(read('/static/css/design.css'))
