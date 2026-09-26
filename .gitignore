@@ -6,6 +6,29 @@ out/
 *.jar
 *.war
 
+# …EXCEPT the Gradle wrapper jar, which is an INPUT and not a build output.
+#
+# `*.jar` above sits under "# Build" beside build/, .gradle/, out/, *.class and
+# *.war — every one of those is something the build PRODUCES. It was written to
+# keep build output out of the repo, and it swallowed the one jar the build
+# needs to exist before it can run.
+#
+# The cost was not theoretical. gradlew, gradlew.bat and
+# gradle/wrapper/gradle-wrapper.properties were all committed in the initial
+# commit, so a clean checkout receives three files that promise a working
+# wrapper and then throws
+#     Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain
+# on every invocation. A fresh worktree could not run ./gradlew at all, which
+# means A CLEAN CHECKOUT OF THIS REPO COULD NOT RUN ITS OWN TESTS: every
+# "reproduced at pristine HEAD" claim depended on somebody noticing and hand-
+# copying the jar in from another checkout. The jar had never been committed on
+# any ref, and no README or runbook told anyone to regenerate it.
+#
+# Committing the wrapper jar is the documented Gradle recommendation for
+# exactly this reason. Guarded by BuildIsRunnableFromAFreshCloneSpec, which
+# fails if the jar stops being tracked or its bytes change unrecorded.
+!gradle/wrapper/gradle-wrapper.jar
+
 # IDE
 .idea/
 *.iml
