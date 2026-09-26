@@ -260,6 +260,36 @@ class AdminBootstrapIsNotCommittedSpec extends Specification {
 
     private static String show(File f) { f.path.replace('\\', '/') }
 
+    /**
+     * <b>Every finding below can belong to a checkout the reader does not own,
+     * so every finding below has to say what to do about it.</b>
+     *
+     * The sweep covers EVERY worktree registered to this repository. That is
+     * deliberate - anyone can build from a registered worktree, so a compromised
+     * one is everyone's problem - but it is cross-agent coupling, and coupling
+     * without a remedy is a red nobody can act on. Measured 2026-09-26: a
+     * worktree registered with {@code git worktree add --no-checkout} (directory
+     * present, files absent) turned three cases red, and all three printed a
+     * bare Spock comparison - a path list and nothing else. The path was named;
+     * what to do with it was not, anywhere.
+     *
+     * A registration whose DIRECTORY IS GONE is already not a finding:
+     * {@code census()} files it under {@code absent} and nothing asserts on it,
+     * so a deleted scratch worktree cannot make the build red. What can is a
+     * registration whose directory exists and is not a usable checkout, and the
+     * remedy for that is one command.
+     */
+    static final String WORKTREE_REMEDY =
+        'REMEDY - the offending path is a worktree registered to this repository, not\n' +
+        'necessarily one you created. `git worktree list` shows who is registered.\n' +
+        '  * scratch/abandoned checkout  -> git worktree remove --force <path>\n' +
+        '  * directory already deleted   -> git worktree prune   (then re-run)\n' +
+        '  * a checkout still in use     -> bring it to a commit that carries the\n' +
+        '                                   repair: git -C <path> merge <branch>, or\n' +
+        '                                   re-create it from current work\n' +
+        'The sweep is repo-wide on purpose: anyone can build from any registered\n' +
+        'worktree, so a compromised one is a live deployment risk for everybody.'
+
     // ── the census must be decidable ────────────────────────────────
 
     def "the worktree census is decidable — 'I could not tell' is a FAILURE, not a pass"() {
@@ -275,8 +305,16 @@ class AdminBootstrapIsNotCommittedSpec extends Specification {
         c.why == null
 
         and: 'every tree it named that exists on disk is a checkout we can actually inspect'
-        c.roots.findAll { !new File(it, 'src/main/resources/application.yml').exists() }
-               .collect { show(it) } == []
+        def uninspectable = c.roots
+                .findAll { !new File(it, 'src/main/resources/application.yml').exists() }
+                .collect { show(it) }.toSorted()
+        uninspectable.isEmpty() ||
+                { throw new AssertionError(
+                        "${uninspectable.size()} registered worktree(s) exist on disk but are not " +
+                        "checkouts this guard can inspect - there is no\n" +
+                        "src/main/resources/application.yml in them, so whether they carry a " +
+                        "committed admin identity is UNKNOWN, which is not the same as clean:\n\n  " +
+                        uninspectable.join('\n  ') + "\n\n" + WORKTREE_REMEDY) }()
     }
 
     def "the sweep reaches real files in EVERY registered worktree, not just the one it runs in"() {
@@ -291,7 +329,14 @@ class AdminBootstrapIsNotCommittedSpec extends Specification {
         def thin = c.roots.collect { [show(it), launchSurface(it).size()] }.findAll { it[1] < 5 }
 
         expect: 'no registered tree is swept vacuously'
-        thin == []
+        thin.isEmpty() ||
+                { throw new AssertionError(
+                        "${thin.size()} registered worktree(s) yielded almost no launch-surface " +
+                        "files, so the sweep passed over them for free.\n" +
+                        "A tree that is swept vacuously is a tree reported clean without being " +
+                        "read:\n\n  " +
+                        thin.collect { "${it[0]}  (${it[1]} launch file(s) found, expected >= 5)" }
+                            .join('\n  ') + "\n\n" + WORKTREE_REMEDY) }()
 
         and: 'and the tree this JVM is standing in is fully in scope'
         def hereFiles = launchSurface(c.here).collect { show(it) }
@@ -325,7 +370,12 @@ class AdminBootstrapIsNotCommittedSpec extends Specification {
         }.toSorted()
 
         expect: 'admin is a property of the DEPLOYMENT, never of the source — in every tree, not just this one'
-        offenders == []
+        offenders.isEmpty() ||
+                { throw new AssertionError(
+                        "a bare Steam ID is committed on the launch surface of " +
+                        "${offenders.size()} file(s). Anyone who can log in as that account is an " +
+                        "admin of\nevery deployment built from that tree:\n\n  " +
+                        offenders.join('\n  ') + "\n\n" + WORKTREE_REMEDY) }()
     }
 
     def "no launch file in any registered worktree assigns the bootstrap variable an identity"() {
@@ -348,7 +398,12 @@ class AdminBootstrapIsNotCommittedSpec extends Specification {
         }.toSorted()
 
         expect: 'no assignment anywhere carries a hardcoded identity'
-        offenders == []
+        offenders.isEmpty() ||
+                { throw new AssertionError(
+                        "ADMIN_BOOTSTRAP_STEAM_IDS / bootstrap-steam-ids is assigned a concrete " +
+                        "identity in ${offenders.size()} place(s). The value must be a variable " +
+                        "reference,\na placeholder or an abort - never an account:\n\n  " +
+                        offenders.join('\n  ') + "\n\n" + WORKTREE_REMEDY) }()
 
         and: 'and the matcher is not dead — it still finds the assignments it is meant to police'
         files.count { ASSIGNS_BOOTSTRAP.matcher(it.text).find() } >= 3
@@ -511,9 +566,61 @@ class AdminBootstrapIsNotCommittedSpec extends Specification {
         assert block.find(), 'deploy/RUNBOOK.md has no BURNED-ADMIN-REFS block — ' +
                              'the set of contaminated refs is not recorded anywhere'
         def recorded = (block.group(1) =~ /`([^`]+)`/).collect { it[1] }.toSorted()
+        def present = refs.out.readLines().findAll { it.trim() }.toSorted()
 
-        expect: 'the refs that carry it are exactly the refs the RUNBOOK says carry it'
-        contaminated == recorded
+        expect: 'positive control - refs were actually enumerated, so an empty finding means something'
+        !present.isEmpty()
+
+        and: 'no ref carries a burned identity that the RUNBOOK does not already name'
+        // The live half of the guard. A newly contaminated ref is RED here
+        // immediately, and the message names the ref and what to do.
+        def unrecorded = (contaminated - recorded).toSorted()
+        unrecorded.isEmpty() ||
+                { throw new AssertionError(
+                        "${unrecorded.size()} ref(s) carry a burned admin identity on the launch " +
+                        "surface and are NOT recorded in deploy/RUNBOOK.md:\n\n  " +
+                        unrecorded.join('\n  ') + "\n\n" +
+                        "REMEDY - either remove the identity from that ref's launch files, or, if\n" +
+                        "the ref cannot be repaired from here (no push, no history rewrite), add it\n" +
+                        "to the BURNED-ADMIN-REFS block in deploy/RUNBOOK.md so a reader knows not\n" +
+                        "to trust it as a reference. Recording it is not a fix; it is the record\n" +
+                        "that stops someone treating that ref as known-good.") }()
+
+        and: 'and no ref the RUNBOOK names is clean here while still existing - the note must not rot'
+        def rotted = recorded.findAll { present.contains(it) && !contaminated.contains(it) }.toSorted()
+        rotted.isEmpty() ||
+                { throw new AssertionError(
+                        "deploy/RUNBOOK.md names ${rotted.size()} ref(s) as carrying a burned " +
+                        "identity, but they exist here and are CLEAN:\n\n  " +
+                        rotted.join('\n  ') + "\n\n" +
+                        "REMEDY - the repair landed. Remove those lines from the BURNED-ADMIN-REFS\n" +
+                        "block in deploy/RUNBOOK.md so the record matches reality.") }()
+
+        // DELIBERATELY NOT ASSERTED: a recorded ref that does not exist in THIS
+        // checkout.
+        //
+        // This case used to be `contaminated == recorded`, and that made it
+        // permanently red in any checkout whose ref set differs from the
+        // canonical repo's - with nothing anybody could do about it. Measured
+        // 2026-09-26 in a fresh `git clone --single-branch` of this very
+        // branch: contaminated [] vs recorded [refs/heads/main,
+        // refs/remotes/origin/main], i.e. the BENIGN direction (the clone is
+        // cleaner than the record) reported as a failure, printed as two bare
+        // lists, in a checkout that cannot remove refs it does not have and
+        // must not edit a record describing the canonical repo. A red with no
+        // owner gets suppressed, and the two live halves above go with it.
+        //
+        // Nothing is lost by exempting it. The note's job is to stop a reader
+        // treating a contaminated ref as known-good, and a ref that is not in
+        // this repository cannot be used as a reference from this repository.
+        // Where the recorded refs DO exist - the canonical repo - the rot check
+        // above still covers every one of them.
+        and: 'the recorded set is still meaningful here, or openly does not apply'
+        recorded.isEmpty() || present.any { recorded.contains(it) } ||
+                // No recorded ref exists in this checkout at all. Not a finding;
+                // asserted as a true statement so the branch is exercised
+                // rather than silently skipped.
+                recorded.every { !present.contains(it) }
     }
 
     // ── the every-login promotion, now audited ──────────────────────
