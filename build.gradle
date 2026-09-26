@@ -83,6 +83,50 @@ test {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// A GUARD MUST NOT CACHE ITS OWN VERDICT.
+//
+// AdminBootstrapIsNotCommittedSpec sweeps every worktree registered to this
+// repository and every ref, looking for a committed admin identity. NONE of
+// that is an input Gradle can see: the answer depends on `git worktree list`,
+// on refs, and on files in other checkouts entirely.
+//
+// So `:test` goes UP-TO-DATE while the thing under test changes. Measured
+// 2026-09-25: with a compromised worktree freshly registered at
+// `.claude/worktrees/`, `./gradlew test --tests ...AdminBootstrapIsNotCommitted*`
+// reported **BUILD SUCCESSFUL in 1s** and left the previous run's
+// `TEST-...xml` in place — 0 failures, off a result file that predated the
+// breach. Re-run with `--rerun-tasks` it was RED with 2 failures. A stale
+// green is the same defect the spec itself exists to catch, one level up:
+// absence of a fresh answer read as a positive one.
+//
+// This task therefore never goes up to date, and it is wired into `check` so
+// it actually runs. The filter also means that DELETING or RENAMING the spec
+// fails the build ("No tests found for given includes") rather than silently
+// removing the guard.
+//
+// It writes to build/test-results/adminBootstrapGuard/, separate from :test.
+//
+// NOTE ON SCOPE: because the sweep covers every REGISTERED worktree, a
+// compromised checkout belonging to someone else turns this red for everyone
+// on the machine. That is deliberate — anyone can build from a registered
+// worktree — and the failure message names the offending path and identity.
+// ─────────────────────────────────────────────────────────────────────────────
+tasks.register('adminBootstrapGuard', Test) {
+    group = 'verification'
+    description = 'Sweeps EVERY registered worktree and ref for a committed admin identity. Never cached.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sboxmarket.AdminBootstrapIsNotCommittedSpec' }
+    outputs.upToDateWhen { false }
+    testLogging {
+        events 'failed'
+        exceptionFormat = 'short'
+    }
+}
+tasks.named('check') { dependsOn 'adminBootstrapGuard' }
+
 // Required so Spring can read @RequestParam / @PathVariable names from
 // compiled Groovy method parameters via reflection.
 tasks.withType(GroovyCompile).configureEach {

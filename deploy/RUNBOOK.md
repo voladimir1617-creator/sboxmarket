@@ -477,6 +477,73 @@ bash deploy/backup-db.sh
 
 ---
 
+## BURNED ADMIN IDENTITY — two Steam IDs that must never be admin again
+
+**If you are here to set up admin access, this is the section you need.** Both
+`deploy/skinbox.env.example` and `src/main/resources/application.yml` point at it.
+
+Two Steam IDs were committed into this repository as admin bootstrap defaults. An
+ID in that list is auto-promoted to ADMIN **on every login**, with no env-var
+setup at all, so anyone who can sign in as one of these accounts is an admin of
+any deployment built from a tree that still carries the default:
+
+| Steam ID | where it was committed | how it got there |
+|----------|------------------------|------------------|
+| `76561199839805014` | `application.yml` → `admin.bootstrap-steam-ids`, and `deploy/skinbox.env.example`, and `deploy/run-local.sh` (`-e ADMIN_BOOTSTRAP_STEAM_IDS=`) | the initial commit, the operator naming his own Steam ID |
+| `76561197960287930` | `docker-compose.yml` → `ADMIN_BOOTSTRAP_STEAM_IDS: ${ADMIN_BOOTSTRAP_STEAM_IDS:-…}` | the same defect relocating after the first three files were cleaned |
+
+**Both are public and must never be used as an admin identity again** — not on
+this deployment, not on any other, not as a "temporary" bootstrap. They are
+readable by anyone who can read the published history, and that history is not
+being rewritten. Treat them exactly as you would a leaked password: the only
+remedy is to stop using them.
+
+This is the reason the digits appear **here and not on the launch surface**.
+`AdminBootstrapIsNotCommittedSpec` greps every launch file in every worktree
+registered to this repository for a bare Steam ID; if the warning itself carried
+the digits, that grep would match its own documentation and stop being decisive.
+So this file holds the numbers, and the two files an operator actually edits hold
+a pointer back to this heading. The spec asserts both halves of that arrangement,
+so neither can quietly disappear.
+
+### Refs that still carry a burned identity
+
+Measured 2026-09-25 by sweeping every ref for a bare Steam ID in
+`application.yml`, `application-prod.yml`, `skinbox.env.example`,
+`docker-compose.yml` and `run-local.sh`. The repair lives only on unmerged work
+branches, so the mainline still carries the defaults:
+
+<!-- BURNED-ADMIN-REFS:BEGIN -->
+- `refs/heads/main`
+- `refs/remotes/origin/main`
+<!-- BURNED-ADMIN-REFS:END -->
+
+**This list is asserted, not decorative.** `AdminBootstrapIsNotCommittedSpec`
+recomputes the sweep and requires the result to *equal* this block. A newly
+contaminated ref turns it RED immediately; cleaning one of these refs without
+updating this block turns it RED too, so the note cannot rot into a lie.
+
+**Do not "fix" this by asserting the working tree matches `origin/main`.** That
+was the first repair considered and it inverts the guard: `origin/main` is where
+the default was published, so a reference check against it would declare the
+breach correct and the repair a deviation. A known-good reference is only
+known-good if something checks it, and nothing was checking this one.
+
+### What a checkout of a contaminated ref does
+
+A worktree pinned to one of these refs restores the committed grant into a tree
+anyone can build from — and the guard cannot help there, because the guard
+postdates those commits and so does not exist in such a tree. A build produces
+**no result file for it at all**, and a missing result reads as zero failures.
+That is why a stale worktree is a live hazard and not merely untidy: on
+2026-09-25 exactly one existed, at `.claude/worktrees/agent-a476ed47e53e7f5af`,
+pinned at `d5b4c7e`, and it had already been built — its
+`build/resources/main/application.yml` carried the default too. It was removed
+after its uncommitted work was preserved on branch
+`rescue/agent-a476ed47e53e7f5af-uncommitted`.
+
+If you need an old tree, check the launch surface by hand before you build it.
+
 ## Revoking a persisted admin
 
 ### What is on the box right now (measured 2026-09-02, live database)

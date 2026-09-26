@@ -335,6 +335,22 @@ admin:
   #      demote a bootstrap admin you must BOTH remove the ID from this list
   #      AND call revokeAdmin — the role is persisted in STEAM_USERS.ROLE, so
   #      emptying the list alone demotes nobody who is already ADMIN.
+  #
+  # ===== BURNED ADMIN IDENTITY =====
+  #
+  # The Steam ID that used to sit in this default, and a second one that sat in
+  # docker-compose.yml's `:-` fallback, were COMMITTED and are now PUBLIC on
+  # origin/main. Published history is not being rewritten, so they cannot be
+  # unpublished, and they must never be used as an admin identity again -- not
+  # on this deployment and not on any other. Anyone who can read the public
+  # history knows them, so listing one here is the same as having no admin
+  # control at all.
+  #
+  # The digits are deliberately NOT repeated here. They are recorded in
+  # deploy/RUNBOOK.md under the heading "burned admin identity", so that
+  # grepping the launch surface for a bare Steam ID stays a decisive check.
+  # AdminBootstrapIsNotCommittedSpec is that grep, and it runs across every
+  # worktree registered to this repository, not just the one it is built in.
   bootstrap-steam-ids: ${ADMIN_BOOTSTRAP_STEAM_IDS:}
 
   # Rolling 24h cap on how much ONE admin identity can CREDIT into wallets,
