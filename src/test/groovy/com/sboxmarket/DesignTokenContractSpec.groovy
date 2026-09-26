@@ -198,56 +198,190 @@ class DesignTokenContractSpec extends Specification {
         css.substring(start + 1, open).trim()
     }
 
-    // ── The shipped-vs-committed guard ───────────────────────────────────────
+    // ── The shipped-vs-committed guard, over the WHOLE tokenised graph ───────
     //
-    // index.html loads the stylesheet as `/css/design.css?v=NNN` and the static
-    // handler sets a 7-day browser cache. The token is hand-maintained; the
-    // comment above it in index.html just says "bump on every CSS change".
+    // CorrelationIdFilter serves any `/js/**` or `/css/**` URL that carries a
+    // `?v=` token as `public, max-age=31536000, immutable`. A browser holding
+    // such a URL does not revalidate it for a YEAR — there is no conditional
+    // GET, no 304, no way for a deploy to reach it. The token in the referrer
+    // IS the cache key, so moving the token is the only cache-bust there is.
     //
-    // Nothing enforced that, and it is not hypothetical: the focus-ring and
-    // nav fixes in this stylesheet were verified byte-correct over HTTP and
-    // still did not appear in the browser, because the token had not moved and
-    // the cached copy was served for a page that had already been visited. A
-    // CSS fix that ships without a token bump reaches no returning visitor for
-    // a week, while every check a developer runs — the file on disk, the file
-    // over curl, the test suite — says it shipped.
+    // WHY THIS IS A GRAPH AND NOT A PAIR.
     //
-    // So the pair is recorded. Change design.css and this fails until the token
-    // moves too. IF YOU ARE HERE AFTER EDITING design.css: bump ?v= in
-    // static/index.html, then paste the two values the failure message prints.
-    private static final String RECORDED_CSS_SHA = '8f9a7261e505'
-    private static final String RECORDED_ASSET_TOKEN = '302'
+    // The first version of this guard recorded ONE pair — design.css's hash
+    // against its ?v= in index.html — and that is how the defect survived it.
+    // The tokenised assets form a chain four links deep:
+    //
+    //     index.html ──?v=──> css/design.css
+    //     index.html ──?v=──> js/main.js ──?v=──> js/app.js ──?v=──> js/modals.js
+    //                                                  └────?v=──> js/cards.js
+    //                                                        modals.js ──?v=──> cards.js
+    //
+    // and every referrer in it is ITSELF tokenised. So a fix applied to an
+    // inner token is invisible to exactly the browsers it was for: measured on
+    // this repo, `app.js?v=239` and `modals.js?v=211` were byte-identical to
+    // the merge base while BOTH branches had rewritten BOTH files, and the
+    // repair for that bumped app.js 239→240 *inside main.js* while leaving
+    // `/js/main.js?v=209` in index.html. main.js is tokenised too, so a
+    // returning browser never re-fetched main.js and never learned the inner
+    // token had moved. The fix was committed, correct, and inert.
+    //
+    // HOW THE RECORD FORCES THE WHOLE CHAIN TO MOVE.
+    //
+    // The hash recorded against an asset is a SUBTREE hash: its own bytes plus
+    // the subtree hash of every tokenised asset it references. Change cards.js
+    // and the subtree hash of modals.js, app.js AND main.js all move with it,
+    // so every token above it has to be re-recorded too — which is the same
+    // work as bumping it. A chain that moves in one place cannot be recorded.
+    //
+    // The graph is DISCOVERED, not listed, so a newly tokenised asset is
+    // covered the moment someone adds `?v=` to it, and an asset that loses its
+    // token shows up as a missing key rather than as silence.
+    //
+    // IF YOU ARE HERE AFTER EDITING ANY OF THESE FILES: bump the `?v=` on the
+    // asset you changed AND on every asset above it in the chain, then paste
+    // the block the failure message prints. Do not paste the hashes without
+    // bumping the tokens — that records the breakage instead of fixing it.
+    private static final Map<String, List<String>> RECORDED_TOKENISED_ASSETS = [
+            '/static/css/design.css': ['463f3ad33e96', '304'],
+            '/static/js/app.js': ['ded466e81182', '242'],
+            '/static/js/cards.js': ['763ae0acebce', '3'],
+            '/static/js/main.js': ['dc5fa6a365c1', '211'],
+            '/static/js/modals.js': ['c9ab42b5b03a', '214'],
+    ].asImmutable()
 
-    private static String cssHash() {
-        def text = read('/static/css/design.css').replace('\r', '')
+    /**
+     * A reference of the form `…name.js?v=NNN` / `…name.css?v=NNN`, as written
+     * in an `import` specifier, an `href` or a `src`. The leading quote or
+     * paren keeps it from matching the prose in this file's own comments when
+     * the scanner is pointed at a source file that discusses tokens.
+     */
+    private static final java.util.regex.Pattern TOKENISED_REF =
+            ~/["'(]\s*([A-Za-z0-9_.\/-]+\.(?:js|css|mjs))\?v=([0-9A-Za-z._-]+)/
+
+    /** Resolve a reference exactly as a browser would, relative to its referrer. */
+    private static String resolveRef(String referrer, String ref) {
+        if (ref.startsWith('/')) return '/static' + ref
+        def dir = referrer.substring(0, referrer.lastIndexOf('/'))
+        def out = []
+        (dir + '/' + ref).split('/').each { String seg ->
+            if (seg == '' || seg == '.') return
+            if (seg == '..') { if (!out.isEmpty()) out.removeAt(out.size() - 1); return }
+            out << seg
+        }
+        '/' + out.join('/')
+    }
+
+    /**
+     * Every tokenised edge reachable from index.html, as
+     * {@code [referrer, asset, token]}. Read from the CLASSPATH, so a referrer
+     * that never made it through processResources fails in {@code read()}
+     * rather than being walked past.
+     */
+    private static List<List<String>> tokenisedEdges() {
+        List<List<String>> edges = []
+        Set<String> visited = new LinkedHashSet<String>()
+        List<String> queue = ['/static/index.html']
+        while (!queue.isEmpty()) {
+            String from = queue.remove(0)
+            if (!visited.add(from)) continue
+            def m = TOKENISED_REF.matcher(read(from))
+            while (m.find()) {
+                String target = resolveRef(from, m.group(1))
+                edges << [from, target, m.group(2)]
+                queue << target
+            }
+        }
+        edges
+    }
+
+    /** referrer -> its tokenised children, deduplicated and ordered. */
+    private static Map<String, List<String>> childMap(List<List<String>> edges) {
+        Map<String, List<String>> kids = [:]
+        edges.each { kids.get(it[0], []) << it[1] }
+        kids.each { k, v -> kids[k] = v.unique().toSorted() }
+        kids
+    }
+
+    private static String sha12(String s) {
         java.security.MessageDigest.getInstance('SHA-256')
-                .digest(text.getBytes('UTF-8'))
-                .encodeHex().toString().substring(0, 12)
+                .digest(s.getBytes('UTF-8')).encodeHex().toString().substring(0, 12)
     }
 
-    private static String assetToken() {
-        def m = (read('/static/index.html') =~ /design\.css\?v=([^"']+)/)
-        m.find() ? m.group(1) : null
+    /**
+     * An asset's own bytes plus the subtree hash of every tokenised asset it
+     * references. CR is stripped first so a CRLF checkout does not read as a
+     * content change (core.autocrlf=true on the machines this is built on).
+     */
+    private static String subtreeHash(String path, Map<String, List<String>> kids, List<String> onPath) {
+        assert !onPath.contains(path):
+                "cycle in the tokenised asset graph: ${(onPath + [path]).join(' -> ')}"
+        onPath << path
+        def acc = new StringBuilder(read(path).replace('\r', ''))
+        (kids[path] ?: []).each { String kid ->
+            acc.append('\u0000').append(kid).append('=').append(subtreeHash(kid, kids, onPath))
+        }
+        onPath.removeAt(onPath.size() - 1)
+        sha12(acc.toString())
     }
 
-    def "a change to design.css moves the cache-busting token with it"() {
+    def "every tokenised asset, and every token ABOVE it in the chain, moves when its content moves"() {
         given:
-        def hash = cssHash()
-        def token = assetToken()
+        def edges = tokenisedEdges()
+        def kids = childMap(edges)
+        def assets = edges.collect { it[1] }.unique().toSorted()
 
-        expect:
-        token != null
-        (hash == RECORDED_CSS_SHA && token == RECORDED_ASSET_TOKEN) ||
+        expect: "positive control — the walk found the chain rather than nothing"
+        // A scanner that matches nothing records an empty map and passes for
+        // free, which is how this class of guard usually dies.
+        edges.size() >= 5
+        assets.size() >= 4
+        assets.contains('/static/css/design.css')
+        assets.contains('/static/js/main.js')
+
+        and: "no asset is reachable under two different tokens"
+        // Two tokens for one file is two immutable cache entries for one file,
+        // and a browser that holds the stale one is never told. cards.js is
+        // imported from both app.js and modals.js, so this is live coupling.
+        def split = edges.groupBy { it[1] }
+                .findAll { asset, es -> es.collect { it[2] }.unique().size() > 1 }
+        split.isEmpty() ||
                 { throw new AssertionError(
-                        "design.css and/or the ?v= token changed without the recorded pair being updated.\n" +
-                        "Returning visitors hold a 7-day cached copy keyed on that token, so a CSS change\n" +
-                        "that does not move it is invisible to them however correct the file is.\n\n" +
-                        "  design.css sha256-12 : recorded ${RECORDED_CSS_SHA} -> now ${hash}\n" +
-                        "  index.html ?v=        : recorded ${RECORDED_ASSET_TOKEN} -> now ${token}\n\n" +
-                        "Fix: bump ?v= in src/main/resources/static/index.html (it must differ from\n" +
-                        "${RECORDED_ASSET_TOKEN}), then update this spec:\n" +
-                        "  RECORDED_CSS_SHA     = '${hash}'\n" +
-                        "  RECORDED_ASSET_TOKEN = '<the token you just set>'") }()
+                        "an asset is referenced under more than one ?v= token, so one immutable " +
+                        "cache entry per token exists and a browser holding the stale one is never " +
+                        "told:\n  " + split.collect { asset, es ->
+                            asset + '\n    ' + es.collect { "${it[0]} -> ?v=${it[2]}" }.join('\n    ')
+                        }.join('\n  ')) }()
+
+        and: "the recorded (subtree-hash, token) pair still holds for every tokenised asset"
+        def actual = assets.collectEntries { String a ->
+            [(a): [subtreeHash(a, kids, []), edges.find { it[1] == a }[2]]]
+        }
+        actual == RECORDED_TOKENISED_ASSETS ||
+                { throw new AssertionError(
+                        "the tokenised asset graph no longer matches its record.\n\n" +
+                        "Any `/js/**` or `/css/**` URL with a ?v= is served max-age=31536000, immutable,\n" +
+                        "so a returning browser will NOT revalidate it for a year. The token in the\n" +
+                        "referrer is the only cache key there is, and every referrer below is itself\n" +
+                        "tokenised - so bumping an inner token alone is inert.\n\n" +
+                        (assets + RECORDED_TOKENISED_ASSETS.keySet()).unique().toSorted().collect { String a ->
+                            def was = RECORDED_TOKENISED_ASSETS[a]
+                            def now = actual[a]
+                            def mark = (was == now ? '    ' : ' -> ')
+                            mark + a + '\n' +
+                            mark + '    recorded ' + (was == null ? '(not recorded - newly tokenised?)' : "subtree ${was[0]}  ?v=${was[1]}") + '\n' +
+                            mark + '    now      ' + (now == null ? '(absent - did it lose its ?v= token?)' : "subtree ${now[0]}  ?v=${now[1]}")
+                        }.join('\n') + "\n\n" +
+                        "The lines marked `->` moved. For EACH of them: bump its ?v= in the file that\n" +
+                        "references it, and bump the ?v= of every asset ABOVE it in the chain too\n" +
+                        "(an inner bump nobody re-fetches the outer file to see is the defect, not the\n" +
+                        "fix). Then re-run and paste this block:\n\n" +
+                        "    private static final Map<String, List<String>> RECORDED_TOKENISED_ASSETS = [\n" +
+                        actual.collect { k, v -> "            '${k}': ['${v[0]}', '${v[1]}']," }.join('\n') + "\n" +
+                        "    ].asImmutable()\n\n" +
+                        "Verify on the RESPONSE HEADERS of the running app, not by reading source:\n" +
+                        "  curl -sI 'http://localhost:PORT/js/main.js?v=<new>'  ->  200 + immutable\n" +
+                        "  curl -s  'http://localhost:PORT/' | grep -o 'main.js?v=[0-9]*'") }()
     }
 
     def "the could-not-load styling still keys on a testid the app actually emits"() {

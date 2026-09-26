@@ -2,7 +2,7 @@
 // surface — none of them receive the full App state.
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
-import { GridCard } from './cards.js?v=2';
+import { GridCard } from './cards.js?v=3';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
