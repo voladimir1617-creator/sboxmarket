@@ -81,8 +81,9 @@ class AgentationIsAbsentByDefaultSpec extends Specification {
     ].asImmutable()
 
     /**
-     * {@code /index.html}, not {@code /}. Spring Boot maps {@code /} to a
-     * {@code forward:index.html} view, and MockMvc does not execute forwards —
+     * {@code /index.html}, not {@code /}. {@code /} is a forward (Spring Boot's
+     * welcome-page mapping first, {@code WebConfig.SPA_ROUTES} since commit
+     * {@code 3286321}), and MockMvc does not execute forwards —
      * it records {@code forwardedUrl} and leaves the body EMPTY. An assertion
      * that the toolbar is absent from an empty body is exactly the
      * "absence read as success" result this spec exists to refuse, so the
@@ -103,22 +104,130 @@ class AgentationIsAbsentByDefaultSpec extends Specification {
         FINGERPRINTS.every { !body.toLowerCase().contains(it.toLowerCase()) }
     }
 
-    def "and / really does forward to the page that was just checked"() {
-        expect:
-        mockMvc.perform(MockMvcRequestBuilders.get('/').accept('text/html'))
-               .andReturn().response.forwardedUrl == 'index.html'
+    /**
+     * The forward target as a request path, so the page can actually be
+     * fetched. MockMvc does not execute forwards — it records the view name and
+     * leaves the body empty — so requesting the target is the only way to
+     * assert on what {@code /} SERVES.
+     */
+    private static String asRequestPath(String forwardedUrl) {
+        forwardedUrl == null ? null : (forwardedUrl.startsWith('/') ? forwardedUrl : '/' + forwardedUrl)
     }
 
-    def "the vendored bundle is unreachable — #path"() {
+    /**
+     * <b>This case used to assert a string, and the string moved.</b>
+     *
+     * It read {@code forwardedUrl == 'index.html'}, which was true when it was
+     * written: {@code /} was not matched by the depth-1 glob
+     * {@code /{path:[^.]*}}, so it fell through to Spring Boot's
+     * {@code WelcomePageHandlerMapping}, whose view name has NO leading slash.
+     * Commit {@code 3286321} replaced those globs with an enumeration of the
+     * routes that exist, {@code SPA_ROUTES}, whose first entry is {@code '/'}
+     * and which registers {@code forward:/index.html} — WITH the slash. The
+     * behaviour was unchanged; only the spelling of Spring's view name moved,
+     * and this spec went red for it.
+     *
+     * A guard that fails on a rename it does not care about gets edited to
+     * agree with whatever it found, and the next edit is the one that matters.
+     * So the assertion is now the behaviour: {@code /} resolves, and the page
+     * it resolves TO is fetched and checked — for being the app at all, and for
+     * carrying no trace of the toolbar. Either spelling of the view name
+     * passes; a {@code /} that stops serving the app, or an app shell that
+     * starts carrying the toolbar, does not.
+     */
+    def "/ resolves to the app shell, and that page carries no trace of the toolbar"() {
+        given: 'the root route, requested the way a browser requests it'
+        def root = mockMvc.perform(MockMvcRequestBuilders.get('/').accept('text/html')).andReturn().response
+
+        expect: '/ is answered — not a redirect, not a 404'
+        root.status == 200
+
+        and: 'by a forward, because the shell is a static resource rather than a rendered view'
+        // Deliberately NOT compared against a literal: `index.html` and
+        // `/index.html` are the same resource and this spec has no stake in
+        // which spelling Spring produces.
+        asRequestPath(root.forwardedUrl) != null
+
+        and: 'and the page that forward names really is this app, not an error page'
+        def target = mockMvc.perform(
+                MockMvcRequestBuilders.get(asRequestPath(root.forwardedUrl)).accept('text/html')
+        ).andReturn().response
+        target.status == 200
+        String body = target.getContentAsString(StandardCharsets.UTF_8)
+        body.toLowerCase().contains('</body>')
+        // Positive control with teeth: the shell must load the app's own entry
+        // module. `</body>` alone would be satisfied by the 404 view.
+        body =~ /src="\/js\/main\.js\?v=\d+"/
+
+        and: 'no script tag, no asset URL and no mount node on the page / actually serves'
+        FINGERPRINTS.findAll { body.toLowerCase().contains(it.toLowerCase()) } == []
+    }
+
+    /**
+     * <h4>Why this is a served-HTML check and not a DOM query</h4>
+     *
+     * The obvious browser-side check — {@code document.querySelector('#' +
+     * MOUNT_ID)} — is worthless in both directions: the toolbar renders inside
+     * a SHADOW ROOT, so that query returns {@code null} on a page where the
+     * toolbar is present and working. A sibling established the decisive
+     * browser check instead: <b>the page must contain zero shadow roots</b>
+     * (walk every element and count {@code el.shadowRoot != null}). Measured on
+     * the running app with {@code SBOX_AGENTATION} unset: 0 shadow roots, and
+     * {@code /__agentation/mount.mjs} 404. With it set, the mount node's shadow
+     * root appears. The count is recorded here so nobody re-derives the
+     * querySelector check and reads its null as absence.
+     *
+     * This spec asserts the same absence one layer earlier, in the bytes the
+     * server sends, where the mount node cannot hide inside a shadow root
+     * because it has not been attached yet.
+     */
+    def "the whole /__agentation/** prefix is unreachable — #path"() {
         expect:
         mockMvc.perform(MockMvcRequestBuilders.get(path)).andReturn().response.status == 404
 
         where:
         path << [
+            // The three real bundle files.
             AgentationDevGate.ASSET_PREFIX + 'mount.mjs',
             AgentationDevGate.ASSET_PREFIX + 'agentation.mjs',
             AgentationDevGate.ASSET_PREFIX + 'react.production.min.js',
+            // …and names that are not in the bundle map at all, so this is
+            // "the prefix is unreachable" rather than "these three filenames
+            // are". A filter registered by mistake would serve, or at least
+            // handle, these; nothing does.
+            AgentationDevGate.ASSET_PREFIX + 'anything.mjs',
+            AgentationDevGate.ASSET_PREFIX + 'nested/deeper/asset.js',
         ]
+    }
+
+    /**
+     * The bare prefix is handled separately because <b>404 is the wrong
+     * assertion for it under MockMvc, and asserting it would have been
+     * asserting an artefact.</b>
+     *
+     * {@code /__agentation/} contains no dot, so it matches
+     * {@code WebConfig}'s depth-1 trailing-slash glob
+     * {@code /{path:[^.]*}/} and forwards to {@link WebConfig#SPA_NOT_FOUND_PATH},
+     * where {@code SpaNotFoundController} sets {@code 404}. MockMvc does not
+     * execute forwards, so it records <b>200 with an empty body</b> — measured.
+     * The asset-shaped paths above are genuine 404s because they carry a dot
+     * and so reach the resource handler directly.
+     *
+     * Demanding 404 here would fail on a MockMvc artefact and invite someone to
+     * "fix" routing that is correct; accepting the 200 would record a leak that
+     * does not exist. What is both decidable and load-bearing is WHERE the
+     * request goes and that nothing of its own is served.
+     */
+    def "the bare prefix lands on the app's own not-found, serving nothing of its own"() {
+        when:
+        def res = mockMvc.perform(MockMvcRequestBuilders.get(AgentationDevGate.ASSET_PREFIX))
+                         .andReturn().response
+
+        then: 'a real 404, or a forward to the route that produces one'
+        res.status == 404 || res.forwardedUrl == WebConfig.SPA_NOT_FOUND_PATH
+
+        and: 'and not one byte of its own, whichever of those two it was'
+        res.getContentAsString(StandardCharsets.UTF_8).isEmpty()
     }
 
     def "neither filter is a bean — the configuration class was never processed"() {
