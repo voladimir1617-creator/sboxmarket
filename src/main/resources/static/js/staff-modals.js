@@ -1,6 +1,7 @@
 // Admin + CSR panels. Kept in their own file so the ordinary-user modal
 // module doesn't pull in staff code paths. Both panels are tabbed, use
 // InfoModal as the shell, and call into api.js for I/O.
+import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, fmt, timeAgo, toast, linkifyText } from './utils.js';
 import { InfoModal } from './info-modal.js';
 import { ReasonDrawer, MaterialIcon } from './primitives.js';
@@ -409,7 +410,7 @@ function SmtpTestRow() {
           'Content-Type': 'application/json',
           ...(csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {})
         },
-        body: JSON.stringify({ to: to.trim(), subject: 'SkinBox SMTP test', body: 'This is a diagnostic email from your SkinBox admin panel. If you received it, the send pipeline is healthy.' })
+        body: JSON.stringify({ to: to.trim(), subject: `${BRAND.name} SMTP test`, body: `This is a diagnostic email from your ${BRAND.name} admin panel. If you received it, the send pipeline is healthy.` })
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setRes({ ok: false, msg: j.message || j.error || `HTTP ${r.status}` }); return; }

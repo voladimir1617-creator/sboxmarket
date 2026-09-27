@@ -25078,6 +25078,7 @@ html body .wallet-pending-chip.withdraw { background-color: rgba(255, 170, 0, 0.
 html body .wallet-pending-chip.withdraw .wallet-pending-amt { color: rgb(255, 170, 0) !important; font-weight: 700 !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; }
 html body .wallet-pending-chip.withdraw .wallet-pending-label { color: rgb(255, 170, 0) !important; font-weight: 600 !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; }
 html body .wallet-modal .wallet-cap-banner, html body .wallet-modal [class*="dailyWithdrawCap"] { background-color: rgba(255, 170, 0, 0.08) !important; border: 1px solid rgba(255, 170, 0, 0.24) !important; border-radius: 4px !important; padding: 12px 14px !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 14px !important; line-height: 20px !important; color: rgb(255, 170, 0) !important; letter-spacing: normal !important; }
+html body .wallet-modal .wallet-amount-wrap::before { content: none !important; display: none !important; }
 html body .wallet-modal .wallet-preset-row { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; margin-top: 10px !important; }
 html body .wallet-modal .wallet-preset-btn { background-color: transparent !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; border-radius: 16px !important; padding: 0 16px !important; height: 32px !important; min-height: 32px !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 13px !important; font-weight: 500 !important; letter-spacing: normal !important; line-height: 30px !important; color: rgb(158, 167, 177) !important; cursor: pointer !important; transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
 html body .wallet-modal .wallet-preset-btn:hover { background-color: rgba(255, 255, 255, 0.04) !important; color: rgb(255, 255, 255) !important; border-color: rgba(255, 255, 255, 0.12) !important; }
@@ -25507,6 +25508,7 @@ body div[style*="rgba(248, 113, 113, 0.1)"][style*="rgba(248, 113, 113, 0.35)"] 
 body div[style*="rgba(248, 113, 113, 0.1)"][style*="rgba(248, 113, 113, 0.35)"] > div > div:first-child { color: var(--banner-suspension-text, rgb(251, 146, 60)) !important; font-weight: 700 !important; font-size: 14px !important; letter-spacing: 0.04em !important; }
 body div[style*="rgba(248, 113, 113, 0.1)"][style*="rgba(248, 113, 113, 0.35)"] > div > div:not(:first-child) { color: var(--subtext-color, rgb(158, 167, 177)) !important; font-size: 14px !important; font-weight: 600 !important; opacity: 1 !important; letter-spacing: 0.04em !important; }
 html body .wallet-modal .wallet-preset-row .wallet-preset-btn, html body .wallet-modal .wallet-preset-btn { border-radius: 8px !important; }
+html body .wallet-modal .wallet-amount-wrap::before { content: none !important; display: none !important; }
 html body .wallet-modal .wallet-preset-row { background-color: rgba(193, 206, 255, 0.04) !important; border-radius: 7px !important; padding: 3px !important; gap: 0 !important; display: inline-flex !important; flex-wrap: wrap !important; width: auto !important; }
 html body .wallet-modal .wallet-preset-row .wallet-preset-btn { margin: 0 !important; }
 html body .wallet-modal .wallet-preset-btn.active, html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active { background-color: rgba(35, 123, 255, 0.12) !important; }
@@ -25538,6 +25540,7 @@ body:has(.mystall-tabs[role="tablist"]) .info-modal-body input[type="checkbox"]:
 body:has(.mystall-tabs[role="tablist"]) .info-modal-body input[type="checkbox"]:not(.toggle-input):focus-visible { outline: 2px solid rgb(35, 123, 255) !important; outline-offset: 2px !important; }
 body:has(.mystall-tabs[role="tablist"]) .info-modal-body label:has(> input[type="checkbox"]:not(.toggle-input)) { display: inline-flex !important; align-items: center !important; gap: 8px !important; min-height: 40px !important; padding: 11px 8px 11px 11px !important; margin: 0 !important; cursor: pointer !important; }
 html body .wallet-modal .wallet-preset-row .wallet-preset-btn, html body .wallet-modal .wallet-preset-btn { border-radius: 8px !important; }
+html body .wallet-modal .wallet-amount-wrap::before { content: none !important; display: none !important; }
 html body .wallet-modal .wallet-preset-row { background-color: rgba(193, 206, 255, 0.04) !important; border-radius: 7px !important; padding: 3px !important; gap: 0 !important; display: inline-flex !important; flex-wrap: wrap !important; width: auto !important; }
 html body .wallet-modal .wallet-preset-row .wallet-preset-btn { margin: 0 !important; }
 html body .wallet-modal .wallet-preset-btn.active, html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active { background-color: rgba(35, 123, 255, 0.12) !important; }
@@ -26553,6 +26556,7 @@ html body .wallet-modal .wallet-amount-input-v2 { min-width: 0 !important; width
    links). Bare links wrapped awkwardly ($500 orphaned a row) and broke the
    control system; tidy nowrap chips that tile cleanly match csfloat + the
    secondary-control surface used elsewhere. */
+html body .wallet-modal .wallet-amount-wrap::before { content: none !important; display: none !important; }
 html body .wallet-modal .wallet-preset-row { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; align-items: center !important; gap: 8px !important; background: transparent !important; border: 0 !important; padding: 0 !important; }
 html body .wallet-modal .wallet-preset-btn, html body .wallet-modal .wallet-preset-row button { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; min-width: 0 !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 13px !important; font-weight: 600 !important; letter-spacing: 0 !important; white-space: nowrap !important; background: var(--ctl-surface) !important; color: var(--ctl-ink) !important; border: 1px solid var(--ctl-border) !important; border-radius: var(--ctl-r) !important; padding: 0 10px !important; height: 36px !important; min-height: 36px !important; line-height: 34px !important; cursor: pointer !important; text-decoration: none !important; }
 html body .wallet-modal .wallet-preset-btn:hover, html body .wallet-modal .wallet-preset-row button:hover { background: var(--ctl-surface-h) !important; border-color: var(--ctl-border-h) !important; color: #ffffff !important; opacity: 1 !important; text-decoration: none !important; transform: translateY(-1px) !important; }
@@ -29428,3 +29432,245 @@ html body .buy-confirm-tradeurl-label { font: 600 13px/1.3 var(--ui); color: var
 html body .buy-confirm-tradeurl-hint { font: 400 12px/1.5 var(--ui); color: var(--ink-3); }
 html body .buy-confirm-tradeurl-hint a { display: inline !important; padding: 0 !important; border: 0 !important; background: none !important; color: var(--ink-2) !important; font: inherit !important; text-decoration: underline !important; text-underline-offset: 2px; }
 html body .buy-confirm-tradeurl input.wallet-amount-input { width: 100% !important; height: 38px !important; padding: 0 10px !important; font: 400 12px/1 var(--mono) !important; letter-spacing: 0 !important; }
+
+/* ==========================================================================
+   2026-09-27 marketplace refresh. One layer, appended last so it wins over
+   the older layers without editing them. Scope: the market toolbar, the item
+   card, the item page's buy box, the wallet, and the phone layout of all four.
+   ========================================================================== */
+
+/* Market toolbar: one row on desktop. Search grows, the listing-type toggle
+   and filter chips sit beside it, and sort, discount, refresh and view keep
+   to the right edge instead of floating in a half-empty second row. */
+html body .main > .toolbar {
+  display: flex !important; flex-wrap: wrap !important; align-items: center !important;
+  gap: 8px !important; padding: 0 0 12px !important; margin: 0 0 4px !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+html body .main > .toolbar > * { margin: 0 !important; }
+html body .main > .toolbar .search-wrap { order: 0; flex: 1 1 260px !important; min-width: 200px !important; max-width: none !important; }
+html body .main > .toolbar .sort-picker { order: 1; }
+html body .main > .toolbar .discount-select { order: 2; }
+html body .main > .toolbar .toolbar-refresh { order: 3; }
+html body .main > .toolbar .view-btns { order: 4; }
+html body .main > .toolbar::after { content: '' !important; display: block !important; order: 5; flex: 0 0 100% !important; height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; position: static !important; }
+html body .main > .toolbar .type-toggle { order: 6; }
+html body .main > .toolbar > .deals-chip { order: 7; }
+html body .main > .toolbar > div:not([class]) { order: 8; margin-left: auto !important; }
+html body .main > .toolbar .search-wrap,
+html body .main > .toolbar .sort-picker-chip,
+html body .main > .toolbar .discount-select,
+html body .main > .toolbar .deals-chip,
+html body .main > .toolbar .type-toggle,
+html body .main > .toolbar .toolbar-refresh,
+html body .main > .toolbar .view-btns,
+html body .main > .toolbar > div:not([class]) > .btn { height: 38px !important; min-height: 38px !important; }
+html body .main > .toolbar .deals-chip,
+html body .main > .toolbar .sort-picker-chip,
+html body .main > .toolbar .discount-select {
+  border-radius: var(--r-sm) !important; border: 1px solid var(--line) !important;
+  background: var(--bg-1) !important; color: var(--ink-2) !important;
+  font: 500 13px/1 var(--ui) !important; padding: 0 12px !important;
+}
+html body .main > .toolbar .deals-chip:hover,
+html body .main > .toolbar .sort-picker-chip:hover { border-color: var(--line-2) !important; color: var(--ink) !important; }
+html body .main > .toolbar .deals-chip.active,
+html body .main > .toolbar .deals-chip[aria-pressed="true"] {
+  border-color: var(--accent) !important; color: var(--ink) !important;
+  background: color-mix(in oklch, var(--accent) 16%, var(--bg-1)) !important;
+}
+html body .results-meta { margin: 12px 0 !important; color: var(--ink-3) !important; font: 400 13px/1.3 var(--ui) !important; }
+html body .results-meta strong { color: var(--ink) !important; }
+
+/* Item grid: even columns that fill the row, and cards with one clear
+   reading order: picture, name, category, price, then seller and age. */
+html body .listing-grid {
+  display: grid !important; gap: 12px !important;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
+}
+html body .listing-grid > .grid-card {
+  height: auto !important; min-height: 0 !important;
+  display: flex !important; flex-direction: column !important; min-width: 0 !important;
+  border: 1px solid var(--line) !important; border-radius: var(--r-md) !important;
+  background: var(--bg-1) !important; overflow: hidden !important;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease !important;
+}
+html body .listing-grid > .grid-card:hover {
+  border-color: var(--line-2) !important; transform: translateY(-2px) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,.35) !important;
+}
+html body .listing-grid { grid-auto-rows: auto !important; align-items: stretch !important; }
+html body .listing-grid > .grid-card .grid-thumb { flex: 0 0 auto !important; aspect-ratio: 4 / 3 !important; height: auto !important; min-height: 0 !important; max-height: none !important; }
+html body .listing-grid > .grid-card .grid-body {
+  display: flex !important; flex-direction: column !important; flex: 1 1 auto !important;
+  gap: 4px !important; padding: 12px !important; text-align: left !important;
+}
+html body .listing-grid > .grid-card .grid-body > * { padding-left: 0 !important; padding-right: 0 !important; }
+html body .listing-grid > .grid-card .grid-body > .grid-name,
+html body .listing-grid > .grid-card .grid-body > .grid-cat { padding-top: 0 !important; padding-bottom: 0 !important; }
+html body .listing-grid > .grid-card .grid-body > .grid-footer { flex: 0 0 auto !important; }
+html body .listing-grid > .grid-card .grid-name {
+  font: 600 14px/1.3 var(--ui) !important; color: var(--ink) !important; margin: 0 !important;
+  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+}
+html body .listing-grid > .grid-card .grid-cat {
+  font: 400 12px/1.3 var(--ui) !important; color: var(--ink-3) !important; margin: 0 !important;
+  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+}
+html body .listing-grid > .grid-card .grid-auction-tag {
+  display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: var(--r-xs);
+  font: 700 10px/1.4 var(--ui) !important; letter-spacing: .04em;
+  color: var(--warn) !important; background: color-mix(in oklch, var(--warn) 14%, transparent) !important; border: 0 !important;
+}
+html body .listing-grid > .grid-card .grid-footer {
+  display: flex !important; flex-direction: column !important; align-items: stretch !important;
+  gap: 6px !important; margin-top: auto !important; padding: 8px 0 0 !important; border: 0 !important;
+}
+html body .listing-grid > .grid-card .grid-footer > div:first-child { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+html body .listing-grid > .grid-card .grid-price {
+  display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important;
+  justify-content: flex-start !important; margin: 0 !important; padding: 0 !important;
+  font: 700 18px/1.2 var(--ui) !important; color: var(--ink) !important; font-variant-numeric: tabular-nums;
+}
+html body .listing-grid > .grid-card .grid-price .steam-market-link { order: 3; margin-left: auto !important; opacity: .7; }
+html body .listing-grid > .grid-card .grid-price .steam-market-link:hover { opacity: 1; }
+html body .listing-grid > .grid-card .grid-discount {
+  padding: 2px 6px !important; border-radius: var(--r-xs) !important; border: 0 !important;
+  font: 700 11px/1.3 var(--ui) !important; color: var(--up) !important;
+  background: color-mix(in oklch, var(--up) 15%, transparent) !important;
+}
+html body .listing-grid > .grid-card .grid-steam-price { font: 400 12px/1.3 var(--ui) !important; color: var(--ink-4) !important; margin: 0 !important; }
+html body .listing-grid > .grid-card .grid-bid-count { font: 600 12px/1.3 var(--ui) !important; color: var(--accent) !important; background: none !important; border: 0 !important; padding: 0 !important; }
+html body .listing-grid > .grid-card .grid-supply { font: 400 12px/1.3 var(--ui) !important; color: var(--ink-3) !important; }
+html body .listing-grid > .grid-card .gc-card-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-top: 8px; border-top: 1px solid var(--line);
+  font: 400 11px/1.3 var(--ui); color: var(--ink-4);
+}
+html body .listing-grid > .grid-card .gc-online-row {
+  display: inline-flex !important; align-items: center !important; gap: 6px !important;
+  position: static !important; margin: 0 !important; padding: 0 !important;
+  font: 500 11px/1.3 var(--ui) !important; color: var(--ink-3) !important;
+}
+html body .listing-grid > .grid-card .gc-online-row.is-online { color: var(--up) !important; }
+html body .listing-grid > .grid-card .gc-card-age { white-space: nowrap; }
+html body .listing-grid > .grid-card .grid-status-verified { display: inline-flex; color: var(--accent); }
+
+/* Item page: the buy box. Buy is the one wide primary button, cart sits
+   beside it, and Bargain is a full-width secondary under both. */
+html body .item-page .item-rail-actions {
+  display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; gap: 8px !important;
+  width: 100% !important; margin: 16px 0 8px !important;
+}
+html body .item-page .item-rail-actions-buy {
+  height: 48px !important; width: 100% !important; justify-content: center !important;
+  border-radius: var(--r-sm) !important; font: 700 15px/1 var(--ui) !important;
+}
+html body .item-page .item-rail-actions-cart {
+  height: 48px !important; min-width: max-content !important; width: auto !important; padding: 0 14px !important; justify-content: center !important;
+  border-radius: var(--r-sm) !important; border: 1px solid var(--line-2) !important; background: var(--bg-2) !important;
+}
+html body .item-page .item-rail-actions-bargain {
+  height: 44px !important; width: 100% !important; margin: 0 0 16px !important;
+  border-radius: var(--r-sm) !important;
+}
+
+/* Wallet: a balance you can read across the room, and the
+   deposit steps on a straight rail. */
+html body .wallet-modal .wallet-hero { padding: 24px !important; }
+html body .wallet-modal .wallet-hero-balance { font: 700 40px/1.1 var(--ui) !important; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+html body .wallet-modal .wallet-step { border: 0 !important; display: grid !important; grid-template-columns: 32px minmax(0, 1fr) !important; gap: 16px !important; }
+html body .wallet-modal .wallet-step-rail { border: 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important; width: 32px !important; margin: 0 !important; padding: 0 !important; }
+html body .wallet-modal .wallet-step-num {
+  display: grid !important; place-items: center !important; width: 28px !important; height: 28px !important;
+  border-radius: 50% !important; border: 1px solid var(--line-2) !important; background: var(--bg-2) !important;
+  font: 700 13px/1 var(--ui) !important; color: var(--ink-2) !important; margin: 0 !important;
+}
+html body .wallet-modal .wallet-step.active .wallet-step-num { border-color: var(--accent) !important; background: var(--accent) !important; color: var(--accent-i) !important; }
+html body .wallet-modal .wallet-step-line { flex: 1 1 auto !important; width: 1px !important; min-height: 24px !important; margin: 6px 0 !important; background: var(--line) !important; }
+html body .wallet-modal .wallet-step-body { min-width: 0 !important; padding: 2px 0 24px !important; margin: 0 !important; }
+html body .wallet-modal .wallet-step-head { padding: 0 0 12px !important; margin: 0 !important; border: 0 !important; }
+html body .wallet-modal .wallet-step-title { font: 600 16px/1.3 var(--ui) !important; margin: 0 0 4px !important; }
+html body .wallet-modal .wallet-amount-wrap::before { content: none !important; display: none !important; }
+html body .wallet-modal .wallet-preset-row { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important; gap: 8px !important; }
+
+/* Phone: a shorter header, the toolbar as one search line plus one row of
+   chips you swipe sideways, and item cards two to a row with room for the
+   price. */
+@media (max-width: 720px) {
+  html body .main > .toolbar { gap: 6px !important; }
+  html body .main > .toolbar .search-wrap { flex: 1 1 100% !important; min-width: 0 !important; }
+  html body .main > .toolbar .view-btns,
+  html body .main > .toolbar::after { display: none !important; }
+  html body .main > .toolbar > div:not([class]) { margin-left: 0 !important; }
+  html body .main > .toolbar .sort-picker-chip,
+  html body .main > .toolbar .discount-select,
+  html body .main > .toolbar .deals-chip,
+  html body .main > .toolbar .type-toggle,
+  html body .main > .toolbar .toolbar-refresh,
+  html body .main > .toolbar > div:not([class]) > .btn { height: 34px !important; min-height: 34px !important; font-size: 12px !important; }
+  html body .listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  html body .listing-grid > .grid-card .grid-body { padding: 10px !important; }
+  html body .listing-grid > .grid-card .grid-price { font-size: 16px !important; gap: 6px !important; flex-wrap: wrap !important; }
+  html body .listing-grid > .grid-card .grid-price .steam-market-link { display: none !important; }
+  html body .listing-grid > .grid-card .gc-card-age { display: none; }
+  html body .wallet-modal .wallet-hero-balance { font-size: 32px !important; }
+  html body main.modal.item-page .modal-header > .modal-preview { height: auto !important; min-height: 0 !important; max-height: 300px !important; aspect-ratio: 4 / 3 !important; }
+}
+
+/* ── 2026-09-27 refresh, second batch: stall, profile, empty states ───── */
+
+/* My Stall: each listing is one row with a clear gap to the next, the name
+   and its detail line on the left, and price plus actions on the right. The
+   rows used to touch, so an auction's "ends in" pill ran into the next name. */
+html body .stall-list { display: flex !important; flex-direction: column !important; gap: 0 !important; }
+html body .stall-list > .stall-row {
+  display: grid !important; grid-template-columns: 44px minmax(0, 1fr) auto !important;
+  align-items: center !important; column-gap: 14px !important; row-gap: 8px !important;
+  padding: 12px 4px !important; margin: 0 !important; min-height: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+html body .stall-list > .stall-row:last-child { border-bottom: 0 !important; }
+html body .stall-list > .stall-row > .item-thumb { width: 44px !important; height: 44px !important; border-radius: var(--r-sm) !important; background: var(--bg-2) !important; display: grid !important; place-items: center !important; }
+html body .stall-list > .stall-row > div:nth-child(2) { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; min-width: 0 !important; }
+html body .stall-list > .stall-row .item-name { font: 600 14px/1.3 var(--ui) !important; margin: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+html body .stall-list > .stall-row .item-sub { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 6px !important; font: 400 12px/1.4 var(--ui) !important; color: var(--ink-3) !important; margin: 0 !important; }
+html body .stall-list > .stall-row .item-sub > span { font-size: 11px !important; padding: 2px 8px !important; border-radius: var(--r-xs) !important; margin: 0 !important; }
+html body .stall-list > .stall-row > div:nth-child(3) { display: flex !important; align-items: center !important; justify-content: flex-end !important; flex-wrap: wrap !important; gap: 6px !important; }
+html body .stall-list > .stall-row .price-val { font: 700 15px/1 var(--ui) !important; min-width: 72px; text-align: right; margin-right: 6px !important; font-variant-numeric: tabular-nums; }
+html body .stall-list > .stall-row > div:nth-child(3) > .btn { height: 32px !important; padding: 0 10px !important; font-size: 12px !important; }
+
+/* Profile: the five totals sit in one row instead of four plus an orphaned
+   "Net" underneath, and the Steam ID line stays under the name. */
+html body .profile-stats { display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: 1px !important; background: var(--line) !important; border-radius: var(--r-md) !important; overflow: hidden !important; padding: 0 !important; }
+html body .profile-stats > .profile-stat { grid-column: auto !important; background: var(--bg-1) !important; margin: 0 !important; border: 0 !important; padding: 18px 12px !important; }
+html body .profile-hero .profile-id { justify-content: flex-start !important; text-align: left !important; margin-left: 0 !important; }
+
+/* Empty and not-found states: one title size and one body size everywhere
+   (the cart said its message at 30px, the watchlist at 18px). */
+html body .site-root .empty-inline > div.empty-icon + div:not(.x):not(.y):not(.z):not(.w) { font: 600 20px/1.3 var(--ui) !important; color: var(--ink) !important; margin: 12px 0 6px !important; }
+html body .site-root .empty-inline > div.empty-icon + div + div:not(:has(.btn)):not(.x):not(.y):not(.z) { font: 400 14px/1.5 var(--ui) !important; color: var(--ink-3) !important; max-width: 420px; margin: 0 auto 18px !important; }
+
+/* Wallet history: the description search fills the row under the chips. */
+html body .wallet-modal input[placeholder^="Search desc"] { flex: 1 1 100% !important; width: 100% !important; max-width: none !important; }
+
+@media (max-width: 720px) {
+  /* Full-page panels stacked three paddings deep and left 228px of a 390px
+     phone for content. Trim the inner two. */
+  html body .site-root.full-page-mode .info-modal { padding-left: 12px !important; padding-right: 12px !important; }
+  html body .site-root.full-page-mode .info-modal-body { padding-left: 0 !important; padding-right: 0 !important; }
+  html body .empty-inline { padding: 36px 16px !important; }
+  html body .profile-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  html body .profile-stats > .profile-stat:last-child { grid-column: 1 / -1 !important; }
+  html body .stall-list > .stall-row { grid-template-columns: 40px minmax(0, 1fr) !important; }
+  html body .stall-list > .stall-row > div:nth-child(3) { grid-column: 1 / -1 !important; justify-content: flex-start !important; }
+  html body .stall-list > .stall-row .price-val { text-align: left; min-width: 0; margin-right: auto !important; }
+}
+/* The "Trending right now" rail under an empty cart ran its last card past
+   the panel's right edge. */
+html body .csfloat-empty-cart-rail-grid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important; gap: 12px !important; overflow: hidden !important; }
+html body .csfloat-empty-cart-rail-grid > * { min-width: 0 !important; width: auto !important; max-width: none !important; }
+@media (max-width: 720px) { html body .csfloat-empty-cart-rail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; } }
+/* Wallet history with no rows: a short, quiet line instead of a 250px box. */
+html body .wallet-modal .wallet-tx-list:has(> .wallet-tx-empty:only-child) { min-height: 0 !important; height: auto !important; }
+html body .wallet-modal .wallet-tx-empty { padding: 32px 16px !important; min-height: 0 !important; font: 400 13px/1.4 var(--ui) !important; color: var(--ink-3) !important; }
