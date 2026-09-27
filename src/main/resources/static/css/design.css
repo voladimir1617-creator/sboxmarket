@@ -29617,3 +29617,57 @@ html body .wallet-modal .wallet-preset-row { display: grid !important; grid-temp
   html body .wallet-modal .wallet-hero-balance { font-size: 32px !important; }
   html body main.modal.item-page .modal-header > .modal-preview { height: auto !important; min-height: 0 !important; max-height: 300px !important; aspect-ratio: 4 / 3 !important; }
 }
+
+/* ── 2026-09-27 refresh, second batch: stall, profile, empty states ───── */
+
+/* My Stall: each listing is one row with a clear gap to the next, the name
+   and its detail line on the left, and price plus actions on the right. The
+   rows used to touch, so an auction's "ends in" pill ran into the next name. */
+html body .stall-list { display: flex !important; flex-direction: column !important; gap: 0 !important; }
+html body .stall-list > .stall-row {
+  display: grid !important; grid-template-columns: 44px minmax(0, 1fr) auto !important;
+  align-items: center !important; column-gap: 14px !important; row-gap: 8px !important;
+  padding: 12px 4px !important; margin: 0 !important; min-height: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+html body .stall-list > .stall-row:last-child { border-bottom: 0 !important; }
+html body .stall-list > .stall-row > .item-thumb { width: 44px !important; height: 44px !important; border-radius: var(--r-sm) !important; background: var(--bg-2) !important; display: grid !important; place-items: center !important; }
+html body .stall-list > .stall-row > div:nth-child(2) { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; min-width: 0 !important; }
+html body .stall-list > .stall-row .item-name { font: 600 14px/1.3 var(--ui) !important; margin: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+html body .stall-list > .stall-row .item-sub { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 6px !important; font: 400 12px/1.4 var(--ui) !important; color: var(--ink-3) !important; margin: 0 !important; }
+html body .stall-list > .stall-row .item-sub > span { font-size: 11px !important; padding: 2px 8px !important; border-radius: var(--r-xs) !important; margin: 0 !important; }
+html body .stall-list > .stall-row > div:nth-child(3) { display: flex !important; align-items: center !important; justify-content: flex-end !important; flex-wrap: wrap !important; gap: 6px !important; }
+html body .stall-list > .stall-row .price-val { font: 700 15px/1 var(--ui) !important; min-width: 72px; text-align: right; margin-right: 6px !important; font-variant-numeric: tabular-nums; }
+html body .stall-list > .stall-row > div:nth-child(3) > .btn { height: 32px !important; padding: 0 10px !important; font-size: 12px !important; }
+
+/* Profile: the five totals sit in one row instead of four plus an orphaned
+   "Net" underneath, and the Steam ID line stays under the name. */
+html body .profile-stats { display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: 1px !important; background: var(--line) !important; border-radius: var(--r-md) !important; overflow: hidden !important; padding: 0 !important; }
+html body .profile-stats > .profile-stat { grid-column: auto !important; background: var(--bg-1) !important; margin: 0 !important; border: 0 !important; padding: 18px 12px !important; }
+html body .profile-hero .profile-id { justify-content: flex-start !important; text-align: left !important; margin-left: 0 !important; }
+
+/* Empty and not-found states: one title size and one body size everywhere
+   (the cart said its message at 30px, the watchlist at 18px). */
+html body .site-root .empty-inline > div.empty-icon + div:not(.x):not(.y):not(.z):not(.w) { font: 600 20px/1.3 var(--ui) !important; color: var(--ink) !important; margin: 12px 0 6px !important; }
+html body .site-root .empty-inline > div.empty-icon + div + div:not(:has(.btn)):not(.x):not(.y):not(.z) { font: 400 14px/1.5 var(--ui) !important; color: var(--ink-3) !important; max-width: 420px; margin: 0 auto 18px !important; }
+
+/* Wallet history: the description search fills the row under the chips. */
+html body .wallet-modal input[placeholder^="Search desc"] { flex: 1 1 100% !important; width: 100% !important; max-width: none !important; }
+
+@media (max-width: 720px) {
+  /* Full-page panels stacked three paddings deep and left 228px of a 390px
+     phone for content. Trim the inner two. */
+  html body .site-root.full-page-mode .info-modal { padding-left: 12px !important; padding-right: 12px !important; }
+  html body .site-root.full-page-mode .info-modal-body { padding-left: 0 !important; padding-right: 0 !important; }
+  html body .empty-inline { padding: 36px 16px !important; }
+  html body .profile-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  html body .profile-stats > .profile-stat:last-child { grid-column: 1 / -1 !important; }
+  html body .stall-list > .stall-row { grid-template-columns: 40px minmax(0, 1fr) !important; }
+  html body .stall-list > .stall-row > div:nth-child(3) { grid-column: 1 / -1 !important; justify-content: flex-start !important; }
+  html body .stall-list > .stall-row .price-val { text-align: left; min-width: 0; margin-right: auto !important; }
+}
+/* The "Trending right now" rail under an empty cart ran its last card past
+   the panel's right edge. */
+html body .csfloat-empty-cart-rail-grid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important; gap: 12px !important; overflow: hidden !important; }
+html body .csfloat-empty-cart-rail-grid > * { min-width: 0 !important; width: auto !important; max-width: none !important; }
+@media (max-width: 720px) { html body .csfloat-empty-cart-rail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; } }
