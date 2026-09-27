@@ -84,3 +84,58 @@ test('the bargain drawer says an accepted offer is charged at once, and why Send
   await expect(page.getByTestId('offer-terms')).toContainText('$3.50');
   await expect(page.getByTestId('offer-why-disabled')).toHaveCount(0);
 });
+
+// A buyer without a Steam trade URL used to go through the whole confirm and
+// only then be told to set one in Profile: sent to another page mid-purchase.
+// The confirm now asks for it in place, shows the server's own reason when a
+// URL is refused (it read "Request could not be completed"), and completes
+// the purchase once it is saved. The signed-in user is shown without a trade
+// URL and every write is answered here, so nothing is saved or bought.
+test('a buyer with no trade URL gives it in the confirm, sees why a bad one is refused, and buys', async ({ page }) => {
+  const ITEM_ID = 727272;
+  const item = { id: ITEM_ID, name: 'Trade Url Hat', category: 'Hats', rarity: 'Standard', steamPrice: 5, lowestPrice: 3 };
+  await page.route(`**/api/listings/item/${ITEM_ID}*`, (r) => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([{ id: 9905, listingType: 'BUY_NOW', status: 'ACTIVE', price: 3, sellerUserId: 999,
+      sellerName: 'StubSeller', listedAt: Date.now(), item }]),
+  }));
+  await page.route(`**/api/items/${ITEM_ID}`, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(item) }));
+  await page.route('**/api/auth/steam/me', async (route) => {
+    const res = await route.fetch();
+    const me = await res.json();
+    await route.fulfill({ response: res, body: JSON.stringify({ ...me, tradeUrl: null }) });
+  });
+  const refusal = 'That trade URL belongs to a different Steam account. Copy the URL from steamcommunity.com while signed in as YOUR account.';
+  let puts = 0;
+  await page.route('**/api/profile/trade-url', (r) => {
+    puts += 1;
+    return puts === 1
+      ? r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'TRADE_URL_NOT_YOURS', message: refusal }) })
+      : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tradeUrl: 'ok' }) });
+  });
+  let bought = null;
+  await page.route('**/api/listings/9905/buy', (r) => {
+    bought = r.request().postDataJSON();
+    return r.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ transactionId: 1, newBalance: 10, listingId: 9905, itemName: 'Trade Url Hat', price: 3, tradeOpened: true }) });
+  });
+
+  await page.goto(`/item/${ITEM_ID}`);
+  await page.locator('.item-rail-actions-buy').first().click({ timeout: 15_000 });
+  const dialog = page.getByRole('dialog', { name: 'Confirm purchase' });
+  await expect(dialog.getByTestId('buy-confirm-tradeurl')).toBeVisible();
+  const go = dialog.getByRole('button', { name: /Save trade URL & buy/ });
+  await expect(go).toBeDisabled();
+
+  const field = dialog.locator('#buy-confirm-tradeurl-input');
+  await field.fill('https://steamcommunity.com/tradeoffer/new/?partner=1&token=abcDEF12');
+  await go.click();
+  await expect(dialog.getByRole('alert')).toHaveText(refusal);
+  expect(bought, 'nothing is bought while the trade URL is refused').toBeNull();
+
+  await field.fill('https://steamcommunity.com/tradeoffer/new/?partner=1039734273&token=AbCd1234');
+  await go.click();
+  await expect(dialog).toHaveCount(0);
+  expect(bought).not.toBeNull();
+  expect(puts).toBe(2);
+});

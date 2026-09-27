@@ -48,7 +48,11 @@ class RefusalsReachTheCustomerSpec extends Specification {
 
         where:
         code << ['DEV_CREDIT_NOT_AUTHORIZED', 'STRIPE_MODE_INDETERMINATE',
-                 'ADMIN_DAILY_CAP', 'CONNECT_ONBOARDING_REQUIRED']
+                 'ADMIN_DAILY_CAP', 'CONNECT_ONBOARDING_REQUIRED',
+                 // Trade-URL refusals: a buyer who pasted the wrong link was
+                 // told only "Request could not be completed" while saving
+                 // the URL the seller needs to deliver his purchase.
+                 'INVALID_TRADE_URL', 'TRADE_URL_TAKEN', 'TRADE_URL_NOT_YOURS']
     }
 
     def "an unlisted long message is still swallowed, so the guard is not simply gone"() {

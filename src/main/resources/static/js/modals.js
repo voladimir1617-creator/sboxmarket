@@ -246,7 +246,7 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
   );
 }
 
-export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onCreateBuyOrder, onAddToCart, cartHas, watchlist, onToggleStar, isPageMode }) {
+export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onMeChanged, onCreateBuyOrder, onAddToCart, cartHas, watchlist, onToggleStar, isPageMode }) {
   // CSFloat-1:1 — the buy / offer surfaces must target the cheapest
   // BUY_NOW listing, not listings[0]. Listings come back sorted
   // price-ascending, so an auction sitting on a low current bid can
@@ -269,6 +269,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // only inserting a review step in front of it.
   const [buyConfirm, setBuyConfirm] = useState(null);
   const [buyConfirmBusy, setBuyConfirmBusy] = useState(false);
+  // A buyer with no Steam trade URL used to confirm the purchase and only then
+  // get "Set your Steam trade URL in Profile before buying": sent to another
+  // page mid-purchase, to come back and start over. The confirm now asks for
+  // it in place, saves it to the profile, and completes the purchase.
+  const [confirmTradeUrl, setConfirmTradeUrl] = useState('');
+  const [confirmTradeUrlErr, setConfirmTradeUrlErr] = useState('');
   // The seller-response deadline, fetched once and shared by the rail's
   // delivery line and the Buy Now confirm — one number, so the page and the
   // dialog it opens cannot quote different deadlines. Null until it lands,
@@ -2630,6 +2636,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
       const confirmItem = bc.item || item;
       const buyConfirmRow = (listings || []).find(l => l && l.id === bc.listingId) || cheapestBuyNow;
       const buyConfirmIsHouse = !!buyConfirmRow && buyConfirmRow.sellerUserId === null;
+      // A person's listing is delivered by Steam trade offer to the buyer's
+      // trade URL, and the server refuses the purchase without one
+      // (TRADE_URL_MISSING). House listings are delivered in-platform.
+      const needsTradeUrl = !!me && !buyConfirmIsHouse && !!buyConfirmRow
+        && buyConfirmRow.sellerUserId != null
+        && !(me.tradeUrl && String(me.tradeUrl).trim());
       return h('div', {
         className: 'cart-confirm-backdrop',
         // Higher than the item modal (modal-backdrop is z-index 200) so
@@ -2698,6 +2710,27 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               }, confirmItem.category)
             )
           ),
+          needsTradeUrl && h('div', { className: 'buy-confirm-tradeurl', 'data-testid': 'buy-confirm-tradeurl' },
+            h('label', { htmlFor: 'buy-confirm-tradeurl-input', className: 'buy-confirm-tradeurl-label' },
+              'Where should the seller send it?'),
+            h('div', { className: 'buy-confirm-tradeurl-hint' },
+              'Paste your Steam trade URL. The seller sends the item to it, and it is saved to your profile for next time. Find it on ',
+              h('a', { href: 'https://steamcommunity.com/my/tradeoffers/privacy', target: '_blank', rel: 'noopener noreferrer' },
+                'Steam \u2192 Trade offers \u2192 Who can send me offers'),
+              '.'),
+            h('input', {
+              id: 'buy-confirm-tradeurl-input',
+              type: 'url',
+              className: 'wallet-amount-input',
+              inputMode: 'url',
+              autoComplete: 'off',
+              spellCheck: false,
+              placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=\u2026&token=\u2026',
+              value: confirmTradeUrl,
+              onChange: (e) => { setConfirmTradeUrl(e.target.value); setConfirmTradeUrlErr(''); }
+            }),
+            confirmTradeUrlErr && h('div', { className: 'wallet-error', role: 'alert' }, confirmTradeUrlErr)
+          ),
           // Price breakdown — only what this click charges. The optional Trade
           // Protection used to sit IN the breakdown as a priced line ($0.25)
           // between the item price and a total that did not include it, so
@@ -2733,7 +2766,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             }, 'Cancel'),
             h('button', {
               className: 'btn btn-accent',
-              disabled: buyConfirmBusy,
+              disabled: buyConfirmBusy || (needsTradeUrl && !confirmTradeUrl.trim()),
+              title: needsTradeUrl && !confirmTradeUrl.trim() ? 'Paste your Steam trade URL first' : undefined,
               onClick: async () => {
                 // SYNCHRONOUS re-entrancy latch on a MONEY action. Checking the
                 // async `buyConfirmBusy` STATE left a double-click window: both
@@ -2745,7 +2779,20 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 if (buyConfirmBusyRef.current) return;
                 buyConfirmBusyRef.current = true;
                 setBuyConfirmBusy(true);
+                let keepOpen = false;
                 try {
+                  // Save the trade URL first. If the server refuses it (not a
+                  // trade URL, or not this Steam account's), stay in the
+                  // dialog with its reason: nothing has been charged yet.
+                  if (needsTradeUrl) {
+                    const res = await setTradeUrl(confirmTradeUrl.trim());
+                    if (!res || res.error || res.code) {
+                      setConfirmTradeUrlErr((res && (res.message || res.error)) || 'That trade URL was not accepted. Check it and try again.');
+                      keepOpen = true;
+                      return;
+                    }
+                    try { if (onMeChanged) await onMeChanged(); } catch (_) { /* the purchase does not depend on it */ }
+                  }
                   // Fire the EXISTING purchase function the direct buy
                   // buttons used. We only inserted a confirm step in
                   // front — nothing about what executes is changed.
@@ -2753,10 +2800,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 } finally {
                   buyConfirmBusyRef.current = false;
                   setBuyConfirmBusy(false);
-                  setBuyConfirm(null);
+                  if (!keepOpen) setBuyConfirm(null);
                 }
               }
-            }, buyConfirmBusy ? 'Confirming…' : `Confirm purchase · ${fmt(price)}`)
+            }, buyConfirmBusy ? 'Confirming…'
+               : needsTradeUrl ? `Save trade URL & buy · ${fmt(price)}`
+               : `Confirm purchase · ${fmt(price)}`)
           )
         )
       );
@@ -3526,7 +3575,7 @@ export function FaqModal({ onClose }) {
     ['How do I sign in?',
       "Click the ‘Sign in through Steam’ button in the top-right. You'll bounce to steamcommunity.com, approve the login, and land back here already authenticated. Your Steam password never touches our servers — everything goes through OpenID."],
     ['How do I buy something?',
-      "Top up your wallet first, then click any item and hit Buy. Funds are charged from your balance instantly — there's no bid-and-wait or 7-day trade hold like the Steam market."],
+      "Top up your wallet, open an item and hit Buy now. Your balance is charged straight away and held in escrow. When you buy from another player, they send you a Steam trade offer; accept it on Steam, then press Confirm on the trade (Profile → Trades) and the seller is paid. If they do not send it within the seller's response window, the purchase cancels and you are refunded in full. Items sold by SkinBox itself are delivered to your Platform Inventory at once."],
     ['How does depositing work?',
       "Open your Wallet, pick Deposit, enter an amount (anything from $1 to $10,000), and you'll be handed to Stripe's checkout page. Once the payment clears, our webhook credits your balance automatically."],
     ['How do withdrawals work?',
@@ -3536,15 +3585,15 @@ export function FaqModal({ onClose }) {
     ['Do s&box items have wear levels?',
       "No. That's a Counter-Strike thing. s&box cosmetics are single items without Factory-New / Field-Tested / Battle-Scarred variants — closer to how Rust skins work. The item you pick is the exact item you receive."],
     ['Can I sell the items I own?',
-      "Yes. Anything you've bought on SkinBox appears under Sell Items. Pick an item, set a price, and it goes live in your stall under My Stall. When it sells, the buyer's payment (minus a 2% platform fee) drops straight into your wallet."],
+      "Yes. Pick an item under Sell Items, set a price, and it goes live in your stall under My Stall. When it sells you are notified; accept the sale and send the buyer a Steam trade offer within the response window shown on the sell form. The payment (minus the 2% platform fee) reaches your wallet when the buyer confirms, or automatically a set number of days after you mark it sent. A sale you do not send in time is cancelled, the buyer is refunded, and it counts against your completion rate."],
     ['What is a Stall?',
       "Your Stall is your personal storefront — the list of items you currently have up for sale. Other users can browse it via your profile. You can cancel any listing from My Stall and the item returns to your inventory."],
     ['What are Offers?',
-      "Offers are non-binding price suggestions. A buyer can propose less than your asking price; you get a notification and can accept or reject from the Offers tab."],
+      "A buyer can offer less than your asking price; you get a notification and can accept, counter or reject it from the Offers tab. An accepted offer is a purchase: the buyer's wallet is charged the offer price at that moment and the trade opens, exactly as with Buy now. If the buyer no longer has the balance when you accept, the offer lapses."],
     ['Are there bulk actions for cleaning up my account?',
       "Yes — heavy users can reset each list in one click: Profile → Buy Orders has Cancel all active, Profile → Offers → Outgoing has Cancel all pending, Profile → Active Bids has Stop all auto-raises, Profile → Personal → Following has ✕ all and 🔔/🔕 all, and the Watchlist page has Clear all. Each asks to confirm first."],
     ['Is my money safe?',
-      "Deposits go through Stripe, the same processor used by millions of websites. We never store card details — only the amount and a Stripe reference. Withdrawal requests are logged and reviewed before payout. All balances are held in USD."],
+      "Deposits go through Stripe, the same processor used by millions of websites. We never store card details — only the amount and a Stripe reference. When you buy from another player your payment is held in escrow until you confirm the item arrived, and a trade the seller does not send in time is refunded automatically. Every withdrawal is logged and paid to the Stripe cash-out account you set up. All balances are held in USD."],
     ['What happens if I dispute a deposit with my bank?',
       "Stripe notifies us within seconds. We freeze the disputed amount, pause your withdrawals while the dispute is open, and review the case. If your bank rules in your favour we lose the deposit and you keep the items / balance. If we win the dispute we credit you again and lift the hold. Filing a chargeback for a deposit you actually received counts as friendly fraud and can get your account banned permanently."],
     ['What are Auctions and how do they work?',

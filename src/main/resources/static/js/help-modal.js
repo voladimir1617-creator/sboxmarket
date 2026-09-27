@@ -141,10 +141,10 @@ const SHORTCUTS = [
 
 const STEPS = [
   { icon: 'login',        title: 'Sign in with Steam',  body: 'No password — OpenID handshake via steamcommunity.com.' },
-  { icon: 'account_balance_wallet', title: 'Top up your wallet', body: 'Stripe Checkout with a test card or real money. Funds arrive in seconds.' },
+  { icon: 'account_balance_wallet', title: 'Top up your wallet', body: 'Pay by card through Stripe Checkout. The balance is credited as soon as Stripe confirms the payment.' },
   { icon: 'search',       title: 'Browse the marketplace', body: 'Filter by category, rarity, price. Press / to jump straight into search.' },
   { icon: 'shopping_cart', title: 'Buy Now or Place a Buy Order', body: 'Buy a listing instantly, or set a standing max price and walk away.' },
-  { icon: 'checkroom',    title: 'Receive the item', body: 'Listings you buy appear in your Platform Inventory on the Sell Items page, ready to relist.' },
+  { icon: 'checkroom',    title: 'Receive the item', body: 'From another player: they send you a Steam trade offer. Accept it on Steam, then press Confirm on the trade to release payment. From SkinBox itself: it lands in your Platform Inventory at once.' },
   { icon: 'verified',     title: 'Trade safely', body: 'Every write is signed, rate-limited, and audited. Support is one click away.' },
 ];
 

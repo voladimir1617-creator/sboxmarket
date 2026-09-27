@@ -16,7 +16,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=219';
+} from './modals.js?v=220';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -9577,6 +9577,9 @@ export function App() {
             onBuy: handleBuy,
             onMakeOffer: handleMakeOffer,
             onRefresh: () => { load(); loadWallet(); },
+            // Re-read the signed-in user after the buy confirm saves a trade
+            // URL inline, so every other trade-URL gate on the page lifts.
+            onMeChanged: loadMe,
             onCreateBuyOrder: (item) => {
               setPreselectedBuyItem(item);
               navigate(paths.buyorders());

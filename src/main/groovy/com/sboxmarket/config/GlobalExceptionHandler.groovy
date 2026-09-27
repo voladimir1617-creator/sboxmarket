@@ -326,6 +326,14 @@ class GlobalExceptionHandler {
             case 'STRIPE_MODE_INDETERMINATE':
             case 'ADMIN_DAILY_CAP':
             case 'CONNECT_ONBOARDING_REQUIRED':
+            // Trade-URL refusals (ProfileController.setTradeUrl). Each tells the
+            // buyer exactly what to paste instead, and each is over 140 chars,
+            // so a buyer who pasted a friend's trade URL, or the wrong link,
+            // was told only "Request could not be completed" -- at the moment
+            // of saving the URL the seller needs to deliver his purchase.
+            case 'INVALID_TRADE_URL':
+            case 'TRADE_URL_TAKEN':
+            case 'TRADE_URL_NOT_YOURS':
                 return ex.message
             default:
                 // For explicit validation-style errors the message is usually

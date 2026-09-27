@@ -29255,7 +29255,7 @@ html body .wallet-activity-sub { font: 400 11px/1.3 var(--ui); color: var(--ink-
 
 /* Buy-confirm: the optional Trade Protection note sits UNDER the total, as
    prose, because it is not part of what this click charges. */
-html body .buy-confirm-protection-note { margin: 10px 0 2px; font: 400 11px/1.5 var(--ui); color: var(--ink-3); }
+html body .buy-confirm-protection-note { margin: 10px 0 2px; padding: 0 24px; font: 400 11px/1.5 var(--ui); color: var(--ink-3); }
 
 /* ───────────────────────────────────────────────────────────────────────────
    SELLER TRADE RECORD — the "Sold by" card on the item page and the trade
@@ -29421,3 +29421,10 @@ html body .profile-tabs { scroll-margin-top: 84px; }
 /* ...and keep the page tall enough for that landing while the section's own
    data is still loading, or the scroll stops short of the tabs. */
 html body .profile-tabs + [role="tabpanel"] { min-height: calc(100vh - 160px); }
+
+/* Buy confirm: the trade-URL step for a buyer who has none yet. */
+html body .buy-confirm-tradeurl { margin: 0 24px 14px; padding: 12px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--bg-1); display: flex; flex-direction: column; gap: 8px; text-align: left; }
+html body .buy-confirm-tradeurl-label { font: 600 13px/1.3 var(--ui); color: var(--ink); }
+html body .buy-confirm-tradeurl-hint { font: 400 12px/1.5 var(--ui); color: var(--ink-3); }
+html body .buy-confirm-tradeurl-hint a { display: inline !important; padding: 0 !important; border: 0 !important; background: none !important; color: var(--ink-2) !important; font: inherit !important; text-decoration: underline !important; text-underline-offset: 2px; }
+html body .buy-confirm-tradeurl input.wallet-amount-input { width: 100% !important; height: 38px !important; padding: 0 10px !important; font: 400 12px/1 var(--mono) !important; letter-spacing: 0 !important; }
