@@ -18,22 +18,6 @@ function formatRemaining(ms) {
   return `${sec}s`;
 }
 
-// ── Decorative float position (csfloat-style) ──
-// s&box items have no float/wear value, but csfloat's card anatomy puts a
-// gradient "float bar" with a thumb under every image. We reproduce the
-// VISUAL by hashing a stable item identifier (id, else name) into a 0-100
-// position so the same item always lands the thumb in the same spot across
-// reloads. Purely cosmetic — never read as a real wear figure.
-function floatPercent(seed) {
-  const str = String(seed == null ? '' : seed);
-  if (!str) return 50; // neutral midpoint when we have nothing to hash
-  let hashAcc = 0;
-  for (let i = 0; i < str.length; i++) {
-    hashAcc = (hashAcc * 31 + str.charCodeAt(i)) >>> 0;
-  }
-  return hashAcc % 101; // 0-100 inclusive
-}
-
 export function AuctionCountdown({ expiresAt, className }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -260,14 +244,6 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           h('line', { x1: 21, y1: 21, x2: 16.65, y2: 16.65 })
         )
       ),
-      // CSFloat-1:1 — decorative float bar under the image: a gradient track
-      // with a white thumb positioned by a deterministic hash of the item
-      // (id, else name). s&box has no float/wear, so this is purely the
-      // csfloat-style visual; the inline `left:X%` is the only positioning.
-      // aria-hidden — it carries no real value for assistive tech.
-      h('div', { className: 'gc-float-bar', 'aria-hidden': 'true' },
-        h('div', { className: 'gc-float-thumb', style: { left: floatPercent(item?.id ?? item?.name) + '%' } })
-      ),
       // CSFloat-1:1 — matching rarity hairline along the BOTTOM edge of the
       // image (pairs with `gc-rarity-top`). Same tier-suffixed class + guard.
       item.rarity && h('div', {
@@ -308,43 +284,6 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       // nothing while its comment still claimed a "gradient track with
       // thumb" was drawn. Dropping the no-op call + stale comment leaves
       // the card output byte-identical and removes a misleading breadcrumb.
-      // CSFloat-1:1 seller status row — mirrors csfloat's "● Online ✓"
-      // line on every card. V61 ship: real presence comes from
-      // `listing.sellerLastSeenAt` (epoch ms), bumped by PresenceFilter
-      // on every authenticated request — a seller who's actively
-      // browsing in the last 15 minutes reads as Online. No timestamp
-      // (system seed listings, sellerUserId === null) means the seller
-      // has NEVER been seen → honestly Offline. The old fallback hashed
-      // the id into a fake ~40% "Online" rate — fabricated presence the
-      // operator's data audit flagged; never resurrect it. The
-      // verified-check renders when sellerReviewCount >= 5.
-      (() => {
-        const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
-        const isOnline = listing.sellerLastSeenAt
-          ? (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
-          : false;
-        const isVerified = (listing.sellerReviewCount || 0) >= 5;
-        // Operator audit (batch 1149): clarify the Online/Offline pill —
-        // it tracks SELLER PRESENCE (whether the lister is currently
-        // active on the site), not item availability. Without a tooltip
-        // shoppers were guessing whether "Offline" meant the item was
-        // unavailable; it just means the seller may be slower to respond
-        // to messages/offers.
-        return h('div', {
-          className: 'grid-status',
-          title: isOnline
-            ? 'Seller is online — likely to respond to offers/messages quickly'
-            : 'Seller is offline — purchases still go through instantly; offers may take longer to answer'
-        },
-          h('span', { className: `grid-status-dot${isOnline ? ' online' : ''}` }),
-          isOnline ? 'Online' : 'Offline',
-          isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews)' },
-            h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
-              h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
-            )
-          )
-        );
-      })(),
       h('div', { className: 'grid-footer' },
         h('div', null,
           h('div', { className: 'grid-price' },
@@ -353,20 +292,6 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
                   ? fmt(listing.currentBid)
                   : fmt(listing.price))
               : h('span', { className: 'grid-price-unlisted', style: { color: 'var(--text-muted)', fontWeight: 600 }, title: 'No active listings right now — this item isn\'t for sale at the moment' }, 'Not listed'),
-            // CSFloat-1:1 — small green USD chip after every price. Pure
-            // visual signal that the listed price is in USD; mirrors
-            // csfloat's "$675.00 [$]" badge pairing. Skipped when there's no
-            // price (a "$" marker next to "Not listed" reads as broken).
-            // Decorative currency chip — only for USD. fmt() already prints
-            // the active currency symbol on the price, so showing a hardcoded
-            // "$" while the price reads "¥34,270" was contradictory once the
-            // multi-currency switcher (USD/EUR/GBP/JPY) shipped. Gate on the
-            // live symbol so non-USD just shows the converted price, no chip.
-            hasPrice && currencySymbol() === '$' && h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Price is in US dollars (USD) — every listing on SkinBox uses one currency' }, '$'),
-            // CSFloat-1:1 — decorative green USD marker chip immediately after
-            // the price number (mirrors csfloat's "$" pill). aria-hidden — the
-            // figure itself is already announced; this is a pure visual cue.
-            hasPrice && currencySymbol() === '$' && h('span', { className: 'gc-usd-chip', 'aria-hidden': 'true', title: 'USD' }, '$'),
             h(SteamMarketLink, { item, compact: true }),
             // Boss QA cycle 2 N4 — bumped the discount-chip threshold
             // from 5% to 10%. With seed data sitting at 7-8% under
@@ -413,65 +338,37 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
               })()
         ),
         listingCount > 1 && h('div', { className: 'grid-supply' }, listingCount + ' listings'),
-        // CSFloat-1:1: per-card listing-time row. CSFloat shows "Expires in
-        // 03:05:46:04" on every card; we show "Listed Xh ago" / "Listed Xd
-        // ago" so every card has a freshness signal in the same slot.
-        // Auctions still get the dedicated countdown above; this is just
-        // for BUY_NOW listings.
-        /* M2 (Boss QA): only render the "Listed X ago" subtitle when it
-           carries genuine signal — fresh-in-5-min listings (pulsing
-           "Just listed" dot) OR very recent (<24h) so the freshness
-           is meaningful. Older "Listed 4d ago" reads as dead chrome
-           cluttering every card and was the line the boss called
-           "Lowest Mileage" — generic, repeated, meaningless. */
-        !isAuction && listing.listedAt && (() => {
-          const ageMs = Date.now() - new Date(listing.listedAt).getTime();
-          if (ageMs < 0) return null;
-          const fresh = ageMs < 5 * 60 * 1000;
-          const recent = ageMs < 24 * 60 * 60 * 1000;
-          if (!fresh && !recent) return null;
-          return h('div', {
-            className: 'grid-fresh' + (fresh ? ' is-new' : ''),
-            title: fresh ? 'Listed within the last 5 minutes' : 'Listed ' + timeAgo(listing.listedAt)
-          },
-            fresh && h('span', { className: 'grid-fresh-dot' }),
-            fresh ? 'Just listed' : 'Listed ' + timeAgo(listing.listedAt)
-          );
-        })(),
-        // CSFloat-1:1 — seller-presence row under the price area: green dot
-        // + Online/Offline + a count. csfloat surfaces seller presence here;
-        // we reuse the SAME presence flag as the `grid-status` row above:
-        // real `sellerLastSeenAt` within a 15-min window, and honestly
-        // Offline when there's no timestamp (the old id-hash fallback
-        // fabricated a stable fake "Online" for ~40% of seed listings).
-        // The count is the watcher count when we have one; omitted otherwise
-        // so a card with no watchers shows "● Online" with no trailing "0".
+        // Card footer: seller presence (real `sellerLastSeenAt` within 15
+        // minutes, honestly Offline when there is none), the verified mark
+        // at 5+ reviews, and on the right the listing's age or the auction's
+        // bid count. One row replaces the old status row, presence row and
+        // "Listed X ago" strip, which said the same things three times.
         (() => {
           const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
           const isOnline = listing.sellerLastSeenAt
             ? (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
             : false;
-          return h('div', {
-            className: `gc-online-row${isOnline ? ' is-online' : ''}`,
-            title: isOnline ? 'Seller is online' : 'Seller is offline'
-          },
-            // `.offline` is the class design.css greys the dot with. The row
-            // only ever carried `is-online`, so every "Offline" card showed
-            // the green online dot next to the word Offline.
-            h('span', { className: 'gc-online-dot' + (isOnline ? '' : ' offline'), 'aria-hidden': 'true' }),
-            isOnline ? 'Online' : 'Offline',
-            watcherCount > 0 && h('span', { className: 'gc-online-count' }, ' ' + watcherCount)
+          const isVerified = (listing.sellerReviewCount || 0) >= 5;
+          const listedAgo = !isAuction && listing.listedAt ? 'Listed ' + timeAgo(listing.listedAt) : null;
+          return h('div', { className: 'gc-card-meta' },
+            h('div', {
+              className: `gc-online-row${isOnline ? ' is-online' : ''}`,
+              title: isOnline
+                ? 'Seller is online and likely to answer offers quickly'
+                : 'Seller is offline. Buy Now still goes through; offers may take longer'
+            },
+              h('span', { className: 'gc-online-dot' + (isOnline ? '' : ' offline'), 'aria-hidden': 'true' }),
+              isOnline ? 'Online' : 'Offline',
+              isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews)' },
+                h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
+                  h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
+                )
+              )
+            ),
+            listedAgo && h('span', { className: 'gc-card-age' }, listedAgo)
           );
         })()
       )
-    ),
-    // CSFloat-1:1 — bottom stripe spanning the card: "Listed {relativeTime}".
-    // Direct child of the card (after grid-body) so it reads as a footer
-    // strip. Uses the listing's listed/created time; omitted entirely when
-    // we have no timestamp (and for auctions, which carry their own
-    // countdown rather than a listed-age line).
-    !isAuction && listing.listedAt && h('div', { className: 'gc-listed-stripe' },
-      'Listed ' + timeAgo(listing.listedAt)
     )
   );
 }

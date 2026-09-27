@@ -1,5 +1,6 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
+import { BRAND } from './brand.js';
 import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, platformFee, sellerPayout, useCustodyCopy } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
@@ -10,13 +11,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow } from './cards.js?v=6';
+import { GridCard, ListingRow } from './cards.js?v=7';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=220';
+} from './modals.js?v=221';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -294,7 +295,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
           background: 'rgba(34,197,94,0.12)', color: '#22c55e',
           border: '1px solid rgba(34,197,94,0.35)', letterSpacing: 0.3
         },
-        title: "Every review on SkinBox is tied to a completed trade — this person actually bought from this seller."
+        title: `Every review on ${BRAND.name} is tied to a completed trade — this person actually bought from this seller.`
       }, 'Verified buyer'),
       h('span', { className: 'stall-review-time' },
         new Date(review.createdAt).toLocaleDateString(),
@@ -2194,11 +2195,11 @@ function ShareStallButton({ userId, sellerName, showToast }) {
     // on SkinBox" instead of a generic "SkinBox stall". Much higher
     // click-through for sellers sharing their own stall.
     const title = sellerName
-      ? `${sellerName}'s stall on SkinBox`
-      : 'SkinBox stall';
+      ? `${sellerName}'s stall on ${BRAND.name}`
+      : `${BRAND.name} stall`;
     const text = sellerName
-      ? `Browse ${sellerName}'s listings on SkinBox — s&box skin marketplace with auctions, buy orders, and secure escrow.`
-      : 'Browse this SkinBox stall — s&box skin marketplace.';
+      ? `Browse ${sellerName}'s listings on ${BRAND.name} — s&box skin marketplace with auctions, buy orders, and secure escrow.`
+      : `Browse this ${BRAND.name} stall — s&box skin marketplace.`;
     // Native share sheet first; user-dismiss throws AbortError which
     // we deliberately swallow (otherwise the catch block opened a
     // window.prompt every time the user backed out of the OS share
@@ -2495,7 +2496,7 @@ export class ErrorBoundary extends React.Component {
         h('h1', { style: { fontSize: 22, fontWeight: 800, margin: '0 0 8px', color: 'var(--text-primary, #e5e7eb)' } },
           'Maintenance in progress'),
         h('p', { style: { color: 'var(--text-secondary, #9ca3af)', margin: '0 0 24px' } },
-          "SkinBox is undergoing a brief maintenance window. Try refreshing the page, or come back in a few minutes — your wallet, listings and trades are safe."),
+          `${BRAND.name} is undergoing a brief maintenance window. Try refreshing the page, or come back in a few minutes — your wallet, listings and trades are safe.`),
         h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
           h('button', {
             style: { padding: '10px 22px', background: 'var(--accent, #1ea5ff)', color: '#051018', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 14 },
@@ -2821,7 +2822,7 @@ export function SiteFooter() {
           // for the gradient definitions (re-declared here so the SVG
           // is self-contained and renders in isolation).
           h('div', { className: 'nav-logo-icon', 'aria-hidden': 'true' },
-            h('svg', {
+            BRAND.logoUrl ? h('img', { src: BRAND.logoUrl, alt: '', width: '100%', height: '100%' }) : h('svg', {
               viewBox: '0 0 48 48',
               xmlns: 'http://www.w3.org/2000/svg',
               width: '100%',
@@ -2849,7 +2850,7 @@ export function SiteFooter() {
               h('path', { d: 'M24 25 L24 45',                 stroke: 'rgba(4,18,28,0.55)', strokeWidth: '0.8' })
             )
           ),
-          h('span', { className: 'nav-logo-text' }, 'SkinBox')
+          h('span', { className: 'nav-logo-text' }, BRAND.name)
         ),
         h('p', { className: 'site-footer-tag' },
           'The s&box skin marketplace. Real-time prices, verified sellers, and escrowed trades — built for the Workshop community.'),
@@ -2918,7 +2919,7 @@ export function SiteFooter() {
     ),
     h('div', { className: 'site-footer-bottom' },
       h('div', { className: 'site-footer-copy' },
-        '© ', new Date().getFullYear(), ' SkinBox · Not affiliated with Facepunch Studios. s&box is a trademark of Facepunch Ltd.',
+        '© ', new Date().getFullYear(), ` ${BRAND.name} · Not affiliated with Facepunch Studios. s&box is a trademark of Facepunch Ltd.`,
         version && h('span', { style: { color: 'var(--ink-3)', marginLeft: 10 } }, '· v', version)),
       h('div', { className: 'site-footer-socials', 'aria-label': 'Community' },
         // Boss QA cycle 2 N1 — "coming soon" Discord/X buttons removed.
@@ -3013,11 +3014,11 @@ export function PreSigninModal({ onClose, onAccept }) {
         h('div', { className: 'presignin-logo' },
           h('img', {
             src: '/img/logo-square.png',
-            alt: 'SkinBox',
+            alt: BRAND.name,
             onError: (e) => { e.target.style.display = 'none'; }
           })
         ),
-        h('h2', { id: 'presignin-title', className: 'presignin-title' }, 'Welcome to SkinBox'),
+        h('h2', { id: 'presignin-title', className: 'presignin-title' }, `Welcome to ${BRAND.name}`),
         h('p', { className: 'presignin-sub' },
           'Before we hand you off to Steam, we need your email for account recovery, receipts, and a one-time verification code.'),
 
@@ -3197,30 +3198,30 @@ export function App() {
   // the actual item name lands below in the item-load effect.
   useEffect(() => {
     const titles = {
-      home:          'SkinBox — s&box Skin Marketplace',
-      market:        'Marketplace · SkinBox',
-      database:      'Item Database · SkinBox',
-      watchlist:     'Watchlist · SkinBox',
-      sell:          'Sell Items · SkinBox',
-      mystall:       'My Stall · SkinBox',
-      cart:          'Cart · SkinBox',
-      wallet:        'Wallet · SkinBox',
-      profile:       'Profile · SkinBox',
-      offers:        'Offers · SkinBox',
-      buyorders:     'Buy Orders · SkinBox',
-      notifications: 'Notifications · SkinBox',
-      support:       'Support · SkinBox',
-      help:          'Help Center · SkinBox',
-      faq:           'FAQ · SkinBox',
-      settings:      'Settings · SkinBox',
-      affiliate:     'Affiliate Program · SkinBox',
-      admin:         'Admin Panel · SkinBox',
-      csr:           'Customer Service · SkinBox',
-      loadouts:      'Loadout Lab · SkinBox',
-      loadout:       'Loadout · SkinBox',
-      stall:         'Seller Stall · SkinBox',
-      item:          'Item · SkinBox',
-      notfound:      'Page Not Found · SkinBox'
+      home:          `${BRAND.name} — s&box Skin Marketplace`,
+      market:        `Marketplace · ${BRAND.name}`,
+      database:      `Item Database · ${BRAND.name}`,
+      watchlist:     `Watchlist · ${BRAND.name}`,
+      sell:          `Sell Items · ${BRAND.name}`,
+      mystall:       `My Stall · ${BRAND.name}`,
+      cart:          `Cart · ${BRAND.name}`,
+      wallet:        `Wallet · ${BRAND.name}`,
+      profile:       `Profile · ${BRAND.name}`,
+      offers:        `Offers · ${BRAND.name}`,
+      buyorders:     `Buy Orders · ${BRAND.name}`,
+      notifications: `Notifications · ${BRAND.name}`,
+      support:       `Support · ${BRAND.name}`,
+      help:          `Help Center · ${BRAND.name}`,
+      faq:           `FAQ · ${BRAND.name}`,
+      settings:      `Settings · ${BRAND.name}`,
+      affiliate:     `Affiliate Program · ${BRAND.name}`,
+      admin:         `Admin Panel · ${BRAND.name}`,
+      csr:           `Customer Service · ${BRAND.name}`,
+      loadouts:      `Loadout Lab · ${BRAND.name}`,
+      loadout:       `Loadout · ${BRAND.name}`,
+      stall:         `Seller Stall · ${BRAND.name}`,
+      item:          `Item · ${BRAND.name}`,
+      notfound:      `Page Not Found · ${BRAND.name}`
     };
     // Sub-tab labels — match the H1/tab-button text the user sees on screen
     // so document.title and the visible heading stay in sync. Without this,
@@ -3241,7 +3242,7 @@ export function App() {
     };
     const tabKey = route.params && route.params.tab;
     const tabLabel = tabKey && TAB_LABELS[routeName] && TAB_LABELS[routeName][tabKey];
-    let base = titles[routeName] || 'SkinBox — s&box Skin Marketplace';
+    let base = titles[routeName] || `${BRAND.name} — s&box Skin Marketplace`;
     if (tabLabel) {
       // Reshape "Profile · SkinBox" → "Transactions · Profile · SkinBox"
       base = tabLabel + ' · ' + base;
@@ -3252,9 +3253,9 @@ export function App() {
     // browser tab + history entry should match.
     if (routeName === 'notfound') {
       const p = route.path || '';
-      if      (p.startsWith('/stall/'))   base = 'Stall Not Found · SkinBox';
-      else if (p.startsWith('/loadout/')) base = 'Loadout Not Found · SkinBox';
-      else if (p.startsWith('/item/'))    base = 'Item Not Found · SkinBox';
+      if      (p.startsWith('/stall/'))   base = `Stall Not Found · ${BRAND.name}`;
+      else if (p.startsWith('/loadout/')) base = `Loadout Not Found · ${BRAND.name}`;
+      else if (p.startsWith('/item/'))    base = `Item Not Found · ${BRAND.name}`;
     }
     // Preserve any (N) unread-notifications prefix set by NotificationBell.
     const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
@@ -3942,9 +3943,9 @@ export function App() {
       try {
         const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
         if (stall?.seller?.displayName) {
-          document.title = currentPrefix + stall.seller.displayName + "'s Stall · SkinBox";
+          document.title = currentPrefix + stall.seller.displayName + `'s Stall · ${BRAND.name}`;
         } else if (!stall) {
-          document.title = currentPrefix + 'Stall not found · SkinBox';
+          document.title = currentPrefix + `Stall not found · ${BRAND.name}`;
         }
       } catch (_) {}
       setStallReviews(reviews);
@@ -5179,7 +5180,7 @@ export function App() {
           // Refine the route-driven title with the real item name — e.g.
           // "Black Modern Watch · SkinBox". Preserves the unread prefix.
           const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
-          document.title = currentPrefix + (item.name || 'Item') + ' · SkinBox';
+          document.title = currentPrefix + (item.name || 'Item') + ` · ${BRAND.name}`;
           // Track recently viewed for the homepage rail — keep the last 12,
           // newest first, deduped by item id. Pure localStorage, no backend.
           try {
@@ -5205,7 +5206,7 @@ export function App() {
           // this branch and dereferenced `item.id`/`.name` on a null
           // item, throwing TypeError on every dead /item/:id link.
           const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
-          document.title = currentPrefix + 'Item not found · SkinBox';
+          document.title = currentPrefix + `Item not found · ${BRAND.name}`;
         }
       } catch (e) {
         console.error(e);
@@ -5219,7 +5220,7 @@ export function App() {
           // panel and states as fact something we never managed to ask.
           setItemLoadError(e?.message || 'Could not load this item');
           const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
-          document.title = currentPrefix + "Couldn't load item · SkinBox";
+          document.title = currentPrefix + `Couldn't load item · ${BRAND.name}`;
         }
       }
       finally { if (alive) setModalLoading(false); }
@@ -5681,7 +5682,7 @@ export function App() {
     },
       h('span', { style: { fontSize: 16 } }, '⚠'),
       h('span', { style: { flex: 1 } },
-        h('strong', null, 'SkinBox is temporarily unavailable. '),
+        h('strong', null, `${BRAND.name} is temporarily unavailable. `),
         'The service is reporting a degraded state. Your wallet, listings, and trades are safe — refreshed data will appear once service is restored.'),
       h('a', {
         href: '/status.html',
@@ -5742,7 +5743,7 @@ export function App() {
         // facet deepest — the crate reads as a single object lit from
         // above-left. Blue accent lines up with the --cta brand blue.
         h('div', { className: 'nav-logo-icon', 'aria-hidden': 'true' },
-          h('svg', {
+          BRAND.logoUrl ? h('img', { src: BRAND.logoUrl, alt: '', width: '100%', height: '100%' }) : h('svg', {
             viewBox: '0 0 48 48',
             xmlns: 'http://www.w3.org/2000/svg',
             width: '100%',
@@ -5770,7 +5771,7 @@ export function App() {
             h('path', { d: 'M24 25 L24 45',                 stroke: 'rgba(4,18,28,0.55)', strokeWidth: '0.8' })
           )
         ),
-        h('span', { className: 'nav-logo-text' }, 'SkinBox'),
+        h('span', { className: 'nav-logo-text' }, BRAND.name),
         /* CSFloat-1:1 — small green "live" dot next to the brand mark in
            nav, indicating the marketplace is up and serving. Pure
            cosmetic; pulses subtly via CSS keyframes. */
@@ -6142,11 +6143,11 @@ export function App() {
                     '.')
                 : h('h1', { className: 'px-h1' },
                     'Revolutionize Your s&box Trading Experience with ',
-                    h('span', { className: 'px-accent-word' }, 'SkinBox')),
+                    h('span', { className: 'px-accent-word' }, BRAND.name)),
               h('p', { className: 'px-lede' },
                 me
                   ? 'Your wallet, your stall, your watchlist — picked up right where you left off.'
-                  : 'SkinBox provides the most advanced marketplace and trading tools for s&box cosmetics. Real-time price history, verified sellers, escrowed trades. Zero Steam hold.'
+                  : `${BRAND.name} provides the most advanced marketplace and trading tools for s&box cosmetics. Real-time price history, verified sellers, escrowed trades. Zero Steam hold.`
               ),
               h('div', { className: 'hero-actions px-hero-actions csfloat-hero-actions' },
                 h('a', {
@@ -6441,7 +6442,7 @@ export function App() {
     // (it's gated on routeName !== 'home'), so Tab → Skip → Enter on the
     // marketing landing was a no-op. The first hero section now carries
     // id="main" + role="main" so the skip-link lands on the headline.
-    routeName === 'home' && h('section', { id: 'main', role: 'main', className: 'csfloat-home-hero', 'aria-label': 'SkinBox marketplace landing' },
+    routeName === 'home' && h('section', { id: 'main', role: 'main', className: 'csfloat-home-hero', 'aria-label': `${BRAND.name} marketplace landing` },
       h('div', { className: 'csfloat-home-hero-inner' },
         h('div', { className: 'csfloat-home-hero-copy' },
           h('h1', { className: 'csfloat-home-hero-title' }, 'Buy & Sell s&box Skins on the Most Trusted Marketplace'),
@@ -6690,7 +6691,7 @@ export function App() {
        / StatTrak / Souvenirs since those are CS-only. The third tile's
        custody wording comes from `custody` (server-resolved), because
        whether we hold the items depends on STEAM_BOT_BASE_URL. */
-    routeName === 'home' && h('section', { className: 'csfloat-home-tiles', 'aria-label': 'How SkinBox trades work' },
+    routeName === 'home' && h('section', { className: 'csfloat-home-tiles', 'aria-label': `How ${BRAND.name} trades work` },
       h('div', { className: 'csfloat-home-tiles-inner' },
         h('div', { className: 'csfloat-home-tile' },
           h('div', { className: 'csfloat-home-tile-icon' },
@@ -6769,7 +6770,7 @@ export function App() {
             { icon: 'notifications', label: 'Seller notified',  sub: 'Trade request fires within seconds.' },
             { icon: 'send',           label: 'Steam offer sent', sub: 'Bot relays the trade through Steam.' },
             { icon: 'check_circle',   label: 'Confirm in client', sub: 'Both parties accept on Steam mobile.' },
-            { icon: 'verified',       label: 'Transfer verified',  sub: 'SkinBox confirms the item changed hands on Steam.' },
+            { icon: 'verified',       label: 'Transfer verified',  sub: `${BRAND.name} confirms the item changed hands on Steam.` },
             { icon: 'paid',           label: 'Funds released',     sub: 'Seller paid, buyer keeps the item.' }
           ].map((s, i) => h('li', { key: s.icon, className: 'csfloat-home-journey-step' },
             h('span', { className: 'csfloat-home-journey-step-icon' },
@@ -6793,8 +6794,8 @@ export function App() {
           [
             { q: 'How long until I receive a sold item?',          a: 'A successful trade clears in under a minute once both sides confirm on the Steam mobile app. Most buyers see the item in their inventory in 20–40 seconds.' },
             { q: 'When does the seller see funds?',                a: 'Funds land in the seller wallet the moment Steam confirms the asset transfer. Withdrawals to Stripe-linked cards run on the next payout cycle.' },
-            { q: 'What does SkinBox charge?',                       a: 'Buyers pay exactly the listed price — no buyer fee at checkout. Sellers pay a 2% platform fee, deducted from the sale price after confirmed delivery. No surprise add-ons.' },
-            { q: 'Is my Steam account safe?',                       a: 'SkinBox uses Valve’s OpenID flow. We never see your password and never request your mobile authenticator. Trades go through your normal Steam offer screen.' },
+            { q: `What does ${BRAND.name} charge?`,                       a: 'Buyers pay exactly the listed price — no buyer fee at checkout. Sellers pay a 2% platform fee, deducted from the sale price after confirmed delivery. No surprise add-ons.' },
+            { q: 'Is my Steam account safe?',                       a: `${BRAND.name} uses Valve’s OpenID flow. We never see your password and never request your mobile authenticator. Trades go through your normal Steam offer screen.` },
             { q: 'Can I cancel a listing?',                          a: 'Yes — anytime before a buyer commits. After a Buy Now or accepted Bargain, the trade is locked and proceeds to Steam confirmation.' }
           ].map((row, i) => h('details', { key: i, className: 'csfloat-home-faq-item' },
             h('summary', { className: 'csfloat-home-faq-q' },
@@ -8030,7 +8031,7 @@ export function App() {
                       h('div', {
                         className: 'stall-stat-val',
                         style: online ? { color: 'var(--green)' } : null,
-                        title: 'Last active on SkinBox ' + new Date(stallData.seller.lastSeenAt).toLocaleString()
+                        title: `Last active on ${BRAND.name} ` + new Date(stallData.seller.lastSeenAt).toLocaleString()
                       }, online ? 'Online now' : timeAgo(stallData.seller.lastSeenAt)));
                   })(),
                   // Trade record, counted from TRADES: delivered, and the
@@ -8647,7 +8648,7 @@ export function App() {
                   ),
                   stallData.seller.joinedAt && h('li', null,
                     h('span', { className: 'stall-trust-icon' }, '·'),
-                    h('span', null, 'Joined SkinBox ', timeAgo(stallData.seller.joinedAt))
+                    h('span', null, `Joined ${BRAND.name} `, timeAgo(stallData.seller.joinedAt))
                   ),
                   stallData.seller.responseRatePct != null && h('li', null,
                     h('span', { className: 'stall-trust-icon' }, '·'),
@@ -8656,7 +8657,7 @@ export function App() {
                   ),
                   h('li', null,
                     h('span', { className: 'stall-trust-icon' }, '·'),
-                    h('span', null, 'Every trade is escrow-protected by SkinBox until both sides confirm')
+                    h('span', null, `Every trade is escrow-protected by ${BRAND.name} until both sides confirm`)
                   )
                 )
               ),
@@ -9263,7 +9264,7 @@ export function App() {
                   'the purchase cancels itself and you are refunded in full.')
               : h('span', null,
                   h('strong', null, 'Delivered in-platform. '),
-                  'These listings are held by SkinBox, so there is no seller to wait on and no Steam trade offer to accept.'))
+                  `These listings are held by ${BRAND.name}, so there is no seller to wait on and no Steam trade offer to accept.`))
           );
         })(),
         h('div', { className: 'cart-confirm-list' },
@@ -9735,7 +9736,7 @@ export function App() {
               )
             );
           })(),
-          h('div', { className: 'fee-calc-note' }, 'Steam takes 12% on Workshop sales. SkinBox is a flat 2% on each sale — you keep 6× more. Deposits + withdrawals are free; payouts arrive in 1-2 business days.')
+          h('div', { className: 'fee-calc-note' }, `Steam takes 12% on Workshop sales. ${BRAND.name} is a flat 2% on each sale — you keep 6× more. Deposits + withdrawals are free; payouts arrive in 1-2 business days.`)
         )
       ),
     ),

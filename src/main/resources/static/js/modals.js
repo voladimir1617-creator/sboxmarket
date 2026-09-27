@@ -1,8 +1,9 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
+import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
-import { GridCard } from './cards.js?v=6';
+import { GridCard } from './cards.js?v=7';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -114,7 +115,7 @@ export function DeliveryExpectation({ sellerUserId, days, compact }) {
         )
       : h('span', null,
           h('strong', { style: { color: 'var(--text-primary)' } }, 'Delivered in-platform. '),
-          'SkinBox holds this item itself, so there is no seller to wait on and no Steam trade offer to accept.')
+          `${BRAND.name} holds this item itself, so there is no seller to wait on and no Steam trade offer to accept.`)
   );
 }
 
@@ -854,14 +855,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               onClick: async (e) => {
                 e.stopPropagation();
                 const url = window.location.origin + '/item/' + item.id;
-                const title = item.name + ' · SkinBox';
+                const title = item.name + ` · ${BRAND.name}`;
                 // An unlisted / sold-out item comes back with lowestPrice 0
                 // (not null) — don't share "listed from $0.00 on SkinBox".
                 // Same 0-floor guard as the Listing-price stat above.
                 const _lp = parseFloat(item.lowestPrice);
                 const text  = (Number.isFinite(_lp) && _lp > 0)
-                  ? `${item.name} — listed from ${fmt(item.lowestPrice)} on SkinBox`
-                  : `${item.name} on SkinBox`;
+                  ? `${item.name} — listed from ${fmt(item.lowestPrice)} on ${BRAND.name}`
+                  : `${item.name} on ${BRAND.name}`;
                 const btn = e.currentTarget;
                 const flashCopied = () => {
                   /* Use innerHTML so the Material icon span survives the
@@ -1069,11 +1070,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             h('div', { className: 'modal-stat-box' },
               h('div', { className: 'modal-stat-label' },
                 'Supply',
-                h('span', { className: 'modal-stat-sublabel' }, ' · listed on SkinBox')
+                h('span', { className: 'modal-stat-sublabel' }, ` · listed on ${BRAND.name}`)
               ),
               h('div', {
                 className: 'modal-stat-val',
-                title: `${Number(item.supply).toLocaleString()} active listing${Number(item.supply) === 1 ? '' : 's'} of ${item.name || 'this item'} on SkinBox right now`
+                title: `${Number(item.supply).toLocaleString()} active listing${Number(item.supply) === 1 ? '' : 's'} of ${item.name || 'this item'} on ${BRAND.name} right now`
               },
                 Number(item.supply).toLocaleString(),
                 h('span', { className: 'modal-stat-unit' }, Number(item.supply) === 1 ? ' item' : ' items')
@@ -1118,7 +1119,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // the velocity angle.
           item && Number(item.totalSold) >= 3 && h('div', {
             className: 'modal-demand-chip',
-            title: `${Number(item.totalSold).toLocaleString()} lifetime sales on SkinBox`
+            title: `${Number(item.totalSold).toLocaleString()} lifetime sales on ${BRAND.name}`
           },
             '✓ ',
             h('span', { className: 'modal-demand-chip-num' }, Number(item.totalSold).toLocaleString()),
@@ -1706,7 +1707,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                         className: 'listing-trade-chip' + (decided === 0 ? ' is-new' : ''),
                         'data-testid': 'listing-trade-chip',
                         title: decided === 0
-                          ? 'No completed trades yet on SkinBox'
+                          ? `No completed trades yet on ${BRAND.name}`
                           : `${done} completed trade${done === 1 ? '' : 's'} · ${rec.completionRate}% of ${decided} decided trades completed`
                       }, decided === 0 ? 'New seller' : `${done} trade${done === 1 ? '' : 's'} · ${rec.completionRate}%`);
                     })()
@@ -3456,11 +3457,11 @@ export function AffiliateModal({ onClose }) {
         textAlign: 'center'
       }
     },
-      h('div', { style: { fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 500, color: 'var(--ink-4)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8 } }, 'SkinBox'),
+      h('div', { style: { fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 500, color: 'var(--ink-4)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8 } }, BRAND.name),
       h('div', { style: { fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 360, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariationSettings: '"opsz" 144' } }, 'Affiliate Program')
     ),
     h('div', { style: { color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 14, marginBottom: 24 } },
-      'The SkinBox Affiliate Program pays you a share of the platform fees from every user you refer. Earnings are credited to your SkinBox wallet and can be cashed out to Stripe like any other sale proceeds.'),
+      `The ${BRAND.name} Affiliate Program pays you a share of the platform fees from every user you refer. Earnings are credited to your ${BRAND.name} wallet and can be cashed out to Stripe like any other sale proceeds.`),
 
     /* W1 cycle 9 — fixed 1fr 1fr on mobile pushed Requirements card off
        the viewport (393px / 2 = 187px is too narrow once the 140px-min
@@ -3471,7 +3472,7 @@ export function AffiliateModal({ onClose }) {
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
         h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'About Us'),
         h('div', { style: { fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 } },
-          `SkinBox is a peer-to-peer marketplace for s&box cosmetic items. We're building the tools s&box traders have been asking for — a real marketplace grid, auctions with live bidding, standing buy orders, ${custody.shortLabel} escrow, and a wallet that pays out in under 2 business days. We want affiliates who share that mission.`)
+          `${BRAND.name} is a peer-to-peer marketplace for s&box cosmetic items. We're building the tools s&box traders have been asking for — a real marketplace grid, auctions with live bidding, standing buy orders, ${custody.shortLabel} escrow, and a wallet that pays out in under 2 business days. We want affiliates who share that mission.`)
       ),
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
         h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'Requirements'),
@@ -3548,7 +3549,7 @@ export function AffiliateModal({ onClose }) {
         }),
         h('a', {
           className: 'btn btn-accent',
-          href: 'mailto:affiliate@skinbox.market?subject=SkinBox%20Affiliate%20Application',
+          href: `mailto:affiliate@skinbox.market?subject=${BRAND.name}%20Affiliate%20Application`,
           style: { padding: '10px 18px', fontWeight: 700 }
         }, 'Apply')
       )
@@ -3570,18 +3571,18 @@ export function FaqModal({ onClose }) {
   })();
   const [q, setQ] = useState(initialQ);
   const ENTRIES = [
-    ['What is SkinBox?',
-      "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. Every listing comes from a real seller who sets their own price — we're the middle layer that makes transactions safe, fast, and cheaper than going through the Steam store."],
+    [`What is ${BRAND.name}?`,
+      `${BRAND.name} is a peer-to-peer marketplace for s&box cosmetic items. Every listing comes from a real seller who sets their own price — we're the middle layer that makes transactions safe, fast, and cheaper than going through the Steam store.`],
     ['How do I sign in?',
       "Click the ‘Sign in through Steam’ button in the top-right. You'll bounce to steamcommunity.com, approve the login, and land back here already authenticated. Your Steam password never touches our servers — everything goes through OpenID."],
     ['How do I buy something?',
-      "Top up your wallet, open an item and hit Buy now. Your balance is charged straight away and held in escrow. When you buy from another player, they send you a Steam trade offer; accept it on Steam, then press Confirm on the trade (Profile → Trades) and the seller is paid. If they do not send it within the seller's response window, the purchase cancels and you are refunded in full. Items sold by SkinBox itself are delivered to your Platform Inventory at once."],
+      `Top up your wallet, open an item and hit Buy now. Your balance is charged straight away and held in escrow. When you buy from another player, they send you a Steam trade offer; accept it on Steam, then press Confirm on the trade (Profile → Trades) and the seller is paid. If they do not send it within the seller's response window, the purchase cancels and you are refunded in full. Items sold by ${BRAND.name} itself are delivered to your Platform Inventory at once.`],
     ['How does depositing work?',
       "Open your Wallet, pick Deposit, enter an amount (anything from $1 to $10,000), and you'll be handed to Stripe's checkout page. Once the payment clears, our webhook credits your balance automatically."],
     ['How do withdrawals work?',
       "From your Wallet, pick Withdraw and the amount. The first time, Set up cash-out links your bank or debit card through Stripe; after that every payout goes there. Your balance is debited and the payout is sent to that account right away; Stripe then pays your bank, usually within 1–2 business days. Any payout processing fee is shown as \"You receive\" before you confirm."],
-    ['Why is SkinBox cheaper than Steam?',
-      "Steam charges 12% in platform fees on Workshop sales and forces sellers into their pricing ladder. On SkinBox, sellers set whatever price they like — usually 10-30% below what the Steam store asks. The green '−%' chip on each card shows exactly how much you save versus Steam."],
+    [`Why is ${BRAND.name} cheaper than Steam?`,
+      `Steam charges 12% in platform fees on Workshop sales and forces sellers into their pricing ladder. On ${BRAND.name}, sellers set whatever price they like — usually 10-30% below what the Steam store asks. The green '−%' chip on each card shows exactly how much you save versus Steam.`],
     ['Do s&box items have wear levels?',
       "No. That's a Counter-Strike thing. s&box cosmetics are single items without Factory-New / Field-Tested / Battle-Scarred variants — closer to how Rust skins work. The item you pick is the exact item you receive."],
     ['Can I sell the items I own?',
@@ -5313,7 +5314,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     if (!backupCodes || backupCodes.length === 0) return;
     const when = new Date().toISOString().slice(0, 10);
     const body = [
-      '# SkinBox — 2FA backup / recovery codes',
+      `# ${BRAND.name} — 2FA backup / recovery codes`,
       '# Generated ' + new Date().toLocaleString(),
       '# Each code works exactly once. Store these somewhere safe',
       '# (password manager, printed + filed, etc).',
@@ -8256,7 +8257,7 @@ function ProfileTradesTab({ me, privacy }) {
                               if (by === 'SELLER')         return (isSeller ? 'You cancelled this trade' : 'Cancelled by the seller') + refunded;
                               if (by === 'SELLER_TIMEOUT') return (isSeller ? 'Cancelled: you did not send in time' : 'Cancelled: the seller did not send in time') + refunded;
                               if (by === 'SELLER_BANNED')  return 'Cancelled: the seller account was suspended' + refunded;
-                              if (by === 'STAFF')          return 'Cancelled by SkinBox support' + refunded;
+                              if (by === 'STAFF')          return `Cancelled by ${BRAND.name} support` + refunded;
                               return 'Trade cancelled';
                             })())
                     )
@@ -8701,7 +8702,7 @@ function ProfileTradesTab({ me, privacy }) {
                   const base = [
                     { l: 'Hey',          v: 'Hey — when you\'re ready.' },
                     { l: '5 min',        v: "Give me 5 minutes and I'll be right with you." },
-                    { l: 'Trade URL?',   v: "Can you send me your Steam trade URL? It's under Profile → Personal Info on SkinBox." }
+                    { l: 'Trade URL?',   v: `Can you send me your Steam trade URL? It's under Profile → Personal Info on ${BRAND.name}.` }
                   ];
                   const sellerOnly = [
                     { l: '✈ Sent',         v: "I've sent the Steam trade offer — accept it on your end to confirm." }
@@ -10361,7 +10362,7 @@ function ProfileSupportTab() {
                 color: 'var(--accent)',
                 letterSpacing: 0.4
               },
-              title: 'Official reply from a SkinBox staff member'
+              title: `Official reply from a ${BRAND.name} staff member`
             }, 'STAFF'),
             ' · ', timeAgo(m.createdAt)
           ),
@@ -10674,7 +10675,7 @@ export function SellerObligations({ policy, custody, isAuction, net }) {
     h('div', { className: 'sell-obligations-title' }, 'After it sells'),
     bot
       ? h('ul', { className: 'sell-obligations-list' },
-          h('li', null, 'It is delivered from SkinBox escrow, so there is no trade offer for you to send.'),
+          h('li', null, `It is delivered from ${BRAND.name} escrow, so there is no trade offer for you to send.`),
           h('li', null, 'You are paid ', h('strong', null, pay), ' when the buyer confirms it arrived.'))
       : h('ul', { className: 'sell-obligations-list' },
           h('li', { 'data-line': 'send' }, 'Accept the sale and send the buyer a Steam trade offer',
@@ -13228,7 +13229,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       // is a cost, not a gain.
       parseFloat(earnings.lifetimeFees || 0) > 0 && h('span', { style: { color: 'var(--text-secondary)' } }, '·'),
       parseFloat(earnings.lifetimeFees || 0) > 0 && h('span', {
-        title: 'Platform fees (2% of each settled sale) collected by SkinBox across your lifetime. Counted only on VERIFIED trades.'
+        title: `Platform fees (2% of each settled sale) collected by ${BRAND.name} across your lifetime. Counted only on VERIFIED trades.`
       },
         'Fees paid: ',
         h('strong', { style: { color: 'var(--text-muted)' } }, maskEarn(earnings.lifetimeFees))
@@ -13260,11 +13261,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         onClick: async (e) => {
           const url = `${window.location.origin}/stall/${me.id}`;
           const title = me.displayName
-            ? `${me.displayName}'s stall on SkinBox`
-            : 'My SkinBox stall';
+            ? `${me.displayName}'s stall on ${BRAND.name}`
+            : `My ${BRAND.name} stall`;
           const text  = me.displayName
-            ? `Browse ${me.displayName}'s listings on SkinBox — s&box skin marketplace with auctions, buy orders, and secure escrow.`
-            : 'Browse my SkinBox stall — s&box skin marketplace.';
+            ? `Browse ${me.displayName}'s listings on ${BRAND.name} — s&box skin marketplace with auctions, buy orders, and secure escrow.`
+            : `Browse my ${BRAND.name} stall — s&box skin marketplace.`;
           const btn = e.currentTarget;
           const flash = () => {
             const prev = btn.textContent;
@@ -13762,7 +13763,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'Your stall is empty'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
-            "List an item to start selling — pick from your Steam inventory or anything you bought on SkinBox. Bulk-list at one price is available too."),
+            `List an item to start selling — pick from your Steam inventory or anything you bought on ${BRAND.name}. Bulk-list at one price is available too.`),
           // Batch 914 — concrete CTA on an empty stall. Matches the
           // pattern from the empty-cart (batch 427), empty-watchlist
           // (batch 428), empty-buy-orders (batch 901), empty-public-
@@ -13779,7 +13780,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               className: 'btn btn-ghost',
               href: '/db',
               style: { border: '1px solid var(--border)', padding: '10px 18px' },
-              title: 'Research what sells on SkinBox — volume, supply, and current floor per item.'
+              title: `Research what sells on ${BRAND.name} — volume, supply, and current floor per item.`
             }, 'Browse catalogue')
           )
         )
@@ -14414,7 +14415,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                   background: 'rgba(30,165,255,0.08)', color: 'var(--accent)',
                   border: '1px solid rgba(30,165,255,0.25)', fontWeight: 700
                 },
-                title: `This buyer has completed ${trades} verified trade${trades === 1 ? '' : 's'} on SkinBox — tangible history beats low-ball optics.`
+                title: `This buyer has completed ${trades} verified trade${trades === 1 ? '' : 's'} on ${BRAND.name} — tangible history beats low-ball optics.`
               }, '✓ ', trades, ' ', trades === 1 ? 'trade' : 'trades'),
               revCount >= 3 && offer.buyerReviewAvg != null && h('span', {
                 style: {
@@ -16885,8 +16886,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                                 ? 'Test mode — no payment processor is charged, so 100% of your deposit reaches your wallet.'
                                 : 'Test mode — simulated payout, no processor fee applied.')
                             : (tab === 'deposit'
-                                ? 'This is the payment processor’s fee, passed through at cost. SkinBox adds nothing to it — our only fee is 2% when an item sells.'
-                                : 'This is the payment processor’s payout cost, passed through at cost. Payouts arrive in 1-2 business days. SkinBox charges no withdrawal fee — our only fee is 2% when an item sells.')
+                                ? `This is the payment processor’s fee, passed through at cost. ${BRAND.name} adds nothing to it — our only fee is 2% when an item sells.`
+                                : `This is the payment processor’s payout cost, passed through at cost. Payouts arrive in 1-2 business days. ${BRAND.name} charges no withdrawal fee — our only fee is 2% when an item sells.`)
                         )
                       )
                     ),

@@ -3,6 +3,7 @@
 //
 // Every modal follows the same pattern as ./modals.js — narrow prop surface,
 // uses InfoModal as the shell, calls into ./api.js for I/O.
+import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -1354,7 +1355,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     // history don't read as a generic "Loadout · SkinBox" placeholder.
     try {
       const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
-      document.title = currentPrefix + 'Loadout not found · SkinBox';
+      document.title = currentPrefix + `Loadout not found · ${BRAND.name}`;
     } catch (_) {}
     return h(InfoModal, { title: 'Loadout', onClose },
       h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
@@ -1935,8 +1936,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                   // alone. Matches the stall-share improvement in
                   // batches 877–878.
                   const title = l.name
-                    ? `${l.name} · SkinBox loadout`
-                    : 'SkinBox loadout';
+                    ? `${l.name} · ${BRAND.name} loadout`
+                    : `${BRAND.name} loadout`;
                   const text = [
                     l.name ? `"${l.name}"` : 'Loadout',
                     l.ownerName ? `by @${l.ownerName}` : null,
@@ -1944,7 +1945,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                       ? `${fmt(l.totalValue)} total`
                       : null
                   ].filter(Boolean).join(' · ') +
-                    ' — clone or favorite it on SkinBox.';
+                    ` — clone or favorite it on ${BRAND.name}.`;
                   try {
                     if (navigator.share) { await navigator.share({ title, text, url }); return; }
                     if (navigator.clipboard?.writeText) {
