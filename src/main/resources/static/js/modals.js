@@ -3988,6 +3988,22 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     if (initialTab && VALID.includes(initialTab)) setTab(initialTab);
   }, [initialTab]);
 
+  // A deep link to a section (/profile/trades from a "seller sent the item"
+  // notification, /profile/offers from an offer) landed on the account
+  // header, the earnings card, four stat tiles and the standing gauge, with
+  // the section itself a screen and a half below the fold on a laptop and
+  // four screens down on a phone. Bring the tab bar to the top once, when the
+  // profile has rendered; later tab clicks do not scroll.
+  const profileTabsRef = useRef(null);
+  const arrivedScrollDoneRef = useRef(false);
+  useEffect(() => {
+    if (arrivedScrollDoneRef.current || !profile) return;
+    if (!initialTab || initialTab === 'personal') return;
+    arrivedScrollDoneRef.current = true;
+    const el = profileTabsRef.current;
+    if (el) requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'start' }); } catch (_) { /* old browser: stay put */ } });
+  }, [profile, initialTab]);
+
   useEffect(() => {
     if (!me) return;
     // Race fix — without the `alive` flag, a stale fetchProfile() that
@@ -4437,7 +4453,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
 
     /* Tabs — Batch 936: proper WAI-ARIA tablist semantics so screen
        readers announce "Tab 3 of 9, selected" while arrow-keying. */
-    h('div', { className: 'profile-tabs', role: 'tablist', 'aria-label': 'Profile sections' },
+    h('div', { ref: profileTabsRef, className: 'profile-tabs', role: 'tablist', 'aria-label': 'Profile sections' },
       TABS.map(t => h('button', {
         key: t.id,
         id: 'profile-tab-' + t.id,

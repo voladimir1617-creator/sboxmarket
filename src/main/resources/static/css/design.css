@@ -29333,3 +29333,91 @@ html body .item-offer-drawer .offer-drawer-why { align-self: center; font: 400 1
 html body .item-offer-drawer .offer-drawer-terms { margin-top: 10px; font: 400 11px/1.5 var(--ui); color: var(--ink-3); }
 html body .item-offer-drawer .offer-drawer-terms strong { color: var(--ink); font-weight: 600; }
 html body .item-offer-drawer .offer-drawer-balance.is-short { color: var(--down); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   LAYOUT PASS 2026-09-26 — found walking every route in headless Chromium at
+   1440x900 and 393x852, signed in and out.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* PHONE / TABLET: every info-modal "page" hid the site header AND the bottom
+   nav. `.modal-backdrop:has(.info-modal)` is position:fixed at z-index 200
+   (for real dialogs), and the only full-page override that lowers it
+   (z-index 40 + padding under the nav) is scoped to min-width 901px. Below
+   that, /profile, /profile/trades, /offers, /notifications, /watchlist,
+   /sell, /cart, /db, /stall, /help, /settings, the 404 page and more opened as
+   a full-screen sheet with no header, no bottom nav and no close control:
+   a buyer who followed a "seller sent the item" notification to Trades could
+   leave only with the browser's Back button. On a phone the page is simply
+   in the document flow, like /wallet already was. */
+@media (max-width: 900px) {
+  html body .site-root.full-page-mode .modal-backdrop:has(.info-modal) {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    display: block !important;
+    overflow: visible !important;
+    background: transparent !important;
+    padding: 0 0 calc(84px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  /* It is a page now, not a bottom sheet: no drag handle. */
+  html body .site-root.full-page-mode .info-modal::before { content: none !important; display: none !important; }
+}
+
+/* The phone header hid the Offers icon only while its title read exactly
+   "Offers". With a pending offer the title becomes "1 offer awaiting", the
+   icon came back, and the header ran 15px past the right edge (the avatar
+   chip was cut). Key it on the link instead; Offers stays one tap away under
+   Profile, and the avatar's pending-actions dot still flags it. */
+@media (max-width: 480px) {
+  html body nav.nav .nav-right > a.nav-icon-btn[href="/offers"] { display: none !important; }
+}
+
+/* The Watchlist count badge inherited the nav link's 36px line-height and
+   drew as a 40px-tall capsule around a "1". */
+html body nav.nav .nav-link .nav-link-badge {
+  display: inline-flex !important; align-items: center; justify-content: center;
+  line-height: 16px !important; height: 18px !important; padding: 0 6px !important; box-sizing: border-box;
+}
+
+/* A page has no close button. /wallet showed the dialog's X in the corner. */
+html body .site-root.full-page-mode .wallet-modal > .modal-close { display: none !important; }
+
+/* Stall hero, signed in: the five action buttons shared one flex row with the
+   stats and squeezed every stat into a 200px column. Stats take the row
+   beside the avatar; the actions wrap underneath. */
+html body .stall-hero { flex-wrap: wrap !important; row-gap: 16px; }
+html body .stall-hero > div:not(.stall-avatar) { flex: 1 1 calc(100% - 120px) !important; min-width: 0 !important; }
+
+/* Profile tabs: nine tabs plus a count badge ran past the card and cut
+   "Support" off. Scroll sideways instead of clipping. */
+html body .profile-tabs, html body .csfloat-profile-tabs { overflow-x: auto !important; scrollbar-width: none; }
+html body .profile-tabs::-webkit-scrollbar, html body .csfloat-profile-tabs::-webkit-scrollbar { display: none; }
+html body .profile-tabs > *, html body .csfloat-profile-tabs > * { flex-shrink: 0; }
+
+/* Notifications is a page: the feed flows with it instead of scrolling inside
+   a 480px box that cut the fifth row in half. */
+html body .site-root.full-page-mode .notif-feed { max-height: none !important; overflow: visible !important; }
+
+/* Wallet history's 7-day summary: the three figures wrapped their sign onto
+   its own line ("−" above "$10.60") and the Net column ran off a phone. */
+html body .wallet-7d-row { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important; }
+html body .wallet-7d-val { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body .wallet-7d-summary { grid-template-columns: minmax(0, 1fr) !important; }
+html body .info-modal [role="tablist"][aria-label="Watchlist filter"] { height: auto !important; min-height: 38px; row-gap: 10px; }
+/* Database table: `overflow: hidden` on the TABLE clipped its own last column
+   ("Watch", the star) at 1440px, where the scroll wrapper around it could
+   never reach it. Let the wrapper scroll the few pixels instead. */
+html body table.db-table { overflow: visible !important; }
+/* An empty 42px "table header" bar (a pseudo-element with no labels) sat on
+   top of the item page's Recent sales list and read as a missing row. */
+html body div.recent-sales-list::before { content: none !important; display: none !important; }
+/* Land a deep-linked profile section just under the sticky header. */
+html body .profile-tabs { scroll-margin-top: 84px; }
+/* Stall actions on a phone: two tidy columns instead of a staircase of
+   right-aligned buttons. */
+@media (max-width: 600px) {
+  html body .stall-hero > .stall-share-btn { margin-left: 0 !important; flex: 1 1 calc(50% - 8px) !important; justify-content: center; }
+}
+/* ...and keep the page tall enough for that landing while the section's own
+   data is still loading, or the scroll stops short of the tabs. */
+html body .profile-tabs + [role="tabpanel"] { min-height: calc(100vh - 160px); }
