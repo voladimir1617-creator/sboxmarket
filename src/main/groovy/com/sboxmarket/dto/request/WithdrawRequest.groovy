@@ -44,7 +44,15 @@ class WithdrawRequest {
      *  Nullable for non-2FA users; when present it must be exactly 6 digits.
      *  The plain @Size(max=6) we had before let "1" or "" pass and only
      *  blew up later in the TOTP verifier, which made the failure mode
-     *  noisier than it needed to be. */
-    @Pattern(regexp = '^[0-9]{6}$', message = "totpCode must be exactly 6 digits")
+     *  noisier than it needed to be.
+     *
+     *  EMPTY is allowed and means "not supplied". The Wallet form always
+     *  sends the 2FA input's value, which is "" for the (majority) user
+     *  without 2FA -- and `^[0-9]{6}$` rejected that, so EVERY withdrawal
+     *  submitted from the UI by a non-2FA user died as a 400
+     *  VALIDATION_FAILED "Request body failed validation" before reaching
+     *  the controller. A 2FA user who leaves it blank still gets the
+     *  specific TOTP_REQUIRED from WalletController.withdraw. */
+    @Pattern(regexp = '^([0-9]{6})?$', message = "totpCode must be exactly 6 digits")
     String totpCode
 }
