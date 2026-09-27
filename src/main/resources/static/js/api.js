@@ -857,7 +857,10 @@ export async function withdrawFunds(amount, destination, totpCode) {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount, destination, totpCode })
+    // Omit an empty 2FA code rather than sending "": the server treats a
+    // blank code as absent, but older builds rejected "" outright and every
+    // non-2FA withdrawal failed validation.
+    body: JSON.stringify({ amount, destination, totpCode: (totpCode || '').trim() || undefined })
   });
 }
 

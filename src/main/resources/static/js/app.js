@@ -10,13 +10,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow } from './cards.js?v=3';
+import { GridCard, ListingRow } from './cards.js?v=5';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=214';
+} from './modals.js?v=216';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -7485,7 +7485,7 @@ export function App() {
             : (loading && dedupedListings.length === 0)
               ? 'Loading listings…'
               : h('span', null,
-                  h('strong', null, dedupedListings.length), ' listings found',
+                  h('strong', null, dedupedListings.length), dedupedListings.length === 1 ? ' listing found' : ' listings found',
                   category !== 'All' && h('span', null, ' in ', h('strong', null, category)),
                   search && h('span', null, ' matching ', h('strong', null, `"${search}"`))
                 )
@@ -9420,7 +9420,11 @@ export function App() {
     routeName === 'profile'       && h(ProfileModal,    {
       onClose: () => navigate(paths.market()),
       me, wallet, transactions,
-      onRefresh: () => { loadWallet(); },
+      // loadMe too: the ?verify=<token> hand-off calls onRefresh after the
+      // server marks the email verified, and `me` is what the "not confirmed
+      // yet" banner and the Personal tab's UNVERIFIED chip read. Refreshing
+      // only the wallet left both showing the pre-verification state.
+      onRefresh: () => { loadWallet(); loadMe(); },
       initialTab: (() => {
         // CSFloat-1:1: prefer the route-pattern :tab param so /profile/trades
         // works as a deep link. Falls back to ?tab=… for legacy notification

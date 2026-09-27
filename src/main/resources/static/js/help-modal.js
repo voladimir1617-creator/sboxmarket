@@ -29,7 +29,7 @@ const FAQ = [
   },
   {
     q: 'How do withdrawals work?',
-    a: "Wallet → Withdraw. You'll need a verified email address first (verify it from Profile → Personal). Enter an amount and a destination (Stripe Connect ID or payout notes); if you have 2FA enabled you'll also enter a fresh 6-digit code. Your balance is debited immediately into a PENDING withdrawal, and an admin approves the payout within 24 hours. If rejected, the full amount is refunded to your wallet and you get a notification. A rolling $5,000 cap applies per 24-hour window, and withdrawals are paused while any deposit on your account is under a chargeback dispute."
+    a: "Wallet → Withdraw. You'll need a verified email address first (verify it from Profile → Personal). The first time, Set up cash-out links your bank account or debit card through Stripe (this is also the identity check). Then enter an amount; if you have 2FA enabled you'll also enter a fresh 6-digit code. Your balance is debited and the payout is sent to your Stripe cash-out account straight away; Stripe pays it on to your bank, usually within 1–2 business days. A rolling $5,000 cap applies per 24-hour window, and withdrawals are paused while any deposit on your account is under a chargeback dispute."
   },
   {
     q: 'What are Buy Orders?',

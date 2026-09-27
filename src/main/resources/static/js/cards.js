@@ -639,23 +639,23 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
               title: "You can't buy your own listing",
               'aria-label': `Your listing of ${item.name} — can't buy yourself`
             }, 'Yours')
-          : h('button', {
+          : (() => { const urlBlocked = hasTradeUrl === false && listing.sellerUserId != null; return h('button', {
               className: 'buy-btn',
               // Batch 794 — trade-URL gate (same rationale as batches
               // 791-793). Table-row Buy button was the last un-gated
               // money-moving control. Tooltip explains the block so
               // the user doesn't confuse a disabled Buy with a broken
               // page.
-              disabled: hasTradeUrl === false,
-              style: hasTradeUrl === false ? { opacity: 0.55, cursor: 'not-allowed' } : undefined,
-              title: hasTradeUrl === false
+              disabled: urlBlocked,
+              style: urlBlocked ? { opacity: 0.55, cursor: 'not-allowed' } : undefined,
+              title: urlBlocked
                 ? 'Add your Steam trade URL in Profile before buying'
                 : undefined,
-              'aria-label': hasTradeUrl === false
+              'aria-label': urlBlocked
                 ? `Buy ${item.name} — add a Steam trade URL first`
                 : `Buy ${item.name} for ${fmt(listing.price)}`,
               onClick: e => { e.preventDefault(); e.stopPropagation(); onBuy(listing.id, listing.price); }
-            }, 'Buy')
+            }, 'Buy'); })()
     )
   );
 }

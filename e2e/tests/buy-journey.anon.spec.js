@@ -110,7 +110,7 @@ test.describe('browse and find', () => {
     // over 3 cards is the same class of false statement as "Marketplace is
     // empty" over a 500 — a confident number that nothing produced.
     const meta = await page.locator('.results-meta').innerText();
-    const claimed = parseInt((meta.match(/(\d+)\s+listings found/) || [])[1], 10);
+    const claimed = parseInt((meta.match(/(\d+)\s+listings? found/) || [])[1], 10);
     expect(Number.isFinite(claimed), `results-meta should state a count, got "${meta}"`).toBeTruthy();
     expect(claimed).toBe(n);
   });

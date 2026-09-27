@@ -29203,3 +29203,20 @@ html body input.fee-calc-input:is(.fee-calc-input):focus-visible {
     flex: 1 0 100% !important;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   PHONE NAV: the signed-in header did not fit at 393px.
+   Measured at 393x852 (iPhone 15/16 width), signed in: logo, currency picker
+   (44px), Offers icon, bell, cart, balance pill (89px) and the avatar chip add
+   up to ~410px inside a 361px nav, so the balance pill ran to x=426 and the
+   avatar chip was drawn ON TOP of it -- the one number a buyer/seller checks
+   on every screen was clipped off the right edge.
+   Both hidden controls stay reachable on a phone: currency lives in Settings
+   and Offers under Profile > Offers (and the bottom nav reaches Profile).
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  html body nav.nav .nav-right > .nav-picker,
+  html body nav.nav .nav-right > a.nav-icon-btn[title="Offers"] {
+    display: none !important;
+  }
+}

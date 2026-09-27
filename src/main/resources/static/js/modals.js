@@ -2,7 +2,7 @@
 // surface — none of them receive the full App state.
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
-import { GridCard } from './cards.js?v=3';
+import { GridCard } from './cards.js?v=5';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -1685,7 +1685,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                             // fire into that error instead of blocking
                             // the click. Now matches the cart + offer +
                             // bid preflight pattern.
-                            const hasTradeUrl = me.tradeUrl && String(me.tradeUrl).trim();
+                            // House rows (sellerUserId == null) deliver in-platform;
+                            // PurchaseService skips TRADE_URL_MISSING for them, so
+                            // the gate must too -- it was disabling a buy the server
+                            // accepts (the hero "Buy now" for the same row worked).
+                            const hasTradeUrl = l.sellerUserId == null || (me.tradeUrl && String(me.tradeUrl).trim());
                             return h('button', {
                               className: 'buy-btn',
                               disabled: !hasTradeUrl,
@@ -2447,6 +2451,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
       const tradeProtection = Math.max(0.25, Math.round(price * 2) / 100);
       const tpFloored = tradeProtection <= 0.25;
       const confirmItem = bc.item || item;
+      const buyConfirmRow = (listings || []).find(l => l && l.id === bc.listingId) || cheapestBuyNow;
+      const buyConfirmIsHouse = !!buyConfirmRow && buyConfirmRow.sellerUserId === null;
       return h('div', {
         className: 'cart-confirm-backdrop',
         // Higher than the item modal (modal-backdrop is z-index 200) so
@@ -2465,7 +2471,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         },
           h('div', { className: 'cart-confirm-title', id: 'buy-confirm-title' }, 'Confirm purchase'),
           h('div', { className: 'cart-confirm-sub' },
-            'Review your purchase. Your wallet is charged the listing price and an escrow trade opens with the seller.'),
+            // A house listing (sellerUserId === null) has no seller and opens
+            // no trade -- the item lands in Platform Inventory -- so the
+            // escrow sentence contradicted the delivery line right under it.
+            buyConfirmIsHouse
+              ? 'Review your purchase. Your wallet is charged the listing price and the item is added to your Platform Inventory.'
+              : 'Review your purchase. Your wallet is charged the listing price and an escrow trade opens with the seller.'),
           // "An escrow trade opens with the seller" names a mechanism and
           // answers neither question a buyer has at this moment: what do I
           // get, and when. The multi-item cart confirm has said so since the
@@ -2531,7 +2542,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           h('div', { className: 'cart-confirm-total' },
             h('div', null,
               h('div', { className: 'cart-confirm-total-label' }, 'Total charged to wallet'),
-              h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.')
+              !buyConfirmIsHouse && h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.')
             ),
             h('div', { className: 'cart-confirm-total-amt' }, fmt(price))
           ),
@@ -3343,7 +3354,7 @@ export function FaqModal({ onClose }) {
     ['How does depositing work?',
       "Open your Wallet, pick Deposit, enter an amount (anything from $1 to $10,000), and you'll be handed to Stripe's checkout page. Once the payment clears, our webhook credits your balance automatically."],
     ['How do withdrawals work?',
-      "From your Wallet, pick Withdraw, enter a destination (Stripe Connect id, email, or a note) and the amount. Your balance is debited immediately and the payout is processed within 24 hours. Withdrawals are free — 100% of the requested amount reaches you."],
+      "From your Wallet, pick Withdraw and the amount. The first time, Set up cash-out links your bank or debit card through Stripe; after that every payout goes there. Your balance is debited and the payout is sent to that account right away; Stripe then pays your bank, usually within 1–2 business days. Any payout processing fee is shown as \"You receive\" before you confirm."],
     ['Why is SkinBox cheaper than Steam?',
       "Steam charges 12% in platform fees on Workshop sales and forces sellers into their pricing ladder. On SkinBox, sellers set whatever price they like — usually 10-30% below what the Steam store asks. The green '−%' chip on each card shows exactly how much you save versus Steam."],
     ['Do s&box items have wear levels?',
@@ -3865,12 +3876,15 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       (async () => {
         const res = await verifyEmail(tok.trim());
         if (cancelled) return;
+        // setEmailResult / setEmailToken live in ProfilePersonalTab, not
+        // here. Calling them from this scope threw a ReferenceError AFTER
+        // the server had already verified the address, so the user got no
+        // toast, a stale UNVERIFIED chip and the "not confirmed" nag --
+        // the verification link looked broken although it had worked.
+        // Feedback here is the toast + the `me` refresh only.
         if (res && (res.code || res.error)) {
-          setEmailResult({ err: res.message || res.error });
           toast(res.message || res.error || 'Could not verify email — the link may be expired.', 'err');
         } else {
-          setEmailResult({ ok: true, verified: true });
-          setEmailToken('');
           setTab('personal');  // flip to the tab that surfaces the banner
           toast('Email verified — you\'ll get trade activity, auction, and security alerts now.', 'ok');
           // Reload `me` so the hero's verified badge flips without a page refresh.
@@ -7513,6 +7527,7 @@ function ProfileTradesTab({ me, privacy }) {
     const id = confirmTrade.id;
     const itemName = confirmTrade.itemName;
     const price = confirmTrade.price;
+    const fee = confirmTrade.feeAmount;
     // Batch 888 — keep the confirm modal open until the API confirms,
     // then surface a personalised success toast. Before: the modal
     // closed before the API call fired (batch 861 pattern lives here
@@ -7529,7 +7544,12 @@ function ProfileTradesTab({ me, privacy }) {
       setConfirmTrade(null);
       await load();
       const label = itemName ? `"${itemName}"` : `trade #${id}`;
-      const priceBit = price != null ? ` — ${fmt(price)} released to the seller` : '';
+      // The seller is credited price MINUS the platform fee (the modal the
+      // buyer just confirmed says so), so name that figure, not the gross.
+      const net = (price != null && fee != null) ? Number(price) - Number(fee) : null;
+      const priceBit = net != null
+        ? ` — ${fmt(net)} released to the seller (${fmt(price)} minus the ${fmt(fee)} platform fee)`
+        : (price != null ? ` — payment released to the seller` : '');
       toast(`Receipt confirmed for ${label}${priceBit}.`, 'ok');
     } finally { setBusy(false); }
   };
@@ -8011,7 +8031,11 @@ function ProfileTradesTab({ me, privacy }) {
                             h('div', { className: 'trade-phase-dot' },
                               p.icon
                                 ? p.icon
-                                : (p.step <= meta.step ? '✓' : (p.step - 1))
+                                // meta.step is the phase being WAITED ON, so it is
+                                // not done yet: tick only the phases before it.
+                                // `<=` ticked "Accepts" while the seller had not
+                                // accepted and "Receives" before the buyer confirmed.
+                                : (p.step < meta.step ? '✓' : (p.step - 1))
                             ),
                             h('div', { className: 'trade-phase-label' }, p.short),
                             idx < arr.length - 1 && h('div', { className: 'trade-phase-bar' })
@@ -8094,9 +8118,14 @@ function ProfileTradesTab({ me, privacy }) {
                 // Nudge the viewer to set their own URL if the counterparty
                 // can't contact them (common first-time seller friction).
                 // Manual flow only — irrelevant when the bot delivers.
-                !automated && !t.counterpartyTradeUrl && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state) &&
+                // SELLER side only: in the manual flow the seller sends the
+                // offer to the BUYER's URL; the buyer never uses the seller's.
+                // Shown to buyers it read as a problem with their purchase
+                // ("The seller has no Steam trade URL on file yet") on every
+                // healthy trade.
+                !automated && isSeller && !t.counterpartyTradeUrl && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state) &&
                   h('div', { className: 'trade-counterparty-missing' },
-                    (isSeller ? 'The buyer' : 'The seller') + ' has no Steam trade URL on file yet.'),
+                    'The buyer has no Steam trade URL on file yet.'),
                 // Steam quick-action shortcuts (batch 285) — drops the
                 // user one click from the action they need to take.
                 // Seller in SEND state → open their inventory to pick
@@ -15358,7 +15387,6 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   // could fire two withdrawal/deposit POSTs. This ref latches synchronously.
   const submittingRef = useRef(false);
   useDialogA11y(panelRef, onClose);
-  const [dest, setDest]     = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [busy, setBusy]     = useState(false);
   const [error, setError]   = useState('');
@@ -15377,8 +15405,14 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       if (!alive) return;
       // Normalise: a null response (endpoint off / dev) means setup is
       // still needed. payoutsEnabled drives the "ready" branch.
+      // `live` / `simulated` are carried through because they decide what the
+      // withdraw form may ask for: on a live deployment the payout goes to the
+      // wallet's Stripe Connect account and nothing the user types is used,
+      // while a simulated (keyless) deployment has no Stripe account to
+      // onboard at all -- its "Set up cash-out" button only bounced the page.
       setConnect(s
-        ? { payoutsEnabled: !!s.payoutsEnabled, onboardingNeeded: s.onboardingNeeded || !s.payoutsEnabled }
+        ? { payoutsEnabled: !!s.payoutsEnabled, onboardingNeeded: s.onboardingNeeded || !s.payoutsEnabled,
+            live: !!s.live, simulated: !!s.simulated && !s.live }
         : { payoutsEnabled: false, onboardingNeeded: true });
     });
     return () => { alive = false; };
@@ -15542,12 +15576,12 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       return;
     }
     if (num > 10000) { setError('Maximum per transaction is $10,000'); return; }
-    // A withdrawal with no payout destination creates a PENDING row that
-    // staff can never fulfill — block it client-side before submit.
-    if (tab === 'withdraw' && !(dest || '').trim()) {
-      setError('Enter a payout destination (Stripe Connect ID or bank reference).');
-      return;
-    }
+    // No typed "payout destination". The form used to REQUIRE one ("Stripe
+    // Connect ID or bank reference") although StripeService.requestWithdrawal
+    // never reads it: live payouts go to the wallet's Stripe Connect account
+    // and the simulated path writes its own dev_payout_ reference. The field
+    // only made sellers type a meaningless string -- or their bank details --
+    // into a box whose value was discarded.
     submittingRef.current = true;
     setBusy(true);
     try {
@@ -15569,7 +15603,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
         // Mirrors the named-success pattern from buy/offer/bid handlers.
         toast(`Deposited ${fmt(num)} — your wallet balance updated.`, 'ok');
       } else {
-        const res = await withdrawFunds(num, dest, totpCode);
+        const res = await withdrawFunds(num, undefined, totpCode);
         if (res.code || res.error) {
           // Seller hasn't finished Stripe Connect onboarding yet — don't
           // dump the raw CONNECT_ONBOARDING_REQUIRED code. Point them at
@@ -15588,7 +15622,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
           }
           return;
         }
-        setAmount(''); setDest(''); setTotpCode('');
+        setAmount(''); setTotpCode('');
         await onRefresh();
         // Pre-fix: silent on success — user requested a withdraw, the
         // form cleared, and the only feedback was the wallet hero
@@ -15596,7 +15630,17 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
         // (could be hours), so an explicit toast is critical so the
         // user understands the money isn't out yet but the request is
         // queued.
-        toast(`Withdrawal of ${fmt(num)} requested — pending staff review (typically <24h). Track status in History.`, 'ok');
+        // Say what actually happened. /withdraw completes immediately: live,
+        // it is a Stripe Transfer to the seller's cash-out account (Stripe then
+        // pays the bank on its own schedule); simulated, nothing is sent at
+        // all. The old "pending staff review" toast described neither.
+        if (res.status === 'PENDING') {
+          toast(`Withdrawal of ${fmt(num)} requested — pending review. Track status in History.`, 'ok');
+        } else if (connect && connect.simulated) {
+          toast(`Test-mode withdrawal of ${fmt(num)} recorded — no real money was sent (no payment processor connected).`, 'ok');
+        } else {
+          toast(`Withdrawal of ${fmt(num)} sent to your Stripe cash-out account — it reaches your bank on Stripe's payout schedule, usually 1–2 business days.`, 'ok');
+        }
       }
     } catch (e) {
       setError(e.message || 'Request failed');
@@ -16447,7 +16491,14 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                       // Cash-out setup (Stripe Connect) — withdraw tab only.
                       // Show a "Set up cash-out" card until payouts are
                       // enabled, then a small "✓ Cash-out ready" indicator.
-                      tab === 'withdraw' && connect && !connect.payoutsEnabled &&
+                      tab === 'withdraw' && connect && connect.simulated && !connect.payoutsEnabled &&
+                        h('div', { className: 'cashout-setup-card', 'data-testid': 'cashout-test-mode' },
+                          h('div', { className: 'cashout-setup-title' }, 'Test mode — payouts are simulated'),
+                          h('div', { className: 'cashout-setup-desc' },
+                            'No payment processor is connected on this server, so there is no Stripe cash-out account to set up. ' +
+                            'A withdrawal here debits your balance and sends no real money.')
+                        ),
+                      tab === 'withdraw' && connect && !connect.simulated && !connect.payoutsEnabled &&
                         h('div', { className: 'cashout-setup-card' },
                           h('div', { className: 'cashout-setup-title' }, 'Set up cash-out'),
                           h('div', { className: 'cashout-setup-desc' },
@@ -16546,21 +16597,10 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                             h('div', { className: 'wallet-method-sub' }, 'Payout in 1–2 business days')
                           )
                     ),
-                    // Withdraw-only: destination input sits under the
-                    // payment-method card so "select method + enter
-                    // destination" reads as one step. 2FA also lives here
-                    // so the user can complete the form before reviewing.
+                    // Withdraw-only: the 2FA code sits under the payment-method
+                    // card so the user can complete the form before reviewing.
+                    // (No destination input -- see submit() for why.)
                     tab === 'withdraw' && h('div', { className: 'wallet-method-fields' },
-                      h('input', {
-                        className: 'wallet-amount-input',
-                        placeholder: 'Stripe Connect ID or bank reference',
-                        // Required for a fulfillable payout — labelled for
-                        // screen readers (the field had no label at all).
-                        'aria-label': 'Payout destination — Stripe Connect ID or bank reference',
-                        required: true,
-                        value: dest,
-                        onChange: e => setDest(e.target.value)
-                      }),
                       h('input', {
                         className: 'wallet-amount-input',
                         type: 'text', inputMode: 'numeric', maxLength: 6,
@@ -16613,9 +16653,14 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                 }
               },
                 h('strong', { style: { color: 'var(--text-primary)' } }, '⏱ Timing: '),
-                'admin review usually clears within 24h · ',
-                'Stripe payout then lands in your bank in 1–2 business days. ',
-                'You can cancel a PENDING request from the History tab to refund the balance instantly.'
+                // Was "admin review usually clears within 24h … cancel a PENDING
+                // request". /withdraw never creates a PENDING row: it completes
+                // on the spot (a Stripe Transfer when live, nothing when
+                // simulated), so that copy promised a review and a cancel
+                // window that do not exist.
+                connect && connect.simulated
+                  ? 'test mode — the withdrawal completes immediately and no real money is sent.'
+                  : 'sent to your Stripe cash-out account as soon as you confirm; Stripe then pays it to your bank, usually within 1–2 business days.'
               ),
               tab === 'deposit' && h('div', { className: 'wallet-note' },
                 wallet.stripeLive
