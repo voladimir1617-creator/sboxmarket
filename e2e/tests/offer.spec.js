@@ -10,7 +10,9 @@ test('bargain dialog blocks over-asking offers, allows below-asking', async ({ p
   await bargain.click();
 
   // Offer dialog: input + quick-discount chips + Send Offer
-  await expect(page.locator('text=/must be below asking price/i')).toBeVisible();
+  // The label names the asking price it must be below ("must be below the
+  // $13.00 asking price"), so match the phrase around the figure.
+  await expect(page.locator('text=/must be below the .* asking price/i')).toBeVisible();
   const send = page.getByRole('button', { name: /Send Offer/i });
   const input = page.locator('input[type="number"], input[inputmode="decimal"]').first();
   await expect(input).toBeVisible();

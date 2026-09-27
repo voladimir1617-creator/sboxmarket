@@ -52,6 +52,7 @@ class ListingController {
     // unconfigured, /my-stall/pending-escrow degrades to the bare listing rows
     // it returned before.
     @Autowired(required = false) com.sboxmarket.service.SteamEscrowService steamEscrowService
+    @Autowired(required = false) com.sboxmarket.service.SellerTrustService sellerTrustService
 
     // Batch 659 — canonical enum lists + normaliser live in
     // `com.sboxmarket.util.ListingEnums` (shared with ItemController
@@ -843,9 +844,22 @@ class ListingController {
      * the bean isn't registered).
      */
     private void decorateWithSellerRating(List<Listing> rows) {
-        if (rows == null || rows.isEmpty() || reviewService == null) return
+        if (rows == null || rows.isEmpty()) return
         def sellerIds = rows.collect { it.sellerUserId }.findAll { it != null }.toSet()
         if (sellerIds.isEmpty()) return
+        // V61 — same single-pass decoration for `sellerLastSeenAt`. Bulk
+        // SELECT covers every distinct seller in this list so the whole
+        // marketplace grid lights up real "Online now" presence dots
+        // without a per-row hit. Null sellerUserId rows (house listings)
+        // stay Offline on the client.
+        //
+        // Runs FIRST, and independently of reviews. It used to sit after
+        // `if (summaries.isEmpty()) return`, so on a marketplace where no
+        // seller in the page had a review yet (every new marketplace, and
+        // every page of new sellers) presence was never attached and every
+        // card read "Offline" while its seller was on the site.
+        decorateWithSellerLastSeen(rows, sellerIds)
+        if (reviewService == null) return
         def summaries = reviewService.summariesForUsers(sellerIds)
         if (summaries == null || summaries.isEmpty()) return
         rows.each { l ->
@@ -855,12 +869,6 @@ class ListingController {
                 l.sellerReviewCount  = (s.count as Number)?.intValue()
             }
         }
-        // V61 — same single-pass decoration for `sellerLastSeenAt`. Bulk
-        // SELECT covers every distinct seller in this list so the whole
-        // marketplace grid lights up real "Online now" presence dots
-        // without a per-row hit. Null sellerUserId rows (system seed
-        // listings) keep the deterministic-seed fallback on the client.
-        decorateWithSellerLastSeen(rows, sellerIds)
     }
 
     /** V61 — bulk-attach `sellerLastSeenAt` (epoch ms) onto every listing
@@ -1057,6 +1065,12 @@ class ListingController {
         // dormant rather than disabled). We deliberately DO NOT return
         // banReason — that's staff-only context.
         boolean isBanned = Boolean.TRUE.equals(user.banned)
+        // Trade record (completed / seller-caused failures / completion
+        // rate), counted from TRADES. `soldCount` above counts listings that
+        // went SOLD at the moment of purchase, before anyone knew whether the
+        // item would be delivered, so it cannot answer "does this seller
+        // deliver?". Null when banned or when the record could not be read.
+        def tradeRecord = isBanned ? null : sellerTrustService?.recordFor([userId])?.get(userId)
         def body = [
             seller: [
                 id:                user.id,
@@ -1086,6 +1100,12 @@ class ListingController {
                 // surfaces recency signal, not PII. Null for accounts we
                 // haven't re-synced since they signed in.
                 lastSyncedAt:      user.lastSyncedAt,
+                // Real presence: bumped by PresenceFilter on every signed-in
+                // request, the same field the Online/Offline dot on every
+                // card reads. The stall's "Last seen" used lastSyncedAt (the
+                // Steam sync loop) and called anything under 24h "Just now",
+                // next to cards that said Offline. Hidden when banned.
+                lastSeenAt:        isBanned ? null : user.lastSeenAt,
                 verified:          verified && !isBanned,
                 soldCount:         soldCount,
                 soldLast24h:       soldLast24h,
@@ -1096,6 +1116,9 @@ class ListingController {
                 responseRatePct:   responseRatePct,
                 typicalShipMs:     typicalShipMs,
                 typicalShipSamples: typicalShipSamples,
+                completedTrades:   tradeRecord?.completedTrades,
+                failedTrades:      tradeRecord?.failedTrades,
+                completionRate:    tradeRecord?.completionRate,
                 // Batch 1045 — most-recent listedAt across the seller's
                 // ACTIVE listings. Gives buyers a sharper activity signal
                 // than lastSyncedAt (Steam sync, updates on any login)
@@ -1428,8 +1451,24 @@ class ListingController {
      */
     @GetMapping("/delivery-policy")
     ResponseEntity<Map> deliveryPolicy() {
-        ResponseEntity.ok([sellerResponseDays: sellerResponseDays] as Map)
+        ResponseEntity.ok([
+            sellerResponseDays: sellerResponseDays,
+            // How long after the seller marks it sent the escrow releases to
+            // the seller if the buyer never confirms. The sell form quotes it
+            // ("you're paid when the buyer confirms, or automatically N days
+            // after you mark it sent") so a seller knows when money arrives
+            // without a support ticket. Same property and default as
+            // TradeService.autoReleaseDays, for the reason given below.
+            buyerConfirmDays:   buyerConfirmDays
+        ] as Map)
     }
+
+    /** Days after "marked sent" before an unconfirmed trade auto-releases to
+     *  the seller. Property name and default are IDENTICAL to TradeService's
+     *  `autoReleaseDays`, so the sell form cannot quote a window the release
+     *  sweep does not honour. */
+    @org.springframework.beans.factory.annotation.Value('${trade.auto-release-days:8}')
+    long buyerConfirmDays
 
     /**
      * Days a seller has to send the Steam trade offer before the platform

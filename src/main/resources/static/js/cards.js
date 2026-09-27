@@ -455,7 +455,10 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             className: `gc-online-row${isOnline ? ' is-online' : ''}`,
             title: isOnline ? 'Seller is online' : 'Seller is offline'
           },
-            h('span', { className: 'gc-online-dot', 'aria-hidden': 'true' }),
+            // `.offline` is the class design.css greys the dot with. The row
+            // only ever carried `is-online`, so every "Offline" card showed
+            // the green online dot next to the word Offline.
+            h('span', { className: 'gc-online-dot' + (isOnline ? '' : ' offline'), 'aria-hidden': 'true' }),
             isOnline ? 'Online' : 'Offline',
             watcherCount > 0 && h('span', { className: 'gc-online-count' }, ' ' + watcherCount)
           );

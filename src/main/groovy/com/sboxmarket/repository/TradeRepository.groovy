@@ -525,4 +525,26 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Object[]> findRecentShipMsForSellers(@Param("sellerIds") Collection<Long> sellerIds,
                                               @Param("since") Long since)
+
+    /**
+     * A seller's trade record, in bulk: rows of
+     * `[sellerUserId, completed, sellerFailed]`.
+     *
+     * `completed` counts VERIFIED trades. `sellerFailed` counts only the
+     * cancellations that were the seller's: they cancelled it, or they never
+     * accepted/sent it inside the response window. A buyer backing out, a
+     * staff ruling and rows cancelled before `cancelled_by` existed (NULL)
+     * are not the seller's failure and are not counted either way. Served by
+     * idx_trades_seller.
+     */
+    @Query("""
+        SELECT t.sellerUserId,
+               SUM(CASE WHEN t.state = 'VERIFIED' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN t.state = 'CANCELLED'
+                         AND t.cancelledBy IN ('SELLER', 'SELLER_TIMEOUT') THEN 1 ELSE 0 END)
+        FROM Trade t
+        WHERE t.sellerUserId IN :sellerIds
+        GROUP BY t.sellerUserId
+    """)
+    List<Object[]> tradeRecordForSellers(@Param("sellerIds") Collection<Long> sellerIds)
 }

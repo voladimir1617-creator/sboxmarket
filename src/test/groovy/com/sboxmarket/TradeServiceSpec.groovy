@@ -851,6 +851,59 @@ class TradeServiceSpec extends Specification {
         buyerWallet.balance == new BigDecimal("50.00")
     }
 
+    // ── who cancelled (feeds the seller's public completion rate) ─────────
+    // A buyer backing out must not count against the seller; a seller
+    // cancelling or letting the response window run out must. Before
+    // `cancelledBy` the three were the same CANCELLED row.
+
+    def "cancel records who cancelled: #who"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        adminAuthorization.requireAdmin(999L) >> {}
+
+        when:
+        service.cancel(actor, 1L, 'reason')
+
+        then:
+        t.state == 'CANCELLED'
+        t.cancelledBy == expected
+
+        where:
+        who      | actor | expected
+        'buyer'  | 10L   | 'BUYER'
+        'seller' | 20L   | 'SELLER'
+        'staff'  | 999L  | 'STAFF'
+    }
+
+    def "the seller-timeout sweep records SELLER_TIMEOUT"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_ACCEPT')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.autoCancelStaleSellerTrade(t)
+
+        then:
+        t.state == 'CANCELLED'
+        t.cancelledBy == 'SELLER_TIMEOUT'
+    }
+
     def "adminRelease bypasses the buyer ban guard (batch 327)"() {
         // Before batch 327, admin force-release routed through
         // buyerConfirm which called banGuard.assertNotBanned(buyer).

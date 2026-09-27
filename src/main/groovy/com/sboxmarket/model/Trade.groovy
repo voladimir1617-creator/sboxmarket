@@ -143,4 +143,15 @@ class Trade {
      *  skip the field. */
     @Column(name = 'trade_offer_url', length = 200)
     String tradeOfferUrl
+
+    /** Who ended a CANCELLED trade: BUYER, SELLER, STAFF, SELLER_TIMEOUT (the
+     *  seller never accepted/sent inside the response window) or
+     *  SELLER_BANNED. Recorded so a seller's public completion rate counts
+     *  only the failures that were theirs; before this column a buyer
+     *  backing out and a seller walking away were the same row. Null on
+     *  trades that are not cancelled and on rows cancelled before it
+     *  existed, which the completion rate therefore leaves out rather than
+     *  guesses at (V260). */
+    @Column(name = 'cancelled_by', length = 24)
+    String cancelledBy
 }

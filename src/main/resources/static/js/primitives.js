@@ -33,6 +33,35 @@ const MI_SVG_FALLBACK = {
 };
 
 /**
+ * Small line-art icons for components outside app.js (which has its own
+ * `Icon`). Same system: 24x24, no fill, currentColor, 1.8 stroke. Added for
+ * the controls an emoji-stripping pass had left labelled with a bare "—"
+ * (report flag, Steam profile link, trade stepper end-points) and for the
+ * seller trade record, so none of them needs an emoji or a font glyph.
+ */
+const LINE_ICON_PATHS = {
+  flag:   ['M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z', 'M4 22v-7'],
+  user:   ['M20 21a8 8 0 0 0-16 0', 'M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'],
+  bolt:   ['M13 3 4 14h7l-1 7 9-11h-7l1-7Z'],
+  check:  ['m5 12 4 4 10-10'],
+  clock:  ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 7v5l3 2'],
+  shield: ['M12 3 5 6v5c0 4.6 3.1 7.7 7 9 3.9-1.3 7-4.4 7-9V6l-7-3Z'],
+  external: ['M14 4h6v6', 'M20 4 10 14', 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
+  star:   ['m12 3 2.9 6 6.6.9-4.8 4.6 1.2 6.6L12 18l-5.9 3.1 1.2-6.6L2.5 9.9l6.6-.9L12 3Z'],
+};
+export function LineIcon({ name, size, title }) {
+  const s = size || 14;
+  const d = LINE_ICON_PATHS[name] || [];
+  return h('svg', {
+    width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+    strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round',
+    'aria-hidden': title ? undefined : true, role: title ? 'img' : undefined,
+    'aria-label': title || undefined,
+    style: { display: 'inline-block', verticalAlign: '-0.15em', flexShrink: 0 }
+  }, d.map((p, i) => h('path', { key: i, d: p })));
+}
+
+/**
  * Renders a Material Symbols Rounded glyph (self-hosted icon subset, declared
  * in fonts.css). We inject a span with the codepoint name; the font's ligature
  * table turns it into the glyph. For the handful of names the subset omits, an

@@ -13,7 +13,14 @@ test('star a market card adds it to the watchlist', async ({ page }) => {
   await firstCard.hover();
   const star = firstCard.locator('.grid-star').first();
   await expect(star).toBeVisible();
-  await star.click();
+  // The star is a TOGGLE. On a second run against the same database the first
+  // card is already starred from the first run, and clicking it again took it
+  // OFF the watchlist, so the test failed on its own leftovers. Only click an
+  // unstarred card; a starred one is already what this test is about.
+  if ((await star.getAttribute('aria-pressed')) !== 'true') {
+    await star.click();
+    await expect(star).toHaveAttribute('aria-pressed', 'true');
+  }
 
   // Watchlist now has at least one item (not the empty state).
   await page.goto('/watchlist');

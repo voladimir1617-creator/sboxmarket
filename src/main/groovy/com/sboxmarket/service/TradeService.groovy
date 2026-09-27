@@ -507,6 +507,11 @@ class TradeService {
             feeAmount:      t.feeAmount,
             state:          t.state,
             note:           t.note,
+            // Who ended a cancelled trade (BUYER / SELLER / STAFF /
+            // SELLER_TIMEOUT / SELLER_BANNED; null on older rows). Lets the
+            // row say "cancelled by the seller · refunded" instead of a bare
+            // "Trade cancelled" both parties have to interpret.
+            cancelledBy:    t.cancelledBy,
             createdAt:      t.createdAt,
             updatedAt:      t.updatedAt,
             settledAt:      t.settledAt,
@@ -1244,6 +1249,9 @@ class TradeService {
         def cleanReason = textSanitizer.medium(reason)
         t.note = cleanReason
         t.settledAt = System.currentTimeMillis()
+        // Who ended it — feeds the seller's public completion rate, which
+        // must not count a buyer backing out against the seller.
+        t.cancelledBy = isAdmin ? 'STAFF' : (actorUserId == t.sellerUserId ? 'SELLER' : 'BUYER')
         transitionTo(t, 'CANCELLED')
         // Buyer notification — only claim "refund issued" when this
         // cancel actually issued one. A protection-claimed trade was
@@ -1789,6 +1797,7 @@ class TradeService {
         returnListingToSeller(trade)
         trade.note = "Automatically cancelled — seller did not respond within ${sellerResponseDays} days"
         trade.settledAt = System.currentTimeMillis()
+        trade.cancelledBy = 'SELLER_TIMEOUT'
         transitionTo(trade, 'CANCELLED')
         // Batch 631: both sides migrated to safePush — a bell failure
         // must not roll back the refundBuyer + returnListingToSeller
@@ -2168,6 +2177,7 @@ class TradeService {
         returnListingToSeller(trade)
         trade.note = "Automatically cancelled — seller account banned"
         trade.settledAt = System.currentTimeMillis()
+        trade.cancelledBy = 'SELLER_BANNED'
         transitionTo(trade, 'CANCELLED')
         notificationService?.safePush(trade.buyerUserId, 'TRADE_CANCELLED',
             "Trade cancelled · refund issued", trade.note, trade.id, '/profile?tab=trades')

@@ -1,8 +1,8 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
-import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
-import { GridCard } from './cards.js?v=5';
+import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
+import { GridCard } from './cards.js?v=6';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -22,7 +22,7 @@ import {
   fetchListings, fetchItem, fetchItemsByIds, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, fetchMyAuthoredReviews, fetchPendingReviews, deleteReview, replyToReview, fetchBuyOrderCountForItem,
   fetchBuyOrdersForItem,
-  fetchWalletActivity, fetchDeliveryPolicy
+  fetchWalletActivity, fetchDeliveryPolicy, fetchSellerTrust
 } from './api.js';
 
 export { InfoModal };
@@ -136,7 +136,116 @@ export function useDeliveryPolicy() {
   return days;
 }
 
+/** The whole trade policy: `{ sellerResponseDays, buyerConfirmDays }`, or
+ *  null until it lands and forever if the lookup fails. Same rule as above:
+ *  a missing figure is left out of the copy, never guessed. */
+export function useTradePolicy() {
+  const [policy, setPolicy] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetchDeliveryPolicy()
+      .then(p => { if (alive && p) setPolicy(p); })
+      .catch(() => { /* stays null */ });
+    return () => { alive = false; };
+  }, []);
+  return policy;
+}
+
 // ── Item detail ──────────────────────────────────────────────────
+/** "3h" / "25m" / "2d" — a median delay, rounded the way a person says it. */
+function fmtDelay(ms) {
+  const m = Number(ms);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const hours = m / 3_600_000;
+  if (hours < 1) return Math.max(1, Math.round(m / 60_000)) + 'm';
+  if (hours < 24) return Math.round(hours) + 'h';
+  return Math.round(hours / 24) + 'd';
+}
+
+/**
+ * "Sold by": the seller of the listing the Buy button targets, with their
+ * trade record. csfloat shows who you are buying from, how fast they send and
+ * what share of their trades completed right beside the price; here the item
+ * page named nobody, so a buyer about to send money to a stranger had to leave
+ * the page to find out whether that stranger delivers.
+ *
+ * `trust` is the /api/sellers/trust map: `undefined` while it loads, `null`
+ * when the lookup FAILED (said plainly, never shown as a clean record), and a
+ * map in which a missing seller has no public record. Nothing here is
+ * computed on the client; see SellerTrustService for how each figure counts.
+ * House listings (no seller) render nothing: DeliveryExpectation above already
+ * says the platform delivers them.
+ */
+export function SellerTrustCard({ listing, trust, avatarUrl }) {
+  if (!listing || listing.sellerUserId == null) return null;
+  const id = listing.sellerUserId;
+  const rec = trust ? trust[id] : undefined;
+  const name = listing.sellerName || 'Seller';
+  const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
+  const online = !!(rec && rec.lastSeenAt && (Date.now() - Number(rec.lastSeenAt)) < PRESENCE_WINDOW_MS);
+  const since = rec && rec.memberSince
+    ? new Date(rec.memberSince).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+    : null;
+  const completed = rec ? Number(rec.completedTrades || 0) : 0;
+  const failed = rec ? Number(rec.failedTrades || 0) : 0;
+  const decided = completed + failed;
+  const ship = rec ? fmtDelay(rec.medianShipMs) : null;
+  const reviews = rec ? Number(rec.reviewCount || 0) : 0;
+
+  let body;
+  if (trust === undefined) {
+    body = h('div', { className: 'seller-trust-note' }, 'Checking trade record…');
+  } else if (trust === null) {
+    body = h('div', { className: 'seller-trust-note', 'data-state': 'unavailable' },
+      'Trade record unavailable right now. Your payment is held in escrow either way.');
+  } else if (!rec) {
+    body = h('div', { className: 'seller-trust-note', 'data-state': 'none' }, 'No public trade record.');
+  } else if (decided === 0) {
+    body = h('div', { className: 'seller-trust-note is-new', 'data-state': 'new' },
+      h('strong', null, 'New seller'), ' · no completed trades yet. ',
+      'Your payment stays in escrow until you confirm the item arrived.');
+  } else {
+    const cells = [
+      { key: 'completed', val: completed.toLocaleString(), label: completed === 1 ? 'trade completed' : 'trades completed',
+        tip: 'Trades this seller completed: the buyer confirmed the item, or the release timer ran out after it was marked sent.' },
+      { key: 'rate', val: rec.completionRate + '%', label: `completed (${completed} of ${decided})`,
+        tip: 'Share of this seller\'s decided trades they completed. Only trades the seller cancelled or let time out count against it; a buyer backing out does not.' },
+    ];
+    if (ship) cells.push({ key: 'ship', val: '~' + ship, label: 'median time to send',
+      tip: 'Median time from sale to the seller marking the Steam trade offer sent, over their last 90 days (shown from 3 trades).' });
+    if (reviews > 0 && rec.rating != null) cells.push({ key: 'rating', val: Number(rec.rating).toFixed(1),
+      label: `rating (${reviews} review${reviews === 1 ? '' : 's'})`, icon: 'star',
+      tip: 'Average of the reviews buyers left after completed trades.' });
+    body = h('div', { className: 'seller-trust-stats' },
+      cells.map(c => h('div', { key: c.key, className: 'seller-trust-stat', 'data-stat': c.key, title: c.tip },
+        h('span', { className: 'seller-trust-val' }, c.icon && h(LineIcon, { name: c.icon, size: 12 }), c.val),
+        h('span', { className: 'seller-trust-label' }, c.label))));
+  }
+
+  return h('section', { className: 'seller-trust', 'data-testid': 'seller-trust', 'aria-label': 'Seller' },
+    h('a', {
+      className: 'seller-trust-head',
+      href: '/stall/' + id,
+      title: `View ${name}'s stall`
+    },
+      h('span', { className: 'seller-trust-av', 'aria-hidden': true },
+        avatarUrl
+          ? h('img', { src: avatarUrl, alt: '', loading: 'lazy', referrerPolicy: 'no-referrer',
+              onError: (e) => { e.currentTarget.style.display = 'none'; } })
+          : null,
+        h('span', { className: 'seller-trust-initials' }, name.slice(0, 2).toUpperCase())),
+      h('span', { className: 'seller-trust-id' },
+        h('span', { className: 'seller-trust-eyebrow' }, 'Sold by' + (since ? ' · since ' + since : '')),
+        h('span', { className: 'seller-trust-name' }, name)),
+      h('span', {
+        className: 'seller-trust-presence' + (online ? ' is-online' : ''),
+        title: online ? 'Active on the site in the last 15 minutes' : 'Not active on the site in the last 15 minutes'
+      }, h('span', { className: 'seller-trust-dot' }), online ? 'Online' : 'Offline')
+    ),
+    body
+  );
+}
+
 export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onCreateBuyOrder, onAddToCart, cartHas, watchlist, onToggleStar, isPageMode }) {
   // CSFloat-1:1 — the buy / offer surfaces must target the cheapest
   // BUY_NOW listing, not listings[0]. Listings come back sorted
@@ -213,6 +322,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // on file (brand-new accounts, private profiles) are absent from
   // the response and fall through to the monogram fallback.
   const [sellerAvatars, setSellerAvatars] = useState({});
+  // Sellers' public trade records (/api/sellers/trust) for the "Sold by" card
+  // and each Active Listings row. undefined = loading, null = lookup failed,
+  // otherwise {sellerUserId: record}.
+  const [sellerTrust, setSellerTrust] = useState(undefined);
   // "More from this seller" rail — pulled for the cheapest listing's
   // seller (the most likely trade target). `{sellerId, sellerName,
   // listings}` or null when: no listings, system-listed (no seller id),
@@ -442,6 +555,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         setSellerShipTimes(t || {});
       } catch (_) { /* best-effort */ }
     })();
+    // Trade records for every seller on the page — one round trip.
+    setSellerTrust(undefined);
+    fetchSellerTrust(ids)
+      .then(r => { if (alive) setSellerTrust(r); })
+      .catch(() => { if (alive) setSellerTrust(null); });
     // Steam avatar bulk lookup — replaces the monogram with the real
     // Steam profile photo on rows where the seller has one on file.
     (async () => {
@@ -844,6 +962,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               h(DeliveryExpectation, {
                 sellerUserId: cheap.sellerUserId,
                 days: deliveryDays
+              }),
+              // Who that is, and whether they deliver — same `cheap` listing.
+              h(SellerTrustCard, {
+                listing: cheap,
+                trust: sellerTrust,
+                avatarUrl: cheap.sellerUserId != null ? sellerAvatars[cheap.sellerUserId] : null
               })
             );
           })(),
@@ -1556,9 +1680,29 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                       return h('span', {
                         style: { marginLeft: 6, fontSize: 10, fontWeight: 700, color,
                                  padding: '1px 6px', borderRadius: 10, whiteSpace: 'nowrap',
-                                 border: '1px solid currentColor', opacity: 0.85 },
+                                 border: '1px solid currentColor', opacity: 0.85,
+                                 display: 'inline-flex', alignItems: 'center', gap: 3 },
                         title: `Typical ship time · median over this seller's last 90 days of trades`
-                      }, '⚡ ', label);
+                      }, h(LineIcon, { name: 'bolt', size: 10 }), label);
+                    })(),
+                    // Trade record chip — every row, not only sellers with
+                    // reviews: "12 trades" or "New seller". A row with no chip
+                    // used to look the same for a seller with 200 completed
+                    // trades and one with none. Hidden while loading and when
+                    // the lookup failed (the "Sold by" card says so).
+                    (() => {
+                      if (!l.sellerUserId || !sellerTrust) return null;
+                      const rec = sellerTrust[l.sellerUserId];
+                      if (!rec) return null;
+                      const done = Number(rec.completedTrades || 0);
+                      const decided = done + Number(rec.failedTrades || 0);
+                      return h('span', {
+                        className: 'listing-trade-chip' + (decided === 0 ? ' is-new' : ''),
+                        'data-testid': 'listing-trade-chip',
+                        title: decided === 0
+                          ? 'No completed trades yet on SkinBox'
+                          : `${done} completed trade${done === 1 ? '' : 's'} · ${rec.completionRate}% of ${decided} decided trades completed`
+                      }, decided === 0 ? 'New seller' : `${done} trade${done === 1 ? '' : 's'} · ${rec.completionRate}%`);
                     })()
                   ),
                   h('span', { className: 'modal-listing-condition' }, '#' + l.id),
@@ -1567,8 +1711,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     title: 'Listed ' + new Date(l.listedAt).toLocaleString(),
                     style: { fontSize: 10, color: 'var(--text-muted)' }
                   },
-                    (Date.now() - l.listedAt < 48 * 3600 * 1000) ? '—' : '',
-                    'listed ', timeAgo(l.listedAt)
+                    'listed ', timeAgo(l.listedAt).replace(/^Just now$/, 'just now')
                   ),
                   // Seller's optional description — lets a seller say
                   // "quick sale, accept 10% below" or "mint, never worn"
@@ -1584,7 +1727,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     },
                     title: l.description
                   }, '"' + (l.description.length > 100 ? l.description.substring(0, 97) + '…' : l.description) + '"'),
-                  h('div', { className: 'modal-listing-rarity-bar' }),
+                  // (A decorative "float bar" used to sit here; s&box items have
+                  // no float, and on the row it drew as a stray blue tick.)
                   (() => {
                     const ref = parseFloat(item.steamPrice) || 0;
                     const p = parseFloat(l.price) || 0;
@@ -1699,13 +1843,17 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                               onClick: () => requestBuy(l.id, l.price, l.item)
                             }, 'Buy');
                           })(),
+                  // Report — a quiet flag. It was labelled "—" (an emoji
+                  // stripped to a dash) and picked up the row's blue button
+                  // styling, so the second-largest control on every row was a
+                  // blank blue box with no meaning.
                   me && me.id !== l.sellerUserId && h('button', {
-                    className: 'btn btn-ghost',
-                    style: { padding: '4px 8px', fontSize: 12, border: '1px solid var(--border)', opacity: 0.7 },
+                    className: 'listing-report-btn',
+                    type: 'button',
                     onClick: () => setReportTarget(l),
                     title: 'Report this listing to the moderation team',
                     'aria-label': `Report listing ${l.id}`
-                  }, '—')
+                  }, h(LineIcon, { name: 'flag', size: 14 }))
                 );
               })
         ),
@@ -2192,7 +2340,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             onClick: (e) => { e.stopPropagation(); onClose && onClose(); }
           }, 'View offer →')
         ),
-        h('div', { className: 'wallet-input-label', style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' } }, 'Your offer (must be below asking price)'),
+        h('div', { className: 'wallet-input-label offer-drawer-label', style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' } },
+          'Your offer', ask > 0 && h('span', { className: 'offer-drawer-ask' }, ' · must be below the ' + fmt(ask) + ' asking price')),
         h('input', {
           className: 'wallet-amount-input',
           type: 'number', min: '0.01', step: '0.01',
@@ -2202,7 +2351,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           inputMode: 'decimal',
           enterKeyHint: 'send',
           'aria-label': 'Offer amount in USD',
-          placeholder: (ask > 0 ? ask * 0.85 : 0).toFixed(2),
+          // "e.g." so the suggestion cannot be mistaken for a typed amount:
+          // it rendered as a bare "0.46" beside a disabled Send button that
+          // never said why it was disabled.
+          placeholder: 'e.g. ' + (ask > 0 ? ask * 0.85 : 0).toFixed(2),
           value: offerAmt,
           onChange: e => setOfferAmt(e.target.value),
           // Batch 823 — Esc closes the offer drawer. Before this the
@@ -2263,70 +2415,6 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             ))
           );
         })(),
-        h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
-          (() => {
-            // Batch 791 — gate Send Offer on trade-URL presence. If the
-            // seller's auto-accept fires and PurchaseService hits
-            // TRADE_URL_MISSING, the offer silently stays PENDING and
-            // the buyer is left wondering why their offer didn't
-            // auto-accept. Blocking up front matches the preflight on
-            // the cart (batches 788-790) + the ItemModal banner at the
-            // top of the modal.
-            const hasTradeUrl = me && me.tradeUrl && String(me.tradeUrl).trim();
-            const whyDisabled = !hasTradeUrl
-              ? 'Add your Steam trade URL in Profile before making offers'
-              : myLive
-                ? 'You already have an active offer on this listing'
-                : undefined;
-            return h('button', {
-              className: 'btn btn-accent',
-              style: { padding: '0 22px', fontSize: 13 },
-              disabled: offerBusy || !offerAmt || atOrAboveAsk || !!myLive || !hasTradeUrl,
-              title: whyDisabled,
-              onClick: async () => {
-                setOfferErr('');
-                // Validate the typed amount before the POST. `min="0.01"` on the
-                // input does NOT block free-typed/pasted values like -5, and the
-                // disabled-state covers atOrAboveAsk only — so guard both bounds
-                // here (a sub-cent offer would also round to $0.00 server-side).
-                if (!Number.isFinite(amt) || amt < 0.01) { setOfferErr('Enter an offer of at least $0.01.'); return; }
-                if (amt >= ask) { setOfferErr('Offer must be below the asking price.'); return; }
-                if (offerBusyRef.current) return;   // synchronous double-submit guard
-                offerBusyRef.current = true;
-                setOfferBusy(true);
-                try {
-                  const res = await onMakeOffer(cheapestBuyNow?.id, parseFloat(offerAmt), offerMsg);
-                  if (res && res.error) { setOfferErr(res.message || res.error); return; }
-                  setOfferOpen(false);
-                  setOfferAmt('');
-                  setOfferMsg('');
-                  onClose();
-                } finally { offerBusyRef.current = false; setOfferBusy(false); }
-              }
-            }, offerBusy ? '...' : 'Send Offer');
-          })()
-        ),
-        // Live math preview chip. Green when auto-accept would fire,
-        // amber when the offer is under the seller's maxDiscount or
-        // the amount is blank/invalid, red when at/above ask.
-        belowAskPct != null && h('div', {
-          style: {
-            fontSize: 11, marginTop: 8, lineHeight: 1.5,
-            color: atOrAboveAsk
-              ? 'var(--red)'
-              : autoAccept
-                ? 'var(--green)'
-                : 'var(--text-muted)'
-          }
-        },
-          atOrAboveAsk
-            ? `⚠ ${fmt(amt)} is at or above the asking price (${fmt(ask)}) — use Buy Now instead.`
-            : (
-                autoAccept
-                  ? `✓ ${belowAskPct.toFixed(1)}% below ask · save ${fmt(savings)} · at or above seller's auto-accept threshold (${fmt(autoThreshold)}) — may accept instantly.`
-                  : `${belowAskPct.toFixed(1)}% below ask · save ${fmt(savings)}${autoThreshold > 0 ? ` · auto-accept at ${fmt(autoThreshold)}` : ''}`
-              )
-        ),
         // Optional 280-char note. Sellers anchor on context — "first
         // purchase, will pay fast" lands very differently from a silent
         // 30%-off offer. Char counter goes red past the cap so the buyer
@@ -2353,6 +2441,95 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               color: offerMsg.length > 280 ? 'var(--red)' : 'var(--text-muted)'
             }
           }, `${offerMsg.length}/280`)
+        ),
+        h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
+          (() => {
+            // Batch 791 — gate Send Offer on trade-URL presence. If the
+            // seller's auto-accept fires and PurchaseService hits
+            // TRADE_URL_MISSING, the offer silently stays PENDING and
+            // the buyer is left wondering why their offer didn't
+            // auto-accept. Blocking up front matches the preflight on
+            // the cart (batches 788-790) + the ItemModal banner at the
+            // top of the modal.
+            const hasTradeUrl = me && me.tradeUrl && String(me.tradeUrl).trim();
+            // One reason, shown under the button as well as on hover: a
+            // disabled Send with no explanation read as broken.
+            const whyDisabled = !hasTradeUrl
+              ? 'Add your Steam trade URL in Profile before making offers.'
+              : myLive
+                ? 'You already have an active offer on this listing.'
+                : !offerAmt
+                  ? 'Enter an amount below ' + fmt(ask) + '.'
+                  : atOrAboveAsk
+                    ? 'Offers must be below the asking price.'
+                    : undefined;
+            return h(React.Fragment, null, h('button', {
+              className: 'btn btn-accent',
+              style: { padding: '0 22px', fontSize: 13 },
+              disabled: offerBusy || !offerAmt || atOrAboveAsk || !!myLive || !hasTradeUrl,
+              title: whyDisabled,
+              onClick: async () => {
+                setOfferErr('');
+                // Validate the typed amount before the POST. `min="0.01"` on the
+                // input does NOT block free-typed/pasted values like -5, and the
+                // disabled-state covers atOrAboveAsk only — so guard both bounds
+                // here (a sub-cent offer would also round to $0.00 server-side).
+                if (!Number.isFinite(amt) || amt < 0.01) { setOfferErr('Enter an offer of at least $0.01.'); return; }
+                if (amt >= ask) { setOfferErr('Offer must be below the asking price.'); return; }
+                if (offerBusyRef.current) return;   // synchronous double-submit guard
+                offerBusyRef.current = true;
+                setOfferBusy(true);
+                try {
+                  const res = await onMakeOffer(cheapestBuyNow?.id, parseFloat(offerAmt), offerMsg);
+                  if (res && res.error) { setOfferErr(res.message || res.error); return; }
+                  setOfferOpen(false);
+                  setOfferAmt('');
+                  setOfferMsg('');
+                  onClose();
+                } finally { offerBusyRef.current = false; setOfferBusy(false); }
+              }
+            }, offerBusy ? '...' : 'Send Offer'),
+              whyDisabled && !offerBusy && h('span', { className: 'offer-drawer-why', 'data-testid': 'offer-why-disabled' }, whyDisabled));
+          })()
+        ),
+        // What an accepted offer does. It is not a reservation: the seller's
+        // accept runs the purchase at the offer price on the spot (the
+        // wallet is charged and the escrow trade opens), and an offer whose
+        // buyer no longer has the balance at that moment just lapses. The
+        // drawer used to say none of this, so a buyer could not know an
+        // offer commits money.
+        h('div', { className: 'offer-drawer-terms', 'data-testid': 'offer-terms' },
+          'If the seller accepts, ', h('strong', null, amt > 0 && !atOrAboveAsk ? fmt(amt) : 'your offer'),
+          ' is charged from your wallet at once and an escrow trade opens, the same as Buy now. Keep that much in your balance until they answer.',
+          (() => {
+            const bal = parseFloat(wallet && wallet.balance);
+            if (!me || !Number.isFinite(bal)) return null;
+            const short = amt > 0 && !atOrAboveAsk && bal < amt;
+            return h('span', { className: 'offer-drawer-balance' + (short ? ' is-short' : '') },
+              short
+                ? ' Your balance is ' + fmt(bal) + ': top up before they accept, or the offer lapses.'
+                : ' Your balance: ' + fmt(bal) + '.');
+          })()),
+        // Live math preview chip. Green when auto-accept would fire,
+        // amber when the offer is under the seller's maxDiscount or
+        // the amount is blank/invalid, red when at/above ask.
+        belowAskPct != null && h('div', {
+          style: {
+            fontSize: 11, marginTop: 8, lineHeight: 1.5,
+            color: atOrAboveAsk
+              ? 'var(--red)'
+              : autoAccept
+                ? 'var(--green)'
+                : 'var(--text-muted)'
+          }
+        },
+          atOrAboveAsk
+            ? `⚠ ${fmt(amt)} is at or above the asking price (${fmt(ask)}) — use Buy Now instead.`
+            : (
+                autoAccept
+                  ? `✓ ${belowAskPct.toFixed(1)}% below ask · save ${fmt(savings)} · at or above seller's auto-accept threshold (${fmt(autoThreshold)}) — may accept instantly.`
+                  : `${belowAskPct.toFixed(1)}% below ask · save ${fmt(savings)}${autoThreshold > 0 ? ` · auto-accept at ${fmt(autoThreshold)}` : ''}`
+              )
         ),
         offerErr && h('div', { style: { color: 'var(--red)', fontSize: 12, marginTop: 6 } }, offerErr)
       );
@@ -2521,22 +2698,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               }, confirmItem.category)
             )
           ),
-          // Price breakdown — item price, Trade Protection (2%) line, and
-          // the total. Uses the same cart-confirm row classes for visual
-          // parity with the cart checkout summary.
+          // Price breakdown — only what this click charges. The optional Trade
+          // Protection used to sit IN the breakdown as a priced line ($0.25)
+          // between the item price and a total that did not include it, so
+          // the rows did not add up to the total; it is not charged here at
+          // all (it can be added to the trade afterwards). It is described
+          // under the total instead, with what it does and does not cover.
           h('div', { style: { margin: '0 0 6px' } },
             h('div', { className: 'cart-confirm-row' },
               h('div', { style: { flex: 1 } }, 'Item price'),
               h('div', { className: 'cart-confirm-amt' }, fmt(price))
-            ),
-            h('div', { className: 'cart-confirm-row' },
-              h('div', { style: { flex: 1 } },
-                tpFloored ? `Trade Protection (min ${fmt(0.25)})` : 'Trade Protection (2%)',
-                h('span', {
-                  style: { color: 'var(--text-muted)', fontSize: 11, marginLeft: 6, fontWeight: 500 }
-                }, '· optional, add after purchase')
-              ),
-              h('div', { className: 'cart-confirm-amt', style: { color: 'var(--text-muted)' } }, fmt(tradeProtection))
             )
           ),
           h('div', { className: 'cart-confirm-total' },
@@ -2545,6 +2716,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               !buyConfirmIsHouse && h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.')
             ),
             h('div', { className: 'cart-confirm-total-amt' }, fmt(price))
+          ),
+          !buyConfirmIsHouse && h('div', { className: 'buy-confirm-protection-note', 'data-testid': 'buy-confirm-protection-note' },
+            'Optional, after purchase: Trade Protection (',
+            tpFloored ? fmt(tradeProtection) + ' minimum' : '2%',
+            ') refunds a disputed trade at once instead of after staff review. Cancelled and timed-out trades are refunded either way.'
           ),
           h('div', { className: 'cart-confirm-actions' },
             h('button', {
@@ -6388,7 +6564,7 @@ function ProfileBuyOrdersTab() {
         style: { color: 'var(--text-muted)' },
         title: `Sum of max price × remaining quantity across ${counts.ACTIVE} active order${counts.ACTIVE === 1 ? '' : 's'}. This is the potential outlay if every active order fills at its ceiling — buy orders don't pre-lock funds.`
       },
-        '—', h('strong', { style: { color: 'var(--accent)' } }, fmt(activeExposure)),
+        h('strong', { style: { color: 'var(--accent)' } }, fmt(activeExposure)),
         ' potential outlay across ', counts.ACTIVE, ' active order', counts.ACTIVE === 1 ? '' : 's'
       ),
       counts.FILLED > 0 && h('span', {
@@ -7858,8 +8034,9 @@ function ProfileTradesTab({ me, privacy }) {
               : h(MaterialIcon, { name: 'inventory_2', size: 24, color: accent }));
             return h('div', { key: t.id, id: 'trade-' + t.id, className: `trade-row ${(t.state || '').toLowerCase()}` },
               h('div', { className: 'trade-main' },
+                // (A bare "→ " / "← " used to lead the title as a direction
+                // marker; the "You are selling / buying" label says it in words.)
                 h('div', { className: 'trade-title', style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap' } },
-                  (isSeller ? '→ ' : '← '),
                   // Link the item name to the item detail page when the
                   // trade carries an itemId. The thumbnail rides INSIDE
                   // the same anchor so click anywhere on thumb+name
@@ -7999,7 +8176,24 @@ function ProfileTradesTab({ me, privacy }) {
                 // CANCELLED states drop the bar to a single red/grey chip.
                 (t.state === 'DISPUTED' || t.state === 'CANCELLED')
                   ? h('div', { className: `trade-progress terminal ${(t.state || '').toLowerCase()}` },
-                      h('span', null, t.state === 'DISPUTED' ? 'Trade disputed — awaiting staff review' : 'Trade cancelled')
+                      h('span', { className: 'trade-terminal-label' },
+                        t.state === 'DISPUTED'
+                          ? 'Trade disputed — awaiting staff review'
+                          : (() => {
+                              // Say who ended it, from the viewer's side, and
+                              // that the buyer's money came back. A bare "Trade
+                              // cancelled" left both parties guessing, and the
+                              // seller's public completion rate counts only
+                              // the cancellations that were theirs.
+                              const by = t.cancelledBy;
+                              const refunded = isSeller ? ' · the buyer was refunded' : ' · you were refunded';
+                              if (by === 'BUYER')          return (isSeller ? 'Cancelled by the buyer' : 'You cancelled this trade') + refunded;
+                              if (by === 'SELLER')         return (isSeller ? 'You cancelled this trade' : 'Cancelled by the seller') + refunded;
+                              if (by === 'SELLER_TIMEOUT') return (isSeller ? 'Cancelled: you did not send in time' : 'Cancelled: the seller did not send in time') + refunded;
+                              if (by === 'SELLER_BANNED')  return 'Cancelled: the seller account was suspended' + refunded;
+                              if (by === 'STAFF')          return 'Cancelled by SkinBox support' + refunded;
+                              return 'Trade cancelled';
+                            })())
                     )
                   : h('div', { className: 'trade-progress-stepper six-node' },
                       (() => {
@@ -8019,12 +8213,14 @@ function ProfileTradesTab({ me, privacy }) {
                           return null;
                         };
                         return [
-                          { step: 1, short: 'Seller',   icon: '—', anchor: true  },
+                          // End-points are people, drawn as a person; they
+                          // were a bare "—" left behind by an emoji strip.
+                          { step: 1, short: 'Seller',   icon: h(LineIcon, { name: 'user', size: 11 }), anchor: true  },
                           { step: 2, short: 'Accepts',  icon: null, anchor: false },
                           { step: 3, short: 'Sends',    icon: null, anchor: false },
                           { step: 4, short: 'Receives', icon: null, anchor: false },
                           { step: 5, short: 'Verified', icon: null, anchor: false },
-                          { step: 6, short: 'Buyer',    icon: '—', anchor: true  }
+                          { step: 6, short: 'Buyer',    icon: h(LineIcon, { name: 'user', size: 11 }), anchor: true  }
                         ].map((p, idx, arr) => {
                           const ts = stepTime(p.step);
                           return h('div', {
@@ -8095,14 +8291,17 @@ function ProfileTradesTab({ me, privacy }) {
                     // sanity-check the buyer's account (friend count,
                     // games, age) before sending a Steam trade offer —
                     // a fresh empty account is a fraud red flag.
+                    // Was labelled "—" (a stripped emoji), so it read as an
+                    // empty box next to the copy button.
                     t.counterpartySteamProfileUrl && h('a', {
-                      className: 'trade-counterparty-copy',
+                      className: 'trade-counterparty-copy trade-counterparty-profile',
                       href: t.counterpartySteamProfileUrl,
                       target: '_blank',
                       rel: 'noopener noreferrer',
-                      title: 'Open Steam profile in a new tab',
+                      title: (isSeller ? "Open the buyer's" : "Open the seller's") + ' Steam profile in a new tab',
+                      'aria-label': (isSeller ? "Buyer's" : "Seller's") + ' Steam profile (opens in a new tab)',
                       style: { textDecoration: 'none' }
-                    }, '—')
+                    }, h(LineIcon, { name: 'user', size: 13 }), h('span', null, 'Profile'))
                   ),
                 // Automated delivery banner — replaces every manual-offer
                 // instruction when the bot is handling the trade. Shown to both
@@ -9401,14 +9600,14 @@ function ProfileOffersTab() {
           ? h('span', {
               title: 'Sum of pending-offer amounts across your incoming list. This is the gross revenue you\'d collect (before 2% platform fee) if you accepted every pending offer right now.'
             },
-              '—', h('strong', { style: { color: 'var(--accent)' } }, fmt(sum)),
+              h('strong', { style: { color: 'var(--accent)' } }, fmt(sum)),
               ' in pending offers across ', pending.length, ' listing',
               pending.length === 1 ? '' : 's'
             )
           : h('span', {
               title: 'Sum of your pending outgoing offers. Offers don\'t pre-lock wallet funds — the balance is debited only on seller accept, so this is the potential outlay if every seller accepts.'
             },
-              '—', h('strong', { style: { color: 'var(--accent)' } }, fmt(sum)),
+              h('strong', { style: { color: 'var(--accent)' } }, fmt(sum)),
               ' potential outlay across ', pending.length, ' pending offer',
               pending.length === 1 ? '' : 's'
             )
@@ -10387,7 +10586,47 @@ function ProfileDevelopersTab() {
 //      wants to relist. Same flow as before via relistItem().
 //
 // CSFloat has the same split — "Your Steam items" and "Owned on platform".
+/**
+ * The seller's side of the trade, stated on the sell form before the listing
+ * exists: accept and send the Steam trade offer within the response window,
+ * what happens if they do not (auto-cancel, buyer refunded, a failed trade on
+ * their public completion rate), and when the payout lands. `policy` is the
+ * server's /delivery-policy (null while loading or if it failed: the numbers
+ * are then left out, never guessed); `custody` is useCustodyCopy(), and on a
+ * bot-custody deployment there is no offer for the seller to send at all.
+ */
+export function SellerObligations({ policy, custody, isAuction, net }) {
+  const respond = policy && Number(policy.sellerResponseDays) > 0 ? Number(policy.sellerResponseDays) : null;
+  const release = policy && Number(policy.buyerConfirmDays) > 0 ? Number(policy.buyerConfirmDays) : null;
+  const bot = !!(custody && custody.known && custody.shortLabel === 'escrow-protected');
+  // The price field is USD, so the payout is literal USD (same as the fee
+  // breakdown above), not fmt()'s display currency.
+  const pay = isAuction
+    ? 'the winning bid minus the 2% fee'
+    : (net > 0 ? '$' + Number(net).toFixed(2) : 'the price minus the 2% fee');
+  const days = (n) => n + ' day' + (n === 1 ? '' : 's');
+  return h('div', { className: 'sell-obligations', 'data-testid': 'sell-obligations' },
+    h('div', { className: 'sell-obligations-title' }, 'After it sells'),
+    bot
+      ? h('ul', { className: 'sell-obligations-list' },
+          h('li', null, 'It is delivered from SkinBox escrow, so there is no trade offer for you to send.'),
+          h('li', null, 'You are paid ', h('strong', null, pay), ' when the buyer confirms it arrived.'))
+      : h('ul', { className: 'sell-obligations-list' },
+          h('li', { 'data-line': 'send' }, 'Accept the sale and send the buyer a Steam trade offer',
+            respond ? h(React.Fragment, null, ' within ', h('strong', null, days(respond))) : null,
+            '. You are notified the moment it sells.'),
+          h('li', { 'data-line': 'miss' }, 'Miss that and the sale cancels, the buyer is refunded, and it counts as a failed trade on your public completion rate.'),
+          h('li', { 'data-line': 'paid' }, 'You are paid ', h('strong', null, pay), ' when the buyer confirms',
+            release ? h(React.Fragment, null, ', or automatically ', h('strong', null, days(release)), ' after you mark it sent') : null,
+            '.'))
+  );
+}
+
 export function SellItemsModal({ onClose, me, onRefresh }) {
+  // What the seller commits to once it sells, quoted from the server's own
+  // trade policy and custody mode (see SellerObligations below).
+  const tradePolicy = useTradePolicy();
+  const custody = useCustodyCopy();
   // Total inventory row count on the server — populated alongside the
   // fetched list so the modal can surface "Showing most recent 500 of N"
   // when the server cap truncates the payload. Null until the first
@@ -11082,7 +11321,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             style: { fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 },
             title: "Based on currently-active BUY NOW listings for this item — your own listings are excluded."
           },
-            '—', h('b', null, pickedCompeting.count),
+            h('b', null, pickedCompeting.count),
             ' other seller', pickedCompeting.count === 1 ? '' : 's', ' · floor ',
             h('span', {
               style: { color: 'var(--accent)', fontWeight: 700, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" }
@@ -11233,6 +11472,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         const floor = parseFloat(isSteam ? (item.suggestedPrice || 0) : (item.lowestPrice || 0));
         const vsFloor = (floor > 0 && p > 0) ? Math.round(((p - floor) / floor) * 100) : null;
         return h('div', {
+          className: 'sell-fee-breakdown',
+          'data-testid': 'sell-fee-breakdown',
           style: {
             fontSize: 12, marginTop: 10, padding: 10, borderRadius: 6,
             background: 'var(--bg-elevated)', border: '1px solid var(--border)',
@@ -11285,6 +11526,20 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           })()
         );
       })(),
+      // ── What happens after it sells ──
+      // The fee and the payout were on the form; the seller's side of the
+      // trade was not. A first-time seller learned that he had to accept and
+      // send a Steam trade offer, and by when, from a notification after the
+      // sale — and a seller who misses that window is auto-cancelled, has the
+      // buyer refunded and takes a failed trade on his public completion
+      // rate. Say it before the listing exists. Figures come from the server;
+      // a figure it did not give is left out, never guessed.
+      h(SellerObligations, {
+        policy: tradePolicy,
+        custody,
+        isAuction: sellType === 'AUCTION',
+        net: sellerPayout(parseFloat(price) || 0)
+      }),
       // Batch 646 — Auto-accept offers (BUY_NOW only). Sellers who
       // don't want to babysit incoming offers can let the server
       // auto-accept anything above `price × (1 − maxDiscount)`. Offers
@@ -13112,7 +13367,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         }
       },
         matchReady > 0 && h('span', null,
-          '—', h('strong', null, matchReady),
+          h('strong', null, matchReady),
           ' listing', matchReady === 1 ? '' : 's',
           ' match a buyer\'s standing order right now — sell-through is automatic. '),
         nearMatch > 0 && h('span', null,

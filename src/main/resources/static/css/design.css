@@ -26704,12 +26704,14 @@ html body footer.site-footer .site-footer-inner { border-top: 1px solid rgba(193
 html body footer.site-footer .site-footer-socials { gap: 15px !important; }
 html body footer.site-footer .site-footer-bottom { margin: 17px 0 0 !important; padding: 17px 5px !important; max-width: none !important; border-top: 0 none !important; gap: 16px 40px !important; }
 body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.12)"], body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.12)"], body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.15)"], body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.15)"] { font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; line-height: normal !important; letter-spacing: normal !important; text-transform: none !important; border-radius: 20px !important; padding: 8px 10px !important; border: 0 !important; background: rgba(193, 206, 255, 0.04) !important; color: rgb(158, 167, 177) !important; margin-left: 10px !important; display: inline-flex !important; align-items: center !important; vertical-align: middle !important; height: 17px !important; box-shadow: none !important; }
-body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"])::after { content: "KYC Approved" !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 36px !important; padding: 0 16px !important; border-radius: 8px !important; border: 0 !important; background: rgb(0, 128, 0) !important; color: rgb(255, 255, 255) !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; line-height: normal !important; letter-spacing: normal !important; text-transform: none !important; box-shadow: none !important; cursor: default !important; margin-top: 12px !important; margin-right: 0 !important; vertical-align: middle !important; text-decoration: none !important; width: auto !important; min-width: 0 !important; }
-body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"])::after { content: "\e8e8\00a0\00a0KYC Approved" !important; font-family: "Material Icons", Roboto, "Helvetica Neue", Arial, sans-serif !important; font-feature-settings: "liga" !important; -webkit-font-feature-settings: "liga" !important; font-variant-ligatures: common-ligatures !important; -webkit-font-smoothing: antialiased !important; text-rendering: optimizeLegibility !important; }
+/* REMOVED 2026-09-26: an ::after pill reading "KYC Approved" (with a Material
+   Icons glyph that never loaded) hung off the green "Good standing" chip, so
+   every account in good standing, including ones with no email, was told it
+   had passed identity verification. There is no KYC step on this platform;
+   Stripe Connect verifies payout accounts, and says so on the wallet page.
+   Do not re-add a verification claim nothing verified. */
 body .profile-hero-split .profile-details > .actions, body .profile-details > .actions { display: flex !important; flex-direction: row !important; gap: 10px !important; height: 36px !important; align-items: center !important; margin-top: 0 !important; }
-body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"]):hover::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"]):hover::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"]):hover::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"]):hover::after { background: linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)), rgb(0, 128, 0) !important; }
 @media (max-width: 900px) { body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"]), body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"]), body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"]), body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"]) { display: flex !important; flex-wrap: wrap !important; align-items: center !important; column-gap: 10px !important; row-gap: 8px !important; }
-body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"])::after, body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"])::after { flex: 0 0 100% !important; margin-top: 4px !important; align-self: flex-start !important; width: fit-content !important; }
 }
 html body .wallet-modal, html body .modal.wallet-modal { background-color: rgba(21, 23, 28, 0.80) !important; background: rgba(21, 23, 28, 0.80) !important; border: 0 !important; border-top: 2px solid rgba(193, 206, 255, 0.07) !important; border-radius: 12px !important; box-shadow: none !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; }
 html body .wallet-modal .wallet-modal-body, html body .wallet-modal [mat-dialog-content], html body .wallet-modal .wallet-dialog-content { padding: 20px 24px !important; margin: 0 !important; }
@@ -29250,3 +29252,84 @@ html body .wallet-activity-sub { font: 400 11px/1.3 var(--ui); color: var(--ink-
   html body .wallet-activity-tile { padding: 12px 14px; }
   html body .wallet-activity-amt { font-size: 15px; }
 }
+
+/* Buy-confirm: the optional Trade Protection note sits UNDER the total, as
+   prose, because it is not part of what this click charges. */
+html body .buy-confirm-protection-note { margin: 10px 0 2px; font: 400 11px/1.5 var(--ui); color: var(--ink-3); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   SELLER TRADE RECORD — the "Sold by" card on the item page and the trade
+   chip on every Active Listings row. Who the buyer is paying, whether they
+   are on the site, and whether they deliver: completed trades, the share
+   completed, median time to send. Mono-primary; the only colour is the
+   online dot.
+   ─────────────────────────────────────────────────────────────────────────── */
+html body .seller-trust { margin: 12px 0 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-1); text-align: left; }
+html body .seller-trust-head { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+html body .seller-trust-head:hover .seller-trust-name { text-decoration: underline; text-underline-offset: 2px; }
+html body .seller-trust-head:focus-visible { outline: 2px solid var(--cta); outline-offset: 2px; border-radius: 6px; }
+html body .seller-trust-av { position: relative; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; overflow: hidden; background: var(--bg-3); display: grid; place-items: center; }
+html body .seller-trust-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+html body .seller-trust-initials { font: 600 12px/1 var(--ui); color: var(--ink-2); }
+html body .seller-trust-id { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+html body .seller-trust-eyebrow { font: 500 10px/1.2 var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+html body .seller-trust-name { font: 600 14px/1.3 var(--ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body .seller-trust-presence { display: inline-flex; align-items: center; gap: 6px; font: 500 11px/1 var(--ui); color: var(--ink-3); white-space: nowrap; }
+html body .seller-trust-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-4); }
+html body .seller-trust-presence.is-online { color: var(--ink-2); }
+html body .seller-trust-presence.is-online .seller-trust-dot { background: var(--up); }
+html body .seller-trust-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+html body .seller-trust-stat { background: var(--bg-2); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html body .seller-trust-val { display: inline-flex; align-items: center; gap: 4px; font: 600 15px/1.2 var(--mono); font-feature-settings: 'tnum' 1; color: var(--ink); }
+html body .seller-trust-label { font: 400 11px/1.3 var(--ui); color: var(--ink-3); }
+html body .seller-trust-note { font: 400 12px/1.5 var(--ui); color: var(--ink-3); }
+html body .seller-trust-note.is-new strong { color: var(--ink); font-weight: 600; }
+
+html body .listing-trade-chip { margin-left: 6px; display: inline-flex; align-items: center; padding: 1px 6px; border: 1px solid var(--line-2); border-radius: 10px; font: 600 10px/1.4 var(--ui); color: var(--ink-2); white-space: nowrap; }
+html body .listing-trade-chip.is-new { color: var(--ink-3); border-style: dashed; }
+
+/* Report a listing: a quiet flag, not the row's blue button. */
+html body .modal-listing-row .listing-report-btn { appearance: none; display: inline-grid; place-items: center; width: 32px; height: 32px; min-width: 32px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--ink-3); cursor: pointer; }
+html body .modal-listing-row .listing-report-btn:hover { color: var(--ink); border-color: var(--line-2); }
+html body .modal-listing-row .listing-report-btn:focus-visible { outline: 2px solid var(--cta); outline-offset: 2px; }
+
+/* Trade rows are a list, not an empty state. The info-modal body centres its
+   text (for empty states), which centred every trade row's title, state line
+   and trade-URL block in the middle of a 940px row. */
+html body .trade-row { text-align: left; }
+html body .trade-row > .trade-main { align-items: stretch !important; }
+html body .trade-row .trade-title, html body .trade-row .trade-state { justify-content: flex-start; }
+/* The 66x50 thumbnail rule for the item image also caught the counterparty's
+   16px avatar and blew it up to a 66x50 box beside the name. */
+html body .trade-row .trade-title a[href^="/stall/"] img { width: 16px !important; height: 16px !important; border-radius: 50% !important; object-fit: cover !important; }
+html body .trade-counterparty-profile { display: inline-flex !important; align-items: center; gap: 4px; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   SELL FORM: the seller's side of the trade, and a fee breakdown that reads
+   as a ledger. The info-modal body centres its text (for empty states), so
+   the item header, the field labels and the fee labels of the sell form all
+   sat centred in their columns, and "You'll receive" did not line up with its
+   own amount.
+   ─────────────────────────────────────────────────────────────────────────── */
+html body .info-modal .info-modal-body:has(.sell-fee-breakdown) { text-align: left !important; }
+html body .sell-fee-breakdown { align-items: baseline !important; text-align: left; }
+html body .sell-fee-breakdown > div:nth-child(even) { text-align: right; }
+html body .sell-obligations { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-1); text-align: left; }
+html body .sell-obligations-title { font: 600 11px/1.2 var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+html body .sell-obligations-list { margin: 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 6px; list-style: disc; }
+html body .sell-obligations-list li::marker { color: var(--ink-4); }
+html body .sell-obligations-list li { font: 400 12px/1.5 var(--ui); color: var(--ink-2); }
+html body .sell-obligations-list strong { color: var(--ink); font-weight: 600; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   BARGAIN DRAWER: an accepted offer is a purchase. The terms line says so;
+   the suggested amount reads as a hint, not a typed value; a disabled Send
+   says why.
+   ─────────────────────────────────────────────────────────────────────────── */
+html body .item-offer-drawer { text-align: left; }
+html body .item-offer-drawer .offer-drawer-ask { color: var(--ink-3); font-weight: 400; }
+html body .item-offer-drawer input::placeholder, html body .item-offer-drawer textarea::placeholder { color: var(--ink-4) !important; opacity: 1; }
+html body .item-offer-drawer .offer-drawer-why { align-self: center; font: 400 11px/1.4 var(--ui); color: var(--ink-3); }
+html body .item-offer-drawer .offer-drawer-terms { margin-top: 10px; font: 400 11px/1.5 var(--ui); color: var(--ink-3); }
+html body .item-offer-drawer .offer-drawer-terms strong { color: var(--ink); font-weight: 600; }
+html body .item-offer-drawer .offer-drawer-balance.is-short { color: var(--down); }

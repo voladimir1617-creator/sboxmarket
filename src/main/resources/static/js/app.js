@@ -10,13 +10,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow } from './cards.js?v=5';
+import { GridCard, ListingRow } from './cards.js?v=6';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=217';
+} from './modals.js?v=218';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -8018,29 +8018,51 @@ export function App() {
                             })())
                         : '—')
                   ),
-                  // Last seen on Steam — green if recent.
-                  stallData.seller.lastSyncedAt && (() => {
-                    const age = Date.now() - stallData.seller.lastSyncedAt;
-                    let cls, label;
-                    if (age < 24 * 3600_000)          { cls = 'var(--green)'; label = 'Just now'; }
-                    else if (age < 7 * 24 * 3600_000) { cls = '#fbbf24';      label = 'This week'; }
-                    else                              { cls = 'var(--text-muted)'; label = timeAgo(stallData.seller.lastSyncedAt); }
+                  // Last seen ON THIS SITE — the same presence field the
+                  // Online/Offline dot on every card reads. It used the Steam
+                  // sync time and called anything under 24h "Just now", next
+                  // to cards that said Offline.
+                  stallData.seller.lastSeenAt && (() => {
+                    const age = Date.now() - stallData.seller.lastSeenAt;
+                    const online = age < 15 * 60_000;
                     return h('div', { className: 'stall-stat' },
                       h('div', { className: 'stall-stat-label' }, 'Last seen'),
                       h('div', {
                         className: 'stall-stat-val',
-                        style: { color: cls },
-                        title: 'Last observed on Steam ' + new Date(stallData.seller.lastSyncedAt).toLocaleString()
-                      }, label));
+                        style: online ? { color: 'var(--green)' } : null,
+                        title: 'Last active on SkinBox ' + new Date(stallData.seller.lastSeenAt).toLocaleString()
+                      }, online ? 'Online now' : timeAgo(stallData.seller.lastSeenAt)));
                   })(),
-                  // Lifetime sales count.
-                  stallData.seller.soldCount > 0 && h('div', { className: 'stall-stat' },
-                    h('div', { className: 'stall-stat-label' }, 'Lifetime sales'),
-                    h('div', { className: 'stall-stat-val' },
-                      stallData.seller.soldCount.toLocaleString(),
-                      h('span', { className: 'stall-stat-unit' },
-                        ' sale', stallData.seller.soldCount === 1 ? '' : 's'))
-                  ),
+                  // Trade record, counted from TRADES: delivered, and the
+                  // share of decided trades completed. "Lifetime sales"
+                  // counted listings marked sold at the moment of purchase,
+                  // before anyone knew whether the item would arrive, so it
+                  // could not answer "does this seller deliver?". It stays
+                  // only as the fallback when the record could not be read.
+                  stallData.seller.completedTrades != null
+                    ? h('div', { className: 'stall-stat', 'data-stat': 'completed',
+                        title: 'Trades this seller completed: the buyer confirmed the item, or the release timer ran out after it was marked sent.' },
+                        h('div', { className: 'stall-stat-label' }, 'Trades completed'),
+                        h('div', { className: 'stall-stat-val' },
+                          Number(stallData.seller.completedTrades).toLocaleString(),
+                          h('span', { className: 'stall-stat-unit' },
+                            ' trade', Number(stallData.seller.completedTrades) === 1 ? '' : 's')))
+                    : (stallData.seller.soldCount > 0 && h('div', { className: 'stall-stat' },
+                        h('div', { className: 'stall-stat-label' }, 'Lifetime sales'),
+                        h('div', { className: 'stall-stat-val' },
+                          stallData.seller.soldCount.toLocaleString(),
+                          h('span', { className: 'stall-stat-unit' },
+                            ' sale', stallData.seller.soldCount === 1 ? '' : 's')))),
+                  stallData.seller.completionRate != null && (() => {
+                    const done = Number(stallData.seller.completedTrades || 0);
+                    const decided = done + Number(stallData.seller.failedTrades || 0);
+                    return h('div', { className: 'stall-stat', 'data-stat': 'completion',
+                      title: 'Share of this seller\'s decided trades they completed. Only trades the seller cancelled or let time out count against it; a buyer backing out does not.' },
+                      h('div', { className: 'stall-stat-label' }, 'Completion'),
+                      h('div', { className: 'stall-stat-val' },
+                        stallData.seller.completionRate + '%',
+                        h('span', { className: 'stall-stat-unit' }, ` ${done} of ${decided}`)));
+                  })(),
                   // Sold in tightest active window (24h > 7d > 30d).
                   (stallData.seller.soldLast24h > 0 || stallData.seller.soldLast7d > 0 || stallData.seller.soldLast30d > 0) && (() => {
                     const n24 = Number(stallData.seller.soldLast24h) || 0;

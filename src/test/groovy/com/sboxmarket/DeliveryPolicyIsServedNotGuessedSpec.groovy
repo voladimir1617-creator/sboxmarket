@@ -87,4 +87,19 @@ class DeliveryPolicyIsServedNotGuessedSpec extends Specification {
         then: 'one policy, not two — the page must not promise a deadline the sweep will not honour'
         served == tradeService.sellerResponseDays
     }
+
+    def "the release window the sell form quotes is the one the auto-release sweep uses"() {
+        given:
+        TradeService tradeService = ctx.getBean(TradeService)
+
+        when:
+        def res = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/delivery-policy'))
+                         .andReturn().response
+        def body = new JsonSlurper().parseText(res.contentAsString)
+
+        then: 'a seller told "paid automatically N days after you mark it sent" must be paid then'
+        body.buyerConfirmDays != null
+        (body.buyerConfirmDays as long) > 0
+        (body.buyerConfirmDays as long) == tradeService.autoReleaseDays
+    }
 }

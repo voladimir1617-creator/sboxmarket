@@ -631,7 +631,13 @@ export async function fetchDeliveryPolicy() {
   // A non-positive or unparseable deadline is not a deadline — treat it the
   // same as no answer rather than telling a buyer "cancels after 0 days".
   if (!Number.isFinite(days) || days <= 0) return null;
-  return { sellerResponseDays: days };
+  // The release window rides along when the server sent a usable one; the
+  // sell form leaves the "paid automatically after N days" clause out
+  // rather than guess when it is missing.
+  const release = Number(data.buyerConfirmDays);
+  return Number.isFinite(release) && release > 0
+    ? { sellerResponseDays: days, buyerConfirmDays: release }
+    : { sellerResponseDays: days };
 }
 
 /** "More from this seller" rail on the ItemModal. Returns up to 8
@@ -1866,6 +1872,23 @@ export async function fetchSellerShipTimes(userIds) {
   if (!ids) return {};
   const data = await safeJson(`${API}/sellers/ship-times?ids=${encodeURIComponent(ids)}`);
   return (data && typeof data === 'object') ? data : {};
+}
+/** Sellers' public trade records — `{sellerUserId: {completedTrades,
+ *  failedTrades, completionRate, medianShipMs, memberSince, lastSeenAt,
+ *  rating, reviewCount}}`. Returns `null` when the lookup FAILED, so the item
+ *  page can say the record is unavailable instead of rendering an absent
+ *  record as a brand-new seller. A seller missing from a successful answer
+ *  has no public record (banned / unknown). */
+export async function fetchSellerTrust(userIds) {
+  if (!Array.isArray(userIds) || userIds.length === 0) return {};
+  const ids = [...new Set(userIds.filter(Boolean))].slice(0, 50).join(',');
+  if (!ids) return {};
+  try {
+    const r = await fetch(`${API}/sellers/trust?ids=${encodeURIComponent(ids)}`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return (data && typeof data === 'object' && !Array.isArray(data)) ? data : null;
+  } catch (_) { return null; }
 }
 /** Newest active listings — powers the "Just listed" rail on the
  *  marketplace home. 20-row cap server-side, excludes hidden rows. */

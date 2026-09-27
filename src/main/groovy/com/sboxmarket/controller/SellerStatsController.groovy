@@ -360,6 +360,41 @@ class SellerStatsController {
             .body(out)
     }
 
+    @Autowired(required = false) com.sboxmarket.service.SellerTrustService sellerTrustService
+
+    /**
+     * GET /api/sellers/trust?ids=1,2 — each seller's public trade record
+     * (completed trades, seller-caused failures, completion rate, median time
+     * to send, rating, member since, last seen). Drives the "Sold by" card on
+     * the item page and the trade chips on its listing rows. See
+     * SellerTrustService for how each figure is counted.
+     *
+     * Public, like /verified and /ship-times: everything here is about a
+     * seller's conduct as a seller and is shown on their stall. Sellers the
+     * record could not be read for are absent, never zero-filled, so the page
+     * can tell "no record" from "could not ask". Capped at 50 ids.
+     */
+    @GetMapping('/trust')
+    ResponseEntity<Map<Long, Map>> trustBulk(@RequestParam(required = false) String ids) {
+        if (sellerTrustService == null || ids == null || ids.isBlank()) {
+            return ResponseEntity.ok([:] as Map<Long, Map>)
+        }
+        List<Long> parsed = []
+        for (String chunk : ids.split(',')) {
+            try {
+                def n = Long.valueOf(chunk.trim())
+                if (n > 0L) parsed << n
+            } catch (Exception ignored) { /* skip a bad token, same as /verified */ }
+        }
+        if (parsed.isEmpty()) return ResponseEntity.ok([:] as Map<Long, Map>)
+        def out = sellerTrustService.recordFor(parsed.unique().take(com.sboxmarket.service.SellerTrustService.MAX_IDS))
+        // One minute: a completed trade should reach the item page quickly,
+        // and the response carries nothing viewer-specific.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(out)
+    }
+
     @GetMapping('/verified')
     ResponseEntity<Map<Long, Boolean>> verifiedBulk(@RequestParam(required = false) String ids) {
         if (listingRepository == null || ids == null || ids.isBlank()) {

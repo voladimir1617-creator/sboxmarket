@@ -149,9 +149,19 @@ function OptInPanel({ trade, fee, loadingFee, onEnable, busy, error }) {
         h('div', {
           style: { fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }
         }, 'Add Trade Protection'),
+        // What protection actually changes, and what it does not. The old line
+        // ("if this trade fails through no fault of yours, get $X refunded
+        // automatically") implied an unprotected buyer is NOT refunded when a
+        // trade fails, which is false: TradeService refunds every cancelled
+        // and seller-timeout trade on its own, and the site says so on the
+        // item page and at checkout. Protection only pays out on a DISPUTE
+        // (TradeProtectionService.autoClaim), immediately instead of after
+        // staff review. Selling it by implying the escrow does not protect
+        // you undermines the thing every trade relies on.
         h('div', {
+          className: 'trade-protection-copy',
           style: { fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }
-        }, `If this trade fails through no fault of yours, get ${coverage} refunded automatically — no support ticket.`)
+        }, `Cancelled and timed-out trades are refunded automatically either way. Protection covers disputes: if the item is wrong or never arrives after the seller marks it sent, opening a dispute refunds ${coverage} at once instead of after staff review.`)
       )
     ),
     // Inline error — friendly mapped copy from a failed enable POST.
