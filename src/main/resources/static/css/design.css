@@ -29671,3 +29671,6 @@ html body .wallet-modal input[placeholder^="Search desc"] { flex: 1 1 100% !impo
 html body .csfloat-empty-cart-rail-grid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important; gap: 12px !important; overflow: hidden !important; }
 html body .csfloat-empty-cart-rail-grid > * { min-width: 0 !important; width: auto !important; max-width: none !important; }
 @media (max-width: 720px) { html body .csfloat-empty-cart-rail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; } }
+/* Wallet history with no rows: a short, quiet line instead of a 250px box. */
+html body .wallet-modal .wallet-tx-list:has(> .wallet-tx-empty:only-child) { min-height: 0 !important; height: auto !important; }
+html body .wallet-modal .wallet-tx-empty { padding: 32px 16px !important; min-height: 0 !important; font: 400 13px/1.4 var(--ui) !important; color: var(--ink-3) !important; }
