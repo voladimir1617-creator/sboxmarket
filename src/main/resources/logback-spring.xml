@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logback configuration for sboxmarket.
+
+  WHY THIS FILE EXISTS
+  Production log aggregation (Loki / ELK / Datadog) needs machine-parseable
+  log records: the correlation id (`cid`, bound to SLF4J MDC by
+  CorrelationIdFilter), the level, the logger name and the thread must each
+  be their own field — not buried inside a free-text line. Spring Boot's
+  default file appender emits a plain-text pattern, so prod logs were not
+  structured. This config switches the `prod` profile to JSON (via
+  net.logstash.logback.encoder.LogstashEncoder) on BOTH stdout (for the
+  container runtime to scrape) and the rolling file, while leaving
+  dev / test on the normal human-readable console pattern.
+
+  PROFILE SCOPING
+  `logback-spring.xml` (the -spring variant) is processed by Spring Boot, so
+  <springProfile> and <springProperty> work here. Because <springProfile> is
+  only ever active under a Spring ApplicationContext, the `test` profile (and
+  plain `dev`) fall into the `!prod` branch and get the readable pattern —
+  the MockMvc / Spock specs are never spammed with JSON.
+
+  FILE PATH / ROLLING POLICY
+  The file path and rolling-policy knobs are pulled straight from the Spring
+  Environment via <springProperty> so they stay in lockstep with
+  application-prod.yml (logging.file.name + logging.logback.rollingpolicy.*).
+  No secrets are referenced or hardcoded.
+-->
+<configuration>
+
+    <!-- Spring Boot's conversion rules (%clr colouring, level word width, the
+         `applicationName`/`wEx` converters). Safe in every profile and needed
+         by the readable console pattern below. -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!--
+      Pull logging.* values out of the resolved Spring Environment. Spring
+      resolves the `${LOG_FILE:/var/log/skinbox/skinbox.log}` placeholder
+      (env var with default) BEFORE handing the value here, so the operator's
+      LOG_FILE override and the default both flow through unchanged. The
+      `defaultValue` attributes below are only a belt-and-suspenders fallback
+      for the (non-prod) case where application-prod.yml is not on the active
+      property sources at all.
+    -->
+    <springProperty scope="context" name="LOG_FILE"
+                    source="logging.file.name"
+                    defaultValue="/var/log/skinbox/skinbox.log"/>
+    <springProperty scope="context" name="LOG_FILE_PATTERN"
+                    source="logging.logback.rollingpolicy.file-name-pattern"
+                    defaultValue="${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz"/>
+    <springProperty scope="context" name="LOG_MAX_FILE_SIZE"
+                    source="logging.logback.rollingpolicy.max-file-size"
+                    defaultValue="20MB"/>
+    <springProperty scope="context" name="LOG_MAX_HISTORY"
+                    source="logging.logback.rollingpolicy.max-history"
+                    defaultValue="30"/>
+    <springProperty scope="context" name="LOG_TOTAL_SIZE_CAP"
+                    source="logging.logback.rollingpolicy.total-size-cap"
+                    defaultValue="2GB"/>
+
+    <!-- ==========================================================
+         PROD: structured JSON on stdout AND the rolling file.
+         ========================================================== -->
+    <springProfile name="prod">
+
+        <!-- Shared JSON encoder definition. LogstashEncoder emits one JSON
+             object per event with these fields:
+               @timestamp  ISO-8601 event time
+               @version    logstash schema marker
+               message     the rendered log message
+               logger_name the SLF4J logger
+               thread_name the executing thread
+               level       INFO / WARN / ERROR / ...
+               level_value numeric level (for range queries in Loki/ELK)
+               stack_trace full throwable (when present)
+               cid         the correlation id + any other MDC entry
+                           (includeMdc=true flattens every MDC key to a
+                           top-level field, so `cid` from CorrelationIdFilter
+                           shows up as its own queryable field).
+             The <provider>-style customisation is kept minimal so we get the
+             encoder's sensible defaults; we only assert includeMdc so a
+             future logback upgrade can't silently drop the cid field. -->
+
+        <!-- Console → container/orchestrator log capture (stdout). -->
+        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <!-- Flatten MDC (incl. `cid`) into top-level JSON fields. -->
+                <includeMdc>true</includeMdc>
+                <!-- Always render a stack trace field for throwables. -->
+                <includeStackTrace>true</includeStackTrace>
+                <!-- Stamp every record with the app name so a shared backend
+                     can separate series from multiple services (mirrors the
+                     metrics tag in application-prod.yml). No secrets here. -->
+                <customFields>{"app":"sboxmarket"}</customFields>
+            </encoder>
+        </appender>
+
+        <!-- Rolling file → matches application-prod.yml exactly:
+               path            logging.file.name
+               file-name-pattern + size/time rolling
+               max-file-size   logging.logback.rollingpolicy.max-file-size (20MB)
+               max-history     logging.logback.rollingpolicy.max-history (30)
+               total-size-cap  logging.logback.rollingpolicy.total-size-cap (2GB)
+             so log retention is unchanged — only the on-disk format goes
+             from plain text to JSON. -->
+        <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_FILE}</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_FILE_PATTERN}</fileNamePattern>
+                <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+                <maxHistory>${LOG_MAX_HISTORY}</maxHistory>
+                <totalSizeCap>${LOG_TOTAL_SIZE_CAP}</totalSizeCap>
+                <!-- Sweep any leftover archives from a previous (larger)
+                     retention setting on the first roll after startup. -->
+                <cleanHistoryOnStart>true</cleanHistoryOnStart>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeMdc>true</includeMdc>
+                <includeStackTrace>true</includeStackTrace>
+                <customFields>{"app":"sboxmarket"}</customFields>
+            </encoder>
+        </appender>
+
+        <!-- Level thresholds per logger are still driven by logging.level.*
+             in application-prod.yml (Spring Boot applies them to whatever
+             appenders are attached to root), so we do NOT redeclare them
+             here. Default root level falls back to INFO if unset. -->
+        <root level="INFO">
+            <appender-ref ref="JSON_CONSOLE"/>
+            <appender-ref ref="JSON_FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- ==========================================================
+         DEV / TEST (everything that is NOT prod): readable console.
+         Keeps local dev and the Spock/MockMvc test suite human-readable
+         and JSON-free. The `cid` MDC value is still shown inline via %X{cid}
+         so a developer can correlate a single request's lines locally.
+         ========================================================== -->
+    <springProfile name="!prod">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <!-- Standard Spring Boot console layout, plus the correlation
+                     id in brackets when present (blank otherwise). -->
+                <pattern>%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%X{cid}]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx</pattern>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>

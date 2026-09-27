@@ -1,0 +1,11 @@
+  [head] PAGESIZE MEASURED = 10 (requested count=100), market total_count=529,456
+  [head] start=0 got=10 pages=0 0.26s/req n429=0
+  [head] start=200 got=10 pages=20 0.77s/req n429=0
+  [head] start=400 got=10 pages=40 0.77s/req n429=0
+  [head] start=600 got=10 pages=60 0.78s/req n429=0
+  [head] start=800 got=10 pages=80 0.79s/req n429=0
+  !! 429 (#1) pace->0.94s cooling 26s
+  !! 429 (#2) pace->1.59s cooling 53s
+  !! 429 (#3) pace->2.70s cooling 103s
+  [head] start=1000 got=10 pages=100 2.63s/req n429=3
+  [head] start=1200 got=10 pages=120 2.69s/req n429=3

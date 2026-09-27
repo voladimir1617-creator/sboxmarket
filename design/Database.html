@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Database — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .db-grid {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: var(--s-32);
+    align-items: start;
+  }
+  @media (max-width: 960px) { .db-grid { grid-template-columns: 1fr; } }
+
+  .db-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--t-13);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .db-table th, .db-table td { text-align: left; padding: var(--s-10) var(--s-14); border-bottom: 1px solid var(--line); }
+  .db-table th {
+    background: var(--bg-1);
+    font-weight: 500; color: var(--ink-3);
+    font-size: var(--t-11);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    position: sticky; top: var(--nav-h);
+    z-index: 1;
+  }
+  .db-table tbody tr { transition: background .12s; }
+  .db-table tbody tr:hover { background: var(--bg-1); }
+  .db-table tbody tr:last-child td { border-bottom: 0; }
+  .db-table .num { font-family: var(--font-mono); text-align: right; font-feature-settings: "tnum"; }
+  .db-table .thumb {
+    width: 40px; height: 28px;
+    border-radius: 3px;
+    background:
+      repeating-linear-gradient(45deg,
+        color-mix(in oklch, var(--bg-2) 85%, transparent) 0 6px,
+        color-mix(in oklch, var(--bg-3) 75%, transparent) 6px 7px);
+    border: 1px dashed color-mix(in oklch, var(--line-2) 60%, transparent);
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: var(--s-10);
+  }
+  .db-table .name { color: var(--ink); }
+  .db-table .meta { color: var(--ink-3); font-size: var(--t-11); }
+  .spark-mini { display: inline-block; vertical-align: middle; height: 20px; width: 80px; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link is-active" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search items, weapons, collections…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <div class="page-h">
+    <div>
+      <div class="crumb"><span style="color: var(--ink);">Database</span></div>
+      <h1>Items database</h1>
+    </div>
+    <div class="meta">
+      <span><span class="num">12,841</span> items indexed</span>
+      <span><span class="num">$2.1M</span> 30d volume</span>
+      <span class="badge live"><span class="led"></span>Sync · 14s ago</span>
+    </div>
+  </div>
+
+  <div class="db-grid">
+
+    <aside class="filter-rail">
+      <div class="filter-group">
+        <h4>Category</h4>
+        <label class="checkbox"><input type="checkbox" checked /><span class="box"></span>All weapons <span class="count">9,481</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Pistols <span class="count">812</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Rifles <span class="count">2,141</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Snipers <span class="count">488</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>SMGs <span class="count">912</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Heavy <span class="count">312</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Knives <span class="count">1,288</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Gloves <span class="count">142</span></label>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="filter-group">
+        <h4>Collection</h4>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Phoenix <span class="count">12</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Bravo <span class="count">9</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Operation Hydra <span class="count">17</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Norse <span class="count">14</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Anubis <span class="count">19</span></label>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="filter-group">
+        <h4>30d trend</h4>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Rising <span class="count">412</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Stable <span class="count">8,142</span></label>
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span>Falling <span class="count">298</span></label>
+      </div>
+    </aside>
+
+    <section>
+
+      <div class="row between" style="margin-bottom: var(--s-16);">
+        <div class="row" style="gap: var(--s-8);">
+          <span class="chip is-active">All weapons <span class="x">×</span></span>
+        </div>
+        <div class="row" style="gap: var(--s-10);">
+          <select class="select" style="width: 200px;">
+            <option>Sort: 30d volume</option>
+            <option>Median price (low)</option>
+            <option>Median price (high)</option>
+            <option>30d % change</option>
+            <option>Listings count</option>
+          </select>
+        </div>
+      </div>
+
+      <table class="db-table">
+        <thead>
+          <tr>
+            <th style="width: 38%;">Item</th>
+            <th>Rarity</th>
+            <th class="num">Listings</th>
+            <th class="num">Median</th>
+            <th class="num">30d Δ</th>
+            <th class="num">Volume (30d)</th>
+            <th>Trend</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="thumb"></span><span class="name">AK-47 | Vulcan</span> <span class="meta">FT</span></td><td><span style="color: var(--rare-cov);">Covert</span></td><td class="num">142</td><td class="num">$281</td><td class="num up">+12%</td><td class="num">$48,142</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,14 L10,12 L20,15 L30,10 L40,11 L50,7 L60,8 L70,4 L80,3" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">M4A4 | Howl</span> <span class="meta">MW</span></td><td><span style="color: var(--rare-cls);">Classified</span></td><td class="num">28</td><td class="num">$1,940</td><td class="num down">−4%</td><td class="num">$84,420</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,4 L10,6 L20,5 L30,8 L40,7 L50,10 L60,9 L70,12 L80,14" fill="none" stroke="var(--down)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">★ Karambit | Fade</span> <span class="meta">FN</span></td><td><span style="color: var(--rare-cov);">Covert</span></td><td class="num">42</td><td class="num">$2,140</td><td class="num up">+7%</td><td class="num">$84,200</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,14 L10,13 L20,12 L30,10 L40,9 L50,7 L60,6 L70,5 L80,4" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">AWP | Dragon Lore</span> <span class="meta">MW</span></td><td><span style="color: var(--rare-cov);">Covert</span></td><td class="num">8</td><td class="num">$8,420</td><td class="num down">−2%</td><td class="num">$67,360</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,8 L10,7 L20,9 L30,8 L40,10 L50,9 L60,11 L70,10 L80,12" fill="none" stroke="var(--down)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">AWP | Asiimov</span> <span class="meta">FT</span></td><td><span style="color: var(--rare-cls);">Classified</span></td><td class="num">412</td><td class="num">$112</td><td class="num up">+9%</td><td class="num">$46,144</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,14 L10,12 L20,11 L30,8 L40,9 L50,6 L60,7 L70,5 L80,4" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">M4A1-S | Hot Rod</span> <span class="meta">FN</span></td><td><span style="color: var(--rare-cov);">Covert</span></td><td class="num">128</td><td class="num">$184</td><td class="num up">+10%</td><td class="num">$23,552</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,12 L10,11 L20,10 L30,8 L40,7 L50,8 L60,6 L70,5 L80,4" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">★ Sport Gloves | Vice</span> <span class="meta">MW</span></td><td><span style="color: var(--rare-cov);">Covert</span></td><td class="num">14</td><td class="num">$1,810</td><td class="num up">+6%</td><td class="num">$25,340</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,12 L10,11 L20,12 L30,9 L40,10 L50,8 L60,7 L70,6 L80,5" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">Glock-18 | Water Elemental</span> <span class="meta">FT</span></td><td><span style="color: var(--rare-mil);">Mil-spec</span></td><td class="num">812</td><td class="num">$8.12</td><td class="num up">+21%</td><td class="num">$6,591</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,16 L10,14 L20,11 L30,10 L40,8 L50,5 L60,6 L70,4 L80,3" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">USP-S | Forest Leaves</span> <span class="meta">FN</span></td><td><span style="color: var(--rare-ind);">Industrial</span></td><td class="num">2,141</td><td class="num">$2.42</td><td class="num up">+14%</td><td class="num">$5,182</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,15 L10,14 L20,12 L30,10 L40,9 L50,7 L60,6 L70,5 L80,4" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">P90 | Asiimov</span> <span class="meta">FT</span></td><td><span style="color: var(--rare-rst);">Restricted</span></td><td class="num">386</td><td class="num">$32</td><td class="num up">+16%</td><td class="num">$12,352</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,14 L10,13 L20,12 L30,9 L40,10 L50,7 L60,6 L70,5 L80,4" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">Desert Eagle | Blaze</span> <span class="meta">FN</span></td><td><span style="color: var(--rare-rst);">Restricted</span></td><td class="num">94</td><td class="num">$487</td><td class="num up">+18%</td><td class="num">$45,778</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,16 L10,14 L20,12 L30,11 L40,9 L50,7 L60,6 L70,4 L80,3" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">AK-47 | Fire Serpent</span> <span class="meta">MW</span></td><td><span style="color: var(--rare-cls);">Classified</span></td><td class="num">62</td><td class="num">$612</td><td class="num up">+11%</td><td class="num">$37,944</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,13 L10,12 L20,11 L30,9 L40,10 L50,7 L60,6 L70,5 L80,4" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+          <tr><td><span class="thumb"></span><span class="name">AWP | Neo-Noir</span> <span class="meta">FN</span></td><td><span style="color: var(--rare-cls);">Classified</span></td><td class="num">214</td><td class="num">$84</td><td class="num up">+15%</td><td class="num">$17,976</td><td><svg class="spark-mini" viewBox="0 0 80 20"><path d="M0,14 L10,13 L20,11 L30,9 L40,10 L50,7 L60,6 L70,5 L80,4" fill="none" stroke="var(--up)" stroke-width="1.4"/></svg></td></tr>
+        </tbody>
+      </table>
+
+      <div class="row between" style="margin-top: var(--s-24); padding-top: var(--s-16); border-top: 1px solid var(--line);">
+        <div class="muted" style="font-size: var(--t-12);">Showing <span class="mono">1–13</span> of <span class="mono">12,841</span> items</div>
+        <div class="row" style="gap: var(--s-6);">
+          <button class="btn btn-ghost btn-sm" disabled style="opacity: 0.4;">←</button>
+          <button class="btn btn-secondary btn-sm">1</button>
+          <button class="btn btn-ghost btn-sm">2</button>
+          <button class="btn btn-ghost btn-sm">3</button>
+          <span class="muted">…</span>
+          <button class="btn btn-ghost btn-sm">→</button>
+        </div>
+      </div>
+
+    </section>
+  </div>
+</main>
+
+</body>
+</html>

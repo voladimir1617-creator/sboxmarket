@@ -1,0 +1,7 @@
+PHASE1-DONE pages=0 depth=0 aborts={}
+PHASE2 appids=10101 already-read=157 todo=9944
+  [0/9944] appid=105600 total=0 nonzero=0 0.24s/req n429=0 eta=0.66h
+  !! 429 (#1) pace->0.94s cooling 29s
+  !! 429 (#2) pace->1.59s cooling 54s
+  !! 429 (#3) pace->2.70s cooling 102s
+  !! 429 (#4) pace->4.59s cooling 203s

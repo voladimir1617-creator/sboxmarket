@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import java.nio.ByteBuffer
+import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
@@ -60,13 +61,18 @@ class TotpService {
         def cleaned = code.replaceAll(/\s+/, '')
         if (!(cleaned ==~ /\d{6}/)) return -1L
 
+        def secret = unbase32(secretBase32)
+        // A secret that decodes to nothing (empty / all non-Base32 chars)
+        // cannot key an HMAC — SecretKeySpec rejects an empty key. Fail the
+        // verification cleanly instead of throwing out of the auth path.
+        if (!secret) return -1L
+
         def now = System.currentTimeMillis() / 1000L
         def currentStep = (now / STEP_SECONDS) as long
-        def secret = unbase32(secretBase32)
         for (int offset = -WINDOW; offset <= WINDOW; offset++) {
             long step = currentStep + offset
             if (lastStep != null && step <= lastStep) continue   // replay guard
-            if (codeFor(secret, step) == cleaned) return step
+            if (constantTimeEquals(codeFor(secret, step), cleaned)) return step
         }
         -1L
     }
@@ -84,6 +90,145 @@ class TotpService {
                       (hash[offset + 3] & 0xff)
         def otp = binary % (int) Math.pow(10, DIGITS)
         String.format('%0' + DIGITS + 'd', otp)
+    }
+
+    // ── Brute-force lockout for the verify path (shared) ────────────
+    //
+    // A 6-digit TOTP is a 1,000,000 space; the /withdraw rate limit alone
+    // (~172k attempts/day) would land a valid code in ~48h without an
+    // attempt cap. ProfileController already enforces this on /2fa/disable +
+    // /2fa/regenerate-codes (wave #149) via its own private counter, but the
+    // money-out gate (WalletController.withdraw) was NOT covered — a hijacked
+    // session could brute-force the withdraw TOTP. These shared lockout
+    // helpers let the withdraw gate enforce the same per-user cap.
+
+    /** Consecutive failed verifications before a per-user lockout kicks in. */
+    static final int MAX_2FA_FAILS = 5
+    /** Lockout duration once the fail cap is hit. */
+    static final long LOCKOUT_MS = 15L * 60_000L
+
+    /** Per-user [consecutiveFails, lockedUntilEpochMs]. LRU-capped + wrapped
+     *  in synchronizedMap (the withdraw gate is hit from any web thread). */
+    private final java.util.Map<Long, long[]> twoFaFails =
+        java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<Long, long[]>(256, 0.75f, true) {
+                @Override protected boolean removeEldestEntry(java.util.Map.Entry<Long, long[]> e) {
+                    return size() > 8192
+                }
+            } as java.util.LinkedHashMap<Long, long[]>)
+
+    /** Ms remaining on a per-user 2FA lockout, or 0 if not locked. Call
+     *  BEFORE verify so a locked user is rejected without consuming a code. */
+    long lockoutRemainingMs(Long userId) {
+        if (userId == null) return 0L
+        synchronized (twoFaFails) {
+            long[] st = twoFaFails.get(userId)
+            if (st == null) return 0L
+            long rem = st[1] - System.currentTimeMillis()
+            return rem > 0 ? rem : 0L
+        }
+    }
+
+    /** Record a failed 2FA attempt; locks the user for LOCKOUT_MS once
+     *  MAX_2FA_FAILS consecutive fails are reached (counter then resets so a
+     *  post-lockout burst re-locks rather than firing on every attempt). */
+    void recordFail(Long userId) {
+        if (userId == null) return
+        synchronized (twoFaFails) {
+            long[] st = twoFaFails.get(userId)
+            if (st == null) { st = [0L, 0L] as long[]; twoFaFails.put(userId, st) }
+            st[0]++
+            if (st[0] >= MAX_2FA_FAILS) {
+                st[1] = System.currentTimeMillis() + LOCKOUT_MS
+                st[0] = 0L
+            }
+        }
+    }
+
+    /** Clear a user's 2FA fail state on a successful verification. */
+    void clearFails(Long userId) {
+        if (userId == null) return
+        synchronized (twoFaFails) { twoFaFails.remove(userId) }
+    }
+
+    // ── Backup / recovery codes ─────────────────────────────────────
+
+    /** Number of backup codes to mint at enrollment / regeneration. Ten is
+     *  the GitHub / Google / AWS IAM convention — enough to outlast years of
+     *  authenticator migrations without becoming a burden to store. */
+    static final int BACKUP_CODE_COUNT = 10
+
+    /**
+     * Generate `BACKUP_CODE_COUNT` one-time human-readable codes. Format is
+     * `xxxx-xxxx-xxxx` (12 Crockford-base32 chars with hyphens) — long enough
+     * for ~60 bits of entropy, short enough for a user to type on phone after
+     * losing their authenticator.
+     *
+     * Return shape: `[plaintext: [...], hashed: 'h1 h2 ...']` — the plaintext
+     * list is shown to the user exactly once and then discarded; the hashed
+     * string is persisted on the user row.
+     */
+    Map generateBackupCodes() {
+        def plain = []
+        def hashes = []
+        BACKUP_CODE_COUNT.times {
+            def raw = new byte[8]
+            RNG.nextBytes(raw)
+            // 12 chars Crockford-ish base32 so users don't have to
+            // disambiguate 0/O or 1/l/I in their hand-written copy.
+            def clean = base32(raw).toLowerCase().replaceAll(/[^0-9a-hjkmnp-z]/, '').take(12)
+            while (clean.size() < 12) clean = clean + 'x'
+            def pretty = clean[0..3] + '-' + clean[4..7] + '-' + clean[8..11]
+            plain    << pretty
+            hashes   << sha256Hex(pretty)
+        }
+        [ plaintext: plain, hashed: hashes.join(' ') ]
+    }
+
+    /**
+     * Check whether the supplied recovery code matches one of the user's
+     * unused hashes. Returns the updated hash-list string with the matched
+     * hash removed (single-use), or null if no match.
+     */
+    String consumeRecoveryCode(String storedHashes, String candidate) {
+        if (!storedHashes || !candidate) return null
+        def normalized = candidate.trim().toLowerCase().replaceAll(/[^0-9a-z-]/, '')
+        if (!normalized) return null
+        def wantHash = sha256Hex(normalized)
+        def parts = storedHashes.split(/\s+/).findAll { it }
+        // Match with a constant-time compare so a timing side-channel can't
+        // be used to probe which recovery hashes are stored. Scan every
+        // entry (no early break) for the same reason.
+        boolean matched = false
+        def remaining = []
+        parts.each { hash ->
+            if (constantTimeEquals(hash, wantHash)) {
+                matched = true
+            } else {
+                remaining << hash
+            }
+        }
+        if (!matched) return null
+        remaining.join(' ')
+    }
+
+    /** SHA-256 lowercase hex — exposed so the ProfileController can hash
+     *  a user-supplied candidate the same way the store does. */
+    String sha256Hex(String input) {
+        def md = MessageDigest.getInstance('SHA-256')
+        def out = md.digest(input.getBytes('UTF-8'))
+        out.collect { String.format('%02x', it) }.join('')
+    }
+
+    /**
+     * Length-independent constant-time string compare. Used for both the TOTP
+     * code check and recovery-hash matching so verification time does not leak
+     * how many leading characters of a guess were correct. Returns false for
+     * any null argument.
+     */
+    private static boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null) return false
+        MessageDigest.isEqual(a.getBytes('UTF-8'), b.getBytes('UTF-8'))
     }
 
     // ── Base32 codec (RFC 4648 — authenticator-app compatible) ──────

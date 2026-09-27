@@ -1,5 +1,9 @@
 package com.sboxmarket
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.sboxmarket.config.GlobalExceptionHandler
 import com.sboxmarket.dto.ErrorResponse
 import com.sboxmarket.exception.BadRequestException
@@ -7,11 +11,18 @@ import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.InsufficientBalanceException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.exception.UnauthorizedException
+import org.slf4j.LoggerFactory
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.orm.ObjectOptimisticLockingFailureException
+import org.springframework.web.HttpMediaTypeNotAcceptableException
+import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -115,6 +126,33 @@ class GlobalExceptionHandlerSpec extends Specification {
         resp.body.message != 'Request could not be completed'
     }
 
+    def "InsufficientBalance exposes structured details (batch 963)"() {
+        // Frontend composes a 'Top up $40 to continue' CTA from these
+        // fields instead of string-parsing the message. Pin the shape.
+        when:
+        def resp = handler.handleApi(
+            new InsufficientBalanceException(new BigDecimal("50.00"), new BigDecimal("10.00")),
+            req()
+        )
+
+        then:
+        resp.body.code == 'INSUFFICIENT_BALANCE'
+        resp.body.details != null
+        resp.body.details.required  == new BigDecimal('50.00')
+        resp.body.details.available == new BigDecimal('10.00')
+        resp.body.details.shortfall == new BigDecimal('40.00')
+    }
+
+    def "other ApiException subclasses do NOT get insufficient-balance details"() {
+        when:
+        def resp = handler.handleApi(new NotFoundException('Listing', 42L), req())
+
+        then:
+        // NotFound doesn't carry required/available fields; the handler
+        // should leave details null rather than invent an empty map.
+        resp.body.details == null
+    }
+
     // ── Verbose mode ──────────────────────────────────────────────
 
     def "verbose mode returns the real error message and request path"() {
@@ -184,6 +222,92 @@ class GlobalExceptionHandlerSpec extends Specification {
         resp.body.message.contains('amount')
     }
 
+    // ── Protocol-level mappings (must NOT fall through to 500) ─────
+
+    def "HttpRequestMethodNotSupportedException maps to 405, not a generic 500"() {
+        given:
+        def ex = new HttpRequestMethodNotSupportedException('POST', ['GET', 'HEAD'])
+
+        when:
+        def resp = handler.handleMethodNotSupported(ex, req('/api/listings/42'))
+
+        then:
+        resp.statusCode == HttpStatus.METHOD_NOT_ALLOWED
+        resp.body.code == 'METHOD_NOT_ALLOWED'
+        resp.body.path == null
+        // The 405 carries an Allow header so clients can self-correct
+        resp.headers.getFirst(HttpHeaders.ALLOW) != null
+        resp.headers.getAllow().contains(HttpMethod.GET)
+    }
+
+    def "405 response never leaks the raw exception message"() {
+        given:
+        def ex = new HttpRequestMethodNotSupportedException('DELETE')
+
+        when:
+        def resp = handler.handleMethodNotSupported(ex, req())
+
+        then:
+        resp.statusCode == HttpStatus.METHOD_NOT_ALLOWED
+        // Generic copy only — no servlet/framework internals
+        resp.body.message == 'HTTP method not allowed for this endpoint'
+        !resp.body.message.contains('DELETE')
+    }
+
+    def "HttpMediaTypeNotSupportedException maps to 415, not a generic 500"() {
+        given:
+        def ex = new HttpMediaTypeNotSupportedException('text/plain not supported')
+
+        when:
+        def resp = handler.handleMediaTypeNotSupported(ex, req('/api/offers'))
+
+        then:
+        resp.statusCode == HttpStatus.UNSUPPORTED_MEDIA_TYPE
+        resp.body.code == 'UNSUPPORTED_MEDIA_TYPE'
+        resp.body.message == 'Request media type is not supported'
+        resp.body.path == null
+    }
+
+    def "HttpMediaTypeNotAcceptableException maps to 406, not a generic 500"() {
+        given:
+        def ex = new HttpMediaTypeNotAcceptableException('cannot produce text/csv')
+
+        when:
+        def resp = handler.handleMediaTypeNotAcceptable(ex, req('/api/listings'))
+
+        then:
+        resp.statusCode == HttpStatus.NOT_ACCEPTABLE
+        resp.body.code == 'NOT_ACCEPTABLE'
+        resp.body.path == null
+    }
+
+    def "MaxUploadSizeExceededException maps to 413, not a generic 500"() {
+        given:
+        def ex = new MaxUploadSizeExceededException(2L * 1024L * 1024L)
+
+        when:
+        def resp = handler.handleMaxUpload(ex, req('/api/profile/avatar'))
+
+        then:
+        resp.statusCode == HttpStatus.PAYLOAD_TOO_LARGE
+        resp.body.code == 'PAYLOAD_TOO_LARGE'
+        resp.body.message == 'Request body is too large'
+        resp.body.path == null
+    }
+
+    def "protocol-level handlers echo the path only in verbose mode"() {
+        given:
+        def verbose = new GlobalExceptionHandler(verboseErrors: true)
+
+        when:
+        def resp = verbose.handleMethodNotSupported(
+            new HttpRequestMethodNotSupportedException('PUT'), req('/api/listings/7'))
+
+        then:
+        resp.statusCode == HttpStatus.METHOD_NOT_ALLOWED
+        resp.body.path == '/api/listings/7'
+    }
+
     // ── Catch-all ─────────────────────────────────────────────────
 
     def "ObjectOptimisticLockingFailureException maps to 409 LISTING_NOT_AVAILABLE"() {
@@ -212,5 +336,110 @@ class GlobalExceptionHandlerSpec extends Specification {
         // Real message is NOT in the response
         !resp.body.message.contains('NPE')
         !resp.body.message.contains('BuyOrderService')
+    }
+
+    def "catch-all 500 does NOT leak the internal message even in verbose mode"() {
+        // verboseErrors is an opt-in prod debug switch; it surfaces *domain*
+        // messages (handleApi) but an unanticipated 500 is still a server
+        // fault whose message may carry SQL/stack internals, so handleAny
+        // must stay generic regardless of the flag.
+        given:
+        def verbose = new GlobalExceptionHandler(verboseErrors: true)
+
+        when:
+        def resp = verbose.handleAny(
+            new RuntimeException("could not execute statement; SQL [select * from wallet]"),
+            req())
+
+        then:
+        resp.statusCode == HttpStatus.INTERNAL_SERVER_ERROR
+        !resp.body.message.contains('SQL')
+        !resp.body.message.contains('wallet')
+        resp.body.details == null
+    }
+
+    def "handleApi logs the wrapped cause chain when ApiException carries one"() {
+        // Regression: BadRequestException(code, msg, cause) preserves the
+        // original cause (e.g. a NumberFormatException from a parse failure)
+        // explicitly so ops can diagnose the underlying issue. The handler
+        // was logging only `ex.message` as a string and dropping `ex` from
+        // the Slf4j call — which silently discarded the cause stack-trace.
+        // This spec wires a ListAppender to the handler's logger, raises
+        // the level to DEBUG, throws an ApiException with a distinctive
+        // cause, and asserts the cause appears in the captured event's
+        // throwable chain.
+        given:
+        def logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler)
+        def originalLevel = logger.level
+        logger.level = Level.DEBUG
+        def appender = new ListAppender<ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+
+        and:
+        def rootCause = new NumberFormatException('For input string: "abc"')
+        def wrapped = new BadRequestException('INVALID_AMOUNT', 'Amount is not a number', rootCause)
+
+        when:
+        handler.handleApi(wrapped, req('/api/wallet/withdraw'))
+
+        then:
+        // Exactly one debug line for the domain exception
+        def events = appender.list.findAll { it.level == Level.DEBUG }
+        events.size() == 1
+        // The throwable chain MUST reach the cause — otherwise ops cannot
+        // trace the underlying parse failure that triggered this 400.
+        def throwable = events[0].throwableProxy
+        throwable != null
+        // Walk down to the root and confirm the NumberFormatException is there
+        def root = throwable
+        while (root.cause != null) root = root.cause
+        root.className == NumberFormatException.name
+        root.message == 'For input string: "abc"'
+
+        cleanup:
+        logger.detachAppender(appender)
+        logger.level = originalLevel
+    }
+
+    def "handleApi without a cause logs a plain debug line (no spurious throwable)"() {
+        // The cause-aware log call must NOT fire when there is no cause,
+        // otherwise every NotFound/Forbidden/Unauthorized debug line would
+        // get an artificially empty stack-trace attached and noise the logs.
+        given:
+        def logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler)
+        def originalLevel = logger.level
+        logger.level = Level.DEBUG
+        def appender = new ListAppender<ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+
+        when:
+        handler.handleApi(new NotFoundException('Listing', 42L), req())
+
+        then:
+        def events = appender.list.findAll { it.level == Level.DEBUG }
+        events.size() == 1
+        events[0].throwableProxy == null
+
+        cleanup:
+        logger.detachAppender(appender)
+        logger.level = originalLevel
+    }
+
+    def "handleClientState swallows a sensitive IllegalStateException message in production"() {
+        // StripeService throws IllegalStateException with wallet balances in
+        // the text (e.g. "Insufficient balance: have $X, need $Y"). In
+        // non-verbose mode handleClientState must NOT echo that message.
+        when:
+        def resp = handler.handleClientState(
+            new IllegalStateException('Wallet balance too low to refund (have $5.00, need $50.00)'),
+            req())
+
+        then:
+        resp.statusCode == HttpStatus.BAD_REQUEST
+        resp.body.code == 'BAD_REQUEST'
+        resp.body.message == 'Request could not be completed'
+        !resp.body.message.contains('5.00')
     }
 }

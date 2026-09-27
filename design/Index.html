@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>sboxmarket — redesign reference</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .hero {
+    min-height: calc(100vh - var(--nav-h));
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: var(--s-56);
+    align-items: center;
+    padding: var(--s-56) 0;
+  }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: var(--s-32); padding: var(--s-32) 0; } }
+
+  .hero h1 {
+    font-size: clamp(40px, 6vw, 72px);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+    margin-bottom: var(--s-20);
+  }
+  .hero .lede {
+    font-size: var(--t-18);
+    color: var(--ink-2);
+    line-height: 1.5;
+    max-width: 50ch;
+    margin-bottom: var(--s-24);
+  }
+  .hero .meta {
+    display: flex; gap: var(--s-32);
+    padding-top: var(--s-20);
+    border-top: 1px solid var(--line);
+    margin-top: var(--s-32);
+    font-size: var(--t-12);
+    color: var(--ink-3);
+  }
+  .hero .meta strong { color: var(--ink); display: block; font-family: var(--font-mono); font-size: var(--t-22); letter-spacing: -0.01em; margin-bottom: 2px; }
+
+  .preview-stack {
+    position: relative;
+    aspect-ratio: 5/4;
+  }
+  .preview-stack > a {
+    position: absolute;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--bg-1);
+    box-shadow: var(--shadow-2);
+    overflow: hidden;
+    transition: transform .25s ease, box-shadow .25s ease;
+    display: block;
+  }
+  .preview-stack > a:hover { transform: translate(-4px, -4px); box-shadow: var(--shadow-3); }
+  .preview-stack .frame-1 { top: 0; left: 0; width: 70%; height: 70%; transform: rotate(-2deg); z-index: 1; }
+  .preview-stack .frame-1:hover { transform: rotate(-2deg) translate(-4px, -4px); }
+  .preview-stack .frame-2 { bottom: 0; right: 0; width: 70%; height: 70%; transform: rotate(1.5deg); z-index: 2; }
+  .preview-stack .frame-2:hover { transform: rotate(1.5deg) translate(-4px, -4px); }
+
+  .frame-thumb {
+    width: 100%; height: 100%;
+    background:
+      linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+    position: relative;
+    padding: var(--s-12);
+  }
+  .frame-thumb .top {
+    height: 8px; width: 60%;
+    background: var(--bg-3);
+    border-radius: 2px;
+  }
+  .frame-thumb .grid-mini {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .frame-thumb .tile {
+    aspect-ratio: 1.4/1;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    position: relative;
+  }
+  .frame-thumb .tile::after {
+    content: ""; position: absolute; inset: 4px;
+    background: linear-gradient(135deg, var(--ink-4), var(--ink-5));
+    border-radius: 2px;
+    opacity: 0.6;
+  }
+
+  .pages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--s-16);
+    margin-top: var(--s-24);
+  }
+  .page-tile {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    transition: border-color .15s, transform .12s, background .15s;
+    display: flex; flex-direction: column;
+  }
+  .page-tile:hover { border-color: var(--line-2); background: var(--bg-2); transform: translateY(-2px); }
+  .page-tile .pg-img {
+    aspect-ratio: 16/10;
+    background:
+      repeating-linear-gradient(45deg, var(--bg-1) 0 12px, color-mix(in oklch, var(--bg-2) 50%, transparent) 12px 13px);
+    border-bottom: 1px solid var(--line);
+    display: grid; place-items: center;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-11);
+    position: relative;
+  }
+  .page-tile .pg-img .num {
+    position: absolute; top: 10px; left: 10px;
+    font-family: var(--font-mono); font-size: var(--t-10);
+    color: var(--ink-4);
+    border: 1px solid var(--line); padding: 2px 6px; border-radius: 3px;
+    background: var(--bg);
+  }
+  .page-tile .pg-bd { padding: var(--s-14) var(--s-16); }
+  .page-tile h3 { font-size: var(--t-15); font-weight: 500; letter-spacing: -0.005em; margin-bottom: 4px; }
+  .page-tile p { font-size: var(--t-12); color: var(--ink-3); line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket · redesign</a>
+    <div></div>
+    <div class="nav-actions">
+      <a href="Design System.html" class="btn btn-ghost btn-sm">Design system →</a>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <section class="hero">
+    <div>
+      <div class="badge live" style="margin-bottom: var(--s-20);"><span class="led"></span>Reference set · v1</div>
+      <h1>The marketplace, designed end-to-end.</h1>
+      <p class="lede">Seven self-contained mockups + one design system. Mono ink, hairline borders, blue reserved for action — the visual target the live app gets shaped toward.</p>
+      <div class="row" style="gap: var(--s-12);">
+        <a href="Market.html" class="btn btn-cta btn-lg">Open Market →</a>
+        <a href="Design System.html" class="btn btn-secondary btn-lg">View design system</a>
+      </div>
+      <div class="meta">
+        <div><strong>13</strong>page mockups</div>
+        <div><strong>40+</strong>components</div>
+        <div><strong>1</strong>shared stylesheet</div>
+        <div><strong>0</strong>frameworks</div>
+      </div>
+    </div>
+
+    <div class="preview-stack">
+      <a href="Market.html" class="frame-1" aria-label="Market preview">
+        <div class="frame-thumb">
+          <div class="top"></div>
+          <div class="grid-mini">
+            <div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div>
+            <div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div>
+            <div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div>
+          </div>
+        </div>
+      </a>
+      <a href="Item Detail.html" class="frame-2" aria-label="Item detail preview">
+        <div class="frame-thumb">
+          <div class="top"></div>
+          <div style="margin-top: 12px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 6px;">
+            <div style="aspect-ratio: 16/11; background: var(--bg-2); border: 1px solid var(--line); border-radius: 4px; position: relative;">
+              <div style="position: absolute; inset: 18%; background: linear-gradient(135deg, oklch(0.55 0.18 25), oklch(0.40 0.20 18)); border-radius: 2px; transform: rotate(-4deg);"></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="height: 16px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 2px;"></div>
+              <div style="height: 8px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 2px; width: 80%;"></div>
+              <div style="height: 28px; background: var(--blue); border-radius: 4px; margin-top: auto;"></div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <section style="padding: var(--s-40) 0;">
+    <h2 style="font-size: var(--t-22); font-weight: 600; letter-spacing: -0.015em; margin-bottom: var(--s-8);">All pages</h2>
+    <p class="muted" style="font-size: var(--t-14);">Each mockup is a complete, self-contained HTML file consuming the shared <code class="mono">_design.css</code>.</p>
+
+    <div class="pages-grid">
+      <a href="Market.html" class="page-tile">
+        <div class="pg-img"><span class="num">01</span>[market — grid + filter rail]</div>
+        <div class="pg-bd"><h3>Market</h3><p>Filter rail, fluid auto-fill grid, sticky subnav with category chips. The home surface.</p></div>
+      </a>
+      <a href="Item Detail.html" class="page-tile">
+        <div class="pg-img"><span class="num">02</span>[item — preview + price + meta]</div>
+        <div class="pg-bd"><h3>Item Detail</h3><p>Skin preview, float bar, sticker breakdown, 30d sales chart, similar listings.</p></div>
+      </a>
+      <a href="Sell.html" class="page-tile">
+        <div class="pg-img"><span class="num">03</span>[sell — inventory picker + price]</div>
+        <div class="pg-bd"><h3>Sell</h3><p>Multi-select inventory grid with live pricing tuner, market band, fee breakdown.</p></div>
+      </a>
+      <a href="Profile.html" class="page-tile">
+        <div class="pg-img"><span class="num">04</span>[profile — stats + activity]</div>
+        <div class="pg-bd"><h3>Profile</h3><p>Stat tiles, recent activity feed, sales chart, active listings table.</p></div>
+      </a>
+      <a href="Wallet.html" class="page-tile">
+        <div class="pg-img"><span class="num">05</span>[wallet — balance + transactions]</div>
+        <div class="pg-bd"><h3>Wallet</h3><p>Balance hero, transaction history, deposit/withdraw with Stripe payment methods.</p></div>
+      </a>
+      <a href="Stall.html" class="page-tile">
+        <div class="pg-img"><span class="num">06</span>[stall — public seller storefront]</div>
+        <div class="pg-bd"><h3>Stall</h3><p>Seller hero with reputation, stat tiles, listings grid, recent reviews.</p></div>
+      </a>
+      <a href="Database.html" class="page-tile">
+        <div class="pg-img"><span class="num">07</span>[database — items catalog table]</div>
+        <div class="pg-bd"><h3>Database</h3><p>Sortable table with median, 30d delta, sparkline trends. Reference for every item type.</p></div>
+      </a>
+      <a href="Loadouts.html" class="page-tile">
+        <div class="pg-img"><span class="num">08</span>[loadouts — 5-slot configurations]</div>
+        <div class="pg-bd"><h3>Loadouts</h3><p>Saved 5-slot combos. Sharable URL. Public or private. Per-loadout total.</p></div>
+      </a>
+      <a href="Watchlist.html" class="page-tile">
+        <div class="pg-img"><span class="num">09</span>[watchlist — saved items + alerts]</div>
+        <div class="pg-bd"><h3>Watchlist</h3><p>Tracked items with price alerts. 7-day deltas. Drop-to alert pills.</p></div>
+      </a>
+      <a href="Buy Orders.html" class="page-tile">
+        <div class="pg-img"><span class="num">10</span>[buy orders — auto-fill standing bids]</div>
+        <div class="pg-bd"><h3>Buy orders</h3><p>Standing bids that fill automatically. Float / sticker filters. Escrow tracking.</p></div>
+      </a>
+      <a href="Cart.html" class="page-tile">
+        <div class="pg-img"><span class="num">11</span>[cart — checkout]</div>
+        <div class="pg-bd"><h3>Cart</h3><p>Multi-seller checkout with wallet or Stripe. Per-seller delivery times.</p></div>
+      </a>
+      <a href="Notifications.html" class="page-tile">
+        <div class="pg-img"><span class="num">12</span>[notifications — feed]</div>
+        <div class="pg-bd"><h3>Notifications</h3><p>Day-grouped stream with unread accent. Sales / offers / auctions / watchlist.</p></div>
+      </a>
+      <a href="404.html" class="page-tile">
+        <div class="pg-img"><span class="num">13</span>[404 — friendly not-found]</div>
+        <div class="pg-bd"><h3>404</h3><p>Striped glyph, suggested destinations, plain language.</p></div>
+      </a>
+      <a href="Design System.html" class="page-tile">
+        <div class="pg-img"><span class="num">00</span>[design system reference]</div>
+        <div class="pg-bd"><h3>Design system</h3><p>Tokens, color, type scale, components, modals, popovers — the source of every other page.</p></div>
+      </a>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <section style="padding: var(--s-40) 0;">
+    <h2 style="font-size: var(--t-22); font-weight: 600; letter-spacing: -0.015em; margin-bottom: var(--s-8);">Direction</h2>
+    <p class="muted" style="font-size: var(--t-14); max-width: 64ch;">Mono primary, blue spice. Apple-precision: hairline 1px borders, generous negative space, strict 12 / 14 / 18 / 22 / 28 / 40 / 60 type scale, tabular numerals (Geist Mono) on every price, float, and timestamp.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--s-16); margin-top: var(--s-24);">
+      <div class="stat">
+        <span class="lbl">Color tone</span>
+        <span class="val" style="font-size: var(--t-15); font-family: var(--font-sans); color: var(--ink); letter-spacing: 0;">Warm cool · hue 260</span>
+        <span class="delta dim">Chroma ≤ 0.012 on neutrals</span>
+      </div>
+      <div class="stat">
+        <span class="lbl">Type</span>
+        <span class="val" style="font-size: var(--t-15); font-family: var(--font-sans); color: var(--ink); letter-spacing: 0;">Geist + Geist Mono</span>
+        <span class="delta dim">Strict 11-step scale</span>
+      </div>
+      <div class="stat">
+        <span class="lbl">Accent</span>
+        <span class="val" style="font-size: var(--t-15); font-family: var(--font-sans); color: var(--ink); letter-spacing: 0;">Blue #3b82f6</span>
+        <span class="delta dim">CTA · live · active tab only</span>
+      </div>
+      <div class="stat">
+        <span class="lbl">Borders</span>
+        <span class="val" style="font-size: var(--t-15); font-family: var(--font-sans); color: var(--ink); letter-spacing: 0;">1px hairline always</span>
+        <span class="delta dim">Elevation via shadow, not weight</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

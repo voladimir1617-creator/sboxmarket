@@ -1,0 +1,130 @@
+MEASURED 2026-09-19 22:15 UTC.  All aborts recorded separately from zeros.
+
+==============================================================================
+WoG: War of Genesis (4891320)
+==============================================================================
+  sample 96 items READ + 7 never-sold = 103 of 914 in book -> scale x8.87
+  unread (NOT counted as zeros): none
+  first sale 2026-09-10   last bucket 2026-09-19   AGE 10 days
+
+  LAST COMPLETE DAY 2026-09-18 (scaled to the whole book):
+    trades/day           96,911
+    GMV/day          $61,118.47   GMV/yr $22,308,242
+    GMV/yr DE-BIASED by the 1.39x sample price skew: $16,049,095
+    vol-wtd MEDIAN trade $0.41     mean trade $0.6307
+
+  24h CROSS-CHECK vs the prior pass's priceoverview.volume, same items
+    listing-page purchases 10,117   priceoverview volume 10,738   ratio 0.94x  (n=84 items)
+
+  GMV/DAY BY AGE (scaled; complete days only)
+    day    1  2026-09-10  GMV/day  $13,142.9  trades     2,636  vw-med trade $3.43    21.5% of peak
+    day    2  2026-09-11  GMV/day $28,109.81  trades    14,784  vw-med trade $1.04    46.0% of peak
+    day    3  2026-09-12  GMV/day  $29,740.7  trades    25,858  vw-med trade $0.64    48.7% of peak
+    day    4  2026-09-13  GMV/day $35,819.87  trades    36,640  vw-med trade $0.73    58.6% of peak
+    day    7  2026-09-16  GMV/day $51,277.33  trades    68,665  vw-med trade $0.46    83.9% of peak
+    day    9  2026-09-18  GMV/day $61,118.47  trades    96,911  vw-med trade $0.41   100.0% of peak
+    PEAK GMV/day $61,118.47 on 2026-09-18 (day 9)
+    trailing 9-day mean GMV/day $42,388.3 (69.35% of peak), trades/day 48,070, vw-med trade $0.49
+    log-slope over those 9 days +17.47%/day (SE 3.20%), t=+5.11 -> rising
+
+==============================================================================
+Bomb Farm (4892010)
+==============================================================================
+  sample 26 items READ + 5 never-sold = 31 of 270 in book -> scale x8.71
+  unread (NOT counted as zeros): none
+  first sale 2026-08-29   last bucket 2026-09-19   AGE 22 days
+
+  LAST COMPLETE DAY 2026-09-18 (scaled to the whole book):
+    trades/day           20,311
+    GMV/day            $3,416.8   GMV/yr $1,247,131
+    vol-wtd MEDIAN trade $0.12     mean trade $0.1682
+
+  24h CROSS-CHECK vs the prior pass's priceoverview.volume, same items
+    listing-page purchases 2,146   priceoverview volume 2,486   ratio 0.86x  (n=17 items)
+
+  GMV/DAY BY AGE (scaled; complete days only)
+    day    1  2026-08-29  GMV/day    $607.25  trades       157  vw-med trade $3.30     5.4% of peak
+    day    2  2026-08-30  GMV/day  $3,388.31  trades     2,874  vw-med trade $1.10    30.0% of peak
+    day    3  2026-08-31  GMV/day  $5,702.33  trades     7,142  vw-med trade $0.77    50.6% of peak
+    day    4  2026-09-01  GMV/day  $8,812.56  trades    12,507  vw-med trade $0.68    78.1% of peak
+    day    7  2026-09-04  GMV/day  $9,998.98  trades    21,635  vw-med trade $0.43    88.6% of peak
+    day   10  2026-09-07  GMV/day $11,279.72  trades    33,532  vw-med trade $0.30   100.0% of peak
+    day   14  2026-09-11  GMV/day   $7,206.3  trades    13,456  vw-med trade $0.44    63.9% of peak
+    day   21  2026-09-18  GMV/day   $3,416.8  trades    20,311  vw-med trade $0.12    30.3% of peak
+    PEAK GMV/day $11,279.72 on 2026-09-07 (day 10)
+    trailing 14-day mean GMV/day $7,116.59 (63.09% of peak), trades/day 20,206, vw-med trade $0.31
+    log-slope over those 14 days -7.50%/day (SE 0.98%), t=-8.03 -> still falling
+
+==============================================================================
+TBH: Task Bar Hero (3678970)
+==============================================================================
+  sample 36 items READ + 0 never-sold = 36 of 1064 in book -> scale x29.56
+  unread (NOT counted as zeros): none
+  first sale 2026-05-27   last bucket 2026-09-19   AGE 116 days
+
+  LAST COMPLETE DAY 2026-09-18 (scaled to the whole book):
+    trades/day           70,047
+    GMV/day          $16,965.96   GMV/yr $6,192,576
+    vol-wtd MEDIAN trade $0.09     mean trade $0.2422
+
+  24h CROSS-CHECK vs the prior pass's priceoverview.volume, same items
+    listing-page purchases 2,495   priceoverview volume 2,560   ratio 0.97x  (n=26 items)
+
+  GMV/DAY BY AGE (scaled; complete days only)
+    day    1  2026-05-27  GMV/day     $161.5  trades        89  vw-med trade $0.63     0.1% of peak
+    day    2  2026-05-28  GMV/day  $2,842.14  trades     1,921  vw-med trade $1.68     1.8% of peak
+    day    3  2026-05-29  GMV/day  $4,420.52  trades     5,202  vw-med trade $1.07     2.8% of peak
+    day    4  2026-05-30  GMV/day  $5,808.05  trades     8,482  vw-med trade $0.25     3.7% of peak
+    day    7  2026-06-02  GMV/day $46,205.99  trades    46,432  vw-med trade $0.29    29.7% of peak
+    day   10  2026-06-05  GMV/day $63,983.21  trades   151,029  vw-med trade $0.12    41.1% of peak
+    day   14  2026-06-09  GMV/day $40,339.33  trades    28,226  vw-med trade $0.82    25.9% of peak
+    day   21  2026-06-16  GMV/day  $6,793.53  trades        59  vw-med trade $96.14     4.4% of peak
+    day   30  2026-06-25  GMV/day $155,638.15  trades   192,702  vw-med trade $0.47   100.0% of peak
+    day   45  2026-07-10  GMV/day $23,414.75  trades   158,063  vw-med trade $0.03    15.0% of peak
+    day   60  2026-07-25  GMV/day $47,082.36  trades    63,899  vw-med trade $0.27    30.3% of peak
+    day   90  2026-08-24  GMV/day  $8,337.33  trades    20,600  vw-med trade $0.13     5.4% of peak
+    day  115  2026-09-18  GMV/day $16,965.96  trades    70,047  vw-med trade $0.09    10.9% of peak
+    PEAK GMV/day $155,638.15 on 2026-06-25 (day 30)
+    trailing 14-day mean GMV/day $20,675.33 (13.28% of peak), trades/day 56,791, vw-med trade $0.10
+    log-slope over those 14 days +4.90%/day (SE 3.71%), t=+1.31 -> NOT distinguishable from flat
+
+==============================================================================
+Bongo Cat (3419430)
+==============================================================================
+  sample 22 items READ + 0 never-sold = 22 of 540 in book -> scale x24.55
+  unread (NOT counted as zeros): none
+  EXCLUDED REGIME: 4,127 buckets / 8,344,566 units dated before 2026-01-01 were
+    dropped -- see the note at the top of curve.py. Every figure
+    below for this market describes the post-2026-01-01 era ONLY.
+  first sale 2026-01-01   last bucket 2026-09-19   AGE 262 days
+
+  LAST COMPLETE DAY 2026-09-18 (scaled to the whole book):
+    trades/day            1,522
+    GMV/day              $109.9   GMV/yr $40,113
+    vol-wtd MEDIAN trade $0.04     mean trade $0.0722
+
+  24h CROSS-CHECK vs the prior pass's priceoverview.volume, same items
+    listing-page purchases 298   priceoverview volume 299   ratio 1.00x  (n=15 items)
+
+  GMV/DAY BY AGE (scaled; complete days only)
+    day    1  2026-01-01  GMV/day    $581.36  trades     4,786  vw-med trade $0.11    13.7% of peak
+    day    2  2026-01-02  GMV/day     $676.8  trades     7,805  vw-med trade $0.04    16.0% of peak
+    day    3  2026-01-03  GMV/day    $410.22  trades     3,682  vw-med trade $0.12     9.7% of peak
+    day    4  2026-01-04  GMV/day    $475.77  trades     4,148  vw-med trade $0.11    11.2% of peak
+    day    7  2026-01-07  GMV/day    $408.12  trades     4,320  vw-med trade $0.08     9.6% of peak
+    day   10  2026-01-10  GMV/day    $416.42  trades     4,075  vw-med trade $0.09     9.8% of peak
+    day   14  2026-01-14  GMV/day     $528.3  trades     4,983  vw-med trade $0.10    12.5% of peak
+    day   21  2026-01-21  GMV/day    $436.22  trades     4,197  vw-med trade $0.07    10.3% of peak
+    day   30  2026-01-30  GMV/day    $262.41  trades     1,890  vw-med trade $0.10     6.2% of peak
+    day   45  2026-02-14  GMV/day     $222.9  trades     2,160  vw-med trade $0.08     5.3% of peak
+    day   60  2026-03-01  GMV/day    $552.48  trades     4,835  vw-med trade $0.09    13.0% of peak
+    day   90  2026-03-31  GMV/day    $369.21  trades     3,510  vw-med trade $0.09     8.7% of peak
+    day  120  2026-04-30  GMV/day    $727.44  trades    14,236  vw-med trade $0.03    17.1% of peak
+    day  180  2026-06-29  GMV/day    $294.84  trades     5,056  vw-med trade $0.03     7.0% of peak
+    day  240  2026-08-28  GMV/day    $120.31  trades     1,767  vw-med trade $0.04     2.8% of peak
+    day  261  2026-09-18  GMV/day     $109.9  trades     1,522  vw-med trade $0.04     2.6% of peak
+    PEAK GMV/day $4,242.28 on 2026-03-30 (day 89)
+    trailing 14-day mean GMV/day $261.66 (6.17% of peak), trades/day 3,859, vw-med trade $0.03
+    log-slope over those 14 days -8.91%/day (SE 3.23%), t=-2.93 -> still falling
+
+curve_summary.json written

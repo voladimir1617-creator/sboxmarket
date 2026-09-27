@@ -1,0 +1,74 @@
+MEASURED 2026-09-19 22:15 UTC.
+
+==============================================================================
+WoG: War of Genesis (4891320)
+==============================================================================
+  standing listings         82,464  (764 of 914 items in the book walk, 0 unread)
+  trades/day, trailing  9-day mean 48,070   last complete day 96,910
+  DAYS OF INVENTORY       1.7 (trailing mean)        0.9 (last day only)
+    LIQUID
+    NOTE: the two denominators disagree by 50%. A single-day
+    snapshot is the wrong denominator on a market that is moving.
+  per-item days-to-clear: median 2.35  p25 1.19  p75 7.71  (n=93 selling)
+    fastest Advanced Jewel of Wind                   76 listings /    916.3 per day = 0.08 d
+    slowest Worn Cloak (Tier 3)                   2,525 listings /      2.4 per day = 1033.0 d
+  CONCENTRATION over 9 days of measured GMV (93 selling rows of 103 sampled):
+    top-1   30.4%   Diamond Pouch
+    top-3   58.5%   Diamond Pouch  |  Advanced Jewel of Life  |  Advanced Jewel of Wind
+    top-10  78.7%   
+  items that sold NOTHING in the window: 10 of 103 sampled (10%)
+  unread history rows (NOT counted as zeros): none
+
+==============================================================================
+Bomb Farm (4892010)
+==============================================================================
+  standing listings          5,448  (225 of 270 items in the book walk, 0 unread)
+  trades/day, trailing 14-day mean 20,205   last complete day 20,310
+  DAYS OF INVENTORY       0.3 (trailing mean)        0.3 (last day only)
+    LIQUID
+  per-item days-to-clear: median 6.03  p25 3.08  p75 9.00  (n=26 selling)
+    fastest Hero Cage (Act 2)                       349 listings /   1833.3 per day = 0.19 d
+    slowest Clay Amulet Lv 40 (Mythic)                3 listings /      0.1 per day = 42.0 d
+  CONCENTRATION over 14 days of measured GMV (26 selling rows of 31 sampled):
+    top-1   68.8%   Hero Cage (Act 2)
+    top-3   93.2%   Hero Cage (Act 2)  |  Hero Cage (Act 3)  |  Time Chest (Act 2)
+    top-10  99.3%   
+  items that sold NOTHING in the window: 5 of 31 sampled (16%)
+  unread history rows (NOT counted as zeros): none
+
+==============================================================================
+TBH: Task Bar Hero (3678970)
+==============================================================================
+  standing listings     14,431,626  (902 of 1064 items in the book walk, 0 unread)
+  trades/day, trailing 14-day mean 56,791   last complete day 70,046
+  DAYS OF INVENTORY     254.1 (trailing mean)      206.0 (last day only)
+    SATURATED — an unsold book is a population already rejected at that price
+  per-item days-to-clear: median 6.14  p25 4.32  p75 91.78  (n=35 selling)
+    fastest Contaminated Soulstone - Torment        498 listings /    704.1 per day = 0.71 d
+    slowest Fighter's Helmet (Legendary) A       15,173 listings /      1.2 per day = 12495.4 d
+  CONCENTRATION over 14 days of measured GMV (35 selling rows of 36 sampled):
+    top-1   20.2%   Contaminated Soulstone
+    top-3   50.9%   Contaminated Soulstone  |  Eternal Armor (Celesti  |  Shadow Bow (Cosmic) A
+    top-10  83.7%   
+  items that sold NOTHING in the window: 1 of 36 sampled (3%)
+  unread history rows (NOT counted as zeros): none
+
+==============================================================================
+Bongo Cat (3419430)
+==============================================================================
+  standing listings     18,963,710  (442 of 540 items in the book walk, 0 unread)
+  trades/day, trailing 14-day mean 3,858   last complete day 1,521
+  DAYS OF INVENTORY    4914.3 (trailing mean)    12461.2 (last day only)
+    SATURATED — an unsold book is a population already rejected at that price
+    NOTE: the two denominators disagree by 61%. A single-day
+    snapshot is the wrong denominator on a market that is moving.
+  per-item days-to-clear: median 2734.67  p25 52.50  p75 9690.33  (n=21 selling)
+    fastest Monster Bone Spear                       71 listings /      9.4 per day = 7.59 d
+    slowest Yarn Ball                            25,588 listings /      0.1 per day = 179116.0 d
+  CONCENTRATION over 14 days of measured GMV (21 selling rows of 22 sampled):
+    top-1   29.9%   Catcus
+    top-3   70.7%   Catcus  |  Mouse Power Up  |  Leaf Pile
+    top-10  97.5%   
+  items that sold NOTHING in the window: 1 of 22 sampled (5%)
+  unread history rows (NOT counted as zeros): none
+

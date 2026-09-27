@@ -9,6 +9,12 @@ import org.springframework.stereotype.Repository
 @Repository
 interface SupportMessageRepository extends JpaRepository<SupportMessage, Long> {
 
-    @Query("SELECT m FROM SupportMessage m WHERE m.ticketId = :tid ORDER BY m.createdAt ASC")
+    @Query("SELECT m FROM SupportMessage m WHERE m.ticketId = :tid ORDER BY m.createdAt ASC, m.id ASC")
     List<SupportMessage> findByTicket(@Param("tid") Long ticketId)
+
+    /** Paged companion — a long-running ticket can accumulate many
+     *  messages; cap to keep the ticket-thread render bounded. */
+    @Query("SELECT m FROM SupportMessage m WHERE m.ticketId = :tid ORDER BY m.createdAt ASC, m.id ASC")
+    List<SupportMessage> findByTicket(@Param("tid") Long ticketId,
+                                       org.springframework.data.domain.Pageable pageable)
 }

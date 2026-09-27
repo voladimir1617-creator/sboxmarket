@@ -1,20 +1,150 @@
 server:
-  port: ${SERVER_PORT:8080}
+  ###
+  # BIND ADDRESS — loopback by DEFAULT, and that default is the security
+  # control, not a convenience.
+  #
+  # Spring Boot's default is "no address", which means Tomcat binds the
+  # wildcard: every interface the machine has. On the operator's box that is
+  # not an abstraction — measured 2026-09-01 while the app was running under
+  # the default profile, `http://<lan-ip>:8082/` answered 200 and
+  # `/api/auth/steam/dev-login` answered 302 with a live session, from:
+  #     192.168.68.70   (the house LAN)
+  #     100.82.162.44   (the Tailscale tailnet — every device he owns)
+  #     172.29.80.1     (the WSL/Hyper-V vSwitch)
+  # There is no inbound firewall rule for 8082, so nothing else was stopping it.
+  #
+  # And that door WAS open BY DESIGN on this profile: `dev-login` was gated only
+  # on MoneyMode.handlesRealMoney(), the key here is the committed
+  # `sk_test_replace_me` placeholder, so the deployment classifies SIMULATED and
+  # the scaffolding was enabled — for a DEVELOPER LAPTOP. The whole SIMULATED
+  # contract assumes nobody but the developer can reach the port. The wildcard
+  # bind quietly broke that assumption, which is what turned a dev affordance
+  # into credential-free account takeover for anyone on the LAN.
+  #
+  # The loopback bind restores that premise, and it is still the right fix for
+  # REACHABILITY. What it could not fix is that the premise had only one layer:
+  # a Cloudflare tunnel connects FROM loopback, so `skinbox.market ->
+  # http://localhost:8082` walks straight past this line. So as of 2026-09-01
+  # `dev-login` ALSO requires an affirmative opt-in — the SBOX_DEV_LOGIN_ENABLED
+  # process environment variable, see config/DevLoginGate.groovy — and a fresh
+  # checkout run with no special environment serves no credential-free login at
+  # all. Do not add that variable to this file or any other committed config:
+  # its whole value is that it cannot be inherited.
+  #
+  # This costs the intended topology nothing. cloudflared runs on this same host
+  # and its ingress rule is already `skinbox.market -> http://localhost:8082`
+  # (C:\Users\WW\.cloudflared\config.yml), so the tunnel reaches loopback fine
+  # and stays the ONLY public path — which is the point: exposure becomes a
+  # thing the tunnel grants, not a thing the socket leaks. The watchdog's health
+  # probe (`http://localhost:8082/api/health`) is loopback too and is unaffected.
+  #
+  # `prod` overrides this to 0.0.0.0 — a container MUST bind the wildcard or
+  # Docker's published `${APP_PORT:-8082}:8082` mapping has nothing to forward
+  # to. That override is an explicit declaration of intent on a profile whose
+  # whole job is to be deployed behind nginx; the default profile makes no such
+  # declaration, so it gets the closed answer. Same asymmetry MoneyMode uses:
+  # when the deployment has not said what it is, choose the safe branch.
+  #
+  # Override for a deliberate LAN demo with SERVER_ADDRESS=0.0.0.0 — but read
+  # the dev-login paragraph above first and know what you are publishing.
+  ###
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  # Default 8082 — the operator's owner-QA watchdog (the every-minute
+  # "sboxmarket owner QA" automation, the three .claude/watchdog QA
+  # scripts, and codex-agent-lane.ps1's health probe) all target
+  # localhost:8082. Defaulting to 8080 silently broke that QA loop.
+  # Still overridable via SERVER_PORT; prod sets its own port.
+  port: ${SERVER_PORT:8082}
+  ###
+  # Tomcat connection hardening — MUST NOT live only in application-prod.yml.
+  #
+  # THE WEDGE THIS FIXES (measured 2026-08-31, reproduced and fix-verified):
+  # a long-lived instance stops answering. TCP still accepts, nothing ever
+  # responds, a 60s client sees HTTP 000. A thread dump shows the acceptor and
+  # poller healthy, every worker parked, and most of them at cpu=0.00ms — they
+  # were spawned and never reached application code.
+  #
+  # Cause: Tomcat writes a response body with a BLOCKING write, and the worker
+  # is pinned for the whole write. A client that stops reading (backgrounded
+  # tab, dead mobile connection, a dropped Cloudflare tunnel hop, an aborted
+  # fetch) leaves its worker in
+  #     NioEndpoint$NioSocketWrapper.doWrite -> Object.wait()
+  # and this app ships big JSON bodies (a 200-row /api/listings is ~74KB, plus
+  # the admin CSV exports and the sitemap), so a stalled reader holds a thread
+  # for a long time. Enough of them and all `threads.max` workers are pinned;
+  # new connections then sit in the kernel accept queue, which is exactly
+  # "TCP accepts, never responds".
+  #
+  # `application-prod.yml` already sets connection-timeout/keep-alive-timeout,
+  # but `application.yml` did NOT — and the default profile is what actually
+  # runs (the operator's own instance boots with `profiles: default`). So the
+  # one deployment taking real traffic had none of this. Hardening belongs on
+  # the BASE profile so no profile can be missing it; prod still overrides with
+  # its own tighter 10s/15s.
+  #
+  # MEASURED, identical load (400 slowloris + 250 non-reading readers), same
+  # jar, same data — the only difference is these keys:
+  #   without: 200/200 workers pinned, 50 stuck in doWrite, peak latency 53.87s
+  #   with:     53 workers,              0 stuck in doWrite, peak latency  0.03s
+  #
+  # connection-timeout also bounds the blocking WRITE (Tomcat applies it as the
+  # socket write timeout during request processing), which is the half that
+  # matters here — not just the request-line read it is usually described as.
+  # 20s is deliberately generous versus prod's 10s: it must never cut off a
+  # legitimate slow mobile client fetching a large page, only a stalled one.
+  ###
+  max-http-request-header-size: ${SERVER_MAX_HEADER_SIZE:16KB}
+  tomcat:
+    connection-timeout: ${SERVER_CONNECTION_TIMEOUT:20s}
+    keep-alive-timeout: ${SERVER_KEEP_ALIVE_TIMEOUT:15s}
+    max-swallow-size: 2MB
+    max-http-form-post-size: 2MB
+    threads:
+      max: ${SERVER_THREADS_MAX:200}
+      min-spare: ${SERVER_THREADS_MIN_SPARE:20}
   # Session cookie hardening — HttpOnly is always on, Secure + SameSite
   # controlled by env so local HTTP dev still works.
   servlet:
     session:
-      timeout: 45m
+      # 365 days — operator demand 2026-05-01: "NEVER EXPIRE ACTUALLY".
+      # Was 45m which was logging users out mid-browse. Spring Session
+      # JDBC honours this for the server-side row TTL too (see
+      # SessionConfig @EnableJdbcHttpSession maxInactiveIntervalInSeconds).
+      timeout: 365d
       cookie:
         http-only: true
         secure: ${COOKIE_SECURE:false}
         same-site: ${COOKIE_SAME_SITE:lax}
         name: SBOX_SESSION
+        # 365-day cookie max-age so the browser keeps replaying the
+        # session token across browser restarts (not just within one
+        # browser run). Without max-age, the cookie is a session-only
+        # cookie that the browser discards on close — effectively
+        # signing the user out the next time they open Chrome.
+        max-age: 365d
   # Gzip small JSON + static assets so we don't need Nginx for compression.
+  # Batch 682 — added application/xml + text/csv so /sitemap.xml (SEO
+  # crawler traffic) and the wallet / my-stall CSV exports compress too.
+  # Sitemap can grow to hundreds of KB once the catalogue + stall set
+  # fills out; gzip cuts that by ~80% for every crawler fetch.
+  # Batch 716 — added text/javascript because Spring Boot's default
+  # MIME type for .js files is `text/javascript` (IANA recommends this
+  # over the older `application/javascript`). Without it, the ~290KB
+  # app.js bundle shipped uncompressed on every first-visit page load.
   compression:
     enabled: true
-    mime-types: application/json,text/html,text/css,application/javascript,image/svg+xml
+    mime-types: application/json,application/xml,text/xml,text/csv,text/html,text/css,text/plain,application/javascript,text/javascript,image/svg+xml
     min-response-size: 1024
+  # Replace Spring's Whitelabel error page with our branded
+  # GlobalErrorController. Without these flags the Whitelabel page
+  # leaks framework strings to unauthenticated visitors.
+  error:
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
 
 # Cap request bodies to 2MB. The only JSON payloads we accept are small
 # objects (offers, bids, deposits, support messages) and a 50-item cart.
@@ -35,10 +165,23 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/sboxmarket;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE;MODE=PostgreSQL}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
+    # NO committed default, and an empty one is REFUSED rather than accepted.
+    # The url above carries AUTO_SERVER=TRUE, which starts an H2 TCP server as
+    # soon as the file DB is opened; that server authenticates callers with THIS
+    # password. `h2.bindAddress` confines it to loopback, but the two must be
+    # independent controls, not one control and a formality — this database was
+    # already read once as SA/no-password over that port.
+    # com.sboxmarket.config.H2CredentialGuard refuses to start when the url opens
+    # a listener and this value is blank. Two safe ways out, both in
+    # deploy/RUNBOOK.md ("H2 backup and the auto-server"): set a real secret and
+    # migrate the DB to match, or drop AUTO_SERVER=TRUE and lose the hot-backup
+    # path. Do not "fix" a refusal by typing a literal here.
     password: ${SPRING_DATASOURCE_PASSWORD:}
 
   jpa:
-    database-platform: ${SPRING_JPA_DIALECT:org.hibernate.dialect.H2Dialect}
+    # Batch 945 — removed `database-platform` (was H2Dialect). Hibernate
+    # 6+ auto-detects from the JDBC driver and emits HHH90000025 if one
+    # is explicitly set. Same fix applied to application-prod.yml.
     hibernate:
       ddl-auto: ${SPRING_JPA_DDL:update}
     show-sql: false
@@ -133,26 +276,101 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:false}
     operationsSorter: method
 
+# THE KEY BELOW IS A PLACEHOLDER, AND THAT IS AN HONEST ANSWER, NOT A PERMISSION.
+# `sk_test_replace_me` makes MoneyMode classify this deployment SIMULATED, which is
+# correct: no Stripe account is wired here. What that classification MUST NOT mean is
+# "you may therefore invent money". Until 2026-09-01 it did: createDepositSession fell
+# through to devModeDeposit and credited up to $5,000 per wallet per 24h against no
+# payment, reachable by anyone who could sign in with a real Steam account -- which is
+# the ordinary front door, not the dev-login shortcut that was closed separately.
+#
+# The fabricated credit (and the fabricated `dev_acct_` payout reference beside it) now
+# ALSO require SBOX_DEV_CREDIT_ENABLED=true in the PROCESS ENVIRONMENT. See
+# config/DevCreditGate.groovy. That variable is deliberately unreadable from this file,
+# from any profile yml, from a mounted config and from a -D flag, because every one of
+# those is committed once and then inherited by a deployment that never re-decided it.
+# Do not add it here or to docker-compose.yml, the Dockerfile or skinbox.env.example --
+# DevCreditRequiresOptInSpec fails if you do, and it reads these files with comments
+# stripped, so this warning is safe and a real setting would not be.
 stripe:
   secret-key:     ${STRIPE_SECRET_KEY:sk_test_replace_me}
   publishable-key: ${STRIPE_PUBLISHABLE_KEY:pk_test_replace_me}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_replace_me}
-  success-url:    ${STRIPE_SUCCESS_URL:http://localhost:8080/?deposit=success}
-  cancel-url:     ${STRIPE_CANCEL_URL:http://localhost:8080/?deposit=cancel}
+  success-url:    ${STRIPE_SUCCESS_URL:${app.public-url}/?deposit=success}
+  cancel-url:     ${STRIPE_CANCEL_URL:${app.public-url}/?deposit=cancel}
   currency:       usd
 
 steam:
   api-key:    ${STEAM_API_KEY:}
-  realm:      ${STEAM_REALM:http://localhost:8080/}
-  return-url: ${STEAM_RETURN_URL:http://localhost:8080/api/auth/steam/return}
+  realm:      ${STEAM_REALM:${app.public-url}/}
+  return-url: ${STEAM_RETURN_URL:${app.public-url}/api/auth/steam/return}
 
 admin:
   # Comma-separated list of Steam ID 64s that get auto-promoted to ADMIN on
-  # login. The default below bakes in the operator's Steam ID so they're
-  # admin automatically on first boot with no env-var setup. Override at
-  # deploy time by setting ADMIN_BOOTSTRAP_STEAM_IDS (comma-separated) to
-  # add more admins or swap the owner.
-  bootstrap-steam-ids: ${ADMIN_BOOTSTRAP_STEAM_IDS:76561199839805014}
+  # login. THE DEFAULT IS EMPTY ON PURPOSE — see below. Set
+  # ADMIN_BOOTSTRAP_STEAM_IDS at deploy time to nominate the owner.
+  #
+  # This used to default to a Steam ID committed in this file, which meant
+  # "anyone who can log in as that account is admin" was a property of the
+  # SOURCE rather than of the deployment. The ID is deliberately not repeated
+  # here even as prose, so that grepping the config for a bare Steam ID stays a
+  # decisive check. Two things made that default worse than it looks, and they
+  # compounded instead of backing each other up:
+  #
+  #   1. ProdConfigValidator lists ADMIN_BOOTSTRAP_STEAM_IDS as REQUIRED, but
+  #      it is @Profile('prod'). The default here applies on every OTHER
+  #      profile. So the single lost SPRING_PROFILES_ACTIVE that silences the
+  #      validator is the same one that switches the committed default ON —
+  #      the guard and the hazard sat on opposite profiles. An empty default
+  #      puts them on the same side: lose the profile now and you get NO
+  #      admin, not a hardcoded one.
+  #
+  #   2. SteamAuthService.upsertUser calls promoteBootstrapAdmin on EVERY
+  #      login, not just the first. A listed ID is therefore a standing grant,
+  #      not a one-time bootstrap: revokeAdmin is silently undone at that
+  #      user's next login for as long as the ID is in this list. The
+  #      promotion is now audited (AuditService.ADMIN_GRANTED, actor null =
+  #      "granted by configuration, not by an admin") so a re-promotion after
+  #      a deliberate revocation is visible instead of silent. To actually
+  #      demote a bootstrap admin you must BOTH remove the ID from this list
+  #      AND call revokeAdmin — the role is persisted in STEAM_USERS.ROLE, so
+  #      emptying the list alone demotes nobody who is already ADMIN.
+  #
+  # ===== BURNED ADMIN IDENTITY =====
+  #
+  # The Steam ID that used to sit in this default, and a second one that sat in
+  # docker-compose.yml's `:-` fallback, were COMMITTED and are now PUBLIC on
+  # origin/main. Published history is not being rewritten, so they cannot be
+  # unpublished, and they must never be used as an admin identity again -- not
+  # on this deployment and not on any other. Anyone who can read the public
+  # history knows them, so listing one here is the same as having no admin
+  # control at all.
+  #
+  # The digits are deliberately NOT repeated here. They are recorded in
+  # deploy/RUNBOOK.md under the heading "burned admin identity", so that
+  # grepping the launch surface for a bare Steam ID stays a decisive check.
+  # AdminBootstrapIsNotCommittedSpec is that grep, and it runs across every
+  # worktree registered to this repository, not just the one it is built in.
+  bootstrap-steam-ids: ${ADMIN_BOOTSTRAP_STEAM_IDS:}
+
+  # Rolling 24h cap on how much ONE admin identity can CREDIT into wallets,
+  # in USD. The per-call cap inside AdminService.creditWallet is $10,000 and
+  # bounds a single adjustment; this bounds the loop. Without it, /api/admin's
+  # 20-requests-per-10-seconds budget made the arithmetic ceiling 20 x $10,000
+  # every 10 seconds into a confederate's wallet, since CANT_CREDIT_SELF only
+  # stops an admin crediting THEMSELVES. CsrService closes the identical loop
+  # one level down at $200/day; this is the same control where the per-call
+  # figure is 400x larger.
+  #
+  # $25,000 is about two max-size adjustments or fifty $500 ones in a day, so
+  # the "common $5-$500 goodwill credit" case the per-call cap's own comment
+  # describes never comes near it. Debits are not counted (a debit destroys
+  # balance rather than minting it, and netting them would be a reset button).
+  # It bounds one admin IDENTITY: an attacker who also calls grantAdmin gets a
+  # fresh budget, at the cost of an ADMIN_GRANTED audit row plus a security
+  # email. A platform-wide cap was considered and deliberately not taken - one
+  # rogue actor would lock every honest admin out of the refund tool.
+  daily-credit-cap: ${ADMIN_DAILY_CREDIT_CAP:25000.00}
 
 csr:
   # Maximum size of a single CSR goodwill credit, in USD. Anything above
@@ -165,12 +383,176 @@ trade:
   # window. Shorten during incidents via TRADE_AUTO_RELEASE_DAYS=1.
   auto-release-days: ${TRADE_AUTO_RELEASE_DAYS:8}
 
+# Payment-processor rates. These are PASS-THROUGH: the user is credited net
+# of the deposit fee and paid out net of the payout fee, and the platform's
+# own revenue is the 2% selling fee alone (TradeService.FEE_RATE) — see
+# UNIT-ECONOMICS.md.
+#
+# THESE ARE LIST PRICES AND THEY ARE WHAT THE USER IS CHARGED. Set them to
+# your actual negotiated Stripe rates. Too high and you are overcharging real
+# users on every deposit; too low and the platform silently eats the
+# difference on every one. The gap shows up as the treasury residual
+# (PROCESSING_RECOVERY credits minus PROCESSING_COST debits) — if that number
+# trends away from ~zero, one of these four is wrong.
+#
+# ── WHERE THESE NUMBERS COME FROM ────────────────────────────────────
+# Until 2026-09-20 not one figure in this block had a citation, which is
+# how a USD 101.95 break-even (commit 8f9b725, prose only, nothing
+# computed it) survived beside them. Every figure below now names its
+# source and the date it was read; FeeConstantsAreCitedSpec fails if a
+# default moves without its quote moving, or if a citation is deleted.
+# To re-check: open the two URLs, compare, move the date.
+#
+#   [S1] https://stripe.com/pricing        — read 2026-09-20
+#   [S2] https://stripe.com/connect/pricing — read 2026-09-20
+#
+# Both were reachable under stripe.com/robots.txt (`User-agent: *` allows
+# everything but /bitcoin/refund, /sources/*, /unsupported-browser and
+# /handoff*), and Stripe publishes no website terms-of-use restricting
+# reading. Figures were taken from the raw HTML, not a rendered summary.
+platform:
+  # Card deposit — https://stripe.com/pricing : "2.9% + 30¢ per
+  # successful transaction for domestic cards", read 2026-09-20.
+  #
+  # DOMESTIC CARDS ONLY, and that is a modelling assumption, not a rate.
+  # [S1] also lists surcharges this model does NOT carry: "+ 1.5% for
+  # international cards", "+ 1% if currency conversion is required",
+  # "+ 0.5% for manually entered cards". A non-US buyer therefore costs
+  # more than the 2.9% booked here and the difference is eaten by the
+  # platform, not passed through. Raise this percent, or split the rate
+  # by card origin, before international volume is material.
+  processing-fee-percent: ${PLATFORM_PROCESSING_FEE_PERCENT:2.9}
+  processing-fee-fixed:   ${PLATFORM_PROCESSING_FEE_FIXED:0.30}
+  # Connect payout — https://stripe.com/connect/pricing : "0.25% + 25¢
+  # per payout sent", read 2026-09-20.
+  # This is the "You handle pricing" column (the marketplace model, where
+  # the platform is responsible for processing fees and collects its own
+  # fees from users) — the one this product is on. Deliberately separate
+  # knobs from the deposit rate: the two legs are priced an order of
+  # magnitude apart, and a single shared rate would force the operator to
+  # be wrong on one of them.
+  #
+  # NOT modelled, and correct not to be until it is offered: [S2] prices
+  # Connect Instant Payouts at "1% of payout volume", which is 4x this
+  # rate. Adding an instant-payout button without adding that rate would
+  # make the platform eat the difference on every use.
+  payout-fee-percent:     ${PLATFORM_PAYOUT_FEE_PERCENT:0.25}
+  payout-fee-fixed:       ${PLATFORM_PAYOUT_FEE_FIXED:0.25}
+
+  # ── The cost that is not a rate ──────────────────────────────────────
+  # https://stripe.com/connect/pricing , read 2026-09-20: "$2 per
+  # monthly active account", defined there
+  # as "An account is active in any month payouts are sent to its bank
+  # account or debit card." Charged under "You handle pricing" only —
+  # the "Stripe handles pricing" column shows "No fee" for the same row,
+  # so this cost is a consequence of the marketplace model, not of using
+  # Connect at all.
+  #
+  # Stripe Connect bills $2.00 for every connected account that moves money
+  # in a calendar month. Once. Per ACCOUNT. However much it moved.
+  #
+  # This is the only charge here with no percentage leg, and it was missing
+  # from the model until 2026-09-19 — every figure in UNIT-ECONOMICS.md
+  # treated platform cost as a rate. It is not passed through at cost like
+  # the four rates above; it is passed through ONLY on a payout too small
+  # for the take rate to have paid for it (see the waiver below).
+  #
+  # Set to 0.00 for a rail with no per-account charge — a crypto payout
+  # chain, for instance. Zero is not a special case: every threshold below
+  # is computed from this number and collapses correctly when it is zero.
+  payout-account-monthly-fee: ${PLATFORM_PAYOUT_ACCOUNT_MONTHLY_FEE:2.00}
+
+  # ── The cost that is not a rate, twice over ──────────────────────────
+  # https://stripe.com/pricing , read 2026-09-20: "Dispute received fee
+  # $15.00 for each dispute you receive. In rare cases, network fees
+  # also apply."
+  #
+  # This knob is the RECEIVED fee, which is unconditional. Stripe charges
+  # a SECOND $15.00 that this model does not book, and the next person to
+  # read this should know it exists before they trust the number:
+  #
+  #   https://stripe.com/pricing , read 2026-09-20 —
+  #   "Dispute countered fee $15.00 for each dispute you respond to
+  #   manually. You get this fee back for won disputes. You don't get
+  #   this fee back for lost disputes."
+  #
+  # So the real exposure is $15.00 if the dispute is conceded, $15.00 if
+  # it is contested and WON, and $30.00 if it is contested and LOST. The
+  # model books $15.00 flat, which is right for the first two cases and
+  # understates the third by half. Not fixed here because nothing in this
+  # codebase contests a dispute — responding is a human action in the
+  # Stripe dashboard, and there is no webhook path that could know the
+  # outcome. Book the countered leg the day an operator starts contesting.
+  # ([S1] also prices Smart Disputes at "30% of the disputed amount for
+  #  each dispute you win"; not used, not modelled.)
+  #
+  # Stripe bills a FIXED fee for handling a card dispute - $15.00 in the US -
+  # and KEEPS it whether the dispute is won or lost. It is the largest single
+  # per-event cost here: one dispute costs more than the 2% commission on
+  # $750 of GMV.
+  #
+  # Until 2026-09-20 charge.dispute.created flipped the deposit row, alerted
+  # admins and emailed the user, and booked NOTHING. A disputed trade read as
+  # free in the treasury and in the admin margin panel.
+  #
+  # Booked as DISPUTE_COST, not PROCESSING_COST, on purpose. PROCESSING_COST
+  # is half of a pair whose residual against PROCESSING_RECOVERY is the
+  # diagnostic described above; this charge has no recovery leg - nobody
+  # reimburses it - so folding it in would drag that residual $15 negative
+  # per dispute and destroy the only signal the four rates have.
+  #
+  # Set to 0.00 for a rail that charges nothing for a dispute. Zero books no
+  # row at all, which is the correct record of a cost not incurred.
+  dispute-fee: ${PLATFORM_DISPUTE_FEE:15.00}
+
+  # The largest share of a deposit or payout that may be processor fee
+  # (0.10 == 10%). The ONE judgement call in the block; everything below is
+  # arithmetic on the rates above.
+  max-fee-share: ${PLATFORM_MAX_FEE_SHARE:0.10}
+
+  # ── What those two knobs derive (nothing below is a constant) ────────
+  # Recorded here because the arithmetic is cheap to lose and every one of
+  # these numbers moves when a rate above moves. Computed in
+  # PlatformLedgerService; enforced in StripeService, where the rates live.
+  #
+  #   take rate r                 = TradeService.FEE_RATE          = 0.02
+  #   per-account charge F        = payout-account-monthly-fee     = $2.00
+  #   max fee share s             = max-fee-share                  = 0.10
+  #
+  #   per-account waiver line     = F / r          = 2.00 / 0.02   = $100.00
+  #       GMV one monthly-active account must produce before commission has
+  #       paid for the charge its activity triggers. At or above it the
+  #       charge is absorbed and booked as cost; below it, passed through.
+  #       (UNIT-ECONOMICS.md said $101.95 on 2026-09-19. Nothing here
+  #        produces that. The withdrawal-side twin is F(1-r)/r = $98.00.)
+  #
+  #   minimum deposit             = 0.30 / (0.10 - 0.029)          = $4.23
+  #   minimum withdrawal, 1st/mo  = (0.25 + 2.00) / (0.10-0.0025)  = $23.08
+  #   minimum withdrawal, after   =  0.25 / (0.10 - 0.0025)        = $2.57
+  #
+  # The shipped minimums before this were $1.00 on both legs, where the
+  # processor takes 32% of a deposit and 57% of a deposit-and-withdraw round
+  # trip ($5 → 14.0%, $10 → 8.6%, $100 → 3.69%).
+  #
+  # A raised minimum must never strand a balance: a FULL-BALANCE withdrawal
+  # is exempt from the minimum at any amount the fees still leave something
+  # of. It pays the per-account charge like any other payout, which is what
+  # stops the exemption being farmed.
+
 # Outgoing-email settings read by EmailService.
 app:
   email:
     from:      ${EMAIL_FROM:no-reply@skinbox.local}
     from-name: ${EMAIL_FROM_NAME:SkinBox}
-  public-url:  ${APP_PUBLIC_URL:http://localhost:8080}
+  public-url:  ${APP_PUBLIC_URL:http://localhost:${server.port}}
+  # Listing-floor refresh sweep — recomputes every catalogue item's
+  # `lowestPrice` from active listings every 60s. ON by default; ops
+  # can flip it off via APP_PRICE_REFRESH_ENABLED=false without a
+  # redeploy if the sweep ever misbehaves under load. The on-mutation
+  # path (ListingService.updateItemFloorPrice) keeps prices fresh in
+  # the happy case — this sweep covers off-path drift.
+  price-refresh:
+    enabled: ${APP_PRICE_REFRESH_ENABLED:true}
 
 # Sentry — error tracking + performance. Set SENTRY_DSN in the environment
 # to enable. When unset the SDK is a silent no-op.

@@ -1,0 +1,69 @@
+CONTROLS — 2026-09-19 22:15 UTC
+
+==============================================================================
+WoG: War of Genesis (4891320)
+==============================================================================
+  1. CURRENCY  last listing-page price_median / priceoverview median_price(currency=1)
+     n=84  median ratio 0.9934   p10 0.871  p90 1.000   -> USD, same scale
+     (a non-USD render would show a ratio near a exchange rate —
+      ~0.0007 for KRW, ~1.08 for EUR, ~0.0067 for JPY — not near 1.
+      The spread around 1 is the gap between a LAST bucket and a
+      24-hour median, which is real dispersion, not a unit error.)
+  2. VOLUME    listing-page purchases in 24h vs priceoverview.volume
+     10,117 vs 10,738 over n=84 items  ->  ratio 0.942  AGREE
+  3. ABORTS    read 96 items, 7 NEVER-SOLD (measured zero, in the
+               denominator), 0 unread (excluded from both)
+  4. FALSIFY   items called NEVER-SOLD that the prior pass measured
+               selling in 24h: 0 of 7  ->  the zero-classification holds
+
+==============================================================================
+Bomb Farm (4892010)
+==============================================================================
+  1. CURRENCY  last listing-page price_median / priceoverview median_price(currency=1)
+     n=17  median ratio 0.9700   p10 0.925  p90 0.995   -> USD, same scale
+     (a non-USD render would show a ratio near a exchange rate —
+      ~0.0007 for KRW, ~1.08 for EUR, ~0.0067 for JPY — not near 1.
+      The spread around 1 is the gap between a LAST bucket and a
+      24-hour median, which is real dispersion, not a unit error.)
+  2. VOLUME    listing-page purchases in 24h vs priceoverview.volume
+     2,146 vs 2,486 over n=17 items  ->  ratio 0.863  AGREE
+  3. ABORTS    read 26 items, 5 NEVER-SOLD (measured zero, in the
+               denominator), 0 unread (excluded from both)
+  4. FALSIFY   items called NEVER-SOLD that the prior pass measured
+               selling in 24h: 0 of 5  ->  the zero-classification holds
+
+==============================================================================
+TBH: Task Bar Hero (3678970)
+==============================================================================
+  1. CURRENCY  last listing-page price_median / priceoverview median_price(currency=1)
+     n=26  median ratio 0.9958   p10 0.793  p90 1.000   -> USD, same scale
+     (a non-USD render would show a ratio near a exchange rate —
+      ~0.0007 for KRW, ~1.08 for EUR, ~0.0067 for JPY — not near 1.
+      The spread around 1 is the gap between a LAST bucket and a
+      24-hour median, which is real dispersion, not a unit error.)
+  2. VOLUME    listing-page purchases in 24h vs priceoverview.volume
+     2,495 vs 2,560 over n=26 items  ->  ratio 0.975  AGREE
+  3. ABORTS    read 36 items, 0 NEVER-SOLD (measured zero, in the
+               denominator), 0 unread (excluded from both)
+  4. FALSIFY   items called NEVER-SOLD that the prior pass measured
+               selling in 24h: 0 of 0  ->  the zero-classification holds
+
+==============================================================================
+Bongo Cat (3419430)
+==============================================================================
+  1. CURRENCY  last listing-page price_median / priceoverview median_price(currency=1)
+     n=15  median ratio 0.8596   p10 0.600  p90 1.000   -> USD, same scale
+     (a non-USD render would show a ratio near a exchange rate —
+      ~0.0007 for KRW, ~1.08 for EUR, ~0.0067 for JPY — not near 1.
+      The spread around 1 is the gap between a LAST bucket and a
+      24-hour median, which is real dispersion, not a unit error.)
+  2. VOLUME    listing-page purchases in 24h vs priceoverview.volume
+     298 vs 299 over n=15 items  ->  ratio 0.997  AGREE
+  3. ABORTS    read 22 items, 0 NEVER-SOLD (measured zero, in the
+               denominator), 0 unread (excluded from both)
+  4. FALSIFY   items called NEVER-SOLD that the prior pass measured
+               selling in 24h: 0 of 0  ->  the zero-classification holds
+
+==============================================================================
+ALL CONTROLS PASS
+==============================================================================

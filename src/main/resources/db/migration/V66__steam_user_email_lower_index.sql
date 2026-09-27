@@ -1,0 +1,11 @@
+-- SteamUserRepository.findByEmailIgnoreCase filters with
+--   WHERE LOWER(u.email) = LOWER(:email)
+-- but the V3 index `idx_steam_users_email` is on plain `email`, not LOWER(email).
+-- PostgreSQL cannot use a non-expression index for a LOWER(col) = ? predicate,
+-- so every email-uniqueness probe (ProfileController.setEmail) and every
+-- unsubscribe-link lookup (UnsubscribeController) did a sequential scan on
+-- steam_users — a growing table — plus a per-row LOWER() call. The repository
+-- comments even claim the query is "indexed", but it wasn't. Add the matching
+-- functional index. The exact-case `idx_steam_users_email` from V3 stays;
+-- nothing else relies on it but dropping it is out of scope here.
+CREATE INDEX IF NOT EXISTS idx_steam_users_email_lower ON steam_users(LOWER(email));

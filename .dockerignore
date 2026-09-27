@@ -2,6 +2,14 @@
 build/
 .gradle/
 
+# Git history — never belongs in a build context (bloats it, can leak refs).
+.git/
+.github/
+
+# Node — node_modules/ lives at the repo root (frontend tooling) and is huge;
+# the bootJar bundles no node output, so it must never enter the build context.
+node_modules/
+
 # IDE + editor
 .idea/
 .vscode/
@@ -13,6 +21,21 @@ data/
 # Runtime logs
 logs/
 *.log
+
+# Local scratch / agent artefacts that litter the repo root — ship scripts,
+# run logs, compiled probes, patch dumps, the valuer zip. None are build
+# inputs; excluding them keeps the context lean and avoids leaking dumps.
+_*
+*.class
+*.patch
+*.zip
+csfloat-styles.css
+
+# Docs + dev tooling that the runtime image never needs.
+*.md
+extension/
+design/
+.playwright-mcp/
 
 # Memory from the AI assistant session
 .claude/

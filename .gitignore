@@ -6,6 +6,29 @@ out/
 *.jar
 *.war
 
+# …EXCEPT the Gradle wrapper jar, which is an INPUT and not a build output.
+#
+# `*.jar` above sits under "# Build" beside build/, .gradle/, out/, *.class and
+# *.war — every one of those is something the build PRODUCES. It was written to
+# keep build output out of the repo, and it swallowed the one jar the build
+# needs to exist before it can run.
+#
+# The cost was not theoretical. gradlew, gradlew.bat and
+# gradle/wrapper/gradle-wrapper.properties were all committed in the initial
+# commit, so a clean checkout receives three files that promise a working
+# wrapper and then throws
+#     Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain
+# on every invocation. A fresh worktree could not run ./gradlew at all, which
+# means A CLEAN CHECKOUT OF THIS REPO COULD NOT RUN ITS OWN TESTS: every
+# "reproduced at pristine HEAD" claim depended on somebody noticing and hand-
+# copying the jar in from another checkout. The jar had never been committed on
+# any ref, and no README or runbook told anyone to regenerate it.
+#
+# Committing the wrapper jar is the documented Gradle recommendation for
+# exactly this reason. Guarded by BuildIsRunnableFromAFreshCloneSpec, which
+# fails if the jar stops being tracked or its bytes change unrecorded.
+!gradle/wrapper/gradle-wrapper.jar
+
 # IDE
 .idea/
 *.iml
@@ -20,10 +43,31 @@ data/
 *.trace.db
 logs/
 
-# Environment / secrets
+# Local dev artefacts that should never be committed. boot.log is the
+# nohup target for bootRun; gradle.properties holds machine-local Gradle
+# JVM tuning; *.output / .tmp_* are leftover agent/test artefacts. Each
+# was actively dirtying `git status` and risked being accidentally
+# included in a bulk `git add .`.
+boot.log
+gradle.properties
+*.output
+.tmp_*
+
+# Scratch/working files use a leading-underscore convention: _ship_*.py
+# helper scripts, _qa_boss/ prompts, _runlog*.txt logs, _append_*.css
+# snippets, _jarup/ extracted jars, _screens/ captures. ~296 had been
+# committed into the repo root; removed in one sweep and ignored here at
+# root level so they never creep back via a bulk `git add .`.
+/_*
+
+# Editor / patch backups (e.g. WatchlistAlertService.groovy.orig)
+*.orig
+
+# Environment / secrets — only the *.example is tracked, never the real env
 .env
 *.env
 .env.*
+deploy/skinbox.env
 
 # OS
 .DS_Store
@@ -38,3 +82,13 @@ docker-compose.override.yml
 
 # Claude memory (project-local, not committed)
 .claude/
+.playwright-mcp/
+**/.playwright-mcp/
+cycle*.png
+*.png
+cloudflared.log
+cloudflared/
+
+# Python bytecode from market-research scratch scripts
+__pycache__/
+*.pyc

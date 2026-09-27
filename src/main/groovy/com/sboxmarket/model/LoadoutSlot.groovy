@@ -32,7 +32,7 @@ class LoadoutSlot {
     String itemEmoji
 
     /** Snapshot of the lowest price at time of save (display only). */
-    @Column(precision = 19, scale = 2)
+    @Column(nullable = false, precision = 19, scale = 2)
     BigDecimal snapshotPrice = BigDecimal.ZERO
 
     /** Locked slots are not changed by the AI "Generate" action. */

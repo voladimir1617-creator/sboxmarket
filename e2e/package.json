@@ -1,0 +1,14 @@
+{
+  "name": "sboxmarket-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end customer-flow tests for sboxmarket (Playwright). Runs headless against a live server (default http://localhost:8082).",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

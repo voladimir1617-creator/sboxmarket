@@ -48,4 +48,14 @@ class ApiKey {
 
     @Column
     Long lastUsedAt
+
+    /**
+     * Access scope — 'RW' (default, full read + write) or 'RO' (read-only).
+     * Read-only keys can hit any GET endpoint but are refused on any state-
+     * changing call by `ApiKeyAuthFilter`. Lets a user issue a key to a
+     * price-watching bot without giving that bot the authority to place
+     * orders or transfer funds on their behalf.
+     */
+    @Column(nullable = false, length = 4)
+    String scope = 'RW'
 }

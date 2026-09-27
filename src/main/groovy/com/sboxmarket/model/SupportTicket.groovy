@@ -8,7 +8,17 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
  * table — this entity carries the ticket metadata (subject, category, status).
  */
 @Entity
-@Table(name = "support_tickets")
+@Table(name = "support_tickets", indexes = [
+    // `(user_id, updated_at)` already exists via V1__baseline for the
+    // "my tickets" path. The (status, updated_at) index below covers
+    // the admin/CSR triage queries `findForAdmin(status)`,
+    // `searchForAdmin(status, q)`, `findStaleWaitingUser`,
+    // `oldestWaitingStaffUpdatedAt`, `countByStatus`, `countOpen` —
+    // each filters on status and orders by updated_at. Without the
+    // index those queries do a sequential scan on every CSR / admin
+    // dashboard render.
+    @Index(name = "idx_support_tickets_status", columnList = "status,updated_at")
+])
 @JsonIgnoreProperties(["hibernateLazyInitializer", "handler"])
 class SupportTicket {
 

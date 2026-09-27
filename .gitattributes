@@ -1,0 +1,13 @@
+# SCOPED ON PURPOSE — one path, nothing else.
+#
+# A repo-wide `* text=auto` here would renormalise every tracked file in a
+# single commit. core.autocrlf=true on the machines this is built on, and a
+# whole-file CRLF<->LF rewrite has twice turned a 50-line change into a
+# 3,000-line diff and made ownership of the real change unreadable. So this
+# file exists for exactly one reason and takes exactly one line.
+#
+# gradle-wrapper.jar is a binary that is now tracked (see the negation in
+# .gitignore). git detects it as binary today, but that detection is
+# heuristic; a line-ending conversion applied to a zip corrupts it, and a
+# corrupt wrapper is worse than the missing one it replaced. State it.
+gradle/wrapper/gradle-wrapper.jar binary

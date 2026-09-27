@@ -5,6 +5,7 @@ import com.sboxmarket.repository.BidRepository
 import com.sboxmarket.repository.BuyOrderRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.OfferRepository
+import com.sboxmarket.repository.ReviewRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
@@ -29,6 +30,44 @@ class ProfileService {
     @Autowired OfferRepository offerRepository
     @Autowired BuyOrderRepository buyOrderRepository
     @Autowired BidRepository bidRepository
+    @Autowired(required = false) ReviewRepository reviewRepository
+
+    /**
+     * Collapse the user's history into a CSFloat-style 5-node standing
+     * gauge (Excellent → Good → Poor → At Risk → Banned). Rendered on the
+     * Profile → Personal card per Visual Manual §23.
+     *
+     *   banned       → user.banned == true
+     *   at_risk      → 1-star review avg (very rare but severe)
+     *   poor         → rating avg < 3.0 with ≥3 reviews
+     *   excellent    → ≥10 completed sales AND (no reviews OR avg ≥ 4.0)
+     *   good         → default (new / clean accounts)
+     *
+     * Never drops from good→poor on a single bad review — the ≥3-review
+     * floor prevents a lone grudge-rating from tanking someone's standing.
+     */
+    private Map computeAccountStanding(SteamUser user, long saleCount, List<Object[]> aggregateRows) {
+        if (user?.banned) return [state: 'banned', label: 'Banned', note: user.banReason ?: 'Account banned by staff.']
+        Double avg = null
+        Long reviewCount = 0L
+        try {
+            def rows = aggregateRows
+            if (rows && rows[0] != null) {
+                reviewCount = ((rows[0][0] as Number) ?: 0).longValue()
+                avg = rows[0][1] == null ? null : ((rows[0][1] as Number).doubleValue())
+            }
+        } catch (Exception ignore) { /* aggregate query optional */ }
+        if (avg != null && reviewCount >= 3L && avg < 2.0d) {
+            return [state: 'at_risk', label: 'At Risk', note: "Average rating ${String.format('%.1f', avg)}★ across ${reviewCount} reviews. Keep trading reliably to recover."]
+        }
+        if (avg != null && reviewCount >= 3L && avg < 3.0d) {
+            return [state: 'poor', label: 'Poor', note: "Average rating ${String.format('%.1f', avg)}★ across ${reviewCount} reviews."]
+        }
+        if (saleCount >= 10L && (reviewCount == 0L || (avg != null && avg >= 4.0d))) {
+            return [state: 'excellent', label: 'Excellent', note: 'No restrictions on your account.']
+        }
+        [state: 'good', label: 'Good', note: 'No restrictions on your account.']
+    }
 
     @Transactional(readOnly = true)
     Map buildProfile(Long userId) {
@@ -44,20 +83,48 @@ class ProfileService {
         // fetch (post-login + /me refresh) so the old N-rows-per-view pull
         // scales badly — a user with years of trading history would walk
         // thousands of rows just to render the totals line.
-        def totalPurchased = transactionRepository.sumByWalletAndType(walletId, 'PURCHASE', false) ?: BigDecimal.ZERO
+        // Net of purchase-reversing refunds: a cancelled / protection-covered
+        // purchase writes a REFUND (carrying the listingId) that restores the
+        // wallet balance, so the lifetime "Total Purchased" + "Net" stats must
+        // subtract it too — otherwise a buy-then-cancel inflates spend/loss
+        // forever (e.g. buy $0.54 then cancel → balance made whole, yet Total
+        // Purchased wrongly stayed $0.54). DEPOSIT refunds carry no listingId
+        // and are NOT subtracted (they don't reverse a purchase). `.max(ZERO)`
+        // is defensive against any pathological over-refund.
+        def grossPurchased    = transactionRepository.sumByWalletAndType(walletId, 'PURCHASE', false) ?: BigDecimal.ZERO
+        def refundedPurchases = transactionRepository.sumRefundedPurchases(walletId) ?: BigDecimal.ZERO
+        def totalPurchased = (grossPurchased - refundedPurchases).max(BigDecimal.ZERO)
         def totalSold      = transactionRepository.sumByWalletAndType(walletId, 'SALE',     false) ?: BigDecimal.ZERO
         def totalDeposited = transactionRepository.sumByWalletAndType(walletId, 'DEPOSIT',  true)  ?: BigDecimal.ZERO
         def purchaseCount  = transactionRepository.countByWalletAndType(walletId, 'PURCHASE')
         def saleCount      = transactionRepository.countByWalletAndType(walletId, 'SALE')
-        def withdrawalCount = transactionRepository.countCompletedByWalletAndType(walletId, 'WITHDRAWAL')
+        // Includes BOTH the legacy `WITHDRAW` and the canonical `WITHDRAWAL`
+        // type spellings — StripeService.requestWithdraw still stamps
+        // `WITHDRAW` on new rows, so a single-type equality query (the
+        // previous `countCompletedByWalletAndType(..., 'WITHDRAWAL')`)
+        // silently always returned 0 and the Profile → Withdrawals count
+        // never moved off zero no matter how many payouts the user took.
+        def withdrawalCount = transactionRepository.countCompletedWithdrawalsByWallet(walletId)
 
         def net = (totalSold as BigDecimal) - (totalPurchased as BigDecimal)
 
-        def activeListings  = listingRepository.findActiveBySeller(userId).size()
-        def ownedInventory  = listingRepository.findOwnedBy(userId).size()
+        // Single-query aggregates (batch 1004) — avoids hydrating every
+        // listing + inventory row just to sum them. For a power-user
+        // with hundreds of rows on each side, /profile was pulling
+        // thousands of Listings with JOIN FETCH l.item on every request.
+        def activeListings       = listingRepository.countActiveBySeller(userId)
+        def activeListingsValue  = listingRepository.sumActiveListingPriceBySeller(userId) ?: BigDecimal.ZERO
+        def ownedInventory       = listingRepository.countOwnedBy(userId)
+        // Inventory value approximation — sum each item's current floor
+        // price (with steamPrice fallback). Matches CSFloat's surface.
+        def ownedInventoryValue  = listingRepository.sumOwnedInventoryValueBy(userId) ?: BigDecimal.ZERO
         def openBuyOrders   = buyOrderRepository.countActiveByBuyer(userId)
-        def activeAutoBids  = bidRepository.findActiveAutoBidsForUser(userId).size()
+        def activeAutoBids  = bidRepository.countActiveAutoBidsForUser(userId)
         def openOffers      = offerRepository.countPendingByBuyer(userId)
+
+        // Pull the COUNT/AVG review aggregate exactly once and reuse it
+        // for both the rating widget and the standing gauge below.
+        def reviewAggregate = fetchReviewAggregate(userId)
 
         [
             user: user,
@@ -87,7 +154,60 @@ class ProfileService {
                 openBuyOrders:  openBuyOrders,
                 openOffers:     openOffers,
                 activeAutoBids: activeAutoBids
-            ]
+            ],
+            // Estimated $ value of items the user currently owns + has
+            // listed for sale. The personal-tab widget surfaces these so
+            // the user can see "my portfolio is worth ~$X" at a glance.
+            portfolio: [
+                inventoryValue: ownedInventoryValue,
+                listingsValue:  activeListingsValue,
+                totalValue:     ownedInventoryValue + activeListingsValue
+            ],
+            // Self-facing rating (batch 491) — user sees their own
+            // seller star average + review count on their profile
+            // page. Null when they've never received a review yet.
+            //
+            // Aggregate fetched ONCE here and threaded into both
+            // computeUserRating + computeAccountStanding — the previous
+            // shape ran the same `SELECT COUNT(r), AVG(r.rating)` query
+            // twice per /me hit, doubling the review-table scan cost on
+            // every post-login + refresh for users with lots of reviews.
+            rating: computeUserRating(userId, reviewAggregate),
+            accountStanding: computeAccountStanding(user, saleCount as long, reviewAggregate)
         ]
+    }
+
+    /** Pull the single review aggregate row used by both the rating
+     *  widget and the account-standing gauge. Returns null when the
+     *  review repository isn't wired (test harness) or the query
+     *  blows up — both consumers tolerate a null aggregate by
+     *  falling back to "no reviews yet" behaviour. */
+    private List<Object[]> fetchReviewAggregate(Long userId) {
+        if (reviewRepository == null || userId == null) return null
+        try {
+            reviewRepository.aggregateForUser(userId)
+        } catch (Exception ignored) {
+            null
+        }
+    }
+
+    /** Compact review summary for a user — same aggregate the public
+     *  stall page uses. Nulled out when reviewRepository isn't wired
+     *  (test harness) or the user has no reviews yet. */
+    private Map computeUserRating(Long userId, List<Object[]> aggregateRows) {
+        if (reviewRepository == null || userId == null) return null
+        try {
+            def agg = aggregateRows
+            if (agg == null || agg.isEmpty()) return null
+            def row = agg[0]
+            def count = (row[0] ?: 0L) as long
+            if (count <= 0L) return null
+            def avg = row[1] != null
+                ? (row[1] as BigDecimal).setScale(2, java.math.RoundingMode.HALF_UP)
+                : null
+            [count: count, average: avg]
+        } catch (Exception ignored) {
+            null
+        }
     }
 }

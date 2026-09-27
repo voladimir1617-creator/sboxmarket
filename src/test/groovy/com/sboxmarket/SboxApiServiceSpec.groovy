@@ -198,4 +198,262 @@ class SboxApiServiceSpec extends Specification {
         then:
         saved.rarity == 'Standard'
     }
+
+    // ── Regression: malformed numeric fields must NOT abort the sync ──
+    // Before the safeLong/safeInt fix a non-numeric value in any price or
+    // count field threw GroovyCastException/NumberFormatException straight
+    // out of the @Transactional syncFromScmm, rolling the whole catalogue
+    // sync back. The priceMovement/sellEnd garbage path was already guarded;
+    // buyNowPrice / originalPrice / supply / supplyTotalKnown / subscriptions
+    // were not.
+
+    def "syncFromScmm survives a non-numeric buyNowPrice without throwing"() {
+        given:
+        stubRemote([[name: 'Bad Price', itemType: 'Hat', buyNowPrice: 'n/a']])
+        itemRepository.findAll() >> []
+        def saved
+        itemRepository.save(_) >> { args -> saved = args[0]; args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        result.created == 1
+        saved.lowestPrice == BigDecimal.ZERO   // garbage price → 0, not a crash
+    }
+
+    def "syncFromScmm survives a non-numeric originalPrice (falls back to floor)"() {
+        given:
+        stubRemote([[name: 'Bad Orig', itemType: 'Hat',
+                     buyNowPrice: 500, originalPrice: 'garbage']])
+        itemRepository.findAll() >> []
+        def saved
+        itemRepository.save(_) >> { args -> saved = args[0]; args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        result.created == 1
+        saved.lowestPrice == new BigDecimal('5.00')
+        // Elvis fallback: unparseable retail-reference defaults to the floor.
+        saved.steamPrice  == new BigDecimal('5.00')
+    }
+
+    def "syncFromScmm survives non-numeric supply / supplyTotalKnown / subscriptions"() {
+        given:
+        stubRemote([[
+            name: 'Bad Counts', itemType: 'Hat', buyNowPrice: 100,
+            supply: 'lots', supplyTotalKnown: [1, 2], subscriptions: 'many'
+        ]])
+        itemRepository.findAll() >> []
+        def saved
+        itemRepository.save(_) >> { args -> saved = args[0]; args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        result.created == 1
+        saved.supply    == 0   // garbage → 0
+        saved.totalSold == 0
+        saved.rarity    == 'Standard'  // no usable supply signal → Standard
+    }
+
+    def "syncFromScmm coerces a numeric String price (SCMM sometimes stringifies)"() {
+        given:
+        stubRemote([[name: 'Str Price', itemType: 'Hat',
+                     buyNowPrice: '1499', originalPrice: '2000', supply: '7']])
+        itemRepository.findAll() >> []
+        def saved
+        itemRepository.save(_) >> { args -> saved = args[0]; args[0] }
+
+        when:
+        service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        saved.lowestPrice == new BigDecimal('14.99')
+        saved.steamPrice  == new BigDecimal('20.00')
+        saved.supply      == 7
+    }
+
+    def "syncFromScmm isolates one bad row — the rest of the batch still imports"() {
+        given:
+        stubRemote([
+            [name: 'Good One', itemType: 'Hat', buyNowPrice: 100],
+            [name: 'Bad One',  itemType: 'Hat', buyNowPrice: ['nested': 'object']],
+            [name: 'Good Two', itemType: 'Boots', buyNowPrice: 200],
+        ])
+        itemRepository.findAll() >> []
+        def saved = []
+        itemRepository.save(_) >> { args -> saved << args[0]; args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        // even with a structured-object price on the middle row, the two
+        // good rows import; the bad row degrades to a zero-price import
+        // rather than aborting the whole @Transactional sync.
+        result.created == 3
+        saved*.name.containsAll(['Good One', 'Good Two'])
+    }
+
+    def "syncFromScmm tolerates a null row in the remote list"() {
+        given:
+        stubRemote([
+            [name: 'Real One', itemType: 'Hat', buyNowPrice: 100],
+            null,
+        ])
+        itemRepository.findAll() >> []
+        itemRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        result.created == 1
+        // null row → r?.name null-safe navigation yields an empty name and
+        // hits the missing-name skip path; it is counted, never fatal.
+        result.skipped == 1
+    }
+
+    // ── lastSyncedAt telemetry + scheduledSync ────────────────────
+
+    def "lastSyncedAt is zero until the first successful sync completes"() {
+        expect: 'fresh service has not yet run'
+        service.lastSyncedAt == 0L
+    }
+
+    def "lastSyncedAt is stamped at the end of a syncFromScmm pass"() {
+        given:
+        stubRemote([[name: 'One', itemType: 'Hat', buyNowPrice: 100]])
+        itemRepository.findAll() >> []
+        itemRepository.save(_) >> { args -> args[0] }
+        long before = System.currentTimeMillis()
+
+        when:
+        service.syncFromScmm()
+
+        then: 'the volatile timestamp is set inside the [before..now] window'
+        // The footer "Catalog updated X ago" stat reads this value — pin
+        // that it actually moves on a real sync so a future refactor can't
+        // silently disable the freshness signal.
+        service.lastSyncedAt >= before
+        service.lastSyncedAt <= System.currentTimeMillis()
+    }
+
+    def "lastSyncedAt is NOT updated when the remote feed comes back empty"() {
+        given: 'fetchRemoteCatalogue returns [] (network error / SCMM down)'
+        stubRemote([])
+
+        when:
+        def result = service.syncFromScmm()
+
+        then: 'empty result short-circuits before the lastSyncedAt write'
+        // Important: an empty remote is the failure path. If we stamped
+        // lastSyncedAt here, the freshness chip would say "1 minute ago"
+        // while we silently haven't actually fetched anything in hours.
+        // The early-return must precede the timestamp update.
+        result.totalRemote == 0
+        service.lastSyncedAt == 0L
+    }
+
+    def "scheduledSync is intentionally inert — does NOT call out to SCMM"() {
+        // The operator explicitly removed SCMM scheduling. scheduledSync()
+        // still exists as a hook (a removed @Scheduled stays a public
+        // method) but it MUST be a no-op — wiring it back accidentally
+        // (e.g. by reattaching @Scheduled) would resume catalogue churn
+        // the operator opted out of.
+        given:
+        boolean fetched = false
+        service.metaClass.fetchRemoteCatalogue = { -> fetched = true; [] }
+
+        when:
+        service.scheduledSync()
+
+        then: 'no remote fetch, no repo write, no exception'
+        !fetched
+        0 * itemRepository.findAll()
+        0 * itemRepository.save(_)
+        noExceptionThrown()
+    }
+
+    // ── Off-Market threshold — the 5% supply boundary ─────────────
+
+    def "syncFromScmm derives Standard rarity exactly at the 5% boundary"() {
+        // Off-Market triggers when `supply < total * 0.05`. Pin the
+        // boundary semantics: 5/100 == 0.05 is NOT strictly less than
+        // 5.0, so it must remain Standard. One past — 4/100 — flips.
+        given:
+        stubRemote([
+            [name: 'Exact-5pct',   itemType: 'Hat', buyNowPrice: 100, supply: 5, supplyTotalKnown: 100],
+            [name: 'Just-under',   itemType: 'Hat', buyNowPrice: 100, supply: 4, supplyTotalKnown: 100],
+        ])
+        itemRepository.findAll() >> []
+        def saved = []
+        itemRepository.save(_) >> { args -> saved << args[0]; args[0] }
+
+        when:
+        service.syncFromScmm()
+
+        then:
+        saved.find { it.name == 'Exact-5pct' }.rarity == 'Standard'
+        saved.find { it.name == 'Just-under' }.rarity == 'Off-Market'
+    }
+
+    // ── existing item update guards ───────────────────────────────
+
+    def "syncFromScmm preserves an existing Item.steamPrice when SCMM reports equal-to-floor (batch 637)"() {
+        // The "equal-to-floor" path was the bug: SCMM reports both
+        // buyNowPrice and originalPrice as the same number when the
+        // item is not on active sale, which would otherwise clobber a
+        // legitimate higher steamPrice with a flat reference. Pin the
+        // guard so that fix can't regress.
+        given:
+        def existing = new Item(
+            id: 1L, name: 'Wizard Hat', category: 'Hats',
+            steamPrice: new BigDecimal('10.00'),
+            lowestPrice: new BigDecimal('5.00')
+        )
+        stubRemote([[name: 'Wizard Hat', itemType: 'Hat',
+                     buyNowPrice: 700, originalPrice: 700]])
+        itemRepository.findAll() >> [existing]
+        itemRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncFromScmm()
+
+        then: 'steamPrice (10) survives the equal-to-floor sync (7 == 7)'
+        existing.steamPrice == new BigDecimal('10.00')
+    }
+
+    def "syncFromScmm WILL bump steamPrice when SCMM reports a HIGHER retail-reference than the floor"() {
+        // The complement to the guard above: when steamPrice <= price
+        // wins for the existing row, the new higher reference is
+        // accepted — otherwise the discount chip never gets an
+        // accurate retail anchor for items SCMM marks down.
+        given:
+        def existing = new Item(
+            id: 2L, name: 'Top Hat', category: 'Hats',
+            steamPrice: new BigDecimal('5.00'),
+            lowestPrice: new BigDecimal('3.00')
+        )
+        stubRemote([[name: 'Top Hat', itemType: 'Hat',
+                     buyNowPrice: 300, originalPrice: 800]])
+        itemRepository.findAll() >> [existing]
+        itemRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncFromScmm()
+
+        then: 'steamPrice (5) jumps to the new retail reference (8) because 8 > 3'
+        existing.steamPrice == new BigDecimal('8.00')
+    }
 }

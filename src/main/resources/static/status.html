@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Status — SkinBox</title>
+  <meta name="description" content="Live health check for the SkinBox marketplace — API, database, auction engine, marketplace endpoints, session sanitiser, and price refresh sweep.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SkinBox">
+  <meta property="og:title" content="System Status · SkinBox">
+  <meta property="og:description" content="Live health of every core SkinBox service — API, database, marketplace, auctions, session sanitiser, price refresh. Auto-refreshes every 30 seconds.">
+  <meta property="og:image" content="/img/favicon-512.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="System Status · SkinBox">
+  <meta name="twitter:description" content="Live health of every core SkinBox service — API, database, marketplace, auctions, session sanitiser, price refresh.">
+  <link rel="canonical" href="https://skinbox.market/status.html">
+  <meta name="theme-color" content="#1ea5ff">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="icon" type="image/png" href="/img/favicon-32.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/design.css">
+  <style>
+    .status-page { max-width: 820px; margin: 40px auto 80px; padding: 0 24px; color: var(--text-primary); }
+    .status-hero { text-align: center; padding: 40px 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 24px; }
+    .status-dot  { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; vertical-align: middle; }
+    .status-dot.up   { background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,0.2); }
+    .status-dot.warn { background: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,0.2); }
+    .status-dot.down { background: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,0.2); }
+    .status-headline { font-size: 24px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; }
+    .status-sub      { font-size: 14px; color: var(--text-secondary); }
+    .status-grid  { display: grid; gap: 10px; }
+    .status-row   { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; }
+    .status-row-name { font-weight: 700; font-size: 14px; }
+    .status-row-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+    .status-row-badge { font-size: 11px; padding: 4px 10px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px; }
+    .status-row-badge.up   { background: rgba(34,197,94,0.15);  color: #22c55e; }
+    .status-row-badge.warn { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .status-row-badge.down { background: rgba(248,113,113,0.15); color: #f87171; }
+    .status-foot  { margin-top: 30px; text-align: center; font-size: 12px; color: var(--text-muted); }
+    .status-back  { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main class="status-page">
+    <a class="status-back" href="/" aria-label="Back to SkinBox home"><span aria-hidden="true">←</span> Back to SkinBox</a>
+    <h1 class="visually-hidden">System Status</h1>
+    <div class="status-hero" id="hero">
+      <div class="status-headline" id="headline">
+        <span class="status-dot warn"></span> Checking…
+      </div>
+      <div class="status-sub" id="sub">Pinging /api/health…</div>
+    </div>
+    <div class="status-grid" id="grid"></div>
+    <div class="status-foot" id="foot">
+      Auto-refreshes every 30 seconds. Need help? Email
+      <a href="mailto:support@skinbox.market" style="color:var(--accent)">support@skinbox.market</a>
+      or <a href="/support" style="color:var(--accent)">open a ticket</a>.
+    </div>
+    <div class="status-foot" id="version-line" style="opacity:0.55;font-size:11px;margin-top:12px;font-family:JetBrains Mono,monospace;"></div>
+  </main>
+
+  <!-- Status-page probe logic lives in /js/status.js (CSP requires no
+       inline scripts; script-src is 'self' + unpkg + cloudflareinsights). -->
+  <script src="/js/status.js"></script>
+</body>
+</html>

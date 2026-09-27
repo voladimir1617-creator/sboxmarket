@@ -15,12 +15,17 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
  *   PENDING_SELLER_SEND    — seller accepted, now owes a Steam trade offer
  *   PENDING_BUYER_CONFIRM  — seller marked sent, buyer must confirm receipt
  *   VERIFIED               — buyer confirmed; funds released to seller wallet
- *   DISPUTED               — buyer opened a dispute (admin routes to CSR)
+ *   DISPUTED               — EITHER participant (buyer OR seller) opened a
+ *                            dispute. Escrow is frozen — only staff can move
+ *                            the trade out of this state.
  *   CANCELLED              — seller never delivered, funds refunded to buyer
  *
  * A trade is considered "in escrow" for the entire window between PENDING_*
- * and VERIFIED. Admin / CSR tools can force-release or force-refund any trade
- * via AdminService.
+ * and VERIFIED. From DISPUTED only ADMIN may force-release or force-refund
+ * via AdminService.forceReleaseTrade / forceCancelTrade; CSRs can read the
+ * trade and its chat thread for triage but must escalate the actual money
+ * decision to an admin (per the AdminService vs CsrService split — only
+ * admin can move escrowed funds).
  */
 @Entity
 @Table(
@@ -103,4 +108,50 @@ class Trade {
     /** When the trade moved to VERIFIED / CANCELLED. Null while in escrow. */
     @Column
     Long settledAt
+
+    /** When the seller clicked "Mark sent" and the trade transitioned to
+     *  PENDING_BUYER_CONFIRM. Powers the "Typically ships in ~N hours"
+     *  seller-trust metric on the public stall page (batch 550). Null on
+     *  legacy rows (pre-V49) and any trade still waiting on seller send. */
+    @Column(name = 'sent_at')
+    Long sentAt
+
+    /** Set the first time the buyer is pushed a TRADE_SLOW_SELLER warning
+     *  because the seller has been silent for >24h on a pending-seller
+     *  state. Stops the warning sweeper from re-pinging every tick. Cleared
+     *  back to null whenever the trade transitions out of the
+     *  PENDING_SELLER_* states so a rare admin-forced re-entry re-arms
+     *  the sweeper for the next silence window. */
+    @Column(name = 'slow_seller_warned_at')
+    Long slowSellerWarnedAt
+
+    /** Set the first time the second REVIEW_REMINDER fires (≈48h after
+     *  the trade verifies, only if the buyer hasn't reviewed yet). One-
+     *  shot per trade — the partial index on this column drives the
+     *  sweeper, and the stamp keeps it from re-nudging on subsequent
+     *  ticks. (V38 / batch 284) */
+    @Column(name = 'review_nudge_sent_at')
+    Long reviewNudgeSentAt
+
+    /** Optional Steam trade-offer URL the seller provides at Mark-Sent
+     *  time (batch 773). Lets the buyer jump straight to the Steam
+     *  offer in one click from their Trades tab, and gives staff a
+     *  concrete reference when triaging a dispute ("did the seller
+     *  actually send the offer?"). Validated on write to be a real
+     *  `https://steamcommunity.com/tradeoffer/...` URL; anything else
+     *  is silently dropped. Null for legacy trades + for sellers who
+     *  skip the field. */
+    @Column(name = 'trade_offer_url', length = 200)
+    String tradeOfferUrl
+
+    /** Who ended a CANCELLED trade: BUYER, SELLER, STAFF, SELLER_TIMEOUT (the
+     *  seller never accepted/sent inside the response window) or
+     *  SELLER_BANNED. Recorded so a seller's public completion rate counts
+     *  only the failures that were theirs; before this column a buyer
+     *  backing out and a seller walking away were the same row. Null on
+     *  trades that are not cancelled and on rows cancelled before it
+     *  existed, which the completion rate therefore leaves out rather than
+     *  guesses at (V260). */
+    @Column(name = 'cancelled_by', length = 24)
+    String cancelledBy
 }

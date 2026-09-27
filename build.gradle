@@ -23,6 +23,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // Spring Session JDBC — wired via SessionConfig.groovy with @Profile("prod")
+    // so the test profile doesn't load it and the existing MockMvc specs keep
+    // working unchanged. In prod, sessions persist in Postgres so a Docker
+    // restart no longer signs every user out.
+    implementation 'org.springframework.session:spring-session-jdbc'
     // JavaMail wrapper. Used by EmailService to send verification emails
     // when SMTP_HOST is set; otherwise EmailService falls back to a
     // log-only sink so local dev and CI never need an SMTP relay.
@@ -49,6 +54,16 @@ dependencies {
     // when unset, the SDK is a silent no-op so dev/CI aren't affected.
     implementation 'io.sentry:sentry-spring-boot-starter-jakarta:7.6.0'
 
+    // Structured (JSON) logging encoder for the `prod` profile. logback-spring.xml
+    // wires LogstashEncoder onto the console + rolling-file appenders so prod logs
+    // are machine-parseable (level/logger/thread/MDC `cid`) for Loki/ELK/Datadog.
+    // 7.4 is the last release line targeting logback 1.4.x (SLF4J 2.x) — it drops
+    // logback 1.2 support and is built against logback 1.3.x/Jackson 2.15.x, both
+    // ABI-compatible with the logback 1.4.14 + Jackson 2.15.x that Spring Boot
+    // 3.2.3 bundles. The 8.x line raises the floor to logback 1.5, which would
+    // mismatch 3.2.x, so we pin 7.4 deliberately.
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     // Spock 2.4-M6 restores @Autowired field injection into Groovy specs
@@ -68,10 +83,65 @@ test {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// A GUARD MUST NOT CACHE ITS OWN VERDICT.
+//
+// AdminBootstrapIsNotCommittedSpec sweeps every worktree registered to this
+// repository and every ref, looking for a committed admin identity. NONE of
+// that is an input Gradle can see: the answer depends on `git worktree list`,
+// on refs, and on files in other checkouts entirely.
+//
+// So `:test` goes UP-TO-DATE while the thing under test changes. Measured
+// 2026-09-25: with a compromised worktree freshly registered at
+// `.claude/worktrees/`, `./gradlew test --tests ...AdminBootstrapIsNotCommitted*`
+// reported **BUILD SUCCESSFUL in 1s** and left the previous run's
+// `TEST-...xml` in place — 0 failures, off a result file that predated the
+// breach. Re-run with `--rerun-tasks` it was RED with 2 failures. A stale
+// green is the same defect the spec itself exists to catch, one level up:
+// absence of a fresh answer read as a positive one.
+//
+// This task therefore never goes up to date, and it is wired into `check` so
+// it actually runs. The filter also means that DELETING or RENAMING the spec
+// fails the build ("No tests found for given includes") rather than silently
+// removing the guard.
+//
+// It writes to build/test-results/adminBootstrapGuard/, separate from :test.
+//
+// NOTE ON SCOPE: because the sweep covers every REGISTERED worktree, a
+// compromised checkout belonging to someone else turns this red for everyone
+// on the machine. That is deliberate — anyone can build from a registered
+// worktree — and the failure message names the offending path and identity.
+// ─────────────────────────────────────────────────────────────────────────────
+tasks.register('adminBootstrapGuard', Test) {
+    group = 'verification'
+    description = 'Sweeps EVERY registered worktree and ref for a committed admin identity. Never cached.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sboxmarket.AdminBootstrapIsNotCommittedSpec' }
+    outputs.upToDateWhen { false }
+    testLogging {
+        events 'failed'
+        exceptionFormat = 'short'
+    }
+}
+tasks.named('check') { dependsOn 'adminBootstrapGuard' }
+
 // Required so Spring can read @RequestParam / @PathVariable names from
 // compiled Groovy method parameters via reflection.
 tasks.withType(GroovyCompile).configureEach {
     groovyOptions.parameters = true
+    // Fork the Groovy compiler into its own JVM with a dedicated heap.
+    // The test source set is ~190 Spock specs; compiling them all in ONE
+    // joint pass (a clean / non-incremental build, e.g. CI or after a
+    // gradle.properties bump) exhausts the in-process compiler heap and
+    // dies with `java.lang.OutOfMemoryError: Java heap space` regardless
+    // of the daemon's -Xmx (the in-process compiler doesn't reliably get
+    // the daemon's full heap under contention). Forking gives the compile
+    // a guaranteed dedicated 6g, independent of daemon state — so CI and
+    // clean local builds compile the full suite deterministically.
+    groovyOptions.fork = true
+    groovyOptions.forkOptions.memoryMaximumSize = '6g'
 }
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << '-parameters'

@@ -18,6 +18,15 @@
 //
 // Or against localhost with k6 installed:
 //   BASE_URL=http://localhost:8082 k6 run deploy/load-test.js
+//
+// On Git-Bash / MSYS under Windows the default `$(pwd)` translates to a
+// POSIX path ("/c/Users/WW/Desktop/sboxmarket") that Docker Desktop
+// mis-resolves as "C:/Program Files/Git/..." — resulting in
+// `moduleSpecifier not found`. Work around with:
+//   MSYS_NO_PATHCONV=1 docker run ... -v "$(pwd -W)/deploy:/scripts:ro" ...
+// `pwd -W` returns the Windows-native path ("C:/Users/...") and the
+// env var stops MSYS rewriting `/scripts:ro` into
+// `C:/Program Files/Git/scripts:ro`.
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -52,18 +61,40 @@ export const options = {
 };
 
 export function browse() {
-  const endpoints = [
+  // Plain browse endpoints — expected to sustain full throughput.
+  const plain = [
     '/',
     '/api/listings?limit=20',
     '/api/database?limit=20',
     '/api/health',
+    '/api/buy-orders/count/item/1',
+    '/api/watchlist/alerts/count/item/1',
+    '/api/listings/top-deals',
+    '/api/listings/ending-soon',
+    '/api/listings/just-listed',
   ];
-  for (const p of endpoints) {
+  for (const p of plain) {
     const res = http.get(BASE + p, { tags: { path: p } });
     check(res, {
       [`${p} status 2xx`]: (r) => r.status >= 200 && r.status < 300,
     });
   }
+  // `/api/listings/stall/{id}` is in the enumeration-guarded prefix
+  // set (RateLimitFilter.GUARDED_ENUMS) so a 429 is expected under
+  // concurrent VUs walking the same id. Treat 200 or 429 as pass
+  // (matching the /api/items/{id} enumeration scenario) AND mark 429
+  // as a non-failure for the http_req_failed metric via
+  // responseCallback so the browse threshold doesn't trip on the
+  // intentional rate limit.
+  const okOrLimited = http.expectedStatuses({ min: 200, max: 299 }, 429);
+  const stallRes = http.get(BASE + '/api/listings/stall/1', {
+    tags: { path: '/api/listings/stall/:id' },
+    responseCallback: okOrLimited,
+  });
+  check(stallRes, {
+    'stall/{id} returned 200 or 429':
+      (r) => r.status === 200 || r.status === 429,
+  });
   sleep(0.2);
 }
 

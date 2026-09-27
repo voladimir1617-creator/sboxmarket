@@ -57,9 +57,10 @@ class CsrController {
 
     @GetMapping("/tickets")
     ResponseEntity<List<Map>> tickets(@RequestParam(required = false) String status,
+                                      @RequestParam(required = false) String search,
                                       HttpServletRequest req) {
         requireCsr(req)
-        ResponseEntity.ok(csrService.listTickets(status))
+        ResponseEntity.ok(csrService.listTickets(status, search))
     }
 
     @GetMapping("/tickets/{id}")
@@ -71,6 +72,13 @@ class CsrController {
     @PostMapping("/tickets/{id}/reply")
     ResponseEntity<Map> reply(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
         def uid = requireCsr(req)
+        // Upstream cap — CsrService.reply runs body through the support
+        // multiline sanitizer (2000-char truncation). Reject overlong
+        // payloads at the boundary so the CSR endpoint can't be used to
+        // burn parser memory on multi-MB inputs.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'body',
+            com.sboxmarket.util.InputLimits.LONG_TEXT,
+            'BODY_TOO_LONG', 'body')
         def msg = csrService.reply(uid, id, body.body as String)
         ResponseEntity.ok([id: msg.id, body: msg.body])
     }
@@ -97,6 +105,14 @@ class CsrController {
         catch (NumberFormatException ignored) {
             throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be a valid number")
         }
+        // Upstream cap on the audit note — CsrService.issueGoodwillCredit
+        // runs note through textSanitizer.medium (500-char truncation)
+        // and requires it. Reject obviously oversized notes at the door
+        // so a CSR session can't be used to flood the audit log with
+        // megabytes of fluff per goodwill grant.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'note',
+            com.sboxmarket.util.InputLimits.MEDIUM_TEXT,
+            'NOTE_TOO_LONG', 'note')
         ResponseEntity.ok(csrService.issueGoodwillCredit(uid, id, amount, body.note as String))
     }
 
@@ -107,6 +123,12 @@ class CsrController {
                              @RequestBody(required = false) Map body,
                              HttpServletRequest req) {
         def uid = requireCsr(req)
+        // Upstream cap — CsrService.flagListing runs reason through
+        // textSanitizer.cleanShort (80-char truncation). Reject obviously
+        // oversized inputs at the door before they hit the sanitizer.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'reason',
+            com.sboxmarket.util.InputLimits.SHORT_LABEL,
+            'REASON_TOO_LONG', 'reason')
         ResponseEntity.ok(csrService.flagListing(uid, id, body?.reason as String))
     }
 }

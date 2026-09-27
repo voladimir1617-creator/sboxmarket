@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>SkinBox</ShortName>
+  <LongName>SkinBox — s&amp;box skin marketplace</LongName>
+  <Description>Search the SkinBox marketplace for s&amp;box Workshop items, hats, and clothing.</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Image width="16" height="16" type="image/x-icon">https://skinbox.market/favicon.ico</Image>
+  <Image width="192" height="192" type="image/png">https://skinbox.market/img/favicon-192.png</Image>
+  <Url type="text/html" method="get" template="https://skinbox.market/market?q={searchTerms}"/>
+  <Url type="application/opensearchdescription+xml" rel="self" template="https://skinbox.market/opensearch.xml"/>
+  <Language>en-US</Language>
+  <OutputEncoding>UTF-8</OutputEncoding>
+  <moz:SearchForm xmlns:moz="http://www.mozilla.org/2006/browser/search/">https://skinbox.market/</moz:SearchForm>
+</OpenSearchDescription>

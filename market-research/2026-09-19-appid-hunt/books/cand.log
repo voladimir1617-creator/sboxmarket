@@ -1,0 +1,39 @@
+=== WoG: War of Genesis (4891320) ===
+  [WoG: War of Genesis] PAGESIZE SERVED = 10 (count=100 requested), total=914
+  !! 429 (#1) pace->0.94s cooling 29s
+  !! 429 (#2) pace->1.59s cooling 53s
+  book done total_count=914 aborts={}
+  [WoG: War of Genesis vol] 0/45 vol=None
+  [WoG: War of Genesis vol] 15/45 vol=1
+  !! 429 (#3) pace->2.70s cooling 27s
+  [WoG: War of Genesis vol] 30/45 vol=92
+  !! 429 (#4) pace->4.59s cooling 29s
+=== WoG: War of Genesis (4891320) ===
+  book done total_count=914 aborts={}
+  [WoG: War of Genesis vol] 15/40 vol=None
+  !! 429 (#1) pace->0.94s cooling 30s
+  [WoG: War of Genesis vol] 30/40 vol=5
+=== Bongo Cat (3419430) ===
+  [Bongo Cat] PAGESIZE SERVED = 10 (count=100 requested), total=540
+  [Bongo Cat] start=0 got=10 total=540
+  .. clean, pace->0.75s
+  [Bongo Cat] start=200 got=10 total=540
+  [Bongo Cat] start=400 got=10 total=540
+  book done total_count=540 aborts={}
+  [Bongo Cat vol] 0/40 vol=None
+  .. clean, pace->0.60s
+  [Bongo Cat vol] 15/40 vol=2
+  !! 429 (#2) pace->1.02s cooling 28s
+  !! 429 (#3) pace->1.73s cooling 54s
+  [Bongo Cat vol] 30/40 vol=1
+=== Bomb Farm (4892010) ===
+  [Bomb Farm] PAGESIZE SERVED = 10 (count=100 requested), total=270
+  [Bomb Farm] start=0 got=10 total=270
+  .. clean, pace->1.38s
+  [Bomb Farm] start=200 got=10 total=270
+  book done total_count=270 aborts={}
+  [Bomb Farm vol] 0/40 vol=None
+  [Bomb Farm vol] 15/40 vol=4
+  !! 429 (#4) pace->2.35s cooling 27s
+  !! 429 (#5) pace->4.00s cooling 53s
+  [Bomb Farm vol] 30/40 vol=7

@@ -32,7 +32,11 @@ class Offer {
     @Column(nullable = false, precision = 19, scale = 2)
     BigDecimal askingPrice
 
-    /** PENDING, ACCEPTED, REJECTED, CANCELLED, EXPIRED */
+    /** Offer status. PENDING (live), ACCEPTED, REJECTED, CANCELLED, EXPIRED
+     *  (terminal). COUNTERED — a buyer offer the seller has countered; the
+     *  counter lives as a child SELLER offer via parentOfferId. CLOSED —
+     *  a COUNTERED original whose counter thread reached a terminal state,
+     *  so the original is no longer live (frees the duplicate-offer guard). */
     @Column(nullable = false)
     String status = "PENDING"
 
@@ -47,6 +51,13 @@ class Offer {
     /** Snapshot of the item image url. */
     @Column(length = 500)
     String itemImageUrl
+
+    /** Snapshot of the catalogue item id at offer time. Lets the OffersModal
+     *  render the item name as an `<a href="/item/:id">` without a per-row
+     *  Listing lookup. Nullable for legacy offers predating V44 — the UI
+     *  falls back to plain text when this is null. */
+    @Column(name = 'item_id')
+    Long itemId
 
     @Column(name = "created_at", nullable = false)
     Long createdAt = System.currentTimeMillis()
@@ -64,4 +75,28 @@ class Offer {
      *  the same root via parentOfferId. */
     @Column(length = 16)
     String author = "USER"
+
+    /** Optional buyer-supplied note ("brand new acct, fast pay"). Sanitised
+     *  via TextSanitizer.cleanShort + capped at 280 chars in OfferService.
+     *  Null when the buyer didn't add a message. Surfaces inline on the
+     *  seller's offer row so they have context before accepting/declining. */
+    @Column(length = 280)
+    String message
+
+    /** Optional seller reply attached at reject-time ("already committed to
+     *  another buyer, sorry"). Same sanitiser + 280-char cap. Surfaces
+     *  inline on the buyer's rejected offer row so the rejection is never
+     *  silent — the buyer sees the seller's reasoning without having to
+     *  DM them. Added in V45 / batch 387. Null for legacy rejections. */
+    @Column(name = 'seller_reply', length = 280)
+    String sellerReply
+
+    /** Wall-clock millis when the half-life nudge sweeper last pinged
+     *  the seller about this still-pending offer. Set once and only
+     *  once per offer — the partial index `idx_offers_pending_unnudged`
+     *  filters on `IS NULL` so re-nudging is impossible without an
+     *  explicit reset. Null for offers that haven't crossed the
+     *  half-life threshold yet. Added in V47 / batch 499. */
+    @Column(name = 'seller_nudged_at')
+    Long sellerNudgedAt
 }

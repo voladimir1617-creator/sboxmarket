@@ -4,8 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Terms of Service — SkinBox</title>
+  <link rel="canonical" href="https://skinbox.market/legal/terms.html">
+  <meta name="theme-color" content="#1ea5ff">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
   <link rel="icon" type="image/png" href="/img/favicon-32.png">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/design.css">
   <style>
     .legal-doc {
       max-width: 820px;
@@ -24,6 +29,11 @@
     .legal-doc li { margin-bottom: 6px; }
     .legal-doc strong { color: var(--text-primary); }
     .legal-doc a { color: var(--accent); }
+    /* Body-text links carry an underline so they're distinguishable
+       without relying on color alone (WCAG 2.1 SC 1.4.1). The .legal-back
+       chip is a direct child of <main> — not inside a <p>/<li> — so it
+       stays un-underlined, matching the changelog page treatment. */
+    .legal-doc p a, .legal-doc li a { text-decoration: underline; text-underline-offset: 3px; }
     .legal-doc .callout {
       background: rgba(251, 191, 36, 0.08);
       border: 1px solid rgba(251, 191, 36, 0.35);
@@ -106,9 +116,15 @@
       <li>Bugs in price aggregation that temporarily display stale numbers.</li>
     </ul>
     <p>
-      SkinBox charges a <strong>2% platform fee</strong> on sales and a
-      <strong>1.5% withdrawal fee</strong> on payouts. Deposit processor fees are set
-      by Stripe and shown at checkout. All fees are final and non-refundable.
+      SkinBox charges a <strong>2% platform fee</strong> on completed sales. That is the
+      only fee SkinBox keeps, and it is deducted from the seller's credit at settlement
+      and is final. <strong>Moving money in and out is a separate cost and is not
+      free.</strong> Card deposits and bank payouts each carry the payment processor's
+      own charge — a percentage plus a fixed amount — and a payout carries a further
+      fixed charge the first time in any calendar month that one reaches your account.
+      SkinBox passes these through at cost and adds nothing to them: a deposit credits
+      your wallet with the net, and a withdrawal pays out the net, not the amount
+      requested. Both figures are shown on the wallet screen before you confirm.
     </p>
 
     <h2>4. Your responsibility — and the losses we don't cover</h2>
@@ -203,7 +219,7 @@
     <p>
       The SkinBox name, logo, website, and source code are owned by the SkinBox
       operators. You may not copy, modify, resell, or create derivative works from any
-      part of the Service without written permission. "s&amp;box", "Steam", and "Rust"
+      part of the Service without written permission. "s&amp;box" and "Steam"
       are trademarks of their respective owners and are used here for descriptive and
       nominative fair-use purposes only.
     </p>
@@ -221,7 +237,7 @@
     <p>
       These Terms are governed by the laws of the jurisdiction of SkinBox's principal
       operator, excluding conflict-of-laws rules. Any dispute that cannot be resolved by
-      contacting <a href="mailto:support@skinbox.example">support@skinbox.example</a>
+      contacting <a href="mailto:support@skinbox.market">support@skinbox.market</a>
       will be resolved by binding arbitration administered by a neutral arbitrator in
       that jurisdiction, except where prohibited by law. <strong>You waive your right to
       a jury trial and to participate in a class action.</strong>
@@ -237,7 +253,7 @@
 
     <h2>13. Contact</h2>
     <p>
-      Questions? <a href="mailto:support@skinbox.example">support@skinbox.example</a>.
+      Questions? <a href="mailto:support@skinbox.market">support@skinbox.market</a>.
       For legal service of process, use the same address with the subject line
       "LEGAL NOTICE".
     </p>

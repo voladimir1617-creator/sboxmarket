@@ -70,7 +70,17 @@ class AdminSimulatorService {
         def rnd = new Random()
         def created = []
 
-        (0..<Math.min(count, catalog.size() * 3)).each { idx ->
+        // Iterate exactly `count` times — the modulo wraps when the catalogue
+        // is smaller than `count`, deliberately producing duplicate listings
+        // on the same item (multiple sellers offering the same hat is realistic
+        // marketplace state, and exactly what QA needs to smoke-test sorting
+        // and floor-price aggregation). The previous bound
+        // `Math.min(count, catalog.size() * 3)` silently capped the request at
+        // 3× catalogue size, so on a fresh dev DB with 5 catalogue rows an
+        // admin asking for 100 listings got only 15 with no error — the admin
+        // panel then showed "Created 15" instead of the expected "Created 100"
+        // and the QA fixture was too sparse to exercise the grid.
+        (0..<count).each { idx ->
             def item = catalog[idx % catalog.size()]
             def handle = HANDLES[rnd.nextInt(HANDLES.size())]
             def jitter = JITTER[rnd.nextInt(JITTER.size())]

@@ -3,6 +3,7 @@ package com.sboxmarket.controller
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.repository.ItemRepository
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
@@ -38,7 +39,26 @@ class SteamInventoryController {
     @Autowired SteamSyncService steamSyncService
     @Autowired SteamUserRepository steamUserRepository
     @Autowired ItemRepository itemRepository
+    @Autowired ListingRepository listingRepository
     @Autowired ListingService listingService
+    @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
+    // Bot-escrow deposit leg. Optional so existing tests that wire this
+    // controller without it still construct; when absent OR the bot is
+    // unconfigured (steamEscrowService.escrowEnabled == false), the listing
+    // stays ACTIVE/buyable the legacy way and no deposit is requested. When
+    // present + enabled, listing a Steam item requests the asset into bot
+    // custody and holds the listing in PENDING_ESCROW until it's received.
+    @Autowired(required = false) com.sboxmarket.service.SteamEscrowService steamEscrowService
+    // SellService.relist gates list-creation behind banGuard, but
+    // /api/steam/list + /api/steam/list-bulk bypass SellService and
+    // call listingService.createListing() directly — so without an
+    // explicit guard here a banned user could keep listing from their
+    // Steam inventory. Required=false so older test wiring that only
+    // injects the six collaborators above still constructs cleanly;
+    // the guard short-circuits to a no-op when the bean is absent
+    // (mirrors the same posture every other optional collaborator on
+    // this controller uses).
+    @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -46,10 +66,59 @@ class SteamInventoryController {
         uid
     }
 
+    /**
+     * Reject a listing attempt from a seller who has no Steam trade URL, when
+     * bot-escrow is live. Pre-flight, before any listing row is created.
+     *
+     * ── Why this has to fail LOUD ─────────────────────────────────────────
+     * With escrow enabled, listing an item creates it in PENDING_ESCROW and
+     * asks the bot to request the asset from the seller. A seller with no trade
+     * URL has no address the bot can send that request to, so
+     * {@code requestDepositForListing} takes its no-trade-URL branch: it
+     * persists a custody row with no offer id and leaves the listing held.
+     *
+     * What the seller experienced before this gate: HTTP 200 with a listing id,
+     * a green "Listed …" toast — and then nothing. The listing is PENDING_ESCROW,
+     * and every seller-facing query ({@code findActiveBySeller},
+     * {@code countActiveBySeller}, {@code cancelAllActive}) filters on
+     * {@code status = 'ACTIVE'}, so it appears in no stall, no count, and no
+     * bulk-cancel. Re-listing the same item is refused by the ALREADY_LISTED
+     * guard, which DOES count PENDING_ESCROW — so the seller is told they have
+     * an active listing for an item that is visible nowhere and cancellable
+     * through no button. That dead end lasted until the 24h deposit-timeout
+     * sweeper cancelled it.
+     *
+     * A success response for an action that silently did not happen is the
+     * exact failure this codebase keeps re-learning. So: fail here, with the
+     * same error code and the same shape the BUY side already uses
+     * ({@code PurchaseService.buy} throws TRADE_URL_MISSING pre-debit rather
+     * than taking the money and stranding the trade). The seller gets a
+     * sentence telling them precisely what to do, and no dead listing exists.
+     *
+     * Gated on {@code escrowEnabled} — with the bot unconfigured a listing goes
+     * straight to ACTIVE and the seller delivers by hand from their own Steam
+     * client, so a trade URL is genuinely not needed at list time and demanding
+     * one would be a regression.
+     */
+    private void requireSellerTradeUrl(Long uid) {
+        if (!(steamEscrowService?.escrowEnabled)) return
+        def seller = steamUserRepository.findById(uid).orElse(null)
+        if (seller != null && !seller.tradeUrl?.trim()) {
+            throw new BadRequestException("TRADE_URL_MISSING",
+                "Set your Steam trade URL in Profile before listing — our bot needs it to collect the item from you.")
+        }
+    }
+
     @GetMapping("/inventory")
     ResponseEntity<Map> inventory(HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        // Surface the rate-limit / private-inventory state so the empty-
+        // inventory UI can render a real reason ("Steam is throttling our
+        // requests — retry in ~3 min") instead of "No s&box items in your
+        // Steam inventory" — that copy is correct for a genuinely empty
+        // inventory, but it's misleading when the empty came from a 429.
+        Long blockedUntil = steamInventoryService.blockedUntilMs(user.steamId64)
         def items = steamInventoryService.fetchInventory(user.steamId64)
 
         // Pull ONLY the catalogue rows whose lowercase name matches an
@@ -64,10 +133,98 @@ class SteamInventoryController {
         def catalogue = lowerNames.isEmpty() ? [:] :
             itemRepository.findByNamesLowerIn(lowerNames).collectEntries { [(it.name?.toLowerCase()): it] }
 
-        def enriched = items.collect { s ->
+        // Stack-aware grouping. Steam returns one descriptor per
+        // (classid, instanceid) and one entry in `assets[]` per physical
+        // copy — so 50 Lunar Trousers come back as 50 asset rows that
+        // share a descriptor. The Sell Items grid has always shown those
+        // 50 copies as 50 distinct rows, which made stacks of identical
+        // items eat the entire grid and caused the per-row "tradable"
+        // and "est. value" totals to ignore quantity. Group by descriptor
+        // here so the frontend renders ONE card per stack with a ×N
+        // quantity badge, and so summary totals can multiply by quantity.
+        //
+        // The representative `assetId` is the first tradable asset in
+        // the group (falling back to the first asset overall if the
+        // whole stack is locked) so the existing single-item Pick flow
+        // (POST /api/steam/list with one assetId) still works without
+        // the frontend having to know about the assetIds[] array.
+        // /api/steam/list-bulk callers can either expand a stack into
+        // its full assetIds[] for "list every copy" or just iterate.
+        // /api/steam/sync (steamInventorySize) is unchanged — it still
+        // counts at the asset level via SteamInventoryService.fetchInventory.
+        def grouped = new java.util.LinkedHashMap<String, Map>()
+        items.each { s ->
+            // classId + instanceId is the canonical Steam descriptor
+            // key. Some workshop assets have null instanceId (rare on
+            // s&box but documented for partner contexts) — fall back
+            // to the assetId so those rows stay distinct rather than
+            // being collapsed into a single mystery group.
+            def key = "${s.classId ?: ''}_${s.instanceId ?: s.assetId}".toString()
+            def g = grouped.get(key)
+            if (g == null) {
+                g = [first: s, assetIds: new java.util.ArrayList<String>(),
+                     tradableAssetIds: new java.util.ArrayList<String>()]
+                grouped.put(key, g)
+            }
+            (g.assetIds as List).add(s.assetId?.toString())
+            // Keep EVERY tradable copy, not just the first one. The
+            // representative below has to skip copies that are already on
+            // sale, and it cannot do that from a single remembered id.
+            if (s.tradable) (g.tradableAssetIds as List).add(s.assetId?.toString())
+        }
+
+        // ── Which copies are already on sale ────────────────────────────
+        // A listed asset does NOT leave the seller's Steam inventory (with
+        // bot-escrow off he still holds it; with escrow on it is in flight),
+        // so every copy keeps coming back in this payload. Nothing here said
+        // so, and the representative assetId was always the FIRST tradable
+        // copy — the same one every time.
+        //
+        // What that did to a seller holding a stack: he lists one Lunar
+        // Trousers out of fifty, the grid still shows "×50" and the badge's
+        // own tooltip tells him to "repeat to list more", and every repeat
+        // POSTs the SAME assetId and is refused ALREADY_LISTED — "cancel it
+        // before listing it again" — for 49 copies he has never listed. The
+        // answer is correct about the asset and wrong about the question.
+        //
+        // One indexed query, both statuses the ALREADY_LISTED guard itself
+        // counts, so the grid cannot disagree with the POST it leads to.
+        Set<String> liveAssetIds = new HashSet<String>(
+            listingRepository.findLiveAssetIdsBySeller(uid,
+                ['ACTIVE', com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW]) ?: []
+        )
+        def enriched = grouped.values().collect { g ->
+            def s = g.first as Map
             def existing = catalogue[(s.name ?: '').toString().toLowerCase()]
+            def assetIdsList = g.assetIds as List<String>
+            List<String> tradableIds = (g.tradableAssetIds as List<String>) ?: []
+            // Copies of THIS stack that already carry a live listing.
+            List<String> listedIds = assetIdsList.findAll { liveAssetIds.contains(it) }
+            // A copy is listable when it is tradable on Steam AND not already
+            // on sale here. Both conditions are what POST /api/steam/list
+            // checks, in that order, so this is the same question asked early
+            // enough to be useful.
+            List<String> listableIds = tradableIds.findAll { !liveAssetIds.contains(it) }
             [
-                assetId:     s.assetId,
+                // Prefer a copy that can actually be listed. Falling back to a
+                // tradable-but-listed id keeps the old behaviour for a stack
+                // where every copy is already up (the POST then answers
+                // ALREADY_LISTED, which by then is the true answer), and to the
+                // first asset for a fully-locked stack so the row still renders.
+                assetId:     listableIds[0] ?: tradableIds[0] ?: assetIdsList[0],
+                assetIds:    assetIdsList,
+                quantity:    assetIdsList.size(),
+                // How many of those copies you have already put up, and how
+                // many you can still put up. The UI can then say "3 of 50
+                // listed" instead of offering all 50 and refusing 49 of them.
+                listedCount:      listedIds.size(),
+                listableQuantity: listableIds.size(),
+                // Why this row cannot be listed, when it cannot be — named
+                // here rather than discovered by the seller on submit.
+                // null when at least one copy is listable.
+                unlistableReason: listableIds.isEmpty()
+                    ? (tradableIds.isEmpty() ? 'NOT_TRADABLE' : 'ALREADY_LISTED')
+                    : null,
                 name:        s.name,
                 type:        s.type,
                 iconUrl:     s.iconUrl,
@@ -76,15 +233,152 @@ class SteamInventoryController {
                 category:    existing?.category ?: steamInventoryService.inferCategory(s),
                 rarity:      existing?.rarity ?: 'Standard',
                 catalogueId: existing?.id,
-                suggestedPrice: existing?.lowestPrice ?: BigDecimal.ZERO
+                suggestedPrice: existing?.lowestPrice ?: BigDecimal.ZERO,
+                // ── The second price anchor, which this projection never sent ──
+                //
+                // `suggestedPrice` is the LIVE FLOOR (Item.lowestPrice), and it
+                // is BigDecimal.ZERO for any catalogued item that has no active
+                // listing right now — which is the normal state of a niche item
+                // and the guaranteed state of the FIRST copy anyone ever lists.
+                // The sell form rendered that zero as the sentence "Suggested
+                // price: $0.00", i.e. an answer, when the truth was that we had
+                // no live comparable at all.
+                //
+                // The platform-inventory tab never had this problem: those rows
+                // are Listing entities carrying the whole Item, so the form can
+                // fall back floor -> last-sold median -> Steam reference. Steam
+                // rows are a hand-built projection, and `steamPrice` was simply
+                // not in it, so the same fallback could not run and the "Steam"
+                // price chip plus the "you are above the Steam market price"
+                // warning were both unreachable on the Steam tab — the one tab
+                // a seller importing his own Steam skins actually uses.
+                //
+                // Null when the item is uncatalogued or Steam never priced it;
+                // the client distinguishes null (unknown) from a number.
+                steamPrice:  existing?.steamPrice
             ]
         }
-        ResponseEntity.ok([
+        // `count` was historically the number of items the frontend
+        // would render. Now that rows are stacked, the asset count
+        // (= sum of quantities) is the more useful number for the UI's
+        // "total" badge. We expose BOTH so older clients reading
+        // `count` keep working AND the new stacked client has an
+        // explicit `assetCount` to anchor on.
+        int assetCount = (enriched.collect { (it.quantity as Integer) ?: 1 } as List<Integer>).sum() ?: 0
+        Map resp = [
             items:         enriched,
             count:         enriched.size(),
+            assetCount:    assetCount,
             lastSyncedAt:  user.lastSyncedAt,
             steamId64:     user.steamId64
-        ])
+        ]
+        // ── Say so when the list is INCOMPLETE ───────────────────────────
+        // The fetch is capped at count=500 and does not paginate, so a seller
+        // holding more than that got a quietly short list in which the missing
+        // items were indistinguishable from items he does not own. This is the
+        // same defect as the empty-list causes, except it rides on a NON-empty
+        // 200 — so none of the `reason`/`unreadable` machinery below fires for
+        // it. Surface it explicitly instead.
+        Map trunc = steamInventoryService.truncationFor(user.steamId64)
+        if (trunc != null) {
+            resp.truncated = true
+            resp.totalInventoryCount = trunc.total
+            resp.shownCount = trunc.shown
+            resp.truncationMessage =
+                "Steam reports ${trunc.total} items in your s&box inventory but we can only load " +
+                "${trunc.shown} at a time, so this list is incomplete. Items missing here are NOT " +
+                "items you don't own. Tell us if you need to list one that isn't shown.".toString()
+        }
+
+        // Re-probe AFTER the fetch — fetchInventory itself may have just
+        // tripped the negative cache on this call (first 429 of the window).
+        Long after = steamInventoryService.blockedUntilMs(user.steamId64)
+        Long signal = (blockedUntil != null) ? blockedUntil : after
+
+        // Say which of the seven things actually happened.
+        //
+        // fetchInventory returns [] for a private profile, a 429, any non-200,
+        // unparseable JSON, an unreadable shape, a transport exception — and for
+        // a genuinely empty inventory. All seven rendered as "No s&box items in
+        // your Steam inventory", so a seller whose profile was private, or whose
+        // fetch Steam had throttled, was told as settled fact that they owned
+        // nothing. The one case that WAS surfaced lumped 403 in with 429 and
+        // called both `rate_limited`, so a private profile produced "retry in
+        // 3 min" forever — advice that could never work.
+        if (enriched.isEmpty()) {
+            Map outcome = steamInventoryService.lastOutcomeFor(user.steamId64)
+            String o = outcome?.outcome
+            if (o != null && o != com.sboxmarket.service.SteamInventoryService.OUTCOME_OK) {
+                resp.reason = o
+                resp.reasonDetail = outcome.detail
+                // `unreadable` separates "we asked and the answer was zero" from
+                // "we could not get an answer". Only the first justifies telling
+                // the seller they have nothing to sell.
+                resp.unreadable = (o != com.sboxmarket.service.SteamInventoryService.OUTCOME_EMPTY)
+                resp.message = inventoryReasonMessage(o)
+            }
+        }
+        if (signal != null && enriched.isEmpty()) {
+            // intdiv() keeps this as long-division — Groovy's `/` on two
+            // longs yields a BigDecimal, and Math.max(long, BigDecimal)
+            // has no unambiguous overload (it throws GroovyRuntimeException
+            // "Ambiguous method overloading for Math#max"). That escape
+            // 500s GET /api/steam/inventory the instant a user is genuinely
+            // rate-limited — exactly when this branch runs.
+            long retryInSec = Math.max(1L, (signal - System.currentTimeMillis()).intdiv(1000L))
+            resp.blocked = true
+            resp.blockedUntil = signal
+            resp.retryInSec = retryInSec
+            // Do NOT clobber a more specific reason set above. The negative
+            // cache is tripped by BOTH 403 and 429, so hardcoding
+            // 'rate_limited' here is what told a private-profile user to wait
+            // and retry — advice that can never come true, because no amount of
+            // waiting makes a private inventory readable.
+            if (resp.reason == null) resp.reason = 'rate_limited'
+            if (resp.message == null) resp.message = inventoryReasonMessage(resp.reason as String)
+        }
+        ResponseEntity.ok(resp)
+    }
+
+    /**
+     * A sentence the seller can act on for each empty-inventory cause.
+     *
+     * Each one names a different remedy, which is the point: the previous
+     * single message ("No s&box items in your Steam inventory") was correct for
+     * exactly one of these and actively misleading for the rest.
+     */
+    private static String inventoryReasonMessage(String outcome) {
+        switch (outcome) {
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_PRIVATE:
+                return 'Your Steam inventory is private. Open Steam → Profile → Privacy Settings and set ' +
+                       '"Inventory" to Public, then refresh.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_RATE_LIMITED:
+            case 'rate_limited':
+                return 'Steam is rate-limiting our requests right now. Nothing is wrong with your account — ' +
+                       'wait a few minutes and refresh.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_UPSTREAM:
+                return 'Steam returned an error when we asked for your inventory. This is on Steam\'s side — ' +
+                       'try again shortly.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_MALFORMED:
+                return 'We reached Steam but could not read its reply, so we do not yet know what you own. ' +
+                       'This is our problem, not yours — please try again.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_NETWORK:
+                return 'We could not reach Steam to load your inventory. Try again in a moment.'
+            case com.sboxmarket.service.SteamInventoryService.OUTCOME_EMPTY:
+                // The app id and context are HARDCODED (590830 / 2). A wrong
+                // one returns a well-formed, genuinely empty asset list — which
+                // is indistinguishable here from owning nothing. Saying only
+                // "no items found" states the one interpretation the seller
+                // cannot act on. Naming the app/context we actually asked for,
+                // and the URL that answers it, is the difference between a
+                // seller who can diagnose this himself and one who cannot.
+                return 'Steam returned no items for s&box (app 590830, context 2). ' +
+                       'If you do own s&box cosmetics, check that your inventory is public and that ' +
+                       'they show at steamcommunity.com/profiles/<your id>/inventory/#590830_2 — ' +
+                       'if they appear there under a different game or context, tell us: we query 590830/2 only.'
+            default:
+                return null
+        }
     }
 
     @PostMapping("/sync")
@@ -95,6 +389,13 @@ class SteamInventoryController {
     @PostMapping("/list")
     ResponseEntity<Map> listFromSteam(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
+        // Symmetric with SellService.relist's banGuard — see the
+        // collaborator field comment for why the check has to live here
+        // rather than being inherited from a service call.
+        banGuard?.assertNotBanned(uid)
+        // Pre-flight: a seller the bot cannot collect from must not get a
+        // listing row at all. See requireSellerTradeUrl.
+        requireSellerTradeUrl(uid)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
         def assetId = body?.assetId?.toString()
         def priceRaw = body?.price
@@ -109,7 +410,12 @@ class SteamInventoryController {
         } catch (NumberFormatException ignored) {
             throw new BadRequestException("INVALID_PRICE", "price must be a valid number")
         }
-        if (price <= BigDecimal.ZERO) throw new BadRequestException("INVALID_PRICE", "price must be positive")
+        // Floor at $0.01 — the relist path enforces @DecimalMin("0.01") via
+        // SellListingRequest; this first-list path validated by hand and only
+        // rejected <= 0, so a sub-cent price (e.g. 0.004) rounded to $0.00 in
+        // listings.price NUMERIC(10,2), creating a free, instantly-buyable
+        // listing. Match the relist floor.
+        if (price < new BigDecimal("0.01")) throw new BadRequestException("INVALID_PRICE", "price must be at least \$0.01")
         // Mirror the DTO-layer cap used on /api/listings/sell and the
         // rest of the trading surface so a user can't list a Steam item
         // at $1,000,000,000 by bypassing the frontend form.
@@ -134,6 +440,20 @@ class SteamInventoryController {
             throw new BadRequestException("NOT_TRADABLE", "This item is not tradable on Steam right now.")
         }
 
+        // Double-list → double-sell guard. Forbid a second LIVE listing for the
+        // SAME physical asset: with the escrow bot disabled a listing goes
+        // straight to ACTIVE, so two listings of one asset could both sell and
+        // pay the seller twice for one undeliverable copy. Keys on assetId (the
+        // unique per-copy id) so owning two different copies of the same item
+        // is still fine; only ACTIVE / PENDING_ESCROW count (terminal rows and
+        // a returned-then-relisted asset are allowed).
+        if (listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(
+                uid, assetId,
+                ['ACTIVE', com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW])) {
+            throw new BadRequestException("ALREADY_LISTED",
+                "You already have an active listing for this item. Cancel it before listing it again.")
+        }
+
         def name = (steamItem.name ?: '').toString()
         // Indexed lookup via the `idx_items_name` functional index on
         // `LOWER(name)` — O(log N) instead of the previous full scan.
@@ -155,6 +475,91 @@ class SteamInventoryController {
             log.info("Auto-created catalogue item \"${item.name}\" from Steam inventory of ${user.steamId64}")
         }
 
+        // Optional auction fields — same shape as the /api/listings/sell
+        // DTO. Whitelist the type so anything bogus falls back to BUY_NOW;
+        // AUCTION must carry a durationHours in [1,168].
+        def rawType = (body?.listingType as String ?: 'BUY_NOW').toUpperCase()
+        def resolvedType = (rawType in ['BUY_NOW', 'AUCTION']) ? rawType : 'BUY_NOW'
+        Long durationHours = null
+        if (resolvedType == 'AUCTION') {
+            def rawDur = body?.durationHours
+            if (rawDur == null) {
+                throw new BadRequestException("DURATION_REQUIRED", "durationHours is required for AUCTION listings")
+            }
+            try {
+                durationHours = Long.parseLong(rawDur.toString())
+            } catch (NumberFormatException ignored) {
+                throw new BadRequestException("INVALID_DURATION", "durationHours must be a valid number")
+            }
+            if (durationHours < 1L || durationHours > 168L) {
+                throw new BadRequestException("INVALID_DURATION", "durationHours must be between 1 and 168")
+            }
+        }
+
+        // Optional Buy-Now ceiling on an auction (batch 371). Lets a
+        // buyer skip the auction entirely at this price. Must exceed
+        // the starting bid to be meaningful; equals/below would make
+        // Buy-Now cheaper than the first bid, which breaks the price
+        // discovery. Rejected outright on BUY_NOW — it's an auction-
+        // only concept.
+        BigDecimal buyNowPrice = null
+        def rawBuyNow = body?.buyNowPrice
+        if (rawBuyNow != null && rawBuyNow.toString().trim()) {
+            if (resolvedType != 'AUCTION') {
+                throw new BadRequestException("BUY_NOW_ON_BUY_NOW",
+                    "buyNowPrice only applies to AUCTION listings — the price field already sets the Buy Now amount on BUY_NOW listings.")
+            }
+            try {
+                buyNowPrice = new BigDecimal(rawBuyNow.toString())
+            } catch (NumberFormatException ignored) {
+                throw new BadRequestException("INVALID_BUY_NOW", "buyNowPrice must be a valid number")
+            }
+            if (buyNowPrice <= price) {
+                throw new BadRequestException("INVALID_BUY_NOW",
+                    "buyNowPrice must be greater than the starting bid (\$${price})")
+            }
+            if (buyNowPrice > new BigDecimal("100000")) {
+                throw new BadRequestException("BUY_NOW_TOO_HIGH",
+                    "buyNowPrice must not exceed \$100,000")
+            }
+        }
+
+        // Optional seller note (batch 304). Sanitised server-side;
+        // 500-char cap matches the column size and the edit form.
+        String cleanDesc = null
+        def rawDesc = body?.description as String
+        if (rawDesc != null && rawDesc.trim()) {
+            if (rawDesc.length() > 500) {
+                throw new BadRequestException("DESCRIPTION_TOO_LONG",
+                    "description must not exceed 500 characters")
+            }
+            cleanDesc = textSanitizer.clean(rawDesc, 500)
+        }
+        // Optional auto-accept threshold (batch 646). Fraction 0..1 —
+        // 0.20 means "auto-accept offers >= 80% of ask". Null / 0 =
+        // no auto-accept. Mirrors the MyStall edit form + the
+        // ListingController /sell DTO. Strict numeric parse; defensive
+        // bounds (same as SellService.relist).
+        BigDecimal maxDiscount = null
+        def rawMaxDisc = body?.maxDiscount
+        if (rawMaxDisc != null && rawMaxDisc.toString().trim()) {
+            try { maxDiscount = new BigDecimal(rawMaxDisc.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new BadRequestException("INVALID_DISCOUNT", "maxDiscount must be a valid number")
+            }
+            if (maxDiscount < BigDecimal.ZERO || maxDiscount >= BigDecimal.ONE) {
+                throw new BadRequestException("INVALID_DISCOUNT",
+                    "maxDiscount must be between 0 and 1 (exclusive)")
+            }
+            if (maxDiscount.signum() == 0) maxDiscount = null
+        }
+        // When bot-escrow is live, the listing is created NOT-yet-buyable
+        // (PENDING_ESCROW) so it can never be auto-sold (buy-order tryMatch
+        // gates on status='ACTIVE') before the bot actually holds the item.
+        // SteamEscrowService flips it to ACTIVE once the deposit is IN_CUSTODY.
+        // When the bot is unconfigured, it's plain ACTIVE (legacy behaviour).
+        String initialStatus = (steamEscrowService?.escrowEnabled)
+            ? com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW : 'ACTIVE'
         def listing = new Listing(
             item:         item,
             price:        price,
@@ -162,16 +567,206 @@ class SteamInventoryController {
             sellerAvatar: (user.displayName ?: 'US').take(2).toUpperCase(),
             condition:    '',
             rarityScore:  BigDecimal.ZERO,
-            status:       'ACTIVE',
+            status:       initialStatus,
             sellerUserId: uid,
-            listingType:  'BUY_NOW'
+            assetId:      assetId,
+            listingType:  resolvedType,
+            description:  cleanDesc,
+            buyNowPrice:  buyNowPrice,
+            maxDiscount:  maxDiscount
         )
+        if (resolvedType == 'AUCTION') {
+            listing.expiresAt = System.currentTimeMillis() + (durationHours * 60L * 60L * 1000L)
+        }
         def saved = listingService.createListing(listing)
+        // Bot-escrow DEPOSIT leg. When the bot is configured, request the
+        // seller's specific Steam asset into custody and hold the listing in
+        // PENDING_ESCROW until it's received (the listing only becomes buyable
+        // once IN_CUSTODY). When the bot is unconfigured, this is a no-op and
+        // the listing stays ACTIVE/buyable the legacy way. Best-effort — a
+        // deposit-request hiccup must not 500 the list call; the listing is
+        // already persisted and the deposit poller / re-list can recover.
+        try {
+            steamEscrowService?.requestDepositForListing(saved, assetId, name)
+        } catch (Exception e) {
+            log.warn("Escrow deposit request failed for listing ${saved.id}: ${e.message}")
+        }
+        // status already reflects the deposit hold (PENDING_ESCROW) when the
+        // bot is live, ACTIVE otherwise — so the response tells the seller the
+        // truth. escrowPending lets the UI render "waiting for your deposit".
         ResponseEntity.ok([
-            listingId: saved.id,
-            itemId:    item.id,
-            price:     saved.price,
-            status:    saved.status
+            listingId:    saved.id,
+            itemId:       item.id,
+            price:        saved.price,
+            status:       saved.status,
+            escrowPending: (steamEscrowService?.escrowEnabled ?: false),
+            listingType:  saved.listingType,
+            expiresAt:    saved.expiresAt,
+            buyNowPrice:  saved.buyNowPrice
         ])
+    }
+
+    /**
+     * Bulk-list every asset in the request body at the same flat price
+     * (batch 370). Common power-seller use case: "I've got 8 Wizard Hats,
+     * list them all at $10 each" without clicking through the sell form
+     * 8 times. Reuses the single-list flow internally — each item gets
+     * its own inventory probe, catalogue lookup, and Listing row, and one
+     * failing asset doesn't abort the batch.
+     *
+     * Payload: `{ assetIds: [String], price: Number, listingType?: 'BUY_NOW' }`
+     * Response: `{ ok: [{assetId, listingId, itemId, price}], failed: [{assetId, code, message}] }`
+     *
+     * BUY_NOW only — auction duration semantics on a batch get weird
+     * (do all 8 auctions share the same expiry?) so we keep that flow
+     * single-item. Capped at 20 assets per call to bound the tx.
+     */
+    @PostMapping("/list-bulk")
+    ResponseEntity<Map> listBulkFromSteam(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        // Symmetric with /list above. Gate fans into createListing()
+        // up front so a banned user can't slip 20 new listings through
+        // the bulk path in a single call.
+        banGuard?.assertNotBanned(uid)
+        // Same pre-flight as /list, and it matters MORE here: without it a
+        // trade-URL-less seller creates up to 20 dead PENDING_ESCROW listings
+        // in one call, every one of them invisible in their own stall and
+        // blocking a re-list of that asset via ALREADY_LISTED, until the 24h
+        // sweeper cancels all 20.
+        requireSellerTradeUrl(uid)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+
+        def raw = body?.assetIds
+        if (!(raw instanceof List)) {
+            throw new BadRequestException("INVALID_BODY", "assetIds must be an array")
+        }
+        def assetIds = (raw as List)
+            .collect { it == null ? null : it.toString().trim() }
+            .findAll { it && it.matches(/^\d{1,32}$/) }
+            .unique()
+        if (assetIds.isEmpty()) {
+            throw new BadRequestException("INVALID_BODY", "assetIds must contain at least one numeric id")
+        }
+        if (assetIds.size() > 20) {
+            throw new BadRequestException("TOO_MANY", "bulk-list is capped at 20 assets per call")
+        }
+        def priceRaw = body?.price
+        if (priceRaw == null) throw new BadRequestException("INVALID_PRICE", "price is required")
+        BigDecimal price
+        try { price = new BigDecimal(priceRaw.toString()) }
+        catch (NumberFormatException ignored) {
+            throw new BadRequestException("INVALID_PRICE", "price must be a valid number")
+        }
+        // Floor at $0.01 (matches the single-list path + relist DTO) — a
+        // sub-cent bulk price would round to $0.00 per row in NUMERIC(10,2).
+        if (price < new BigDecimal("0.01")) throw new BadRequestException("INVALID_PRICE", "price must be at least \$0.01")
+        if (price > new BigDecimal("100000")) {
+            throw new BadRequestException("PRICE_TOO_HIGH", "price must not exceed \$100,000")
+        }
+
+        // Batch 648 — optional auto-accept threshold applied uniformly
+        // across every listing in the batch. Same shape + validation as
+        // the single-list path. Null / 0 / omitted = no auto-accept.
+        BigDecimal bulkMaxDiscount = null
+        def rawBulkMaxDisc = body?.maxDiscount
+        if (rawBulkMaxDisc != null && rawBulkMaxDisc.toString().trim()) {
+            try { bulkMaxDiscount = new BigDecimal(rawBulkMaxDisc.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new BadRequestException("INVALID_DISCOUNT", "maxDiscount must be a valid number")
+            }
+            if (bulkMaxDiscount < BigDecimal.ZERO || bulkMaxDiscount >= BigDecimal.ONE) {
+                throw new BadRequestException("INVALID_DISCOUNT",
+                    "maxDiscount must be between 0 and 1 (exclusive)")
+            }
+            if (bulkMaxDiscount.signum() == 0) bulkMaxDiscount = null
+        }
+
+        // Fetch inventory ONCE; per-asset lookup walks the in-memory list.
+        def inv = steamInventoryService.fetchInventory(user.steamId64)
+        def byAsset = [:]
+        inv.each { byAsset[(it.assetId as String)] = it }
+
+        String sellerName = user.displayName ?: ("Player_" + user.steamId64.takeRight(6))
+        String sellerAvatar = (user.displayName ?: 'US').take(2).toUpperCase()
+
+        def results = []
+        def failed = []
+        assetIds.each { assetId ->
+            try {
+                def steamItem = byAsset[assetId]
+                if (steamItem == null) {
+                    failed << [assetId: assetId, code: 'NOT_IN_INVENTORY',
+                        message: 'Not in current Steam inventory']
+                    return
+                }
+                if (!steamItem.tradable) {
+                    failed << [assetId: assetId, code: 'NOT_TRADABLE',
+                        message: 'Not tradable on Steam right now']
+                    return
+                }
+                // Double-list guard (mirrors the single-list path): reject a
+                // second LIVE listing of the same asset from a prior request.
+                // (Same-batch duplicate ids are already removed by the
+                // `.unique()` on assetIds above, so the DB check is enough.)
+                if (listingRepository.existsBySellerUserIdAndAssetIdAndStatusIn(
+                        uid, assetId,
+                        ['ACTIVE', com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW])) {
+                    failed << [assetId: assetId, code: 'ALREADY_LISTED',
+                        message: 'You already have an active listing for this item']
+                    return
+                }
+                def name = (steamItem.name ?: '').toString()
+                def item = itemRepository.findByNameIgnoreCase(name)
+                if (item == null) {
+                    item = itemRepository.save(new Item(
+                        name:        name.take(255),
+                        category:    steamInventoryService.inferCategory(steamItem),
+                        rarity:      'Standard',
+                        imageUrl:    steamItem.iconUrl as String,
+                        accentColor: '#13192a',
+                        lowestPrice: price,
+                        steamPrice:  price,
+                        supply:      1,
+                        totalSold:   0,
+                        trendPercent: 0
+                    ))
+                }
+                // PENDING_ESCROW when the bot is live (see single-list note),
+                // plain ACTIVE otherwise.
+                String initialStatus = (steamEscrowService?.escrowEnabled)
+                    ? com.sboxmarket.service.SteamEscrowService.STATUS_PENDING_ESCROW : 'ACTIVE'
+                def listing = new Listing(
+                    item:         item,
+                    price:        price,
+                    sellerName:   sellerName,
+                    sellerAvatar: sellerAvatar,
+                    condition:    '',
+                    rarityScore:  BigDecimal.ZERO,
+                    status:       initialStatus,
+                    sellerUserId: uid,
+                    assetId:      assetId,
+                    listingType:  'BUY_NOW',
+                    maxDiscount:  bulkMaxDiscount
+                )
+                def saved = listingService.createListing(listing)
+                // Bot-escrow DEPOSIT leg per item — same contract as the
+                // single-list path. No-op when the bot is unconfigured.
+                try {
+                    steamEscrowService?.requestDepositForListing(saved, assetId, name)
+                } catch (Exception e) {
+                    log.warn("Escrow deposit request failed for bulk listing ${saved.id}: ${e.message}")
+                }
+                results << [assetId: assetId, listingId: saved.id, itemId: item.id, price: saved.price,
+                            status: saved.status,
+                            escrowPending: (steamEscrowService?.escrowEnabled ?: false)]
+            } catch (BadRequestException e) {
+                failed << [assetId: assetId, code: e.code ?: 'BAD_REQUEST', message: e.message]
+            } catch (Exception e) {
+                log.warn("bulk-list failed for asset ${assetId}: ${e.message}")
+                failed << [assetId: assetId, code: 'INTERNAL_ERROR', message: 'Could not list this item']
+            }
+        }
+        log.info("Bulk-list: user ${uid} · ${results.size()} ok · ${failed.size()} failed")
+        ResponseEntity.ok([ok: results, failed: failed])
     }
 }

@@ -2,6 +2,20 @@ server:
   port: 0  # random port per test run
 
 spring:
+  # Exclude SessionAutoConfiguration in the test profile only — the
+  # spring-session-jdbc dep is on the classpath because the prod profile
+  # uses it (via @Profile("prod") SessionConfig.groovy + @EnableJdbcHttpSession),
+  # but Spring Boot autoconfig would otherwise wire Spring Session in
+  # tests too and break BuyFlowIntegrationSpec (req.session.setAttribute
+  # bypasses Spring Session, so the controller's session lookup returns
+  # null and every test 401s). This exclusion is scoped to the test
+  # profile only — prod still gets persistent JDBC sessions.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.session.SessionAutoConfiguration
+  session:
+    store-type: none
+
   datasource:
     url: jdbc:h2:mem:sboxmarket-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver

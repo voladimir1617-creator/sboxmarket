@@ -3,6 +3,7 @@ package com.sboxmarket.controller
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Trade
+import com.sboxmarket.service.TradeProtectionService
 import com.sboxmarket.service.TradeService
 import groovy.util.logging.Slf4j
 import jakarta.servlet.http.HttpServletRequest
@@ -22,6 +23,12 @@ class TradeController {
 
     @Autowired TradeService tradeService
 
+    /** Optional — surfaces the Trade Protection (`protected` flag +
+     *  protection summary) on the single-trade payload. `required =
+     *  false` so older test contexts that construct TradeController
+     *  with only a TradeService still wire; `get()` null-guards it. */
+    @Autowired(required = false) TradeProtectionService tradeProtectionService
+
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (uid == null) throw new UnauthorizedException()
@@ -29,12 +36,24 @@ class TradeController {
     }
 
     @GetMapping
-    ResponseEntity<List<Trade>> mine(HttpServletRequest req) {
-        ResponseEntity.ok(tradeService.listForUser(requireUser(req)))
+    ResponseEntity<List<Map>> mine(HttpServletRequest req) {
+        // Enriched list — each row carries counterpartyTradeUrl +
+        // counterpartyName so the Profile → Trades tab can show a
+        // "Copy seller trade URL" button without the client having to
+        // fan out /api/auth lookups per row. Capped at TRADE_LIST_CAP
+        // (200); X-Total-Count header carries the true row count so
+        // the Trades tab can render "Showing most recent 200 of N"
+        // for power-users.
+        def uid = requireUser(req)
+        def rows = tradeService.listForUserWithCounterparty(uid)
+        long total = tradeService.countForUser(uid)
+        ResponseEntity.ok()
+            .header("X-Total-Count", String.valueOf(total))
+            .body(rows)
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<Trade> get(@PathVariable Long id, HttpServletRequest req) {
+    ResponseEntity<Map> get(@PathVariable Long id, HttpServletRequest req) {
         def uid = requireUser(req)
         def t = tradeService.get(id)
         // Enforce participant visibility at the controller too so a plain
@@ -42,7 +61,40 @@ class TradeController {
         if (t.buyerUserId != uid && t.sellerUserId != uid) {
             throw new com.sboxmarket.exception.ForbiddenException("Not your trade")
         }
-        ResponseEntity.ok(t)
+        // The single-trade payload is the Trade entity's fields plus the
+        // Trade Protection surface: a `protected` boolean and, when the
+        // trade is protected, a compact `protection` summary (status,
+        // fee, coverage). Lets the trade UI render the "Protected" badge
+        // without a second round-trip. tradeProtectionService is optional
+        // (older wiring) — falls back to protected:false when absent.
+        def protection = tradeProtectionService?.summary(id)
+        ResponseEntity.ok(tradePayload(t, protection))
+    }
+
+    /** Trade entity fields + the Trade Protection surface, as a Map so
+     *  the `protected` flag can ride alongside the trade without a
+     *  schema change to the Trade entity. */
+    private static Map tradePayload(Trade t, Map protection) {
+        [
+            id:             t.id,
+            listingId:      t.listingId,
+            itemId:         t.itemId,
+            itemName:       t.itemName,
+            buyerUserId:    t.buyerUserId,
+            sellerUserId:   t.sellerUserId,
+            price:          t.price,
+            feeAmount:      t.feeAmount,
+            state:          t.state,
+            note:           t.note,
+            createdAt:      t.createdAt,
+            updatedAt:      t.updatedAt,
+            settledAt:      t.settledAt,
+            sentAt:         t.sentAt,
+            tradeOfferUrl:  t.tradeOfferUrl,
+            // Trade Protection surface.
+            protected:      protection != null,
+            protection:     protection
+        ]
     }
 
     @PostMapping("/{id}/accept")
@@ -51,8 +103,15 @@ class TradeController {
     }
 
     @PostMapping("/{id}/sent")
-    ResponseEntity<Trade> markSent(@PathVariable Long id, HttpServletRequest req) {
-        ResponseEntity.ok(tradeService.sellerMarkSent(requireUser(req), id))
+    ResponseEntity<Trade> markSent(@PathVariable Long id,
+                                   @RequestBody(required = false) Map body,
+                                   HttpServletRequest req) {
+        // Batch 773 — optional `tradeOfferUrl` body param lets the seller
+        // attach the Steam trade-offer link at Mark-Sent time. Legacy
+        // clients posting no body still work (url falls through to null
+        // and the service just skips the update).
+        def url = body?.tradeOfferUrl as String
+        ResponseEntity.ok(tradeService.sellerMarkSent(requireUser(req), id, url))
     }
 
     @PostMapping("/{id}/confirm")
@@ -64,6 +123,27 @@ class TradeController {
     ResponseEntity<Trade> dispute(@PathVariable Long id, @RequestBody(required = false) Map body, HttpServletRequest req) {
         def reason = capReason(body?.reason as String)
         ResponseEntity.ok(tradeService.dispute(requireUser(req), id, reason))
+    }
+
+    // ── Trade chat ───────────────────────────────────────────────────
+
+    @GetMapping('/{id}/messages')
+    ResponseEntity<List<com.sboxmarket.model.TradeMessage>> messages(@PathVariable Long id, HttpServletRequest req) {
+        ResponseEntity.ok(tradeService.listMessages(id, requireUser(req)))
+    }
+
+    @PostMapping('/{id}/messages')
+    ResponseEntity<com.sboxmarket.model.TradeMessage> postMessage(@PathVariable Long id,
+                                                                   @RequestBody Map body,
+                                                                   HttpServletRequest req) {
+        def text = body?.body as String
+        if (text == null || text.trim().isEmpty()) {
+            throw new com.sboxmarket.exception.BadRequestException('EMPTY_MESSAGE', 'Message body is required')
+        }
+        if (text.length() > 2000) {
+            throw new com.sboxmarket.exception.BadRequestException('TOO_LONG', 'Messages must be under 2000 characters')
+        }
+        ResponseEntity.ok(tradeService.postMessage(id, requireUser(req), text))
     }
 
     @PostMapping("/{id}/cancel")

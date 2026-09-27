@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Notifications — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .nf-feed {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .nf-day {
+    font-size: var(--t-11);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+    font-weight: 600;
+    padding: var(--s-20) 0 var(--s-10);
+    position: sticky;
+    top: var(--nav-h);
+    background: color-mix(in oklch, var(--bg) 92%, transparent);
+    backdrop-filter: blur(10px);
+    z-index: 1;
+  }
+  .nf {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: var(--s-14);
+    padding: var(--s-14) var(--s-16);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--bg-1);
+    margin-bottom: var(--s-8);
+    transition: border-color .12s, background .12s;
+    align-items: center;
+    cursor: pointer;
+  }
+  .nf:hover { border-color: var(--line-2); background: var(--bg-2); }
+  .nf.is-unread { border-left: 2px solid var(--blue); padding-left: calc(var(--s-16) - 1px); }
+
+  .nf-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    color: var(--ink-2);
+  }
+  .nf-icon.up   { color: var(--up); }
+  .nf-icon.down { color: var(--down); }
+  .nf-icon.cta  { color: var(--blue); }
+
+  .nf-body { font-size: var(--t-13); }
+  .nf-title { color: var(--ink); }
+  .nf-sub { font-size: var(--t-11); color: var(--ink-3); margin-top: 2px; }
+
+  .nf-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .nf-time { font-size: var(--t-11); color: var(--ink-4); font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout nf-feed">
+
+  <div class="page-h">
+    <div>
+      <div class="crumb"><span style="color: var(--ink);">Notifications</span></div>
+      <h1>Notifications</h1>
+    </div>
+    <div class="row" style="gap: var(--s-8);">
+      <button class="btn btn-ghost btn-sm">Filter</button>
+      <button class="btn btn-secondary btn-sm">Mark all read</button>
+    </div>
+  </div>
+
+  <div class="tabs-row" style="margin-bottom: var(--s-12);">
+    <div class="tabs">
+      <button class="tab is-active">All <span class="count">38</span></button>
+      <button class="tab">Unread <span class="count">12</span></button>
+      <button class="tab">Sales</button>
+      <button class="tab">Offers</button>
+      <button class="tab">Auctions</button>
+      <button class="tab">Watchlist</button>
+    </div>
+  </div>
+
+  <!-- Today -->
+  <div class="nf-day">Today · April 29</div>
+
+  <div class="nf is-unread">
+    <div class="nf-icon up"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">Sold <strong>AK-47 | Vulcan FT</strong> for <span class="mono">$284.20</span></div>
+      <div class="nf-sub">Buyer: <span class="mono">scope_</span> · ID 38120414918 · settling in 2h</div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">14m</span>
+      <a href="#" class="btn btn-ghost btn-sm">View</a>
+    </div>
+  </div>
+
+  <div class="nf is-unread">
+    <div class="nf-icon cta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h18l-2 12H5L3 8Z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">New offer <span class="mono">$172.00</span> on <strong>M4A1-S | Hot Rod</strong></div>
+      <div class="nf-sub">From <span class="mono">tally.</span> · expires in 22h · 6% below your list price</div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">2h</span>
+      <a href="#" class="btn btn-secondary btn-sm">Review</a>
+    </div>
+  </div>
+
+  <div class="nf is-unread">
+    <div class="nf-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">Auction ending soon · <strong>★ Karambit | Fade FN</strong></div>
+      <div class="nf-sub">Your bid <span class="mono">$2,140</span> is leading · 4 minutes left</div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">4m</span>
+      <a href="#" class="btn btn-cta btn-sm">View</a>
+    </div>
+  </div>
+
+  <div class="nf">
+    <div class="nf-icon down"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">Paid <span class="mono">$84.40</span> for <strong>AWP | Neo-Noir FN</strong></div>
+      <div class="nf-sub">Seller: <span class="mono">jeradel</span> · in escrow · expected delivery 14:32</div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">5h</span>
+      <a href="#" class="btn btn-ghost btn-sm">View</a>
+    </div>
+  </div>
+
+  <div class="nf">
+    <div class="nf-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">Watchlist · <strong>AK-47 | Wild Lotus</strong> just dropped 8%</div>
+      <div class="nf-sub">Now <span class="mono">$11,420</span> · was <span class="mono">$12,420</span></div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">8h</span>
+      <a href="#" class="btn btn-ghost btn-sm">View</a>
+    </div>
+  </div>
+
+  <!-- Yesterday -->
+  <div class="nf-day">Yesterday · April 28</div>
+
+  <div class="nf">
+    <div class="nf-icon up"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">Sold <strong>Glock-18 | Water Elemental FT</strong> for <span class="mono">$8.12</span></div>
+      <div class="nf-sub">Buyer: <span class="mono">m1k_</span></div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">1d</span>
+      <a href="#" class="btn btn-ghost btn-sm">View</a>
+    </div>
+  </div>
+
+  <div class="nf">
+    <div class="nf-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 2.6 7.4 7.4.6-5.6 5 2 7.4-6.4-3.8-6.4 3.8 2-7.4-5.6-5 7.4-.6Z"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">5-star review from <strong>nico</strong></div>
+      <div class="nf-sub">"fast delivery, smooth" · on AWP | Neo-Noir</div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">1d</span>
+      <a href="#" class="btn btn-ghost btn-sm">View</a>
+    </div>
+  </div>
+
+  <div class="nf">
+    <div class="nf-icon down"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M16 7l5 5-5 5"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">Withdrawal of <span class="mono">$500.00</span> arrived in your bank</div>
+      <div class="nf-sub">Stripe payout to ••3287</div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">2d</span>
+      <a href="#" class="btn btn-ghost btn-sm">Receipt</a>
+    </div>
+  </div>
+
+  <!-- Earlier -->
+  <div class="nf-day">Earlier this week</div>
+
+  <div class="nf">
+    <div class="nf-icon up"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">Sold <strong>★ Karambit | Fade FN</strong> at auction</div>
+      <div class="nf-sub">Final bid <span class="mono">$2,140</span> · winner <span class="mono">tally.</span></div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">5d</span>
+      <a href="#" class="btn btn-ghost btn-sm">View</a>
+    </div>
+  </div>
+
+  <div class="nf">
+    <div class="nf-icon cta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg></div>
+    <div class="nf-body">
+      <div class="nf-title">Deposit of <span class="mono">$1,000.00</span> cleared</div>
+      <div class="nf-sub">Visa ••4124 · funds available</div>
+    </div>
+    <div class="nf-meta">
+      <span class="nf-time">5d</span>
+      <a href="#" class="btn btn-ghost btn-sm">View</a>
+    </div>
+  </div>
+
+  <div style="text-align: center; padding: var(--s-32) 0;">
+    <button class="btn btn-ghost btn-sm">Load older notifications →</button>
+  </div>
+
+</main>
+
+</body>
+</html>

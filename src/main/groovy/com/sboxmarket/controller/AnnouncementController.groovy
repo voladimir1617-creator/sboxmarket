@@ -1,0 +1,133 @@
+package com.sboxmarket.controller
+
+import com.sboxmarket.exception.UnauthorizedException
+import com.sboxmarket.model.Announcement
+import com.sboxmarket.service.AnnouncementService
+import com.sboxmarket.service.security.AdminAuthorization
+import groovy.util.logging.Slf4j
+import jakarta.servlet.http.HttpServletRequest
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.*
+
+/**
+ * Sitewide announcement banner endpoints.
+ *
+ * Public:
+ *   GET  /api/announcement            — current banner or null
+ *
+ * Admin (requires ADMIN role):
+ *   GET    /api/admin/announcements        — list everything (history)
+ *   POST   /api/admin/announcements        — create a new live banner
+ *   DELETE /api/admin/announcements/{id}   — deactivate a banner
+ */
+@RestController
+@Slf4j
+class AnnouncementController {
+
+    @Autowired AnnouncementService announcementService
+    @Autowired AdminAuthorization adminAuthorization
+
+    private Long requireAdminUser(HttpServletRequest req) {
+        def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        if (uid == null) throw new UnauthorizedException()
+        adminAuthorization.requireAdmin(uid)
+        uid
+    }
+
+    @GetMapping("/api/announcement")
+    ResponseEntity<Map> current() {
+        def row = announcementService.current()
+        // Batch 820 — `public, max-age=30`. Announcements are global
+        // and change rarely (admin posts a banner, users see it).
+        // A CDN-shared 30s cache absorbs the homepage poll storm
+        // (every client ticks this every 2 minutes) without keeping
+        // a stale banner around after deactivation. Safe to share
+        // because the response has no viewer-specific fields.
+        def cache = 'public, max-age=30'
+        if (row == null) {
+            return ResponseEntity.ok()
+                .header('Cache-Control', cache)
+                .body([announcement: null])
+        }
+        ResponseEntity.ok()
+            .header('Cache-Control', cache)
+            .body([
+                announcement: [
+                    id:        row.id,
+                    message:   row.message,
+                    severity:  row.severity,
+                    createdAt: row.createdAt,
+                    expiresAt: row.expiresAt
+                ]
+            ])
+    }
+
+    /** Admin history of every banner ever posted. Admin-only — but a
+     *  long-lived deployment can accumulate hundreds of historical
+     *  rows. Bound the response so the Admin → Announcements page
+     *  doesn't ship a multi-MB JSON to every admin who opens it.
+     *  Default 50, `?limit` (1..200) overrides. Repository ordering
+     *  is `createdAt DESC` so newest-first is stable. The `?limit`
+     *  param is parsed from the raw request rather than a
+     *  @RequestParam binding so a Groovy default-value overload
+     *  doesn't get auto-generated and double-map this route. */
+    @GetMapping("/api/admin/announcements")
+    ResponseEntity<List<Announcement>> listAll(HttpServletRequest req) {
+        requireAdminUser(req)
+        int cap = parseLimit(req, 50, 200)
+        def rows = announcementService.listAll()
+        if (rows.size() > cap) rows = rows.take(cap)
+        ResponseEntity.ok(rows)
+    }
+
+    /** Parse `?limit=N` from the raw request without binding via
+     *  @RequestParam so the controller method has only the single
+     *  `HttpServletRequest` arg + no Groovy default-value overload.
+     *  Clamps into [1, max]; falls back to `defaultCap` on missing,
+     *  blank, non-numeric, or out-of-range input. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
+    }
+
+    @PostMapping("/api/admin/announcements")
+    ResponseEntity<Announcement> create(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireAdminUser(req)
+        Long expiresAt = null
+        if (body?.expiresAt != null) {
+            try { expiresAt = Long.valueOf(body.expiresAt.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new com.sboxmarket.exception.BadRequestException(
+                    "INVALID_EXPIRES_AT", "expiresAt must be a millisecond timestamp")
+            }
+        }
+        // Upstream length caps — sanitizer at the service layer silently
+        // truncates message to 500 chars + normalises severity to a
+        // 3-token whitelist. Reject huge payloads before they ever reach
+        // the sanitizer so a crafted client can't waste parser/GC budget
+        // posting a 10 MB banner message. The caps are far above any
+        // realistic admin input; legitimate banners stay well under.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'message',
+            com.sboxmarket.util.InputLimits.MEDIUM_TEXT,
+            'MESSAGE_TOO_LONG', 'message')
+        com.sboxmarket.util.InputLimits.requireMax(body, 'severity',
+            com.sboxmarket.util.InputLimits.SHORT_LABEL,
+            'SEVERITY_TOO_LONG', 'severity')
+        def row = announcementService.create(uid, body?.message as String,
+            body?.severity as String, expiresAt)
+        ResponseEntity.ok(row)
+    }
+
+    @DeleteMapping("/api/admin/announcements/{id}")
+    ResponseEntity<Announcement> deactivate(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireAdminUser(req)
+        ResponseEntity.ok(announcementService.deactivate(uid, id))
+    }
+}

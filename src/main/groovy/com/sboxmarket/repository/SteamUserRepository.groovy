@@ -3,42 +3,153 @@ package com.sboxmarket.repository
 import com.sboxmarket.model.SteamUser
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
+import jakarta.persistence.LockModeType
 
 @Repository
 interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
 
     SteamUser findBySteamId64(String steamId64)
 
+    /** Email-uniqueness probe (batch 477). Used by ProfileController.setEmail
+     *  to refuse multi-account email collisions. Case-insensitive — the
+     *  controller lowercases on write but legacy rows might still have
+     *  mixed case. Returns NULL when the email is free. */
+    @Query("SELECT u FROM SteamUser u WHERE LOWER(u.email) = LOWER(:email)")
+    List<SteamUser> findByEmailIgnoreCase(@Param('email') String email)
+
+    /** Paged companion — bounded by the email-uniqueness invariant in
+     *  normal use; the cap is a defence against a legacy data drift
+     *  where many rows might share an email. Callers should pass
+     *  PageRequest.of(0, 2) since presence/absence is all that matters. */
+    @Query("SELECT u FROM SteamUser u WHERE LOWER(u.email) = LOWER(:email)")
+    List<SteamUser> findByEmailIgnoreCase(@Param('email') String email, Pageable page)
+
+    /** Canonical-email uniqueness probe (V63 — Gmail-alias bypass fix).
+     *  The case-insensitive {@link #findByEmailIgnoreCase} above is
+     *  defeated by Gmail's dot-insensitivity and `+tag` sub-addressing
+     *  (`victim+a@gmail.com`, `vic.tim@gmail.com`, `victim@googlemail.com`
+     *  all route to the same inbox). ProfileController.setEmail now
+     *  computes a canonical form via EmailNormalizer and probes that
+     *  column. The DB-level partial UNIQUE index on canonical_email is
+     *  the defence-in-depth backstop for the TOCTOU race two concurrent
+     *  /email writes for the same canonical mailbox would otherwise
+     *  exploit. */
+    @Query("SELECT u FROM SteamUser u WHERE u.canonicalEmail = :canonical")
+    List<SteamUser> findByCanonicalEmail(@Param('canonical') String canonical)
+
+    /** Trade-URL partner-id collision probe (batch 478). The `partner=`
+     *  query param inside a Steam trade URL derives from the account's
+     *  Steam ID32 — two SkinBox accounts with the same partner id
+     *  almost certainly represent the same human (account-stuffing).
+     *  Anchored with the trailing `&token=` separator so a prefix match
+     *  doesn't false-collide — without the `&token=` anchor, a probe
+     *  for partner id `12345` would also match a stored `partner=123456`
+     *  via the bare `%partner=12345%` substring, locking legitimate users
+     *  out with a spurious TRADE_URL_TAKEN. The TRADE_URL_RE in
+     *  ProfileController guarantees `partner=\d+&token=` is the only
+     *  shape that ever persists. */
+    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '&token=%') ESCAPE '\\'")
+    List<SteamUser> findByTradeUrlPartnerId(@Param('partnerId') String partnerId)
+
+    /** Paged companion — coordinated account-stuffing can produce many
+     *  matches; the cap bounds the per-call hydration. */
+    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '&token=%') ESCAPE '\\'")
+    List<SteamUser> findByTradeUrlPartnerId(@Param('partnerId') String partnerId, Pageable page)
+
     /**
-     * Case-insensitive search across display name + Steam ID64. Backed by
-     * the `idx_steam_users_display_lower` index landed in V9 so this is
-     * sub-millisecond even at 1M+ users. Replaces the old
-     * `findAll().findAll { contains() }` full-table scan in CsrService.
+     * Case-insensitive search across display name, Steam ID64, AND email.
+     * Email is added because support tickets usually reference a user's
+     * email, not their Steam display name — without email search, an admin
+     * triaging a "can't deposit" ticket had to ask the user for their
+     * Steam ID first. Backed by the `idx_steam_users_display_lower` index
+     * landed in V9; email is a minority match so the O(N) scan on that
+     * column is acceptable for admin-only traffic.
      */
     @Query("""
         SELECT u FROM SteamUser u
-        WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%'))
-           OR u.steamId64 LIKE CONCAT('%', :q, '%')
+        WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\'
+           OR u.steamId64 LIKE CONCAT('%', :q, '%') ESCAPE '\\'
+           OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\'
         ORDER BY u.createdAt DESC
     """)
     List<SteamUser> searchByNameOrSteamId(@Param('q') String query, Pageable page)
+
+    /** Batch 765 — admin-only list filtered by role + banned state.
+     *  `role = 'ANY'` skips the role predicate; `banned = null` skips
+     *  the banned predicate. Used by the Admin Users panel to surface
+     *  "all current admins" or "all suspended users" with one click,
+     *  without scrolling through hundreds of normal users. */
+    @Query("""
+        SELECT u FROM SteamUser u
+        WHERE (:role = 'ANY' OR u.role = :role)
+          AND (:banned IS NULL OR u.banned = :banned)
+        ORDER BY u.createdAt DESC
+    """)
+    List<SteamUser> listByRoleAndBanned(@Param('role') String role,
+                                        @Param('banned') Boolean banned,
+                                        Pageable page)
+
+    /**
+     * Public seller search (batch 666). Case-insensitive displayName LIKE
+     * filtered to users who have at least one listing posted, excluding
+     * banned accounts. Returns `[id, displayName, avatarUrl]` projection
+     * rows so the controller can attach per-seller sold + active counts
+     * in a single bulk follow-up (avoids the per-row correlated subquery
+     * that PostgreSQL's planner handles poorly at scale).
+     *
+     * EXISTS gate on Listing is intentional — without it, this endpoint
+     * becomes a "find any SkinBox user" enumerator rather than a seller
+     * discovery surface. A dormant account with no listings is not a
+     * public seller and should not be surfaced by name.
+     */
+    @Query("""
+        SELECT u.id, u.displayName, u.avatarUrl FROM SteamUser u
+        WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\'
+          AND (u.banned IS NULL OR u.banned = false)
+          AND EXISTS (SELECT 1 FROM Listing l WHERE l.sellerUserId = u.id)
+        ORDER BY u.displayName ASC
+    """)
+    List<Object[]> searchPublicSellers(@Param('q') String query, Pageable page)
 
     /** Banned user list for the admin panel — uses the partial index from V9. */
     @Query("SELECT u FROM SteamUser u WHERE u.banned = true ORDER BY u.id DESC")
     List<SteamUser> findBanned()
 
+    /** Paged companion — at scale the banned set grows large; admin UI
+     *  should cap rather than hydrate every banned row in one request. */
+    @Query("SELECT u FROM SteamUser u WHERE u.banned = true ORDER BY u.id DESC")
+    List<SteamUser> findBanned(Pageable page)
+
     /** Count by role for CSR/admin dashboards — uses idx_steam_users_role. */
     @Query("SELECT COUNT(u) FROM SteamUser u WHERE u.role = :role")
     long countByRole(@Param('role') String role)
+
+    /** List users by role — uses idx_steam_users_role so it scales.
+     *  Replaces the `findAll().findAll { role == 'ADMIN' }` full-table
+     *  scan that chargeback fan-out used to fire (batch 483). */
+    @Query("SELECT u FROM SteamUser u WHERE u.role = :role ORDER BY u.id ASC")
+    List<SteamUser> findByRole(@Param('role') String role)
+
+    /** Paged companion — for non-ADMIN/STAFF roles the result set can
+     *  be enormous; fan-out callers should iterate via Pageable rather
+     *  than hydrate every USER row in one query. */
+    @Query("SELECT u FROM SteamUser u WHERE u.role = :role ORDER BY u.id ASC")
+    List<SteamUser> findByRole(@Param('role') String role, Pageable page)
 
     /** Count of banned users for the admin dashboard — uses the partial
      *  index `idx_steam_users_banned` landed in V9 so it stays O(K) where
      *  K is the number of banned rows, not the full table size. */
     @Query("SELECT COUNT(u) FROM SteamUser u WHERE u.banned = true")
     long countBanned()
+
+    /** Count of accounts created since a timestamp — drives the admin
+     *  dashboard "New users 24h" stat. */
+    @Query("SELECT COUNT(u) FROM SteamUser u WHERE u.createdAt >= :since")
+    long countCreatedSince(@Param('since') Long since)
 
     /** Background Steam sync candidates — users who have either never
      *  been synced or whose last sync is older than the cutoff.
@@ -52,4 +163,165 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
         ORDER BY u.lastSyncedAt ASC NULLS FIRST
     """)
     List<SteamUser> findStaleForSync(@Param("cutoff") Long cutoff, Pageable page)
+
+    /** Users who have self-service-requested deletion and are awaiting
+     *  staff review. Oldest-first so the admin queue triages the tail.
+     *  Uses the partial index landed in V21. */
+    @Query("""
+        SELECT u FROM SteamUser u
+        WHERE u.deletionRequestedAt IS NOT NULL
+        ORDER BY u.deletionRequestedAt ASC
+    """)
+    List<SteamUser> findDeletionRequested()
+
+    /** Paged companion — admin deletion queue grows during incident
+     *  spikes; cap to keep the queue render at O(pageSize). */
+    @Query("""
+        SELECT u FROM SteamUser u
+        WHERE u.deletionRequestedAt IS NOT NULL
+        ORDER BY u.deletionRequestedAt ASC
+    """)
+    List<SteamUser> findDeletionRequested(Pageable page)
+
+    /** Sellers whose scheduled vacation-mode return time has passed.
+     *  Drives the hourly `ListingService.sweepExpiredAwayMode` job;
+     *  served from the partial index landed in V33 so the cost stays
+     *  proportional to the number of users currently on vacation, not
+     *  the full table. */
+    @Query("""
+        SELECT u FROM SteamUser u
+        WHERE u.awayModeUntil IS NOT NULL
+          AND u.awayModeUntil <= :now
+    """)
+    List<SteamUser> findExpiredAwayMode(@Param('now') Long now)
+
+    /** Paged companion — sweeper input; on a busy platform the expired-
+     *  vacation set can grow if sweeps lag, so batch via Pageable. */
+    @Query("""
+        SELECT u FROM SteamUser u
+        WHERE u.awayModeUntil IS NOT NULL
+          AND u.awayModeUntil <= :now
+    """)
+    List<SteamUser> findExpiredAwayMode(@Param('now') Long now, Pageable page)
+
+    /** Broadcast-notification target list (batch 566). Paginated `id ASC`
+     *  scan over non-banned, non-deletion-requested users. The admin
+     *  broadcast tool iterates pages and pushes one notification row
+     *  per user per page, keeping each tx small enough to not swamp the
+     *  DB for sites with 100k+ accounts. Banned / deletion-pending
+     *  users are excluded so the broadcast doesn't flood accounts that
+     *  won't / can't act on it. */
+    @Query("""
+        SELECT u.id FROM SteamUser u
+        WHERE (u.banned IS NULL OR u.banned = false)
+          AND u.deletionRequestedAt IS NULL
+        ORDER BY u.id ASC
+    """)
+    List<Long> findActiveUserIds(Pageable page)
+
+    /** Bulk presence lookup (V61). Returns `[userId, lastSeenAt]` pairs
+     *  for the given ids — drives `Listing.sellerLastSeenAt` decoration
+     *  on every list endpoint without per-row hits. Empty input → empty
+     *  output (caller short-circuits). Indexed by PK. */
+    @Query("SELECT u.id, u.lastSeenAt FROM SteamUser u WHERE u.id IN :ids")
+    List<Object[]> findLastSeenAtByIds(@Param('ids') Collection<Long> ids)
+
+    /** Single-user lastSeenAt persist (PresenceFilter throttle path).
+     *  Bulk UPDATE so we don't load the full SteamUser row just to
+     *  bump one timestamp on every authenticated request. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("UPDATE SteamUser u SET u.lastSeenAt = :ts WHERE u.id = :id")
+    int updateLastSeenAt(@Param('id') Long id, @Param('ts') Long timestamp)
+
+    /** CAS-style commit of a 2FA enrollment. Used by /2fa/confirm so two
+     *  concurrent confirms with the SAME staged secret + SAME valid TOTP
+     *  code can NEVER both succeed — without this guard, the second
+     *  confirm overwrites the first's freshly-minted backup-code hashes,
+     *  silently invalidating the recovery-code list the user already
+     *  copied off the first response and locking them out of the lost-
+     *  authenticator path. The WHERE clause requires the totpSecret slot
+     *  to still be NULL (no prior confirm has committed) AND the staging
+     *  token to still match (no concurrent /2fa/cancel + re-enroll has
+     *  shifted the secret out from under us). Returns 1 on the winner,
+     *  0 on every loser — the controller maps 0 to NOT_ENROLLING so the
+     *  loser gets a clean error rather than a stale 200 with throwaway
+     *  backup codes. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("""
+        UPDATE SteamUser u
+        SET u.totpSecret = :secret,
+            u.lastTotpStep = :step,
+            u.totpRecoveryCodes = :codes,
+            u.emailVerificationToken = NULL
+        WHERE u.id = :id
+          AND u.totpSecret IS NULL
+          AND u.emailVerificationToken = :expectedStaging
+    """)
+    int commit2faEnrollment(@Param('id') Long id,
+                            @Param('expectedStaging') String expectedStaging,
+                            @Param('secret') String secret,
+                            @Param('step') Long step,
+                            @Param('codes') String codes)
+
+    /** Race-safe inventory-growth claim used by the Steam sync sweeper
+     *  (wave 131). Same multi-pod shape as {@link WatchlistAlertRepository#claimForFiring}
+     *  (wave 112), {@link TradeRepository#claimReviewNudge} (wave 129),
+     *  {@link BidService#notifyEndingSoon}'s claimEndingSoonNotify (wave 124),
+     *  and the FraudSignalClaim ledger (wave 120).
+     *
+     *  Multi-pod prod hazard: {@code SteamSyncService.syncOne} guards the
+     *  STEAM_INVENTORY "N new item(s)" push with a `synchronized(lockFor(id))`
+     *  monitor, but that lock is JVM-LOCAL. When sboxmarket runs on two or
+     *  more pods, two pods can both run the scheduled `syncAllUsers` tick for
+     *  the SAME user (or one pod's tick races the user's on-demand
+     *  POST /api/steam/sync on another pod). Both pods `findById` and read the
+     *  same `before` count, both fetch the same grown inventory, both observe
+     *  `before < now`, and — since neither holds the other's monitor — both
+     *  fire a STEAM_INVENTORY push BEFORE either's row write commits. The user
+     *  gets the "N new items" toast TWICE for one real delta.
+     *
+     *  This conditional UPDATE makes the count-advance the authoritative gate.
+     *  It flips `steamInventorySize` from the exact `before` value this pod
+     *  read up to `now` (and stamps `lastSyncedAt`) ONLY while the row still
+     *  holds `before` — i.e. no sibling pod has advanced it yet. Whichever pod
+     *  wins gets `1` back and fires the push; the loser's WHERE no longer
+     *  matches (the row already reads `now`), gets `0`, and skips the push.
+     *  The count still converges either way — the winner's UPDATE already
+     *  persisted `now`, so the loser's user sees the correct size with no
+     *  duplicate toast.
+     *
+     *  Binding on `steamInventorySize = :before` (not `< :now`) keeps the
+     *  claim a precise compare-and-set: it only fires for the delta this pod
+     *  actually computed, so two genuinely-distinct deltas observed by
+     *  staggered ticks don't collapse into one suppressed push. The
+     *  baseline-suppression (`priorRecorded == null`) and blocked-fetch
+     *  (rate-limited) paths in doSyncOne never reach this claim — only the
+     *  `!blocked && !isBaseline && now > before` growth path does. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("""
+        UPDATE SteamUser u
+           SET u.steamInventorySize = :now,
+               u.lastSyncedAt       = :syncedAt
+         WHERE u.id                 = :id
+           AND u.steamInventorySize = :before
+    """)
+    int claimInventoryGrowth(@Param('id') Long id,
+                             @Param('before') Integer before,
+                             @Param('now') Integer now,
+                             @Param('syncedAt') Long syncedAt)
+
+    /** Pessimistic write-lock on one user row — serializes a seller's
+     *  concurrent listing-creation attempts so the duplicate-asset
+     *  check-then-insert in {@link com.sboxmarket.service.ListingService#createListing}
+     *  is atomic (closes the double-list TOCTOU two same-asset POSTs to
+     *  /api/steam/list[-bulk] would otherwise exploit). Held only for the
+     *  brief duplicate check + the listing INSERT; per-seller, so it never
+     *  contends across distinct sellers; multi-pod-safe (real DB row lock).
+     *  Mirrors the findByIdForUpdate pessimistic pattern on Wallet/Listing/
+     *  Trade. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM SteamUser u WHERE u.id = :id")
+    SteamUser findByIdForUpdate(@Param('id') Long id)
 }

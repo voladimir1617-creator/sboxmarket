@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wallet — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .wal-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: var(--s-32);
+    align-items: start;
+  }
+  @media (max-width: 1100px) { .wal-grid { grid-template-columns: 1fr; } }
+
+  .balance-hero {
+    padding: var(--s-32);
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    display: flex; flex-direction: column;
+    gap: var(--s-16);
+    background-image:
+      radial-gradient(60% 100% at 100% 0%, color-mix(in oklch, var(--blue) 12%, transparent) 0%, transparent 60%);
+  }
+  .balance-hero .lbl { font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); }
+  .balance-hero .num {
+    font-family: var(--font-mono);
+    font-size: var(--t-60);
+    line-height: 1;
+    letter-spacing: -0.035em;
+    color: var(--ink);
+    font-feature-settings: "tnum";
+  }
+  .balance-hero .num .cents { color: var(--ink-3); font-size: var(--t-22); letter-spacing: -0.01em; }
+
+  .tx-row {
+    display: grid;
+    grid-template-columns: 32px 1fr auto auto;
+    gap: var(--s-14);
+    align-items: center;
+    padding: var(--s-12) var(--s-16);
+    border-bottom: 1px solid var(--line);
+    transition: background .12s;
+  }
+  .tx-row:hover { background: var(--bg-2); }
+  .tx-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    color: var(--ink-3);
+  }
+  .tx-icon.up    { color: var(--up); }
+  .tx-icon.down  { color: var(--down); }
+  .tx-icon.cta   { color: var(--blue); }
+
+  .pmethod {
+    display: flex; align-items: center; gap: var(--s-12);
+    padding: var(--s-14);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .pmethod:hover { border-color: var(--line-2); }
+  .pmethod.is-active { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .pmethod .glyph {
+    width: 36px; height: 24px;
+    border-radius: 3px;
+    background: var(--bg-2);
+    display: grid; place-items: center;
+    color: var(--ink-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-10);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <div class="page-h">
+    <div>
+      <div class="crumb">
+        <span>Account</span><span class="dot"></span><span style="color: var(--ink);">Wallet</span>
+      </div>
+      <h1>Wallet</h1>
+    </div>
+    <div class="row" style="gap: var(--s-8);">
+      <button class="btn btn-secondary">Withdraw</button>
+      <button class="btn btn-cta">+ Deposit</button>
+    </div>
+  </div>
+
+  <div class="wal-grid">
+
+    <!-- LEFT: balance + history -->
+    <section>
+
+      <div class="balance-hero">
+        <span class="lbl">Available balance</span>
+        <div class="num">$1,284<span class="cents">.50</span></div>
+        <div class="row" style="gap: var(--s-32); padding-top: var(--s-12); border-top: 1px solid var(--line);">
+          <div>
+            <div class="muted" style="font-size: var(--t-11); margin-bottom: 2px;">In escrow</div>
+            <div class="mono" style="font-size: var(--t-15); color: var(--ink);">$284.20</div>
+          </div>
+          <div>
+            <div class="muted" style="font-size: var(--t-11); margin-bottom: 2px;">Pending payout</div>
+            <div class="mono" style="font-size: var(--t-15); color: var(--ink);">$170.00</div>
+          </div>
+          <div>
+            <div class="muted" style="font-size: var(--t-11); margin-bottom: 2px;">Lifetime volume</div>
+            <div class="mono" style="font-size: var(--t-15); color: var(--ink);">$48,142.30</div>
+          </div>
+          <div>
+            <div class="muted" style="font-size: var(--t-11); margin-bottom: 2px;">30d net</div>
+            <div class="mono up" style="font-size: var(--t-15);">+$2,648.20</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-row" style="margin-top: var(--s-32);">
+        <div class="tabs">
+          <button class="tab is-active">All <span class="count">412</span></button>
+          <button class="tab">Deposits <span class="count">28</span></button>
+          <button class="tab">Withdrawals <span class="count">14</span></button>
+          <button class="tab">Marketplace <span class="count">370</span></button>
+        </div>
+        <div class="row" style="gap: var(--s-8);">
+          <input class="input" placeholder="Filter…" style="width: 200px;" />
+          <button class="btn btn-ghost btn-sm">Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Tx list -->
+      <div class="card" style="overflow: hidden;">
+        <div class="card-hd">
+          <span class="title">April 2026</span>
+          <span class="mono dim">+$2,648.20 net</span>
+        </div>
+        <div>
+          <div class="tx-row">
+            <div class="tx-icon up"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+            <div>
+              <div style="color: var(--ink); font-size: var(--t-13);">Sale · AK-47 | Vulcan</div>
+              <div class="dim" style="font-size: var(--t-11);">to <span class="mono">scope_</span> · 14m ago · ID 38120414918</div>
+            </div>
+            <span class="mono up">+$284.20</span>
+            <span class="badge live"><span class="led"></span>Settling</span>
+          </div>
+
+          <div class="tx-row">
+            <div class="tx-icon down"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+            <div>
+              <div style="color: var(--ink); font-size: var(--t-13);">Purchase · AWP | Neo-Noir</div>
+              <div class="dim" style="font-size: var(--t-11);">from <span class="mono">jeradel</span> · 5h ago</div>
+            </div>
+            <span class="mono down">−$84.40</span>
+            <span class="badge">Complete</span>
+          </div>
+
+          <div class="tx-row">
+            <div class="tx-icon up"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+            <div>
+              <div style="color: var(--ink); font-size: var(--t-13);">Sale · Glock-18 | Water Elemental</div>
+              <div class="dim" style="font-size: var(--t-11);">to <span class="mono">m1k_</span> · 1d ago</div>
+            </div>
+            <span class="mono up">+$8.12</span>
+            <span class="badge">Complete</span>
+          </div>
+
+          <div class="tx-row">
+            <div class="tx-icon down"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M16 7l5 5-5 5"/></svg></div>
+            <div>
+              <div style="color: var(--ink); font-size: var(--t-13);">Withdrawal to bank ••3287</div>
+              <div class="dim" style="font-size: var(--t-11);">Stripe payout · 2d ago · arrived</div>
+            </div>
+            <span class="mono down">−$500.00</span>
+            <span class="badge">Arrived</span>
+          </div>
+
+          <div class="tx-row">
+            <div class="tx-icon up"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+            <div>
+              <div style="color: var(--ink); font-size: var(--t-13);">Sale · M4A1-S | Hot Rod</div>
+              <div class="dim" style="font-size: var(--t-11);">to <span class="mono">kraut</span> · 3d ago</div>
+            </div>
+            <span class="mono up">+$184.20</span>
+            <span class="badge">Complete</span>
+          </div>
+
+          <div class="tx-row">
+            <div class="tx-icon cta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg></div>
+            <div>
+              <div style="color: var(--ink); font-size: var(--t-13);">Deposit · Visa ••4124</div>
+              <div class="dim" style="font-size: var(--t-11);">Stripe · 5d ago</div>
+            </div>
+            <span class="mono up">+$1,000.00</span>
+            <span class="badge">Complete</span>
+          </div>
+
+          <div class="tx-row">
+            <div class="tx-icon up"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+            <div>
+              <div style="color: var(--ink); font-size: var(--t-13);">Sale · ★ Karambit | Fade</div>
+              <div class="dim" style="font-size: var(--t-11);">to <span class="mono">tally.</span> · 1w ago · auction</div>
+            </div>
+            <span class="mono up">+$2,140.00</span>
+            <span class="badge">Complete</span>
+          </div>
+
+          <div class="tx-row">
+            <div class="tx-icon down"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M5 6v14h14V6M9 11v6M15 11v6"/></svg></div>
+            <div>
+              <div style="color: var(--ink); font-size: var(--t-13);">Listing fee · 7 listings (4%)</div>
+              <div class="dim" style="font-size: var(--t-11);">Auto-debit · 1w ago</div>
+            </div>
+            <span class="mono down">−$48.20</span>
+            <span class="badge">Complete</span>
+          </div>
+        </div>
+        <div class="card-ft">
+          <a href="#" class="btn btn-ghost btn-sm">Load more →</a>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT: deposit / withdraw / methods -->
+    <aside style="position: sticky; top: calc(var(--nav-h) + var(--s-32)); display: flex; flex-direction: column; gap: var(--s-16);">
+
+      <div class="card">
+        <div class="card-hd">
+          <div class="row" style="gap: var(--s-4);">
+            <button class="tab is-active" style="height: 32px;">Deposit</button>
+            <button class="tab" style="height: 32px;">Withdraw</button>
+          </div>
+        </div>
+        <div class="card-bd" style="display: flex; flex-direction: column; gap: var(--s-16);">
+
+          <div class="field">
+            <label class="label">Amount (USD)</label>
+            <input class="input mono" value="$500.00" style="font-size: var(--t-22); height: 48px;" />
+            <div class="row" style="gap: var(--s-6); margin-top: var(--s-10);">
+              <button class="chip">+$25</button>
+              <button class="chip">+$100</button>
+              <button class="chip">+$500</button>
+              <button class="chip">+$1,000</button>
+            </div>
+          </div>
+
+          <hr class="divider" />
+
+          <div>
+            <span class="label" style="margin-bottom: var(--s-10);">Payment method</span>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8);">
+              <div class="pmethod is-active">
+                <span class="glyph">VISA</span>
+                <div style="flex: 1;">
+                  <div style="font-size: var(--t-13); color: var(--ink);">Visa ••4124</div>
+                  <div class="dim" style="font-size: var(--t-11);">Expires 04/28 · default</div>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+              </div>
+              <div class="pmethod">
+                <span class="glyph">MC</span>
+                <div style="flex: 1;">
+                  <div style="font-size: var(--t-13); color: var(--ink);">Mastercard ••8812</div>
+                  <div class="dim" style="font-size: var(--t-11);">Expires 11/27</div>
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-block btn-sm" style="margin-top: var(--s-4);">+ Add new method</button>
+            </div>
+          </div>
+
+          <hr class="divider" />
+
+          <table style="width: 100%; font-size: var(--t-12);">
+            <tr><td style="color: var(--ink-3);">Subtotal</td><td class="mono" style="text-align: right;">$500.00</td></tr>
+            <tr><td style="color: var(--ink-3);">Stripe fee (2.9% + $0.30)</td><td class="mono" style="text-align: right;">−$14.80</td></tr>
+            <tr style="border-top: 1px solid var(--line);"><td style="color: var(--ink); font-weight: 500; padding-top: 8px;">You receive</td><td class="mono" style="text-align: right; color: var(--ink); font-weight: 500; padding-top: 8px;">$485.20</td></tr>
+          </table>
+
+          <button class="btn btn-cta btn-block btn-lg">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+            Deposit via Stripe
+          </button>
+          <div class="muted" style="font-size: var(--t-11); text-align: center;">Funds available instantly · cancel anytime</div>
+        </div>
+      </div>
+
+      <!-- security card -->
+      <div class="card">
+        <div class="card-hd"><span class="title">Account security</span></div>
+        <div class="card-bd" style="display: flex; flex-direction: column; gap: var(--s-12); font-size: var(--t-12); color: var(--ink-2);">
+          <div class="row" style="gap: var(--s-10);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--up)" stroke-width="2"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+            <span>Steam linked · <span class="mono dim">76561...</span></span>
+          </div>
+          <div class="row" style="gap: var(--s-10);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--up)" stroke-width="2"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+            <span>2FA enabled · authenticator app</span>
+          </div>
+          <div class="row" style="gap: var(--s-10);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--up)" stroke-width="2"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+            <span>Email verified · v***@gmail.com</span>
+          </div>
+          <div class="row" style="gap: var(--s-10);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>
+            <span class="dim">Withdrawal limit · $5,000/day</span>
+          </div>
+          <a href="#" class="btn btn-ghost btn-block btn-sm" style="margin-top: var(--s-8);">Open security settings →</a>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+</main>
+
+</body>
+</html>

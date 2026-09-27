@@ -4,8 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Acceptable Use Policy — SkinBox</title>
+  <link rel="canonical" href="https://skinbox.market/legal/acceptable-use.html">
+  <meta name="theme-color" content="#1ea5ff">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
   <link rel="icon" type="image/png" href="/img/favicon-32.png">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/design.css">
   <style>
     .legal-doc { max-width: 820px; margin: 40px auto 80px; padding: 0 24px; color: var(--text-primary); line-height: 1.7; font-size: 15px; }
     .legal-doc h1 { font-size: 32px; margin-bottom: 8px; }
@@ -16,6 +21,11 @@
     .legal-doc li { margin-bottom: 6px; }
     .legal-doc strong { color: var(--text-primary); }
     .legal-doc a { color: var(--accent); }
+    /* Body-text links carry an underline so they're distinguishable
+       without relying on color alone (WCAG 2.1 SC 1.4.1). The .legal-back
+       chip is a direct child of <main> — not inside a <p>/<li> — so it
+       stays un-underlined, matching the changelog page treatment. */
+    .legal-doc p a, .legal-doc li a { text-decoration: underline; text-underline-offset: 3px; }
     .legal-back { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
   </style>
 </head>
@@ -49,7 +59,7 @@
       <li>Coordinated price manipulation with other users.</li>
       <li>Listing the same item on SkinBox and elsewhere, then cancelling the SkinBox listing after a buyer locks it.</li>
       <li>Creating "ghost" listings you have no intention of filling.</li>
-      <li>Misrepresenting item quality, float, pattern, or collection.</li>
+      <li>Misrepresenting an item's rarity, condition, or collection.</li>
     </ul>
 
     <h2>Technical violations</h2>
@@ -57,7 +67,7 @@
       <li>Scraping SkinBox at a rate above the rate-limit, or circumventing the rate-limit.</li>
       <li>Reverse-engineering our API or extension to find unpublished endpoints.</li>
       <li>Uploading malware, exploits, or code that targets other users.</li>
-      <li>Probing the site for security vulnerabilities without permission. If you find one, report it to <a href="mailto:security@skinbox.example">security@skinbox.example</a>.</li>
+      <li>Probing the site for security vulnerabilities without permission. If you find one, report it to <a href="mailto:security@skinbox.market">security@skinbox.market</a>.</li>
       <li>Running automated bidding bots on auctions.</li>
     </ul>
 
@@ -77,7 +87,7 @@
     </ul>
 
     <p>
-      Appeals: <a href="mailto:appeals@skinbox.example">appeals@skinbox.example</a>.
+      Appeals: <a href="mailto:appeals@skinbox.market">appeals@skinbox.market</a>.
       We will review but are not obligated to reinstate an account.
     </p>
   </main>

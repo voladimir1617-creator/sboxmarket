@@ -149,6 +149,15 @@ class BuyFlowIntegrationSpec extends Specification {
         body.contains('"code":"INSUFFICIENT_BALANCE"')
         body.contains('"correlationId"')
 
+        and: "structured details (batch 963) let the frontend render 'Top up \$X'"
+        // Listing is $50, wallet is $10 → shortfall $40. Batch 983 also
+        // depends on writeJson forwarding these fields into the returned
+        // error object; this pins the server-side contract they rely on.
+        body.contains('"details"')
+        body.contains('"required":50')
+        body.contains('"available":10')
+        body.contains('"shortfall":40')
+
         and: "no money moved, listing still ACTIVE"
         def reloaded = walletRepository.findById(buyerWallet.id).get()
         reloaded.balance == new BigDecimal("10.00")
@@ -169,6 +178,132 @@ class BuyFlowIntegrationSpec extends Specification {
         then:
         result.response.status == 401
         result.response.contentAsString.contains('"code":"UNAUTHORIZED"')
+    }
+
+    def "POST /api/listings/{id}/buy — 400 PRICE_CHANGED when expectedPrice differs (batch 323)"() {
+        // User saw $40 in the modal but listing is actually $50 — reject
+        // BEFORE the wallet is touched.
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/listings/${listing.id}/buy")
+                .session(session)
+                .contentType("application/json")
+                .content('{"expectedPrice":"40.00"}')
+        ).andReturn()
+
+        then:
+        result.response.status == 400
+        def body = result.response.contentAsString
+        body.contains('"code":"PRICE_CHANGED"')
+
+        and: "wallet untouched, listing still ACTIVE"
+        def reloaded = walletRepository.findById(buyerWallet.id).get()
+        reloaded.balance == new BigDecimal("500.00")
+        def listingReloaded = listingRepository.findById(listing.id).get()
+        listingReloaded.status == "ACTIVE"
+    }
+
+    def "POST /api/listings/{id}/buy — 200 when expectedPrice matches"() {
+        // Same body guard but price matches — buy proceeds.
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/listings/${listing.id}/buy")
+                .session(session)
+                .contentType("application/json")
+                .content('{"expectedPrice":"50.00"}')
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        result.response.contentAsString.contains('"newBalance"')
+    }
+
+    // ── Batch 961 — auction Buy-Now price guard ────────────────────
+
+    def "POST /api/bids/listing/{id}/buy-now — 400 PRICE_CHANGED when expectedPrice differs"() {
+        given:
+        // Convert the fixture listing into an auction with a buyNowPrice.
+        // expires well into the future so the "already ended" guard doesn't
+        // fire. Seller set is nulled so the buyer isn't blocked by "can't
+        // Buy Now your own auction".
+        listing.listingType = 'AUCTION'
+        listing.buyNowPrice = new BigDecimal('50.00')
+        listing.expiresAt   = System.currentTimeMillis() + (24L * 60L * 60L * 1000L)
+        listing.sellerUserId = null
+        listingRepository.save(listing)
+
+        when: "buyer saw \$40 but the buy-now price is actually \$50"
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/bids/listing/${listing.id}/buy-now")
+                .session(session)
+                .contentType("application/json")
+                .content('{"expectedPrice":"40.00"}')
+        ).andReturn()
+
+        then:
+        result.response.status == 400
+        result.response.contentAsString.contains('"code":"PRICE_CHANGED"')
+
+        and: "wallet untouched, listing still ACTIVE"
+        def reloaded = walletRepository.findById(buyerWallet.id).get()
+        reloaded.balance == new BigDecimal("500.00")
+        def listingReloaded = listingRepository.findById(listing.id).get()
+        listingReloaded.status == "ACTIVE"
+    }
+
+    def "POST /api/bids/listing/{id}/buy-now — 400 INVALID_PRICE on malformed expectedPrice"() {
+        given:
+        listing.listingType = 'AUCTION'
+        listing.buyNowPrice = new BigDecimal('50.00')
+        listing.expiresAt   = System.currentTimeMillis() + (24L * 60L * 60L * 1000L)
+        listing.sellerUserId = null
+        listingRepository.save(listing)
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/bids/listing/${listing.id}/buy-now")
+                .session(session)
+                .contentType("application/json")
+                .content('{"expectedPrice":"not-a-number"}')
+        ).andReturn()
+
+        then:
+        result.response.status == 400
+        result.response.contentAsString.contains('"code":"INVALID_PRICE"')
+    }
+
+    def "POST /api/bids/listing/{id}/buy-now — body-less call stays back-compat"() {
+        given:
+        // Ensure an older frontend with no expectedPrice body still works.
+        listing.listingType = 'AUCTION'
+        listing.buyNowPrice = new BigDecimal('50.00')
+        listing.expiresAt   = System.currentTimeMillis() + (24L * 60L * 60L * 1000L)
+        listing.sellerUserId = null
+        listingRepository.save(listing)
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/bids/listing/${listing.id}/buy-now")
+                .session(session)
+        ).andReturn()
+
+        then: "no 400 PRICE_CHANGED / INVALID_PRICE — request proceeds into the service"
+        !result.response.contentAsString.contains('"code":"PRICE_CHANGED"')
+        !result.response.contentAsString.contains('"code":"INVALID_PRICE"')
+    }
+
+    def "POST /api/listings/{id}/buy — 400 on malformed expectedPrice"() {
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/listings/${listing.id}/buy")
+                .session(session)
+                .contentType("application/json")
+                .content('{"expectedPrice":"abc"}')
+        ).andReturn()
+
+        then:
+        result.response.status == 400
+        result.response.contentAsString.contains('"code":"INVALID_PRICE"')
     }
 
     def "POST /api/listings/{id}/buy — 409 when listing is already SOLD"() {
@@ -233,13 +368,45 @@ class BuyFlowIntegrationSpec extends Specification {
         result.response.contentAsString.contains('amount')
     }
 
-    def "POST /api/wallet/withdraw — 400 VALIDATION_FAILED when amount is below \$1 minimum"() {
+    def "POST /api/wallet/withdraw — a sub-dollar amount is no longer refused by bean validation"() {
+        // This used to assert the opposite, and the opposite was the bug.
+        //
+        // WithdrawRequest carried @DecimalMin("1.00"). Bean validation runs
+        // BEFORE the controller, so it sat underneath the full-balance sweep
+        // exemption and cancelled it for every balance under a dollar — the
+        // one case that exemption exists for. A $0.60 balance on a rail with
+        // no per-account charge is payable ($0.25 fee, $0.35 net) and was
+        // returned 400 by a validation constant three layers from the rates
+        // that justify it.
+        //
+        // The real minimum is DERIVED (PlatformLedgerService.minWithdrawal)
+        // and enforced where the rates live, with WITHDRAWAL_BELOW_FEE and
+        // WITHDRAW_BELOW_MINIMUM as its codes. Whatever else stops this
+        // request — balance, payout setup, dev mode — it must not be the
+        // annotation, so this pins the ABSENCE of that refusal rather than
+        // whichever downstream gate happens to answer first.
         when:
         def result = mockMvc.perform(
             MockMvcRequestBuilders.post("/api/wallet/withdraw")
                 .session(session)
                 .contentType("application/json")
                 .content('{"amount":0.50,"destination":"acct_1"}')
+        ).andReturn()
+
+        then:
+        !result.response.contentAsString.contains('"code":"VALIDATION_FAILED"')
+    }
+
+    def "POST /api/wallet/withdraw — 400 VALIDATION_FAILED below a cent, the floor that remains"() {
+        // Arithmetic, not policy: there is no payable amount below a cent, so
+        // the annotation still refuses one. Pinned so lowering the minimum did
+        // not quietly remove the floor altogether.
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/wallet/withdraw")
+                .session(session)
+                .contentType("application/json")
+                .content('{"amount":0.001,"destination":"acct_1"}')
         ).andReturn()
 
         then:

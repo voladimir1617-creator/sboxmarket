@@ -1,0 +1,574 @@
+package com.sboxmarket
+
+import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.model.CartItem
+import com.sboxmarket.repository.CartItemRepository
+import com.sboxmarket.repository.ListingRepository
+import com.sboxmarket.service.CartService
+import org.springframework.dao.DataIntegrityViolationException
+import spock.lang.Specification
+import spock.lang.Subject
+
+/**
+ * Pure-logic coverage for the cross-device cart persistence (batch
+ * 263 / V31). Mirrors WatchlistServiceSpec — same shape because both
+ * services follow the same idempotent-add / dedup-merge pattern.
+ */
+class CartServiceSpec extends Specification {
+
+    CartItemRepository repository = Mock()
+
+    @Subject
+    CartService service = new CartService(repository: repository)
+
+    // ── add ──────────────────────────────────────────────────────────
+
+    def "add inserts when not already in cart"() {
+        given:
+        repository.existsByUserAndListing(10L, 100L) >> false
+        repository.findListingIdsByUser(10L) >> [200L]   // headroom fine
+
+        when:
+        def added = service.add(10L, 100L)
+
+        then:
+        added == true
+        1 * repository.save({ it.userId == 10L && it.listingId == 100L })
+    }
+
+    def "add is idempotent — already there returns false without saving"() {
+        given:
+        repository.existsByUserAndListing(10L, 100L) >> true
+
+        when:
+        def added = service.add(10L, 100L)
+
+        then:
+        added == false
+        0 * repository.save(_)
+    }
+
+    def "add rejects when the user is at MAX_PER_USER"() {
+        given:
+        repository.existsByUserAndListing(10L, 999L) >> false
+        repository.findListingIdsByUser(10L) >> (1L..CartService.MAX_PER_USER).collect { it as Long }
+
+        when:
+        service.add(10L, 999L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'CART_FULL'
+        0 * repository.save(_)
+    }
+
+    def "add still succeeds when the user is exactly one below the cap"() {
+        given:
+        repository.existsByUserAndListing(10L, 999L) >> false
+        // MAX_PER_USER - 1 rows → there is room for exactly one more.
+        repository.findListingIdsByUser(10L) >> (1L..(CartService.MAX_PER_USER - 1)).collect { it as Long }
+
+        when:
+        def added = service.add(10L, 999L)
+
+        then:
+        added == true
+        1 * repository.save({ it.listingId == 999L })
+    }
+
+    def "add short-circuits to false on a null userId or listingId — no repo calls"() {
+        when:
+        def r1 = service.add(null, 100L)
+        def r2 = service.add(10L, null)
+        def r3 = service.add(null, null)
+
+        then:
+        r1 == false
+        r2 == false
+        r3 == false
+        0 * repository.existsByUserAndListing(_, _)
+        0 * repository.save(_)
+    }
+
+    def "add scopes the cap check to the calling user — only that user's rows count"() {
+        given:
+        // The cap probe must query findListingIdsByUser for THIS user id.
+        // A repo call that dropped the uid filter and returned every cart
+        // row on the platform could wrongly trip CART_FULL; pinning the
+        // arg to 10L is the per-user-scoping guard.
+        repository.existsByUserAndListing(10L, 500L) >> false
+        repository.findListingIdsByUser(10L) >> [1L, 2L, 3L]   // only 3 rows for user 10
+
+        when:
+        def added = service.add(10L, 500L)
+
+        then:
+        added == true
+        // The save row is stamped with the caller's user id — never a
+        // different user's — so the new row lands in the right cart.
+        1 * repository.save({ it.userId == 10L && it.listingId == 500L })
+    }
+
+    // ── add: own-listing guard ───────────────────────────────────────
+
+    def "add rejects the seller's own listing with OWN_LISTING"() {
+        // Without this guard a seller can pad their own cart with their
+        // own active listings up to MAX_PER_USER; every row then fails
+        // OWN_LISTING at checkout, but the cart only scrubs successful
+        // rows, so the user gets stuck with a full-but-unbuyable cart.
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.existsByUserAndListing(10L, 777L) >> false
+        listings.findSellerUserIdById(777L) >> 10L        // seller IS the caller
+
+        when:
+        service2.add(10L, 777L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'OWN_LISTING'
+        // No insert and no cap probe — guard short-circuits before either.
+        0 * repository.save(_)
+        0 * repository.findListingIdsByUser(_)
+    }
+
+    def "add allows a listing the user does NOT own"() {
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.existsByUserAndListing(10L, 777L) >> false
+        listings.findSellerUserIdById(777L) >> 99L        // different seller
+        repository.findListingIdsByUser(10L) >> []
+
+        when:
+        def added = service2.add(10L, 777L)
+
+        then:
+        added == true
+        1 * repository.save({ it.userId == 10L && it.listingId == 777L })
+    }
+
+    def "add tolerates system listings (sellerUserId == null) — guard is skipped"() {
+        // System / platform listings carry sellerUserId == null. The
+        // guard must not falsely reject these — `null == userId` is false
+        // anyway, but pin the contract so a future refactor can't drift.
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.existsByUserAndListing(10L, 777L) >> false
+        listings.findSellerUserIdById(777L) >> null
+        repository.findListingIdsByUser(10L) >> []
+
+        when:
+        def added = service2.add(10L, 777L)
+
+        then:
+        added == true
+        1 * repository.save({ it.listingId == 777L })
+    }
+
+    def "add survives a probe failure — guard logs and falls through (buy-path remains the backstop)"() {
+        // A DB blip on the seller probe must not 500 the add. The buy-path
+        // OWN_LISTING check still runs at checkout, so the worst case is
+        // one stale row the user can manually remove — not a hard failure.
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.existsByUserAndListing(10L, 777L) >> false
+        listings.findSellerUserIdById(777L) >> { throw new RuntimeException('DB blip') }
+        repository.findListingIdsByUser(10L) >> []
+
+        when:
+        def added = service2.add(10L, 777L)
+
+        then:
+        added == true
+        notThrown(Exception)
+        1 * repository.save({ it.listingId == 777L })
+    }
+
+    // ── remove ───────────────────────────────────────────────────────
+
+    def "remove returns true on hit / false on miss"() {
+        when:
+        def hit  = service.remove(10L, 100L)
+        def miss = service.remove(10L, 999L)
+
+        then:
+        1 * repository.deleteByUserAndListing(10L, 100L) >> 1
+        1 * repository.deleteByUserAndListing(10L, 999L) >> 0
+        hit == true
+        miss == false
+    }
+
+    def "remove short-circuits to false on null args without touching the repo"() {
+        when:
+        def r1 = service.remove(null, 100L)
+        def r2 = service.remove(10L, null)
+
+        then:
+        r1 == false
+        r2 == false
+        0 * repository.deleteByUserAndListing(_, _)
+    }
+
+    // ── clear ────────────────────────────────────────────────────────
+
+    def "clear delegates to deleteAllByUser and returns the count"() {
+        when:
+        def n = service.clear(10L)
+
+        then:
+        1 * repository.deleteAllByUser(10L) >> 7
+        n == 7
+    }
+
+    def "clear on a null userId returns 0 without a delete"() {
+        when:
+        def n = service.clear(null)
+
+        then:
+        0 * repository.deleteAllByUser(_)
+        n == 0
+    }
+
+    // ── list ─────────────────────────────────────────────────────────
+
+    def "list delegates to the repo, oldest-first"() {
+        given:
+        repository.findListingIdsByUser(10L) >> [3L, 7L, 9L]
+
+        expect:
+        service.list(10L) == [3L, 7L, 9L]
+    }
+
+    def "list on a null userId returns an empty list without a query"() {
+        when:
+        def out = service.list(null)
+
+        then:
+        0 * repository.findListingIdsByUser(_)
+        out == []
+    }
+
+    // ── bulkMerge ────────────────────────────────────────────────────
+
+    def "bulkMerge dedupes input, skips existing rows, returns post-merge list"() {
+        given:
+        repository.findExistingListingIds(10L, [2L, 3L, 4L]) >> [2L]
+        repository.countByUser(10L) >> 2L                  // headroom calc (COUNT query)
+        repository.findListingIdsByUser(10L) >> [1L, 2L, 3L, 4L]  // post-merge fetch
+
+        when:
+        def out = service.bulkMerge(10L, [2L, 3L, 3L, 4L, null])
+
+        then:
+        1 * repository.save({ it.listingId == 3L })
+        1 * repository.save({ it.listingId == 4L })
+        0 * repository.save({ it.listingId == 2L })
+        out == [1L, 2L, 3L, 4L]
+    }
+
+    def "bulkMerge no-ops on empty input but still returns current list"() {
+        given:
+        repository.findListingIdsByUser(10L) >> [1L, 2L]
+
+        when:
+        def out = service.bulkMerge(10L, [])
+
+        then:
+        0 * repository.save(_)
+        out == [1L, 2L]
+    }
+
+    def "bulkMerge on a null userId returns an empty list and saves nothing"() {
+        when:
+        def out = service.bulkMerge(null, [1L, 2L])
+
+        then:
+        0 * repository.save(_)
+        0 * repository.findExistingListingIds(_, _)
+        out == []
+    }
+
+    def "bulkMerge treats an all-null input as empty — returns current list, no save"() {
+        given:
+        repository.findListingIdsByUser(10L) >> [5L]
+
+        when:
+        def out = service.bulkMerge(10L, [null, null])
+
+        then:
+        0 * repository.findExistingListingIds(_, _)
+        0 * repository.save(_)
+        out == [5L]
+    }
+
+    def "bulkMerge truncates an oversized input to MAX_PER_USER before the existence probe"() {
+        given:
+        // 60 distinct ids — 10 over the cap. Only the first 50 should be
+        // probed / inserted.
+        def incoming = (1L..60L).collect { it as Long }
+        def capped   = (1L..CartService.MAX_PER_USER).collect { it as Long }
+        repository.countByUser(10L) >> 0L
+        repository.findListingIdsByUser(10L) >> capped
+
+        when:
+        def out = service.bulkMerge(10L, incoming)
+
+        then:
+        // Existence probe only ever sees the first 50 ids — the 10 extras
+        // are dropped before the query, never persisted. The `>> []`
+        // response lives on this interaction (not a separate given:
+        // stub) so the counted match still returns a non-null list.
+        1 * repository.findExistingListingIds(10L, capped) >> []
+        CartService.MAX_PER_USER * repository.save(_)
+        out.size() == CartService.MAX_PER_USER
+    }
+
+    def "bulkMerge respects remaining headroom — only fills up to the cap"() {
+        given:
+        // User already holds 48 rows; 5 new ids arrive but only 2 fit.
+        def incoming = [101L, 102L, 103L, 104L, 105L]
+        repository.findExistingListingIds(10L, incoming) >> []
+        repository.countByUser(10L) >> 48L                 // headroom == 2
+        repository.findListingIdsByUser(10L) >> ((1L..48L) + [101L, 102L]).collect { it as Long }
+
+        when:
+        service.bulkMerge(10L, incoming)
+
+        then:
+        // Exactly 2 saved — the oldest two of the toAdd list.
+        1 * repository.save({ it.listingId == 101L })
+        1 * repository.save({ it.listingId == 102L })
+        0 * repository.save({ it.listingId == 103L })
+        0 * repository.save({ it.listingId == 104L })
+        0 * repository.save({ it.listingId == 105L })
+    }
+
+    def "bulkMerge short-circuits when the user is already at the cap — no save, returns current list"() {
+        given:
+        repository.findExistingListingIds(10L, [900L]) >> []
+        // Parenthesise the cast: Spock's `>>` binds tighter than `as`, so
+        // `>> CartService.MAX_PER_USER as long` parses as
+        // `(... >> MAX_PER_USER) as long` — the cast lands on the
+        // interaction object, not the stubbed value, so countByUser does
+        // not reliably return 50 and the headroom guard never fires.
+        repository.countByUser(10L) >> (CartService.MAX_PER_USER as long)   // headroom == 0
+        repository.findListingIdsByUser(10L) >> (1L..CartService.MAX_PER_USER).collect { it as Long }
+
+        when:
+        def out = service.bulkMerge(10L, [900L])
+
+        then:
+        0 * repository.save(_)
+        out.size() == CartService.MAX_PER_USER
+    }
+
+    def "bulkMerge skips the existence probe path correctly when every incoming id already exists"() {
+        given:
+        repository.findExistingListingIds(10L, [1L, 2L]) >> [1L, 2L]
+        repository.countByUser(10L) >> 2L
+        repository.findListingIdsByUser(10L) >> [1L, 2L]
+
+        when:
+        def out = service.bulkMerge(10L, [1L, 2L])
+
+        then:
+        0 * repository.save(_)
+        out == [1L, 2L]
+    }
+
+    /**
+     * Regression guard for the bulkMerge constraint-violation fix.
+     *
+     * The previous implementation wrapped `repository.save` in a
+     * try/catch that swallowed the exception and let the loop keep
+     * running. That is the exact anti-pattern WatchlistService.bulkMerge
+     * documents as wrong: a JPA constraint violation marks the
+     * @Transactional rollback-only, so swallowing it does not recover —
+     * it just hides the failure behind a debug log while the doomed
+     * transaction keeps mutating, and the eventual commit still 500s.
+     *
+     * Correct behaviour (matching WatchlistService): the save call is
+     * NOT wrapped, so a violation from a lost concurrent-insert race
+     * propagates straight out — an honest, retryable failure rather than
+     * a silently-corrupted half-merge.
+     */
+    def "bulkMerge does NOT swallow a constraint violation from a concurrent insert"() {
+        given:
+        repository.findExistingListingIds(10L, [42L]) >> []   // probe says absent…
+        repository.countByUser(10L) >> 0L
+        // …but a racing tab inserted (10,42) first, so our save loses.
+        repository.save(_) >> { throw new DataIntegrityViolationException('uq_cart_items_user_listing') }
+
+        when:
+        service.bulkMerge(10L, [42L])
+
+        then:
+        // The violation propagates — it is NOT caught and logged away.
+        thrown(DataIntegrityViolationException)
+    }
+
+    def "bulkMerge derives headroom from the live row COUNT, not the deduped input size"() {
+        given:
+        // Input has 3 brand-new ids, but the user already holds 49 rows —
+        // headroom is 1. headroom must come from countByUser (49), NOT
+        // from cleaned.size() (3); a size()-based calc would wrongly admit
+        // all 3 and blow past MAX_PER_USER.
+        def incoming = [301L, 302L, 303L]
+        repository.findExistingListingIds(10L, incoming) >> []
+        repository.countByUser(10L) >> 49L                       // headroom == 1
+        repository.findListingIdsByUser(10L) >> ((1L..49L) + [301L]).collect { it as Long }
+
+        when:
+        service.bulkMerge(10L, incoming)
+
+        then:
+        // Exactly one row saved — the cap is respected against the live
+        // table count, so the user ends at MAX_PER_USER, not 52.
+        1 * repository.save({ it.listingId == 301L })
+        0 * repository.save({ it.listingId == 302L })
+        0 * repository.save({ it.listingId == 303L })
+    }
+
+    // ── bulkMerge: own-listing guard ─────────────────────────────────
+
+    /**
+     * Regression guard for the bulkMerge own-listing back door.
+     *
+     * The single-add path (`add()`) rejects a seller adding their own
+     * listing with OWN_LISTING — without that guard a seller can fill
+     * their own cart with their own active listings up to MAX_PER_USER,
+     * every row then fails OWN_LISTING at /cart/checkout, but the
+     * checkout flow only scrubs SUCCESSFUL rows, so the user is wedged
+     * with a full-but-unbuyable cart that blocks any real add until
+     * they hand-clear every row.
+     *
+     * `bulkMerge` is the bulk variant of the same write — a /api/cart/bulk
+     * POST persists the same rows. Before this fix bulkMerge had no
+     * own-listing check, so a captured/replayed POST could wedge the
+     * cart through the bulk endpoint while the single-add endpoint
+     * rejected the same id with a clean 400. Closes the gap so both
+     * write paths enforce the same gate.
+     */
+    def "bulkMerge silently drops the caller's own listings — no save for those rows"() {
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        // Three incoming ids — 70 (own) + 71 (other seller) + 72 (system).
+        repository.findExistingListingIds(10L, [70L, 71L, 72L]) >> []
+        listings.findSellerUserIdsForListings([70L, 71L, 72L]) >> [
+            ([70L, 10L] as Object[]),     // own — caller IS the seller
+            ([71L, 99L] as Object[])      // other seller; 72 is system (NULL seller, filtered by query)
+        ]
+        repository.countByUser(10L) >> 0L
+        repository.findListingIdsByUser(10L) >> [71L, 72L]
+
+        when:
+        def out = service2.bulkMerge(10L, [70L, 71L, 72L])
+
+        then:
+        // Own row never persisted; the other two land normally.
+        0 * repository.save({ it.listingId == 70L })
+        1 * repository.save({ it.listingId == 71L })
+        1 * repository.save({ it.listingId == 72L })
+        out == [71L, 72L]
+    }
+
+    def "bulkMerge own-listing probe failure falls through — guard is best-effort, buy-path remains the backstop"() {
+        // A DB blip on the seller probe must not 500 the merge — the
+        // caller is mid-sign-in and a hard failure here would block
+        // their entire first-session cart sync. The buy-path OWN_LISTING
+        // check still runs at checkout, so the worst case is one row the
+        // user can manually remove — not a hard failure.
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.findExistingListingIds(10L, [70L]) >> []
+        listings.findSellerUserIdsForListings([70L]) >> { throw new RuntimeException('DB blip') }
+        repository.countByUser(10L) >> 0L
+        repository.findListingIdsByUser(10L) >> [70L]
+
+        when:
+        def out = service2.bulkMerge(10L, [70L])
+
+        then:
+        notThrown(Exception)
+        1 * repository.save({ it.listingId == 70L })
+        out == [70L]
+    }
+
+    def "bulkMerge skips the own-listing probe entirely when listingRepository isn't wired"() {
+        // The bare-construction mode used by older tests (no listingRepo)
+        // must keep working — the buy-path's OWN_LISTING check is the
+        // backstop in that wiring, matching the single-add path.
+        given:
+        repository.findExistingListingIds(10L, [70L]) >> []
+        repository.countByUser(10L) >> 0L
+        repository.findListingIdsByUser(10L) >> [70L]
+
+        when:
+        def out = service.bulkMerge(10L, [70L])
+
+        then:
+        notThrown(Exception)
+        1 * repository.save({ it.listingId == 70L })
+        out == [70L]
+    }
+
+    def "bulkMerge stamps every backfilled row with the calling user's id"() {
+        given:
+        // Per-user scoping: every CartItem the merge persists must carry
+        // the userId passed in — a cross-user leak here would inject rows
+        // into the wrong cart.
+        repository.findExistingListingIds(33L, [70L, 71L]) >> []
+        repository.countByUser(33L) >> 0L
+        repository.findListingIdsByUser(33L) >> [70L, 71L]
+
+        when:
+        service.bulkMerge(33L, [70L, 71L])
+
+        then:
+        2 * repository.save({ it.userId == 33L })
+        0 * repository.save({ it.userId != 33L })
+    }
+
+    // ── sweepStaleCartRows ───────────────────────────────────────────
+
+    def "sweepStaleCartRows delegates to the repo bulk-delete (batch 506)"() {
+        given:
+        repository.deleteRowsPointingAtNonActiveListings() >> 7
+
+        when:
+        service.sweepStaleCartRows()
+
+        then:
+        1 * repository.deleteRowsPointingAtNonActiveListings()
+        notThrown(Exception)
+    }
+
+    def "sweepStaleCartRows is a clean no-op when there are no stale rows"() {
+        given:
+        repository.deleteRowsPointingAtNonActiveListings() >> 0
+
+        when:
+        service.sweepStaleCartRows()
+
+        then:
+        1 * repository.deleteRowsPointingAtNonActiveListings()
+        notThrown(Exception)
+    }
+
+    def "sweepStaleCartRows swallows repository failures so the scheduler stays alive (batch 506)"() {
+        given:
+        repository.deleteRowsPointingAtNonActiveListings() >> { throw new RuntimeException('transient DB issue') }
+
+        when:
+        service.sweepStaleCartRows()
+
+        then:
+        notThrown(Exception)  // sweep should not propagate the failure
+    }
+}

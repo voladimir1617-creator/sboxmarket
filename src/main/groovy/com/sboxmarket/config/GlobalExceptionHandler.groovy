@@ -11,11 +11,16 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.orm.ObjectOptimisticLockingFailureException
+import org.springframework.web.HttpMediaTypeNotAcceptableException
+import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingPathVariableException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 /**
@@ -40,13 +45,37 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException)
     ResponseEntity<ErrorResponse> handleApi(ApiException ex, HttpServletRequest req) {
-        log.debug("Domain exception at ${req.method} ${req.requestURI}: ${ex.code} ${ex.message}")
+        // Pass `ex` as the trailing throwable so Slf4j prints the cause chain.
+        // Several ApiException subclasses (notably BadRequestException's
+        // cause-preserving ctor) wrap a JDK/JPA exception to preserve the
+        // original stack — without `, ex` here that chain was silently dropped
+        // and ops had no way to diagnose the underlying parse/lookup failure.
+        if (ex.cause != null) {
+            log.debug("Domain exception at ${req.method} ${req.requestURI}: ${ex.code} ${ex.message}", ex)
+        } else {
+            log.debug("Domain exception at ${req.method} ${req.requestURI}: ${ex.code} ${ex.message}")
+        }
         def message = verboseErrors ? ex.message : genericMessage(ex)
+        // Batch 963 — surface structured amounts for INSUFFICIENT_BALANCE
+        // so the frontend can render a precise "Top up $X" CTA instead
+        // of string-parsing the human-readable message. Shape mirrors
+        // the existing `details` field the validation path uses. Both
+        // fields are plain BigDecimals — no internal info leaks.
+        Map details = null
+        if (ex instanceof com.sboxmarket.exception.InsufficientBalanceException) {
+            details = [
+                required : ex.required,
+                available: ex.available,
+                shortfall: ex.required != null && ex.available != null
+                               ? (ex.required - ex.available) : null
+            ]
+        }
         def body = new ErrorResponse(
             code         : ex.code,
             message      : message,
             path         : verboseErrors ? req.requestURI : null,
-            correlationId: MDC.get("cid")
+            correlationId: MDC.get("cid"),
+            details      : details
         )
         ResponseEntity.status(ex.status).body(body)
     }
@@ -110,9 +139,116 @@ class GlobalExceptionHandler {
         ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
     }
 
+    /**
+     * Path variable converted to null — e.g. `GET /api/items/%20` where the
+     * encoded space decodes to a Long-incompatible value and Spring hands
+     * us an ex with `value=null`. Previously bubbled up as 500
+     * INTERNAL_ERROR (batch 863), trivial to weaponise as a DoS by
+     * walking invalid inputs. Maps to 400 with the failing variable name
+     * so legitimate clients can self-correct.
+     */
+    @ExceptionHandler(MissingPathVariableException)
+    ResponseEntity<ErrorResponse> handleMissingPathVar(MissingPathVariableException ex, HttpServletRequest req) {
+        log.debug("Missing path variable at ${req.method} ${req.requestURI}: name=${ex.variableName}")
+        def body = new ErrorResponse(
+            code         : "INVALID_PATH_VARIABLE",
+            message      : "Invalid value for path variable '${ex.variableName}'",
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid"),
+            details      : [field: ex.variableName]
+        )
+        ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
+    }
+
     @ExceptionHandler(NoResourceFoundException)
     ResponseEntity<Void> handleStaticMiss(NoResourceFoundException ignored) {
         ResponseEntity.status(HttpStatus.NOT_FOUND).build()
+    }
+
+    /**
+     * Wrong HTTP verb for the route — e.g. POST to a GET-only endpoint, or
+     * DELETE on a read surface. Spring throws this from the dispatcher
+     * before the controller method runs. Previously it fell through to the
+     * catch-all and surfaced as a 500 INTERNAL_ERROR — wrong (it is a
+     * client mistake, not a server fault) and noisy: the catch-all logs
+     * every 500 at ERROR with a full stack trace, so verb-probing scanners
+     * spammed the error log and any PagerDuty wired to ERROR. Map to a
+     * proper 405 and echo the `Allow` header so well-behaved clients can
+     * self-correct (the set of verbs a route accepts is not sensitive).
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException)
+    ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
+                                                          HttpServletRequest req) {
+        log.debug("Method not allowed at ${req.method} ${req.requestURI}: ${ex.message}")
+        def body = new ErrorResponse(
+            code         : 'METHOD_NOT_ALLOWED',
+            message      : 'HTTP method not allowed for this endpoint',
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid")
+        )
+        def builder = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+        // RFC 9110 §15.5.6 — a 405 SHOULD carry an Allow header.
+        def allowed = ex.supportedHttpMethods
+        if (allowed) builder.allow(allowed as org.springframework.http.HttpMethod[])
+        builder.body(body)
+    }
+
+    /**
+     * Request body declared an unsupported Content-Type — e.g. a client
+     * POSTs `text/plain` or `application/xml` to a JSON-only endpoint.
+     * Previously bubbled to the catch-all as a 500. Maps to 415, the
+     * correct status, with no server internals leaked.
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException)
+    ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex,
+                                                             HttpServletRequest req) {
+        log.debug("Unsupported media type at ${req.method} ${req.requestURI}: ${ex.contentType}")
+        def body = new ErrorResponse(
+            code         : 'UNSUPPORTED_MEDIA_TYPE',
+            message      : 'Request media type is not supported',
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid")
+        )
+        ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body)
+    }
+
+    /**
+     * The route cannot produce any media type the client's Accept header
+     * will take. Previously bubbled to the catch-all as a 500. Maps to the
+     * correct 406 Not Acceptable.
+     */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException)
+    ResponseEntity<ErrorResponse> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex,
+                                                              HttpServletRequest req) {
+        log.debug("Not acceptable at ${req.method} ${req.requestURI}: ${ex.message}")
+        def body = new ErrorResponse(
+            code         : 'NOT_ACCEPTABLE',
+            message      : 'No acceptable representation for the requested media type',
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid")
+        )
+        ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(body)
+    }
+
+    /**
+     * Multipart upload exceeded `spring.servlet.multipart.max-*` (2MB).
+     * BodySizeLimitFilter rejects oversize raw bodies up front by their
+     * Content-Length header, but Spring's multipart parser enforces its
+     * own ceiling while streaming a `multipart/form-data` body and throws
+     * this — which previously bubbled to the catch-all as a 500. Map to
+     * 413, matching the filter's own response for the raw-body case.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException)
+    ResponseEntity<ErrorResponse> handleMaxUpload(MaxUploadSizeExceededException ex,
+                                                  HttpServletRequest req) {
+        log.warn("Upload too large at ${req.method} ${req.requestURI}: ${ex.message}")
+        def body = new ErrorResponse(
+            code         : 'PAYLOAD_TOO_LARGE',
+            message      : 'Request body is too large',
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid")
+        )
+        ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body)
     }
 
     /**
@@ -173,6 +309,32 @@ class GlobalExceptionHandler {
             case 'CONFLICT':             return 'Conflict'
             case 'INSUFFICIENT_BALANCE': return ex.message  // safe — no internal info
             case 'RATE_LIMITED':         return 'Too many requests'
+            // Money-path refusals. These carry copy WE wrote for a customer, so the
+            // length rule below must not reach them -- it exists to catch an internal
+            // string leaking out by accident, not to censor deliberate wording.
+            //
+            // This was not theoretical. Every one of these was over the 140-char limit
+            // and rendered as 'Request could not be completed', so the reassuring half
+            // -- 'you have not been charged and nothing was added to your balance' --
+            // was exactly the part the customer never saw. CONNECT_ONBOARDING_REQUIRED
+            // missed the cutoff by THREE characters and left a seller with no next step.
+            //
+            // The messages are also now short enough to survive without this list. Both
+            // are deliberate: the list states the intent, the length keeps it true if
+            // someone later edits the copy.
+            case 'DEV_CREDIT_NOT_AUTHORIZED':
+            case 'STRIPE_MODE_INDETERMINATE':
+            case 'ADMIN_DAILY_CAP':
+            case 'CONNECT_ONBOARDING_REQUIRED':
+            // Trade-URL refusals (ProfileController.setTradeUrl). Each tells the
+            // buyer exactly what to paste instead, and each is over 140 chars,
+            // so a buyer who pasted a friend's trade URL, or the wrong link,
+            // was told only "Request could not be completed" -- at the moment
+            // of saving the URL the seller needs to deliver his purchase.
+            case 'INVALID_TRADE_URL':
+            case 'TRADE_URL_TAKEN':
+            case 'TRADE_URL_NOT_YOURS':
+                return ex.message
             default:
                 // For explicit validation-style errors the message is usually
                 // user-actionable and safe ("Amount must be positive"), so we

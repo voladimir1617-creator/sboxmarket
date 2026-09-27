@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Loadouts — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .loadout-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: var(--s-20);
+  }
+
+  .loadout-card {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    transition: border-color .15s, transform .12s;
+    cursor: pointer;
+    display: flex; flex-direction: column;
+  }
+  .loadout-card:hover { border-color: var(--line-2); transform: translateY(-2px); }
+
+  .loadout-card .lo-hd {
+    padding: var(--s-16);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--s-12);
+  }
+  .loadout-card .lo-hd .name { font-size: var(--t-15); color: var(--ink); font-weight: 500; }
+  .loadout-card .lo-hd .sub { font-size: var(--t-11); color: var(--ink-3); margin-top: 2px; }
+
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    padding: var(--s-14);
+  }
+  .slot {
+    aspect-ratio: 1.4 / 1;
+    border: 1px dashed color-mix(in oklch, var(--line-2) 70%, transparent);
+    border-radius: var(--r-xs);
+    background:
+      repeating-linear-gradient(45deg,
+        color-mix(in oklch, var(--bg-2) 85%, transparent) 0 8px,
+        color-mix(in oklch, var(--bg-3) 75%, transparent) 8px 9px);
+    display: grid; place-items: center;
+    color: var(--ink-4);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    position: relative;
+    text-align: center;
+    padding: 0 4px;
+  }
+  .slot.filled { border-style: solid; border-color: var(--line); }
+  .slot.filled .rare-bar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .slot .rare-bar.cov { background: var(--rare-cov); }
+  .slot .rare-bar.cls { background: var(--rare-cls); }
+  .slot .rare-bar.rst { background: var(--rare-rst); }
+  .slot .rare-bar.mil { background: var(--rare-mil); }
+  .slot .rare-bar.ind { background: var(--rare-ind); }
+  .slot.empty .plus {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+    display: grid; place-items: center;
+  }
+
+  .loadout-card .lo-ft {
+    padding: var(--s-12) var(--s-16);
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+    background: color-mix(in oklch, var(--bg) 50%, transparent);
+    font-size: var(--t-12);
+    color: var(--ink-3);
+  }
+  .loadout-card .lo-ft .total { font-family: var(--font-mono); color: var(--ink); font-size: var(--t-15); }
+
+  /* New loadout card */
+  .loadout-new {
+    background: transparent;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r-md);
+    min-height: 180px;
+    display: grid; place-items: center;
+    color: var(--ink-3);
+    transition: background .12s, color .12s, border-color .12s;
+    text-align: center;
+    padding: var(--s-24);
+  }
+  .loadout-new:hover { background: var(--bg-1); color: var(--ink); border-color: var(--ink-4); }
+  .loadout-new svg { margin: 0 auto var(--s-8); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link is-active" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <div class="page-h">
+    <div>
+      <div class="crumb"><span style="color: var(--ink);">Loadouts</span></div>
+      <h1>Loadouts</h1>
+    </div>
+    <div class="row" style="gap: var(--s-10);">
+      <span class="muted" style="font-size: var(--t-12); color: var(--ink-3);">Saved combos · share with one URL</span>
+      <button class="btn btn-cta">+ New loadout</button>
+    </div>
+  </div>
+
+  <div class="loadout-grid">
+
+    <!-- Loadout 1 -->
+    <article class="loadout-card">
+      <div class="lo-hd">
+        <div>
+          <div class="name">CT side · Kato fantasy</div>
+          <div class="sub">5 slots · created 12 days ago · public</div>
+        </div>
+        <button class="icon-btn" aria-label="Menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+      </div>
+      <div class="slot-grid">
+        <div class="slot filled">USP-S<br/>Cortex<span class="rare-bar mil"></span></div>
+        <div class="slot filled">M4A1-S<br/>Hot Rod<span class="rare-bar cov"></span></div>
+        <div class="slot filled">AWP<br/>Neo-Noir<span class="rare-bar cls"></span></div>
+        <div class="slot filled">★ M9<br/>Crimson<span class="rare-bar cov"></span></div>
+        <div class="slot filled">Sport<br/>Vice<span class="rare-bar cov"></span></div>
+      </div>
+      <div class="lo-ft">
+        <div>5 / 5 slots filled · <span class="up">3 owned</span></div>
+        <div class="total">$5,184.20</div>
+      </div>
+    </article>
+
+    <!-- Loadout 2 -->
+    <article class="loadout-card">
+      <div class="lo-hd">
+        <div>
+          <div class="name">T side · Phoenix red</div>
+          <div class="sub">5 slots · created 28 days ago · public</div>
+        </div>
+        <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+      </div>
+      <div class="slot-grid">
+        <div class="slot filled">Glock<br/>Water<span class="rare-bar mil"></span></div>
+        <div class="slot filled">AK-47<br/>Vulcan<span class="rare-bar cov"></span></div>
+        <div class="slot filled">SSG 08<br/>Dragonfire<span class="rare-bar cls"></span></div>
+        <div class="slot filled">★ Karambit<br/>Fade<span class="rare-bar cov"></span></div>
+        <div class="slot empty"><span class="plus">+</span></div>
+      </div>
+      <div class="lo-ft">
+        <div>4 / 5 slots · 2 owned</div>
+        <div class="total">$2,818.00</div>
+      </div>
+    </article>
+
+    <!-- Loadout 3 -->
+    <article class="loadout-card">
+      <div class="lo-hd">
+        <div>
+          <div class="name">Cheap-but-cool starter</div>
+          <div class="sub">5 slots · created 4 days ago · private</div>
+        </div>
+        <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+      </div>
+      <div class="slot-grid">
+        <div class="slot filled">P2000<br/>Granite<span class="rare-bar ind"></span></div>
+        <div class="slot filled">FAMAS<br/>Mecha<span class="rare-bar mil"></span></div>
+        <div class="slot filled">SSG 08<br/>Slashed<span class="rare-bar mil"></span></div>
+        <div class="slot filled">UMP<br/>Primal<span class="rare-bar mil"></span></div>
+        <div class="slot filled">Five-SeveN<br/>Triumvirate<span class="rare-bar mil"></span></div>
+      </div>
+      <div class="lo-ft">
+        <div>5 / 5 · all owned</div>
+        <div class="total">$24.40</div>
+      </div>
+    </article>
+
+    <!-- Loadout 4 -->
+    <article class="loadout-card">
+      <div class="lo-hd">
+        <div>
+          <div class="name">Dream knife rotation</div>
+          <div class="sub">5 slots · created 1 month ago · public</div>
+        </div>
+        <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+      </div>
+      <div class="slot-grid">
+        <div class="slot filled">★ Karambit<br/>Doppler<span class="rare-bar cov"></span></div>
+        <div class="slot filled">★ Butterfly<br/>Tiger Tooth<span class="rare-bar cov"></span></div>
+        <div class="slot filled">★ Talon<br/>Marble Fade<span class="rare-bar cov"></span></div>
+        <div class="slot filled">★ M9<br/>Crimson Web<span class="rare-bar cov"></span></div>
+        <div class="slot filled">★ Bayonet<br/>Lore<span class="rare-bar cov"></span></div>
+      </div>
+      <div class="lo-ft">
+        <div>5 / 5 · 0 owned</div>
+        <div class="total">$11,420.00</div>
+      </div>
+    </article>
+
+    <!-- Loadout 5 -->
+    <article class="loadout-card">
+      <div class="lo-hd">
+        <div>
+          <div class="name">Stickers go brrrr</div>
+          <div class="sub">3 slots · created 2 months ago · public</div>
+        </div>
+        <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+      </div>
+      <div class="slot-grid">
+        <div class="slot filled">AK-47<br/>Vulcan<span class="rare-bar cov"></span></div>
+        <div class="slot filled">M4A4<br/>Howl<span class="rare-bar cls"></span></div>
+        <div class="slot filled">AWP<br/>D-Lore<span class="rare-bar cov"></span></div>
+        <div class="slot empty"><span class="plus">+</span></div>
+        <div class="slot empty"><span class="plus">+</span></div>
+      </div>
+      <div class="lo-ft">
+        <div>3 / 5 slots</div>
+        <div class="total">$10,640.00</div>
+      </div>
+    </article>
+
+    <!-- New -->
+    <button class="loadout-new">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg>
+      <div style="font-size: var(--t-13); color: var(--ink-2); margin-bottom: 4px;">Create new loadout</div>
+      <div style="font-size: var(--t-11); color: var(--ink-4);">Up to 5 items · share or keep private</div>
+    </button>
+
+  </div>
+
+</main>
+
+</body>
+</html>

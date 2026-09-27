@@ -3,6 +3,7 @@ package com.sboxmarket.repository
 import com.sboxmarket.model.Review
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
@@ -12,9 +13,72 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
 
     List<Review> findByFromUserId(Long fromUserId)
 
+    /** Paged companion — a long-tenure buyer can author hundreds of
+     *  reviews; callers that only need a cap should prefer this. */
+    List<Review> findByFromUserId(Long fromUserId, Pageable pageable)
+
+    /** Paged author-side lookup — reviews a user has written, newest
+     *  first. Used by the Profile → Reviews → Given tab so a buyer can
+     *  review, edit, or delete feedback they've left about sellers. */
+    List<Review> findByFromUserIdOrderByCreatedAtDesc(Long fromUserId, Pageable page)
+
     Review findByFromUserIdAndTradeId(Long fromUserId, Long tradeId)
+
+    /** Reviews the buyer wrote for a SPECIFIC set of trades — drives
+     *  eligibleTradesFor's reviewed-flag without loading the buyer's entire
+     *  cross-seller review history just to build a Set. Derived query (no JPQL). */
+    List<Review> findByFromUserIdAndTradeIdIn(Long fromUserId, Collection<Long> tradeIds)
+
+    /** GDPR PII scrub on account deletion (audit P2) — blank the free-text
+     *  comment a deleted author wrote, keeping the row (rating + FK skeleton)
+     *  so the counterparty's aggregate score + the audit trail stay intact.
+     *  Returns the row count for logging. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Review r SET r.comment = null WHERE r.fromUserId = :uid AND r.comment IS NOT NULL")
+    int blankCommentsByAuthor(@Param('uid') Long fromUserId)
+
+    /** Spam guard — count short, recent reviews authored by this buyer
+     *  since the given epoch-ms cutoff. A "short" review is one whose
+     *  comment is null/blank or shorter than the supplied length. Used
+     *  by leaveReview to detect a buyer rapid-firing low-effort
+     *  reviews (the classic copy-paste "great seller" pattern across
+     *  many trades in a single sitting, often paired with a 1★ retaliation
+     *  spree on a single seller). Index-friendly: filters on fromUserId
+     *  (covered by idx_review_from) then narrows by createdAt + LENGTH.
+     *  COALESCE keeps null comments inside the "short" bucket. */
+    @Query("""
+        SELECT COUNT(r) FROM Review r
+        WHERE r.fromUserId = :uid
+          AND r.createdAt >= :since
+          AND LENGTH(COALESCE(r.comment, '')) < :maxLen
+    """)
+    long countRecentShortByFromUser(@Param('uid') Long fromUserId,
+                                    @Param('since') Long sinceMs,
+                                    @Param('maxLen') int maxLen)
 
     /** Aggregate stats — avoids loading all rows when we only need average + count. */
     @Query("SELECT COUNT(r), AVG(r.rating) FROM Review r WHERE r.toUserId = :uid")
     List<Object[]> aggregateForUser(@Param("uid") Long uid)
+
+    /** Per-star histogram for a user — [[rating, count], ...] with one
+     *  row per star value present. Drives the review breakdown bar
+     *  chart on the stall + profile review tabs. */
+    @Query("""
+        SELECT r.rating, COUNT(r) FROM Review r
+        WHERE r.toUserId = :uid
+        GROUP BY r.rating
+        ORDER BY r.rating DESC
+    """)
+    List<Object[]> histogramForUser(@Param("uid") Long uid)
+
+    /** Bulk aggregate — [uid, count, avg] for every seller in the input
+     *  list. Single GROUP BY query powers the verified-seller badge
+     *  decoration on marketplace cards (batch 296). Sellers with no
+     *  reviews are absent from the result — treat missing as count=0. */
+    @Query("""
+        SELECT r.toUserId, COUNT(r), AVG(r.rating) FROM Review r
+        WHERE r.toUserId IN :ids
+        GROUP BY r.toUserId
+    """)
+    List<Object[]> aggregateForUsers(@Param("ids") List<Long> userIds)
 }

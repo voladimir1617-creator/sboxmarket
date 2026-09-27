@@ -45,9 +45,20 @@ class TextSanitizer {
         //    because we run it twice if the first pass found a match.
         while (s =~ /<[^>]*>/) { s = s.replaceAll(/<[^>]*>/, '') }
 
-        // 2) Drop common XSS-ish protocols buried in plain text
+        // 2) Drop common XSS-ish protocols buried in plain text. The
+        //    data: matcher now covers every executable MIME (svg, html,
+        //    xml, javascript-pseudo) instead of just text/html — a raw
+        //    `data:image/svg+xml` URL can contain an inline <script>.
+        //    Also covers every RFC 4329 / WHATWG-accepted JS alias
+        //    (text/javascript, text/ecmascript, application/x-javascript,
+        //    application/ecmascript) plus text/xml — all functionally
+        //    identical to application/javascript / application/xml in
+        //    every shipping browser, so an attacker crafting
+        //    `data:text/javascript,alert(1)` would otherwise survive a
+        //    strip that only flagged the canonical MIMEs.
         s = s.replaceAll(/(?i)javascript:/, '')
-        s = s.replaceAll(/(?i)data:text\/html/, '')
+        s = s.replaceAll(/(?i)vbscript:/, '')
+        s = s.replaceAll(/(?i)data:(text\/(html|javascript|ecmascript|xml)|image\/svg|application\/(xhtml|xml|javascript|x-javascript|ecmascript))/, '')
         s = s.replaceAll(/(?i)on[a-z]+\s*=/, '')  // onerror=, onclick=, etc.
 
         // 3) Normalise numeric HTML entities that could re-encode tags.
@@ -55,8 +66,13 @@ class TextSanitizer {
         // 3C, 3E, 60). Each corresponds to one of the "dangerous" ASCII
         // characters — quote, apostrophe, <, >, backtick. Leading zeros
         // are allowed so an attacker can't route around with &#0060;.
+        // The (?i) on the hex variant catches `&#X3C;` (capital X)
+        // bypass — Java regex is case-sensitive by default, so without
+        // the flag an attacker using `&#X3C;script&#X3E;` would survive
+        // the strip and later decode to `<script>` in any HTML-aware
+        // renderer.
         s = s.replaceAll(/&#0*(34|39|60|62|96);/, '')
-        s = s.replaceAll(/&#x0*(22|27|3C|3E|60);/, '')
+        s = s.replaceAll(/(?i)&#x0*(22|27|3C|3E|60);/, '')
 
         // 4) Collapse whitespace, trim
         s = s.replaceAll(/\s+/, ' ').trim()

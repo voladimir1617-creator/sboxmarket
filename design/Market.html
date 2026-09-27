@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Market — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+</head>
+<body>
+
+<!-- ───────────── TOP NAV ───────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand">
+        <span class="brand-mark"></span>
+        sboxmarket
+      </a>
+      <div class="nav-links">
+        <a class="nav-link is-active" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search items, sellers, collections…" />
+      <span class="kbd">⌘K</span>
+    </div>
+
+    <div class="nav-actions">
+      <span class="balance-pill">
+        <span class="label">Balance</span>
+        $1,284.50
+      </span>
+      <button class="icon-btn" aria-label="Watchlist">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg>
+      </button>
+      <button class="icon-btn" aria-label="Notifications">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+        <span class="dot"></span>
+      </button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ───────────── SUBNAV (category strip) ───────────── -->
+<div class="subnav">
+  <div class="subnav-inner">
+    <a class="chip is-active">All <span class="mono dim">12,841</span></a>
+    <a class="chip">Pistols</a>
+    <a class="chip">SMGs</a>
+    <a class="chip">Rifles</a>
+    <a class="chip">Snipers</a>
+    <a class="chip">Heavy</a>
+    <a class="chip">Knives</a>
+    <a class="chip">Gloves</a>
+    <a class="chip">Stickers</a>
+    <a class="chip">Cases</a>
+    <a class="chip">Agents</a>
+    <a class="chip">Music kits</a>
+    <span style="margin-left: auto; display: flex; gap: var(--s-12); align-items: center; color: var(--ink-3);">
+      <span class="badge live"><span class="led"></span>Live · 47 selling now</span>
+    </span>
+  </div>
+</div>
+
+<!-- ───────────── PAGE ───────────── -->
+<main class="layout split">
+
+  <!-- ─── FILTER RAIL ─── -->
+  <aside class="filter-rail">
+
+    <div class="filter-group">
+      <h4>Type <span class="count">5</span></h4>
+      <label class="checkbox"><input type="checkbox" checked /><span class="box"></span>Buy now <span class="count">9,142</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Auction <span class="count">412</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Make offer <span class="count">3,287</span></label>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="filter-group">
+      <h4>Rarity <span class="count">8</span></h4>
+      <label class="checkbox"><input type="checkbox" checked /><span class="box"></span>Consumer <span class="count">3,180</span></label>
+      <label class="checkbox"><input type="checkbox" checked /><span class="box"></span>Industrial <span class="count">2,712</span></label>
+      <label class="checkbox"><input type="checkbox" checked /><span class="box"></span>Mil-spec <span class="count">2,041</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Restricted <span class="count">1,488</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Classified <span class="count">912</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Covert <span class="count">421</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Contraband <span class="count">12</span></label>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="filter-group">
+      <h4>Wear</h4>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Factory new <span class="count">812</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Minimal wear <span class="count">2,041</span></label>
+      <label class="checkbox"><input type="checkbox" checked /><span class="box"></span>Field-tested <span class="count">5,144</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Well-worn <span class="count">2,210</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Battle-scarred <span class="count">1,634</span></label>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="filter-group">
+      <h4>Price</h4>
+      <div class="range">
+        <input class="input" placeholder="Min" value="$0" />
+        <span class="dim">—</span>
+        <input class="input" placeholder="Max" value="$5,000" />
+      </div>
+      <div style="display:flex; gap:var(--s-8); flex-wrap:wrap; margin-top: 4px;">
+        <a class="chip">Under $5</a>
+        <a class="chip">$5–25</a>
+        <a class="chip">$25–100</a>
+        <a class="chip">$100+</a>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="filter-group">
+      <h4>Float</h4>
+      <div class="range">
+        <input class="input mono" value="0.00" />
+        <span class="dim">—</span>
+        <input class="input mono" value="1.00" />
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="filter-group">
+      <h4>Stickers</h4>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Has stickers <span class="count">1,712</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Stattrak <span class="count">441</span></label>
+      <label class="checkbox"><input type="checkbox" /><span class="box"></span>Souvenir <span class="count">88</span></label>
+    </div>
+
+    <hr class="divider" />
+
+    <button class="btn btn-ghost btn-block">Reset filters</button>
+  </aside>
+
+  <!-- ─── GRID + HEADER ─── -->
+  <section>
+
+    <div class="page-h">
+      <div>
+        <div class="crumb">
+          <span>Home</span>
+          <span class="dot"></span>
+          <span style="color: var(--ink);">Market</span>
+        </div>
+        <h1>All listings</h1>
+      </div>
+      <div class="meta">
+        <span><span class="num">12,841</span> items</span>
+        <span><span class="num">$2.1M</span> total volume</span>
+        <span><span class="num">4,128</span> active sellers</span>
+      </div>
+    </div>
+
+    <!-- Active filter bar + sort -->
+    <div class="row between" style="margin-bottom: var(--s-16);">
+      <div class="row wrap" style="gap: var(--s-8);">
+        <span class="chip is-active">Buy now <span class="x">×</span></span>
+        <span class="chip is-active">Field-tested <span class="x">×</span></span>
+        <span class="chip is-active">Mil-spec <span class="x">×</span></span>
+        <span class="chip is-active">Industrial <span class="x">×</span></span>
+        <span class="chip is-active">Consumer <span class="x">×</span></span>
+        <button class="btn btn-ghost btn-sm">Clear all</button>
+      </div>
+      <div class="row" style="gap: var(--s-10);">
+        <div class="row" style="gap: var(--s-8); color: var(--ink-3); font-size: var(--t-12);">
+          Sort
+          <select class="select" style="width: 180px; height: 32px;">
+            <option>Price: low → high</option>
+            <option>Price: high → low</option>
+            <option>Recently listed</option>
+            <option>Discount %</option>
+            <option>Float: low → high</option>
+            <option>Ending soon (auctions)</option>
+          </select>
+        </div>
+        <div class="row" style="gap: 0;">
+          <button class="btn btn-secondary btn-sm" style="border-radius: var(--r-sm) 0 0 var(--r-sm); border-right: 0;">⊞</button>
+          <button class="btn btn-ghost btn-sm" style="border-radius: 0 var(--r-sm) var(--r-sm) 0;">≡</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Grid ─── -->
+    <div class="grid-listings">
+
+      <!-- 30 cards, hand-tuned variations -->
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Rifle</div>
+          <div class="lcard-name">AK-47 | Vulcan</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2147 <span class="sep"></span> +3 stickers</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$284.20</span>
+          <span class="lcard-discount up">−12%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.55 0.18 25), oklch(0.40 0.20 18));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Rifle</div>
+          <div class="lcard-name">M4A4 | Howl</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0812</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$1,940.00</span>
+          <span class="lcard-discount down">+4%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge live"><span class="led"></span>Auction · 02:14</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.14 145), oklch(0.45 0.12 130));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Knife</div>
+          <div class="lcard-name">★ Karambit | Fade</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0094 <span class="sep"></span> 91% fade</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$2,140.00</span>
+          <span class="lcard-discount up">−7%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-rst); border-color: color-mix(in oklch, var(--rare-rst) 35%, var(--line));">Restricted</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.65 0.15 240), oklch(0.40 0.16 250));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-rst);">Restricted · Pistol</div>
+          <div class="lcard-name">Desert Eagle | Blaze</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0021</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$487.50</span>
+          <span class="lcard-discount up">−18%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-mil); border-color: color-mix(in oklch, var(--rare-mil) 35%, var(--line));">Mil-spec</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.55 0.10 280), oklch(0.35 0.12 260));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-mil);">Mil-spec · SMG</div>
+          <div class="lcard-name">MP9 | Hot Rod</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2104</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$14.80</span>
+          <span class="lcard-discount up">−24%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.7 0.18 30), oklch(0.5 0.18 60));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Sniper</div>
+          <div class="lcard-name">AWP | Asiimov</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2841</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$112.00</span>
+          <span class="lcard-discount up">−9%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.5 0.14 220), oklch(0.30 0.10 230));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Sniper</div>
+          <div class="lcard-name">AWP | Dragon Lore</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0942</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$8,420.00</span>
+          <span class="lcard-discount down">+2%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge live"><span class="led"></span>Auction · 17:02</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.7 0.18 320), oklch(0.45 0.18 290));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Gloves</div>
+          <div class="lcard-name">★ Sport Gloves | Vice</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0814</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$1,810.00</span>
+          <span class="lcard-discount up">−6%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-ind); border-color: color-mix(in oklch, var(--rare-ind) 35%, var(--line));">Industrial</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.5 0.10 145), oklch(0.30 0.08 130));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-ind);">Industrial · Pistol</div>
+          <div class="lcard-name">USP-S | Forest Leaves</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0114</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$2.42</span>
+          <span class="lcard-discount up">−14%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.18 80), oklch(0.45 0.18 60));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Rifle</div>
+          <div class="lcard-name">AK-47 | Fire Serpent</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0742</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$612.00</span>
+          <span class="lcard-discount up">−11%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-mil); border-color: color-mix(in oklch, var(--rare-mil) 35%, var(--line));">Mil-spec</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.5 0.10 230), oklch(0.30 0.10 220));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-mil);">Mil-spec · Pistol</div>
+          <div class="lcard-name">Glock-18 | Water Elemental</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2210</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$8.12</span>
+          <span class="lcard-discount up">−21%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.65 0.18 305), oklch(0.40 0.16 280));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Sniper</div>
+          <div class="lcard-name">AWP | Neo-Noir</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0048</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$84.40</span>
+          <span class="lcard-discount up">−15%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge live"><span class="led"></span>Auction · 04:48</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.7 0.18 25), oklch(0.50 0.18 35));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Knife</div>
+          <div class="lcard-name">★ M9 Bayonet | Crimson Web</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0810</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$1,420.00</span>
+          <span class="lcard-discount up">−8%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.16 60), oklch(0.40 0.18 40));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Rifle</div>
+          <div class="lcard-name">M4A1-S | Hot Rod</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0014</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$184.20</span>
+          <span class="lcard-discount up">−10%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-rst); border-color: color-mix(in oklch, var(--rare-rst) 35%, var(--line));">Restricted</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.55 0.16 320), oklch(0.35 0.14 295));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-rst);">Restricted · SMG</div>
+          <div class="lcard-name">P90 | Asiimov</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2042</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$32.40</span>
+          <span class="lcard-discount up">−16%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-mil); border-color: color-mix(in oklch, var(--rare-mil) 35%, var(--line));">Mil-spec</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.5 0.10 80), oklch(0.30 0.08 70));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-mil);">Mil-spec · Rifle</div>
+          <div class="lcard-name">FAMAS | Mecha Industries</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0814</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$4.82</span>
+          <span class="lcard-discount up">−9%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.16 195), oklch(0.40 0.14 180));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Knife</div>
+          <div class="lcard-name">★ Butterfly | Tiger Tooth</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0024</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$2,180.00</span>
+          <span class="lcard-discount up">−5%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-rst); border-color: color-mix(in oklch, var(--rare-rst) 35%, var(--line));">Restricted</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.55 0.16 50), oklch(0.35 0.16 35));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-rst);">Restricted · Pistol</div>
+          <div class="lcard-name">Five-SeveN | Case Hardened</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2402 <span class="sep"></span> Blue 70%</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$94.40</span>
+          <span class="lcard-discount up">−13%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-mil); border-color: color-mix(in oklch, var(--rare-mil) 35%, var(--line));">Mil-spec</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.5 0.06 180), oklch(0.35 0.04 200));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-mil);">Mil-spec · Heavy</div>
+          <div class="lcard-name">Negev | Loudmouth</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2814</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$1.84</span>
+          <span class="lcard-discount up">−22%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.65 0.18 130), oklch(0.45 0.18 110));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Rifle</div>
+          <div class="lcard-name">AUG | Akihabara Accept</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0814</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$1,240.00</span>
+          <span class="lcard-discount down">+3%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.18 0), oklch(0.40 0.18 350));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Gloves</div>
+          <div class="lcard-name">★ Specialist Gloves | Crimson Kimono</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2402</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$3,180.00</span>
+          <span class="lcard-discount up">−4%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cns); border-color: color-mix(in oklch, var(--rare-cns) 35%, var(--line));">Consumer</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.45 0.04 240), oklch(0.30 0.04 230));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cns);">Consumer · Pistol</div>
+          <div class="lcard-name">P2000 | Granite Marbleized</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2104</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$0.42</span>
+          <span class="lcard-discount up">−8%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge live"><span class="led"></span>Auction · 09:24</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.7 0.16 200), oklch(0.50 0.16 190));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Knife</div>
+          <div class="lcard-name">★ Bayonet | Lore</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0084</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$1,940.00</span>
+          <span class="lcard-discount up">−6%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.16 95), oklch(0.40 0.18 105));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Sniper</div>
+          <div class="lcard-name">SSG 08 | Dragonfire</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2042</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$84.20</span>
+          <span class="lcard-discount up">−12%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-rst); border-color: color-mix(in oklch, var(--rare-rst) 35%, var(--line));">Restricted</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.55 0.16 290), oklch(0.35 0.16 275));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-rst);">Restricted · Rifle</div>
+          <div class="lcard-name">Galil AR | Chatterbox</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0712</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$28.40</span>
+          <span class="lcard-discount up">−18%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-mil); border-color: color-mix(in oklch, var(--rare-mil) 35%, var(--line));">Mil-spec</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.5 0.10 60), oklch(0.30 0.08 50));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-mil);">Mil-spec · SMG</div>
+          <div class="lcard-name">UMP-45 | Primal Saber</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2104</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$3.82</span>
+          <span class="lcard-discount up">−7%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.18 350), oklch(0.40 0.16 320));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Rifle</div>
+          <div class="lcard-name">AK-47 | Wild Lotus</div>
+          <div class="lcard-sub">MW <span class="sep"></span> 0.0814</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$12,400.00</span>
+          <span class="lcard-discount down">+1%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-ind); border-color: color-mix(in oklch, var(--rare-ind) 35%, var(--line));">Industrial</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.5 0.10 30), oklch(0.30 0.10 20));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-ind);">Industrial · Heavy</div>
+          <div class="lcard-name">Sawed-Off | Origami</div>
+          <div class="lcard-sub">FT <span class="sep"></span> 0.2104</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$1.42</span>
+          <span class="lcard-discount up">−10%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.65 0.18 145), oklch(0.45 0.18 165));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Knife</div>
+          <div class="lcard-name">★ Talon | Marble Fade</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0021</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$1,820.00</span>
+          <span class="lcard-discount up">−6%</span>
+        </div>
+      </article>
+
+      <article class="lcard">
+        <div class="lcard-img">
+          <div class="badge-row">
+            <span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span>
+            <button class="watch-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+          </div>
+          <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.16 215), oklch(0.40 0.18 195));"></div>
+        </div>
+        <div class="lcard-bd">
+          <div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Rifle</div>
+          <div class="lcard-name">M4A1-S | Cyrex</div>
+          <div class="lcard-sub">FN <span class="sep"></span> 0.0042</div>
+        </div>
+        <div class="lcard-ft">
+          <span class="lcard-price">$58.20</span>
+          <span class="lcard-discount up">−14%</span>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- Pagination -->
+    <div class="row between" style="margin-top: var(--s-32); padding-top: var(--s-20); border-top: 1px solid var(--line);">
+      <div class="muted" style="font-size: var(--t-12);">Showing <span class="mono">1–30</span> of <span class="mono">12,841</span></div>
+      <div class="row" style="gap: var(--s-6);">
+        <button class="btn btn-ghost btn-sm" disabled style="opacity: 0.4;">←</button>
+        <button class="btn btn-secondary btn-sm">1</button>
+        <button class="btn btn-ghost btn-sm">2</button>
+        <button class="btn btn-ghost btn-sm">3</button>
+        <span class="muted">…</span>
+        <button class="btn btn-ghost btn-sm">428</button>
+        <button class="btn btn-ghost btn-sm">→</button>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- ───────────── FOOTER ───────────── -->
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <div class="brand" style="margin-bottom: var(--s-12);">
+        <span class="brand-mark"></span>
+        sboxmarket
+      </div>
+      <p style="color: var(--ink-3); font-size: var(--t-12); max-width: 32ch; line-height: 1.6;">The marketplace for s&amp;box skins. Trade safe with escrow, instant payouts, and zero-fee deposits.</p>
+    </div>
+    <div>
+      <h5>Marketplace</h5>
+      <a href="#">Browse</a>
+      <a href="#">Sell an item</a>
+      <a href="#">Buy orders</a>
+      <a href="#">Loadouts</a>
+      <a href="#">Database</a>
+    </div>
+    <div>
+      <h5>Account</h5>
+      <a href="#">Profile</a>
+      <a href="#">Wallet</a>
+      <a href="#">Watchlist</a>
+      <a href="#">Trade history</a>
+      <a href="#">Settings</a>
+    </div>
+    <div>
+      <h5>Help</h5>
+      <a href="#">Trade safety</a>
+      <a href="#">Refunds</a>
+      <a href="#">Cookies</a>
+      <a href="#">Disclaimer</a>
+      <a href="#">Contact</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

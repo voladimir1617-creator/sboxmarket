@@ -7,10 +7,77 @@
 ###
 
 server:
+  # Bind the wildcard — REQUIRED here, and only here.
+  #
+  # `application.yml` defaults to 127.0.0.1 because a wildcard bind on the
+  # default profile published the dev-login scaffolding to the LAN and the
+  # tailnet (see the long note there). Inside a container that same default
+  # would be a different bug: Docker's published `${APP_PORT:-8082}:8082`
+  # forwards to the container's external interface, so an app bound to the
+  # container's loopback is unreachable from the host and every request gets
+  # connection-refused — the same class of failure as the 8080/8082 mismatch
+  # the Dockerfile HEALTHCHECK comment records.
+  #
+  # This is safe precisely BECAUSE it is the prod profile: the container's
+  # network namespace is not the house LAN, the topology is
+  # Cloudflare -> nginx -> app, and every piece of dev scaffolding is dead here
+  # (MoneyMode classifies a prod box with a non-live key as INDETERMINATE, which
+  # shuts the same doors LIVE does). The default profile makes none of those
+  # guarantees, which is why it gets the closed default instead.
+  address: ${SERVER_ADDRESS:0.0.0.0}
+  # Trust the proxy's X-Forwarded-* headers. The live topology is
+  # Cloudflare tunnel -> nginx -> app, and the cloudflared->nginx hop is
+  # plain HTTP: nginx stamps `X-Forwarded-Proto: $scheme` which is `http`
+  # on that internal hop even though TLS is mandatory at the edge. Without
+  # this strategy Spring's ServletRequest sees scheme=http, so:
+  #   * HttpServletResponse.sendRedirect() (SteamAuthController login bounce
+  #     + /return) emits `Location: http://skinbox.market/...` Location
+  #     headers — the browser then gets a Cloudflare HTTPS->the redirect
+  #     downgrades to http and 301-loops or trips mixed-content,
+  #   * request.isSecure() is false, so any Secure-cookie / scheme-aware
+  #     logic thinks the request is insecure,
+  #   * ServletUriComponentsBuilder / framework absolute-URL builders emit
+  #     http:// links.
+  # `framework` activates Spring's ForwardedHeaderFilter which rewrites the
+  # request's scheme/host/port from X-Forwarded-* BEFORE any controller or
+  # the security-header filter runs — fixing all of the above centrally.
+  # The per-controller `if (host == skinbox.market) proto = 'https'` hacks
+  # in OpenGraphController / SitemapController become belt-and-braces rather
+  # than the only thing forcing https. `framework` (not `native`) because
+  # the upstream is nginx/cloudflared, not Tomcat's own RemoteIpValve, and
+  # `framework` works regardless of the embedded container. Overridable via
+  # SERVER_FORWARD_HEADERS_STRATEGY for an operator who fronts the app with
+  # a proxy that strips the X-Forwarded-* headers.
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
+  # Graceful shutdown (batch 373). On SIGTERM (Docker stop / k8s pod
+  # terminate / systemd stop) Tomcat stops accepting new requests but
+  # keeps serving in-flight ones up to the timeout. Without this, a
+  # rolling deploy would cut mid-request responses (e.g. a Stripe
+  # webhook callback during a redeploy would 502 from the LB).
+  shutdown: graceful
+  error:
+    # Replaced by GlobalErrorController which renders a branded HTML
+    # page for browsers and a clean JSON envelope for everything else.
+    # Spring's default Whitelabel page leaks "/error" + framework strings.
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
   servlet:
     session:
       cookie:
-        secure: true
+        # Batch 974 — templated so `run-local.sh` can pass
+        # COOKIE_SECURE=false and the browser will actually ship the
+        # session cookie over HTTP on localhost. Previously this was
+        # hardcoded `true`, which meant the local-prod image would set
+        # Secure on every cookie and Chrome/Firefox would refuse to
+        # send it back over the http://localhost:8082 session — the
+        # signed-in state silently vanished on every page load in
+        # local testing. Real prod deploys pass `true` (or leave
+        # unset; the default below is true) so nothing downgrades.
+        secure: ${COOKIE_SECURE:true}
         # Lax, not Strict — Steam OpenID and Stripe Checkout both
         # redirect the browser back to skinbox.market from their
         # domains. SameSite=Strict blocks the session cookie on those
@@ -36,6 +103,26 @@ server:
       min-spare: 20
 
 spring:
+  lifecycle:
+    # Grace window for graceful shutdown — Tomcat waits up to this for
+    # in-flight requests to complete before force-terminating.
+    # Matches typical container kill-grace defaults (k8s
+    # terminationGracePeriodSeconds = 30).
+    timeout-per-shutdown-phase: 25s
+  session:
+    # 2026-05-03 — DISABLED for the FOURTH time. Every prior re-enable
+    # has produced an outage when poisoned Cookie values containing NUL
+    # (0x00) reached the JDBC bind parameter — Postgres rejects the
+    # SELECT on SPRING_SESSION with SQLSTATE 22021 and the same filter
+    # runs on /error so the error page 500s too (Tomcat raw stub). The
+    # 09:25 deploy commented @EnableJdbcHttpSession in SessionConfig and
+    # set SPRING_SESSION_STORE_TYPE=none in env, but THIS YAML line was
+    # still pinning store-type to jdbc at autoconfig time. Hard-coded
+    # to 'none' here so the in-memory Tomcat session manager owns
+    # sessions. Sessions are lost on container restart — acceptable
+    # until the underlying NUL sanitizer is rewritten to be airtight.
+    store-type: none
+    timeout: 365d
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -51,8 +138,39 @@ spring:
     driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
     username:         ${SPRING_DATASOURCE_USERNAME}
     password:         ${SPRING_DATASOURCE_PASSWORD}
+    # HikariCP pool sizing. The default Hikari max-pool-size is 10, but
+    # Tomcat is tuned for 200 worker threads (see server.tomcat.threads.max
+    # above). Under load that mismatch parks ~190 request threads blocking
+    # in getConnection() until connection-timeout, turning a DB-bound spike
+    # into app-wide latency / timeouts. Size the pool for real prod
+    # concurrency and fail fast instead of queueing forever.
+    #   * maximum-pool-size 40  — well under Postgres' default max_connections
+    #     (100) even with a few app replicas, but deep enough that request
+    #     threads rarely wait on a free connection.
+    #   * minimum-idle 10       — keep a warm floor so the first burst after
+    #     an idle period doesn't pay connection-establishment latency.
+    #   * connection-timeout 10s — fail a request fast when the pool is
+    #     exhausted rather than pinning a Tomcat thread indefinitely.
+    #   * idle-timeout 10m / max-lifetime 30m — recycle connections so we
+    #     don't hold stale ones across Postgres/PgBouncer-side timeouts;
+    #     max-lifetime stays safely under typical server/proxy idle cutoffs.
+    #   * leak-detection-threshold 30s — log a stack trace for any
+    #     connection held longer than 30s (a leaked / un-closed connection).
+    # All sizes are env-overridable for per-environment tuning.
+    hikari:
+      pool-name:                sboxmarket-pool
+      maximum-pool-size:        ${DB_POOL_MAX:40}
+      minimum-idle:             ${DB_POOL_MIN_IDLE:10}
+      connection-timeout:       ${DB_POOL_CONNECTION_TIMEOUT:10000}
+      idle-timeout:             ${DB_POOL_IDLE_TIMEOUT:600000}
+      max-lifetime:             ${DB_POOL_MAX_LIFETIME:1800000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION:30000}
   jpa:
-    database-platform: ${SPRING_JPA_DIALECT:org.hibernate.dialect.PostgreSQLDialect}
+    # Batch 945 — removed explicit `database-platform: PostgreSQLDialect`.
+    # Hibernate 6+ auto-detects the dialect from the JDBC driver and
+    # warns HHH90000025 when one is supplied unnecessarily. Dropping the
+    # property silences the warn and lets Hibernate pick the right class
+    # (incl. future PostgreSQL-specific subclasses) without a config push.
     hibernate:
       # Never auto-mutate prod schemas. Use Flyway / Liquibase migrations.
       ddl-auto: validate
@@ -60,22 +178,50 @@ spring:
     console:
       enabled: false
 
-# Actuator: disabled entirely in production. management.server.port=-1
-# tells Spring Boot not to register the actuator servlet — even /actuator
-# root returns 404. Ops can enable it on a private management port only
-# (e.g. ACTUATOR_PORT=9090) behind a firewall rule.
+# Actuator: exposed on a PRIVATE management port for internal scraping
+# (health checks + metrics) only — NEVER the public 8082. The management
+# port defaults to 9092 here; bind it to a loopback / private-subnet
+# interface and gate it with a firewall rule so only the monitoring stack
+# and the container/orchestrator liveness+readiness probes can reach it.
+# Endpoints are kept to a deliberately tight allowlist (health, info,
+# metrics) so nothing sensitive (env, beans, heapdump, configprops, …) is
+# reachable even on the private port.
+#
+# PROMETHEUS: the `prometheus` endpoint is intentionally NOT exposed. The
+# classpath only has spring-boot-starter-actuator (which brings
+# micrometer-core), and there is NO micrometer registry that serves the
+# Prometheus exposition format. Exposing `prometheus` without a registry
+# yields a 404 at /actuator/prometheus. To enable Prometheus scraping, add
+#   implementation 'io.micrometer:micrometer-registry-prometheus'
+# to build.gradle, then add `prometheus` to the exposure.include list
+# below (and, if desired, set management.prometheus.metrics.export.enabled).
 management:
   server:
-    port: ${ACTUATOR_PORT:-1}
+    # Private management port. Default 9092; an operator who wants actuator
+    # fully off can still set ACTUATOR_PORT=-1 to unregister the servlet.
+    port: ${ACTUATOR_PORT:9092}
   endpoints:
-    enabled-by-default: false
+    # Re-enable endpoints (the default profile disables them) but keep the
+    # web exposure allowlist tight — only what's in `include` is reachable.
+    enabled-by-default: true
     web:
       exposure:
-        include: ''
+        include: health,info,metrics
   endpoint:
     health:
-      show-details: never
-      enabled: false
+      # Show component details (db, diskSpace, …) only to callers that hit
+      # the private port — safe here because the port is firewalled, and
+      # ops needs the breakdown to triage a failing readiness probe.
+      show-details: when-authorized
+      # Liveness + readiness probe groups (/actuator/health/liveness and
+      # /actuator/health/readiness) for container / k8s probes.
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      # Stamp every metric with the app name so a shared monitoring backend
+      # can distinguish series from multiple services.
+      application: sboxmarket
 
 # Lock OpenAPI / Swagger off in prod by default. Flip SWAGGER_ENABLED=true
 # temporarily for incident debugging.
@@ -93,12 +239,36 @@ security:
   #   CORS_ALLOWED_ORIGINS=https://skinbox.example
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
+# In-app rate limiter (RateLimitFilter) trusted-proxy set. The limiter only
+# reads the forwarded client-IP headers (CF-Connecting-IP, X-Forwarded-For)
+# when the immediate TCP peer (req.remoteAddr) is inside one of these CIDRs;
+# any other peer is bucketed by its real socket IP so it cannot spoof the
+# header to escape its limit. Defaults to loopback (the live cloudflared ->
+# app hop is loopback). In a containerised nginx -> app topology the upstream
+# connects from the docker bridge, so the private RFC1918 ranges are included
+# here — those addresses are NOT internet-routable, so an external attacker
+# can never present one as a real TCP source. If the app is fronted by a proxy
+# on a different network, set SBOX_TRUSTED_PROXIES to that proxy's CIDR(s).
+sbox:
+  ratelimit:
+    trusted-proxies: ${SBOX_TRUSTED_PROXIES:127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+
 # Logging — log to files with rotation instead of stdout spam. Ops tooling
 # reads /var/log/skinbox/skinbox.log.
 logging:
   level:
     com.sboxmarket:        INFO
     org.springframework:   WARN
+    # Explicit override — default application.yml pins
+    # `org.springframework.web: INFO` so DispatcherServlet + the web tier
+    # log every request line. Spring Boot MERGES logging.level keys across
+    # profile files (it does not replace the map), so without redeclaring
+    # the child here the `org.springframework: WARN` baseline is silently
+    # overridden for the web logger only, and request URIs (including
+    # query strings with Stripe session_id / Steam OpenID nonce / CSR
+    # support-ticket tokens) end up in /var/log/skinbox/skinbox.log at
+    # INFO. Pin the child to WARN to match the parent's prod intent.
+    org.springframework.web: WARN
     org.hibernate:         WARN
   file:
     name: ${LOG_FILE:/var/log/skinbox/skinbox.log}
@@ -120,8 +290,48 @@ stripe:
   webhook-secret:  ${STRIPE_WEBHOOK_SECRET}
   success-url:     ${STRIPE_SUCCESS_URL}
   cancel-url:      ${STRIPE_CANCEL_URL}
+  # Stripe Connect (Express) payout rail. The return/refresh URLs are
+  # where Stripe sends the seller back after the hosted onboarding flow
+  # (return = finished, refresh = link expired → mint a new one). They
+  # default under app.public-url in StripeService's @Value fallbacks, so
+  # these env vars are optional overrides; set them if onboarding should
+  # land somewhere other than `${APP_PUBLIC_URL}/wallet`. `country` is the
+  # two-letter ISO country the connected accounts are created in (default
+  # US). Activate Stripe Connect in the Stripe Dashboard before going live
+  # — see the operator runbook.
+  connect:
+    return-url:  ${STRIPE_CONNECT_RETURN_URL:${app.public-url}/wallet?connect=done}
+    refresh-url: ${STRIPE_CONNECT_REFRESH_URL:${app.public-url}/wallet?connect=refresh}
+    country:     ${STRIPE_CONNECT_COUNTRY:US}
 
 steam:
   api-key:    ${STEAM_API_KEY:}
   realm:      ${STEAM_REALM}
   return-url: ${STEAM_RETURN_URL}
+  # Bot-escrow sidecar — see steam-bot/.env.example. When STEAM_BOT_BASE_URL
+  # is UNSET the entire deposit/delivery/escrow path is inert
+  # (SteamTradeBotService.enabled == false): listings are created ACTIVE the
+  # legacy way (no deposit required), nothing is scheduled, and nothing errors.
+  # So prod is safe to boot before the bot host is live. Set both to go live.
+  bot:
+    base-url:  ${STEAM_BOT_BASE_URL:}
+    api-token: ${BOT_API_TOKEN:}
+  delivery:
+    # Master switch for the buyer-delivery poller (independent of the bot
+    # enabled flag). test-asset-id is an EXPLICIT staging override only — real
+    # delivery resolves the bot-held asset from custody (SteamEscrowService).
+    enabled:       ${STEAM_DELIVERY_ENABLED:true}
+    test-asset-id: ${STEAM_DELIVERY_TEST_ASSET_ID:}
+  escrow:
+    # Master switch for the seller->bot deposit-confirm + return sweeps
+    # (independent of the bot enabled flag). Mirrors steam.delivery.enabled.
+    enabled: ${STEAM_ESCROW_ENABLED:true}
+
+# Email unsubscribe link HMAC secret. MUST be set in prod — the @Value
+# fallback in EmailService is a publicly-committed dev placeholder
+# (`dev-only-do-not-use-in-production-7f3a9c`). Without this override,
+# anyone reading the source can forge unsubscribe tokens for any user's
+# email address and silently mute their notifications.
+app:
+  unsubscribe:
+    secret: ${APP_UNSUBSCRIBE_SECRET}

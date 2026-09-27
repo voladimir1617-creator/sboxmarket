@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>jeradel — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .stall-hero {
+    margin-bottom: var(--s-32);
+    padding: var(--s-32);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--bg-1);
+    background-image:
+      radial-gradient(60% 100% at 100% 0%, color-mix(in oklch, var(--ink) 4%, transparent) 0%, transparent 60%);
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) auto;
+    gap: var(--s-24);
+    align-items: center;
+  }
+  @media (max-width: 700px) { .stall-hero { grid-template-columns: 64px minmax(0, 1fr); } .stall-hero .actions { grid-column: 1 / -1; } }
+
+  .stall-avatar {
+    width: 96px; height: 96px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, oklch(0.45 0.04 240), oklch(0.30 0.04 200));
+    border: 1px solid var(--line-2);
+    display: grid; place-items: center;
+    color: var(--ink);
+    font-size: var(--t-28);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    box-shadow: var(--shadow-2);
+  }
+
+  .rep-bar {
+    height: 6px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: var(--s-8);
+    position: relative;
+  }
+  .rep-bar > span {
+    display: block; height: 100%;
+    width: 97%;
+    background: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link is-active" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <div class="crumb" style="margin-bottom: var(--s-12);">
+    <a href="/" style="color: var(--ink-3);">Market</a>
+    <span style="width:3px; height:3px; border-radius:50%; background:var(--ink-4); display:inline-block;"></span>
+    <a href="#" style="color: var(--ink-3);">Stalls</a>
+    <span style="width:3px; height:3px; border-radius:50%; background:var(--ink-4); display:inline-block;"></span>
+    <span style="color: var(--ink);">jeradel</span>
+  </div>
+
+  <!-- Stall hero -->
+  <div class="stall-hero">
+    <div class="stall-avatar">JD</div>
+    <div>
+      <div class="row" style="gap: var(--s-10); margin-bottom: var(--s-6);">
+        <h1 style="font-size: var(--t-28); font-weight: 600; letter-spacing: -0.02em;">jeradel</h1>
+        <span class="badge live"><span class="led"></span>Online · last seen 2m ago</span>
+        <span class="badge" style="color: var(--blue); border-color: color-mix(in oklch, var(--blue) 30%, var(--line)); background: var(--blue-soft);">Verified seller</span>
+      </div>
+      <div class="row" style="gap: var(--s-16); font-size: var(--t-12); color: var(--ink-3); margin-bottom: var(--s-12);">
+        <span>Joined <span class="mono" style="color: var(--ink-2);">Sep 2024</span></span>
+        <span>·</span>
+        <span><span class="mono" style="color: var(--ink-2);">★ 4.97</span> · <span class="mono" style="color: var(--ink-2);">1,284</span> reviews</span>
+        <span>·</span>
+        <span><span class="mono" style="color: var(--ink-2);">14</span> active · <span class="mono" style="color: var(--ink-2);">3,142</span> sold</span>
+        <span>·</span>
+        <span>Ships in <span class="mono" style="color: var(--up);">~12 min</span> avg</span>
+      </div>
+      <p class="muted" style="font-size: var(--t-13); max-width: 60ch; line-height: 1.6;">Long-time CT-side player. I list at fair market prices, ship fast, and trade only items I'd carry myself. Offers welcome on listings over $100.</p>
+    </div>
+    <div class="actions row" style="gap: var(--s-8);">
+      <button class="btn btn-secondary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg>
+        Watch stall
+      </button>
+      <button class="btn btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+        Trade with seller
+      </button>
+    </div>
+  </div>
+
+  <!-- Stat row -->
+  <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--s-12); margin-bottom: var(--s-32);">
+    <div class="stat">
+      <span class="lbl">Reputation</span>
+      <span class="val">4.97</span>
+      <div class="rep-bar"><span></span></div>
+      <span class="delta dim" style="margin-top: 4px;">412 reviews</span>
+    </div>
+    <div class="stat">
+      <span class="lbl">Lifetime sold</span>
+      <span class="val">3,142</span>
+      <span class="delta dim">$284k volume</span>
+    </div>
+    <div class="stat">
+      <span class="lbl">Active listings</span>
+      <span class="val">14</span>
+      <span class="delta dim">Lowest $4 · highest $8.4k</span>
+    </div>
+    <div class="stat">
+      <span class="lbl">Ship time</span>
+      <span class="val">12m</span>
+      <span class="delta up">faster than 94% of sellers</span>
+    </div>
+    <div class="stat">
+      <span class="lbl">Disputes</span>
+      <span class="val">0</span>
+      <span class="delta dim">in 12 months</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-row">
+    <div class="tabs">
+      <button class="tab is-active">Listings <span class="count">14</span></button>
+      <button class="tab">Reviews <span class="count">412</span></button>
+      <button class="tab">Sold <span class="count">3,142</span></button>
+      <button class="tab">About</button>
+    </div>
+    <div class="row" style="gap: var(--s-10);">
+      <input class="input" placeholder="Filter listings…" style="width: 220px;" />
+      <select class="select" style="width: 160px;">
+        <option>Newest</option>
+        <option>Price: low → high</option>
+        <option>Discount %</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Listings grid -->
+  <div class="grid-listings">
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Rifle</div><div class="lcard-name">AK-47 | Vulcan</div><div class="lcard-sub">FT <span class="sep"></span> 0.2147 <span class="sep"></span> +3 stickers</div></div><div class="lcard-ft"><span class="lcard-price">$284.20</span><span class="lcard-discount up">−12%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Knife</div><div class="lcard-name">★ Karambit | Fade</div><div class="lcard-sub">FN <span class="sep"></span> 0.0094 <span class="sep"></span> 91% fade</div></div><div class="lcard-ft"><span class="lcard-price">$2,140.00</span><span class="lcard-discount up">−7%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Rifle</div><div class="lcard-name">M4A4 | Howl</div><div class="lcard-sub">MW <span class="sep"></span> 0.0812</div></div><div class="lcard-ft"><span class="lcard-price">$1,940.00</span><span class="lcard-discount down">+4%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge live"><span class="led"></span>Auction · 04:12</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Gloves</div><div class="lcard-name">★ Sport Gloves | Vice</div><div class="lcard-sub">MW <span class="sep"></span> 0.0814</div></div><div class="lcard-ft"><span class="lcard-price">$1,810.00</span><span class="lcard-discount up">−6%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Sniper</div><div class="lcard-name">AWP | Asiimov</div><div class="lcard-sub">FT <span class="sep"></span> 0.2841</div></div><div class="lcard-ft"><span class="lcard-price">$112.00</span><span class="lcard-discount up">−9%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Sniper</div><div class="lcard-name">AWP | Dragon Lore</div><div class="lcard-sub">MW <span class="sep"></span> 0.0942</div></div><div class="lcard-ft"><span class="lcard-price">$8,420.00</span><span class="lcard-discount down">+2%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-rst); border-color: color-mix(in oklch, var(--rare-rst) 35%, var(--line));">Restricted</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-rst);">Restricted · Pistol</div><div class="lcard-name">Desert Eagle | Blaze</div><div class="lcard-sub">FN <span class="sep"></span> 0.0021</div></div><div class="lcard-ft"><span class="lcard-price">$487.50</span><span class="lcard-discount up">−18%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Rifle</div><div class="lcard-name">M4A1-S | Cyrex</div><div class="lcard-sub">FN <span class="sep"></span> 0.0042</div></div><div class="lcard-ft"><span class="lcard-price">$58.20</span><span class="lcard-discount up">−14%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-mil); border-color: color-mix(in oklch, var(--rare-mil) 35%, var(--line));">Mil-spec</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-mil);">Mil-spec · SMG</div><div class="lcard-name">MP9 | Hot Rod</div><div class="lcard-sub">FT <span class="sep"></span> 0.2104</div></div><div class="lcard-ft"><span class="lcard-price">$14.80</span><span class="lcard-discount up">−24%</span></div></article>
+    <article class="lcard"><div class="lcard-img"><div class="badge-row"><span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span><button class="watch-btn">♡</button></div><div class="skin"></div></div><div class="lcard-bd"><div class="lcard-rarity" style="color: var(--rare-cls);">Classified · Rifle</div><div class="lcard-name">AK-47 | Fire Serpent</div><div class="lcard-sub">MW <span class="sep"></span> 0.0742</div></div><div class="lcard-ft"><span class="lcard-price">$612.00</span><span class="lcard-discount up">−11%</span></div></article>
+  </div>
+
+  <!-- Reviews preview -->
+  <section style="margin-top: var(--s-56);">
+    <div class="row between" style="margin-bottom: var(--s-16);">
+      <h2 style="font-size: var(--t-22); font-weight: 600; letter-spacing: -0.015em;">Recent reviews</h2>
+      <a href="#" class="muted" style="font-size: var(--t-13);">View all 412 →</a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-16);">
+      <div class="card">
+        <div class="card-bd">
+          <div class="row between" style="margin-bottom: var(--s-10);">
+            <div class="row" style="gap: var(--s-10);">
+              <div class="avatar" style="background: linear-gradient(135deg, oklch(0.45 0.04 220), oklch(0.30 0.04 200));">SC</div>
+              <div>
+                <div style="color: var(--ink); font-size: var(--t-13);">scope_</div>
+                <div class="dim" style="font-size: var(--t-11);">14 minutes ago</div>
+              </div>
+            </div>
+            <div class="mono" style="color: var(--ink);">★★★★★</div>
+          </div>
+          <p style="font-size: var(--t-13); color: var(--ink-2); line-height: 1.55;">Fast trade, exact float as listed. Shipped within 4 minutes. Will buy from again.</p>
+          <div class="dim" style="font-size: var(--t-11); margin-top: var(--s-10);">on AK-47 | Vulcan FT</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-bd">
+          <div class="row between" style="margin-bottom: var(--s-10);">
+            <div class="row" style="gap: var(--s-10);">
+              <div class="avatar" style="background: linear-gradient(135deg, oklch(0.45 0.04 200), oklch(0.30 0.04 240));">KR</div>
+              <div>
+                <div style="color: var(--ink); font-size: var(--t-13);">kraut</div>
+                <div class="dim" style="font-size: var(--t-11);">2 hours ago</div>
+              </div>
+            </div>
+            <div class="mono" style="color: var(--ink);">★★★★★</div>
+          </div>
+          <p style="font-size: var(--t-13); color: var(--ink-2); line-height: 1.55;">Smooth offer-to-trade flow. Came back at fair counter. Solid seller, communicates clearly.</p>
+          <div class="dim" style="font-size: var(--t-11); margin-top: var(--s-10);">on M4A1-S | Hot Rod FN</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-bd">
+          <div class="row between" style="margin-bottom: var(--s-10);">
+            <div class="row" style="gap: var(--s-10);">
+              <div class="avatar" style="background: linear-gradient(135deg, oklch(0.45 0.04 280), oklch(0.30 0.04 260));">NI</div>
+              <div>
+                <div style="color: var(--ink); font-size: var(--t-13);">nico</div>
+                <div class="dim" style="font-size: var(--t-11);">1 day ago</div>
+              </div>
+            </div>
+            <div class="mono" style="color: var(--ink);">★★★★★</div>
+          </div>
+          <p style="font-size: var(--t-13); color: var(--ink-2); line-height: 1.55;">Bought multiple items over the past month. Pricing always fair. Shipping consistently under 15 minutes.</p>
+          <div class="dim" style="font-size: var(--t-11); margin-top: var(--s-10);">on AWP | Neo-Noir FN</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+-- Real render image URL for catalogue items (Steam economy CDN URL).
+--
+-- The `items.image_url` column already exists from V1__baseline.sql
+-- (VARCHAR(500)) and maps to Item.imageUrl. This migration is an idempotent
+-- safety net for any Postgres deployment whose baseline predates that column
+-- (or was created from an older snapshot): `ADD COLUMN IF NOT EXISTS` is a
+-- no-op when the column is already present, so it is safe to run everywhere.
+--
+-- Items WITHOUT an image_url fall back to the emoji/category-glyph tile on the
+-- frontend (see ItemImage in primitives.js), so the column stays nullable.
+-- Dev runs on H2 with ddl-auto:update which already keeps the column in sync;
+-- Flyway only runs in the prod profile.
+ALTER TABLE items ADD COLUMN IF NOT EXISTS image_url VARCHAR(500);

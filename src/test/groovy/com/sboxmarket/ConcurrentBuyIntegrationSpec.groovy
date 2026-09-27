@@ -173,4 +173,90 @@ class ConcurrentBuyIntegrationSpec extends Specification {
         // At least one WIN exists (someone bought it)
         outcomes.any { it == 'A_WIN' || it == 'B_WIN' }
     }
+
+    /**
+     * Cross-debit serialization on a SINGLE wallet. The two tests above race
+     * many buyers against ONE listing — they prove the *Listing* @Version stops
+     * two people getting the same item, but each buyer has their own wallet, so
+     * they never exercise two debits landing on the SAME wallet at once.
+     *
+     * This test closes that gap: one buyer whose wallet covers exactly ONE of
+     * two equally-priced listings buys BOTH at the same instant from two
+     * threads. The only thing standing between "one debit" and "wallet goes
+     * negative" is the *Wallet* @Version optimistic lock — the same shared
+     * mechanism every other debit path relies on (buy / cart / offer-accept /
+     * withdrawal / trade-protection / auction-settle all mutate the wallet via
+     * a Hibernate dirty UPDATE … WHERE id=? AND version=?). If a future change
+     * bypassed that version bump (e.g. an @Modifying balance UPDATE, or dropping
+     * a pre-side-effect flush) two concurrent debits on one wallet could BOTH
+     * commit and drive the balance negative. This test fails if that happens.
+     */
+    def "one wallet, two concurrent buys of different listings — exactly one debit, wallet never goes negative (Wallet @Version)"() {
+        given: "a single buyer whose wallet covers exactly ONE of two \$100 listings"
+        def uniq = System.nanoTime()
+        def buyer  = userRepo.save(new SteamUser(steamId64: "solo${uniq}", displayName: 'Solo'))
+        def wallet = walletRepo.save(new Wallet(username: "w_solo_${uniq}", balance: new BigDecimal("100"), currency: 'USD'))
+
+        def itemA = itemRepo.save(new Item(
+            name: "XTargetA-${uniq}", category: 'Hats', rarity: 'Limited',
+            supply: 5, totalSold: 0, lowestPrice: new BigDecimal("100.00"), iconEmoji: '🎩'
+        ))
+        def itemB = itemRepo.save(new Item(
+            name: "XTargetB-${uniq}", category: 'Hats', rarity: 'Limited',
+            supply: 5, totalSold: 0, lowestPrice: new BigDecimal("100.00"), iconEmoji: '🧢'
+        ))
+        def listingA = listingRepo.save(new Listing(
+            item: itemA, price: new BigDecimal("100.00"), status: 'ACTIVE',
+            sellerName: "BotA-${uniq}", rarityScore: BigDecimal.ZERO
+        ))
+        def listingB = listingRepo.save(new Listing(
+            item: itemB, price: new BigDecimal("100.00"), status: 'ACTIVE',
+            sellerName: "BotB-${uniq}", rarityScore: BigDecimal.ZERO
+        ))
+
+        def pool = Executors.newFixedThreadPool(2)
+        def tasks = [
+            (Callable) { ->
+                try { purchaseService.buy(wallet.id, buyer.id, listingA.id); 'WIN_A' }
+                catch (ObjectOptimisticLockingFailureException e) { 'LOSE_A' }
+                catch (Exception e) { "ERR_A:${e.class.simpleName}" }
+            },
+            (Callable) { ->
+                try { purchaseService.buy(wallet.id, buyer.id, listingB.id); 'WIN_B' }
+                catch (ObjectOptimisticLockingFailureException e) { 'LOSE_B' }
+                catch (Exception e) { "ERR_B:${e.class.simpleName}" }
+            }
+        ]
+
+        when: "both buys hit the one wallet at the same instant"
+        List<Future> futures = pool.invokeAll(tasks)
+        def outcomes = futures.collect { it.get(10, TimeUnit.SECONDS) }
+        pool.shutdown()
+
+        then: "the wallet never went negative and was debited for exactly ONE \$100 listing"
+        def w = walletRepo.findById(wallet.id).get()
+        w.balance >= BigDecimal.ZERO
+        // Two debits committing would leave -100 (debited == 200). The Wallet
+        // @Version guarantees exactly one commits, so exactly one $100 left.
+        def debited = new BigDecimal("100") - w.balance
+        debited == new BigDecimal("100")
+
+        and: "exactly one PURCHASE transaction exists across both target listings"
+        def purchases = txRepo.findByWalletIdOrderByCreatedAtDesc(wallet.id)
+            .findAll { (it.listingId == listingA.id || it.listingId == listingB.id) && it.type == 'PURCHASE' }
+        purchases.size() == 1
+
+        and: "exactly one listing is SOLD; the loser's tx rolled back so its listing is still ACTIVE"
+        def statusA = listingRepo.findById(listingA.id).get().status
+        def statusB = listingRepo.findById(listingB.id).get().status
+        [statusA, statusB].count { it == 'SOLD' } == 1
+        [statusA, statusB].count { it == 'ACTIVE' } == 1
+
+        and: "exactly one buy won; the other lost cleanly (version conflict or insufficient balance), never a both-win"
+        outcomes.size() == 2
+        outcomes.count { it == 'WIN_A' || it == 'WIN_B' } == 1
+        outcomes.each { assert it in ['WIN_A', 'WIN_B', 'LOSE_A', 'LOSE_B'] ||
+                               it == 'ERR_A:InsufficientBalanceException' ||
+                               it == 'ERR_B:InsufficientBalanceException' }
+    }
 }

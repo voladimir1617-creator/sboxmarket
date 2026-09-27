@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sell — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .sell-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: var(--s-32);
+    align-items: start;
+  }
+  @media (max-width: 1100px) { .sell-grid { grid-template-columns: 1fr; } }
+
+  .inv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    gap: var(--s-10);
+  }
+  .inv-card {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .15s, transform .1s;
+  }
+  .inv-card:hover { border-color: var(--line-2); }
+  .inv-card.is-selected {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 1px var(--blue);
+  }
+  .inv-card .skin {
+    aspect-ratio: 1;
+    background:
+      radial-gradient(120% 80% at 50% 30%, var(--bg-2) 0%, var(--bg-1) 60%, var(--bg) 100%);
+    display: grid; place-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .inv-card .skin > div {
+    width: 78%; height: 50%;
+    border-radius: 3px;
+    transform: rotate(-4deg);
+  }
+  .inv-card .meta {
+    padding: 6px 8px;
+    font-size: var(--t-11);
+    color: var(--ink-2);
+    line-height: 1.3;
+  }
+  .inv-card .meta .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+  .inv-card .meta .wear { color: var(--ink-3); font-size: var(--t-10); }
+  .inv-card .check {
+    position: absolute; top: 6px; right: 6px;
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    background: color-mix(in oklch, var(--bg) 70%, transparent);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+    display: grid; place-items: center;
+  }
+  .inv-card.is-selected .check {
+    background: var(--blue);
+    border-color: var(--blue);
+  }
+  .inv-card.is-selected .check::after {
+    content: ""; width: 8px; height: 4px;
+    border-left: 1.5px solid #fff;
+    border-bottom: 1.5px solid #fff;
+    transform: rotate(-45deg) translateY(-1px);
+  }
+
+  .pricing-bar {
+    height: 56px; border-radius: var(--r-md);
+    background:
+      linear-gradient(90deg,
+        oklch(0.55 0.10 145 / 0.6) 0%,
+        oklch(0.62 0.12 80 / 0.6) 50%,
+        oklch(0.55 0.16 25 / 0.6) 100%);
+    position: relative;
+  }
+  .pricing-bar .anchor {
+    position: absolute;
+    top: -10px; bottom: -10px;
+    width: 2px;
+    background: var(--ink);
+    box-shadow: 0 0 0 4px var(--bg-1);
+  }
+  .pricing-bar .label {
+    position: absolute;
+    top: -28px;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: var(--t-11);
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link is-active" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <div class="page-h">
+    <div>
+      <div class="crumb">
+        <span>Account</span><span class="dot"></span><span style="color: var(--ink);">Sell an item</span>
+      </div>
+      <h1>List an item</h1>
+    </div>
+    <div class="meta">
+      <span class="badge live"><span class="led"></span>Inventory synced 2m ago</span>
+      <button class="btn btn-ghost btn-sm">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Step indicator -->
+  <div class="row" style="gap: 0; margin-bottom: var(--s-32); padding-bottom: var(--s-16); border-bottom: 1px solid var(--line);">
+    <div style="display: flex; align-items: center; gap: var(--s-10); padding-right: var(--s-20);">
+      <span style="width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--bg); font-size: var(--t-12); display: grid; place-items: center; font-family: var(--font-mono); font-weight: 600;">1</span>
+      <span style="color: var(--ink); font-size: var(--t-13); font-weight: 500;">Pick items</span>
+    </div>
+    <div style="flex: 0 0 60px; height: 1px; background: var(--line); align-self: center;"></div>
+    <div style="display: flex; align-items: center; gap: var(--s-10); padding: 0 var(--s-20);">
+      <span style="width: 22px; height: 22px; border-radius: 50%; background: var(--bg-2); color: var(--ink-3); font-size: var(--t-12); display: grid; place-items: center; font-family: var(--font-mono); border: 1px solid var(--line);">2</span>
+      <span style="color: var(--ink-3); font-size: var(--t-13);">Set price</span>
+    </div>
+    <div style="flex: 0 0 60px; height: 1px; background: var(--line); align-self: center;"></div>
+    <div style="display: flex; align-items: center; gap: var(--s-10); padding-left: var(--s-20);">
+      <span style="width: 22px; height: 22px; border-radius: 50%; background: var(--bg-2); color: var(--ink-3); font-size: var(--t-12); display: grid; place-items: center; font-family: var(--font-mono); border: 1px solid var(--line);">3</span>
+      <span style="color: var(--ink-3); font-size: var(--t-13);">Confirm</span>
+    </div>
+    <div style="margin-left: auto; color: var(--ink-3); font-size: var(--t-12);">
+      <span class="mono" style="color: var(--ink);">3</span> selected · <span class="mono" style="color: var(--ink);">$486.20</span> est. payout
+    </div>
+  </div>
+
+  <div class="sell-grid">
+
+    <!-- LEFT: inventory picker -->
+    <section>
+
+      <!-- inventory toolbar -->
+      <div class="row between" style="margin-bottom: var(--s-16);">
+        <div class="row" style="gap: var(--s-8);">
+          <span class="chip is-active">All items <span class="mono dim">142</span></span>
+          <span class="chip">Tradeable <span class="mono dim">128</span></span>
+          <span class="chip">Locked <span class="mono dim">14</span></span>
+        </div>
+        <div class="row" style="gap: var(--s-10);">
+          <input class="input" placeholder="Filter inventory…" style="width: 240px;" />
+          <select class="select" style="width: 160px;">
+            <option>Highest value</option>
+            <option>Recently acquired</option>
+            <option>Float: low → high</option>
+            <option>Rarity</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- inventory grid -->
+      <div class="inv-grid">
+        <div class="inv-card is-selected"><span class="check"></span><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.55 0.18 25), oklch(0.40 0.20 18));"></div></div><div class="meta"><div class="name">AK-47 | Vulcan</div><div class="wear">FT · 0.21</div></div></div>
+        <div class="inv-card is-selected"><span class="check"></span><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.7 0.18 320), oklch(0.45 0.18 290));"></div></div><div class="meta"><div class="name">★ Sport | Vice</div><div class="wear">MW · 0.08</div></div></div>
+        <div class="inv-card is-selected"><span class="check"></span><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.6 0.16 60), oklch(0.40 0.18 40));"></div></div><div class="meta"><div class="name">M4A1-S | Hot Rod</div><div class="wear">FN · 0.001</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.5 0.10 230), oklch(0.30 0.10 220));"></div></div><div class="meta"><div class="name">Glock | Water Elemental</div><div class="wear">FT · 0.22</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.6 0.16 195), oklch(0.40 0.14 180));"></div></div><div class="meta"><div class="name">★ Butterfly | Tiger</div><div class="wear">FN · 0.002</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.65 0.18 130), oklch(0.45 0.18 110));"></div></div><div class="meta"><div class="name">AUG | Akihabara</div><div class="wear">MW · 0.08</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.55 0.16 320), oklch(0.35 0.14 295));"></div></div><div class="meta"><div class="name">P90 | Asiimov</div><div class="wear">FT · 0.20</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.5 0.10 145), oklch(0.30 0.08 130));"></div></div><div class="meta"><div class="name">USP-S | Forest</div><div class="wear">FN · 0.01</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.6 0.18 80), oklch(0.45 0.18 60));"></div></div><div class="meta"><div class="name">AK-47 | Fire Serpent</div><div class="wear">MW · 0.07</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.65 0.18 305), oklch(0.40 0.16 280));"></div></div><div class="meta"><div class="name">AWP | Neo-Noir</div><div class="wear">FN · 0.004</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.5 0.06 180), oklch(0.35 0.04 200));"></div></div><div class="meta"><div class="name">Negev | Loudmouth</div><div class="wear">FT · 0.28</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.55 0.16 50), oklch(0.35 0.16 35));"></div></div><div class="meta"><div class="name">Five-SeveN | Case H.</div><div class="wear">FT · 0.24</div></div></div>
+        <div class="inv-card" style="opacity: 0.4;"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.45 0.04 240), oklch(0.30 0.04 230));"></div></div><div class="meta"><div class="name">P2000 | Granite</div><div class="wear">Locked · 4d</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.5 0.10 80), oklch(0.30 0.08 70));"></div></div><div class="meta"><div class="name">FAMAS | Mecha</div><div class="wear">MW · 0.08</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.7 0.18 25), oklch(0.50 0.18 35));"></div></div><div class="meta"><div class="name">★ M9 | Crimson Web</div><div class="wear">MW · 0.08</div></div></div>
+        <div class="inv-card"><div class="skin"><div style="background: linear-gradient(135deg, oklch(0.55 0.16 290), oklch(0.35 0.16 275));"></div></div><div class="meta"><div class="name">Galil AR | Chatterbox</div><div class="wear">MW · 0.07</div></div></div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT: pricing panel -->
+    <aside style="position: sticky; top: calc(var(--nav-h) + var(--s-32)); display: flex; flex-direction: column; gap: var(--s-16);">
+
+      <!-- selected item: price tuner -->
+      <div class="card">
+        <div class="card-hd">
+          <span class="title">Pricing · 3 items</span>
+          <a href="#" style="font-size: var(--t-12); color: var(--blue);">Apply to all</a>
+        </div>
+        <div class="card-bd" style="display: flex; flex-direction: column; gap: var(--s-20);">
+
+          <!-- AK-47 Vulcan -->
+          <div>
+            <div class="row" style="gap: var(--s-10); margin-bottom: var(--s-12);">
+              <div style="width: 36px; height: 36px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); display: grid; place-items: center;">
+                <div style="width: 24px; height: 14px; background: linear-gradient(135deg, oklch(0.55 0.18 25), oklch(0.40 0.20 18)); border-radius: 2px; transform: rotate(-4deg);"></div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: var(--t-13); color: var(--ink); font-weight: 500;">AK-47 | Vulcan</div>
+                <div style="font-size: var(--t-11); color: var(--ink-3);" class="mono">FT · 0.2147</div>
+              </div>
+              <button class="icon-btn" style="width: 24px; height: 24px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+
+            <div class="field">
+              <label class="label" style="display: flex; justify-content: space-between;">
+                <span>Your price</span>
+                <span class="mono dim" style="text-transform: none; letter-spacing: 0;">market: $324.00</span>
+              </label>
+              <div style="position: relative;">
+                <input class="input mono" value="$284.20" style="padding-right: 80px; font-size: var(--t-15);" />
+                <span style="position: absolute; right: var(--s-10); top: 50%; transform: translateY(-50%); font-family: var(--font-mono); font-size: var(--t-11); color: var(--up);">−12% off</span>
+              </div>
+            </div>
+
+            <div style="margin-top: var(--s-32); margin-bottom: var(--s-16); position: relative;">
+              <div class="pricing-bar">
+                <span class="anchor" style="left: 28%;"></span>
+                <span class="label" style="left: 28%;">You · $284</span>
+              </div>
+              <div class="row between" style="margin-top: var(--s-10); font-size: var(--t-11); color: var(--ink-3);" class="mono">
+                <span>Floor $248</span>
+                <span>Median $281</span>
+                <span>Ceiling $356</span>
+              </div>
+            </div>
+
+            <table style="width: 100%; font-size: var(--t-12);">
+              <tr><td style="color: var(--ink-3);">Listing fee (4%)</td><td class="mono" style="text-align: right;">−$11.37</td></tr>
+              <tr><td style="color: var(--ink-3);">Stripe fee</td><td class="mono" style="text-align: right;">−$2.40</td></tr>
+              <tr style="border-top: 1px solid var(--line);"><td style="color: var(--ink); font-weight: 500; padding-top: 8px;">You receive</td><td class="mono" style="text-align: right; color: var(--ink); font-weight: 500; padding-top: 8px;">$270.43</td></tr>
+            </table>
+          </div>
+
+          <hr class="divider" />
+
+          <!-- Sport Vice -->
+          <div>
+            <div class="row" style="gap: var(--s-10); margin-bottom: var(--s-12);">
+              <div style="width: 36px; height: 36px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); display: grid; place-items: center;">
+                <div style="width: 24px; height: 14px; background: linear-gradient(135deg, oklch(0.7 0.18 320), oklch(0.45 0.18 290)); border-radius: 2px; transform: rotate(-4deg);"></div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: var(--t-13); color: var(--ink); font-weight: 500;">★ Sport Gloves | Vice</div>
+                <div style="font-size: var(--t-11); color: var(--ink-3);" class="mono">MW · 0.0814</div>
+              </div>
+              <button class="icon-btn" style="width: 24px; height: 24px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+
+            <div class="field">
+              <label class="label" style="display: flex; justify-content: space-between;">
+                <span>Your price</span>
+                <span class="mono dim" style="text-transform: none; letter-spacing: 0;">market: $1,920</span>
+              </label>
+              <input class="input mono" value="$1,810.00" style="font-size: var(--t-15);" />
+            </div>
+          </div>
+
+          <hr class="divider" />
+
+          <!-- M4A1-S Hot Rod -->
+          <div>
+            <div class="row" style="gap: var(--s-10); margin-bottom: var(--s-12);">
+              <div style="width: 36px; height: 36px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); display: grid; place-items: center;">
+                <div style="width: 24px; height: 14px; background: linear-gradient(135deg, oklch(0.6 0.16 60), oklch(0.40 0.18 40)); border-radius: 2px; transform: rotate(-4deg);"></div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: var(--t-13); color: var(--ink); font-weight: 500;">M4A1-S | Hot Rod</div>
+                <div style="font-size: var(--t-11); color: var(--ink-3);" class="mono">FN · 0.0014</div>
+              </div>
+              <button class="icon-btn" style="width: 24px; height: 24px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+
+            <div class="field">
+              <label class="label" style="display: flex; justify-content: space-between;">
+                <span>Your price</span>
+                <span class="mono dim" style="text-transform: none; letter-spacing: 0;">market: $204</span>
+              </label>
+              <input class="input mono" value="$184.20" style="font-size: var(--t-15);" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- listing options -->
+      <div class="card">
+        <div class="card-hd"><span class="title">Listing options</span></div>
+        <div class="card-bd" style="display: flex; flex-direction: column; gap: var(--s-12);">
+          <label class="checkbox" style="font-size: var(--t-13);"><input type="checkbox" checked /><span class="box"></span>Allow offers <span class="dim" style="font-size: var(--t-11); margin-left: auto;">below 80%</span></label>
+          <label class="checkbox" style="font-size: var(--t-13);"><input type="checkbox" /><span class="box"></span>Auto-relist if unsold <span class="dim" style="font-size: var(--t-11); margin-left: auto;">7 days</span></label>
+          <label class="checkbox" style="font-size: var(--t-13);"><input type="checkbox" /><span class="box"></span>Private listing <span class="dim" style="font-size: var(--t-11); margin-left: auto;">URL only</span></label>
+        </div>
+      </div>
+
+      <!-- payout summary -->
+      <div class="price-block" style="padding: var(--s-18) var(--s-20);">
+        <div class="row between" style="margin-bottom: var(--s-12);">
+          <span class="dim" style="font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.08em;">Estimated payout</span>
+          <span class="mono dim" style="font-size: var(--t-11);">3 items</span>
+        </div>
+        <div class="mono" style="font-size: var(--t-28); color: var(--ink); letter-spacing: -0.02em;">$2,150.34</div>
+        <div class="muted" style="font-size: var(--t-12); margin-bottom: var(--s-16);">Total list price <span class="mono">$2,278.40</span> · fees <span class="mono">$128.06</span></div>
+
+        <button class="btn btn-cta btn-block btn-lg">Continue to confirm →</button>
+      </div>
+    </aside>
+  </div>
+</main>
+
+</body>
+</html>

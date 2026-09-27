@@ -26,6 +26,29 @@ class Transaction {
     @Column(nullable = false, precision = 19, scale = 2)
     BigDecimal amount
 
+    /**
+     * Payment-processor fee passed through to the user on this row, in dollars.
+     *
+     * DEPOSIT: `amount` is the GROSS the card was charged and `feeAmount` is
+     * what the processor kept, so the wallet was credited `amount - feeAmount`.
+     * WITHDRAW: `amount` is the GROSS debited from the wallet and `feeAmount`
+     * is the payout cost, so the user received `amount - feeAmount`.
+     *
+     * Stored rather than recomputed at credit time on purpose. The user is
+     * quoted a net figure BEFORE they commit (deposit-session response / the
+     * withdraw quote); recomputing later from live config would let an operator
+     * changing `platform.processing-fee-percent` mid-flight credit a different
+     * number than the one the user agreed to. `amount` stays GROSS because the
+     * Stripe amount-match guard in completeDeposit compares it against
+     * `session.amount_total`.
+     *
+     * Nullable: every row written before pass-through pricing, and every row
+     * type that carries no processor fee (PURCHASE / SALE / FEE / …), leaves
+     * it null. Null reads as zero everywhere.
+     */
+    @Column(name = "fee_amount", precision = 19, scale = 2)
+    BigDecimal feeAmount
+
     @Column(nullable = false)
     String currency = "USD"
 

@@ -21,11 +21,21 @@ import jakarta.validation.constraints.NotNull
  * an aggregate rating + recent comments for any seller.
  */
 @Entity
-@Table(name = "reviews", indexes = [
-    @Index(name = "idx_review_to",    columnList = "toUserId"),
-    @Index(name = "idx_review_from",  columnList = "fromUserId"),
-    @Index(name = "idx_review_trade", columnList = "tradeId")
-])
+@Table(name = "reviews",
+    indexes = [
+        @Index(name = "idx_review_to",    columnList = "toUserId"),
+        @Index(name = "idx_review_from",  columnList = "fromUserId"),
+        @Index(name = "idx_review_trade", columnList = "tradeId")
+    ],
+    uniqueConstraints = [
+        // Mirrors V67__reviews_unique_from_trade.sql so the dev H2 schema
+        // (built from JPA via ddl-auto=update) carries the same guard as
+        // the prod Flyway-managed Postgres schema. Without this, a service
+        // double-write race could land two reviews from the same buyer on
+        // the same trade in dev/CI and not be caught until prod.
+        @UniqueConstraint(name = "uq_reviews_from_user_trade",
+            columnNames = ["fromUserId", "tradeId"])
+    ])
 class Review {
 
     @Id
@@ -63,4 +73,20 @@ class Review {
 
     @Column(nullable = false)
     Long createdAt = System.currentTimeMillis()
+
+    /** Seller's public reply to the review. Optional; sellers can address
+     *  the feedback directly (classic "thank you for the feedback" or
+     *  "sorry this happened, reached out via DM") so the review doesn't
+     *  sit unanswered in front of future buyers. Sanitised + capped. */
+    @Column(length = 300)
+    String sellerReply
+
+    @Column
+    Long sellerReplyAt
+
+    /** Last time the author edited this review (batch 745). Null = never
+     *  edited. Surfaces as "· edited" next to createdAt on the stall so
+     *  future buyers aren't misled by a silently-rewritten rating. */
+    @Column(name = "edited_at")
+    Long editedAt
 }

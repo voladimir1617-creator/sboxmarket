@@ -3,17 +3,68 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: skinbox
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-skinbox}
+      ###
+      # NO DEFAULT, on purpose — the same fail-closed form STRIPE_SECRET_KEY
+      # already uses below, and for a stronger reason.
+      #
+      # This was `${DB_PASSWORD:-skinbox}`: user `skinbox`, database `skinbox`,
+      # password `skinbox`, all three committed to a tracked file. And it was
+      # not a value anyone was ever prompted to change — `DB_PASSWORD` appears
+      # NOWHERE else in the repo. It is not in `deploy/skinbox.env.example`, not
+      # in `deploy/RUNBOOK.md`, not in the launch checklist. The RUNBOOK's own
+      # deploy line is `docker compose --env-file deploy/skinbox.env up -d`, and
+      # that env file has no DB_PASSWORD to supply — so the committed default
+      # was not an edge case, it was the GUARANTEED outcome of the documented
+      # deploy path.
+      #
+      # `:?` costs this file nothing it had not already spent. A bare
+      # `docker compose up` ALREADY fails at STRIPE_SECRET_KEY below, before any
+      # container starts, so the "keep the smoke test working" argument for a
+      # fail-open default was already void — the smoke test was not working.
+      # All this does is make the database as loud about a missing secret as the
+      # payment processor already is.
+      ###
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/skinbox.env (a strong random value) and start with --env-file deploy/skinbox.env - this database holds every wallet balance and the Stripe Connect columns, and the old committed default was the literal string skinbox}
       POSTGRES_DB: skinbox
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ###
+    # PUBLISHED TO LOOPBACK ONLY. This was `"5433:5432"`, and Docker's short
+    # syntax with no host IP binds the WILDCARD — every interface the host has.
+    #
+    # THE APP NEVER NEEDED THIS PORT. The app container reaches Postgres over
+    # the compose network at `jdbc:postgresql://db:5432/skinbox` (see
+    # SPRING_DATASOURCE_URL below) — the service name and the CONTAINER port.
+    # The published mapping exists purely so a human can point a SQL client at
+    # the host. So the entire off-box surface bought nothing and cost
+    # everything: full read/write on wallets, listings, sessions and the Stripe
+    # Connect columns to any peer that can route to this host.
+    #
+    # Worse than the H2 hole this mirrors: H2 at least gated on a RANDOM
+    # per-session key written into `data/sboxmarket.lock.db`. This one's
+    # password was a literal in a tracked file, so there was no gate at all —
+    # `psql -h <host> -p 5433 -U skinbox -d skinbox`, password `skinbox`.
+    #
+    # And the host firewall is not a backstop here. On Linux, Docker inserts its
+    # own DNAT rules into the DOCKER chain, which is consulted BEFORE the host's
+    # INPUT rules — a published port is reachable even when ufw/firewalld is
+    # configured to refuse it. That is the documented "Docker bypasses the
+    # firewall" behaviour, not a misconfiguration.
+    #
+    # `127.0.0.1:` keeps the SQL client working from the host — the legitimate
+    # use — while removing the off-box reach entirely. Same shape as the H2 fix
+    # in 502ab8f: keep the capability, delete the reach. To reach it from
+    # another machine, tunnel it (`ssh -L 5433:localhost:5433`), which makes the
+    # exposure a thing someone grants rather than a thing the socket leaks.
+    ###
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U skinbox"]
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
 
   app:
     build: .
@@ -21,15 +72,84 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "${APP_PORT:-8080}:8080"
+      # Container side is 8082 because that is what the app binds
+      # (application.yml -> server.port: ${SERVER_PORT:8082}). This published
+      # 8080:8080, so nothing was ever reachable and the Dockerfile HEALTHCHECK
+      # (which probes the container's own port) could never pass either.
+      # Host side stays a separate knob: deploy/run-local.sh's edge container
+      # also defaults to host 8082, so override APP_PORT if you run both stacks
+      # on one box.
+      - "${APP_PORT:-8082}:8082"
+    # Real secrets (Stripe live keys, SMTP password, Steam API key, Sentry DSN)
+    # come from an operator-supplied env file — NEVER committed, NEVER baked
+    # into the image. Copy deploy/skinbox.env.example -> deploy/skinbox.env and
+    # fill in real values. The explicit `environment:` block below provides
+    # safe non-secret defaults; env_file entries override anything also set
+    # there. Marked optional so `docker compose up` still works for a bare
+    # local smoke test before the operator has written the file.
+    env_file:
+      - path: deploy/skinbox.env
+        required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # Explicit so the app, the published port and the Dockerfile HEALTHCHECK
+      # can never disagree again — all three now read 8082 from one place.
+      SERVER_PORT: ${SERVER_PORT:-8082}
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/skinbox
       SPRING_DATASOURCE_USERNAME: skinbox
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-skinbox}
-      ADMIN_BOOTSTRAP_STEAM_IDS: ${ADMIN_BOOTSTRAP_STEAM_IDS:-76561197960287930}
+      # Fail-closed for the same reason as POSTGRES_PASSWORD above, and it must
+      # stay the SAME expression: if one side kept a default and the other did
+      # not, a missing DB_PASSWORD would start Postgres with one password and
+      # the app with another, turning a clear config error into a boot failure
+      # that reads as a database outage.
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/skinbox.env (a strong random value) and start with --env-file deploy/skinbox.env - this must match POSTGRES_PASSWORD on the db service}
+      # NO DEFAULT, for the same reason as STRIPE_SECRET_KEY below and
+      # DB_PASSWORD above — and this one was the last `:-` in the block.
+      #
+      # It used to carry a `:-` fallback holding a literal Steam ID. (The ID is
+      # deliberately not repeated here, even as prose, so that grepping the
+      # launch surface for a bare Steam ID stays a decisive check — the same
+      # convention application.yml's admin block adopted, and the one
+      # AdminBootstrapIsNotCommittedSpec now enforces over every launch file.)
+      # That is a committed identity, and `admin.bootstrap-steam-ids` is a
+      # STANDING grant: AdminService.promoteBootstrapAdmin flips STEAM_USERS.ROLE to
+      # ADMIN for every listed ID on EVERY login. So an unset variable handed
+      # administrative control of a production deployment to an account the
+      # operator does not own — an absence resolving to a grant, which is the
+      # one thing the admin block in application.yml exists to forbid.
+      #
+      # application.yml's default was emptied in September for exactly this
+      # reason, and application-prod.yml resolves a bare
+      # `${ADMIN_BOOTSTRAP_STEAM_IDS}` with no fallback of its own — so
+      # whatever THIS line substitutes IS the admin list. The hazard moved
+      # here and the guard did not follow it.
+      #
+      # Worse, the two controls failed together: ProdConfigValidator lists
+      # ADMIN_BOOTSTRAP_STEAM_IDS as REQUIRED and a committed default SATISFIES
+      # that presence check, so one line both supplied the hardcoded admin and
+      # silenced the validator meant to catch a missing one.
+      #
+      # `:?` fails at `docker compose up` time, before any container starts,
+      # exactly like STRIPE_SECRET_KEY. Nominating the owner is a deploy-time
+      # decision, and it has to be MADE rather than inherited.
+      ADMIN_BOOTSTRAP_STEAM_IDS: ${ADMIN_BOOTSTRAP_STEAM_IDS:?set ADMIN_BOOTSTRAP_STEAM_IDS to YOUR Steam ID 64 in deploy/skinbox.env and start with --env-file deploy/skinbox.env - every ID listed is auto-promoted to ADMIN on every login, so this must never carry a default}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://skinbox.market}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
+      # NO DEFAULT, on purpose. This used to default to `sk_test_dummy`, which
+      # ProdConfigValidator rejects outright ("STRIPE_SECRET_KEY is a Stripe
+      # TEST key ... refusing to start"). Because that check runs on
+      # ApplicationReadyEvent and calls System.exit(1) — i.e. AFTER Tomcat has
+      # bound — and this service is `restart: unless-stopped`, the result was an
+      # endless boot/exit/restart crash loop rather than a clean failure. The
+      # validator is right and must not be weakened: it is the control that
+      # stops production processing real customer money through a test key.
+      # What was wrong was shipping a default guaranteed to trip it.
+      #
+      # `:?` fails at `docker compose up` time with this message, before any
+      # container starts, so the operator gets one actionable line instead of a
+      # restarting container. For a local smoke test, do not use the prod
+      # profile (note Dockerfile also bakes ENV SPRING_PROFILES_ACTIVE=prod, so
+      # it must be overridden here AND there).
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?set STRIPE_SECRET_KEY (a real sk_live_... key) in deploy/skinbox.env AND start with --env-file deploy/skinbox.env, because a bare docker compose up will NOT see it -- compose substitutes variables in THIS file from the shell or a root .env, never from an env_file entry - the prod profile refuses to start with a sk_test_ key}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_dummy}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-https://skinbox.market/?deposit=success}
@@ -44,6 +164,31 @@ services:
       SMTP_AUTH: ${SMTP_AUTH:-true}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       APP_EMAIL_FROM: ${APP_EMAIL_FROM:-onboarding@resend.dev}
+      # HMAC secret that signs one-click email unsubscribe links. application-prod.yml
+      # references ${APP_UNSUBSCRIBE_SECRET} with NO default, so emailService (and the
+      # apiKeyService -> apiKeyAuthFilter chain that injects it) fails to construct
+      # without it.
+      #
+      # NO DEFAULT. This line used to carry a `:-` fallback holding a working
+      # literal, so that a bare `docker compose up` smoke boot would not die on
+      # an unresolved placeholder. Two things were wrong with that:
+      #
+      #   1. The stated reason is void — STRIPE_SECRET_KEY above already uses
+      #      `:?`, so a bare `docker compose up` has not worked for months.
+      #   2. It was a live HMAC secret published in this repository. Anyone with
+      #      a clone could forge an unsubscribe token for any address and mute a
+      #      user's notification emails.
+      #
+      # ProdConfigValidator does check for a committed placeholder, but by EXACT
+      # EQUALITY against one literal it knows by name — and this was a second,
+      # different literal it had never heard of. So the guard passed, and the
+      # REQUIRED_VARS presence check was SATISFIED by the very fallback that was
+      # the problem: one line supplied the weak secret and silenced the check
+      # meant to catch a missing one. Same pairing as ADMIN_BOOTSTRAP_STEAM_IDS
+      # above, same fix — supply nothing, so there is nothing to bless.
+      #
+      # Rotating this invalidates any outstanding unsubscribe links.
+      APP_UNSUBSCRIBE_SECRET: ${APP_UNSUBSCRIBE_SECRET:?set APP_UNSUBSCRIBE_SECRET in deploy/skinbox.env to a strong random value (openssl rand -base64 48) and start with --env-file deploy/skinbox.env - it is the HMAC key that signs one-click unsubscribe links, so a value committed to this repo makes every one of them forgeable}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://skinbox.market}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}

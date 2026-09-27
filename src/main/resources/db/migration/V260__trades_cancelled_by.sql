@@ -1,0 +1,23 @@
+-- Who ended a cancelled trade.
+--
+-- A seller's public trade record (completed trades, completion rate, median
+-- delivery time — shown on the item page and the stall, the way csfloat shows
+-- a seller's trade stats next to every listing) has to count the failures that
+-- were the SELLER's. Until now a CANCELLED row could not say whose they were: a
+-- buyer backing out before the seller accepted, a seller declining, a seller
+-- who never answered inside the response window and a staff ruling all wrote
+-- the same state and a free-text note.
+--
+-- Values written by TradeService:
+--   BUYER / SELLER / STAFF  cancel(), by the actor
+--   SELLER_TIMEOUT          the auto-cancel sweep (seller never accepted/sent)
+--   SELLER_BANNED           the banned-seller sweep
+--
+-- Nullable, no default, no backfill. Rows cancelled before this column existed
+-- genuinely have no recorded actor; guessing one from the note would publish a
+-- failure rate nobody measured. NULL rows are left out of the rate.
+--
+-- Postgres prod dialect; dev/test use H2 with ddl-auto so the entity mapping
+-- creates this column there without Flyway.
+ALTER TABLE trades
+    ADD COLUMN IF NOT EXISTS cancelled_by VARCHAR(24);
