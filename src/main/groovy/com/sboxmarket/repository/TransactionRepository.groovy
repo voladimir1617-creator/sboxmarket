@@ -159,6 +159,24 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
         @Param('since')    Long since
     )
 
+    /** Every COMPLETED movement on one wallet since `since` (epoch ms; 0 =
+     *  all time), grouped by type: rows of `[type, count, sum]`. One GROUP BY
+     *  per window instead of a sum + count pair per type, so the wallet
+     *  page's activity tiles (deposits / sales / purchases / withdrawals /
+     *  refunds) cost three queries, not thirty. PENDING and FAILED rows are
+     *  excluded so the tiles only ever show money that actually moved. */
+    @Query("""
+        SELECT t.type, COUNT(t), COALESCE(SUM(t.amount), 0) FROM Transaction t
+        WHERE t.walletId = :walletId
+          AND t.status = 'COMPLETED'
+          AND t.createdAt >= :since
+        GROUP BY t.type
+    """)
+    List<Object[]> summarizeCompletedByTypeSince(
+        @Param('walletId') Long walletId,
+        @Param('since')    Long since
+    )
+
     /** In-flight transactions for a wallet — powers the "pending" chip on
      *  the wallet hero so a user whose balance just dropped by $X sees an
      *  explicit "WITHDRAWAL PENDING · $X" indicator instead of being left

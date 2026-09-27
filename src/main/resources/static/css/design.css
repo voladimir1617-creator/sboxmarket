@@ -29220,3 +29220,33 @@ html body input.fee-calc-input:is(.fee-calc-input):focus-visible {
     display: none !important;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   WALLET ACTIVITY TILES — Deposited / Sold / Bought / Withdrawn.
+   Replaces the purchase-only spend strip, which left every sale credit and
+   every deposit off the wallet summary (and hid itself entirely for a seller
+   with no purchases). Money in is --up; money out stays ink, so the tiles
+   read as a ledger rather than as four alarms.
+   ─────────────────────────────────────────────────────────────────────────── */
+/* 24px sides: the same inset as the balance hero above it. */
+html body .wallet-activity { margin: 0 24px 24px; }
+html body .wallet-activity-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 10px; }
+html body .wallet-activity-title { font: 600 11px/1 var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+html body .wallet-activity-windows { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-1); }
+html body .wallet-activity-window { appearance: none; border: 0; background: transparent; color: var(--ink-3); font: 600 11px/1 var(--ui); letter-spacing: 0.02em; padding: 6px 10px; border-radius: 6px; cursor: pointer; min-height: 0; height: auto; }
+html body .wallet-activity-window:hover { color: var(--ink); }
+html body .wallet-activity-window.active { background: var(--bg-3); color: var(--ink); }
+html body .wallet-activity-window:focus-visible { outline: 2px solid var(--cta); outline-offset: 1px; }
+/* Two columns: the wallet column is ~520px wide at every breakpoint, and four
+   tiles there cut a four-figure deposit to "+$2,000…". */
+html body .wallet-activity-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+html body .wallet-activity-tile { background: var(--bg-1); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+html body .wallet-activity-label { font: 500 11px/1.2 var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+html body .wallet-activity-amt { font: 600 18px/1.2 var(--mono); font-feature-settings: 'tnum' 1; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body .wallet-activity-tile.in .wallet-activity-amt { color: var(--up); }
+html body .wallet-activity-tile.is-zero .wallet-activity-amt { color: var(--ink-4); }
+html body .wallet-activity-sub { font: 400 11px/1.3 var(--ui); color: var(--ink-3); overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  html body .wallet-activity-tile { padding: 12px 14px; }
+  html body .wallet-activity-amt { font-size: 15px; }
+}

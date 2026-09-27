@@ -308,6 +308,67 @@ class WalletController {
         ])
     }
 
+    /** Transaction types the activity summary reports, and the tile each
+     *  one lands in. WITHDRAWAL is the legacy spelling of WITHDRAW (older
+     *  rows and the admin tools use both), so both feed one tile. Adjustments
+     *  are staff corrections, not activity, and are left out. */
+    static final Map<String, String> ACTIVITY_KIND = [
+        DEPOSIT:    'deposits',
+        SALE:       'sales',
+        PURCHASE:   'purchases',
+        WITHDRAW:   'withdrawals',
+        WITHDRAWAL: 'withdrawals',
+        REFUND:     'refunds',
+    ].asImmutable()
+
+    /** Money in AND out of the signed-in user's wallet, per kind, for the
+     *  last 7 days, the last 30 days and all time.
+     *
+     *  The wallet page's summary tiles used to read `/spend`, which only
+     *  counts PURCHASE rows. A seller who had sold items and deposited saw
+     *  either nothing at all (the strip hid itself with no purchases) or a
+     *  row of "-$X · N purchases" tiles that left out every sale credit and
+     *  every deposit, which is the one number a seller opens the wallet to
+     *  check. This reports each kind separately rather than one net figure,
+     *  so "did my sale get paid" and "what did I spend" are both answered.
+     *
+     *  SALE amounts are what was credited (price minus the 2% fee), because
+     *  that is what the TradeService release writes. COMPLETED rows only:
+     *  pending deposits and withdrawals already have their own hero chips.
+     *  Signed-in only, like /spend, because a ledger summary is PII. */
+    @GetMapping("/activity")
+    ResponseEntity<Map> getActivitySummary(HttpServletRequest req) {
+        def userId = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        if (userId == null) throw new UnauthorizedException()
+        def wallet = currentWallet(req)
+        boolean noLedger = wallet == null || wallet.id == DEMO_WALLET_ID
+        long now = System.currentTimeMillis()
+        long day = 24L * 60L * 60L * 1000L
+        Map<String, Long> windows = ['7d': now - 7L * day, '30d': now - 30L * day, 'all': 0L]
+        def out = windows.collectEntries { String key, Long since ->
+            [(key): noLedger ? emptyActivity() : activitySince(wallet.id, since)]
+        }
+        ResponseEntity.ok([windows: out])
+    }
+
+    private static Map<String, Map> emptyActivity() {
+        ['deposits', 'sales', 'purchases', 'withdrawals', 'refunds'].collectEntries {
+            [(it): [amount: BigDecimal.ZERO, count: 0L]]
+        }
+    }
+
+    private Map<String, Map> activitySince(Long walletId, long since) {
+        def buckets = emptyActivity()
+        (transactionRepository.summarizeCompletedByTypeSince(walletId, since) ?: []).each { Object[] row ->
+            String kind = ACTIVITY_KIND[row[0] as String]
+            if (kind == null) return
+            def b = buckets[kind]
+            b.count  = (b.count as Long) + ((row[1] as Number)?.longValue() ?: 0L)
+            b.amount = (b.amount as BigDecimal) + ((row[2] as BigDecimal) ?: BigDecimal.ZERO)
+        }
+        buckets
+    }
+
     @GetMapping("/transactions")
     ResponseEntity<List<Transaction>> getTransactions(HttpServletRequest req) {
         // Batch 977 — short-circuit before falling through to the demo

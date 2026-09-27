@@ -22,7 +22,7 @@ import {
   fetchListings, fetchItem, fetchItemsByIds, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, fetchMyAuthoredReviews, fetchPendingReviews, deleteReview, replyToReview, fetchBuyOrderCountForItem,
   fetchBuyOrdersForItem,
-  fetchWalletSpend, fetchDeliveryPolicy
+  fetchWalletActivity, fetchDeliveryPolicy
 } from './api.js';
 
 export { InfoModal };
@@ -7953,10 +7953,14 @@ function ProfileTradesTab({ me, privacy }) {
                   // here gives the buyer a concrete answer to "when did the
                   // seller actually ship?" without cross-checking the Steam
                   // inbox. Silent on other states (sent_at is null there).
+                  // "· sent 5m ago" / "· sent just now". The label and the
+                  // relative time were two adjacent children with no space,
+                  // which rendered "sentJust now".
                   t.state === 'PENDING_BUYER_CONFIRM' && t.sentAt && h('span', {
+                    className: 'trade-sent-ago',
                     style: { marginLeft: 10, fontSize: 11, color: 'var(--accent)', fontWeight: 700 },
                     title: `Seller marked sent at ${new Date(t.sentAt).toLocaleString()}`
-                  }, '· sent', timeAgo(t.sentAt)),
+                  }, '· sent ' + timeAgo(t.sentAt).replace(/^Just now$/, 'just now')),
                   // Countdown chip — server computes an absolute epoch-ms
                   // deadline for states that auto-cancel or auto-release.
                   // Converts to a terse "Xh left / Xd left" so users know
@@ -15350,15 +15354,17 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
     return () => window.removeEventListener('storage', onStorage);
   }, []);
   const maskMoney = (v) => privacy ? '$•••••' : fmt(v);
-  // Buyer-side spend summary (batch 846) — 7d / 30d / lifetime PURCHASE
-  // totals + counts. Mirrors the seller-earnings strip on /me/stall.
-  // Silent until the first purchase completes so new users don't see
-  // a row of zeros dominating the hero.
-  const [spend, setSpend] = useState(null);
+  // Wallet activity tiles — deposits, sales, purchases and withdrawals for
+  // the chosen window. These used to be a purchase-only strip fed by
+  // /wallet/spend, so a seller never saw a sale credit or a deposit here,
+  // and a seller with no purchases saw no summary at all. Re-read whenever
+  // the balance moves so a sale that just settled shows up.
+  const [activity, setActivity] = useState(null);
+  const [activityWindow, setActivityWindow] = useState('all');
   useEffect(() => {
     let alive = true;
     if (!me) return;
-    fetchWalletSpend().then(s => { if (alive) setSpend(s); });
+    fetchWalletActivity().then(s => { if (alive) setActivity(s); });
     return () => { alive = false; };
   }, [me, wallet?.balance]);
   // If the app redirected from the cart low-balance warning with a
@@ -15778,51 +15784,62 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
             })()
           )
       ),
-      // Buyer spend summary strip (batch 846). Rendered as a compact
-      // three-cell chip row right below the wallet hero. Parallel to
-      // the seller earnings strip on /me/stall (batch 605).
-      me && spend && (parseFloat(spend.spentLifetime) > 0) &&
-        h('div', {
-          className: 'wallet-spend-strip',
-          role: 'region',
-          'aria-label': 'Purchase spending summary',
-          style: {
-            display: 'grid',
-            // Batch 873 — four columns when 24h purchases exist, three
-            // otherwise (matches the seller-side 24h chip; hides when
-            // zero so a quiet week stays clean).
-            gridTemplateColumns: 'repeat(' + (spend.purchases24h > 0 ? 4 : 3) + ', 1fr)',
-            gap: 8,
-            padding: '10px 14px', margin: '0 14px 10px',
-            background: 'var(--bg-elevated, rgba(255,255,255,0.02))',
-            border: '1px solid var(--border)', borderRadius: 6
-          }
-        },
-          (() => {
-            const cells = [];
-            if (spend.purchases24h > 0) {
-              cells.push({ label: 'Past 24h', amt: spend.spent24h, ct: spend.purchases24h });
-            }
-            cells.push({ label: 'Past 7 days',  amt: spend.spent7d,       ct: spend.purchases7d       });
-            cells.push({ label: 'Past 30 days', amt: spend.spent30d,      ct: spend.purchases30d      });
-            cells.push({ label: 'Lifetime',     amt: spend.spentLifetime, ct: spend.purchasesLifetime });
-            return cells.map((c, i) => h('div', {
-              key: c.label,
-              style: {
-                textAlign: 'center',
-                borderRight: i < cells.length - 1 ? '1px solid var(--border)' : 'none',
-                paddingRight: i < cells.length - 1 ? 8 : 0
-              },
-              title: `You completed ${c.ct} purchase${c.ct === 1 ? '' : 's'} (${c.label.toLowerCase()}). Gross price — refunds are logged as separate rows in History.`
+      // Activity tiles: what came in (deposits, sale credits) and what went
+      // out (purchases, withdrawals) for the chosen window. Hidden only for
+      // a wallet that has never moved, where four zero tiles would crowd
+      // the balance for no information.
+      me && activity && (() => {
+        const all = activity.windows && activity.windows.all;
+        const hasAny = all && ['deposits', 'sales', 'purchases', 'withdrawals', 'refunds']
+          .some(k => all[k] && Number(all[k].count) > 0);
+        if (!hasAny) return null;
+        const win = (activity.windows && activity.windows[activityWindow]) || all;
+        const n = (b) => Number((b && b.count) || 0);
+        const amt = (b) => parseFloat((b && b.amount) || 0) || 0;
+        const plural = (c, one, many) => c === 0 ? 'none' : c + ' ' + (c === 1 ? one : many);
+        const refunds = win.refunds;
+        const tiles = [
+          { key: 'deposits', label: 'Deposited', dir: 'in', b: win.deposits,
+            sub: plural(n(win.deposits), 'deposit', 'deposits'),
+            tip: 'Completed deposits into this wallet.' },
+          { key: 'sales', label: 'Sold', dir: 'in', b: win.sales,
+            sub: n(win.sales) > 0 ? plural(n(win.sales), 'sale', 'sales') + ' · after fee' : 'none',
+            tip: 'What your sales credited to this wallet: the sale price minus the 2% platform fee.' },
+          { key: 'purchases', label: 'Bought', dir: 'out', b: win.purchases,
+            sub: plural(n(win.purchases), 'purchase', 'purchases')
+              + (n(refunds) > 0 ? ' · ' + maskMoney(amt(refunds)) + ' refunded' : ''),
+            tip: 'What left this wallet for purchases. Refunds are credited back separately and shown here when there are any.' },
+          { key: 'withdrawals', label: 'Withdrawn', dir: 'out', b: win.withdrawals,
+            sub: plural(n(win.withdrawals), 'withdrawal', 'withdrawals'),
+            tip: 'Completed withdrawals out of this wallet.' }
+        ];
+        const WINDOWS = [['7d', '7D'], ['30d', '30D'], ['all', 'All']];
+        return h('section', { className: 'wallet-activity', 'aria-label': 'Wallet activity summary', 'data-testid': 'wallet-activity' },
+          h('div', { className: 'wallet-activity-head' },
+            h('span', { className: 'wallet-activity-title' }, 'Activity'),
+            h('div', { className: 'wallet-activity-windows', role: 'group', 'aria-label': 'Activity period' },
+              WINDOWS.map(([id, label]) => h('button', {
+                key: id, type: 'button',
+                className: 'wallet-activity-window' + (activityWindow === id ? ' active' : ''),
+                'aria-pressed': activityWindow === id,
+                onClick: () => setActivityWindow(id)
+              }, label)))
+          ),
+          h('div', { className: 'wallet-activity-grid' },
+            tiles.map(t => h('div', {
+              key: t.key,
+              className: 'wallet-activity-tile ' + t.dir + (n(t.b) === 0 ? ' is-zero' : ''),
+              'data-kind': t.key,
+              title: t.tip
             },
-              h('div', { style: { fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 0.4 } }, c.label),
-              h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--text)', marginTop: 3 } },
-                '—' + maskMoney(c.amt || 0)),
-              h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2 } },
-                c.ct + (c.ct === 1 ? ' purchase' : ' purchases'))
-            ));
-          })()
-        ),
+              h('div', { className: 'wallet-activity-label' }, t.label),
+              h('div', { className: 'wallet-activity-amt' },
+                n(t.b) === 0 ? maskMoney(0) : (t.dir === 'in' ? '+' : '−') + maskMoney(amt(t.b))),
+              h('div', { className: 'wallet-activity-sub' }, t.sub)
+            ))
+          )
+        );
+      })(),
       // Batch 936 — proper tablist semantics for keyboard/screen-reader users.
       h('div', { className: 'wallet-tabs', role: 'tablist', 'aria-label': 'Wallet sections' },
         (() => {
@@ -16583,7 +16600,11 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                               h('span', { className: 'wallet-method-badge instant' }, '⚡'),
                               h('span', { className: 'wallet-method-badge ccy' }, 'USD')
                             ),
-                            h('div', { className: 'wallet-method-icon' }, h(MaterialIcon, { name: 'credit_card', size: 42, fill: true, color: 'var(--accent)' })),
+                            // No colour of its own: the icon inherits the tile's.
+                            // Passing var(--accent) painted it the same blue as the
+                            // selected tile behind it, so it rendered as a blank
+                            // blue square.
+                            h('div', { className: 'wallet-method-icon' }, h(MaterialIcon, { name: 'credit_card', size: 42, fill: true })),
                             h('div', { className: 'wallet-method-title' }, 'Credit/Debit Card'),
                             h('div', { className: 'wallet-method-sub' }, 'Visa, Mastercard, Amex, Apple Pay, Google Pay')
                           )
@@ -16592,7 +16613,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                               h('span', { className: 'wallet-method-badge standard' }, 'STANDARD'),
                               h('span', { className: 'wallet-method-badge ccy' }, 'USD')
                             ),
-                            h('div', { className: 'wallet-method-icon' }, h(MaterialIcon, { name: 'account_balance', size: 42, fill: true, color: 'var(--accent)' })),
+                            h('div', { className: 'wallet-method-icon' }, h(MaterialIcon, { name: 'account_balance', size: 42, fill: true })),
                             h('div', { className: 'wallet-method-title' }, 'Bank Account / Stripe'),
                             h('div', { className: 'wallet-method-sub' }, 'Payout in 1–2 business days')
                           )

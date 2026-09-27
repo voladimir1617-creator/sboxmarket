@@ -836,6 +836,20 @@ export async function fetchWalletSpend() {
   } catch (_) { return null; }
 }
 
+// Money in and out of the wallet, per kind, for three windows. Shape:
+//   { windows: { '7d'|'30d'|'all': { deposits|sales|purchases|withdrawals|refunds:
+//       { amount, count } } } }
+// Sales are the amounts CREDITED (after the 2% fee). null on any failure, so
+// the wallet page can leave the tiles out rather than show zeros it never read.
+export async function fetchWalletActivity() {
+  try {
+    const r = await fetch(`${API}/wallet/activity`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j && j.windows ? j : null;
+  } catch (_) { return null; }
+}
+
 export async function depositFunds(amount) {
   return writeJson(`${API}/wallet/deposit`, {
     method: 'POST',

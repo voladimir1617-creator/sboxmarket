@@ -60,3 +60,39 @@ test('withdraw submits without a destination box and without an empty 2FA code',
   expect(sent).not.toHaveProperty('totpCode');
   await expect(page.locator('.wallet-error')).toHaveCount(0);
 });
+
+// The wallet summary tiles. They were fed by /wallet/spend, which counts
+// PURCHASE rows only: a seller's sale credits and every deposit were missing,
+// and a seller with no purchases saw no summary at all. The tiles now read
+// /wallet/activity and report each kind of money movement on its own.
+test('wallet activity tiles report deposits and sales, not only purchases', async ({ page }) => {
+  const b = (amount, count) => ({ amount, count });
+  const win = { deposits: b(150, 2), sales: b(29.4, 3), purchases: b(0, 0), withdrawals: b(20, 1), refunds: b(0, 0) };
+  await page.route('**/api/wallet/activity', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ windows: { '7d': win, '30d': win, all: win } }),
+  }));
+  await page.goto('/wallet');
+  const tiles = page.getByTestId('wallet-activity');
+  await expect(tiles).toBeVisible({ timeout: 15_000 });
+  await expect(tiles.locator('[data-kind="deposits"]')).toContainText('+$150.00');
+  await expect(tiles.locator('[data-kind="deposits"]')).toContainText('2 deposits');
+  await expect(tiles.locator('[data-kind="sales"]')).toContainText('+$29.40');
+  await expect(tiles.locator('[data-kind="sales"]')).toContainText('3 sales');
+  await expect(tiles.locator('[data-kind="withdrawals"]')).toContainText('$20.00');
+  await expect(tiles.locator('[data-kind="purchases"]')).toContainText('none');
+});
+
+// The payout-method icon was painted var(--accent) on a tile whose selected
+// background IS the accent, so "Bank Account / Stripe" showed a blank blue
+// square. The glyph must not be the colour of the tile behind it.
+test('the payout method icon is visible against its tile', async ({ page }) => {
+  await page.goto('/wallet/withdraw');
+  const icon = page.locator('.wallet-method-card.selected .wallet-method-icon').first();
+  await expect(icon).toBeVisible({ timeout: 15_000 });
+  const { fg, bg } = await icon.evaluate((el) => ({
+    fg: getComputedStyle(el.firstElementChild).color,
+    bg: getComputedStyle(el).backgroundColor,
+  }));
+  expect(fg).not.toBe(bg);
+});

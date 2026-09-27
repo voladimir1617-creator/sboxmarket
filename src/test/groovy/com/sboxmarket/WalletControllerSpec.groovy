@@ -433,6 +433,86 @@ class WalletControllerSpec extends Specification {
         resp.body.purchasesLifetime == 87L
     }
 
+    // ─── GET /api/wallet/activity ───────────────────────────────────
+    // The wallet summary tiles. They used to read /spend, which counts
+    // PURCHASE rows only, so a seller's sale credits and every deposit were
+    // missing from the one summary on the wallet page.
+
+    def "getActivitySummary() anon: 401 (a ledger summary is PII)"() {
+        when:
+        controller.getActivitySummary(reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * transactionRepository.summarizeCompletedByTypeSince(_, _)
+    }
+
+    def "getActivitySummary() reports deposits, sales, purchases, withdrawals and refunds separately"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.summarizeCompletedByTypeSince(500L, _) >> [
+            ['DEPOSIT',    2L, new BigDecimal('150.00')] as Object[],
+            ['SALE',       3L, new BigDecimal('29.40')]  as Object[],
+            ['PURCHASE',   1L, new BigDecimal('9.99')]   as Object[],
+            ['WITHDRAW',   1L, new BigDecimal('20.00')]  as Object[],
+            // the legacy spelling lands in the same tile
+            ['WITHDRAWAL', 1L, new BigDecimal('5.00')]   as Object[],
+            ['REFUND',     1L, new BigDecimal('9.99')]   as Object[],
+            // staff corrections are not activity
+            ['ADJUSTMENT_CREDIT', 1L, new BigDecimal('1.00')] as Object[],
+        ]
+
+        when:
+        def all = controller.getActivitySummary(reqFor(10L)).body.windows.all
+
+        then:
+        all.deposits    == [amount: new BigDecimal('150.00'), count: 2L]
+        all.sales       == [amount: new BigDecimal('29.40'),  count: 3L]
+        all.purchases   == [amount: new BigDecimal('9.99'),   count: 1L]
+        all.withdrawals == [amount: new BigDecimal('25.00'),  count: 2L]
+        all.refunds     == [amount: new BigDecimal('9.99'),   count: 1L]
+        !all.containsKey('adjustments')
+    }
+
+    def "getActivitySummary() asks for all time and two rolling windows"() {
+        given:
+        def user = verifiedUser()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> walletFor()
+        def sinces = []
+        long before = System.currentTimeMillis()
+
+        when:
+        def body = controller.getActivitySummary(reqFor(10L)).body
+
+        then:
+        3 * transactionRepository.summarizeCompletedByTypeSince(500L, _) >> { Long w, Long since -> sinces << since; [] }
+        body.windows.keySet() == ['7d', '30d', 'all'] as Set
+        long day = 24L * 60L * 60L * 1000L
+        sinces.contains(0L)
+        sinces.any { Math.abs((before - it) - 7L * day) < 60_000L }
+        sinces.any { Math.abs((before - it) - 30L * day) < 60_000L }
+        body.windows['7d'].sales == [amount: BigDecimal.ZERO, count: 0L]
+    }
+
+    def "getActivitySummary() signed-in with no wallet row yet: zeros, no ledger query"() {
+        given:
+        steamUserRepository.findById(10L) >> Optional.of(verifiedUser())
+        walletRepository.findByUsername('steam_111') >> null
+        walletRepository.save(_) >> new Wallet(id: 1L)   // DEMO_WALLET_ID sentinel
+
+        when:
+        def body = controller.getActivitySummary(reqFor(10L)).body
+
+        then:
+        0 * transactionRepository.summarizeCompletedByTypeSince(_, _)
+        body.windows.all.deposits == [amount: BigDecimal.ZERO, count: 0L]
+        body.windows.all.sales    == [amount: BigDecimal.ZERO, count: 0L]
+    }
+
     // ─── GET /api/wallet/transactions ───────────────────────────────
 
     def "getTransactions() anon: [] (never leaks demo-wallet ledger — batch 977 fix)"() {
