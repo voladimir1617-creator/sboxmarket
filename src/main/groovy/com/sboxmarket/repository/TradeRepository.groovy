@@ -547,4 +547,24 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
         GROUP BY t.sellerUserId
     """)
     List<Object[]> tradeRecordForSellers(@Param("sellerIds") Collection<Long> sellerIds)
+
+    /** Seller payouts card — what a seller's sales still owe them, by state
+     *  group. One row per state: [state, net (price - fee), count]. Net, not
+     *  gross, because that is what {@code TradeService.release} credits. */
+    @Query("""
+        SELECT t.state, COALESCE(SUM(t.price - t.feeAmount), 0), COUNT(t)
+        FROM Trade t
+        WHERE t.sellerUserId = :uid
+          AND t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','DISPUTED')
+        GROUP BY t.state
+    """)
+    List<Object[]> summarizeSellerEscrow(@Param("uid") Long uid)
+
+    /** Oldest buyer-confirm clock among a seller's sales — the sweeper
+     *  auto-releases each one {@code trade.auto-release-days} after this. */
+    @Query("""
+        SELECT MIN(t.updatedAt) FROM Trade t
+        WHERE t.sellerUserId = :uid AND t.state = 'PENDING_BUYER_CONFIRM'
+    """)
+    Long earliestPendingConfirmForSeller(@Param("uid") Long uid)
 }

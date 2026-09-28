@@ -504,4 +504,12 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
                OR t.description LIKE CONCAT('%Refund of deposit #', :depositId, ' %'))
     """)
     BigDecimal sumRefundsByDeposit(@Param('depositId') Long depositId)
+
+    /** Seller payouts card — a wallet's withdrawals, newest first, any status. */
+    @Query("""
+        SELECT t FROM Transaction t
+        WHERE t.walletId = :walletId AND t.type IN ('WITHDRAW', 'WITHDRAWAL')
+        ORDER BY t.createdAt DESC
+    """)
+    List<Transaction> findWithdrawalsByWallet(@Param('walletId') Long walletId, Pageable pageable)
 }
