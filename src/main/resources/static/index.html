@@ -124,7 +124,6 @@
   </script>
   <!-- Google Fonts preconnects removed — all fonts are self-hosted same-origin
        (see /css/fonts.css below). No third-party font host is contacted. -->
-  <link rel="dns-prefetch" href="https://unpkg.com">
   <!-- Batch 767 — preconnect to the Steam image CDNs. Every marketplace
        card, stall hero, and item modal pulls at least one image from
        these hosts. Preconnect starts the TCP + TLS handshake in parallel
@@ -152,7 +151,7 @@
        edge + browsers refetch instead of serving a stale design.css (the
        no-cache header alone wasn't defeating the edge cache, so live users
        kept seeing the pre-parity look). index.html itself is no-store. -->
-  <link rel="stylesheet" href="/css/design.css?v=315">
+  <link rel="stylesheet" href="/css/design.css?v=316">
   <!-- Boss QA cycle 12 — inline critical CSS so the first paint on slow 3G
        isn't a UA-default WHITE flash. design.css is ~2MB and on slow
        networks paints 1-3s after first byte; before this block, the
@@ -235,19 +234,19 @@
   </noscript>
 
   <!--
-    React + React-DOM pinned to 18.2.0 with Subresource Integrity hashes.
-    If unpkg is ever compromised to serve altered JS, the browser will
-    refuse to run it because the sha384 won't match. To roll either
+    React + React-DOM 18.2.0, served from our own /js/vendor/ (byte-identical
+    to the unpkg builds; the SRI hashes below are unchanged). Serving them
+    ourselves removes a third-party round trip from every cold load. To roll either
     library forward, fetch the new file and compute:
       curl -sS <url> | openssl dgst -sha384 -binary | openssl base64 -A
   -->
   <script crossorigin="anonymous"
           integrity="sha384-tMH8h3BGESGckSAVGZ82T9n90ztNXxvdwvdM6UoR56cYcf+0iGXBliJ29D+wZ/x8"
-          src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+          src="/js/vendor/react.production.min.js"></script>
   <script crossorigin="anonymous"
           integrity="sha384-bm7MnzvK++ykSwVJ2tynSE5TRdN+xL418osEVF2DE/L/gfWHj91J2Sphe582B1Bh"
-          src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+          src="/js/vendor/react-dom.production.min.js"></script>
 
-  <script type="module" src="/js/main.js?v=219"></script>
+  <script type="module" src="/js/main.js?v=220"></script>
 </body>
 </html>

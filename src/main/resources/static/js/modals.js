@@ -2,8 +2,8 @@
 // surface — none of them receive the full App state.
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
-import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
-import { GridCard } from './cards.js?v=7';
+import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
+import { GridCard } from './cards.js?v=8';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -990,7 +990,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               // a free item. Mirror the search-suggest guard: only show a
               // price when there's a live listing, else an honest "Not listed".
               (parseFloat(item.lowestPrice) > 0)
-                ? h('div', { className: 'modal-stat-val accent' }, fmt(item.lowestPrice))
+                ? h('div', { className: 'modal-stat-val accent' }, h(Money, { value: item.lowestPrice }))
                 : h('div', { className: 'modal-stat-val', style: { color: 'var(--text-muted)' } }, 'Not listed')
             ),
             // I2 Boss-QA: "Steam Price" relabelled "Steam reference"
@@ -1912,7 +1912,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               h('div', { className: 'similar-thumb' },
                 h(ItemImage, { item: l.item, variant: 'thumb' })),
               h('div', { className: 'similar-name' }, l.item?.name || 'Item'),
-              h('div', { className: 'similar-price' }, fmt(l.price))
+              h('div', { className: 'similar-price' }, h(Money, { value: l.price }))
             ))
           )
         ),
@@ -1931,7 +1931,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               h('div', { className: 'similar-thumb' }, h(ItemImage, { item: it, variant: 'thumb' })),
               h('div', { className: 'similar-name' }, it.name),
               // Unlisted items have lowestPrice 0 → "$0.00" read as free; show "—".
-              h('div', { className: 'similar-price' }, parseFloat(it.lowestPrice) > 0 ? fmt(it.lowestPrice) : '—')
+              h('div', { className: 'similar-price' }, parseFloat(it.lowestPrice) > 0 ? h(Money, { value: it.lowestPrice }) : '—')
             ))
           )
         )
