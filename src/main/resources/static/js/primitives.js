@@ -181,6 +181,20 @@ export function SteamMarketLink({ item, compact }) {
 }
 
 /**
+ * A formatted price with the cents drawn smaller ("$230" + ".00"), the way
+ * trading terminals show money: the dollars are what the eye anchors on.
+ * Text content is exactly fmt(value), so copy/paste, screen readers and
+ * tests see the same string as before; only the cents get a styling hook.
+ */
+export function Money({ value, className }) {
+  const s = fmt(value);
+  const dot = s.lastIndexOf('.');
+  const cls = 'money' + (className ? ' ' + className : '');
+  if (dot < 0) return h('span', { className: cls }, s);
+  return h('span', { className: cls }, s.slice(0, dot), h('span', { className: 'money-cents' }, s.slice(dot)));
+}
+
+/**
  * Lazy-loading image with a proper skeleton and category-based fallback.
  * Variants:
  *   'mini'   — 96x96     (db rows, picker thumbs)

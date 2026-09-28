@@ -2,7 +2,7 @@
 import { h, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch, currencySymbol } from './utils.js';
 // (2026-05-20) Dropped `FloatBar` from this import — its only call site
 // in GridCard was removed (s&box has no float/wear; FloatBar is a no-op).
-import { ItemImage, RarityBadge, SteamMarketLink, Avatar } from './primitives.js';
+import { ItemImage, RarityBadge, SteamMarketLink, Avatar, Money } from './primitives.js';
 
 // ── Countdown — shared 1s ticker so cards + item modal stay in sync ──
 function formatRemaining(ms) {
@@ -288,9 +288,7 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         h('div', null,
           h('div', { className: 'grid-price' },
             hasPrice
-              ? (isAuction && listing.currentBid
-                  ? fmt(listing.currentBid)
-                  : fmt(listing.price))
+              ? h(Money, { value: isAuction && listing.currentBid ? listing.currentBid : listing.price })
               : h('span', { className: 'grid-price-unlisted', style: { color: 'var(--text-muted)', fontWeight: 600 }, title: 'No active listings right now — this item isn\'t for sale at the moment' }, 'Not listed'),
             h(SteamMarketLink, { item, compact: true }),
             // Boss QA cycle 2 N4 — bumped the discount-chip threshold
