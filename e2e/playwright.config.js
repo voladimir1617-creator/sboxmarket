@@ -9,6 +9,9 @@ const { defineConfig, devices } = require('@playwright/test');
  * the signed-in money flows don't each re-login.
  */
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8082';
+// Optional: a pre-installed Chromium to launch instead of Playwright's own
+// download (sandboxed CI boxes and cloud containers ship one).
+const CHROMIUM_PATH = process.env.E2E_CHROMIUM_PATH || undefined;
 
 module.exports = defineConfig({
   testDir: './tests',
@@ -29,6 +32,7 @@ module.exports = defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'off',
+    launchOptions: CHROMIUM_PATH ? { executablePath: CHROMIUM_PATH } : {},
   },
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.js/ },
@@ -42,13 +46,22 @@ module.exports = defineConfig({
       // `mobile(-auth)?` — a *.mobile-auth.spec.js file belongs to the
       // mobile-auth project below and must not ALSO be picked up here and
       // run at a 1440x900 desktop viewport.
-      testIgnore: /\.(anon|mobile(-auth)?)\.spec\.js/,
+      testIgnore: /\.(anon|multi|mobile(-auth)?)\.spec\.js/,
       dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1440, height: 900 },
         storageState: '.auth/user.json',
       },
+    },
+    // ── several people at once ───────────────────────────────────────────
+    // *.multi.spec.js signs in its own users (one browser context each) and
+    // moves TEST money between them, so it needs the dev-credit opt-in as
+    // well as dev-login -- see the header of market-pass.multi.spec.js.
+    {
+      name: 'multi-user',
+      testMatch: /\.multi\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
     // ── mobile ────────────────────────────────────────────────────────────
     // SPLIT FROM A SINGLE `mobile-auth` PROJECT, AND HERE IS WHY.

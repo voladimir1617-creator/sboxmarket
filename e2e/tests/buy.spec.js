@@ -12,7 +12,11 @@ test('buy-now opens a confirm dialog with fee math + total, cancel is clean', as
   // Confirm dialog (scope to the title — the confirm BUTTON also says
   // "Confirm purchase · $…", so a loose text match is ambiguous)
   await expect(page.locator('.cart-confirm-title')).toHaveText(/Confirm purchase/i);
-  await expect(page.locator('text=/Trade Protection \\(2%\\)/i')).toBeVisible();
+  // A player's listing shows the 2% trade-protection row; a listing SkinBox
+  // holds itself is delivered in-platform and says so instead. Which one the
+  // cheapest copy of item 4 is depends on what earlier specs bought.
+  const confirmBox = page.getByRole('dialog').filter({ has: page.locator('.cart-confirm-title') }).last();
+  await expect(confirmBox.getByText(/Trade Protection \(2%\)|Delivered in-platform\./i).first()).toBeVisible();
   // Total charged row shows a real dollar amount
   const total = page.locator('.cart-confirm-total-amt');
   await expect(total).toBeVisible();

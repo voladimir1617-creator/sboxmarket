@@ -57,9 +57,19 @@ authorises the in-process fabricated wallet credit (`devModeDeposit`, up to
 $5,000 per wallet per 24h against no payment) and the simulated Stripe Connect
 onboarding. See `config/DevCreditGate.groovy`.
 
-**Do not set it to run these tests.** `wallet.spec.js` only renders the deposit
-*form*; nothing here submits a deposit, and the whole suite passes with the
-credit door shut. Two names exist precisely so that a harness needing a session
+**Leave it shut unless you run the money flows.** `wallet.spec.js` only renders
+the deposit *form*, and against a long-lived dev database where user 1 already
+has money and items the `anon` and `chromium-auth` projects pass with the credit
+door shut. Two things need it open, and only on a throwaway database:
+
+- **A fresh database.** User 1 starts with $0 and an empty Platform Inventory,
+  so `auth.setup.js` tops the wallet up to $100 and buys one cheap SkinBox-held
+  item. With the door shut it says so in one line and the money specs fail on
+  the empty wallet.
+- **The `multi-user` project** (`*.multi.spec.js`). Three users at once pay with
+  real dev-mode deposits and are checked to the cent after every step.
+
+CI runs all three projects on an in-memory database with both doors open. Two names exist precisely so that a harness needing a session
 does not silently also get a money printer — one variable answering both
 questions would be the same conflation `MoneyMode` was written to delete.
 
@@ -89,16 +99,22 @@ should not be able to.
 |---|---|---|
 | `anon` | Chromium | home, market grid, item detail, /db, wallet auth-gate centered, search, nav chrome, deep-route OG shell |
 | `chromium-auth` | Chromium | buy-now confirm (fee math + total), add-to-cart → checkout, bargain validation, sell list 2% fee math, wallet deposit + withdraw |
+| `multi-user` | Chromium | three users (2, 3, 4) in their own browsers at once: deposits, trade URL, buy → accept → send → confirm → seller paid, two buyers racing one listing, no resale before delivery, resale through the cart, offer → counter → accept, auction bid + Buy Now, buy order auto-fill, email verify + payout from the payouts card, notifications, take-down. Every balance checked to the cent |
 | `mobile-auth` | **WebKit / iPhone 13** | home / market / item — zero horizontal overflow + bottom-nav present |
 
 `auth.setup.js` dev-logs-in once and saves `storageState` to `.auth/user.json`,
 reused by the signed-in projects. Workers are serial (the dev money flows share
 one user's session/cart).
 
+A CI box with no downloaded browsers can point at an installed Chromium:
+`E2E_CHROMIUM_PATH=/path/to/chromium npx playwright test --project=multi-user`.
+
 ## Conventions
 
 - `*.anon.spec.js` → runs signed-out (no auth dependency).
 - `*.mobile.spec.js` → runs on the WebKit iPhone project.
+- `*.multi.spec.js` → runs in the `multi-user` project, one browser context per user.
 - everything else → runs signed-in on Chromium desktop.
-- Money flows never actually move money (dialogs are opened + cancelled, forms
-  are filled + asserted, never submitted). Cart state resets via `DELETE /api/cart`.
+- `chromium-auth` money flows mostly stop at the dialog (opened + cancelled,
+  forms filled + asserted); `buy-roundtrip` and `offer-roundtrip` really submit,
+  and `multi-user` runs every flow to the end. Cart state resets via `DELETE /api/cart`.

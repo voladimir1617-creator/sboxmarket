@@ -598,16 +598,15 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     // Cleanup guard — closing the BuyOrders modal mid-fetch used to
     // call setPool on an unmounted component. Alive flag short-circuits.
     let alive = true;
-    fetchListings({}).then(listings => {
+    // The whole catalogue, not just what is on sale right now. The pool used
+    // to be built from the live listings, so an item whose last copy had
+    // just sold answered "No matches." -- and that is exactly the item a
+    // buyer wants a standing order on (see the "not-yet-listed" note in
+    // submit below).
+    fetchDatabase({ limit: 500, sort: 'most_traded' }).then(res => {
       if (!alive) return;
-      const seen = new Set();
-      const items = [];
-      listings.forEach(l => {
-        if (!l?.item || seen.has(l.item.id)) return;
-        seen.add(l.item.id);
-        items.push(l.item);
-      });
-      setPool(items);
+      if (!res || res.error) { setPoolErr(true); return; }
+      setPool((res.items || []).filter(it => it && it.id != null && it.name));
     }).catch(() => {
       // Audit fix — without a .catch() a rejected listings fetch left
       // the autocomplete pool permanently empty with no feedback, so
@@ -743,7 +742,11 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     ),
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 16 } },
       h('button', {
-        className: 'btn btn-accent',
+        // Once the form is open this button only closes it, so it steps
+        // down to the ghost style every other Cancel uses; as a solid
+        // accent button it out-shouted "Place Buy Order" below it.
+        className: creating ? 'btn btn-ghost' : 'btn btn-accent',
+        style: creating ? { border: '1px solid var(--border)' } : undefined,
         disabled: tradeUrlMissing,
         title: tradeUrlMissing ? 'Set your Steam trade URL in Profile first' : null,
         onClick: () => { setCreating(c => !c); setErr(''); }

@@ -46,6 +46,7 @@ class PurchaseService {
     @Autowired(required = false) TradeService tradeService
     @Autowired(required = false) PriceHistoryService priceHistoryService
     @Autowired(required = false) ItemRepository itemRepository
+    @Autowired(required = false) ListingFloorRefreshService listingFloorRefreshService
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) EmailService emailService
     /** Optional so unit tests that build the service with `new
@@ -268,6 +269,10 @@ class PurchaseService {
         final Long _itemIdForBump = listing.item?.id
         if (_itemIdForBump != null && itemRepository != null) {
             deferOrRun { itemRepository.incrementTotalSold(_itemIdForBump) }
+        }
+        // The sold copy leaves the floor now, not at the next 60s sweep.
+        if (_itemIdForBump != null && listingFloorRefreshService != null) {
+            deferOrRun { listingFloorRefreshService.refreshItem(_itemIdForBump) }
         }
 
         // Record transaction on buyer side
