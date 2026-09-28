@@ -79,13 +79,20 @@ services:
       # Host side stays a separate knob: deploy/run-local.sh's edge container
       # also defaults to host 8082, so override APP_PORT if you run both stacks
       # on one box.
-      - "${APP_PORT:-8082}:8082"
+      #
+      # Loopback only, same reasoning as the db port above: cloudflared runs on
+      # this host and reaches http://localhost:8082, so nothing else needs the
+      # port. A bare "8082:8082" binds every interface (LAN, Tailscale) and
+      # Docker's DNAT rules skip the host firewall. Dry run 2026-09-28 showed
+      # it listening on 0.0.0.0:8082, which fails RUNBOOK step 6 c2.
+      - "127.0.0.1:${APP_PORT:-8082}:8082"
     # Real secrets (Stripe live keys, SMTP password, Steam API key, Sentry DSN)
     # come from an operator-supplied env file — NEVER committed, NEVER baked
     # into the image. Copy deploy/skinbox.env.example -> deploy/skinbox.env and
-    # fill in real values. The explicit `environment:` block below provides
-    # safe non-secret defaults; env_file entries override anything also set
-    # there. Marked optional so `docker compose up` still works for a bare
+    # fill in real values. Note Compose gives the `environment:` block below
+    # PRECEDENCE over env_file, so a variable set in both takes the value
+    # below (which reads the same file through --env-file interpolation);
+    # SPRING_DATASOURCE_URL/USERNAME in skinbox.env are ignored under compose. Marked optional so `docker compose up` still works for a bare
     # local smoke test before the operator has written the file.
     env_file:
       - path: deploy/skinbox.env

@@ -163,11 +163,17 @@ class AdminBootstrapIsNotCommittedSpec extends Specification {
             pb.directory(new File('.').getCanonicalFile())
             Process p = pb.start()
             def out = new StringBuilder(), err = new StringBuilder()
-            p.consumeProcessOutput(out, err)
+            // Keep the reader threads: consumeProcessOutput() returns none, so
+            // waitFor() could return before they had copied git's output and the
+            // census read an empty worktree list (a flaky red, seen in CI).
+            Thread outReader = p.consumeProcessOutputStream(out)
+            Thread errReader = p.consumeProcessErrorStream(err)
             if (!p.waitFor(120, TimeUnit.SECONDS)) {
                 p.destroyForcibly()
                 return [ok: false, why: ("`git " + args.join(' ') + "` did not finish within 120s")]
             }
+            outReader.join(10_000)
+            errReader.join(10_000)
             int rc = p.exitValue()
             if (rc != 0) {
                 return [ok: false, why: ("`git " + args.join(' ') + "` exited " + rc + ': ' + err.toString().trim())]
