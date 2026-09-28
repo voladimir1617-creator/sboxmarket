@@ -29674,3 +29674,14 @@ html body .csfloat-empty-cart-rail-grid > * { min-width: 0 !important; width: au
 /* Wallet history with no rows: a short, quiet line instead of a 250px box. */
 html body .wallet-modal .wallet-tx-list:has(> .wallet-tx-empty:only-child) { min-height: 0 !important; height: auto !important; }
 html body .wallet-modal .wallet-tx-empty { padding: 32px 16px !important; min-height: 0 !important; font: 400 13px/1.4 var(--ui) !important; color: var(--ink-3) !important; }
+/* 2026-09-27: market cards vanished on hover. The entrance fade (sb-grid-card-fade-in,
+   fill-mode both, per-card delays up to 600ms) was cancelled on :hover with
+   animation-name:none, so leaving a card RESTARTED the fade from opacity 0 -- the card
+   disappeared for up to ~0.9s, and sweeping the mouse across the grid left holes. Cards
+   now simply render; no entrance animation on market/listing cards. */
+.listings > item-card, .listings > .item-card, .listings > .grid-card, .listing-grid > .grid-card,
+.market-grid > .grid-card, .market-grid > .item-card, .market-grid > item-card,
+.grid-card[data-loaded="true"], .grid-card.is-loaded, .item-card[data-loaded="true"],
+.item-card.is-loaded, item-card[data-loaded="true"], .csfloat-card[data-loaded="true"] {
+  animation: none !important;
+}
