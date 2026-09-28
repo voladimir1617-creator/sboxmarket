@@ -49,6 +49,7 @@ class WalletController {
     // in each call site makes the guard a no-op when the bean isn't injected,
     // mirroring the SteamInventoryController posture.
     @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
+    @Autowired(required = false) com.sboxmarket.service.SellerPayoutService sellerPayoutService
 
     /** Rolling 24-hour withdrawal cap. Sum of PENDING + COMPLETED
      *  withdrawals in any 24h window — protects against compromised
@@ -349,6 +350,18 @@ class WalletController {
             [(key): noLedger ? emptyActivity() : activitySince(wallet.id, since)]
         }
         ResponseEntity.ok([windows: out])
+    }
+
+    /** Seller payouts card on My Stall: available, pending, paid out, the
+     *  next release date and the last withdrawals, in one read. Signed-in
+     *  only. Read-only; cashing out still goes through POST /withdraw. */
+    @GetMapping("/payouts")
+    ResponseEntity<Map> getPayouts(HttpServletRequest req) {
+        def user = currentUser(req)
+        if (user == null) throw new UnauthorizedException("Sign in to view your payouts")
+        def wallet = currentWallet(req)
+        if (wallet != null && wallet.id == DEMO_WALLET_ID) wallet = null
+        ResponseEntity.ok(sellerPayoutService.summary(user.id, wallet))
     }
 
     private static Map<String, Map> emptyActivity() {

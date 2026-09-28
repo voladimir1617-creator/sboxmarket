@@ -856,6 +856,20 @@ export async function fetchWalletActivity() {
   } catch (_) { return null; }
 }
 
+// Seller payouts card (My Stall). Shape:
+//   { available, pending: {amount, count}, onHold: {amount, count},
+//     inFlight: {amount, count}, paidOut: {amount, count}, nextReleaseAt,
+//     autoReleaseDays, arrivalIfRequestedNow, live, cashoutReady, frozen,
+//     history: [{ id, amount, feeAmount, status, createdAt, expectedAt }] }
+// null on any failure, so the card shows a retry line instead of zeros.
+export async function fetchSellerPayouts() {
+  try {
+    const r = await fetch(`${API}/wallet/payouts`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
+}
+
 export async function depositFunds(amount) {
   return writeJson(`${API}/wallet/deposit`, {
     method: 'POST',
