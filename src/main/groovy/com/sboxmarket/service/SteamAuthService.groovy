@@ -104,6 +104,27 @@ class SteamAuthService {
         }
     }
 
+    /** True if any `openid.*` key occurs more than once in the raw query.
+     *  Keys are compared URL-decoded, so `openid%2Eclaimed_id` counts as a
+     *  repeat of `openid.claimed_id`. */
+    static boolean hasDuplicateOpenIdKey(String rawQueryString) {
+        if (!rawQueryString) return false
+        Set<String> seen = new HashSet<>()
+        for (String pair : rawQueryString.split('&')) {
+            if (!pair) continue
+            int eq = pair.indexOf('=')
+            String rawKey = eq >= 0 ? pair.substring(0, eq) : pair
+            String key
+            try {
+                key = URLDecoder.decode(rawKey, 'UTF-8')
+            } catch (Exception e) {
+                return true   // undecodable key: refuse rather than guess
+            }
+            if (key.startsWith('openid.') && !seen.add(key)) return true
+        }
+        return false
+    }
+
     /** Build the URL we redirect the browser to so Steam can authenticate the user. */
     String buildLoginUrl() {
         def params = [
@@ -139,6 +160,17 @@ class SteamAuthService {
     String verifyReturn(String rawQueryString, String claimedIdParam = null) {
         if (!rawQueryString) {
             log.warn("Steam verify: empty query string")
+            return null
+        }
+
+        // Reject any callback that repeats an `openid.*` key (2026-09-28
+        // payments review). We read the FIRST value of each key, but Steam's
+        // check_authentication parser may keep the LAST one, so an attacker
+        // could prepend `openid.claimed_id=<victim>` to their own genuine,
+        // signed callback: Steam validates the attacker's values and we log
+        // in as the victim. A real Steam callback never repeats a key.
+        if (hasDuplicateOpenIdKey(rawQueryString)) {
+            log.warn("Steam OpenID callback rejected: an openid.* parameter appears more than once")
             return null
         }
 

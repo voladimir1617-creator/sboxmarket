@@ -76,6 +76,44 @@ class PurchaseServiceSpec extends Specification {
         1 * itemRepo.incrementTotalSold(10L)
     }
 
+    def "buy with a price ceiling refuses a listing whose price moved above it, before any debit"() {
+        // 2026-09-28 payments review: the seller raised the price between
+        // the buyer's click and the purchase transaction's own read.
+        given:
+        def buyer = new Wallet(id: 1L, username: "steam_111", balance: new BigDecimal("100.00"))
+        def listing = new Listing(id: 5L, item: new Item(id: 10L, name: "Wizard Hat"),
+                                  price: new BigDecimal("80.00"), status: 'ACTIVE', sellerName: "Bot")
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        service.buy(1L, 999L, 5L, new BigDecimal("50.00"))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PRICE_CHANGED'
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+        buyer.balance == new BigDecimal("100.00")
+        listing.status == 'ACTIVE'
+    }
+
+    def "buy with a price ceiling at or above the listing price goes through"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: "steam_111", balance: new BigDecimal("100.00"))
+        def listing = new Listing(id: 5L, item: new Item(id: 10L, name: "Wizard Hat"),
+                                  price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: "Bot")
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        def result = service.buy(1L, 999L, 5L, new BigDecimal("50.00"))
+
+        then:
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+    }
+
     def "buy fans out CART_ITEM_SOLD to other cart-holders + scrubs the listing from every cart (batch 503)"() {
         given:
         def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('200.00'))

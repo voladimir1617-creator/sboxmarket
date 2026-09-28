@@ -352,6 +352,36 @@ class PassThroughFeePricingSpec extends Specification {
         tx.status == 'COMPLETED'
     }
 
+    def "the payout idempotency key is anchored on the withdrawal count, not the clock"() {
+        // 2026-09-28 payments review: a retry after a rolled-back commit must
+        // rebuild the SAME key (Stripe replays the transfer, no second payout),
+        // however many minutes later it comes.
+        given:
+        service.secretKey = 'sk_live_wd'
+        def wallet = new Wallet(id: 500L, username: 'steam_1', balance: new BigDecimal('100.00'),
+            payoutsEnabled: true, stripeConnectAccountId: 'acct_seller_1')
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.findByStripeReference(_) >> null
+        transactionRepository.save(_) >> { Transaction t -> t.id = 21L; t }
+        transactionRepository.countByWalletAndType(500L, 'WITHDRAW') >> 3L
+
+        and:
+        String key = null
+        def fakeTransfer = Mock(com.stripe.model.Transfer) { getId() >> 'tr_live_key' }
+        GroovySpy(com.stripe.model.Transfer, global: true)
+        com.stripe.model.Transfer.create(_, _) >> { params, opts ->
+            key = opts.idempotencyKey
+            fakeTransfer
+        }
+
+        when:
+        service.requestWithdrawal(500L, new BigDecimal('100.00'), 'acct_external')
+
+        then:
+        key == 'wd_500_9950_n3'
+    }
+
     def "a dev-mode withdrawal charges NO payout fee — there is no Stripe to pay"() {
         given: 'dev mode: no Transfer is created, so no processor cost is incurred'
         def wallet = new Wallet(id: 500L, username: 'steam_1', balance: new BigDecimal('100.00'))
