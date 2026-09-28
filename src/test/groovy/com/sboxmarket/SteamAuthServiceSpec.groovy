@@ -106,6 +106,31 @@ class SteamAuthServiceSpec extends Specification {
         steamId == STEAMID
     }
 
+    def "verifyReturn rejects a callback that repeats openid.claimed_id, before contacting Steam"() {
+        // 2026-09-28 payments review: we read the FIRST claimed_id; if
+        // Steam keeps the LAST one, a victim id prepended to the attacker's
+        // genuine callback would verify and log the attacker in as the victim.
+        given: "Steam would report the assertion valid if it were asked"
+        boolean steamCalled = false
+        service.metaClass.checkAuthentication = { String body -> steamCalled = true; 'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n' }
+        def victim = URLEncoder.encode('https://steamcommunity.com/openid/id/76561198000000001', 'UTF-8')
+        def query = "openid.claimed_id=${victim}&openid.identity=${victim}&" + returnQuery('nonce-dup-claimed')
+
+        when:
+        def steamId = service.verifyReturn(query)
+
+        then:
+        steamId == null
+        !steamCalled
+    }
+
+    def "a repeated openid key is detected even when one copy is percent-encoded"() {
+        expect:
+        SteamAuthService.hasDuplicateOpenIdKey('openid%2Eclaimed_id=a&openid.claimed_id=b')
+        !SteamAuthService.hasDuplicateOpenIdKey(returnQuery('nonce-clean'))
+        !SteamAuthService.hasDuplicateOpenIdKey('foo=1&foo=2&openid.mode=id_res')
+    }
+
     def "verifyReturn rejects a replayed assertion (same nonce used twice)"() {
         given: "Steam keeps reporting is_valid:true — it does NOT enforce one-time use"
         service.metaClass.checkAuthentication = { String body -> 'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n' }

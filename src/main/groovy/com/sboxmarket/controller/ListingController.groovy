@@ -1204,8 +1204,8 @@ class ListingController {
         // Optional price-match guard (batch 323). Match cart's
         // PRICE_CHANGED semantics: reject BEFORE the service call so
         // the wallet isn't debited at a surprise price.
+        BigDecimal expected = null
         if (body?.expectedPrice != null) {
-            BigDecimal expected
             try { expected = new BigDecimal(body.expectedPrice.toString()) }
             catch (NumberFormatException ignored) {
                 throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE",
@@ -1218,7 +1218,12 @@ class ListingController {
             }
         }
 
-        def result = purchaseService.buy(wallet.id, userId, id)
+        // The early check above gives a fast, friendly refusal; the ceiling
+        // passed here is the authoritative one, checked against the row the
+        // purchase transaction actually charges (2026-09-28 review).
+        def result = expected != null
+            ? purchaseService.buy(wallet.id, userId, id, expected)
+            : purchaseService.buy(wallet.id, userId, id)
         // Batch 880 — include itemName + price in the response so the
         // frontend can render a personalised success toast ("Bought
         // 'Wizard Hat' for $15.95") instead of a generic "Purchase

@@ -397,7 +397,7 @@ class BuyOrderServiceSpec extends Specification {
         service.tryMatch(listing)
 
         then:
-        1 * purchaseService.buy(600L, 20L, 100L)
+        1 * purchaseService.buy(600L, 20L, 100L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 2L && o.quantity == 0 && o.status == 'FILLED' })
         1 * notificationService.push(20L, 'BUY_ORDER_FILLED', _, _, _, _)
     }
@@ -427,7 +427,7 @@ class BuyOrderServiceSpec extends Specification {
         service.tryMatch(listing)
 
         then:
-        1 * purchaseService.buy(500L, 10L, 100L)
+        1 * purchaseService.buy(500L, 10L, 100L, _)
         1 * emailSvc.sendBuyOrderFilled('alice@example.com', _,
             listing.item.name, new BigDecimal("50"), new BigDecimal("60"), _)
     }
@@ -453,7 +453,7 @@ class BuyOrderServiceSpec extends Specification {
         // Banned buyer's order flipped to EXPIRED so it doesn't keep spinning.
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 1L && o.status == 'EXPIRED' })
         // Second (non-banned) buyer gets the fill.
-        1 * purchaseService.buy(600L, 20L, 100L)
+        1 * purchaseService.buy(600L, 20L, 100L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 2L && o.status == 'FILLED' })
         // Banned buyer's wallet lookup never happens — we skip before that.
         0 * walletRepository.findByUsername('steam_111')
@@ -549,13 +549,13 @@ class BuyOrderServiceSpec extends Specification {
         steamUserRepository.findById(20L) >> Optional.of(new SteamUser(id: 20L, steamId64: '222'))
         walletRepository.findByUsername('steam_222') >> new Wallet(id: 600L, balance: new BigDecimal("500.00"))
         // First purchase throws, second succeeds
-        purchaseService.buy(500L, 10L, 100L) >> { throw new RuntimeException("race lost") }
+        purchaseService.buy(500L, 10L, 100L, _) >> { throw new RuntimeException("race lost") }
 
         when:
         service.tryMatch(listing)
 
         then:
-        1 * purchaseService.buy(600L, 20L, 100L)
+        1 * purchaseService.buy(600L, 20L, 100L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 2L && o.status == 'FILLED' })
     }
 
@@ -575,7 +575,7 @@ class BuyOrderServiceSpec extends Specification {
         service.tryMatch(listing)
 
         then: "the buy + decrement land on the LOCKED copy; the stale candidate is untouched"
-        1 * purchaseService.buy(500L, 10L, 100L)
+        1 * purchaseService.buy(500L, 10L, 100L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.is(lockedOrder) && o.quantity == 1 })
         staleOrder.quantity == 2
     }
@@ -968,13 +968,13 @@ class BuyOrderServiceSpec extends Specification {
         listingRepo.findMatchingForBuyOrder(1L, null, null, new BigDecimal("30"), _) >> [alreadyListed]
         steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'aaa'))
         walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L, balance: new BigDecimal("100"))
-        purchaseService.buy(200L, 10L, 100L) >> [success: true]
+        purchaseService.buy(200L, 10L, 100L, _) >> [success: true]
 
         when:
         def result = service.update(10L, 7L, new BigDecimal("30"), null)
 
         then:
-        1 * purchaseService.buy(200L, 10L, 100L)
+        1 * purchaseService.buy(200L, 10L, 100L, _)
         result.quantity == 0
         result.status == 'FILLED'
     }
@@ -995,7 +995,7 @@ class BuyOrderServiceSpec extends Specification {
         then:
         // A lower cap can never newly enable a match — no probe at all.
         0 * listingRepo.findMatchingForBuyOrder(_, _, _, _, _)
-        0 * purchaseService.buy(_, _, _)
+        0 * purchaseService.buy(_, _, _, _)
     }
 
     def "update does NOT re-probe when only the quantity changes"() {
@@ -1014,7 +1014,7 @@ class BuyOrderServiceSpec extends Specification {
         then:
         // maxPrice unchanged — no new matches possible, no probe.
         0 * listingRepo.findMatchingForBuyOrder(_, _, _, _, _)
-        0 * purchaseService.buy(_, _, _)
+        0 * purchaseService.buy(_, _, _, _)
     }
 
     def "update price raise that fills the order swallows a probe failure and still returns the edit"() {
@@ -1056,14 +1056,14 @@ class BuyOrderServiceSpec extends Specification {
         listingRepo.findMatchingForBuyOrder(1L, null, null, new BigDecimal("30"), _) >> listings
         steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'aaa'))
         walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L, balance: new BigDecimal("1000"))
-        purchaseService.buy(200L, 10L, _) >> [success: true]
+        purchaseService.buy(200L, 10L, _, _) >> [success: true]
 
         when:
         def result = service.update(10L, 7L, new BigDecimal("30"), null)
 
         then:
         // Exactly one buy — remaining quantity was 1, the loop stops there.
-        1 * purchaseService.buy(200L, 10L, _)
+        1 * purchaseService.buy(200L, 10L, _, _)
         result.quantity == 0
         result.status == 'FILLED'
         // originalQuantity untouched — the historical cap record is intact.
@@ -1088,7 +1088,7 @@ class BuyOrderServiceSpec extends Specification {
             new SteamUser(id: 10L, steamId64: 'steam_aaa'))
         walletRepository.findByUsername('steam_steam_aaa') >> new Wallet(id: 200L,
             balance: new BigDecimal("100"))
-        purchaseService.buy(200L, 10L, 100L) >> [success: true]
+        purchaseService.buy(200L, 10L, 100L, _) >> [success: true]
 
         when:
         service.tryFillFromExisting(order)
@@ -1116,14 +1116,14 @@ class BuyOrderServiceSpec extends Specification {
         // Re-fetched each iteration — keep enough balance for all three.
         walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L,
             balance: new BigDecimal("1000"))
-        purchaseService.buy(200L, 10L, _) >> [success: true]
+        purchaseService.buy(200L, 10L, _, _) >> [success: true]
 
         when:
         service.tryFillFromExisting(order)
 
         then:
         // All three listings bought, quantity exhausted, order FILLED.
-        3 * purchaseService.buy(200L, 10L, _)
+        3 * purchaseService.buy(200L, 10L, _, _)
         order.quantity == 0
         order.status == 'FILLED'
     }
@@ -1141,7 +1141,7 @@ class BuyOrderServiceSpec extends Specification {
             new SteamUser(id: 10L, steamId64: 'aaa'))
         walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L,
             balance: new BigDecimal("1000"))
-        purchaseService.buy(200L, 10L, _) >> [success: true]
+        purchaseService.buy(200L, 10L, _, _) >> [success: true]
 
         when:
         service.tryFillFromExisting(order)
@@ -1149,7 +1149,7 @@ class BuyOrderServiceSpec extends Specification {
         then:
         // Exactly one buy — the loop breaks once quantity hits 0, so the
         // buyer never over-purchases past what they asked for.
-        1 * purchaseService.buy(200L, 10L, _)
+        1 * purchaseService.buy(200L, 10L, _, _)
         order.quantity == 0
         order.status == 'FILLED'
     }
@@ -1168,14 +1168,14 @@ class BuyOrderServiceSpec extends Specification {
         walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L,
             balance: new BigDecimal("1000"))
         // First listing was sniped by another buyer; second succeeds.
-        purchaseService.buy(200L, 10L, 100L) >> { throw new RuntimeException("race lost") }
-        purchaseService.buy(200L, 10L, 101L) >> [success: true]
+        purchaseService.buy(200L, 10L, 100L, _) >> { throw new RuntimeException("race lost") }
+        purchaseService.buy(200L, 10L, 101L, _) >> [success: true]
 
         when:
         service.tryFillFromExisting(order)
 
         then:
-        1 * purchaseService.buy(200L, 10L, 101L)
+        1 * purchaseService.buy(200L, 10L, 101L, _)
         order.quantity == 0
         order.status == 'FILLED'
     }
@@ -1196,7 +1196,7 @@ class BuyOrderServiceSpec extends Specification {
         then:
         // Self-trade short-circuit BEFORE the wallet lookup.
         0 * walletRepository.findByUsername(_)
-        0 * purchaseService.buy(_, _, _)
+        0 * purchaseService.buy(_, _, _, _)
         order.status == 'ACTIVE'
         order.quantity == 1
     }
@@ -1221,7 +1221,7 @@ class BuyOrderServiceSpec extends Specification {
 
         then:
         // Break on the cheapest — no purchase against either listing.
-        0 * purchaseService.buy(_, _, _)
+        0 * purchaseService.buy(_, _, _, _)
         order.status == 'ACTIVE'
     }
 
@@ -1235,7 +1235,7 @@ class BuyOrderServiceSpec extends Specification {
         service.tryFillFromExisting(order)
 
         then:
-        0 * purchaseService.buy(_, _, _)
+        0 * purchaseService.buy(_, _, _, _)
         0 * notificationService.push(_, _, _, _, _, _)
     }
 
@@ -1556,7 +1556,7 @@ class BuyOrderServiceSpec extends Specification {
         listingRepo.findMatchingForBuyOrder(1L, null, null, _, _) >> [l1, l2]
         steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'aaa'))
         walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L, balance: new BigDecimal("1000"))
-        purchaseService.buy(200L, 10L, _) >> [success: true]
+        purchaseService.buy(200L, 10L, _, _) >> [success: true]
         buyOrderRepository.save(_) >> { BuyOrder o -> o }
 
         when:
@@ -1565,7 +1565,7 @@ class BuyOrderServiceSpec extends Specification {
         then: "exactly one REQUIRES_NEW commit per successful buy"
         2 * txManager.commit(txStatus)
         and: "every buy still reaches PurchaseService through the sub-tx"
-        2 * purchaseService.buy(200L, 10L, _)
+        2 * purchaseService.buy(200L, 10L, _, _)
         order.quantity == 0
         order.status == 'FILLED'
     }
@@ -1594,10 +1594,10 @@ class BuyOrderServiceSpec extends Specification {
         // RuntimeException Spring's default @Transactional rollback rule
         // covers. Pre-fix, this would have poisoned the SHARED outer tx
         // even though the catch swallowed the throw.
-        purchaseService.buy(200L, 10L, 100L) >> {
+        purchaseService.buy(200L, 10L, 100L, _) >> {
             throw new com.sboxmarket.exception.ListingNotAvailableException(100L)
         }
-        purchaseService.buy(200L, 10L, 101L) >> [success: true]
+        purchaseService.buy(200L, 10L, 101L, _) >> [success: true]
         buyOrderRepository.save(_) >> { BuyOrder o -> o }
 
         when:
@@ -1607,7 +1607,7 @@ class BuyOrderServiceSpec extends Specification {
         1 * txManager.rollback(txStatus)
         1 * txManager.commit(txStatus)
         and: "the second listing still purchases and the order flips to FILLED"
-        1 * purchaseService.buy(200L, 10L, 101L)
+        1 * purchaseService.buy(200L, 10L, 101L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.status == 'FILLED' && o.quantity == 0 })
         1 * notificationService.push(10L, 'BUY_ORDER_FILLED', _, _, 101L, _)
         order.status == 'FILLED'
@@ -1639,7 +1639,7 @@ class BuyOrderServiceSpec extends Specification {
 
         then: "the buy ran inside its own REQUIRES_NEW commit — the listing-create tx upstream is shielded"
         1 * txManager.commit(txStatus)
-        1 * purchaseService.buy(500L, 10L, 100L)
+        1 * purchaseService.buy(500L, 10L, 100L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.status == 'FILLED' })
     }
 
@@ -1664,11 +1664,11 @@ class BuyOrderServiceSpec extends Specification {
         // ApiException → RuntimeException — Spring's default
         // @Transactional rollback rule covers it). The sub-tx must roll
         // back, the outer tx untouched, the loop continues.
-        purchaseService.buy(500L, 10L, 100L) >> {
+        purchaseService.buy(500L, 10L, 100L, _) >> {
             throw new com.sboxmarket.exception.InsufficientBalanceException(
                 new BigDecimal("50"), new BigDecimal("0"))
         }
-        purchaseService.buy(600L, 20L, 100L) >> [success: true]
+        purchaseService.buy(600L, 20L, 100L, _) >> [success: true]
         buyOrderRepository.save(_) >> { BuyOrder o -> o }
 
         when:
@@ -1678,7 +1678,7 @@ class BuyOrderServiceSpec extends Specification {
         1 * txManager.rollback(txStatus)
         1 * txManager.commit(txStatus)
         and: "winner buyer 20 fills, loser buyer 10 is skipped"
-        1 * purchaseService.buy(600L, 20L, 100L)
+        1 * purchaseService.buy(600L, 20L, 100L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 2L && o.status == 'FILLED' })
         0 * buyOrderRepository.save({ BuyOrder o -> o.id == 1L })
     }
@@ -1709,7 +1709,7 @@ class BuyOrderServiceSpec extends Specification {
         service.tryFillFromExisting(order)
 
         then: "state mutation still reaches the test's mocked repositories"
-        1 * purchaseService.buy(200L, 10L, 100L)
+        1 * purchaseService.buy(200L, 10L, 100L, _)
         order.quantity == 0
         order.status == 'FILLED'
     }
