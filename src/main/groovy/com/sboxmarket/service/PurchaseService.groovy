@@ -103,6 +103,18 @@ class PurchaseService {
 
     @Transactional
     Map buy(Long buyerWalletId, Long buyerUserId, Long listingId) {
+        buy(buyerWalletId, buyerUserId, listingId, null)
+    }
+
+    /** Buy with a price ceiling. `maxPrice` is the most the caller agreed to
+     *  pay (the buy button's expectedPrice, a buy order's maxPrice); null
+     *  means no ceiling. It is checked against the listing row THIS
+     *  transaction read, and Listing's @Version makes a price change that
+     *  commits after that read fail this purchase at commit. Callers used
+     *  to compare against a separate earlier read, so a seller raising the
+     *  price in between charged the buyer the new price (2026-09-28 review). */
+    @Transactional
+    Map buy(Long buyerWalletId, Long buyerUserId, Long listingId, BigDecimal maxPrice) {
         banGuard.assertNotBanned(buyerUserId)
         def buyerWallet = walletRepository.findById(buyerWalletId)
                 .orElseThrow { new NotFoundException("Wallet", buyerWalletId) }
@@ -159,6 +171,10 @@ class PurchaseService {
         }
         if (listing.sellerUserId != null && listing.sellerUserId == buyerUserId) {
             throw new BadRequestException("OWN_LISTING", "You can't buy your own listing")
+        }
+        if (maxPrice != null && (listing.price == null || listing.price.compareTo(maxPrice) > 0)) {
+            throw new BadRequestException("PRICE_CHANGED",
+                "Price moved from \$${maxPrice} to \$${listing.price} — refresh and retry")
         }
         if (buyerWallet.balance < listing.price) {
             throw new InsufficientBalanceException(listing.price, buyerWallet.balance)

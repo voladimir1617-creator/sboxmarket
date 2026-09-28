@@ -23,6 +23,9 @@ class ApiKeyAuthFilterSpec extends Specification {
 
     FilterChain chain = Mock()
 
+    /** The request the filter handed down the chain. */
+    def forwarded
+
     def "non-/api paths skip the filter entirely (static assets, SPA shell, sitemap)"() {
         given:
         def req = new MockHttpServletRequest('GET', '/js/app.js')
@@ -107,11 +110,11 @@ class ApiKeyAuthFilterSpec extends Specification {
 
         then:
         1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
-        1 * chain.doFilter(req, resp)
-        req.session.getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
-        req.getAttribute('sbox.apiAuth') == Boolean.TRUE
-        req.getAttribute('sbox.apiScope') == 'RW'
-        req.getAttribute('sbox.apiUserId') == 42L
+        1 * chain.doFilter(_, resp) >> { args -> forwarded = args[0] }
+        forwarded.getSession(false).getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
+        forwarded.getAttribute('sbox.apiAuth') == Boolean.TRUE
+        forwarded.getAttribute('sbox.apiScope') == 'RW'
+        forwarded.getAttribute('sbox.apiUserId') == 42L
     }
 
     def "valid RO key passes a GET through (read is allowed)"() {
@@ -125,8 +128,8 @@ class ApiKeyAuthFilterSpec extends Specification {
 
         then:
         1 * apiKeyService.authenticateWithScope(_) >> [userId: 10L, scope: 'RO']
-        1 * chain.doFilter(req, resp)
-        req.session.getAttribute(SteamAuthController.SESSION_USER_ID) == 10L
+        1 * chain.doFilter(_, resp) >> { args -> forwarded = args[0] }
+        forwarded.getSession(false).getAttribute(SteamAuthController.SESSION_USER_ID) == 10L
     }
 
     def "RO key is REFUSED on #method with 403 RO_KEY_WRITE_FORBIDDEN"() {
@@ -163,7 +166,7 @@ class ApiKeyAuthFilterSpec extends Specification {
 
         then:
         1 * apiKeyService.authenticateWithScope(_) >> [userId: 10L, scope: 'RO']
-        1 * chain.doFilter(req, resp)
+        1 * chain.doFilter(_ as ApiKeyAuthFilter.ApiKeyRequest, resp)
         resp.status == 200
 
         where:
@@ -184,7 +187,7 @@ class ApiKeyAuthFilterSpec extends Specification {
 
         then:
         1 * apiKeyService.authenticateWithScope(_) >> [userId: 99L, scope: 'RW']
-        1 * chain.doFilter(req, resp)
+        1 * chain.doFilter(_ as ApiKeyAuthFilter.ApiKeyRequest, resp)
         resp.status == 200
     }
 
@@ -199,7 +202,7 @@ class ApiKeyAuthFilterSpec extends Specification {
 
         then:
         1 * apiKeyService.authenticateWithScope(_) >> [userId: 99L, scope: null]
-        1 * chain.doFilter(req, resp)
+        1 * chain.doFilter(_ as ApiKeyAuthFilter.ApiKeyRequest, resp)
         resp.status == 200
     }
 
@@ -219,45 +222,42 @@ class ApiKeyAuthFilterSpec extends Specification {
         resp.contentAsString.contains('"code":"INTERNAL_ERROR"')
     }
 
-    // --- Regression: cross-user session contamination / fixation ---------
-    // A bearer call that arrives carrying a pre-existing browser session
-    // belonging to a DIFFERENT user must not silently rewrite that
-    // session's steamUserId. The filter rotates the session (invalidate +
-    // fresh) so the API user lands on a clean, isolated session and the
-    // old session id is killed (it cannot be ridden afterwards).
-    def "bearer call rotates a pre-existing session owned by a different user"() {
+    // --- Regression: bearer calls never touch the container session ----
+    // A bearer call used to stamp a real servlet session. The container
+    // answered with a session cookie that, sent alone (no bearer header,
+    // so no RO write-gate and no CSRF bypass needed beyond double-submit),
+    // was a year-long read-write login surviving key revocation. The
+    // filter now serves a request-scoped session the container never sees.
+    def "bearer call never creates a container session (no session cookie can leak)"() {
         given:
         def req = new MockHttpServletRequest('GET', '/api/wallet')
-        req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
-        // Simulate a logged-in browser session for user 7 (+ its epoch).
-        def stale = req.getSession(true)
-        stale.setAttribute(SteamAuthController.SESSION_USER_ID, 7L)
-        stale.setAttribute(SteamAuthController.SESSION_EPOCH, 123456789L)
+        req.addHeader('Authorization', 'Bearer sbx_live_rotoken')
         def resp = new MockHttpServletResponse()
+        assert req.getSession(false) == null
 
         when:
         filter.doFilter(req, resp, chain)
 
         then:
-        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
-        1 * chain.doFilter(req, resp)
-        // Old session was invalidated — a fresh one now serves the request.
-        stale.isInvalid()
-        def fresh = req.getSession(false)
-        !fresh.is(stale)
-        // Fresh session carries ONLY the API user — no contamination, and
-        // crucially no stale epoch riding along.
-        fresh.getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
-        fresh.getAttribute(SteamAuthController.SESSION_EPOCH) == null
-        req.getAttribute('sbox.apiUserId') == 42L
+        1 * apiKeyService.authenticateWithScope('sbx_live_rotoken') >> [userId: 42L, scope: 'RO']
+        1 * chain.doFilter(_, resp) >> { args ->
+            forwarded = args[0]
+            // Downstream code that asks for a session gets the scoped one.
+            forwarded.getSession(true).setAttribute('touched', true)
+        }
+        forwarded.getSession(false).getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
+        // The container request has no session at all, before or after.
+        req.getSession(false) == null
+        resp.cookies.length == 0
     }
 
-    def "bearer call reuses a pre-existing session already owned by the same user"() {
+    def "bearer call leaves a pre-existing browser session untouched"() {
         given:
         def req = new MockHttpServletRequest('GET', '/api/wallet')
         req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
-        def existing = req.getSession(true)
-        existing.setAttribute(SteamAuthController.SESSION_USER_ID, 42L)
+        def browser = req.getSession(true)
+        browser.setAttribute(SteamAuthController.SESSION_USER_ID, 7L)
+        browser.setAttribute(SteamAuthController.SESSION_EPOCH, 123456789L)
         def resp = new MockHttpServletResponse()
 
         when:
@@ -265,28 +265,35 @@ class ApiKeyAuthFilterSpec extends Specification {
 
         then:
         1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
-        1 * chain.doFilter(req, resp)
-        // Same user — no need to rotate; the existing session is reused.
-        !existing.isInvalid()
-        req.getSession(false).is(existing)
-        req.getSession(false).getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
+        1 * chain.doFilter(_, resp) >> { args -> forwarded = args[0] }
+        // Downstream sees only the API user, never the browser's user or epoch.
+        !forwarded.getSession(false).is(browser)
+        forwarded.getSession(false).getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
+        forwarded.getSession(false).getAttribute(SteamAuthController.SESSION_EPOCH) == null
+        // The browser session is neither rewritten nor killed.
+        !browser.isInvalid()
+        browser.getAttribute(SteamAuthController.SESSION_USER_ID) == 7L
+        forwarded.getAttribute('sbox.apiUserId') == 42L
     }
 
-    def "bearer call with no pre-existing session creates a fresh one"() {
+    def "invalidating the scoped session (logout over the API) drops the user for the rest of the request"() {
         given:
-        def req = new MockHttpServletRequest('GET', '/api/wallet')
+        def req = new MockHttpServletRequest('POST', '/api/auth/logout')
         req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
         def resp = new MockHttpServletResponse()
-        assert req.getSession(false) == null   // no session before the filter runs
 
         when:
         filter.doFilter(req, resp, chain)
 
         then:
-        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
-        1 * chain.doFilter(req, resp)
-        req.getSession(false) != null
-        req.getSession(false).getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
+        1 * apiKeyService.authenticateWithScope(_) >> [userId: 42L, scope: 'RW']
+        1 * chain.doFilter(_, resp) >> { args ->
+            forwarded = args[0]
+            forwarded.getSession(false).invalidate()
+        }
+        forwarded.getSession(false) == null
+        forwarded.getSession(true).getAttribute(SteamAuthController.SESSION_USER_ID) == null
+        req.getSession(false) == null
     }
 
     // --- Regression: corrupt ctx with a null userId fails closed ---------

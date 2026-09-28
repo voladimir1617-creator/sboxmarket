@@ -151,7 +151,7 @@
        edge + browsers refetch instead of serving a stale design.css (the
        no-cache header alone wasn't defeating the edge cache, so live users
        kept seeing the pre-parity look). index.html itself is no-store. -->
-  <link rel="stylesheet" href="/css/design.css?v=315">
+  <link rel="stylesheet" href="/css/design.css?v=316">
   <!-- Boss QA cycle 12 — inline critical CSS so the first paint on slow 3G
        isn't a UA-default WHITE flash. design.css is ~2MB and on slow
        networks paints 1-3s after first byte; before this block, the
@@ -247,6 +247,6 @@
           integrity="sha384-bm7MnzvK++ykSwVJ2tynSE5TRdN+xL418osEVF2DE/L/gfWHj91J2Sphe582B1Bh"
           src="/js/vendor/react-dom.production.min.js"></script>
 
-  <script type="module" src="/js/main.js?v=219"></script>
+  <script type="module" src="/js/main.js?v=220"></script>
 </body>
 </html>

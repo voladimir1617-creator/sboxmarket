@@ -61,6 +61,13 @@ class DepositCreditRequiresVerificationSpec extends Specification {
     WalletRepository      walletRepository      = Mock()
     TransactionRepository transactionRepository = Mock()
 
+    def setup() {
+        // completeDeposit claims PENDING->COMPLETED atomically before it
+        // credits; by default this call wins the claim.
+        transactionRepository.claimCompletePendingDeposit(_, _) >> 1
+    }
+
+
     private StripeService svc(String key, boolean creditOptIn) {
         new StripeService(
             walletRepository      : walletRepository,

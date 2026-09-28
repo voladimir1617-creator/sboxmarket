@@ -8,6 +8,7 @@ import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
 import { TradeProtectionPanel } from './trade-protection.js';
+import { SellerPayoutsCard } from './seller-payouts.js';
 import {
   fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
@@ -13235,6 +13236,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         h('strong', { style: { color: 'var(--text-muted)' } }, maskEarn(earnings.lifetimeFees))
       )
     ),
+    // Seller payouts card: available, pending, paid out, next payout date,
+    // Request payout (opens Wallet → Withdraw) and payout history.
+    h(SellerPayoutsCard, { refreshKey: (sold ? sold.length : 0) + ':' + stall.length, mask: maskEarn }),
     h('div', { className: 'stall-toolbar' },
       h('button', {
         className: `toggle-switch ${away ? '' : 'off'}`,

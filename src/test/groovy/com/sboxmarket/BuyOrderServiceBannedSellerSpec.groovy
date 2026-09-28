@@ -124,7 +124,7 @@ class BuyOrderServiceBannedSellerSpec extends Specification {
         service.tryMatch(listing)
 
         then: "the fill proceeds for the legitimate seller"
-        1 * purchaseService.buy(500L, 10L, 100L)
+        1 * purchaseService.buy(500L, 10L, 100L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 1L && o.status == 'FILLED' })
     }
 
@@ -144,7 +144,7 @@ class BuyOrderServiceBannedSellerSpec extends Specification {
         then: "banGuard is never consulted for a null seller id"
         0 * banGuard.isBanned(null)
         and: "the system-listing fill still runs"
-        1 * purchaseService.buy(500L, 10L, 100L)
+        1 * purchaseService.buy(500L, 10L, 100L, _)
     }
 
     def "tryFillFromExisting skips a candidate listing whose seller is banned, walking to a clean seller's listing"() {
@@ -163,10 +163,10 @@ class BuyOrderServiceBannedSellerSpec extends Specification {
         service.tryFillFromExisting(order)
 
         then: "the banned seller's listing is skipped — never bought"
-        0 * purchaseService.buy(_, _, 100L)
+        0 * purchaseService.buy(_, _, 100L, _)
 
         and: "the clean seller's listing is filled instead"
-        1 * purchaseService.buy(500L, 10L, 101L)
+        1 * purchaseService.buy(500L, 10L, 101L, _)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 7L && o.status == 'FILLED' })
     }
 
@@ -191,7 +191,7 @@ class BuyOrderServiceBannedSellerSpec extends Specification {
         service.tryFillFromExisting(order)
 
         then: "exactly two fills — the third is skipped once the local balance can't cover \$100"
-        2 * purchaseService.buy(500L, 10L, _)
+        2 * purchaseService.buy(500L, 10L, _, _)
         order.quantity == 1
     }
 }

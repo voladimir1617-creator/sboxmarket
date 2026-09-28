@@ -1935,12 +1935,24 @@ class StripeService {
         if (isLive()) {
             try {
                 long amountCents = (netPayout * 100).longValue()
-                // Idempotency key bucketed by wallet + amount + minute so a
-                // fast double-submit that slipped past the @Version guard
-                // can't create two Transfers (mirrors createDepositSession).
-                // Keyed on the NET cents actually transferred so the key and
-                // the Transfer it guards can never describe different amounts.
-                def idemKey = "wd_${walletId}_${amountCents}_${System.currentTimeMillis().intdiv(60_000)}"
+                // Idempotency key anchored on LEDGER STATE, not the clock
+                // (2026-09-28 payments review): wallet + net cents + how many
+                // withdrawals this wallet already has on record.
+                //
+                // The Transfer runs before this transaction commits. If the
+                // commit then fails (DB blip), the debit and the WITHDRAW row
+                // roll back but the money has left. The old key was bucketed
+                // by MINUTE, so a user retrying after that minute got a new
+                // key and a SECOND real payout. A retry now sees the same
+                // withdrawal count (the lost attempt rolled back), rebuilds
+                // the same key, Stripe replays the original Transfer instead
+                // of paying again, and this run records it. A genuinely new
+                // withdrawal runs after the previous one committed, so the
+                // count has moved and the key differs. Same scheme as the
+                // refund key in refundDeposit. Keyed on the NET cents so the
+                // key and the Transfer it guards describe the same amount.
+                long priorWithdrawals = transactionRepository.countByWalletAndType(walletId, 'WITHDRAW')
+                def idemKey = "wd_${walletId}_${amountCents}_n${priorWithdrawals}"
                 def reqOpts = RequestOptions.builder().setIdempotencyKey(idemKey).build()
                 def transferParams = com.stripe.param.TransferCreateParams.builder()
                     .setAmount(amountCents)
@@ -1953,7 +1965,12 @@ class StripeService {
                 // Stripe-idempotent-REPLAY guard — the withdrawal twin of the
                 // one createDepositSession already carries.
                 //
-                // idemKey buckets by wallet + amount + MINUTE, so it cannot
+                // (History: this guard was written when idemKey was bucketed by
+                // MINUTE. The key is now anchored on the withdrawal count, so
+                // a second identical withdrawal gets a fresh key; the guard
+                // stays as the backstop for any replay of a RECORDED transfer.)
+                //
+                // idemKey bucketed by wallet + amount + MINUTE, so it could not
                 // tell "the same request retried" from "a second, genuinely
                 // different withdrawal that happens to look identical". A user
                 // withdrawing $50 twice inside one wall-clock minute is normal
@@ -2184,6 +2201,19 @@ class StripeService {
             case "checkout.session.completed":
                 def session = (Session) event.dataObjectDeserializer.object.orElse(null)
                 if (session != null) completeDeposit(session.id)
+                break
+            // Delayed payment methods (SEPA Debit, ACH, Bacs, ...). For these
+            // `checkout.session.completed` arrives with payment_status=unpaid
+            // and completeDeposit refuses it; the money settles days later
+            // and Stripe says so with the async events below. Without these
+            // cases a paid deposit was never credited (2026-09-28 review).
+            case "checkout.session.async_payment_succeeded":
+                def asyncPaid = (Session) event.dataObjectDeserializer.object.orElse(null)
+                if (asyncPaid != null) completeDeposit(asyncPaid.id)
+                break
+            case "checkout.session.async_payment_failed":
+                def asyncFailed = (Session) event.dataObjectDeserializer.object.orElse(null)
+                if (asyncFailed != null) failTransaction(asyncFailed.id, "async_payment_failed")
                 break
             case "checkout.session.expired":
                 def session = (Session) event.dataObjectDeserializer.object.orElse(null)
@@ -3227,6 +3257,7 @@ class StripeService {
         // Live-mode verification — ask Stripe the ground truth. We ignore the
         // sessionId the client handed us for anything other than a lookup;
         // the authoritative answer comes from Stripe itself.
+        Session verifiedSession = null
         if (isLive()) {
             // A reference we cannot hand to Session.retrieve is a reference we
             // cannot verify, and an unverifiable deposit must not be credited.
@@ -3243,7 +3274,7 @@ class StripeService {
                           "Checkout Session id, so the payment cannot be verified — refusing to credit")
                 throw new IllegalStateException("Deposit reference cannot be verified with Stripe")
             }
-            assertDepositPaidAtStripe(sessionId, tx)
+            verifiedSession = assertDepositPaidAtStripe(sessionId, tx)
         } else {
             // NOT Stripe-configured — there is no processor to ask whether this
             // deposit was paid, so crediting here fabricates money-path state
@@ -3269,6 +3300,17 @@ class StripeService {
             com.sboxmarket.config.MoneyMode mode = moneyMode()
             refuseIfCreditNotAuthorized('confirm-deposit', mode)
             refuseIfIndeterminate('confirm-deposit')
+        }
+
+        // Claim the PENDING→COMPLETED edge atomically BEFORE crediting.
+        // The PENDING check above is an unlocked read taken before a slow
+        // Stripe round-trip, so two concurrent calls (webhook + the
+        // success-page confirm, or a user hammering /confirm-deposit) can
+        // both get here. Only the caller whose conditional UPDATE flips
+        // the row credits the wallet; the loser returns quietly.
+        if (transactionRepository.claimCompletePendingDeposit(tx.id, System.currentTimeMillis()) != 1) {
+            log.info("completeDeposit: tx ${tx.id} was claimed by a concurrent call — not crediting again (sessionId=${redactSession(sessionId)})")
+            return
         }
 
         def wallet = walletRepository.findById(tx.walletId).orElseThrow()
@@ -3302,12 +3344,22 @@ class StripeService {
         // via description-based lookup. Stripe's Session → Charge
         // chain doesn't preserve custom metadata all the way down,
         // so we stamp it here while we still have the Session object.
-        String paymentIntentId = null
-        if (isLive() && sessionId.startsWith('cs_')) {
+        //
+        // 2026-09-28 payments review: the id now comes from the session
+        // assertDepositPaidAtStripe just verified. It used to come ONLY from
+        // a second, best-effort Session.retrieve whose failure was swallowed,
+        // and a deposit stored without the [pi:] tag is invisible to the
+        // dispute and Dashboard-refund handlers: no dispute hold, no
+        // clawback. The second retrieve stays as a fallback.
+        String paymentIntentId = verifiedSession?.paymentIntent
+        if (!paymentIntentId && isLive() && sessionId.startsWith('cs_')) {
             try {
                 def freshSession = Session.retrieve(sessionId)
                 paymentIntentId = freshSession?.paymentIntent
-            } catch (Exception ignored) { /* tolerant — chargeback lookup has a fallback */ }
+            } catch (Exception e) {
+                log.error("Deposit tx ${tx.id} credited WITHOUT its payment_intent tag — disputes and " +
+                          "Dashboard refunds on it will not match automatically: ${e.message}")
+            }
         }
         tx.status = "COMPLETED"
         tx.updatedAt = System.currentTimeMillis()
@@ -3554,7 +3606,7 @@ class StripeService {
      * working. As a seam it is overridable in a spec, so the arithmetic is
      * reachable WITHOUT the production path needing a hole in it.
      */
-    protected void assertDepositPaidAtStripe(String sessionId, com.sboxmarket.model.Transaction tx) {
+    protected Session assertDepositPaidAtStripe(String sessionId, com.sboxmarket.model.Transaction tx) {
         def session
         try {
             session = Session.retrieve(sessionId)
@@ -3605,6 +3657,10 @@ class StripeService {
             log.error("confirm-deposit refused: session currency=${session.currency} != usd")
             throw new IllegalStateException("Currency mismatch")
         }
+        // Returned so completeDeposit can take the payment_intent id from
+        // the session it just verified instead of a second, best-effort
+        // retrieve (2026-09-28 payments review).
+        return (Session) session
     }
 
     /**
@@ -3641,6 +3697,24 @@ class StripeService {
     //
     // Per-row work runs in its own implicit auto-commit tx so one bad row
     // can't poison sibling rows in the batch.
+    /** True when this PENDING deposit's Checkout Session was completed but
+     *  its payment has not settled yet (status=complete, payment_status=
+     *  unpaid): a delayed payment method still in flight. Stripe errors
+     *  count as "awaiting" so the sweeper retries next tick instead of
+     *  expiring a deposit it could not check. */
+    protected boolean depositAwaitingAsyncPayment(Transaction tx) {
+        String ref = tx?.stripeReference
+        if (!isLive() || ref == null || !ref.startsWith('cs_')) return false
+        try {
+            def session = Session.retrieve(ref)
+            return session != null && 'complete'.equalsIgnoreCase(session.status as String) &&
+                   'unpaid'.equalsIgnoreCase(session.paymentStatus as String)
+        } catch (Exception e) {
+            log.warn("Deposit sweeper: could not check tx=${tx.id} at Stripe, keeping it PENDING this tick: ${e.message}")
+            return true
+        }
+    }
+
     @Scheduled(fixedDelay = 4L * 60L * 60L * 1000L, initialDelay = 5L * 60L * 1000L)
     void sweepStalePendingDeposits() {
         def cutoff = System.currentTimeMillis() - (48L * 60L * 60L * 1000L)
@@ -3657,6 +3731,15 @@ class StripeService {
         int fired = 0
         for (Transaction tx : stale) {
             try {
+                // A delayed-payment deposit (SEPA etc.) whose checkout was
+                // completed is still settling at Stripe and can take up to
+                // ~14 days. Expiring it here would make the later
+                // async_payment_succeeded webhook a no-op and strand paid
+                // money (2026-09-28 review). Leave it PENDING.
+                if (depositAwaitingAsyncPayment(tx)) {
+                    log.info("Deposit sweeper: tx=${tx.id} is a completed checkout awaiting a delayed payment — not expiring")
+                    continue
+                }
                 // Multi-pod / out-of-band claim. See class-level comment
                 // above for the two race classes this closes.
                 int claimed = transactionRepository.claimExpirePending(tx.id)

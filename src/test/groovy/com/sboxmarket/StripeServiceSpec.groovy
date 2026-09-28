@@ -32,6 +32,13 @@ class StripeServiceSpec extends Specification {
     WalletRepository       walletRepository      = Mock()
     TransactionRepository  transactionRepository = Mock()
 
+    def setup() {
+        // completeDeposit claims PENDING->COMPLETED atomically before it
+        // credits; by default this call wins the claim.
+        transactionRepository.claimCompletePendingDeposit(_, _) >> 1
+    }
+
+
     @Subject
     StripeService service = new StripeService(
         walletRepository      : walletRepository,
@@ -766,6 +773,29 @@ class StripeServiceSpec extends Specification {
         then: 'wallet credited by exactly the tx amount, row marked COMPLETED'
         wallet.balance == new BigDecimal('100.00')
         tx.status == 'COMPLETED'
+    }
+
+    def "completeDeposit that loses the atomic claim to a concurrent call never credits"() {
+        // 2026-09-28 payments review. Two concurrent confirmations (the
+        // webhook plus the success-page /confirm-deposit) both read the
+        // row as PENDING before either commits. Pre-fix both credited the
+        // wallet. Now only the call whose conditional UPDATE flips the row
+        // credits; the other sees 0 rows claimed and returns.
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'PENDING',
+            amount: new BigDecimal('60.00'), currency: 'USD', stripeReference: 'dev_race')
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('40.00'))
+        transactionRepository.findByStripeReference('dev_race') >> tx
+        walletRepository.findById(500L) >> Optional.of(wallet)
+
+        when:
+        service.completeDeposit('dev_race')
+
+        then: 'the sibling call already claimed the row'
+        1 * transactionRepository.claimCompletePendingDeposit(1L, _) >> 0
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+        wallet.balance == new BigDecimal('40.00')
     }
 
     def "completeDeposit is idempotent — a second call on an already-COMPLETED row never double-credits"() {

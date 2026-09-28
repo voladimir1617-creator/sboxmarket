@@ -29840,3 +29840,36 @@ html body .info-modal:has(.sell-source-tabs) .info-modal-header {
 }
 html body .info-modal:has(.sell-source-tabs) .sell-source-tabs { gap: 8px !important; }
 html body .info-modal .sell-source-tabs .offer-tab { border-radius: 999px !important; padding: 0 14px !important; height: 34px !important; }
+
+/* 2026-09-28 UI QA pass. Each block fixes one thing seen in a screenshot; existing elements only. */
+/* /db table: fixed tracks (item column stuck at 180px) pushed the row 3px past the table, so names cut off
+   ("Santa 2024 Jac"), the Watch column was clipped, and cells sat at the top of 62px rows while the item sat at the bottom. */
+@media (min-width: 601px) {
+  html body .db-table thead tr, html body .db-table tbody tr.db-row { grid-template-columns: 40px minmax(0, 2fr) 104px 104px 64px 56px 60px 92px 40px !important; column-gap: 10px !important; align-items: center !important; }
+  html body .db-table thead tr > th, html body .db-table tbody tr.db-row > td { width: auto !important; min-width: 0 !important; height: auto !important; align-self: center !important; background-color: transparent !important; }
+  html body .db-table tbody tr.db-row .db-name { width: auto !important; max-width: 100% !important; text-overflow: ellipsis !important; }
+}
+/* /db on phones: supply, sold and views each took a full line with a stray leading dot; one line again, floor price beside the name. */
+@media (max-width: 600px) {
+  html body .db-table-scroll > table.db-table tbody tr.db-row { grid-template-columns: auto auto auto minmax(0, 1fr) !important; grid-template-areas: none !important; column-gap: 8px !important; }
+  html body .db-table-scroll > table.db-table tbody tr.db-row > td:nth-child(2) { grid-column: 1 / 4 !important; grid-row: 1 !important; }
+  html body .db-table-scroll > table.db-table tbody tr.db-row > td:nth-child(8) { grid-column: 4 !important; grid-row: 1 !important; justify-self: end !important; width: auto !important; }
+  html body .db-table-scroll > table.db-table tbody tr.db-row > td:nth-child(n+5):nth-child(-n+7) { grid-column: auto !important; grid-row: 2 !important; width: auto !important; }
+}
+/* /db filters: Min and Max sat on two rows with Max nudged 8px right; the "Listed only" checkbox was an empty 32px box in the middle of its row. */
+html body .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls { grid-template-columns: 1fr 1fr !important; column-gap: 8px !important; }
+html body .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > * { grid-column: 1 / -1 !important; }
+html body .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > input[type="number"] { grid-column: auto !important; width: 100% !important; margin: 0 !important; }
+html body .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > label { justify-content: flex-start !important; }
+html body .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > label > input[type="checkbox"] { appearance: auto !important; -webkit-appearance: checkbox !important; width: 16px !important; min-width: 16px !important; height: 16px !important; min-height: 0 !important; padding: 0 !important; border-radius: 3px !important; accent-color: var(--cta, #237bff) !important; }
+/* /settings: every label was centred in the middle of its row while the switch sat at the far right. */
+html body .modal.info-modal .settings-row > div:first-child, html body .modal.info-modal .settings-row .settings-label, html body .modal.info-modal .settings-row .settings-sublabel, html body .modal.info-modal .settings-section-heading { text-align: left !important; }
+/* Market sidebar: the selected filter row (e.g. "All") stuck out 8px past both sides of its panel. */
+html body aside.sidebar .filter-section .filter-option { margin-left: 0 !important; margin-right: 0 !important; width: auto !important; }
+/* Item page: the page already starts under the header, so the extra 70px header padding left an empty band above the item. */
+@media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop.page-mode { padding-top: 0 !important; } }
+/* Market list view: "AVAILABILITY" ran into "VS STEAM" in the header; the column is a little wider now. */
+@media (min-width: 721px) {
+  html body table.listing-table thead th:nth-child(1), html body table.listing-table tbody td:nth-child(1) { width: 25% !important; }
+  html body table.listing-table thead th:nth-child(2), html body table.listing-table tbody td:nth-child(2) { width: 12.5% !important; }
+}

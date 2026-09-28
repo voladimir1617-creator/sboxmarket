@@ -297,7 +297,7 @@ class BuyOrderService {
                 // Created. Running each buy in its own sub-tx isolates the
                 // failure to that one listing.
                 runInIsolatedTx {
-                    purchaseService.buy(wallet.id, order.buyerUserId, listing.id)
+                    purchaseService.buy(wallet.id, order.buyerUserId, listing.id, order.maxPrice)
                 }
                 available = available - listing.price   // only on a committed fill
                 order.quantity = Math.max(0, order.quantity - 1)
@@ -746,7 +746,7 @@ class BuyOrderService {
                 // commit later blows up with UnexpectedRollbackException
                 // and the listing the seller just published vanishes.
                 runInIsolatedTx {
-                    purchaseService.buy(wallet.id, locked.buyerUserId, listing.id)
+                    purchaseService.buy(wallet.id, locked.buyerUserId, listing.id, locked.maxPrice)
                 }
                 locked.quantity = Math.max(0, locked.quantity - 1)
                 locked.updatedAt = System.currentTimeMillis()

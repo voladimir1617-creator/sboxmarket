@@ -64,7 +64,7 @@ class BuyOrderServiceTryMatchBannedSellerSpec extends Specification {
 
         then: "no matching engine work runs — buyer is safe from inadvertent purchase from a banned account"
         0 * buyOrderRepository.findMatching(_, _, _, _, _)
-        0 * purchaseService.buy(_, _, _)
+        0 * purchaseService.buy(_, _, _, _)
     }
 
     def "tryMatch still runs the engine for an unbanned seller"() {

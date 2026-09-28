@@ -4,12 +4,17 @@ import com.sboxmarket.controller.SteamAuthController
 import com.sboxmarket.service.ApiKeyService
 import groovy.util.logging.Slf4j
 import jakarta.servlet.FilterChain
+import jakarta.servlet.ServletContext
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletRequestWrapper
 import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpSession
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Bearer-token auth for third-party bots / extensions (batch 676).
@@ -33,17 +38,13 @@ import org.springframework.web.filter.OncePerRequestFilter
  * is safe because possession of the bearer token is itself the auth
  * factor (equivalent to a password in the OAuth2 sense).
  *
- * Session handling: a bearer-token call is stateless by nature, so we
- * never inherit or mutate a pre-existing browser session. If the
- * request happens to carry a `JSESSIONID` cookie we ROTATE it
- * (invalidate + fresh session) before stamping SESSION_USER_ID — the
- * same session-fixation defence SteamAuthController applies on login.
- * Without the rotation an API request carrying someone else's (or a
- * fixated) `JSESSIONID` would permanently rewrite that browser
- * session's `steamUserId` to the API key's owner — a cross-user
- * identity-confusion bug. The fresh session also guarantees no stale
- * `steamSessionEpoch` rides along (SessionEpochFilter skips API-key
- * requests via `sbox.apiAuth`, but a clean session is correct anyway).
+ * Session handling: a bearer-token call is stateless. The request is
+ * wrapped so getSession() returns a request-scoped in-memory session
+ * that the container never sees: no session cookie is issued, nothing
+ * outlives the request, and any browser session riding on the request
+ * is left untouched. (Before 2026-09-28 the filter stamped a real
+ * container session, whose cookie turned a read-only key into a
+ * year-long read-write login that survived key revocation.)
  *
  * Runs at @Order(2) — AFTER CorrelationId (@Order(0)) + BodySizeLimit
  * (@Order(1)) but BEFORE CSRF (@Order(3)), SessionEpoch (@Order(4)) and
@@ -116,40 +117,82 @@ class ApiKeyAuthFilter extends OncePerRequestFilter {
             log.warn("RO key attempted write: ${method} ${path} uid=${ctx.userId}")
             return
         }
-        // Populate the session + request attributes so every downstream
+        // Populate a REQUEST-SCOPED session so every downstream
         // controller's requireUser(req) sees the authenticated user.
         //
-        // Session-fixation / cross-user-contamination guard: a bearer
-        // call is stateless, so we must NOT clobber whatever session the
-        // request happened to arrive with. If a `JSESSIONID` cookie is
-        // present, `getSession(true)` would hand back THAT session and
-        // `setAttribute(SESSION_USER_ID, …)` would permanently rewrite
-        // its `steamUserId` — switching a logged-in browser to the API
-        // key's owner, or writing auth state onto an attacker-fixated
-        // session id. So: if a session already exists and is NOT already
-        // owned by this exact user, rotate it (invalidate + fresh) — the
-        // same defence SteamAuthController applies on Steam login. A
-        // session that already belongs to this user is reused untouched.
-        try {
-            def existing = req.getSession(false)
-            def session
-            if (existing == null) {
-                session = req.getSession(true)
-            } else if ((existing.getAttribute(SteamAuthController.SESSION_USER_ID) as Long) == (ctx.userId as Long)) {
-                session = existing
-            } else {
-                try { existing.invalidate() } catch (Exception ignore) {}
-                session = req.getSession(true)
-            }
-            session.setAttribute(SteamAuthController.SESSION_USER_ID, ctx.userId as Long)
-        } catch (Exception e) {
-            // A session failure here means requireUser(req) downstream
-            // will throw UnauthorizedException — fail closed, no leak.
-            log.warn("Failed to populate session for API key uid=${ctx.userId}: ${e.message}")
+        // The session is never handed to the servlet container: the
+        // wrapper below answers getSession() with an in-memory object
+        // that dies with this request. That closes two holes the old
+        // code had when it called the real req.getSession(true):
+        //   1. Scope escalation. The container set a SBOX_SESSION cookie
+        //      on the response, and that cookie alone (no bearer header,
+        //      so no RO write-gate) was a full read-write login for a
+        //      year, surviving key revocation. A read-only key became a
+        //      read-write (or admin) session.
+        //   2. Heap growth. Cookie-less API clients minted a new
+        //      long-lived session on every call.
+        // A pre-existing browser session on the request is neither read
+        // nor modified, so there is no cross-user contamination either.
+        def apiReq = new ApiKeyRequest(req, new RequestScopedSession(req.servletContext))
+        apiReq.getSession(true).setAttribute(SteamAuthController.SESSION_USER_ID, ctx.userId as Long)
+        apiReq.setAttribute('sbox.apiAuth', Boolean.TRUE)
+        apiReq.setAttribute('sbox.apiScope', scope)
+        apiReq.setAttribute('sbox.apiUserId', ctx.userId as Long)
+        chain.doFilter(apiReq, resp)
+    }
+
+    /** Request wrapper that hides the container session and serves the
+     *  request-scoped one instead. */
+    static class ApiKeyRequest extends HttpServletRequestWrapper {
+        final RequestScopedSession apiSession
+
+        ApiKeyRequest(HttpServletRequest req, RequestScopedSession apiSession) {
+            super(req)
+            this.apiSession = apiSession
         }
-        req.setAttribute('sbox.apiAuth', Boolean.TRUE)
-        req.setAttribute('sbox.apiScope', scope)
-        req.setAttribute('sbox.apiUserId', ctx.userId as Long)
-        chain.doFilter(req, resp)
+
+        @Override HttpSession getSession() { apiSession.valid ? apiSession : null }
+
+        @Override HttpSession getSession(boolean create) {
+            if (!apiSession.valid && create) apiSession.reset()
+            apiSession.valid ? apiSession : null
+        }
+
+        @Override String changeSessionId() { apiSession.id }
+
+        @Override String getRequestedSessionId() { null }
+
+        @Override boolean isRequestedSessionIdValid() { false }
+    }
+
+    /** In-memory HttpSession that lives only for one bearer request. It
+     *  is never registered with the container, so no cookie is issued. */
+    static class RequestScopedSession implements HttpSession {
+        final String id = 'api-' + UUID.randomUUID()
+        final long creationTime = System.currentTimeMillis()
+        final ServletContext servletContext
+        private final Map<String, Object> attrs = new ConcurrentHashMap<>()
+        boolean valid = true
+        int maxInactiveInterval = 0
+
+        RequestScopedSession(ServletContext ctx) { this.servletContext = ctx }
+
+        void reset() { attrs.clear(); valid = true }
+
+        @Override long getCreationTime() { creationTime }
+        @Override String getId() { id }
+        @Override long getLastAccessedTime() { creationTime }
+        @Override ServletContext getServletContext() { servletContext }
+        @Override void setMaxInactiveInterval(int interval) { maxInactiveInterval = interval }
+        @Override int getMaxInactiveInterval() { maxInactiveInterval }
+        @Override Object getAttribute(String name) { name == null ? null : attrs.get(name) }
+        @Override Enumeration<String> getAttributeNames() { Collections.enumeration(new ArrayList<>(attrs.keySet())) }
+        @Override void setAttribute(String name, Object value) {
+            if (name == null) return
+            if (value == null) attrs.remove(name) else attrs.put(name, value)
+        }
+        @Override void removeAttribute(String name) { if (name != null) attrs.remove(name) }
+        @Override void invalidate() { attrs.clear(); valid = false }
+        @Override boolean isNew() { true }
     }
 }

@@ -197,6 +197,11 @@ spring:
     enabled: ${FLYWAY_ENABLED:false}
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # No migration uses Flyway ${...} placeholders, but V73's comment quotes
+    # "dev_acct_${walletId}_${millis}", and with replacement on Flyway aborts
+    # a fresh Postgres boot there ("No value provided for placeholder").
+    # Turning it off leaves every migration file (and its checksum) unchanged.
+    placeholder-replacement: false
 
   # ── Email (optional) ──────────────────────────────────────────
   # When SMTP_HOST is set, EmailService switches from its log-sink

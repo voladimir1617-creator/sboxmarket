@@ -266,6 +266,30 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     int claimExpirePending(@Param('id') Long id)
 
     /**
+     * Atomic claim for crediting a deposit (2026-09-28 payments review).
+     * Flips a PENDING deposit to COMPLETED in one conditional UPDATE.
+     * Returns 1 = this caller owns the wallet credit, 0 = a concurrent
+     * webhook or /confirm-deposit call already took it, and the caller
+     * MUST NOT credit.
+     *
+     * Pre-fix completeDeposit checked PENDING on an unlocked read, spent
+     * ~300 ms asking Stripe, then credited. Two calls in that window (the
+     * webhook plus a /confirm-deposit, or a user hammering
+     * /confirm-deposit) both saw PENDING and both credited: one payment,
+     * two wallet credits. Same shape as claimExpirePending above.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+           SET t.status    = 'COMPLETED',
+               t.updatedAt = :now
+         WHERE t.id     = :id
+           AND t.status = 'PENDING'
+           AND t.type   = 'DEPOSIT'
+    """)
+    int claimCompletePendingDeposit(@Param('id') Long id, @Param('now') long now)
+
+    /**
      * Atomic claim for a user-initiated withdrawal self-cancel. Flips a
      * PENDING withdrawal to CANCELLED in a single conditional UPDATE so
      * the caller can detect whether THIS transaction won the race against
@@ -504,4 +528,12 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
                OR t.description LIKE CONCAT('%Refund of deposit #', :depositId, ' %'))
     """)
     BigDecimal sumRefundsByDeposit(@Param('depositId') Long depositId)
+
+    /** Seller payouts card — a wallet's withdrawals, newest first, any status. */
+    @Query("""
+        SELECT t FROM Transaction t
+        WHERE t.walletId = :walletId AND t.type IN ('WITHDRAW', 'WITHDRAWAL')
+        ORDER BY t.createdAt DESC
+    """)
+    List<Transaction> findWithdrawalsByWallet(@Param('walletId') Long walletId, Pageable pageable)
 }

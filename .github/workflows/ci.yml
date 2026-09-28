@@ -92,10 +92,17 @@ jobs:
         # walks (/, /api/listings, /api/items/{id}, etc.). Rate-limit + CSRF
         # filters stay on so any regression in the hot-path filter chain
         # surfaces here before reaching the prod container.
+        #
+        # In-memory H2 without AUTO_SERVER: the default URL opens an H2
+        # network listener, and H2CredentialGuard refuses to boot it with a
+        # blank password. The demo catalogue is opt-in now, and the smoke
+        # walks /api/listings/stall/1 and /api/items/1..80, so ask for it.
         run: |
           java -Xms256m -Xmx512m -jar build/libs/sboxmarket-*.jar \
             --server.port=8082 \
             --logging.level.root=WARN \
+            "--spring.datasource.url=jdbc:h2:mem:k6smoke;DB_CLOSE_DELAY=-1;MODE=PostgreSQL" \
+            --sbox.seed.demo-data=true \
             > app.log 2>&1 &
           echo $! > app.pid
 
