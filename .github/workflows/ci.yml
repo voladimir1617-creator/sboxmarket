@@ -92,9 +92,14 @@ jobs:
         # walks (/, /api/listings, /api/items/{id}, etc.). Rate-limit + CSRF
         # filters stay on so any regression in the hot-path filter chain
         # surfaces here before reaching the prod container.
+        # In-memory H2 without AUTO_SERVER: H2CredentialGuard refuses to boot
+        # the shipped file URL (it opens a network listener) with a blank
+        # password, and a throwaway smoke DB needs neither the file nor the
+        # listener.
         run: |
           java -Xms256m -Xmx512m -jar build/libs/sboxmarket-*.jar \
             --server.port=8082 \
+            '--spring.datasource.url=jdbc:h2:mem:k6smoke;DB_CLOSE_DELAY=-1;MODE=PostgreSQL' \
             --logging.level.root=WARN \
             > app.log 2>&1 &
           echo $! > app.pid
