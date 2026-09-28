@@ -608,6 +608,12 @@ class BackupFreshnessIsReportedSpec extends Specification {
         !(new File(derived).absoluteFile.parentFile.name == 'data')
     }
 
+    /** An explicit override in this platform's own path syntax. A literal
+     *  {@code C:\\opsdir\\...} is one opaque file name to java.io.File on Linux,
+     *  so the case failed on every non-Windows runner without testing anything. */
+    private static final String OPSDIR_STATUS_PATH =
+        File.separator + 'opsdir' + File.separator + 'h2-backup-status.json'
+
     @Unroll
     def "status path for #label lands beside #expectedDir"() {
         given:
@@ -623,7 +629,7 @@ class BackupFreshnessIsReportedSpec extends Specification {
 
         where:
         label                  | configured                         | url                                          || expectedDir
-        'an explicit override' | 'C:\\opsdir\\h2-backup-status.json'| 'jdbc:h2:file:./var/moneydb/sboxmarket'      || 'opsdir'
+        'an explicit override' | OPSDIR_STATUS_PATH                 | 'jdbc:h2:file:./var/moneydb/sboxmarket'      || 'opsdir'
         'a file: url'          | null                               | 'jdbc:h2:file:./var/moneydb/sboxmarket'      || 'moneydb'
         'no file: prefix'      | null                               | 'jdbc:h2:./var/moneydb/sbox;MODE=PostgreSQL' || 'moneydb'
         'an absolute url'      | null                               | 'jdbc:h2:file:C:/srv/skinbox/db/sboxmarket'  || 'db'
@@ -1149,7 +1155,12 @@ class BackupFreshnessIsReportedSpec extends Specification {
                 ($Repo = the parent of $PSScriptRoot, then data\\sboxmarket), so the
                 database is always on the volume the checkout is on. Resolved here
                 the same way, rather than assumed to be C:.'''
-        String dbVolume = volumeOf(new File('data').absoluteFile.path)
+        String checkout = new File('data').absoluteFile.path
+        String dbVolume = (checkout.length() >= 2 && checkout[1] == ':')
+            ? volumeOf(checkout)
+            // Not a Windows checkout (a Linux CI runner): the script never runs
+            // here, so use the database path it recorded on the machine it runs on.
+            : volumeOf(liveRecord().db_path as String)
 
         expect: '''both defaults were actually FOUND. Without this the comparisons
                    below are `null != "D:"`, which is true — a regex that matched
