@@ -3271,6 +3271,17 @@ class StripeService {
             refuseIfIndeterminate('confirm-deposit')
         }
 
+        // Claim the PENDING→COMPLETED edge atomically BEFORE crediting.
+        // The PENDING check above is an unlocked read taken before a slow
+        // Stripe round-trip, so two concurrent calls (webhook + the
+        // success-page confirm, or a user hammering /confirm-deposit) can
+        // both get here. Only the caller whose conditional UPDATE flips
+        // the row credits the wallet; the loser returns quietly.
+        if (transactionRepository.claimCompletePendingDeposit(tx.id, System.currentTimeMillis()) != 1) {
+            log.info("completeDeposit: tx ${tx.id} was claimed by a concurrent call — not crediting again (sessionId=${redactSession(sessionId)})")
+            return
+        }
+
         def wallet = walletRepository.findById(tx.walletId).orElseThrow()
         // ── Credit NET, not gross ────────────────────────────────────
         // `tx.amount` is what the card was charged; `tx.feeAmount` is the

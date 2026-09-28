@@ -79,6 +79,9 @@ class PassThroughFeePricingSpec extends Specification {
 
     def setup() {
         walletRepository.findByUsername(PlatformLedgerService.TREASURY_USERNAME) >> treasury
+        // completeDeposit claims PENDING->COMPLETED atomically before it
+        // credits; by default this call wins the claim.
+        transactionRepository.claimCompletePendingDeposit(_, _) >> 1
     }
 
     /** Sum the treasury rows of one type — the itemised half of the margin. */
