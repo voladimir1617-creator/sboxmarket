@@ -203,4 +203,21 @@ class ListingFloorRefreshService {
             enabled:    enabled
         ]
     }
+
+    /**
+     * Re-read ONE item's floor right now. The 60s sweep above is the safety
+     * net; this is for the write paths that change what is on sale (a buy,
+     * a relist, a take-down), so the item page and the buy-order form do not
+     * spend up to a minute quoting a copy that has already sold. Callers run
+     * it after their own commit, in its own transaction.
+     */
+    void refreshItem(Long itemId) {
+        if (itemId == null) return
+        def item = itemRepository.findById(itemId).orElse(null)
+        if (item == null) return
+        def floor = listingRepository.minPriceForItem(itemId)
+        item.lowestPrice = floor ?: BigDecimal.ZERO
+        item.isListed = (floor != null && floor > BigDecimal.ZERO)
+        itemRepository.save(item)
+    }
 }

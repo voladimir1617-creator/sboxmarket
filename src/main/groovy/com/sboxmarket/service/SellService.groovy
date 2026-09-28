@@ -47,6 +47,7 @@ class SellService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) WatchlistAlertService watchlistAlertService
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
+    @Autowired(required = false) ListingFloorRefreshService listingFloorRefreshService
     // Bot-escrow custody — on cancel, if the item is held by the bot, send it
     // back to the seller. Optional/gated: no-op when the bot is unconfigured.
     @Autowired(required = false) SteamEscrowService steamEscrowService
@@ -326,6 +327,19 @@ class SellService {
         if (owned.status != 'SOLD') {
             throw new BadRequestException("NOT_IN_INVENTORY", "Item is not in your inventory")
         }
+        // Bought but not yet received. The purchase opened an escrow trade, and
+        // until the buyer confirms it the item is still the seller's: the trade
+        // can be cancelled, which refunds the buyer AND hands this very row
+        // back to the seller. Relisting before that let one item be sold
+        // twice -- the reseller kept the refund and the second buyer paid for
+        // an item the reseller never had.
+        def openPurchase = (tradeRepository?.findAllByListingId(ownedListingId) ?: []).find {
+            it.buyerUserId == sellerUserId && !(it.state in ['VERIFIED', 'CANCELLED'])
+        }
+        if (openPurchase != null) {
+            throw new BadRequestException("ITEM_IN_ESCROW",
+                "You can sell this once you have received it. Confirm receipt of trade #${openPurchase.id} in Profile → Trades first.")
+        }
 
         // Mark the old listing as RELISTED (removes it from inventory queries)
         owned.status = 'RELISTED'
@@ -365,6 +379,13 @@ class SellService {
         }
         def saved = listingRepository.save(fresh)
         log.info("User $sellerUserId relisted item ${owned.item.name} as ${resolvedType} listing ${saved.id} for \$${newPrice}")
+        // A cheaper copy moves the item's floor now, not at the next sweep.
+        // Registered before the buy-order match below, so if that match
+        // buys this copy, its own refresh runs after and has the last word.
+        final Long _floorItemId = owned.item?.id
+        if (_floorItemId != null && listingFloorRefreshService != null) {
+            deferOrRun { listingFloorRefreshService.refreshItem(_floorItemId) }
+        }
 
         // Try to auto-fulfil any standing buy order that matches this fresh
         // listing — DEFERRED to afterCommit (wave 60 follow-up). Failures
@@ -700,5 +721,9 @@ class SellService {
         listing.buyerUserId = sellerUserId
         listing.soldAt = System.currentTimeMillis()
         listingRepository.save(listing)
+        final Long _floorItemId = listing.item?.id
+        if (_floorItemId != null && listingFloorRefreshService != null) {
+            deferOrRun { listingFloorRefreshService.refreshItem(_floorItemId) }
+        }
     }
 }

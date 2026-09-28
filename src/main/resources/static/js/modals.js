@@ -989,9 +989,18 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               // (NOT null), so an ungated fmt() rendered "$0.00" — reading as
               // a free item. Mirror the search-suggest guard: only show a
               // price when there's a live listing, else an honest "Not listed".
-              (parseFloat(item.lowestPrice) > 0)
-                ? h('div', { className: 'modal-stat-val accent' }, h(Money, { value: item.lowestPrice }))
-                : h('div', { className: 'modal-stat-val', style: { color: 'var(--text-muted)' } }, 'Not listed')
+              //
+              // The live cheapest copy wins over `item.lowestPrice`: that
+              // column is refreshed by a sweep, so right after a sale it
+              // still held the sold copy's price and this box read $0.46
+              // beside a "Buy now · $0.52" button.
+              (() => {
+                const live = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id);
+                const shown = live ? parseFloat(live.price) : parseFloat(item.lowestPrice);
+                return shown > 0
+                  ? h('div', { className: 'modal-stat-val accent' }, h(Money, { value: shown }))
+                  : h('div', { className: 'modal-stat-val', style: { color: 'var(--text-muted)' } }, 'Not listed');
+              })()
             ),
             // I2 Boss-QA: "Steam Price" relabelled "Steam reference"
             // so the relationship to Listing price is obvious — it's a
@@ -4563,7 +4572,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         // Batch 929 — lightweight profile refresh for actions that need
         // to pick up the new `profile.user.deletionRequestedAt` state
         // without triggering a Steam sync round-trip (onSync does both).
-        refreshProfile: () => fetchProfile().then(setProfile)
+        refreshProfile: () => fetchProfile().then(setProfile),
+        // Re-reads the app-level `me` too: the trade-URL gates on the item
+        // page, cart and bargain drawer read `me.tradeUrl`, not `profile`.
+        onMeChanged: onRefresh
       }),
       tab === 'listings'    && h(ProfileListingsTab, { me }),
       tab === 'transactions' && h(ProfileTransactionsTab, { transactions, privacy }),
@@ -5091,7 +5103,7 @@ function SecurityActivityRow() {
   );
 }
 
-function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refreshProfile, privacy }) {
+function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refreshProfile, onMeChanged, privacy }) {
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft]     = useState('');
   const [emailToken, setEmailToken]     = useState('');
@@ -5175,6 +5187,12 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       const res = await setTradeUrl(raw);
       if (res.code || res.error) { setTradeUrlErr(res.message || res.error); return; }
       setEditingTradeUrl(false); setTradeUrlDraft('');
+      // Show what was saved. The row reads `profile.user.tradeUrl`, which is
+      // a prop: without a re-read it went on showing "(not set)" and "Add"
+      // after a successful save, and every trade-URL gate elsewhere (which
+      // reads the app-level `me`) stayed shut until a full reload.
+      try { refreshProfile && await refreshProfile(); } catch (_) { /* the save itself succeeded */ }
+      try { onMeChanged && onMeChanged(); } catch (_) { /* same */ }
       // Pre-fix: success was visually terminal via exit-edit-mode but
       // gave no toast — and the empty-string path SILENTLY removed the
       // user's trade URL, which gates checkout/cart/buy-now. A removal
@@ -5206,6 +5224,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     if (res.code || res.error) { setEmailResult({ err: res.message || res.error }); return; }
     setEmailResult({ ok: true, token: res.token });
     setEditingEmail(false);
+    // Same stale-prop trap as the trade URL above: re-read so the row shows
+    // the address just saved instead of "(not set)".
+    try { refreshProfile && await refreshProfile(); } catch (_) { /* the save itself succeeded */ }
+    try { onMeChanged && onMeChanged(); } catch (_) { /* same */ }
   };
   const confirmEmail = async (tokenArg) => {
     // Batch 893 — accept an optional token arg so the auto-submit on
@@ -5219,6 +5241,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     if (res.code || res.error) { setEmailResult({ err: res.message || res.error }); return; }
     setEmailResult({ ok: true, verified: true });
     setEmailToken('');
+    try { refreshProfile && await refreshProfile(); } catch (_) { /* verified either way */ }
+    try { onMeChanged && onMeChanged(); } catch (_) { /* same */ }
   };
 
   const startEnroll = async () => {
@@ -5579,7 +5603,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             }
           }, 'Remove')
         ),
-        editingTradeUrl && h('div', { style: { display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' } },
+        editingTradeUrl && h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, width: '100%', flexWrap: 'wrap' } },
           h('input', {
             type: 'url',
             className: 'wallet-amount-input',
@@ -9331,10 +9355,19 @@ function ProfileOffersTab() {
       }, '· expires in ' + label);
     })();
 
+    // Four cells, in the order `.offer-row`'s grid lays out (48px thumb ·
+    // body · price · status), the same as the Offers window's rows. With no
+    // thumb cell the item name was crushed into the 48px column, and the
+    // price block carried `.offer-price` -- the struck-through "was" price
+    // style -- so the offer itself read as crossed out.
     return h('div', { key: o.id, className: 'offer-row' },
-      // Tiny thread chain indicator if this row is a counter or was countered
-      o.parentOfferId && h('div', { className: 'offer-thread-tag' }, '↳ counter to #' + o.parentOfferId),
+      h('div', { className: 'item-thumb', style: { width: 48, height: 48 } },
+        o.itemImageUrl
+          ? h('img', { src: o.itemImageUrl, alt: '', loading: 'lazy', decoding: 'async', referrerPolicy: 'no-referrer', onError: (e) => { e.currentTarget.style.display = 'none'; } })
+          : h('span', null, '—')),
       h('div', { className: 'offer-body' },
+        // Tiny thread chain indicator if this row is a counter or was countered
+        o.parentOfferId && h('div', { className: 'offer-thread-tag', style: { alignSelf: 'flex-start' } }, '↳ counter to #' + o.parentOfferId),
         h('div', { className: 'offer-title' }, o.itemName || ('Listing #' + o.listingId)),
         h('div', { className: 'offer-sub' },
           fromLabel, ' · ', timeAgo(o.createdAt),
@@ -9343,7 +9376,7 @@ function ProfileOffersTab() {
           expiresChip
         )
       ),
-      h('div', { className: 'offer-price' },
+      h('div', { className: 'offer-prices', style: { alignItems: 'flex-end' } },
         h('div', { className: 'offer-amt' }, fmt(o.amount)),
         pct > 0 && h('div', { className: 'offer-pct' }, '−' + pct + '%'),
         // Seller-side net-after-fee preview (batch 492). Shows the
@@ -9375,7 +9408,16 @@ function ProfileOffersTab() {
           h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '5px 8px', fontSize: 10 },
-            disabled: busy, onClick: () => { setCounterFor(o.id); setCounterAmt(String(parseFloat(o.amount) + 1)); },
+            // Start the counter halfway between offer and ask. It used to
+            // start at offer + $1, which on any item under ~$2 above the
+            // offer is already over the asking price -- so the form opened
+            // with Send counter disabled and no amount that explained why.
+            disabled: busy, onClick: () => {
+              const offer = parseFloat(o.amount) || 0;
+              const ask = parseFloat(o.askingPrice) || 0;
+              setCounterFor(o.id);
+              setCounterAmt(ask > offer ? ((offer + ask) / 2).toFixed(2) : (offer + 1).toFixed(2));
+            },
             'aria-label': 'Counter offer', title: 'Counter'
           }, '⇄'),
           h('button', {
@@ -9418,7 +9460,7 @@ function ProfileOffersTab() {
               )
         )
       ),
-      isCountering && h('div', { className: 'offer-counter-form' },
+      isCountering && h('div', { className: 'offer-counter-form', style: { gridColumn: '1 / -1' } },
         h('input', {
           className: 'price-input',
           type: 'number', step: '0.01', min: '0.01',
@@ -9475,8 +9517,8 @@ function ProfileOffersTab() {
                     : tooHigh ? `Must be below the asking price of ${fmt(ask)}`
                               : undefined;
           return isIncoming
-            ? h('button', { className: 'buy-btn', disabled: busy || bad, onClick: () => doCounter(o.id), title: tip }, 'Send counter')
-            : h('button', { className: 'buy-btn', disabled: busy || bad, onClick: () => doRaise(o.id),   title: tip }, 'Raise offer');
+            ? h('button', { className: 'buy-btn', style: { whiteSpace: 'nowrap', width: 'auto', padding: '0 14px' }, disabled: busy || bad, onClick: () => doCounter(o.id), title: tip }, 'Send counter')
+            : h('button', { className: 'buy-btn', style: { whiteSpace: 'nowrap', width: 'auto', padding: '0 14px' }, disabled: busy || bad, onClick: () => doRaise(o.id),   title: tip }, 'Raise offer');
         })(),
         h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => setCounterFor(null), 'aria-label': 'Cancel counter' }, '✕')
       )
@@ -12390,7 +12432,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                 'No platform-inventory items match this filter.'))
           : h('div', { className: 'inventory-grid' },
               filtered.map(l => h('div', {
-                key: l.id, className: 'inventory-item',
+                key: l.id, className: 'inventory-item', 'data-listing-id': l.id,
                 onClick: () => startPickInternal(l),
                 role: 'button',
                 tabIndex: 0,
@@ -13812,7 +13854,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               ? [h('div', { key: 'empty', className: 'empty-inline' },
                   h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
                     `No ${stallTypeFilter.toLowerCase()} listings.`))]
-              : filtered.map(l => h('div', { key: l.id, className: `stall-row ${l.hidden ? 'hidden-listing' : ''}` },
+              : filtered.map(l => h('div', { key: l.id, 'data-listing-id': l.id, className: `stall-row ${l.hidden ? 'hidden-listing' : ''}` },
             h('div', { className: 'item-thumb', style: { width: 48, height: 48 } }, h(ItemImage, { item: l.item, variant: 'mini' })),
             h('div', { style: { flex: 1, minWidth: 0 } },
               h('div', { className: 'item-name' }, l.item.name,

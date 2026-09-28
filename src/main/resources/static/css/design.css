@@ -29873,3 +29873,9 @@ html body aside.sidebar .filter-section .filter-option { margin-left: 0 !importa
   html body table.listing-table thead th:nth-child(1), html body table.listing-table tbody td:nth-child(1) { width: 25% !important; }
   html body table.listing-table thead th:nth-child(2), html body table.listing-table tbody td:nth-child(2) { width: 12.5% !important; }
 }
+
+/* Bell dropdown: a menu-row rule pinned every notification to 48px, so a title, its detail line and the time spilled into the rows below. Rows grow to their text again (the 72px row this file already designs for) and the list scrolls under a fixed header. */
+html body #notif-dropdown-panel.notif-dropdown { overflow-y: auto !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+html body #notif-dropdown-panel > .notif-header { flex-shrink: 0 !important; position: sticky; top: 0; z-index: 1; background-color: rgb(27, 29, 36) !important; }
+html body #notif-dropdown-panel > .notif-item { flex-shrink: 0 !important; height: auto !important; min-height: 72px !important; padding: 12px 16px !important; gap: 16px !important; align-items: center !important; }
+html body #notif-dropdown-panel > a.notif-item { min-height: 48px !important; background-color: rgb(27, 29, 36) !important; z-index: 1; }

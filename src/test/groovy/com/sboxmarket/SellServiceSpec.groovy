@@ -216,6 +216,43 @@ class SellServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    def "relist refuses an item whose purchase trade is still open (bought, not yet received)"() {
+        given: "user 10 bought listing 50, the seller has not sent it yet"
+        listingRepository.findById(50L) >> Optional.of(owned())
+        tradeRepository.findAllByListingId(50L) >> [
+            new com.sboxmarket.model.Trade(id: 7L, listingId: 50L, buyerUserId: 10L, sellerUserId: 99L,
+                state: state)
+        ]
+
+        when:
+        service.relist(10L, 'Me', 50L, new BigDecimal("45"))
+
+        then: "nothing is written, so the item cannot be sold twice"
+        def ex = thrown(BadRequestException)
+        ex.code == 'ITEM_IN_ESCROW'
+        ex.message.contains('#7')
+        0 * listingRepository.save(_)
+
+        where:
+        state << ['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND', 'PENDING_BUYER_CONFIRM', 'DISPUTED']
+    }
+
+    def "relist allows an item once its purchase trade is VERIFIED"() {
+        given:
+        listingRepository.findById(50L) >> Optional.of(owned())
+        tradeRepository.findAllByListingId(50L) >> [
+            new com.sboxmarket.model.Trade(id: 7L, listingId: 50L, buyerUserId: 10L, sellerUserId: 99L, state: 'VERIFIED')
+        ]
+        listingRepository.save(_) >> { args -> def l = args[0]; l.id = l.id ?: 100L; l }
+
+        when:
+        def fresh = service.relist(10L, 'Me', 50L, new BigDecimal("45"))
+
+        then:
+        fresh.status == 'ACTIVE'
+        fresh.sellerUserId == 10L
+    }
+
     def "relist creates an AUCTION listing with expiresAt set when listingType=AUCTION"() {
         given:
         def oldListing = owned()

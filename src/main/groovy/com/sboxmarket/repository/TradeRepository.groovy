@@ -123,6 +123,9 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
 
     Trade findByListingId(Long listingId)
 
+    /** Every trade ever opened on this listing row, any state. */
+    List<Trade> findAllByListingId(Long listingId)
+
     /** Admin trade queue — newest-updated-first, optional state filter.
      *  Empty-string sentinel for "no filter" per the Postgres type
      *  inference rule; see ItemRepository.searchCatalogue. */
