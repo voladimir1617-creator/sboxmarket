@@ -307,14 +307,23 @@
       .sort((a, b) => Math.max(b.steam, b.sbx) - Math.max(a.steam, a.sbx))
       .slice(0, 20);
 
+    // Built with textContent, not innerHTML: item names and icon URLs come
+    // from the viewed inventory, and this markup lands in the
+    // steamcommunity.com page, so an HTML-bearing name would run there.
     rows.forEach(r => {
       const row = el('div', 'sbx-item');
-      row.innerHTML = `
-        <img class="sbx-item-icon" src="${r.iconUrl || ''}" alt="">
-        <div class="sbx-item-name" title="${r.name}">${r.name}${r.count > 1 ? ` ×${r.count}` : ''}</div>
-        <div class="sbx-item-price">${r.steam > 0 ? fmt(r.steam) : '—'}</div>
-        <div class="sbx-item-price sbx-item-price-sbx">${r.sbx > 0 ? fmt(r.sbx) : '—'}</div>
-      `;
+      const icon = document.createElement('img');
+      icon.className = 'sbx-item-icon';
+      icon.alt = '';
+      if (r.iconUrl) icon.src = r.iconUrl;
+      const name = el('div', 'sbx-item-name');
+      name.title = r.name || '';
+      name.textContent = (r.name || '') + (r.count > 1 ? ` ×${r.count}` : '');
+      const steam = el('div', 'sbx-item-price');
+      steam.textContent = r.steam > 0 ? fmt(r.steam) : '—';
+      const sbx = el('div', 'sbx-item-price sbx-item-price-sbx');
+      sbx.textContent = r.sbx > 0 ? fmt(r.sbx) : '—';
+      row.append(icon, name, steam, sbx);
       itemsWrap.appendChild(row);
     });
   }

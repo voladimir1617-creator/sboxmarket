@@ -109,6 +109,15 @@ class AgentationDevGate {
      * keeps paying for.
      */
     static boolean enabled(Environment env) {
+        // Same floor as dev-login: never on a deployment that can move real
+        // money (prod profile or a live Stripe key), whatever the env says.
+        boolean realMoney
+        try {
+            realMoney = LiveMoneyGuard.isRealMoney(env)
+        } catch (Throwable unreadable) {
+            return false
+        }
+        if (realMoney) return false
         String raw = DevLoginGate.processEnvValue(env, OPT_IN_ENV_VAR)
         raw != null && raw.trim().equalsIgnoreCase(OPT_IN_VALUE)
     }

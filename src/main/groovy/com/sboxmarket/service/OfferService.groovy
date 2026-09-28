@@ -691,9 +691,13 @@ class OfferService {
 
         def listing = listingRepository.findById(listingId).orElse(null)
         def isSeller = listing != null && listing.sellerUserId != null && listing.sellerUserId == viewerUserId
-        def isBuyer  = viewerUserId != null && all.any { it.buyerUserId == viewerUserId }
-        if (isSeller || isBuyer) return all
+        if (isSeller) return all
 
+        // A buyer sees their own rows in full and everyone else's redacted.
+        // This used to return `all` to anyone with ANY offer on the listing
+        // (even a cancelled $0.01 one), handing every competing buyer's
+        // identity, private note to the seller and the seller's replies to
+        // whoever asked.
         // Redact — return fresh detached Offer instances so we never mutate
         // Hibernate-managed entities. Each unique buyerUserId becomes
         // "Buyer #1", "Buyer #2", etc. so the seller-side UI can still
@@ -701,6 +705,7 @@ class OfferService {
         def handles = [:]
         int next = 0
         all.collect { o ->
+            if (viewerUserId != null && o.buyerUserId == viewerUserId) return o
             def handle = handles[o.buyerUserId]
             if (handle == null) {
                 handle = "Buyer #${++next}".toString()

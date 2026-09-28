@@ -133,6 +133,13 @@ class ApiKeyAuthFilter extends OncePerRequestFilter {
         //      long-lived session on every call.
         // A pre-existing browser session on the request is neither read
         // nor modified, so there is no cross-user contamination either.
+        if (forbiddenForApiKey(path, isWrite)) {
+            resp.status = 403
+            resp.contentType = 'application/json'
+            resp.writer.write('{"code":"API_KEY_FORBIDDEN","message":"API keys cannot use this endpoint. Sign in on the website instead."}')
+            log.warn("API key refused on account/staff path: ${method} ${path} uid=${ctx.userId}")
+            return
+        }
         def apiReq = new ApiKeyRequest(req, new RequestScopedSession(req.servletContext))
         apiReq.getSession(true).setAttribute(SteamAuthController.SESSION_USER_ID, ctx.userId as Long)
         apiReq.setAttribute('sbox.apiAuth', Boolean.TRUE)
@@ -143,6 +150,24 @@ class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     /** Request wrapper that hides the container session and serves the
      *  request-scoped one instead. */
+    /** Staff tools: refused to API keys for every method, so an admin's
+     *  bot key (even a read-only one) is never an admin session. */
+    static final List<String> STAFF_PREFIXES = ['/api/admin', '/api/csr'].asImmutable()
+    /** Account-control writes a leaked key must not reach: minting more
+     *  keys (survives revoking the leaked one), and changing email, trade
+     *  URL, 2FA or the payout account (redirects items and money to the
+     *  thief). Reading them stays allowed. */
+    static final List<String> ACCOUNT_WRITE_PREFIXES = [
+        '/api/api-keys', '/api/profile', '/api/wallet/connect'
+    ].asImmutable()
+
+    static boolean forbiddenForApiKey(String path, boolean isWrite) {
+        if (path == null) return false
+        def under = { String p -> path == p || path.startsWith(p + '/') }
+        if (STAFF_PREFIXES.any(under)) return true
+        isWrite && ACCOUNT_WRITE_PREFIXES.any(under)
+    }
+
     static class ApiKeyRequest extends HttpServletRequestWrapper {
         final RequestScopedSession apiSession
 

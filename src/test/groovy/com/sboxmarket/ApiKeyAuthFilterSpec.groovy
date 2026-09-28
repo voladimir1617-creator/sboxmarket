@@ -317,4 +317,74 @@ class ApiKeyAuthFilterSpec extends Specification {
         req.getSession(false) == null
         req.getAttribute('sbox.apiAuth') == null
     }
+
+    // ── Account and staff paths are closed to API keys ─────────────────
+
+    @spock.lang.Unroll
+    def "an RW key is refused on #method #path"() {
+        given:
+        def req = new MockHttpServletRequest(method, path)
+        req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
+        0 * chain.doFilter(_, _)
+        resp.status == 403
+        resp.contentAsString.contains('API_KEY_FORBIDDEN')
+
+        where:
+        method   | path
+        'POST'   | '/api/api-keys'
+        'PUT'    | '/api/profile/trade-url'
+        'PUT'    | '/api/profile/email'
+        'POST'   | '/api/profile/2fa/disable'
+        'POST'   | '/api/wallet/connect/onboard'
+        'POST'   | '/api/admin/users/7/credit'
+        'POST'   | '/api/admin/grant-admin'
+        'GET'    | '/api/admin/users.csv'
+        'GET'    | '/api/csr/tickets'
+    }
+
+    def "a read-only key cannot read admin data either"() {
+        given:
+        def req = new MockHttpServletRequest('GET', '/api/admin/users.csv')
+        req.addHeader('Authorization', 'Bearer sbx_live_rotoken')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope('sbx_live_rotoken') >> [userId: 1L, scope: 'RO']
+        0 * chain.doFilter(_, _)
+        resp.status == 403
+    }
+
+    @spock.lang.Unroll
+    def "an RW key still reaches #method #path"() {
+        given:
+        def req = new MockHttpServletRequest(method, path)
+        req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
+        1 * chain.doFilter(_, resp)
+
+        where:
+        method | path
+        'GET'  | '/api/profile'
+        'GET'  | '/api/api-keys'
+        'POST' | '/api/cart/42'
+        'POST' | '/api/wallet/withdraw'
+        'POST' | '/api/bids'
+        'GET'  | '/api/administrators-guide'
+    }
 }

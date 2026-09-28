@@ -171,6 +171,10 @@ class SteamAuthController {
         if (s.isEmpty()) return '/'
         // Header-injection guards — newline, carriage-return, NUL.
         if (s.contains('\n') || s.contains('\r') || s.contains('\u0000')) return '/'
+        // Any other control character too: browsers strip TAB from URLs, so
+        // `/<TAB>/evil.com` passed the `//` check below and then resolved
+        // to the protocol-relative `//evil.com`.
+        if (s.find(/[\x00-\x1F\x7F]/) != null) return '/'
         // Length cap — apply BEFORE expensive parsing.
         if (s.length() > NEXT_MAX_LEN) return '/'
         // Must start with a single "/" to lock to same-origin. "//foo"

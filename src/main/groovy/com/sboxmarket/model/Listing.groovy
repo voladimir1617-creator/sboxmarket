@@ -92,7 +92,10 @@ class Listing {
     @Column(name = "asset_id")
     String assetId
 
-    /** SteamUser.id of the buyer who purchased the listing (null if still ACTIVE). */
+    /** SteamUser.id of the buyer who purchased the listing (null if still ACTIVE).
+     *  Kept out of JSON: GET /api/listings/{id} returns this entity to anyone,
+     *  so walking ids told the world who bought what, when and for how much. */
+    @JsonIgnore
     @Column
     Long buyerUserId
 

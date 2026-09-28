@@ -139,6 +139,15 @@ class ProfileController {
     @Autowired TotpService totpService
     @Autowired TextSanitizer textSanitizer
     @Autowired EmailService emailService
+    @Autowired(required = false) com.sboxmarket.config.LiveMoneyGuard liveMoneyGuard
+
+    /** The verification token is echoed in the JSON only when no mail can be
+     *  sent AND the deployment moves no real money (local dev / test). On a
+     *  real-money box without SMTP the echo let anyone "verify" an address
+     *  they don't own and clear the verified-email gate on withdrawals. */
+    private boolean echoVerificationToken() {
+        !emailService.smtpReady && !(liveMoneyGuard?.isRealMoney())
+    }
     // Extra repos the GDPR /export bundle needs. All required=false so
     // tests can wire a smaller subset of collaborators.
     @Autowired(required = false) com.sboxmarket.repository.WalletRepository walletRepository
@@ -670,7 +679,7 @@ class ProfileController {
             }
         }
         def resp = [email: user.email, verified: false] as Map
-        if (!emailService.smtpReady) resp.token = user.emailVerificationToken
+        if (echoVerificationToken()) resp.token = user.emailVerificationToken
         ResponseEntity.ok(resp)
     }
 
@@ -1323,7 +1332,7 @@ class ProfileController {
         steamUserRepository.save(user)
         emailService.sendVerification(user.email, user.emailVerificationToken)
         def resp = [email: user.email, verified: false, resent: true] as Map
-        if (!emailService.smtpReady) resp.token = user.emailVerificationToken
+        if (echoVerificationToken()) resp.token = user.emailVerificationToken
         ResponseEntity.ok(resp)
     }
 

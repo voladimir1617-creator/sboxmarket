@@ -141,6 +141,10 @@ class SteamAuthControllerSpec extends Specification {
         // header smuggling vectors.
         '/sell\nLocation: https://evil'  | '/'
         '/sell\rLocation: https://evil'  | '/'
+        // Browsers drop TAB inside URLs, so these become //evil.com.
+        '/\t/evil.com'                   | '/'
+        '/\u0009/evil.com'               | '/'
+        '/sell\u007f'                    | '/'
         // Path-must-start-with-/ guard.
         'sell'                           | '/'
         'profile?tab=trades'             | '/'

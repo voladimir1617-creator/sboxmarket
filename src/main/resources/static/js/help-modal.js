@@ -109,7 +109,7 @@ const FAQ = [
   },
   {
     q: 'How do I use the API from a bot or browser extension?',
-    a: "Mint an API key at Profile → Developers → + New Key. Pick RW (full access — can buy / sell / move funds) or RO (read-only — fetches listings + wallet balance but can't mutate anything). Send the raw token as Authorization: Bearer sbx_live_… on every request. The server accepts this in place of session cookies on every /api/* route, so no CSRF token is needed. Active-key cap is 20 per user — revoke stale ones first if you hit the wall. Every mint fires a security-alert email; if you see one you didn't trigger, click 'Revoke all active keys' in Profile → Developers and open a ticket."
+    a: "Mint an API key at Profile → Developers → + New Key. Pick RW (full access — can buy / sell / move funds) or RO (read-only — fetches listings + wallet balance but can't mutate anything). Send the raw token as Authorization: Bearer sbx_live_… on every request. The server accepts this in place of session cookies on the market and wallet /api/* routes, so no CSRF token is needed. Account settings (email, trade URL, 2FA, payout account), minting more keys and staff tools only work signed in on the website. Active-key cap is 20 per user — revoke stale ones first if you hit the wall. Every mint fires a security-alert email; if you see one you didn't trigger, click 'Revoke all active keys' in Profile → Developers and open a ticket."
   },
   {
     q: 'How do I audit my own account activity?',

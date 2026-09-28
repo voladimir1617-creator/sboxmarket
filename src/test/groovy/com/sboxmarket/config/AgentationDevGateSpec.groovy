@@ -58,6 +58,18 @@ class AgentationDevGateSpec extends Specification {
         null      || false
     }
 
+    def "the opt-in cannot open the gate on a real-money deployment"() {
+        given: 'SBOX_AGENTATION=true in the process environment'
+        ConfigurableEnvironment prod = envWith([(AgentationDevGate.OPT_IN_ENV_VAR): 'true'])
+        prod.setActiveProfiles('prod')
+        ConfigurableEnvironment liveKey = envWith([(AgentationDevGate.OPT_IN_ENV_VAR): 'true',
+                                                   STRIPE_SECRET_KEY: 'sk_live_abc123'])
+
+        expect:
+        !AgentationDevGate.enabled(prod)
+        !AgentationDevGate.enabled(liveKey)
+    }
+
     def "a SPRING PROPERTY of the same name does not open the gate"() {
         given: 'the opt-in set everywhere EXCEPT the process environment — a committed yml, a mounted properties file, a -D flag'
         ConfigurableEnvironment env = envWith([:], [(AgentationDevGate.OPT_IN_ENV_VAR): 'true'])

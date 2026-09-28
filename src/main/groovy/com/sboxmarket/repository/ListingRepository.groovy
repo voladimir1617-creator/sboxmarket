@@ -17,6 +17,13 @@ import org.springframework.stereotype.Repository
 @Repository
 interface ListingRepository extends JpaRepository<Listing, Long> {
 
+    // Sales queries below exclude rows where buyerUserId == sellerUserId.
+    // Cancelling a listing, an auction ending unsold and a cancelled trade all
+    // hand the item back by setting status SOLD with the seller as "buyer",
+    // so without the filter a seller could list at $99,999, cancel, and show
+    // a $99,999 "sale" in public price history and pad their sold count.
+    // Inventory queries (buyerUserId = :uid) keep those rows on purpose.
+
     List<Listing> findByItemIdAndStatus(Long itemId, String status)
 
     List<Listing> findByStatus(String status)
@@ -161,6 +168,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT l.item.id, COUNT(l) FROM Listing l
         WHERE l.item.id IN :itemIds
           AND l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt IS NOT NULL
           AND l.soldAt >= :since
         GROUP BY l.item.id
@@ -178,6 +186,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("""
         SELECT l.item.id, COUNT(l) AS cnt FROM Listing l
         WHERE l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt IS NOT NULL
           AND l.soldAt >= :since
         GROUP BY l.item.id
@@ -256,7 +265,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'ACTIVE' AND l.listingType = 'AUCTION' AND (l.expiresAt IS NULL OR l.expiresAt > :now)")
     Long countActiveAuctions(@Param("now") Long now)
 
-    @Query("SELECT SUM(l.price) FROM Listing l WHERE l.status = 'SOLD' AND l.soldAt > :since")
+    @Query("SELECT SUM(l.price) FROM Listing l WHERE l.status = 'SOLD' AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId) AND l.soldAt > :since")
     BigDecimal sumVolumeAfter(@Param("since") Long since)
 
     /** Count of platform-wide SOLD listings since the cutoff — feeds
@@ -264,7 +273,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
      *  Paired with `sumVolumeAfter` this lets anon visitors see BOTH
      *  dollar volume AND deal count — "N sales totalling $X" reads as
      *  a richer liveness signal than either alone. */
-    @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'SOLD' AND l.soldAt > :since")
+    @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'SOLD' AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId) AND l.soldAt > :since")
     Long countSoldAfter(@Param("since") Long since)
 
     /** Lifetime SOLD count - used by SeedService to decide whether to
@@ -373,7 +382,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
      *  "sales activity" separately: a seller who lists but never sells
      *  looks different from one who sells routinely. Single indexed
      *  MAX aggregate, same composite index shape as lastListedAt. */
-    @Query("SELECT MAX(l.soldAt) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'SOLD'")
+    @Query("SELECT MAX(l.soldAt) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'SOLD' AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)")
     Long findLastSoldAtBySeller(@Param("uid") Long uid)
 
     /** Public stall view — same as findActiveBySeller but excludes
@@ -582,7 +591,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
      *  homepage "Last sale Xm ago" liveness chip. Fresh recent-sale
      *  signal is stronger evidence of an active marketplace than a
      *  7-day volume number, especially for anon visitors landing cold. */
-    @Query("SELECT MAX(l.soldAt) FROM Listing l WHERE l.status = 'SOLD' AND l.soldAt IS NOT NULL")
+    @Query("SELECT MAX(l.soldAt) FROM Listing l WHERE l.status = 'SOLD' AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId) AND l.soldAt IS NOT NULL")
     Long findLastSaleAt()
 
     /** Auctions that have passed their expiresAt and need settling.
@@ -623,6 +632,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT l FROM Listing l JOIN FETCH l.item
         WHERE l.item.id = :itemId
           AND l.status  = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt IS NOT NULL
         ORDER BY l.soldAt DESC
     """)
@@ -630,7 +640,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
 
     /** Count of completed sales by a seller — drives the "verified seller"
      *  badge threshold and the lifetime sales stat on the stall hero. */
-    @Query("SELECT COUNT(l) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'SOLD'")
+    @Query("SELECT COUNT(l) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'SOLD' AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)")
     long countSoldBySeller(@Param("uid") Long uid)
 
     /** Every listing a seller has ever posted — across ACTIVE / SOLD /
@@ -655,6 +665,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT COUNT(l) FROM Listing l
         WHERE l.sellerUserId = :uid
           AND l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt IS NOT NULL
           AND l.soldAt >= :since
     """)
@@ -668,6 +679,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT l.item.id, COUNT(l) FROM Listing l
         WHERE l.item.id IN :itemIds
           AND l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt IS NOT NULL
           AND l.soldAt >= :since
         GROUP BY l.item.id
@@ -684,6 +696,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT COALESCE(SUM(l.price), 0) FROM Listing l
         WHERE l.sellerUserId = :uid
           AND l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
     """)
     BigDecimal sumRevenueBySeller(@Param("uid") Long uid)
 
@@ -691,6 +704,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT COALESCE(SUM(l.price), 0) FROM Listing l
         WHERE l.sellerUserId = :uid
           AND l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt IS NOT NULL
           AND l.soldAt >= :since
     """)
@@ -704,6 +718,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("""
         SELECT l.sellerUserId, COUNT(l) FROM Listing l
         WHERE l.sellerUserId IN :ids AND l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
         GROUP BY l.sellerUserId
     """)
     List<Object[]> countSoldByMultipleSellers(@Param("ids") List<Long> sellerUserIds)
@@ -730,6 +745,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT l FROM Listing l JOIN FETCH l.item
         WHERE l.sellerUserId = :uid
           AND l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt IS NOT NULL
         ORDER BY l.soldAt DESC
     """)
@@ -744,6 +760,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT l.sellerUserId, COUNT(l)
         FROM Listing l
         WHERE l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.sellerUserId IS NOT NULL
         GROUP BY l.sellerUserId
         HAVING COUNT(l) >= :minSold
@@ -774,6 +791,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("""
         SELECT l FROM Listing l JOIN FETCH l.item
         WHERE l.status = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt IS NOT NULL
         ORDER BY l.soldAt DESC
     """)
@@ -820,6 +838,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT COUNT(l) FROM Listing l
         WHERE l.item.id = :itemId
           AND l.status  = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt  IS NOT NULL
           AND l.soldAt  >= :since
     """)
@@ -832,6 +851,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT COALESCE(SUM(l.price), 0) FROM Listing l
         WHERE l.item.id = :itemId
           AND l.status  = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt  IS NOT NULL
           AND l.soldAt  >= :since
     """)
@@ -845,6 +865,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT l FROM Listing l
         WHERE l.item.id = :itemId
           AND l.status  = 'SOLD'
+          AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
           AND l.soldAt  IS NOT NULL
         ORDER BY l.soldAt DESC
     """)
