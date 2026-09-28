@@ -141,6 +141,50 @@ the entire boot was `ProdConfigValidator` correctly refusing the three placehold
 values. **Nothing else blocks prod.** What remains is the three real Stripe keys and a
 Postgres database with the current schema.
 
+## Dry run 2026-09-28 (compose, fresh Postgres, dummy secrets)
+
+Run in a throwaway Linux container, never published anywhere, following this runbook
+with the compose runtime. What it found:
+
+- **A fresh prod boot was broken, now fixed.** Flyway stopped at
+  `V73__clear_simulated_connect_account_ids.sql`: its comment quotes
+  `dev_acct_${walletId}_${millis}` and Flyway read that as a placeholder
+  ("No value provided for placeholder: ${walletId}"). The boot recorded above predates
+  V73. Fix: `spring.flyway.placeholder-replacement: false` in `application.yml`; no
+  migration file changed. After it: **89 migrations applied, `Started` in ~17s.**
+- **The app port was published to every interface.** `docker compose ps` showed
+  `0.0.0.0:8082`, which fails step 6 c2. The compose mapping is now
+  `127.0.0.1:${APP_PORT:-8082}:8082` (cloudflared reaches it on localhost).
+- **The prod profile cannot run on Stripe test keys.** With `sk_test_…`/`pk_test_…` the
+  validator exits, as designed. So there is no "prod in test mode" rehearsal; the first
+  prod boot is the live-keys boot. The dry run used fake `sk_live_`/`pk_live_`-shaped
+  strings in a sealed container to test the rest. **Never do that on a reachable box.**
+- **Every compose command needs `--env-file deploy/skinbox.env`**, not only `up`:
+  `ps`, `logs` and `down` also fail on the `:?` variables without it. Set an alias:
+  `alias dc='docker compose --env-file deploy/skinbox.env'`.
+- **Under compose the log is inside the container.** Step 6 a) becomes
+  `dc logs app | grep "Prod config validation passed"`.
+- **`/api/health/backup` answers 503 `stale` on Postgres.** It reports the H2 backup
+  job, which does not exist on a Postgres deploy. Point uptime monitors at
+  `/api/health` or `/api/health/cookie-aware`, not this one.
+- The Dockerfile's build stage could not be exercised (the sandbox blocks TLS from
+  inside `docker build`); the same `bootJar` built on the host and the runtime stage
+  was built from it. On a normal machine `dc build` runs both stages.
+
+Probe results on the running prod container (`http://127.0.0.1:8082`):
+
+| Probe | Result |
+|---|---|
+| `GET /api/health` | 200 `{"status":"UP"}`; Docker HEALTHCHECK `healthy` |
+| `GET /api/health/cookie-aware` | 200 |
+| `GET /` and `GET /market` | 200 HTML, `main.js`/`design.css` 200, CSP + HSTS headers set |
+| `GET /api/listings` | 200 `[]` (fresh database) |
+| `GET /api/auth/steam/login` | 302 to steamcommunity.com, `return_to=https://skinbox.market/api/auth/steam/return` |
+| `GET /api/auth/steam/dev-login` | 404 `dev-login disabled: real-money deployment` (step 6 b PASS) |
+| `POST /api/stripe/webhook` unsigned / bad signature | 400 `invalid signature` |
+| `POST /api/stripe/webhook` signed with the configured `whsec_` | 200 `ok` |
+| same port from a non-loopback address | refused (after the port fix) |
+
 ---
 
 ## The deploy sequence
@@ -303,7 +347,8 @@ Do not proceed to step 7 until all four pass.
 
 ```bash
 # a) The validator announces itself. This line only exists under the prod profile.
-grep "Prod config validation passed" /var/log/skinbox/skinbox.log
+grep "Prod config validation passed" /var/log/skinbox/skinbox.log     # host JVM
+docker compose --env-file deploy/skinbox.env logs app | grep "Prod config validation passed"   # compose
 #    -> "Prod config validation passed: all 14 required secrets present..."
 #    If instead the process EXITED with "FATAL: production config validation failed",
 #    read the list — it names every bad variable at once. Fix and restart.
