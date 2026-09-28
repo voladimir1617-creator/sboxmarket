@@ -556,11 +556,14 @@ so neither can quietly disappear.
 Measured 2026-09-25 by sweeping every ref for a bare Steam ID in
 `application.yml`, `application-prod.yml`, `skinbox.env.example`,
 `docker-compose.yml` and `run-local.sh`. The repair lives only on unmerged work
-branches, so the mainline still carries the defaults:
+branches, so the mainline still carries the defaults.
+
+**Update 2026-09-28:** PR #1 merged the repair into `main`, so `main` and
+`origin/main` are clean and no longer listed. Any older local branch or worktree
+cut before that merge may still carry a default; the spec lists it here if so.
 
 <!-- BURNED-ADMIN-REFS:BEGIN -->
-- `refs/heads/main`
-- `refs/remotes/origin/main`
+(none known)
 <!-- BURNED-ADMIN-REFS:END -->
 
 **This list is asserted, not decorative.** `AdminBootstrapIsNotCommittedSpec`
