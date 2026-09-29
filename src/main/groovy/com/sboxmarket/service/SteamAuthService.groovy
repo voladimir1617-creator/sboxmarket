@@ -72,6 +72,24 @@ class SteamAuthService {
      *  tampered callback. Synchronized because OpenID returns land on
      *  the Tomcat worker pool — two concurrent replays could otherwise
      *  race past the check. */
+    /** How far a response_nonce timestamp may sit from our clock, either way. */
+    static final long NONCE_MAX_SKEW_MS = 5L * 60L * 1000L
+
+    /** OpenID 2.0 §10.1: a response_nonce starts with the UTC time the OP
+     *  issued it, as `2005-05-15T17:11:51Z`, followed by unique characters.
+     *  A nonce without that prefix, or one more than
+     *  {@link #NONCE_MAX_SKEW_MS} away from now, is refused. */
+    static boolean nonceIsFresh(String nonce, long nowMs) {
+        if (nonce == null || nonce.length() < 20) return false
+        long issuedMs
+        try {
+            issuedMs = java.time.Instant.parse(nonce.substring(0, 20)).toEpochMilli()
+        } catch (Exception ignored) {
+            return false
+        }
+        Math.abs(nowMs - issuedMs) <= NONCE_MAX_SKEW_MS
+    }
+
     private synchronized boolean consumeNonce(String nonce) {
         if (nonce == null || nonce.isEmpty()) return false
         if (seenNonces.contains(nonce)) return false
@@ -270,6 +288,14 @@ class SteamAuthService {
         // session establishment in the controller is closed by this
         // atomic check-and-record.
         def nonce = paramFromQuery(rawQueryString, 'openid.response_nonce')
+        // The seen-nonce set is in memory, so it forgets everything on a
+        // restart and after 5000 newer logins. The timestamp at the front of
+        // the nonce is what stops an old captured /return URL from working
+        // after that.
+        if (!nonceIsFresh(nonce, System.currentTimeMillis())) {
+            log.warn("Steam OpenID assertion rejected: response_nonce missing a timestamp or outside the freshness window")
+            return null
+        }
         if (!consumeNonce(nonce)) {
             log.warn("Steam OpenID assertion rejected: nonce missing or already used (replay)")
             return null

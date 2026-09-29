@@ -1301,9 +1301,10 @@ class OfferServiceSpec extends Specification {
         out[1].buyerUserId == 20L
     }
 
-    def "thread returns raw offers (no redaction) to any participating buyer"() {
+    def "a participating buyer sees their own offers in full and every other buyer redacted"() {
         given:
         def a = threadOffer(id: 1L, buyerUserId: 10L, buyerName: 'Alice')
+        a.message = 'private note to the seller'
         def b = threadOffer(id: 2L, buyerUserId: 20L, buyerName: 'Bob')
         offerRepository.findByListingId(100L) >> [a, b]
         listingRepository.findById(100L) >> Optional.of(activeListing(seller: 99L))
@@ -1311,9 +1312,12 @@ class OfferServiceSpec extends Specification {
         when:
         def out = service.thread(100L, 20L)  // Bob is viewing
 
-        then:
-        out == [a, b]
-        out[0].buyerName == 'Alice'
+        then: 'Alice is a handle with no id and no note'
+        out[0].buyerName == 'Buyer #1'
+        out[0].buyerUserId == null
+        out[0].message == null
+        and: "Bob's own row is untouched"
+        out[1].is(b)
         out[1].buyerName == 'Bob'
     }
 

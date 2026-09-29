@@ -1286,6 +1286,13 @@ class ListingController {
         if (listing.sellerUserId != userId) {
             throw new com.sboxmarket.exception.ForbiddenException("Not your listing")
         }
+        // Only a live listing is the seller's to edit. A SOLD row is the sale
+        // record (and, once bought, the buyer's inventory row), so editing it
+        // let the old seller rewrite a recorded sale price or description.
+        if (listing.status != 'ACTIVE') {
+            throw new com.sboxmarket.exception.BadRequestException("LISTING_NOT_ACTIVE",
+                "Only active listings can be edited.")
+        }
         // Capture the prior price so we can fire PRICE_DROPPED pings to
         // cart-holders after the save (batch 538). A drop from $50 to
         // $45 is a buy signal the cart-holder was waiting for — pushing
@@ -1522,10 +1529,13 @@ class ListingController {
         rows.each { byId[it.id] = it }
         def out = ids.collect { id ->
             def l = byId[id]
+            boolean active = l != null && l.status == 'ACTIVE' && !Boolean.TRUE.equals(l.hidden)
+            // Price only for live, visible rows: getById 404s a hidden listing
+            // to non-owners, and this probe used to hand its price out anyway.
             [
                 id:     id,
-                active: l != null && l.status == 'ACTIVE' && !Boolean.TRUE.equals(l.hidden),
-                price:  l?.price
+                active: active,
+                price:  active ? l.price : null
             ]
         }
         ResponseEntity.ok(out)

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SkinBox Inventory Valuer",
   "short_name": "SkinBox",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Value your s&box Steam inventory in real time. Compares Steam Community Market prices against live SkinBox marketplace listings.",
   "author": "SkinBox",
   "homepage_url": "https://skinbox.market",

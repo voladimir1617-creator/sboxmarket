@@ -442,8 +442,11 @@ test('everyone\'s history adds up: notifications, trades and wallet rows', async
   expect(list.some((n) => n.kind === 'TRADE_REQUESTED'), 'a "New sale" notification').toBeTruthy();
   await ap.goto('/');
   await ap.getByRole('button', { name: /notifications/i }).first().click();
+  // The panel fills in after its own fetch: wait for the rows before measuring.
+  const bellRows = ap.locator('#notif-dropdown-panel > div.notif-item');
+  await expect(bellRows.nth(1)).toBeVisible();
   // Each row is as tall as its text: none spills onto the next one.
-  const boxes = await ap.locator('#notif-dropdown-panel > div.notif-item').evaluateAll((els) =>
+  const boxes = await bellRows.evaluateAll((els) =>
     els.map((e) => ({ top: e.offsetTop, h: e.offsetHeight, content: e.scrollHeight })));
   expect(boxes.length).toBeGreaterThan(1);
   for (let i = 0; i < boxes.length; i++) {

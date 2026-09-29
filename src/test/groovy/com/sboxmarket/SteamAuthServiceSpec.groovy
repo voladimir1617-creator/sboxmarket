@@ -77,8 +77,16 @@ class SteamAuthServiceSpec extends Specification {
      * P2 check passes; pass a different value to exercise the mismatch
      * path. `nonce` is the value of openid.response_nonce.
      */
+    /** Steam's nonces lead with the issue time; the service refuses stale
+     *  ones, so fixtures stamp "now" in front of their label. An empty
+     *  label stays empty so the missing-nonce specs still send none. */
+    private static String stamped(String nonce) {
+        nonce ? java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString() + nonce : nonce
+    }
+
     private static String returnQuery(String nonce,
-                                      String returnTo = 'http://localhost:8080/api/auth/steam/return') {
+                                      String returnTo = 'http://localhost:8080/api/auth/steam/return',
+                                      boolean stamp = true) {
         [
             'openid.ns'            : 'http://specs.openid.net/auth/2.0',
             'openid.mode'          : 'id_res',
@@ -86,7 +94,7 @@ class SteamAuthServiceSpec extends Specification {
             'openid.claimed_id'    : CLAIMED_ID,
             'openid.identity'      : CLAIMED_ID,
             'openid.return_to'     : returnTo,
-            'openid.response_nonce': nonce,
+            'openid.response_nonce': stamp ? stamped(nonce) : nonce,
             'openid.assoc_handle'  : '1234567890',
             'openid.signed'        : 'signed,op_endpoint,claimed_id,identity,return_to,response_nonce,assoc_handle',
             'openid.sig'           : 'abcDEF123signaturebase64==',
@@ -143,6 +151,31 @@ class SteamAuthServiceSpec extends Specification {
         then: "the first use succeeds, the replay is rejected"
         first  == STEAMID
         second == null
+    }
+
+    def "verifyReturn rejects a captured callback whose nonce is older than the freshness window"() {
+        given: "Steam keeps saying is_valid:true for an old assertion, and a restart emptied the seen-nonce set"
+        service.metaClass.checkAuthentication = { String body -> 'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n' }
+        def old = java.time.Instant.now().minusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString() + 'captured'
+        def query = returnQuery(old, 'http://localhost:8080/api/auth/steam/return', false)
+
+        expect:
+        service.verifyReturn(query, CLAIMED_ID) == null
+    }
+
+    def "nonceIsFresh wants a leading UTC timestamp within five minutes either way"() {
+        given:
+        long now = java.time.Instant.parse('2026-09-28T12:00:00Z').toEpochMilli()
+
+        expect:
+        SteamAuthService.nonceIsFresh('2026-09-28T12:00:00Zabc', now)
+        SteamAuthService.nonceIsFresh('2026-09-28T11:55:30Zabc', now)
+        SteamAuthService.nonceIsFresh('2026-09-28T12:04:00Zabc', now)
+        !SteamAuthService.nonceIsFresh('2026-09-28T11:54:00Zabc', now)
+        !SteamAuthService.nonceIsFresh('2026-09-28T12:06:00Zabc', now)
+        !SteamAuthService.nonceIsFresh('nonce-without-a-timestamp', now)
+        !SteamAuthService.nonceIsFresh('', now)
+        !SteamAuthService.nonceIsFresh(null, now)
     }
 
     def "verifyReturn rejects an assertion with no response_nonce"() {
@@ -215,7 +248,7 @@ class SteamAuthServiceSpec extends Specification {
             'openid.claimed_id'    : claimedId,
             'openid.identity'      : claimedId,
             'openid.return_to'     : 'http://localhost:8080/api/auth/steam/return',
-            'openid.response_nonce': nonce,
+            'openid.response_nonce': stamped(nonce),
             'openid.assoc_handle'  : '1234567890',
             'openid.signed'        : signed,
             'openid.sig'           : 'abcDEF123signaturebase64==',
