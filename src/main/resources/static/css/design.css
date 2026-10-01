@@ -29868,7 +29868,7 @@ html body .modal.info-modal .settings-row > div:first-child, html body .modal.in
 html body aside.sidebar .filter-section .filter-option { margin-left: 0 !important; margin-right: 0 !important; width: auto !important; }
 /* Item page: the page already starts under the header, so the extra 70px header padding left an empty band above the item. */
 @media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop.page-mode { padding-top: 0 !important; } }
-/* Market list view: "AVAILABILITY" ran into "VS STEAM" in the header; the column is a little wider now. */
+/* Market list view: the rarity header ran into "VS STEAM" in the header; the column is a little wider now. */
 @media (min-width: 721px) {
   html body table.listing-table thead th:nth-child(1), html body table.listing-table tbody td:nth-child(1) { width: 25% !important; }
   html body table.listing-table thead th:nth-child(2), html body table.listing-table tbody td:nth-child(2) { width: 12.5% !important; }
@@ -29879,3 +29879,66 @@ html body #notif-dropdown-panel.notif-dropdown { overflow-y: auto !important; pa
 html body #notif-dropdown-panel > .notif-header { flex-shrink: 0 !important; position: sticky; top: 0; z-index: 1; background-color: rgb(27, 29, 36) !important; }
 html body #notif-dropdown-panel > .notif-item { flex-shrink: 0 !important; height: auto !important; min-height: 72px !important; padding: 12px 16px !important; gap: 16px !important; align-items: center !important; }
 html body #notif-dropdown-panel > a.notif-item { min-height: 48px !important; background-color: rgb(27, 29, 36) !important; z-index: 1; }
+
+/* ── Marketplace pass 2026-10-01 ─────────────────────────────────────────
+   Measured against the cleared reference markets (Skinport, Market.CSGO,
+   White.market, Lis-skins, Waxpeer, DMarket, CS.Trade): they all fit 5-7
+   cards per row on a laptop screen, show other sellers of the same item as
+   one row per listing with the price and Buy button on the same line, and
+   keep the sales log as a tight table. These rules come last so they win. */
+
+/* Grid: 4 → 5 cards per row at 1280-1599px, so a 1440x900 screen shows
+   10 listings above the fold instead of 4. */
+@media (min-width: 1280px) and (max-width: 1599px) {
+  html body main.layout .listing-grid.listing-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)) !important; gap: 12px !important; }
+}
+@media (min-width: 1100px) and (max-width: 1279px) {
+  html body main.layout .listing-grid.listing-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important; gap: 12px !important; }
+}
+
+/* Item page, Active Listings: the row was a 5-column grid holding up to 11
+   children, so the price and Buy button wrapped onto a second line under the
+   seller. Every reference market shows one listing per line: seller on the
+   left, price and Buy together on the right. */
+html body .modal-listings .modal-listing-row, html body .modal.item-page .modal-listing-row {
+  display: flex !important; flex-wrap: nowrap !important; align-items: center !important;
+  gap: 12px !important; min-height: 56px !important;
+}
+html body .modal-listing-row > .modal-seller-info { flex: 1 1 auto !important; min-width: 0 !important; display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 4px 6px !important; }
+html body .modal-listing-row > .modal-listing-condition { flex: 0 0 auto !important; white-space: nowrap !important; color: var(--ink-3) !important; font-size: 12px !important; }
+html body .modal-listing-row > .modal-listing-price { flex: 0 0 auto !important; min-width: 84px !important; text-align: right !important; font-size: 15px !important; font-weight: 700 !important; font-variant-numeric: tabular-nums !important; color: var(--ink) !important; }
+html body .modal-listing-row > .buy-btn { flex: 0 0 auto !important; min-width: 72px !important; }
+@media (max-width: 640px) {
+  html body .modal-listings .modal-listing-row, html body .modal.item-page .modal-listing-row { flex-wrap: wrap !important; }
+  html body .modal-listing-row > .modal-seller-info { flex-basis: calc(100% - 52px) !important; }
+  html body .modal-listing-row > .modal-listing-price { margin-left: auto !important; }
+  /* The listing number is an internal id; on a phone it pushed the report
+     flag onto a third line. */
+  html body .modal-listing-row > .modal-seller-info + .modal-listing-condition { display: none !important; }
+}
+
+/* Recent sales: 44px rows with a 48px type column read as a list of cards;
+   the references keep the sales log as a dense table. */
+html body .recent-sales-list .recent-sales-row { display: grid !important; grid-template-columns: 76px minmax(0, 1fr) auto !important; gap: 12px !important; padding: 0 14px !important; height: 36px !important; min-height: 36px !important; font-size: 13px !important; }
+html body .recent-sales-list .recent-sales-row:nth-child(even) { background: color-mix(in oklab, var(--bg-2) 45%, transparent) !important; }
+html body .recent-sales-list .recent-sales-price { font-weight: 700 !important; font-variant-numeric: tabular-nums !important; color: var(--ink) !important; }
+html body .recent-sales-list .recent-sales-time { color: var(--ink-3) !important; text-align: right !important; }
+
+/* Card quick actions (+ add to cart, ♡ watch): a later `.grid-thumb > *`
+   rule made them position: relative, so they sat in the image's flow, the +
+   off-centre on the left and the ♡ over the item itself. Pinned top-right
+   together, the way the reference markets place their card actions. */
+html body a.grid-card .grid-cart-btn.grid-cart-btn, html body a.grid-card .grid-star.grid-star { position: absolute !important; z-index: 4 !important; left: auto !important; bottom: auto !important; margin: 0 !important; }
+html body a.grid-card .grid-star.grid-star { top: 8px !important; right: 8px !important; }
+html body a.grid-card .grid-cart-btn.grid-cart-btn { top: 8px !important; right: 44px !important; }
+@media (max-width: 760px) {
+  html body a.grid-card .grid-cart-btn.grid-cart-btn { right: 46px !important; }
+}
+
+/* Touch screens: those buttons only faded in on :hover, which a phone never
+   fires, so phone shoppers could not add a listing from the grid at all.
+   Market.CSGO, DMarket and White.market keep the cart action visible on
+   phones. */
+@media (hover: none) {
+  html body a.grid-card .grid-cart-btn.grid-cart-btn, html body a.grid-card .grid-star.grid-star { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+}
