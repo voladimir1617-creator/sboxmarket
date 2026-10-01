@@ -6903,7 +6903,7 @@ export function App() {
         ),
         h('div', { className: 'filter-divider' }),
         h('details', { className: 'filter-section', role: 'radiogroup', 'aria-label': 'Rarity filter', open: true },
-          h('summary', { className: 'filter-title' }, 'Availability'),
+          h('summary', { className: 'filter-title' }, 'Rarity'),
           RARITIES.map(r =>
             h('div', {
               key: r,
@@ -7663,7 +7663,7 @@ export function App() {
                       h('thead', null,
                         h('tr', null,
                           h('th', null, 'Item'),
-                          h('th', null, 'Availability'),
+                          h('th', null, 'Rarity'),
                           h('th', { className: 'center' }, 'vs Steam'),
                           h('th', { className: 'center' }, 'Trend'),
                           h('th', null, 'Seller'),
