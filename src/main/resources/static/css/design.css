@@ -29942,3 +29942,39 @@ html body a.grid-card .grid-cart-btn.grid-cart-btn { top: 8px !important; right:
 @media (hover: none) {
   html body a.grid-card .grid-cart-btn.grid-cart-btn, html body a.grid-card .grid-star.grid-star { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
 }
+
+/* ── Empty cart pass 2026-10-05 ──────────────────────────────────────────
+   The "Trending right now" rail under an empty cart sat on a dark panel
+   with no inner padding, so the heading and the cards touched its edges
+   and "Browse all" hung off the right side. Its six cards ran four to a
+   row, leaving a half-empty second row, and a modal rule centred their
+   text unlike the same cards on the market. */
+html body .info-modal .csfloat-empty-cart-rail { padding: 20px !important; text-align: left !important; }
+html body .info-modal .csfloat-empty-cart-rail-link { margin-right: 0 !important; }
+@media (min-width: 721px) {
+  html body .info-modal .csfloat-empty-cart-rail-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 720px) {
+  html body .info-modal .csfloat-empty-cart-rail { padding: 14px 12px !important; }
+}
+/* The rail reuses the market's GridCard, but the market's card layout is
+   scoped to the listing grid, so here the card fell back to older rules:
+   striped image well, cramped name, price and seller status side by side.
+   These mirror the market card's computed layout. */
+html body .csfloat-empty-cart-rail-grid a.grid-card { display: flex !important; flex-direction: column !important; min-height: 0 !important; height: auto !important; font-size: 16px !important; line-height: 1.55 !important; color: var(--ink) !important; background: rgb(30, 33, 39) !important; border-top: 1px solid var(--line) !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-thumb { flex: 0 0 auto !important; height: auto !important; min-height: 0 !important; aspect-ratio: 4 / 3 !important; border-top: 0 !important; background: linear-gradient(rgb(30, 33, 39) 0%, color-mix(in oklab, var(--bg-2) 85%, white 6%) 100%) !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .gc-rarity-top { display: none !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .gc-rarity-bottom { height: 2px !important; opacity: 0.9 !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-body { padding: 14px 16px 12px !important; min-height: 0 !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-name { padding: 0 !important; font-size: 15px !important; font-weight: 600 !important; line-height: 20px !important; height: auto !important; color: var(--ink) !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-cat { padding: 0 !important; margin: 2px 0 0 !important; font-size: 12px !important; font-weight: 400 !important; line-height: 1.3 !important; white-space: nowrap !important; height: auto !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-footer { display: flex !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 6px !important; padding: 8px 0 0 !important; margin: 10px 0 0 !important; height: auto !important; flex: 0 0 auto !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-footer > div:first-child { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 2px !important; width: auto !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price { display: flex !important; justify-content: flex-start !important; align-items: center !important; width: auto !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .gc-card-meta { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; padding: 8px 0 0 !important; width: auto !important; font-size: 11px !important; line-height: 1.3 !important; color: var(--ink-3) !important; border-top: 1px solid var(--line) !important; }
+@media (max-width: 720px) {
+  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-body { padding: 10px !important; }
+  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price { font-size: 16px !important; gap: 6px !important; flex-wrap: wrap !important; }
+  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price .steam-market-link,
+  html body .csfloat-empty-cart-rail-grid a.grid-card .gc-card-age { display: none !important; }
+}
