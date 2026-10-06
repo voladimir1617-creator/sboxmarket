@@ -29868,7 +29868,7 @@ html body .modal.info-modal .settings-row > div:first-child, html body .modal.in
 html body aside.sidebar .filter-section .filter-option { margin-left: 0 !important; margin-right: 0 !important; width: auto !important; }
 /* Item page: the page already starts under the header, so the extra 70px header padding left an empty band above the item. */
 @media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop.page-mode { padding-top: 0 !important; } }
-/* Market list view: "AVAILABILITY" ran into "VS STEAM" in the header; the column is a little wider now. */
+/* Market list view: the rarity header ran into "VS STEAM" in the header; the column is a little wider now. */
 @media (min-width: 721px) {
   html body table.listing-table thead th:nth-child(1), html body table.listing-table tbody td:nth-child(1) { width: 25% !important; }
   html body table.listing-table thead th:nth-child(2), html body table.listing-table tbody td:nth-child(2) { width: 12.5% !important; }
@@ -29879,3 +29879,139 @@ html body #notif-dropdown-panel.notif-dropdown { overflow-y: auto !important; pa
 html body #notif-dropdown-panel > .notif-header { flex-shrink: 0 !important; position: sticky; top: 0; z-index: 1; background-color: rgb(27, 29, 36) !important; }
 html body #notif-dropdown-panel > .notif-item { flex-shrink: 0 !important; height: auto !important; min-height: 72px !important; padding: 12px 16px !important; gap: 16px !important; align-items: center !important; }
 html body #notif-dropdown-panel > a.notif-item { min-height: 48px !important; background-color: rgb(27, 29, 36) !important; z-index: 1; }
+
+/* ── Marketplace pass 2026-10-01 ─────────────────────────────────────────
+   Measured against the cleared reference markets (Skinport, Market.CSGO,
+   White.market, Lis-skins, Waxpeer, DMarket, CS.Trade): they all fit 5-7
+   cards per row on a laptop screen, show other sellers of the same item as
+   one row per listing with the price and Buy button on the same line, and
+   keep the sales log as a tight table. These rules come last so they win. */
+
+/* Grid: 4 → 5 cards per row at 1280-1599px, so a 1440x900 screen shows
+   10 listings above the fold instead of 4. */
+@media (min-width: 1280px) and (max-width: 1599px) {
+  html body main.layout .listing-grid.listing-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)) !important; gap: 12px !important; }
+}
+@media (min-width: 1100px) and (max-width: 1279px) {
+  html body main.layout .listing-grid.listing-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important; gap: 12px !important; }
+}
+
+/* Item page, Active Listings: the row was a 5-column grid holding up to 11
+   children, so the price and Buy button wrapped onto a second line under the
+   seller. Every reference market shows one listing per line: seller on the
+   left, price and Buy together on the right. */
+html body .modal-listings .modal-listing-row, html body .modal.item-page .modal-listing-row {
+  display: flex !important; flex-wrap: nowrap !important; align-items: center !important;
+  gap: 12px !important; min-height: 56px !important;
+}
+html body .modal-listing-row > .modal-seller-info { flex: 1 1 auto !important; min-width: 0 !important; display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 4px 6px !important; }
+html body .modal-listing-row > .modal-listing-condition { flex: 0 0 auto !important; white-space: nowrap !important; color: var(--ink-3) !important; font-size: 12px !important; }
+html body .modal-listing-row > .modal-listing-price { flex: 0 0 auto !important; min-width: 84px !important; text-align: right !important; font-size: 15px !important; font-weight: 700 !important; font-variant-numeric: tabular-nums !important; color: var(--ink) !important; }
+html body .modal-listing-row > .buy-btn { flex: 0 0 auto !important; min-width: 72px !important; }
+@media (max-width: 640px) {
+  html body .modal-listings .modal-listing-row, html body .modal.item-page .modal-listing-row { flex-wrap: wrap !important; }
+  html body .modal-listing-row > .modal-seller-info { flex-basis: calc(100% - 52px) !important; }
+  html body .modal-listing-row > .modal-listing-price { margin-left: auto !important; }
+  /* The listing number is an internal id; on a phone it pushed the report
+     flag onto a third line. */
+  html body .modal-listing-row > .modal-seller-info + .modal-listing-condition { display: none !important; }
+}
+
+/* Recent sales: 44px rows with a 48px type column read as a list of cards;
+   the references keep the sales log as a dense table. */
+html body .recent-sales-list .recent-sales-row { display: grid !important; grid-template-columns: 76px minmax(0, 1fr) auto !important; gap: 12px !important; padding: 0 14px !important; height: 36px !important; min-height: 36px !important; font-size: 13px !important; }
+html body .recent-sales-list .recent-sales-row:nth-child(even) { background: color-mix(in oklab, var(--bg-2) 45%, transparent) !important; }
+html body .recent-sales-list .recent-sales-price { font-weight: 700 !important; font-variant-numeric: tabular-nums !important; color: var(--ink) !important; }
+html body .recent-sales-list .recent-sales-time { color: var(--ink-3) !important; text-align: right !important; }
+
+/* Card quick actions (+ add to cart, ♡ watch): a later `.grid-thumb > *`
+   rule made them position: relative, so they sat in the image's flow, the +
+   off-centre on the left and the ♡ over the item itself. Pinned top-right
+   together, the way the reference markets place their card actions. */
+html body a.grid-card .grid-cart-btn.grid-cart-btn, html body a.grid-card .grid-star.grid-star { position: absolute !important; z-index: 4 !important; left: auto !important; bottom: auto !important; margin: 0 !important; }
+html body a.grid-card .grid-star.grid-star { top: 8px !important; right: 8px !important; }
+html body a.grid-card .grid-cart-btn.grid-cart-btn { top: 8px !important; right: 44px !important; }
+@media (max-width: 760px) {
+  html body a.grid-card .grid-cart-btn.grid-cart-btn { right: 46px !important; }
+}
+
+/* Touch screens: those buttons only faded in on :hover, which a phone never
+   fires, so phone shoppers could not add a listing from the grid at all.
+   Market.CSGO, DMarket and White.market keep the cart action visible on
+   phones. */
+@media (hover: none) {
+  html body a.grid-card .grid-cart-btn.grid-cart-btn, html body a.grid-card .grid-star.grid-star { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+}
+
+/* ── Empty cart pass 2026-10-05 ──────────────────────────────────────────
+   The "Trending right now" rail under an empty cart sat on a dark panel
+   with no inner padding, so the heading and the cards touched its edges
+   and "Browse all" hung off the right side. Its six cards ran four to a
+   row, leaving a half-empty second row, and a modal rule centred their
+   text unlike the same cards on the market. */
+html body .info-modal .csfloat-empty-cart-rail { padding: 20px !important; text-align: left !important; }
+html body .info-modal .csfloat-empty-cart-rail-link { margin-right: 0 !important; }
+@media (min-width: 721px) {
+  html body .info-modal .csfloat-empty-cart-rail-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 720px) {
+  html body .info-modal .csfloat-empty-cart-rail { padding: 14px 12px !important; }
+}
+/* The rail reuses the market's GridCard, but the market's card layout is
+   scoped to the listing grid, so here the card fell back to older rules:
+   striped image well, cramped name, price and seller status side by side.
+   These mirror the market card's computed layout. */
+html body .csfloat-empty-cart-rail-grid a.grid-card { display: flex !important; flex-direction: column !important; min-height: 0 !important; height: auto !important; font-size: 16px !important; line-height: 1.55 !important; color: var(--ink) !important; background: rgb(30, 33, 39) !important; border-top: 1px solid var(--line) !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-thumb { flex: 0 0 auto !important; height: auto !important; min-height: 0 !important; aspect-ratio: 4 / 3 !important; border-top: 0 !important; background: linear-gradient(rgb(30, 33, 39) 0%, color-mix(in oklab, var(--bg-2) 85%, white 6%) 100%) !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .gc-rarity-top { display: none !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .gc-rarity-bottom { height: 2px !important; opacity: 0.9 !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-body { padding: 14px 16px 12px !important; min-height: 0 !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-name { padding: 0 !important; font-size: 15px !important; font-weight: 600 !important; line-height: 20px !important; height: auto !important; color: var(--ink) !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-cat { padding: 0 !important; margin: 2px 0 0 !important; font-size: 12px !important; font-weight: 400 !important; line-height: 1.3 !important; white-space: nowrap !important; height: auto !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-footer { display: flex !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 6px !important; padding: 8px 0 0 !important; margin: 10px 0 0 !important; height: auto !important; flex: 0 0 auto !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-footer > div:first-child { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 2px !important; width: auto !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price { display: flex !important; justify-content: flex-start !important; align-items: center !important; width: auto !important; }
+html body .csfloat-empty-cart-rail-grid a.grid-card .gc-card-meta { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; padding: 8px 0 0 !important; width: auto !important; font-size: 11px !important; line-height: 1.3 !important; color: var(--ink-3) !important; border-top: 1px solid var(--line) !important; }
+@media (max-width: 720px) {
+  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-body { padding: 10px !important; }
+  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price { font-size: 16px !important; gap: 6px !important; flex-wrap: wrap !important; }
+  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price .steam-market-link,
+  html body .csfloat-empty-cart-rail-grid a.grid-card .gc-card-age { display: none !important; }
+}
+
+/* ── Item page pass 2026-10-06 ───────────────────────────────────────────
+   The market stats under the price panel (listings, sold, last sale,
+   volume, range, all-time low) were seven uppercase pills of random widths
+   wrapping into ragged rows. Laid out two to a row at equal width, they
+   read as a stats table, the way CS.Trade and DMarket show them. */
+html body .modal.item-page .modal-demand-chip { display: inline-flex !important; align-items: center !important; justify-content: flex-start !important; gap: 4px !important; width: calc(50% - 4px) !important; height: 32px !important; min-height: 32px !important; margin: 0 8px 8px 0 !important; padding: 0 10px !important; box-sizing: border-box !important; vertical-align: top !important; font-size: 12px !important; letter-spacing: 0 !important; text-transform: none !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; border-radius: 8px !important; }
+html body .modal.item-page .modal-demand-chip:nth-child(even of .modal-demand-chip) { margin-right: 0 !important; }
+/* Your own buy order carries a Cancel button, so it takes the full row. */
+html body .modal.item-page .modal-demand-chip.modal-demand-chip:has(button) { width: 100% !important; margin-right: 0 !important; }
+html body .modal.item-page .modal-demand-chip .modal-demand-chip-num { font-weight: 700 !important; color: var(--ink) !important; font-variant-numeric: tabular-nums !important; }
+
+/* The image carried its own small "Standard" rarity label, a repeat of the
+   rarity chip beside the item name; on a phone it sat over the image. */
+html body .modal.item-page .modal-preview > .rarity-badge { display: none !important; }
+
+/* ── Rarity colour pass 2026-10-06 ───────────────────────────────────────
+   One colour per rarity everywhere. The cards' rarity bar uses pink for
+   Limited, gold for Off-Market and blue for Standard, but the sidebar
+   filter dots showed Off-Market in blue and Standard in grey, so the
+   filter contradicted the cards, and the rarity chip beside an item's name
+   was plain grey. The reference markets tie the filter marker, the card
+   accent and the item label to the same rarity colour. */
+html body aside.sidebar .filter-option:nth-of-type(2) .filter-dot.filter-dot { background-color: rgb(235, 75, 130) !important; color: rgb(235, 75, 130) !important; }
+html body aside.sidebar .filter-option:nth-of-type(3) .filter-dot.filter-dot { background-color: rgb(240, 188, 76) !important; color: rgb(240, 188, 76) !important; }
+html body aside.sidebar .filter-option:nth-of-type(4) .filter-dot.filter-dot { background-color: rgb(35, 123, 255) !important; color: rgb(35, 123, 255) !important; }
+html body a.modal-name-rarity[href$="rarity=Limited"] { color: rgb(235, 75, 130) !important; border-color: rgba(235, 75, 130, 0.45) !important; background: rgba(235, 75, 130, 0.1) !important; }
+html body a.modal-name-rarity[href$="rarity=Off-Market"] { color: rgb(240, 188, 76) !important; border-color: rgba(240, 188, 76, 0.45) !important; background: rgba(240, 188, 76, 0.1) !important; }
+html body a.modal-name-rarity[href$="rarity=Standard"] { color: rgb(110, 165, 255) !important; border-color: rgba(35, 123, 255, 0.45) !important; background: rgba(35, 123, 255, 0.1) !important; }
+
+/* ── Phone auction badge 2026-10-06 ──────────────────────────────────────
+   On a two-column phone grid an auction card's "Expires in 14h 6m" badge
+   ran under the ♡ button, cutting the time off. The dot and the time say
+   it on their own at that width. */
+@media (max-width: 760px) {
+  html body .grid-card .auction-countdown::before { content: none !important; display: none !important; }
+}
