@@ -29993,3 +29993,17 @@ html body .modal.item-page .modal-demand-chip .modal-demand-chip-num { font-weig
 /* The image carried its own small "Standard" rarity label, a repeat of the
    rarity chip beside the item name; on a phone it sat over the image. */
 html body .modal.item-page .modal-preview > .rarity-badge { display: none !important; }
+
+/* ── Rarity colour pass 2026-10-06 ───────────────────────────────────────
+   One colour per rarity everywhere. The cards' rarity bar uses pink for
+   Limited, gold for Off-Market and blue for Standard, but the sidebar
+   filter dots showed Off-Market in blue and Standard in grey, so the
+   filter contradicted the cards, and the rarity chip beside an item's name
+   was plain grey. The reference markets tie the filter marker, the card
+   accent and the item label to the same rarity colour. */
+html body aside.sidebar .filter-option:nth-of-type(2) .filter-dot.filter-dot { background-color: rgb(235, 75, 130) !important; color: rgb(235, 75, 130) !important; }
+html body aside.sidebar .filter-option:nth-of-type(3) .filter-dot.filter-dot { background-color: rgb(240, 188, 76) !important; color: rgb(240, 188, 76) !important; }
+html body aside.sidebar .filter-option:nth-of-type(4) .filter-dot.filter-dot { background-color: rgb(35, 123, 255) !important; color: rgb(35, 123, 255) !important; }
+html body a.modal-name-rarity[href$="rarity=Limited"] { color: rgb(235, 75, 130) !important; border-color: rgba(235, 75, 130, 0.45) !important; background: rgba(235, 75, 130, 0.1) !important; }
+html body a.modal-name-rarity[href$="rarity=Off-Market"] { color: rgb(240, 188, 76) !important; border-color: rgba(240, 188, 76, 0.45) !important; background: rgba(240, 188, 76, 0.1) !important; }
+html body a.modal-name-rarity[href$="rarity=Standard"] { color: rgb(110, 165, 255) !important; border-color: rgba(35, 123, 255, 0.45) !important; background: rgba(35, 123, 255, 0.1) !important; }
