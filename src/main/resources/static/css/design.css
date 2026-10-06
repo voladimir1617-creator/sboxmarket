@@ -30007,3 +30007,11 @@ html body aside.sidebar .filter-option:nth-of-type(4) .filter-dot.filter-dot { b
 html body a.modal-name-rarity[href$="rarity=Limited"] { color: rgb(235, 75, 130) !important; border-color: rgba(235, 75, 130, 0.45) !important; background: rgba(235, 75, 130, 0.1) !important; }
 html body a.modal-name-rarity[href$="rarity=Off-Market"] { color: rgb(240, 188, 76) !important; border-color: rgba(240, 188, 76, 0.45) !important; background: rgba(240, 188, 76, 0.1) !important; }
 html body a.modal-name-rarity[href$="rarity=Standard"] { color: rgb(110, 165, 255) !important; border-color: rgba(35, 123, 255, 0.45) !important; background: rgba(35, 123, 255, 0.1) !important; }
+
+/* ── Phone auction badge 2026-10-06 ──────────────────────────────────────
+   On a two-column phone grid an auction card's "Expires in 14h 6m" badge
+   ran under the ♡ button, cutting the time off. The dot and the time say
+   it on their own at that width. */
+@media (max-width: 760px) {
+  html body .grid-card .auction-countdown::before { content: none !important; display: none !important; }
+}
