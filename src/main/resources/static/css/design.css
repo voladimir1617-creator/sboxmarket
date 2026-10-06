@@ -29978,3 +29978,18 @@ html body .csfloat-empty-cart-rail-grid a.grid-card .gc-card-meta { display: fle
   html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price .steam-market-link,
   html body .csfloat-empty-cart-rail-grid a.grid-card .gc-card-age { display: none !important; }
 }
+
+/* ── Item page pass 2026-10-06 ───────────────────────────────────────────
+   The market stats under the price panel (listings, sold, last sale,
+   volume, range, all-time low) were seven uppercase pills of random widths
+   wrapping into ragged rows. Laid out two to a row at equal width, they
+   read as a stats table, the way CS.Trade and DMarket show them. */
+html body .modal.item-page .modal-demand-chip { display: inline-flex !important; align-items: center !important; justify-content: flex-start !important; gap: 4px !important; width: calc(50% - 4px) !important; height: 32px !important; min-height: 32px !important; margin: 0 8px 8px 0 !important; padding: 0 10px !important; box-sizing: border-box !important; vertical-align: top !important; font-size: 12px !important; letter-spacing: 0 !important; text-transform: none !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; border-radius: 8px !important; }
+html body .modal.item-page .modal-demand-chip:nth-child(even of .modal-demand-chip) { margin-right: 0 !important; }
+/* Your own buy order carries a Cancel button, so it takes the full row. */
+html body .modal.item-page .modal-demand-chip.modal-demand-chip:has(button) { width: 100% !important; margin-right: 0 !important; }
+html body .modal.item-page .modal-demand-chip .modal-demand-chip-num { font-weight: 700 !important; color: var(--ink) !important; font-variant-numeric: tabular-nums !important; }
+
+/* The image carried its own small "Standard" rarity label, a repeat of the
+   rarity chip beside the item name; on a phone it sat over the image. */
+html body .modal.item-page .modal-preview > .rarity-badge { display: none !important; }
