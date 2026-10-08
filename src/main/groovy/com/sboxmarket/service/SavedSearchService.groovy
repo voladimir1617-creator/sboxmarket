@@ -25,7 +25,7 @@ class SavedSearchService {
     // `com.sboxmarket.util.ListingEnums` util (single source of truth
     // across controllers + services). Sort stays here because it's
     // service-local and has no parallel on the listings query path.
-    private static final Set<String> ALLOWED_SORTS = ['price_desc','price_asc','newest','rarity','discount','ending_soon'].toSet()
+    private static final Set<String> ALLOWED_SORTS = ['price_desc','price_asc','newest','rarity','discount','ending_soon','popularity','views'].toSet()
     // Batch 957 — listingType whitelist. Mirrors the frontend chip row
     // (ALL / BUY_NOW / AUCTION) so a malformed share URL falls back to
     // the widest view rather than silently narrowing to an invalid bucket.
@@ -125,11 +125,14 @@ class SavedSearchService {
             existing.sort            = sort
             existing.minPrice        = minPrice
             existing.maxPrice        = maxPrice
-            existing.minDiscountPct  = minDisc
-            existing.dealsOnly       = dealsOnly
-            existing.newOnly         = newOnly
-            existing.affordableOnly  = affordableOnly
-            existing.listingType     = listingType
+            // Extended filters only change when the caller sent them: an
+            // older client (or the sign-in merge) that omits them must not
+            // reset a stored "Auctions · ≥20% off" preset to the defaults.
+            if (payload.containsKey('minDiscountPct')) existing.minDiscountPct = minDisc
+            if (payload.containsKey('dealsOnly'))      existing.dealsOnly      = dealsOnly
+            if (payload.containsKey('newOnly'))        existing.newOnly        = newOnly
+            if (payload.containsKey('affordableOnly')) existing.affordableOnly = affordableOnly
+            if (payload.containsKey('listingType'))    existing.listingType    = listingType
             return repository.save(existing)
         }
         if (repository.countByUser(userId) >= MAX_PER_USER) {
@@ -298,7 +301,12 @@ class SavedSearchService {
      */
     private static String normalisePriceBound(String raw) {
         if (raw == null) return ''
-        def s = raw.trim().take(16)
+        // Same cleanup the market filter applies (cleanPriceParam in app.js):
+        // "$20" and "12,50" filter fine on screen, so saving that view must
+        // keep the bound instead of dropping it to "no limit".
+        def s = raw.trim().replace('\$', '').replaceAll(/\s+/, '')
+        if (s ==~ /^\d+,\d{1,2}$/) s = s.replace(',', '.')
+        s = s.take(16)
         if (s.isEmpty()) return ''
         try {
             def v = new BigDecimal(s)
@@ -400,6 +408,10 @@ class SavedSearchService {
      */
     void notifyMatchingForListing(com.sboxmarket.model.Listing listing) {
         if (listing?.item == null || notificationService == null) return
+        // Only a listing people can buy is a match. With escrow on, a new
+        // listing starts PENDING_ESCROW (hidden, maybe never deposited);
+        // SteamEscrowService fans out again when it goes ACTIVE.
+        if (listing.status != 'ACTIVE' || Boolean.TRUE.equals(listing.hidden)) return
         // Batch 619 — narrowed from `findAll()` to a repo query that
         // pre-filters by the listing's category + rarity. Presets that
         // don't constrain those fields (empty strings) still flow

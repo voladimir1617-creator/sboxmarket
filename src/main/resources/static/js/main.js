@@ -8,7 +8,7 @@ applyBrand();
 // bundle instead of reusing a stale ES-module cache entry (a bare './app.js'
 // specifier is cached indefinitely; the live /market kept rendering an old
 // build — e.g. the removed market-stats band — until this query changed).
-import { ErrorBoundary, App } from './app.js?v=256';
+import { ErrorBoundary, App } from './app.js?v=257';
 
 // Global safety nets — log to console AND forward to the server so ops
 // can see production crashes that never trip React's ErrorBoundary

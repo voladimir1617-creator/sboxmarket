@@ -241,11 +241,14 @@ export function NotificationBell({ me }) {
     // Batch 1026 — bell dropdown only ever renders 12 rows, so request
     // 12 from the server instead of the default 100. Shaves ~85% off
     // the payload on every first-open + on every dropdown refresh.
-    const data = await fetchNotifications(12);
+    // With mutes the badge is counted client-side from this slice, so 12
+    // rows weren't enough: a dozen muted pings hid an older unread trade
+    // notice entirely (badge 0, "all caught up", no View all link).
+    const muted = readMuted();
+    const data = await fetchNotifications(muted.size > 0 ? 100 : 12);
     // A failed fetch keeps what's already shown instead of blanking the
     // badge and flashing "all caught up".
     if (data?.error) return;
-    const muted = readMuted();
     const all = Array.isArray(data?.items) ? data.items : [];
     const visible = muted.size > 0 ? all.filter(n => !muted.has(kindBucket(n.kind))) : all;
     const visibleUnread = visible.filter(n => !n.read).length;

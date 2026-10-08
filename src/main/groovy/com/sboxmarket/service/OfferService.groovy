@@ -634,6 +634,12 @@ class OfferService {
         if (original.sellerUserId != sellerUserId) {
             throw new ForbiddenException("You can only counter offers on your own listings")
         }
+        // The seller's own counter is the buyer's turn, not theirs. Countering
+        // it stacked a counter-of-a-counter and left the buyer's original
+        // stuck in COUNTERED once the chain ended.
+        if (original.author == 'SELLER') {
+            throw new BadRequestException("OWN_COUNTER", "That's your own counter. The buyer accepts or declines it.")
+        }
         if (original.status != 'PENDING') {
             throw new OfferNotPendingException(originalOfferId, original.status)
         }
@@ -1113,7 +1119,21 @@ class OfferService {
         // seller attached a reason, surface a truncated preview in the
         // notification body so the buyer sees the context without
         // opening the tab.
-        if (offer.buyerUserId != null && notificationService != null) {
+        // A seller "rejecting" their own counter is withdrawing it. Telling the
+        // buyer "the seller declined your $X offer" quoted the seller's own
+        // price back at them, so say what actually happened.
+        boolean withdrewCounter = offer.author == 'SELLER'
+        if (withdrewCounter && offer.buyerUserId != null && notificationService != null) {
+            try {
+                notificationService.push(offer.buyerUserId, 'OFFER_REJECTED',
+                    "Counter withdrawn · ${offer.itemName ?: 'listing'}",
+                    "The seller withdrew their \$${offer.amount.toPlainString()} counter. You can make a new offer.",
+                    offer.id, '/offers')
+            } catch (Exception e) {
+                log.warn("Counter-withdrawn push failed for buyer ${offer.buyerUserId}: ${e.message}")
+            }
+        }
+        if (!withdrewCounter && offer.buyerUserId != null && notificationService != null) {
             def body = cleanReply
                 ? "The seller declined your \$${offer.amount.toPlainString()} offer — \"${cleanReply.take(120)}${cleanReply.length() > 120 ? '…' : ''}\""
                 : "The seller declined your \$${offer.amount.toPlainString()} offer."
@@ -1128,7 +1148,7 @@ class OfferService {
         // Mirror to email so a sleeping buyer hears about the rejection
         // promptly + sees the optional seller reply without opening the
         // app. Gated on TRADES bucket.
-        if (offer.buyerUserId != null) {
+        if (!withdrewCounter && offer.buyerUserId != null) {
             try {
                 if (emailService != null && steamUserRepository != null) {
                     def buyer = steamUserRepository.findById(offer.buyerUserId).orElse(null)
@@ -1248,13 +1268,20 @@ class OfferService {
                 o.updatedAt = now
                 offerRepository.save(o)
                 n++
+                // Declining a seller counter must also close the buyer's
+                // COUNTERED original, as cancelOffer does, or the buyer is
+                // locked out of offering on that listing again.
+                closeCounteredParent(o)
                 // Quiet per-row push to the seller — best-effort, a
                 // failure here doesn't undo the cancel.
                 if (o.sellerUserId != null && notificationService != null) {
                     try {
+                        boolean wasCounter = o.author == 'SELLER'
                         notificationService.push(o.sellerUserId, 'OFFER_REJECTED',
-                            "Buyer withdrew their offer · ${o.itemName ?: 'listing'}",
-                            "They cancelled their \$${o.amount.toPlainString()} offer.",
+                            wasCounter ? "Buyer declined your counter · ${o.itemName ?: 'listing'}"
+                                       : "Buyer withdrew their offer · ${o.itemName ?: 'listing'}",
+                            wasCounter ? "They declined your \$${o.amount.toPlainString()} counter."
+                                       : "They cancelled their \$${o.amount.toPlainString()} offer.",
                             o.id, '/offers')
                     } catch (Exception e) {
                         log.warn("Bulk-cancel seller push failed for offer ${o.id}: ${e.message}")
@@ -1461,6 +1488,10 @@ class OfferService {
             updatedAt:      o.updatedAt,
             parentOfferId:  o.parentOfferId,
             author:         o.author,
+            // The Offers page renders both; without them the buyer's note
+            // and the seller's rejection reason never showed there.
+            message:        o.message,
+            sellerReply:    o.sellerReply,
             expiresAt:      computeExpiresAt(o)
         ]
     }

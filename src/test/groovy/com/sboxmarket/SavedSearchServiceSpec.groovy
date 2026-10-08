@@ -117,6 +117,47 @@ class SavedSearchServiceSpec extends Specification {
         1 * repository.save({ it.minPrice == '' && it.maxPrice == '' }) >> { SavedSearch s -> s }
     }
 
+    def "upsert keeps a price typed the way the market filter accepts it"() {
+        given:
+        repository.findByUserAndName(10L, 'under20') >> null
+        repository.countByUser(10L) >> 0L
+
+        when: '"$20" and "12,50" filter the grid fine, so saving that view must keep them'
+        service.upsert(10L, [name: 'under20', minPrice: '12,50', maxPrice: '$20'])
+
+        then:
+        1 * repository.save({ it.minPrice == '12.50' && it.maxPrice == '20' }) >> { SavedSearch s -> s }
+    }
+
+    def "upsert keeps the toolbar's Most traded and Most viewed sorts"() {
+        given:
+        repository.findByUserAndName(10L, _) >> null
+        repository.countByUser(10L) >> 0L
+
+        when:
+        service.upsert(10L, [name: 'traded', sort: 'popularity'])
+        service.upsert(10L, [name: 'viewed', sort: 'views'])
+
+        then:
+        1 * repository.save({ it.sort == 'popularity' }) >> { SavedSearch x -> x }
+        1 * repository.save({ it.sort == 'views' }) >> { SavedSearch x -> x }
+    }
+
+    def "upsert on an existing preset leaves extended filters alone when they aren't sent"() {
+        given:
+        def existing = new SavedSearch(id: 7L, userId: 10L, name: 'auction deals', category: 'Hats',
+            minDiscountPct: 20, dealsOnly: true, newOnly: true, affordableOnly: true, listingType: 'AUCTION')
+        repository.findByUserAndName(10L, 'auction deals') >> existing
+
+        when: 'an older client re-saves with only the basic fields'
+        service.upsert(10L, [name: 'auction deals', category: 'Hats', sort: 'newest'])
+
+        then:
+        1 * repository.save({
+            it.minDiscountPct == 20 && it.dealsOnly && it.newOnly && it.affordableOnly && it.listingType == 'AUCTION'
+        }) >> { SavedSearch x -> x }
+    }
+
     def "upsert keeps valid price bounds in plain decimal form (no scientific notation)"() {
         given:
         repository.findByUserAndName(10L, 'okprice') >> null
@@ -681,6 +722,22 @@ class SavedSearchServiceSpec extends Specification {
         1 * notifications.push(12L, 'LISTING_MATCH', _, _, 100L, '/item/1')
         0 * notifications.push(13L, _, _, _, _, _)
         0 * notifications.push(99L, _, _, _, _, _)
+    }
+
+    def "notifyMatchingForListing stays quiet for a listing nobody can buy yet"() {
+        given: 'escrow holds a new listing as PENDING_ESCROW until the deposit lands'
+        def notifications = Mock(NotificationService)
+        service.notificationService = notifications
+        repository.findCandidatesForListing(_, _) >> [
+            new SavedSearch(id: 1L, userId: 11L, name: 'limited hats', category: 'Hats', rarity: 'Limited')
+        ]
+
+        when:
+        service.notifyMatchingForListing(listingFor().tap { it.status = 'PENDING_ESCROW' })
+        service.notifyMatchingForListing(listingFor().tap { it.hidden = true })
+
+        then:
+        0 * notifications.push(*_)
     }
 
     def "notifyMatchingForListing skips banned account owners (batch 315 bug fix)"() {

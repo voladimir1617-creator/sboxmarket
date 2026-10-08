@@ -71,6 +71,7 @@ class SteamEscrowService {
     @Autowired ListingRepository listingRepository
     @Autowired(required = false) SteamUserRepository steamUserRepository
     @Autowired(required = false) NotificationService notificationService
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SavedSearchService savedSearchService
 
     /** Master switch for the escrow pollers, independent of the bot's own
      *  enabled flag — lets ops freeze deposit/return sweeps without unsetting
@@ -1147,7 +1148,11 @@ class SteamEscrowService {
             def l = listingRepository.findById(listingId).orElse(null)
             if (l != null && l.status == STATUS_PENDING_ESCROW) {
                 l.status = STATUS_ACTIVE
-                listingRepository.save(l)
+                def saved = listingRepository.save(l)
+                // Saved-search matches are skipped while the listing waits
+                // on the deposit, so this is the moment they're true.
+                try { savedSearchService?.notifyMatchingForListing(saved) }
+                catch (Exception e) { log.warn("SteamEscrow: saved-search fanout failed for listing ${listingId}: ${e.message}") }
             }
         } catch (Exception e) {
             log.warn("SteamEscrow: could not activate listing ${listingId}: ${e.message}")

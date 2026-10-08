@@ -185,6 +185,9 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
      *  idempotent against any prior FIRED / CANCELLED flip (cancel
      *  racing the sweep is also covered — a user who cancels between
      *  `findTriggered` and the claim won't be pushed at). */
+    // Own transaction: the scheduled sweep and NotificationService.push call
+    // this outside one, and a bare @Modifying query then throws.
+    @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     @Query("""
         UPDATE WatchlistAlert a
@@ -217,6 +220,9 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
      *  create-new path (so the user's intent — "I want an active alert
      *  at $X" — still lands as a brand-new ACTIVE row) without
      *  resurrecting the spent one. */
+    // Own transaction: the scheduled sweep and NotificationService.push call
+    // this outside one, and a bare @Modifying query then throws.
+    @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     @Query("""
         UPDATE WatchlistAlert a
