@@ -8928,6 +8928,7 @@ export function App() {
             // on anon is handled earlier; this is authenticated-but-
             // no-URL case).
             me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+              className: 'cart-notice',
               style: {
                 padding: 10, marginBottom: 12, borderRadius: 8,
                 background: 'rgba(250,204,21,0.1)',
