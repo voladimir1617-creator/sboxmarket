@@ -388,7 +388,7 @@ class CorrelationIdFilter extends OncePerRequestFilter {
             // /index.html). Without a header the browser applies heuristic
             // caching off Last-Modified and can keep an old copy for days.
             resp.setHeader("Cache-Control", HTML_CACHE_CONTROL)
-        } else if (path != null && method == 'GET'
+        } else if (path != null && (method == 'GET' || method == 'HEAD')
                    && !path.startsWith('/api/')
                    && !path.contains('.')
                    && !isOgRoute) {
