@@ -169,6 +169,36 @@ function historyWithinDays(rows, days, withAnchor) {
   return rows.slice(withAnchor && idx > 0 ? idx - 1 : idx);
 }
 
+// Chart range buttons (7D / 1M / 3M / 1Y / ALL). A range is worth offering
+// only when the history spans longer than the range below it (`needs` days)
+// and its window holds at least two points to draw. History gets a row only
+// on days something happened, so this goes by recordedAt, not row count: a
+// quiet item with 5 rows over 120 days has a real 3M view, not "need 8 days".
+const CHART_RANGES = [
+  { id: '7D',   label: '7D',  days: 7,    needs: 0  },
+  { id: '30D',  label: '1M',  days: 30,   needs: 7  },
+  { id: '90D',  label: '3M',  days: 90,   needs: 30 },
+  { id: '365D', label: '1Y',  days: 365,  needs: 90 },
+  { id: 'ALL',  label: 'ALL', days: null, needs: 0  }
+];
+// Distinct sellers among listings. Listing rows carry `sellerUserId`; a null
+// one is a house listing and counts as one seller.
+function sellerCount(listings) {
+  return new Set((listings || []).map(l => l.sellerUserId ?? 'house')).size;
+}
+function historySpanDays(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return 0;
+  const first = rows[0]?.recordedAt;
+  if (!Number.isFinite(first)) return rows.length;
+  return (Date.now() - first) / 86_400_000;
+}
+function chartRangeUsable(rows, range) {
+  if (!Array.isArray(rows) || rows.length === 0) return true;
+  if (range.id === 'ALL') return true;
+  if (range.needs > 0 && historySpanDays(rows) <= range.needs) return false;
+  return historyWithinDays(rows, range.days, true).length >= 2;
+}
+
 function fmtDelay(ms) {
   const m = Number(ms);
   if (!Number.isFinite(m) || m <= 0) return null;
@@ -328,10 +358,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     // before data arrives would also stick on items that DO have rich
     // history (the effect would run once with len=0 and never restore).
     if (!history || history.length === 0) return;
-    const len = history.length;
-    if (chartRange === '30D'  && len <= 7)  setChartRange('7D');
-    if (chartRange === '90D'  && len <= 30) setChartRange('7D');
-    if (chartRange === '365D' && len <= 90) setChartRange('7D');
+    const cur = CHART_RANGES.find(r => r.id === chartRange);
+    if (!cur || chartRangeUsable(history, cur)) return;
+    // Shortest range that draws something, else ALL.
+    const next = CHART_RANGES.find(r => chartRangeUsable(history, r));
+    setChartRange(next ? next.id : 'ALL');
   }, [history, chartRange]);
   const [similar, setSimilar] = useState(null);
   // Batch 836 — expand/collapse the Active Listings list. Default
@@ -1168,7 +1199,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           listings && h('button', {
             className: 'modal-demand-chip',
             style: { cursor: 'pointer', border: 'inherit', background: 'inherit', color: 'inherit', font: 'inherit' },
-            title: `${listings.length} listing${listings.length === 1 ? '' : 's'} from ${new Set(listings.map(l => l.seller?.id ?? l.sellerId)).size} seller${new Set(listings.map(l => l.seller?.id ?? l.sellerId)).size === 1 ? '' : 's'} — click to scroll to the active listings section`,
+            title: `${listings.length} listing${listings.length === 1 ? '' : 's'} from ${sellerCount(listings)} seller${sellerCount(listings) === 1 ? '' : 's'} — click to scroll to the active listings section`,
             onClick: () => {
               const section = document.querySelector('.active-listings-anchor, .listings-section');
               if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1268,7 +1299,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 velocity.soldLast24h > 0 ? velocity.soldLast24h
                   : velocity.soldLast7d > 0 ? velocity.soldLast7d
                   : velocity.soldLast30d),
-              velocity.soldLast24h > 0 ? ' sold today'
+              velocity.soldLast24h > 0 ? ' sold in 24h'
                 : velocity.soldLast7d > 0 ? ' sold this week'
                 : ' sold this month'
             ),
@@ -1334,7 +1365,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // of the "this is a deal" signals (below-30D-low + good-deal).
           priceExtremes && priceExtremes.low30d != null && priceExtremes.allTimeLow < priceExtremes.low30d &&
             h('div', { className: 'modal-demand-chip signal-up' },
-              'All-time low · ',
+              // The history endpoint returns about a year, so "all-time" overstated it.
+              '1Y low · ',
               h('span', { className: 'modal-demand-chip-num' }, fmt(priceExtremes.allTimeLow))
             )
         )
@@ -1448,23 +1480,15 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             // produces no visible change. CSFloat parity: only enable ranges
             // whose window is shorter than the available history (so they'd
             // actually clamp the series to fewer points).
-            [
-              { id: '7D',   label: '7D',  needs: 0   },
-              { id: '30D',  label: '1M',  needs: 7   },
-              { id: '90D',  label: '3M',  needs: 30  },
-              { id: '365D', label: '1Y',  needs: 90  },
-              { id: 'ALL',  label: 'ALL', needs: 0   }
-            ].map(r => {
-              const histLen = (history && history.length) || 0;
-              const hasHistory = !!history && histLen > 0;
-              const insufficient = hasHistory && r.needs > 0 && histLen <= r.needs;
+            CHART_RANGES.map(r => {
+              const insufficient = !chartRangeUsable(history, r);
               return h('button', {
                 key: r.id,
                 className: `chart-range-btn ${chartRange === r.id ? 'active' : ''}${insufficient ? ' is-disabled' : ''}`,
                 onClick: () => { if (!insufficient) setChartRange(r.id); },
                 disabled: insufficient,
                 title: insufficient
-                  ? `Need at least ${r.needs + 1} days of price history to compare a ${r.label} window — try 7D.`
+                  ? `Not enough price history in the last ${r.label} to draw a chart — try ALL.`
                   : null,
                 'aria-label': insufficient
                   ? `${r.label} (insufficient history)`
@@ -1645,7 +1669,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
    distinguishable without color. axe-link-in-text-block flagged
    the bare-color variant. */
                           h('a', { href: '/db?q=' + encodeURIComponent(item?.name || ''), style: { color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' } }, 'Database'),
-                          ' for past sales.')
+                          ' to look it up.')
                       : h(React.Fragment, null,
                           'Sign in to set a restock alert or place a standing buy order — or browse ',
                           /* Boss QA cycle 12 — inline link inside paragraph copy needs an
@@ -1653,7 +1677,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
    distinguishable without color. axe-link-in-text-block flagged
    the bare-color variant. */
                           h('a', { href: '/db?q=' + encodeURIComponent(item?.name || ''), style: { color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' } }, 'Database'),
-                          ' for past sales.'))
+                          ' to look it up.'))
                 ),
                 me
                   ? h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
@@ -10546,7 +10570,7 @@ function ProfileSupportTab() {
       // a11y audit — visible label exists but wasn't programmatically tied
       // to the input. Screen-reader users heard "edit, blank" instead of
       // "Ticket subject, edit". Same fix for the Message textarea below.
-      h('input', { className: 'wallet-amount-input', 'aria-label': 'Ticket subject', value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), placeholder: 'Short subject line…' }),
+      h('input', { className: 'wallet-amount-input', 'aria-label': 'Ticket subject', value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), maxLength: 80, placeholder: 'Short subject line…' }),
       h('div', { className: 'wallet-input-label' }, 'Category'),
       h('select', { className: 'sort-select', 'aria-label': 'Ticket category', value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) },
         ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, c))

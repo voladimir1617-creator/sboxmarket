@@ -90,4 +90,36 @@ class TextSanitizer {
 
     /** Clean a long-form message (support ticket body / CSR note). */
     String body(String input) { clean(input, LIMIT_LONG) }
+
+    /**
+     * Newline-preserving long-form clean. {@link #body} collapses EVERY
+     * whitespace run, \n included, which flattens a multi-paragraph support
+     * message into one line. This runs {@code sanitizer.body} per line and
+     * rejoins with \n, clamps blank-line runs to one, and caps the result at
+     * LIMIT_LONG. Static and routed through the given instance's body() so
+     * every support path (user, CSR, admin) shares one implementation.
+     */
+    static String multiline(TextSanitizer sanitizer, String body) {
+        if (body == null) return null
+        // Normalise CRLF / lone CR so the split is consistent across clients.
+        def lines = body.replace('\r\n', '\n').replace('\r', '\n').split('\n', -1)
+        def cleaned = new StringBuilder()
+        int blankRun = 0
+        for (String line : lines) {
+            def c = sanitizer.body(line) ?: ''
+            if (c.isEmpty()) {
+                blankRun++
+                if (blankRun > 1) continue          // clamp blank-line runs
+            } else {
+                blankRun = 0
+            }
+            if (cleaned.length() > 0) cleaned.append('\n')
+            cleaned.append(c)
+        }
+        def result = cleaned.toString().trim()
+        if (result.length() > LIMIT_LONG) {
+            result = result.substring(0, LIMIT_LONG)
+        }
+        result
+    }
 }

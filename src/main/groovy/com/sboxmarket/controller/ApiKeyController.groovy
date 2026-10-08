@@ -37,7 +37,17 @@ class ApiKeyController {
         def uid = requireUser(req)
         int cap = parseLimit(req, 50, 200)
         def rows = apiKeyService.listForUser(uid)
-        if (rows.size() > cap) rows = rows.take(cap)
+        if (rows.size() > cap) {
+            // Active keys (capped at 20 per user) always make the page; the
+            // cap only trims revoked history. Taking the newest `cap` rows
+            // let a run of revoked keys push an older live key, and its
+            // Revoke button, off the list.
+            def active  = rows.findAll { !Boolean.TRUE.equals(it.revoked) }
+            def revoked = rows.findAll { Boolean.TRUE.equals(it.revoked) }
+            def keep = new HashSet(active.take(cap)*.id)
+            keep.addAll(revoked.take(Math.max(0, cap - keep.size()))*.id)
+            rows = rows.findAll { it.id in keep }
+        }
         ResponseEntity.ok(rows)
     }
 

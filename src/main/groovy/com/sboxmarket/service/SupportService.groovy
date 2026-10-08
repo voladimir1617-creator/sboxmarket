@@ -40,42 +40,9 @@ class SupportService {
      *  WatchlistService. */
     static final int MAX_OPEN_TICKETS_PER_USER = 20
 
-    /**
-     * Newline-preserving body sanitizer. {@link TextSanitizer#body} collapses
-     * EVERY whitespace run — including \n — into a single space, which flattens
-     * a multi-paragraph ticket body (and the carefully templated report-user
-     * body: Reporter / Target / Reason / Context) into one unreadable line for
-     * the CSR reading it. We still need the per-character XSS stripping that
-     * TextSanitizer does, so we run it line-by-line and rejoin with \n.
-     *
-     * Blank-line runs are clamped to a single blank line so a hostile body
-     * can't be 2000 lines of nothing, and the whole thing is capped at the
-     * same LIMIT_LONG (2000) the column allows.
-     */
+    /** Newline-preserving body clean; see {@link TextSanitizer#multiline}. */
     private String sanitizeMultiline(String body) {
-        if (body == null) return null
-        // Normalise CRLF / lone CR so the split is consistent across clients.
-        def lines = body.replace('\r\n', '\n').replace('\r', '\n').split('\n', -1)
-        def cleaned = new StringBuilder()
-        int blankRun = 0
-        for (String line : lines) {
-            // Each line goes through the real sanitizer (HTML/JS/entity strip,
-            // intra-line whitespace collapse). An all-whitespace line yields ''.
-            def c = textSanitizer.body(line) ?: ''
-            if (c.isEmpty()) {
-                blankRun++
-                if (blankRun > 1) continue          // clamp blank-line runs
-            } else {
-                blankRun = 0
-            }
-            if (cleaned.length() > 0) cleaned.append('\n')
-            cleaned.append(c)
-        }
-        def result = cleaned.toString().trim()
-        if (result.length() > TextSanitizer.LIMIT_LONG) {
-            result = result.substring(0, TextSanitizer.LIMIT_LONG)
-        }
-        result
+        TextSanitizer.multiline(textSanitizer, body)
     }
 
     /**
@@ -209,7 +176,12 @@ class SupportService {
             body:       autoReply(cleanCategory),
             createdAt:  userMsgCreatedAt + 1L
         ))
-        ticket.status = 'WAITING_USER'
+        // The auto-reply is not a person answering: the ticket stays in the
+        // staff queue (WAITING_STAFF). Flipping it to WAITING_USER hid it
+        // from the CSR panel's default filter and the "waiting on us"
+        // count, showed it as "waiting on you" to the user, and let the
+        // 14-day WAITING_USER sweeper auto-close a ticket nobody answered.
+        ticket.status = 'WAITING_STAFF'
         ticket.updatedAt = System.currentTimeMillis()
         ticketRepository.save(ticket)
 

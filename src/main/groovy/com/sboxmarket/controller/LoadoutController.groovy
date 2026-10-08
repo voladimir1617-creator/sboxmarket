@@ -35,6 +35,11 @@ class LoadoutController {
         if ((search == null || search.isBlank()) && q != null && !q.isBlank()) search = q
         if (search != null) search = search.replace('\u0000', '')
         if (search != null && search.length() > 100) search = search.substring(0, 100)
+        // searchPublic declares ESCAPE '\\': escape the user's text so `_` and
+        // `%` match literally and a trailing `\\` isn't a malformed pattern.
+        if (search != null && !search.isBlank()) {
+            search = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        }
         ResponseEntity.ok()
                 .header("Cache-Control", "public, max-age=60")
                 .body(loadoutService.decorate(loadoutService.listPublic(search)))

@@ -288,6 +288,14 @@ class ItemController {
      *  for items with rich sale data without hammering the endpoint
      *  with pagination. 50 is enough to give the median chip (batch
      *  729) a stable anchor without bloating the payload. */
+    /** What a sold listing actually went for. Auction settlement (and
+     *  auction Buy Now) records the winning amount in `currentBid` and
+     *  leaves `price` at the starting bid, so reading `price` showed an
+     *  auction won at $25 as a $1 sale. */
+    static BigDecimal salePrice(com.sboxmarket.model.Listing l) {
+        (l.listingType == 'AUCTION' && l.currentBid != null) ? l.currentBid : l.price
+    }
+
     @GetMapping("/{id}/recent-sales")
     ResponseEntity<List<Map>> getRecentSales(@PathVariable Long id,
                                              @RequestParam(required = false) Integer limit) {
@@ -297,7 +305,7 @@ class ItemController {
         def out = rows.collect { l ->
             [
                 listingId: l.id,
-                price:     l.price,
+                price:     salePrice(l),
                 soldAt:    l.soldAt,
                 listingType: l.listingType
             ]
@@ -342,7 +350,7 @@ class ItemController {
                 soldLast7d:      listingRepository.countSoldForItemSince(id, week),
                 soldLast30d:     listingRepository.countSoldForItemSince(id, month),
                 volumeLast30d:   listingRepository.sumSoldVolumeForItemSince(id, month) ?: BigDecimal.ZERO,
-                lastSoldPrice:   lastRow?.price,
+                lastSoldPrice:   lastRow == null ? null : salePrice(lastRow),
                 lastSoldAt:      lastRow?.soldAt
             ])
     }

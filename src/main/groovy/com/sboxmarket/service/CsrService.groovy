@@ -204,6 +204,8 @@ class CsrService {
         def q = (search ?: '').trim()
         if (q.length() > 100) q = q.substring(0, 100)
         q = q.replace('\u0000', '')
+        // The ticket search query declares ESCAPE '\\': match `_` / `%` literally.
+        q = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
         // Cap at 500 rows — consistent with AdminService.listWithdrawals /
         // listTrades. Past that the CSR UI should use CSV / direct DB for
         // historical digging rather than hydrating a mega-list per refresh.
@@ -282,7 +284,8 @@ class CsrService {
             throw new BadRequestException("ALREADY_RESOLVED",
                 "Ticket is resolved — ask the user to reopen it from their support page before replying")
         }
-        def cleanBody = textSanitizer.body(body)
+        // Keep line breaks, same as the user's side of the thread.
+        def cleanBody = TextSanitizer.multiline(textSanitizer, body)
         if (!cleanBody || cleanBody.isEmpty()) {
             throw new BadRequestException("INVALID_BODY", "Reply body required")
         }
