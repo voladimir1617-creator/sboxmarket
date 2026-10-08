@@ -30182,3 +30182,24 @@ html body .info-modal .profile-panel { text-align: left !important; }
 @media (max-width: 720px) {
   html body .profile-stats > .profile-stat:last-child:nth-child(odd) { grid-column: 1 / -1 !important; border-right: 0 !important; }
 }
+
+/* Phone profile follow-up 2026-10-08
+   1. The cookie-preferences button floated fixed over the page on phones
+      (left 16px, 88px up), so wherever a page had text or controls at
+      that spot it covered them: the cart tray, the Buy bar, then the
+      profile's notification text. On phones it now sits in the page's own
+      bottom margin under the footer, where nothing else lives, and scrolls
+      with the page instead of hovering over content. The footer leaves
+      room for it, and the tray and Buy bar lifts still clear it there.
+   2. A switch that was on had its knob moved twice, once by left: 18px
+      and again by translateX(16px), so it ended 14px outside its 36px
+      track and ran into the "On" label beside the email-notifications
+      switch. Keep the knob at its resting left and let the translate alone
+      move it, on every page and width. */
+@media (max-width: 720px) {
+  html body button[aria-label="Cookie preferences"] { position: absolute !important; bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; }
+  html body:has(button[aria-label="Cookie preferences"]) .site-footer { padding-bottom: 128px !important; }
+  html body:has(.cart-tray):has(button[aria-label="Cookie preferences"]) .site-footer { padding-bottom: 200px !important; }
+  html body:has(.item-buy-bar):has(button[aria-label="Cookie preferences"]) .site-footer { padding-bottom: 190px !important; }
+}
+html body .toggle-switch.on::before, html body [role="switch"][aria-checked="true"]::before { left: 1px !important; }
