@@ -995,8 +995,11 @@ class PublicEndpointsHttpSpec extends Specification {
         def up = extract(upper.response.contentAsString)
         def low = extract(lower.response.contentAsString)
         up.size() >= 2
-        up == up.toSorted()
-        low == low.toSorted()
+        // Ascending by price, with unpriced (0) items after every priced one:
+        // an unlisted item has no floor, so it must not open "cheapest first".
+        def ascUnpricedLast = { List<BigDecimal> p -> p.findAll { it > 0 }.toSorted() + p.findAll { it <= 0 } }
+        up == ascUnpricedLast(up)
+        low == ascUnpricedLast(low)
     }
 
     def "GET /api/listings?sort=PRICE_DESC matches price_desc (batch 661)"() {
