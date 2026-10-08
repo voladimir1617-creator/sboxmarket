@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=225';
+} from './modals.js?v=226';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -3500,7 +3500,10 @@ export function App() {
     // Batch 912 — name the saved preset + hint at the match-alert behaviour.
     // New users don't know saved searches auto-fire notifications when a
     // fresh listing matches; surfacing it here raises retention.
-    showToast(`Saved search "${entry.name}" — you'll get a match alert when a fresh listing fits.`, 'ok');
+    // Signed-out saves live only in this browser, so no alert can fire.
+    showToast(me
+      ? `Saved search "${entry.name}" — you'll get a match alert when a fresh listing fits.`
+      : `Saved search "${entry.name}" in this browser. Sign in to get match alerts.`, 'ok');
     if (!me) return;
     try {
       const { upsertSavedSearch } = await import('./api.js');

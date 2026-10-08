@@ -242,6 +242,9 @@ export function NotificationBell({ me }) {
     // 12 from the server instead of the default 100. Shaves ~85% off
     // the payload on every first-open + on every dropdown refresh.
     const data = await fetchNotifications(12);
+    // A failed fetch keeps what's already shown instead of blanking the
+    // badge and flashing "all caught up".
+    if (data?.error) return;
     const muted = readMuted();
     const all = Array.isArray(data?.items) ? data.items : [];
     const visible = muted.size > 0 ? all.filter(n => !muted.has(kindBucket(n.kind))) : all;
@@ -268,7 +271,7 @@ export function NotificationBell({ me }) {
     const muted = readMuted();
     if (muted.size > 0) { await loadFull(); return; }
     const n = await fetchUnreadNotificationCount();
-    setUnread(n);
+    if (n != null) setUnread(n);
   }, [me, loadFull]);
 
   // Kept for backwards-compat with the close-handler + mark-read paths

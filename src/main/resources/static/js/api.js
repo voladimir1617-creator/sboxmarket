@@ -563,7 +563,9 @@ export async function unfollowSeller(sellerId) {
   return writeJson(`${API}/follows/${sellerId}`, { method: 'DELETE', credentials: 'same-origin' });
 }
 export async function fetchFollowing() {
-  const data = await safeJson(`${API}/follows`);
+  // The server defaults to 50 rows but lets a user follow 200; ask for
+  // all of them so sellers past #50 can still be unfollowed or muted.
+  const data = await safeJson(`${API}/follows?limit=200`);
   return Array.isArray(data) ? data : [];
 }
 /** Unfollow every seller in one call. Returns `{unfollowed:N}`. */
@@ -1187,17 +1189,18 @@ export async function fetchNotifications(limit) {
 
 /** Cheap unread-count for the nav bell's 25-second poll — avoids
  *  shipping 100 notification rows on every tick just to compute a
- *  single integer. Falls through to 0 on any error so the bell
- *  doesn't drop stale unread ticks on a transient network blip. */
+ *  single integer. Returns null on any error so the caller keeps the
+ *  last known count: returning 0 blanked the badge on a network blip
+ *  and the next good poll then re-played the ding for old rows. */
 export async function fetchUnreadNotificationCount() {
   try {
     const r = await fetch(`${API}/notifications/unread-count`, { credentials: 'same-origin' });
-    if (!r.ok) return 0;
+    if (!r.ok) return null;
     const data = await r.json();
     const n = parseInt(data?.unread, 10);
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? n : null;
   } catch {
-    return 0;
+    return null;
   }
 }
 
