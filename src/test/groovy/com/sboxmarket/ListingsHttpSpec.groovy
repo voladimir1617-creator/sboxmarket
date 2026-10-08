@@ -40,6 +40,15 @@ class ListingsHttpSpec extends Specification {
     Item              seededItem
     Listing           seededListing
 
+    // A fresh client IP per request, so a search request in the newer specs
+    // gets its own rate-limit bucket instead of 429ing after the rest of
+    // the suite has drained the shared one.
+    private static int ipSeq = 0
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor freshIp() {
+        int n = ++ipSeq
+        return { r -> r.remoteAddr = "10.77.${(n >> 8) & 255}.${n & 255}"; r } as org.springframework.test.web.servlet.request.RequestPostProcessor
+    }
+
     def setup() {
         mockMvc     = ctx.getBean(MockMvc)
         itemRepo    = ctx.getBean(ItemRepository)
@@ -1115,14 +1124,12 @@ class ListingsHttpSpec extends Specification {
 
         when:
         def result = mockMvc.perform(
-            MockMvcRequestBuilders.get('/api/listings').param('search', "  ${name} ")
+            MockMvcRequestBuilders.get('/api/listings').param('search', "  ${name} ").with(freshIp())
         ).andReturn()
 
         then:
-        result.response.status == 200 || result.response.status == 429
-        if (result.response.status == 200) {
-            assert result.response.contentAsString.contains(name)
-        }
+        result.response.status == 200
+        result.response.contentAsString.contains(name)
     }
 
     def "GET /api/listings price filter uses an auction's current bid, not its opening price"() {
@@ -1140,9 +1147,9 @@ class ListingsHttpSpec extends Specification {
 
         when:
         def cheap = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings')
-            .param('search', "BidBand-${uniq}").param('maxPrice', '5')).andReturn()
+            .param('search', "BidBand-${uniq}").param('maxPrice', '5').with(freshIp())).andReturn()
         def dear = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings')
-            .param('search', "BidBand-${uniq}").param('minPrice', '40')).andReturn()
+            .param('search', "BidBand-${uniq}").param('minPrice', '40').with(freshIp())).andReturn()
 
         then:
         cheap.response.status == 200
@@ -1169,7 +1176,7 @@ class ListingsHttpSpec extends Specification {
         def seen = []
         [0, 2, 4].each { off ->
             def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings')
-                .param('search', "TiePage${uniq}").param('limit', '2').param('offset', "${off}")).andReturn()
+                .param('search', "TiePage${uniq}").param('limit', '2').param('offset', "${off}").with(freshIp())).andReturn()
             assert r.response.status == 200
             def body = new groovy.json.JsonSlurper().parseText(r.response.contentAsString)
             seen.addAll(body.items*.id.collect { it as Long })
