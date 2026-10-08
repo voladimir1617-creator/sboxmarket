@@ -30015,3 +30015,91 @@ html body a.modal-name-rarity[href$="rarity=Standard"] { color: rgb(110, 165, 25
 @media (max-width: 760px) {
   html body .grid-card .auction-countdown::before { content: none !important; display: none !important; }
 }
+
+/* Cart tray and phone Buy bar 2026-10-08
+   Cart tray: on the market and home pages a bar pinned to the bottom shows
+   how many items are in the cart, their total and a Checkout button that
+   opens /cart, where the existing review and confirm step runs. On phones
+   it sits just above the bottom nav and lifts the Filters button.
+   Phone Buy bar: once the price box on an item page scrolls out of view,
+   a bar above the bottom nav keeps the name, price, Add to cart and Buy
+   in reach. Desktop already keeps that box sticky, so it shows at 900px
+   and below only. */
+html body .cart-tray {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  z-index: 85; display: flex; align-items: center; gap: 14px;
+  min-width: 340px; max-width: calc(100vw - 32px);
+  padding: 10px 10px 10px 14px; border-radius: 14px;
+  background: var(--bg-2, #0d1322); border: 1px solid var(--line-2, var(--line));
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  animation: cartTrayIn 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes cartTrayIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+html body .cart-tray .cart-tray-icon {
+  width: 36px; height: 36px; flex: 0 0 36px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in oklab, var(--cta) 16%, transparent); color: var(--cta);
+}
+html body .cart-tray .cart-tray-info { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+html body .cart-tray .cart-tray-count { font: 500 12px/1.2 var(--ui); color: var(--ink-3); white-space: nowrap; }
+html body .cart-tray .cart-tray-total { font: 700 16px/1.2 var(--mono); color: var(--ink-1); font-feature-settings: "tnum"; }
+html body .cart-tray a.cart-tray-checkout {
+  flex: 0 0 auto; min-height: 40px; padding: 0 20px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; text-decoration: none; white-space: nowrap;
+}
+html body:has(.cart-tray) .site-footer { padding-bottom: 96px; }
+@media (max-width: 720px) {
+  html body .cart-tray {
+    left: 12px; right: 12px; transform: none; min-width: 0; max-width: none;
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+    animation-name: cartTrayInPhone;
+  }
+  @keyframes cartTrayInPhone { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  html body:has(.cart-tray) .mobile-filters-fab { bottom: calc(146px + env(safe-area-inset-bottom, 0px)) !important; }
+  html body:has(.cart-tray) .site-footer { padding-bottom: 150px; }
+}
+
+html body .item-buy-bar { display: none; }
+@media (max-width: 900px) {
+  html body .item-buy-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 85;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg-2, #0d1322); border-top: 1px solid var(--line-2, var(--line));
+    box-shadow: 0 -12px 28px -14px rgba(0, 0, 0, 0.6);
+    animation: itemBuyBarIn 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes itemBuyBarIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  html body .item-buy-bar .item-buy-bar-info { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+  html body .item-buy-bar .item-buy-bar-name { font: 500 12px/1.25 var(--ui); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html body .item-buy-bar .item-buy-bar-price { font: 700 17px/1.2 var(--mono); color: var(--ink-1); font-feature-settings: "tnum"; }
+  html body .item-buy-bar button.item-buy-bar-cart {
+    width: 44px; height: 44px; flex: 0 0 44px; border-radius: 10px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; color: var(--ink-1); border: 1px solid var(--line-2, var(--line));
+  }
+  html body .item-buy-bar button.item-buy-bar-cart:disabled { color: var(--cta); cursor: default; }
+  html body .item-buy-bar button.item-buy-bar-buy {
+    height: 44px; flex: 0 0 auto; padding: 0 20px; border-radius: 10px; border: 0; cursor: pointer;
+    background: var(--cta); color: #fff; font: 700 14px/1 var(--ui); white-space: nowrap;
+  }
+  html body:has(.item-buy-bar) main.modal.item-page { padding-bottom: 84px; }
+}
+@media (max-width: 720px) {
+  html body .item-buy-bar { bottom: calc(57px + env(safe-area-inset-bottom, 0px)); padding-bottom: 10px; }
+  html body:has(.item-buy-bar) main.modal.item-page { padding-bottom: 140px; }
+}
+/* Toasts clear the tray and the Buy bar instead of covering them. */
+html body:has(.cart-tray) .toast-stack, html body:has(.cart-tray) .sale-toasts, html body:has(.cart-tray) .sale-toast.sale-toast { bottom: 92px !important; }
+@media (max-width: 900px) {
+  html body:has(.item-buy-bar) .toast-stack, html body:has(.item-buy-bar) .sale-toasts, html body:has(.item-buy-bar) .sale-toast.sale-toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+@media (max-width: 720px) {
+  html body:has(.cart-tray) .toast-stack, html body:has(.cart-tray) .sale-toasts, html body:has(.cart-tray) .sale-toast.sale-toast { bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important; }
+  html body:has(.item-buy-bar) .toast-stack, html body:has(.item-buy-bar) .sale-toasts, html body:has(.item-buy-bar) .sale-toast.sale-toast { bottom: calc(132px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+/* The Buy bar lives on <body>, above the page's own stacking layer, so it
+   steps aside whenever a dialog (the buy confirm included) is open. */
+html body:has(.cart-confirm-backdrop) .item-buy-bar,
+html body:has([aria-modal="true"]) .item-buy-bar { display: none !important; }
