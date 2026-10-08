@@ -2275,22 +2275,17 @@ class PublicEndpointsHttpSpec extends Specification {
         cc.contains('must-revalidate')
     }
 
-    def "GET /market (OpenGraph SEO shell) is edge-cacheable, not no-cache"() {
-        // /market is served by OpenGraphController as an SEO HTML shell and
-        // carries the controller's `public, max-age=3600` for CDN/edge
-        // caching. CorrelationIdFilter must NOT also stamp `no-cache` on it
-        // — the resulting double Cache-Control header let `no-cache` win
-        // and silently defeated the SEO cache (final-wave CorrelationIdFilter
-        // fix). The live marketplace DATA is fetched via /api/listings,
-        // which stays no-store independently.
+    def "GET /market (OpenGraph SEO shell) revalidates on every visit"() {
+        // The shell names the current ?v= asset URLs, so the old hour-long
+        // `max-age=3600` kept a browser on the previous build after a deploy.
+        // The filter must still leave the header to the controller, so it
+        // carries exactly one value. HtmlDocumentCacheHeadersSpec covers the
+        // rest of the pages.
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/market')).andReturn()
 
         then:
-        def cc = r.response.getHeader('Cache-Control')
-        cc != null
-        cc.contains('max-age')
-        !cc.contains('no-cache')
+        r.response.getHeaders('Cache-Control') == ['private, no-cache, must-revalidate']
     }
 
     def "GET /img/favicon-512.png keeps the 4-hour public cache (batch 796 — assets unchanged)"() {

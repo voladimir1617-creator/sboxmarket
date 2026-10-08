@@ -25,6 +25,15 @@ class CorrelationIdFilter extends OncePerRequestFilter {
     private static final String HEADER = "X-Correlation-Id"
     private static final String MDC_KEY = "cid"
 
+    /** Cache-Control for every HTML document (SPA shell, OG shells, the
+     *  404 shell, static .html pages). The documents name the current
+     *  `?v=` asset URLs, so a cached copy pins the browser to the previous
+     *  build after a deploy; `no-cache` makes every visit revalidate.
+     *  `private` keeps shared proxies/CDNs from storing them at all: the
+     *  first response carries CsrfFilter's Set-Cookie, and a shared copy
+     *  would hand one visitor's CSRF token to the next. */
+    static final String HTML_CACHE_CONTROL = 'private, no-cache, must-revalidate'
+
     // Content-Security-Policy lists every external origin the SPA talks to.
     // Keeping it here instead of in a reverse proxy means a single deploy
     // controls it. Keep the list tight — if we add a new CDN we edit this one
@@ -331,12 +340,9 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         // HTML shell for and stamps with its OWN `Cache-Control` via
         // `ResponseEntity.header()`. ResponseEntity headers APPEND rather
         // than replace, so if this filter ALSO sets Cache-Control on one
-        // of these paths the response carries two values — and a browser/
-        // CDN merges them, letting the stricter `no-cache` defeat the
-        // `public, max-age=3600` the controller intended (the SEO browse
-        // pages /market, /search, /db, /help, /loadout, /faq silently lose
-        // their hour-long edge cache). Same double-header bug class fixed
-        // for /api/buy-orders. The {id} detail routes are handled by the
+        // of these paths the response carries two Cache-Control values,
+        // which caches merge unpredictably. Same double-header bug class
+        // fixed for /api/buy-orders. The {id} detail routes are handled by the
         // `startsWith` prefixes; the index/static/private routes need an
         // exact (trailing-slash-tolerant) match. Keep this in lockstep
         // with OpenGraphController's @GetMapping list.
@@ -377,6 +383,11 @@ class CorrelationIdFilter extends OncePerRequestFilter {
             }
         } else if (path != null && path.matches('.*\\.(woff2?|svg|png|ico|jpg|webp)$')) {
             resp.setHeader("Cache-Control", "public, max-age=14400")
+        } else if (path != null && path.endsWith('.html')) {
+            // Static documents (legal/*.html, status.html, changelog.html,
+            // /index.html). Without a header the browser applies heuristic
+            // caching off Last-Modified and can keep an old copy for days.
+            resp.setHeader("Cache-Control", HTML_CACHE_CONTROL)
         } else if (path != null && method == 'GET'
                    && !path.startsWith('/api/')
                    && !path.contains('.')
@@ -386,7 +397,7 @@ class CorrelationIdFilter extends OncePerRequestFilter {
             // /index.html which references non-content-hashed /js/*.js
             // bundles, so the shell must revalidate on every load to pick
             // up new bundle contents the moment a deploy lands.
-            resp.setHeader("Cache-Control", "no-cache, must-revalidate")
+            resp.setHeader("Cache-Control", HTML_CACHE_CONTROL)
         }
 
         try {
