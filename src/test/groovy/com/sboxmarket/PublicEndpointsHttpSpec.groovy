@@ -21,6 +21,8 @@ class PublicEndpointsHttpSpec extends Specification {
     @Autowired MockMvc mockMvc
     @Autowired com.sboxmarket.service.EmailService emailService
     @Autowired com.sboxmarket.repository.LoadoutRepository loadoutRepo
+    @Autowired com.sboxmarket.repository.ItemRepository itemRepo
+    @Autowired com.sboxmarket.repository.ListingRepository listingRepo
 
     def "GET /api/unsubscribe with no token renders the error card (batch 891)"() {
         when:
@@ -1017,6 +1019,81 @@ class PublicEndpointsHttpSpec extends Specification {
         upper.response.status == 200
         lower.response.status == 200
         extract(upper.response.contentAsString) == extract(lower.response.contentAsString)
+    }
+
+    /** Three items owned by this spec alone, each backed by a real ACTIVE
+     *  listing at its floor so the scheduled floor refresh agrees with the
+     *  stored prices. A unique name keeps every other spec's rows out of
+     *  the search, so the comparisons below can't race a re-price. */
+    private Map sortCaseFixture() {
+        def uniq = 'SortCase' + System.nanoTime()
+        def made = [:]
+        [A: '3.00', B: '1.00', C: '2.00'].each { suffix, price ->
+            def item = itemRepo.save(new com.sboxmarket.model.Item(
+                name: "${uniq}-${suffix}", category: 'Hats', rarity: 'Standard', supply: 1, totalSold: 0,
+                lowestPrice: new BigDecimal(price), isListed: true, iconEmoji: '🎩'))
+            listingRepo.save(new com.sboxmarket.model.Listing(item: item, price: new BigDecimal(price),
+                status: 'ACTIVE', sellerName: "${uniq}-seller", rarityScore: BigDecimal.ZERO))
+            made[suffix] = item
+        }
+        [uniq: uniq, items: made]
+    }
+
+    private static int sortIpSeq = 0
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor sortIp() {
+        int n = ++sortIpSeq
+        return { r -> r.remoteAddr = "10.78.${(n >> 8) & 255}.${n & 255}"; r } as org.springframework.test.web.servlet.request.RequestPostProcessor
+    }
+
+    def "GET /api/items sort keys are case-insensitive on a fixed fixture (batch 661)"() {
+        given:
+        def fx = sortCaseFixture()
+        def names = { String json ->
+            new groovy.json.JsonSlurper().parseText(json).collect { it.name as String }
+        }
+        def get = { String sort ->
+            mockMvc.perform(MockMvcRequestBuilders.get('/api/items').with(sortIp())
+                .param('q', fx.uniq).param('sort', sort)).andReturn().response
+        }
+
+        when:
+        def upAsc = get('PRICE_ASC')
+        def lowAsc = get('price_asc')
+        def upDesc = get('PRICE_DESC')
+        def lowDesc = get('price_desc')
+
+        then:
+        [upAsc, lowAsc, upDesc, lowDesc].every { it.status == 200 }
+        names(upAsc.contentAsString) == ["${fx.uniq}-B", "${fx.uniq}-C", "${fx.uniq}-A"]*.toString()
+        names(lowAsc.contentAsString) == names(upAsc.contentAsString)
+        names(upDesc.contentAsString) == ["${fx.uniq}-A", "${fx.uniq}-C", "${fx.uniq}-B"]*.toString()
+        names(lowDesc.contentAsString) == names(upDesc.contentAsString)
+    }
+
+    def "GET /api/listings sort keys are case-insensitive on a fixed fixture (batch 661)"() {
+        given:
+        def fx = sortCaseFixture()
+        def prices = { String json ->
+            def parsed = new groovy.json.JsonSlurper().parseText(json)
+            (parsed instanceof List ? parsed : parsed?.items ?: []).collect { it.price as BigDecimal }
+        }
+        def get = { String sort ->
+            mockMvc.perform(MockMvcRequestBuilders.get('/api/listings').with(sortIp())
+                .param('search', fx.uniq).param('sort', sort)).andReturn().response
+        }
+
+        when:
+        def upAsc = get('PRICE_ASC')
+        def lowAsc = get('price_asc')
+        def upDesc = get('PRICE_DESC')
+        def lowDesc = get('price_desc')
+
+        then:
+        [upAsc, lowAsc, upDesc, lowDesc].every { it.status == 200 }
+        prices(upAsc.contentAsString) == [1.00G, 2.00G, 3.00G]
+        prices(lowAsc.contentAsString) == prices(upAsc.contentAsString)
+        prices(upDesc.contentAsString) == [3.00G, 2.00G, 1.00G]
+        prices(lowDesc.contentAsString) == prices(upDesc.contentAsString)
     }
 
     def "GET /api/items?category=hats (lowercase) matches 'Hats' (batch 658)"() {
