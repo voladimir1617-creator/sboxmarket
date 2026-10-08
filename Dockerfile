@@ -53,12 +53,13 @@ ENV SPRING_PROFILES_ACTIVE=prod \
 # start-period covers the ~10s JVM + Spring Boot warmup so the container
 # isn't flagged unhealthy during its first boot cycle.
 #
-# The ${SERVER_PORT:-8082} fallback MUST track application.yml's
+# $PORT is what PaaS hosts (Render) hand the demo profile; the
+# ${SERVER_PORT:-8082} fallback MUST track application.yml's
 # `server.port: ${SERVER_PORT:8082}`. It said 8080 while the app bound 8082, so
 # wget got connection-refused on every probe and the container sat `unhealthy`
 # forever — and because `depends_on: condition: service_healthy` is how other
 # services gate on this one, an unpassable healthcheck is not cosmetic.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD \
-  wget -qO- "http://127.0.0.1:${SERVER_PORT:-8082}/api/health" | grep -q '"UP"' || exit 1
+  wget -qO- "http://127.0.0.1:${PORT:-${SERVER_PORT:-8082}}/api/health" | grep -q '"UP"' || exit 1
 
 ENTRYPOINT ["java", "-jar", "/opt/skinbox/skinbox.jar"]

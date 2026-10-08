@@ -4,6 +4,7 @@ import com.sboxmarket.repository.ItemRepository
 import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -34,6 +35,12 @@ class SteamMarketPriceService {
 
     @Autowired ItemRepository itemRepository
     @Autowired(required = false) PriceHistoryService priceHistoryService
+
+    /** Off on the public demo (application-demo.yml): its catalogue is
+     *  fabricated, so polling Steam for it would only spend Steam's rate
+     *  limit on a host that sells nothing. */
+    @Value('${app.steam-price-sync.enabled:true}')
+    boolean steamSyncEnabled = true
 
     /** Last-run telemetry (batch 396). Populated at the end of every sync
      *  pass so the admin Health tab can render "last sync 4 min ago,
@@ -106,6 +113,7 @@ class SteamMarketPriceService {
     // so partial progress is durable even if a later item fails.
     @Scheduled(fixedDelay = SYNC_INTERVAL_MS, initialDelay = 90L * 1000L)
     void syncPricesFromSteam() {
+        if (!steamSyncEnabled) return
         // Single-flight guard — see the syncRunning docstring. The
         // fixedDelay @Scheduled already serialises THE SCHEDULER's own
         // ticks per-method; the CAS only ever loses to a manual /
