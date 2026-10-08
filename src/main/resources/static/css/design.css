@@ -30110,3 +30110,75 @@ html body:has([aria-modal="true"]) .item-buy-bar { display: none !important; }
   html body:has(.cart-tray) button[aria-label="Cookie preferences"] { bottom: calc(146px + env(safe-area-inset-bottom, 0px)) !important; }
   html body:has(.item-buy-bar) button[aria-label="Cookie preferences"] { bottom: calc(136px + env(safe-area-inset-bottom, 0px)) !important; }
 }
+
+/* Look pass 2026-10-08: market grid
+   1. Card footers line up across a row. The body already stretches to the
+      row height, but the seller/age line sat wherever the price block ended,
+      so auction cards, "2 listings" cards and plain cards each put it at a
+      different height. Pin it to the bottom of the card.
+   2. Phone toolbar reads as tidy rows instead of a ragged wrap: sort fills
+      its row, All/Buy Now/Auction is a full-width segmented control, and
+      the three chips share the last row evenly. Same controls, same order
+      of use. */
+html body main.layout a.grid-card .grid-body .grid-footer { flex: 1 1 auto !important; }
+html body main.layout a.grid-card .grid-body .grid-footer > .gc-card-meta { margin-top: auto !important; }
+@media (max-width: 720px) {
+  html body main.layout .toolbar { gap: 8px !important; }
+  html body main.layout .toolbar > .search-wrap { order: 0 !important; flex: 1 1 100% !important; }
+  html body main.layout .toolbar > .sort-picker { order: 1 !important; flex: 1 1 auto !important; min-width: 0 !important; }
+  html body main.layout .toolbar > .sort-picker > .sort-picker-chip { width: 100% !important; }
+  html body main.layout .toolbar > .discount-select { order: 2 !important; flex: 0 0 auto !important; }
+  html body main.layout .toolbar > div:not([class]) { order: 3 !important; flex: 0 0 auto !important; }
+  html body main.layout .toolbar > .type-toggle { order: 4 !important; flex: 1 1 100% !important; display: flex !important; }
+  html body main.layout .toolbar > .type-toggle > .type-toggle-btn { flex: 1 1 0 !important; justify-content: center !important; }
+  html body main.layout .toolbar > .deals-chip { order: 5 !important; flex: 1 1 0 !important; justify-content: center !important; white-space: nowrap !important; }
+}
+
+/* Look pass 2026-10-08: item page
+   Below 1101px the price column stops being sticky and stacks under the
+   picture, but it kept its desktop cap (viewport height, own scrollbar).
+   On phones and tablets that cut the Steam reference, 30-day change and
+   supply boxes off mid-card behind a hidden inner scroll. Let it run its
+   full height there; the desktop sticky rail is unchanged. */
+@media (max-width: 1100px) {
+  html body main.modal.item-page > .modal-header > div:nth-child(2) { max-height: none !important; overflow: visible !important; }
+}
+/* The market stats two-to-a-row cells cut longer values off mid-number
+   ("Last sold · $207.00 · 1d ag", "30D range · $209.92 – $23"): a flex
+   cell can't ellipsis bare text. Let a long value wrap to a second line
+   inside its cell instead. */
+html body .modal.item-page .modal-demand-chip { flex-wrap: wrap !important; column-gap: 4px !important; row-gap: 0 !important; height: auto !important; min-height: 32px !important; padding: 6px 10px !important; white-space: normal !important; line-height: 1.35 !important; }
+
+/* Look pass 2026-10-08: cart
+   The cart page sits in a centred modal, so every row inherited
+   text-align: center: item names floated in the middle of their row while
+   the listing line under them hugged the left. The trade-URL notice did
+   the same, and its Open Profile button stretched to 320px, which on a
+   phone squeezed the message into a one-word-per-line column. Names and
+   notices now read left to right; on phones the button drops under the
+   message at full width. */
+html body .cart-list, html body .cart-list .cart-info, html body .cart-notice { text-align: left !important; }
+html body .cart-list .cart-info { align-items: flex-start !important; }
+html body div.cart-notice.cart-notice > a.btn.btn-accent { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; padding: 8px 16px !important; font-size: 12px !important; }
+@media (max-width: 720px) {
+  html body .cart-notice { flex-wrap: wrap !important; }
+  html body .cart-notice > div { flex: 1 1 calc(100% - 30px) !important; }
+  html body div.cart-notice.cart-notice > a.btn.btn-accent { flex: 1 1 100% !important; justify-content: center !important; }
+}
+
+/* Look pass 2026-10-08: profile
+   The profile tabs inherited the modal's centred text, so every field
+   label and value floated in the middle of the panel while buttons and
+   the setup checklist sat left: a ragged column on phones especially.
+   Labels and values now share one left edge, and on phones the panel
+   drops its extra side padding so fields get the full width. */
+html body .info-modal .profile-panel { text-align: left !important; }
+@media (max-width: 720px) {
+  html body .info-modal .profile-panel { padding-left: 14px !important; padding-right: 14px !important; }
+}
+/* Five stats two to a row leave Net alone on the last row, still
+   carrying the divider meant for a left-hand cell. Let it span the row
+   without the stray line. */
+@media (max-width: 720px) {
+  html body .profile-stats > .profile-stat:last-child:nth-child(odd) { grid-column: 1 / -1 !important; border-right: 0 !important; }
+}
