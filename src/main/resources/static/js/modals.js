@@ -155,6 +155,20 @@ export function useTradePolicy() {
 
 // ── Item detail ──────────────────────────────────────────────────
 /** "3h" / "25m" / "2d" — a median delay, rounded the way a person says it. */
+// Price-history rows from the last `days` calendar days (rows are oldest
+// first). With `withAnchor`, the last row before the window is kept in
+// front so a chart line and a "change since" both start from the price
+// that was in force at the cutoff. Rows without recordedAt fall back to
+// the old one-row-per-day count.
+function historyWithinDays(rows, days, withAnchor) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  if (!rows.every(r => Number.isFinite(r?.recordedAt))) return rows.slice(-days);
+  const cutoff = Date.now() - days * 86_400_000;
+  const idx = rows.findIndex(r => r.recordedAt >= cutoff);
+  if (idx === -1) return withAnchor ? rows.slice(-1) : [];
+  return rows.slice(withAnchor && idx > 0 ? idx - 1 : idx);
+}
+
 function fmtDelay(ms) {
   const m = Number(ms);
   if (!Number.isFinite(m) || m <= 0) return null;
@@ -477,13 +491,21 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
       }
       const cancelledPrice = parseFloat(myBuyOrder.maxPrice);
       setMyBuyOrder(null);
+      // Take the cancelled order out of the demand chips now; the count
+      // endpoint is cached, so a refetch would still show it.
+      setBuyOrderInfo(info => {
+        const count = Math.max(0, (info?.count || 0) - 1);
+        if (count === 0) return { count: 0, bestBid: null };
+        const best = parseFloat(info?.bestBid);
+        return { count, bestBid: best === cancelledPrice ? null : info.bestBid };
+      });
       // Batch 910 — personalised toast. Naming the item + the max price +
       // the fact that locked wallet funds are freed gives the user the
       // three things they might want to verify after a cancel, without
       // opening /buy-orders to check.
       toast(item?.name
-        ? `Buy order cancelled for "${item.name}" at ${fmt(cancelledPrice)}. Locked funds freed.`
-        : `Buy order cancelled at ${fmt(cancelledPrice)}. Locked funds freed.`,
+        ? `Buy order cancelled for "${item.name}" at ${fmt(cancelledPrice)}.`
+        : `Buy order cancelled at ${fmt(cancelledPrice)}.`,
         'ok');
     } catch (_) {
       toast('Network error cancelling buy order', 'err');
@@ -603,17 +625,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   }, [listings.map(l => l.id).join(',')]);
 
   // Filter the history for the selected chart range (batch 640 — added
-  // 3M / 1Y for CSFloat Visual Manual §15 parity). Ranges are applied
-  // by row count, one row per day; `ALL` returns the full series.
-  // Selecting a range longer than what's in the DB safely no-ops —
-  // slice(-N) on a shorter array returns the full array.
+  // 3M / 1Y for CSFloat Visual Manual §15 parity). Ranges are calendar
+  // days on recordedAt, not row counts: history only gets a row on days
+  // something happened, so "last 30 rows" on a quiet item spanned months.
+  // The last row before the window is kept as the line's starting point.
   const slicedHistory = useMemo(() => {
     if (!history || history.length === 0) return history;
-    if (chartRange === '7D')   return history.slice(-7);
-    if (chartRange === '30D')  return history.slice(-30);
-    if (chartRange === '90D')  return history.slice(-90);
-    if (chartRange === '365D') return history.slice(-365);
-    return history;
+    const days = { '7D': 7, '30D': 30, '90D': 90, '365D': 365 }[chartRange];
+    return days ? historyWithinDays(history, days, true) : history;
   }, [history, chartRange]);
   const [offerAmt, setOfferAmt]   = useState('');
   const [offerErr, setOfferErr]   = useState('');
@@ -663,7 +682,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // that window's first point (or the whole series when it's shorter).
   const change30dBase = (() => {
     if (!history || history.length < 2) return null;
-    const window = history.slice(-30);
+    // Price as of 30 calendar days ago: the last row at or before the
+    // cutoff, else the first row inside the window.
+    const window = historyWithinDays(history, 30, true);
     const base = parseFloat(window[0]?.price);
     return Number.isFinite(base) && base > 0 ? base : null;
   })();
@@ -701,11 +722,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     if (!history || history.length < 2) return null;
     const nums = history.map(r => parseFloat(r.price)).filter(n => Number.isFinite(n) && n > 0);
     if (nums.length < 2) return null;
-    const last30 = nums.slice(-30);
+    const last30 = historyWithinDays(history, 30, false)
+      .map(r => parseFloat(r.price)).filter(n => Number.isFinite(n) && n > 0);
     return {
       allTimeLow:  Math.min.apply(null, nums),
-      high30d:     Math.max.apply(null, last30),
-      low30d:      Math.min.apply(null, last30)
+      high30d:     last30.length ? Math.max.apply(null, last30) : null,
+      low30d:      last30.length ? Math.min.apply(null, last30) : null
     };
   }, [history]);
 
@@ -1231,7 +1253,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // 30D range chip — "is the current ask near the recent ceiling
           // or the recent floor?" A cheap anchor for buyers. Silent until
           // there are at least two price-history rows to compare.
-          priceExtremes &&
+          priceExtremes && priceExtremes.low30d != null &&
             h('div', { className: 'modal-demand-chip' },
               '30D range · ',
               h('span', { className: 'modal-demand-chip-num' },
@@ -1247,7 +1269,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           //  - else                 → "Fair price"    (neutral, hidden)
           //                            // when range is too narrow (<$0.02)
           //                            // since percentiles are meaningless.
-          priceExtremes && parseFloat(item.lowestPrice) > 0 && (priceExtremes.high30d - priceExtremes.low30d) >= 0.02 && (() => {
+          priceExtremes && priceExtremes.low30d != null && parseFloat(item.lowestPrice) > 0 && (priceExtremes.high30d - priceExtremes.low30d) >= 0.02 && (() => {
             const floor = parseFloat(item.lowestPrice);
             const { low30d, high30d } = priceExtremes;
             const span = high30d - low30d;
@@ -1269,7 +1291,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // All-time low chip — standard buyer reference point: "is this
           // below the cheapest it's ever been?" Green to match the rest
           // of the "this is a deal" signals (below-30D-low + good-deal).
-          priceExtremes && priceExtremes.allTimeLow < priceExtremes.low30d &&
+          priceExtremes && priceExtremes.low30d != null && priceExtremes.allTimeLow < priceExtremes.low30d &&
             h('div', { className: 'modal-demand-chip signal-up' },
               'All-time low · ',
               h('span', { className: 'modal-demand-chip-num' }, fmt(priceExtremes.allTimeLow))
@@ -2094,6 +2116,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                   toast(res.message || res.error || 'Could not save alert', 'err');
                 } else {
                   toast(`Restock alert set — you'll be notified when ${item.name} is listed again.`, 'ok');
+                  // Flip the button to "on" now, like the price-alert save
+                  // does; it used to keep offering the same alert again.
+                  setMyAlert({ itemId: item.id, targetPrice: 100000, status: 'ACTIVE' });
                 }
                 return;
               }
@@ -6547,8 +6572,13 @@ function ProfileBuyOrdersTab() {
       // Batch 910 — name the item + the new max + quantity so the user
       // sees exactly what they just changed. Doubly useful when they
       // edit one of many orders — the toast confirms which row landed.
-      const qtyStr = quantity > 1 ? ` × ${quantity}` : '';
-      toast(`Buy order updated: "${o.itemName || 'item'}" → max ${fmt(maxPrice)}${qtyStr}.`,
+      // Report what was saved: the server caps quantity at the units
+      // still unfilled, so asking for 5 on an order with 3 left saves 3.
+      const savedQty = Number.isFinite(res?.quantity) ? res.quantity : quantity;
+      const savedMax = res?.maxPrice != null ? parseFloat(res.maxPrice) : maxPrice;
+      const qtyStr = savedQty > 1 ? ` × ${savedQty}` : '';
+      const capped = savedQty < quantity ? ` (only ${savedQty} left to fill, so quantity stays at ${savedQty})` : '';
+      toast(`Buy order updated: "${o.itemName || 'item'}" → max ${fmt(savedMax)}${qtyStr}${capped}.`,
         'ok');
     } finally { setBusy(false); }
   };
@@ -6586,7 +6616,7 @@ function ProfileBuyOrdersTab() {
       const priceStr = o.maxPrice != null ? fmt(parseFloat(o.maxPrice)) : '';
       const remaining = (o.quantity || 0) - (o.filledQuantity || 0);
       const qtyStr = remaining > 1 ? ` (${remaining} units)` : '';
-      toast(`Buy order cancelled for "${o.itemName || 'item'}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}. Wallet funds freed.`,
+      toast(`Buy order cancelled for "${o.itemName || 'item'}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}.`,
         'ok');
     } finally { setBusy(false); }
   };
@@ -6611,7 +6641,10 @@ function ProfileBuyOrdersTab() {
     ALL:       orders.length,
     ACTIVE:    orders.filter(o => o.status === 'ACTIVE').length,
     FILLED:    orders.filter(o => o.status === 'FILLED').length,
-    CANCELLED: orders.filter(o => o.status === 'CANCELLED').length
+    CANCELLED: orders.filter(o => o.status === 'CANCELLED').length,
+    // Orders the 30-day idle sweep closed. Without a chip they were
+    // invisible, even from the "auto-expired" notification's link.
+    EXPIRED:   orders.filter(o => o.status === 'EXPIRED').length
   };
   // Batch 853 — capital-exposure summary. Sum of maxPrice × remaining
   // quantity across ACTIVE orders. Buy orders DON'T pre-lock funds
@@ -6671,7 +6704,8 @@ function ProfileBuyOrdersTab() {
           { id: 'ALL',       label: 'All' },
           { id: 'ACTIVE',    label: 'Active' },
           { id: 'FILLED',    label: 'Filled' },
-          { id: 'CANCELLED', label: 'Cancelled' }
+          { id: 'CANCELLED', label: 'Cancelled' },
+          { id: 'EXPIRED',   label: 'Expired' }
         ].map(opt => h('button', {
           key: opt.id,
           className: `wallet-tx-filter-chip ${filter === opt.id ? 'active' : ''}`,
@@ -6686,7 +6720,7 @@ function ProfileBuyOrdersTab() {
         disabled: busy,
         title: `Cancel all ${counts.ACTIVE} active buy orders in one click`,
         onClick: async () => {
-          if (!confirm(`Cancel all ${counts.ACTIVE} active buy orders? Any locked wallet funds are freed.`)) return;
+          if (!confirm(`Cancel all ${counts.ACTIVE} active buy orders?`)) return;
           setBusy(true);
           try {
             const { cancelAllBuyOrders } = await import('./api.js');
@@ -6766,7 +6800,9 @@ function ProfileBuyOrdersTab() {
                 return h('div', {
                   style: { fontSize: 10, color, marginTop: 2, fontWeight: days <= 7 ? 700 : 400 },
                   title: `Auto-expires at ${new Date(o.updatedAt + 30 * 24 * 3600 * 1000).toLocaleString()}. Edit the order to reset the 30-day clock.`
-                }, prefix, 'Auto-expires in ', days, 'd');
+                }, prefix, 'Auto-expires in ',
+                   // The last day read "0d"; show hours there instead.
+                   days >= 1 ? days + 'd' : Math.max(1, Math.floor(msLeft / 3_600_000)) + 'h');
               })(),
               // Queue-position chip — "#1 in queue" is green (next to
               // fill), "#2" amber, deeper muted. Silent for basket
@@ -6789,6 +6825,7 @@ function ProfileBuyOrdersTab() {
                 o.status === 'ACTIVE'    ? 'Active'
                 : o.status === 'FILLED'    ? 'Filled'
                 : o.status === 'CANCELLED' ? 'Cancelled'
+                : o.status === 'EXPIRED'   ? 'Expired'
                 : o.status),
               // Edit panel — visible when the user clicked ✎. Two
               // compact inputs for maxPrice + quantity, save/cancel
@@ -8239,9 +8276,11 @@ function ProfileTradesTab({ me, privacy }) {
                     if (msLeft <= 0) return null;
                     const hours = msLeft / 3_600_000;
                     let label;
-                    if (hours < 1)       label = Math.max(1, Math.round(msLeft / 60_000)) + 'm left';
-                    else if (hours < 24) label = Math.round(hours) + 'h left';
-                    else                 label = Math.round(hours / 24) + 'd left';
+                    // Round DOWN: "2d left" on a trade with 36h to go made
+                    // sellers miss the deadline by half a day.
+                    if (hours < 1)       label = Math.max(1, Math.floor(msLeft / 60_000)) + 'm left';
+                    else if (hours < 24) label = Math.floor(hours) + 'h left';
+                    else                 label = Math.floor(hours / 24) + 'd left';
                     const urgent = hours < 12;
                     // The deadline does opposite things per state — name
                     // which one, viewer-aware, so a buyer doesn't read a
@@ -11680,7 +11719,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             return h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 6 } },
               'Leave blank to manually review every offer. Set a percent to instantly accept offers within that discount of your ask.');
           }
-          const threshold = +(p * (1 - pct / 100)).toFixed(2);
+          // Whole cents, rounded half-up like the server's check; the float
+          // toFixed form previewed $1.03 on a $1.15 ask where $1.04 is needed.
+          const threshold = Math.round(Math.round(p * 100) * (100 - pct) / 100) / 100;
           return h('div', {
             style: {
               fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700
@@ -13044,7 +13085,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // + typed fallback + live preview of how many listings will be
     // touched.
     bulkAdjustOpen && (() => {
-      const buyNowCount = (stall || []).filter(l => l && l.listingType !== 'AUCTION' && !l.hidden).length;
+      // Hidden (away-mode) rows count: the server re-prices every active
+      // Buy Now listing, hidden or not.
+      const buyNowCount = (stall || []).filter(l => l && l.listingType !== 'AUCTION').length;
       const setChip = (n) => { setBulkAdjustPct(String(n)); setBulkAdjustErr(''); };
       const pctNum = parseFloat(bulkAdjustPct);
       const previewValid = isFinite(pctNum) && pctNum !== 0 && Math.abs(pctNum) <= 50;
@@ -13986,7 +14029,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       if (!Number.isFinite(pct) || pct <= 0 || newP <= 0) return null;
                       if (pct > 50) return h('div', { style: { fontSize: 11, color: 'var(--red)', marginTop: 6, fontWeight: 700 } },
                         'Auto-accept % must be ≤ 50. Set a lower number before saving.');
-                      const threshold = +(newP * (1 - pct / 100)).toFixed(2);
+                      const threshold = Math.round(Math.round(newP * 100) * (100 - pct) / 100) / 100;
                       return h('div', {
                         style: { fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700 }
                       }, `✓ Offers of ${fmt(threshold)} or higher will auto-accept (${pct}% off ${fmt(newP)}).`);
@@ -14093,7 +14136,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         className: 'btn btn-ghost',
                         style: { padding: '7px 10px', fontSize: 11, opacity: 0.5, cursor: 'not-allowed' },
                         disabled: true,
-                        title: "Auctions with bids are price-locked — cancel + relist to change price"
+                        title: "Auctions with bids are locked — they settle when the timer ends"
                       }, 'Price locked')
                     : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l) }, '✎ Edit'),
                   // Match-top-bid quick-action (batch 416). Renders only

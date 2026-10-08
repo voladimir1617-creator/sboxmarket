@@ -276,7 +276,7 @@ class BuyOrderController {
         // still returns a usable file.
         if (status) {
             def want = status.trim().toUpperCase()
-            if (want in ['ACTIVE', 'FILLED', 'CANCELLED']) {
+            if (want in ['ACTIVE', 'FILLED', 'CANCELLED', 'EXPIRED']) {
                 rows = rows.findAll { (it.status ?: '').toUpperCase() == want }
             }
         }

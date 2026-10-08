@@ -59,6 +59,7 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
           AND i.lowestPrice IS NOT NULL
           AND i.lowestPrice > 0
           AND i.lowestPrice <= a.targetPrice
+          AND i.isListed = true
     """)
     List<Object[]> findTriggered()
 
@@ -74,6 +75,7 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
           AND i.lowestPrice IS NOT NULL
           AND i.lowestPrice > 0
           AND i.lowestPrice <= a.targetPrice
+          AND i.isListed = true
     """)
     List<Object[]> findTriggered(org.springframework.data.domain.Pageable pageable)
 
@@ -92,6 +94,7 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
           AND i.lowestPrice IS NOT NULL
           AND i.lowestPrice > 0
           AND i.lowestPrice <= a.targetPrice
+          AND i.isListed = true
     """)
     List<Object[]> findTriggeredForItem(@Param("itemId") Long itemId)
 
@@ -120,6 +123,7 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
           AND i.lowestPrice IS NOT NULL
           AND i.lowestPrice > 0
           AND i.lowestPrice <= a.targetPrice
+          AND i.isListed = true
     """)
     List<Object[]> findTriggeredForItem(@Param("itemId") Long itemId,
                                          org.springframework.data.domain.Pageable pageable)

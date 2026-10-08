@@ -675,11 +675,18 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       // the top of the list but the form-collapse felt the same as the
       // error path's no-op. The ProfileBuyOrdersTab cancel pair already
       // toasts richly; pairing the create with a matching named toast
-      // closes the loop. "Wallet escrows funds" reminds the user why
-      // their balance just dropped without the user thinking it's a bug.
+      // closes the loop. Buy orders don't hold funds (BuyOrderService
+      // checks the balance at match time), so say that rather than
+      // "escrowed" — a buyer who thought the money was reserved could
+      // spend it and the order would then silently fail to fill. An
+      // order that matched an existing listing on create is already done.
       const qtyStr = qtyN > 1 ? ` × ${qtyN}` : '';
-      toast(`Buy order placed for "${itemName}" at max ${fmt(max)}${qtyStr}. Wallet funds escrowed; auto-fills on the next match.`,
-        'ok');
+      if (res && res.status === 'FILLED') {
+        toast(`Buy order for "${itemName}" filled right away from an existing listing. Check Profile → Trades.`, 'ok');
+      } else {
+        toast(`Buy order placed for "${itemName}" at max ${fmt(max)}${qtyStr}. Your wallet is charged only when a listing matches — keep enough balance for it.`,
+          'ok');
+      }
     } finally { setBusy(false); }
   };
 
@@ -701,7 +708,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     // the model, so the old `- (filledQuantity||0)` was a dead no-op.
     const remaining = o?.quantity || 0;
     const qtyStr = remaining > 1 ? ` (${remaining} units)` : '';
-    toast(`Buy order cancelled for "${itemLabel}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}. Wallet funds freed.`,
+    toast(`Buy order cancelled for "${itemLabel}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}.`,
       'ok');
   };
 

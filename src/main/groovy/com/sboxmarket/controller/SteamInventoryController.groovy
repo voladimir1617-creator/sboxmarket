@@ -416,6 +416,9 @@ class SteamInventoryController {
         // listings.price NUMERIC(10,2), creating a free, instantly-buyable
         // listing. Match the relist floor.
         if (price < new BigDecimal("0.01")) throw new BadRequestException("INVALID_PRICE", "price must be at least \$0.01")
+        // Then cents, so the Buy Now comparison below and the stored row
+        // see the same value the NUMERIC(10,2) column keeps.
+        price = price.setScale(2, java.math.RoundingMode.HALF_UP)
         // Mirror the DTO-layer cap used on /api/listings/sell and the
         // rest of the trading surface so a user can't list a Steam item
         // at $1,000,000,000 by bypassing the frontend form.
@@ -510,7 +513,9 @@ class SteamInventoryController {
                     "buyNowPrice only applies to AUCTION listings — the price field already sets the Buy Now amount on BUY_NOW listings.")
             }
             try {
-                buyNowPrice = new BigDecimal(rawBuyNow.toString())
+                // Same cents rounding as price: 10.004 vs a 10.00 start passed
+                // the "greater than" check and was stored as an equal 10.00.
+                buyNowPrice = new BigDecimal(rawBuyNow.toString()).setScale(2, java.math.RoundingMode.HALF_UP)
             } catch (NumberFormatException ignored) {
                 throw new BadRequestException("INVALID_BUY_NOW", "buyNowPrice must be a valid number")
             }
@@ -660,6 +665,8 @@ class SteamInventoryController {
         // Floor at $0.01 (matches the single-list path + relist DTO) — a
         // sub-cent bulk price would round to $0.00 per row in NUMERIC(10,2).
         if (price < new BigDecimal("0.01")) throw new BadRequestException("INVALID_PRICE", "price must be at least \$0.01")
+        // Then cents, so the response echoes what the NUMERIC(10,2) column keeps.
+        price = price.setScale(2, java.math.RoundingMode.HALF_UP)
         if (price > new BigDecimal("100000")) {
             throw new BadRequestException("PRICE_TOO_HIGH", "price must not exceed \$100,000")
         }

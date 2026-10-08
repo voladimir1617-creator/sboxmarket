@@ -205,4 +205,21 @@ class OfferAutoAcceptTxIsolationIntegrationSpec extends Specification {
         reloaded.buyerUserId == buyerId
         reloaded.listingId == listingId
     }
+
+    def "an offer at or above the seller's auto-accept floor is accepted, not left pending"() {
+        given: "a funded buyer and a listing that auto-accepts offers of \$80 or more"
+        def world = seedWorld()
+        walletRepository.save(new Wallet(
+            username: "steam_" + world.seller.steamId64, balance: BigDecimal.ZERO))
+
+        when: 'the buyer offers $85'
+        def offer = offerService.makeOffer(
+            world.buyer.id as Long, "AutoAcceptBuyer", world.listing.id as Long, new BigDecimal("85"))
+
+        then: "the stored offer is ACCEPTED, as the sell form promised the seller"
+        offer != null
+        offerRepository.findById(offer.id).get().status == 'ACCEPTED'
+        // The buyer's response reflects the accept, not a stale PENDING.
+        offer.status == 'ACCEPTED'
+    }
 }

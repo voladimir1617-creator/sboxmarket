@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=224';
+} from './modals.js?v=226';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -71,6 +71,19 @@ import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious } 
 // user has a trade sitting in a state where they're the actor and the
 // counterparty has been waiting > 2h. Keeps escrow moving without
 // needing a scheduled email. Polls every 60s.
+// Price-box text -> the plain "12.5" form the listings endpoint accepts.
+// The server 400s anything else, and the grid used to show a Retry that
+// could never succeed while a buyer was mid-way through typing "1." or
+// had pasted "$5" / "5,50". Unusable input simply drops the bound.
+function cleanPriceParam(raw) {
+  if (raw == null) return null;
+  const t = String(raw).replace(/[$\s]/g, '').replace(',', '.');
+  if (t === '' || !/^\d*\.?\d*$/.test(t)) return null;
+  const n = parseFloat(t);
+  if (!Number.isFinite(n) || n < 0 || n > 10000000) return null;
+  return String(Math.round(n * 100) / 100);
+}
+
 function PendingTradeReminder({ me }) {
   const [pending, setPending] = useState([]);
   const [dismissed, setDismissed] = useState(() => {
@@ -3264,6 +3277,10 @@ export function App() {
 
   // marketplace state
   const [listings, setListings]         = useState([]);
+  // Read by the 30s soft poll: once "Load more" has appended pages, a
+  // page-1-only refresh would drop them and toast them as "just sold".
+  const listingsLenRef = useRef(0);
+  listingsLenRef.current = listings.length;
   // CSFloat-1:1 — `homeFeatured` is a separate cache used by the home
   // hero and preview strip so they stay stable when the visitor clicks
   // tabs / filters that change `listings`. Fetched ONCE on mount with
@@ -3483,7 +3500,10 @@ export function App() {
     // Batch 912 — name the saved preset + hint at the match-alert behaviour.
     // New users don't know saved searches auto-fire notifications when a
     // fresh listing matches; surfacing it here raises retention.
-    showToast(`Saved search "${entry.name}" — you'll get a match alert when a fresh listing fits.`, 'ok');
+    // Signed-out saves live only in this browser, so no alert can fire.
+    showToast(me
+      ? `Saved search "${entry.name}" — you'll get a match alert when a fresh listing fits.`
+      : `Saved search "${entry.name}" in this browser. Sign in to get match alerts.`, 'ok');
     if (!me) return;
     try {
       const { upsertSavedSearch } = await import('./api.js');
@@ -4112,8 +4132,10 @@ export function App() {
     const p = fresh && fresh.active && fresh.price != null
       ? parseFloat(fresh.price)
       : (parseFloat(it.price) || 0);
-    return s + (Number.isFinite(p) ? p : 0);
-  }, 0), [cart, cartFreshness]);
+    // Sum in whole cents: float addition (1.10 + 2.20 = 3.3000000000000003)
+    // made an exactly-funded wallet read as short by $0.00.
+    return s + (Number.isFinite(p) ? Math.round(p * 100) : 0);
+  }, 0) / 100, [cart, cartFreshness]);
   useEffect(() => {
     if (routeName !== 'cart' || cart.length === 0) { setCartFreshness({}); return; }
     let alive = true;
@@ -4236,8 +4258,9 @@ export function App() {
     const sp = parseFloat(it.steamPrice);
     return s + (isFinite(sp) && sp > 0 ? sp : parseFloat(it.price) || 0);
   }, 0), [cart]);
-  const cartSavings = Math.max(0, cartSteamTotal - parseFloat(
-    cart.reduce((s, it) => s + (parseFloat(it.price) || 0), 0)));
+  // Same fresh-price total as the Subtotal row, so a seller's mid-session
+  // price edit can't leave "Savings" quoting the old, cheaper price.
+  const cartSavings = Math.max(0, cartSteamTotal - cartTotal);
   const removeFromCart = (id) => {
     setCart(c => c.filter(x => x.id !== id));
     if (me) {
@@ -4810,6 +4833,12 @@ export function App() {
     setWatchlist([]);
     try { localStorage.removeItem('sb_cart'); } catch (_) {}
     try { localStorage.removeItem('sb_watchlist'); } catch (_) {}
+    // Forget the one-time cart merge so rows added as a guest after this
+    // sign-out are merged into the account on the next sign-in instead of
+    // being overwritten by the server list.
+    if (me?.id != null) {
+      try { localStorage.removeItem(`sb_cart_synced:${me.id}`); } catch (_) {}
+    }
     // Any route that only makes sense for a signed-in user would now
     // render the generic sign-in empty state on the current URL. Land
     // the user on the public marketplace instead so the post-logout
@@ -5025,9 +5054,9 @@ export function App() {
         // "ALL" falls through to no server filter; client-side guard
         // still applies after the response lands (belt-and-braces).
         listingType: listingTypeFilter && listingTypeFilter !== 'ALL' ? listingTypeFilter : null,
-        minPrice: minPrice || null,
-        maxPrice: maxPrice || null,
-        search:   search   || null
+        minPrice: cleanPriceParam(minPrice),
+        maxPrice: cleanPriceParam(maxPrice),
+        search:   (search || '').trim() || null
       });
       // A newer load (filter change / explicit refresh) superseded this
       // one while the request was in flight — drop the stale response so
@@ -5085,9 +5114,9 @@ export function App() {
         category: category !== 'All' ? category : null,
         rarity:   rarity !== 'All'   ? rarity   : null,
         listingType: listingTypeFilter && listingTypeFilter !== 'ALL' ? listingTypeFilter : null,
-        minPrice: minPrice || null,
-        maxPrice: maxPrice || null,
-        search:   search   || null,
+        minPrice: cleanPriceParam(minPrice),
+        maxPrice: cleanPriceParam(maxPrice),
+        search:   (search || '').trim() || null,
         limit:    100,
         offset:   listings.length
       });
@@ -5128,7 +5157,7 @@ export function App() {
   useEffect(() => {
     if (routeName !== 'market' && routeName !== 'item') return;
     const id = setInterval(() => {
-      if (document.visibilityState === 'visible') load(true);
+      if (document.visibilityState === 'visible' && listingsLenRef.current <= 100) load(true);
     }, 30_000);
     return () => clearInterval(id);
   }, [routeName, load]);
@@ -7416,7 +7445,7 @@ export function App() {
           // ' ✕' glyph is also wrapped with aria-hidden so the same
           // SR doesn't read it twice ("Hats, X. Remove Hats filter, X").
           h('div', { className: 'active-filters' },
-            search && h('button', { className: 'filter-chip', onClick: () => setSearch(''), 'aria-label': `Remove search filter "${search}"` },
+            search && h('button', { className: 'filter-chip', onClick: () => { setSearchInput(''); setSearch(''); }, 'aria-label': `Remove search filter "${search}"` },
               'search: ', h('strong', null, '"' + search + '"'), h('span', { 'aria-hidden': true }, ' ✕')),
             category !== 'All' && h('button', { className: 'filter-chip', onClick: () => setCategory('All'), 'aria-label': `Remove category filter: ${category}` },
               h('strong', null, category), h('span', { 'aria-hidden': true }, ' ✕')),
@@ -9090,6 +9119,12 @@ export function App() {
                       // returns the authoritative post-merge id list
                       // so a subsequent reload won't drift.
                       if (!me) return;
+                      // Clear the server cart too, or the sign-in bridge
+                      // pulls every row back as a stub on the next reload.
+                      try {
+                        const { clearServerCart } = await import('./api.js');
+                        await clearServerCart();
+                      } catch (_) {}
                       try {
                         const { bulkMergeWatchlist } = await import('./api.js');
                         const res = await bulkMergeWatchlist(movable);

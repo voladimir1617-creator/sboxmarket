@@ -581,6 +581,26 @@ class BuyOrderControllerSpec extends Specification {
         resp.body.trim().split('\n').size() == 1
     }
 
+    def "exportCsv(status='EXPIRED') returns only the auto-expired orders"() {
+        given:
+        def active  = new BuyOrder(id: 1L, itemId: 42L, itemName: 'Hat', category: 'Hats', rarity: 'Standard',
+                                   maxPrice: new BigDecimal('5.50'), quantity: 2, originalQuantity: 2,
+                                   status: 'ACTIVE', createdAt: 1L, updatedAt: 1L)
+        def expired = new BuyOrder(id: 2L, itemId: 43L, itemName: 'Boots', category: 'Shoes', rarity: 'Standard',
+                                   maxPrice: new BigDecimal('3.00'), quantity: 1, originalQuantity: 1,
+                                   status: 'EXPIRED', createdAt: 1L, updatedAt: 1L)
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [active, expired]
+
+        when:
+        def resp = controller.exportCsv('EXPIRED', req)
+
+        then:
+        def lines = resp.body.trim().split('\n')
+        lines.size() == 2
+        lines[1].startsWith('2,43,Boots')
+    }
+
     def "exportCsv() requires sign-in"() {
         given: anonSession()
         when:  controller.exportCsv(null, req)

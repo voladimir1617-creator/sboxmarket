@@ -112,7 +112,7 @@ class ListingController {
             // Strip null bytes — Postgres rejects 0x00 in UTF-8 strings
             // with "invalid byte sequence for encoding UTF8". A crafted
             // `?search=%00` from a scanner triggers a 500 without this.
-            search = search.replace('\u0000', '')
+            search = search.replace('\u0000', '').trim()
             if (search.length() > 100) search = search.substring(0, 100)
         }
         // Batch 661 — normalise sort case-insensitively so a share URL
@@ -1327,7 +1327,14 @@ class ListingController {
             // is the intended escape hatch.
             if (listing.listingType == 'AUCTION' && (listing.bidCount ?: 0) > 0) {
                 throw new com.sboxmarket.exception.BadRequestException("AUCTION_HAS_BIDS",
-                    "Can't change the price on an auction that already has bids — cancel and relist instead.")
+                    "Can't change the price on an auction that already has bids — it's locked and settles when it ends.")
+            }
+            // Keep the auction's Buy Now above its starting bid, the same
+            // rule listing creation enforces. Raising the start past Buy Now
+            // left bids required at $30 while Buy Now still sold at $20.
+            if (listing.listingType == 'AUCTION' && listing.buyNowPrice != null && p >= listing.buyNowPrice) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_BUY_NOW",
+                    "Starting bid must stay below this auction's Buy Now price (\$${listing.buyNowPrice.toPlainString()}).")
             }
             listing.price = p
         }

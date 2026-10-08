@@ -1100,4 +1100,100 @@ class ListingsHttpSpec extends Specification {
         then:
         result.response.status == 400
     }
+
+    def "GET /api/listings trims a trailing space from search instead of missing the match"() {
+        given:
+        // Phone keyboards append a space after a word; "%hat %" used to
+        // miss "...hat" at the end of a name.
+        def uniq = String.valueOf(System.nanoTime())
+        def name = "TrimNeedle${uniq}"
+        def item = itemRepo.save(new Item(
+            name: name, category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0, lowestPrice: new BigDecimal('19.00'), iconEmoji: '🎩'))
+        listingRepo.save(new Listing(item: item, price: new BigDecimal('19.00'),
+            status: 'ACTIVE', sellerName: "TrimSeller-${uniq}", rarityScore: BigDecimal.ZERO))
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings').param('search', "  ${name} ")
+        ).andReturn()
+
+        then:
+        result.response.status == 200 || result.response.status == 429
+        if (result.response.status == 200) {
+            assert result.response.contentAsString.contains(name)
+        }
+    }
+
+    def "GET /api/listings price filter uses an auction's current bid, not its opening price"() {
+        given:
+        // Opened at $1, now bid to $50: the card shows $50, so a "max $5"
+        // search must not return it, and a "min $40" search must.
+        def uniq = String.valueOf(System.nanoTime())
+        def item = itemRepo.save(new Item(
+            name: "BidBand-${uniq}", category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0, lowestPrice: new BigDecimal('1.00'), iconEmoji: '🎩'))
+        listingRepo.save(new Listing(item: item, price: new BigDecimal('1.00'),
+            currentBid: new BigDecimal('50.00'),
+            status: 'ACTIVE', sellerName: "BidBandSeller-${uniq}", rarityScore: BigDecimal.ZERO,
+            listingType: 'AUCTION', expiresAt: System.currentTimeMillis() + 3_600_000L))
+
+        when:
+        def cheap = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings')
+            .param('search', "BidBand-${uniq}").param('maxPrice', '5')).andReturn()
+        def dear = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings')
+            .param('search', "BidBand-${uniq}").param('minPrice', '40')).andReturn()
+
+        then:
+        cheap.response.status == 200
+        !cheap.response.contentAsString.contains("BidBand-${uniq}")
+        dear.response.status == 200
+        dear.response.contentAsString.contains("BidBand-${uniq}")
+    }
+
+    def "GET /api/listings pages same-priced rows without repeating or skipping any"() {
+        given:
+        // Prices cluster, so a 100-row page boundary often falls inside a
+        // run of equal prices; without an id tiebreak page 2 could repeat
+        // page-1 rows and skip others.
+        def uniq = String.valueOf(System.nanoTime())
+        def ids = (1..6).collect { i ->
+            def item = itemRepo.save(new Item(
+                name: "TiePage${uniq}-${i}", category: 'Hats', rarity: 'Standard',
+                supply: 10, totalSold: 0, lowestPrice: new BigDecimal('3.00'), iconEmoji: '🎩'))
+            listingRepo.save(new Listing(item: item, price: new BigDecimal('3.00'),
+                status: 'ACTIVE', sellerName: "TieSeller-${uniq}", rarityScore: BigDecimal.ZERO)).id
+        }
+
+        when:
+        def seen = []
+        [0, 2, 4].each { off ->
+            def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings')
+                .param('search', "TiePage${uniq}").param('limit', '2').param('offset', "${off}")).andReturn()
+            assert r.response.status == 200
+            def body = new groovy.json.JsonSlurper().parseText(r.response.contentAsString)
+            seen.addAll(body.items*.id.collect { it as Long })
+        }
+
+        then:
+        seen == ids.sort()
+    }
+
+    def "a sale still counts for the original seller after the buyer relists the item"() {
+        given:
+        // Relisting flips the bought row (the seller's sale record) from
+        // SOLD to RELISTED; seller stats and sales history must keep it.
+        def uniq = System.nanoTime()
+        Long sellerId = 900_000_000L + (uniq % 1_000_000L)
+        def item = itemRepo.save(new Item(
+            name: "RelistSale-${uniq}", category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0, lowestPrice: new BigDecimal('7.00'), iconEmoji: '🎩'))
+        listingRepo.save(new Listing(item: item, price: new BigDecimal('7.00'),
+            status: 'RELISTED', sellerName: "RelistSeller-${uniq}", rarityScore: BigDecimal.ZERO,
+            sellerUserId: sellerId, buyerUserId: sellerId + 1, soldAt: System.currentTimeMillis()))
+
+        expect:
+        listingRepo.countSoldBySeller(sellerId) == 1L
+        listingRepo.sumRevenueBySeller(sellerId) == new BigDecimal('7.00')
+    }
 }
