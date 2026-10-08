@@ -1591,6 +1591,71 @@ class OfferServiceSpec extends Specification {
         1 * notificationService.push(51L, 'OFFER_REJECTED', _, _, 2L, '/offers')
     }
 
+    def "cancelAllForUser closes the buyer's COUNTERED original when it declines a seller counter"() {
+        given: 'the buyer offered (id 1), the seller countered it (id 2, PENDING, author SELLER)'
+        def original = new Offer(id: 1L, buyerUserId: 10L, sellerUserId: 50L, listingId: 100L,
+            itemName: 'Hat', amount: new BigDecimal("5"), status: 'COUNTERED', author: 'USER')
+        def counter = new Offer(id: 2L, buyerUserId: 10L, sellerUserId: 50L, listingId: 100L,
+            itemName: 'Hat', amount: new BigDecimal("7"), status: 'PENDING', author: 'SELLER',
+            parentOfferId: 1L)
+        offerRepository.findPendingByBuyer(10L) >> [counter]
+        offerRepository.findById(1L) >> Optional.of(original)
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        service.cancelAllForUser(10L)
+
+        then: 'the original leaves COUNTERED so the buyer can offer on that listing again'
+        counter.status == 'CANCELLED'
+        original.status == 'CLOSED'
+        1 * notificationService.push(50L, 'OFFER_REJECTED', { it.startsWith('Buyer declined your counter') }, _, 2L, '/offers')
+    }
+
+    def "a seller cannot counter their own counter"() {
+        given:
+        def own = pendingOffer(id: 2L).tap { it.author = 'SELLER' }
+        offerRepository.findById(2L) >> Optional.of(own)
+
+        when:
+        service.counterOffer(99L, 2L, new BigDecimal("45"))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'OWN_COUNTER'
+        own.status == 'PENDING'
+    }
+
+    def "withdrawing your own counter tells the buyer it was withdrawn, not that their offer was declined"() {
+        given:
+        def own = pendingOffer(id: 2L, amount: new BigDecimal("45")).tap { it.author = 'SELLER'; it.itemName = 'Hat' }
+        offerRepository.findById(2L) >> Optional.of(own)
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        service.rejectOffer(99L, 2L)
+
+        then:
+        own.status == 'REJECTED'
+        1 * notificationService.push(10L, 'OFFER_REJECTED', 'Counter withdrawn · Hat',
+            { it.contains('withdrew their $45') }, 2L, '/offers')
+        0 * notificationService.push(10L, _, { it.startsWith('Offer rejected') }, _, _, _)
+    }
+
+    def "incomingWithExpiry carries the buyer's note and the seller's reply"() {
+        given:
+        offerRepository.findBySellerPaged(99L, _) >> [
+            new Offer(id: 1L, listingId: 100L, status: 'REJECTED', updatedAt: 1L,
+                message: 'fast pay', sellerReply: 'too low')
+        ]
+
+        when:
+        def rows = service.incomingWithExpiry(99L)
+
+        then:
+        rows[0].message == 'fast pay'
+        rows[0].sellerReply == 'too low'
+    }
+
     def "cancelAllForUser returns 0 when the user has no pending outgoing offers"() {
         given:
         // Batch 1030 — indexed PENDING-only query returns [] when user

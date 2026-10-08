@@ -37,6 +37,9 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
      *  UNREAD growth, so an attacker who can trigger notifications to a
      *  victim could grow the table without limit. This caps it regardless
      *  of read-state. Returns rows removed. */
+    // Own transaction: the scheduled sweep and NotificationService.push call
+    // this outside one, and a bare @Modifying query then throws.
+    @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM Notification n WHERE n.userId = :uid AND n.createdAt < :cutoff")
     int deleteForUserOlderThan(@Param("uid") Long uid, @Param("cutoff") Long cutoff)

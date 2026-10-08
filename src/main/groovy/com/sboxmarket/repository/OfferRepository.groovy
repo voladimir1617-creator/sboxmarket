@@ -104,7 +104,9 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     /** Incoming-offer count for a seller — drives the nav badge so sellers
      *  see "3 offers waiting" without opening the Offers tab. PENDING only
      *  (accepted/rejected/countered are terminal from the seller's view). */
-    @Query("SELECT COUNT(o) FROM Offer o WHERE o.sellerUserId = :uid AND o.status = 'PENDING'")
+    // Excludes the seller's own counters: those wait on the buyer, so they
+    // aren't offers "waiting" on the seller and must not light the badge.
+    @Query("SELECT COUNT(o) FROM Offer o WHERE o.sellerUserId = :uid AND o.status = 'PENDING' AND (o.author IS NULL OR o.author <> 'SELLER')")
     long countPendingBySeller(@Param("uid") Long sellerUserId)
 
     /** Stale PENDING offers — drives the auto-decline sweeper. `updatedAt`

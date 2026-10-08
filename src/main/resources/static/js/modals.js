@@ -3372,6 +3372,10 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
   const [err, setErr]       = useState('');
+  // The trade stores "reason + blank line + details" in a 500-character
+  // note. The box used to allow 1500, and everything past ~450 was cut off
+  // without a word, so staff lost the evidence. Cap it at what fits.
+  const detailsMax = Math.max(0, 500 - reason.length - 2);
   // Synchronous re-entrancy latch — filing a dispute freezes escrow + opens an
   // irreversible DISPUTED state + notifies staff; a double-click must not file
   // twice. Async `busy` alone leaves a window; gate on a ref. Synced each render.
@@ -3385,7 +3389,7 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
       // Compose reason + note into one server-side string (the trade
       // dispute endpoint takes a single `reason` field). Use a
       // structured prefix so staff can grep the audit log later.
-      const trimmed = (note || '').trim();
+      const trimmed = (note || '').trim().slice(0, detailsMax);
       const composed = trimmed.length > 0
         ? `${reason}\n\n${trimmed}`
         : reason;
@@ -3442,15 +3446,15 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
         'aria-label': 'Report details (optional)',
         placeholder: 'Paste the Steam offer link, a transcript, or a timeline. The more context, the faster staff can resolve.',
         value: note,
-        maxLength: 1500,
-        onChange: e => setNote(e.target.value),
+        maxLength: detailsMax,
+        onChange: e => setNote(e.target.value.slice(0, detailsMax)),
         disabled: busy
       }),
-      // Char counter — the 1500-cap isn't obvious until the user hits it,
+      // Char counter — the cap isn't obvious until the user hits it,
       // so surface the count in the same way the refund drawer does.
       h('div', {
         style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, textAlign: 'right' }
-      }, note.length, ' / 1500'),
+      }, Math.min(note.length, detailsMax), ' / ', detailsMax),
       err && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, err),
       h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
         h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: onCancel }, 'Cancel'),
@@ -7932,7 +7936,7 @@ function ProfileTradesTab({ me, privacy }) {
       if (t.sellerUserId === me.id) {
         // Net-of-fee for sellers — the chip should match what
         // actually landed in the wallet, not the gross list price.
-        const fee = parseFloat(t.fee ?? t.platformFee ?? 0) || 0;
+        const fee = parseFloat(t.feeAmount ?? t.fee ?? t.platformFee ?? 0) || 0;
         earned += Math.max(0, price - fee);
       }
     });
@@ -9297,13 +9301,16 @@ function ProfileOffersTab() {
     const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
     // Confirm — reject notifies the buyer and can't be undone; the ✕
     // button is small enough that a misclick shouldn't fire it.
-    if (!confirm(`Reject the ${fmt(o?.amount || 0)} offer on ${label}? The buyer is notified and this can't be undone.`)) return;
+    const ownCounter = o?.author === 'SELLER';
+    if (!confirm(ownCounter
+      ? `Withdraw your ${fmt(o?.amount || 0)} counter on ${label}? The buyer is told and can make a new offer.`
+      : `Reject the ${fmt(o?.amount || 0)} offer on ${label}? The buyer is notified and this can't be undone.`)) return;
     setBusy(true);
     try {
       const res = await rejectOffer(id);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reject failed', 'err'); return; }
       await load();
-      toast(`Offer on ${label} rejected.`, 'ok');
+      toast(ownCounter ? `Counter on ${label} withdrawn.` : `Offer on ${label} rejected.`, 'ok');
     } finally { setBusy(false); }
   };
   const doCancel = async (id) => {
@@ -9357,7 +9364,10 @@ function ProfileOffersTab() {
       // of several outgoing offers in the list.
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       const wasStr = o?.amount ? ` (was ${fmt(parseFloat(o.amount))})` : '';
-      toast(`Raised offer on ${label} to ${fmt(amt)}${wasStr}.`, 'ok');
+      // A raise that meets the seller's auto-accept threshold is a sale.
+      toast(res.status === 'ACCEPTED'
+        ? `Offer accepted! You bought ${label} for ${fmt(amt)}. Track it in Trades.`
+        : `Raised offer on ${label} to ${fmt(amt)}${wasStr}.`, 'ok');
     } finally { setBusy(false); }
   };
 
@@ -9442,7 +9452,16 @@ function ProfileOffersTab() {
           : o.status === 'EXPIRED'   ? 'Expired'
           : o.status === 'COUNTERED' ? 'Countered'
           : o.status),
-        isPending && isIncoming && !isCountering && h('div', { style: { display: 'flex', gap: 4, marginTop: 6 } },
+        // The seller's own counter waits on the buyer: no Accept / Counter /
+        // Reject here (they failed, or told the buyer their own price was declined).
+        isPending && isIncoming && o.author === 'SELLER' && h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 6 } },
+          'Waiting on the buyer ',
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '3px 8px', fontSize: 10, marginLeft: 4 },
+            disabled: busy, onClick: () => doReject(o.id), title: 'Withdraw your counter'
+          }, 'Withdraw')),
+        isPending && isIncoming && o.author !== 'SELLER' && !isCountering && h('div', { style: { display: 'flex', gap: 4, marginTop: 6 } },
           h('button', { className: 'buy-btn', disabled: busy, onClick: () => doAccept(o.id), 'aria-label': 'Accept offer', title: 'Accept' }, '✓'),
           h('button', {
             className: 'btn btn-ghost',
@@ -9646,7 +9665,7 @@ function ProfileOffersTab() {
             tabIndex: tab === 'incoming' ? 0 : -1,
             onClick: () => setTab('incoming'),
             onKeyDown: onKey
-          }, 'Incoming', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, data.incoming.filter(o => o.status === 'PENDING').length)),
+          }, 'Incoming', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, data.incoming.filter(o => o.status === 'PENDING' && o.author !== 'SELLER').length)),
           h('button', {
             key: 'outgoing',
             id: 'profile-offers-tab-outgoing',
@@ -9730,7 +9749,7 @@ function ProfileOffersTab() {
     // potential revenue for the seller.
     (() => {
       const isIncoming = tab === 'incoming';
-      const pending = (isIncoming ? data.incoming : data.outgoing).filter(o => o.status === 'PENDING');
+      const pending = (isIncoming ? data.incoming : data.outgoing).filter(o => o.status === 'PENDING' && !(isIncoming && o.author === 'SELLER'));
       if (pending.length === 0) return null;
       const sum = pending.reduce((acc, o) => acc + (parseFloat(o.amount) || 0), 0);
       return h('div', {
@@ -14373,7 +14392,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       await load();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       const buyerBit = o?.buyerName ? ` from ${o.buyerName}` : '';
-      toast(`Rejected ${label}${buyerBit} — buyer notified.`, 'ok');
+      toast(o?.author === 'SELLER'
+        ? `Counter on ${label} withdrawn — buyer notified.`
+        : `Rejected ${label}${buyerBit} — buyer notified.`, 'ok');
     } finally { setBusy(false); }
   };
   const handleCancel = async (id) => {
@@ -14420,7 +14441,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       const wasStr = o?.amount ? ` (was ${fmt(parseFloat(o.amount))})` : '';
       toast(mode === 'raise'
-        ? `Raised offer on ${label} to ${fmt(amt)}${wasStr}.`
+        ? (res.status === 'ACCEPTED'
+            ? `Offer accepted! You bought ${label} for ${fmt(amt)}. Track it in Trades.`
+            : `Raised offer on ${label} to ${fmt(amt)}${wasStr}.`)
         : `Countered ${label} at ${fmt(amt)} — buyer notified.`,
         'ok');
     } finally { setBusy(false); }
@@ -14661,6 +14684,15 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     }, busy ? '…' : 'Reject offer')
                   )
                 )
+              : (isIncoming && offer.author === 'SELLER')
+              ? h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', fontSize: 11, color: 'var(--text-muted)' } },
+                  'Your counter · waiting on the buyer',
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11 },
+                    onClick: () => { if (confirm('Withdraw your counter? The buyer is told and can make a new offer.')) confirmReject(offer.id); },
+                    disabled: busy, title: 'Withdraw your counter'
+                  }, 'Withdraw'))
               : isIncoming
               ? h('div', { style: { display: 'flex', gap: 6 } },
                   h('button', { className: 'buy-btn', onClick: () => handleAccept(offer.id), disabled: busy }, 'Accept'),
@@ -14781,7 +14813,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
             tabIndex: tab === 'incoming' ? 0 : -1,
             onClick: () => pickTab('incoming'),
             onKeyDown: onKey
-          }, 'Incoming', incoming && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, incoming.filter(o => o.status === 'PENDING').length)),
+          }, 'Incoming', incoming && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, incoming.filter(o => o.status === 'PENDING' && o.author !== 'SELLER').length)),
           h('button', {
             key: 'outgoing',
             id: 'offers-modal-tab-outgoing',
@@ -15056,16 +15088,40 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     // State stays in-memory; user just loses cross-reload persistence.
     try { localStorage.setItem('sb_watchlist_alerts', JSON.stringify(next)); } catch (_) {}
     setEditingAlert(null);
-    // Pre-fix this was a silent click — the user typed a price, hit Set,
-    // and got no confirmation that anything happened. Toast surfaces
-    // the result so the action reads as real. The alert itself is
-    // device-local; signed-in users get push notifications via the
-    // server-side bell + email path which is wired separately.
-    try {
-      toast(cleared
-        ? 'Price alert cleared.'
-        : `Price alert set — we'll notify you when this drops to ${fmt(n)}.`, 'ok');
-    } catch (_) { /* toast helper missing — non-fatal */ }
+    // Signed out, the alert lives in this browser only, so say so instead
+    // of promising a notification nobody would send.
+    if (!me?.id) {
+      try {
+        toast(cleared
+          ? 'Price alert cleared.'
+          : `Price alert saved in this browser — sign in to get notified when this drops to ${fmt(n)}.`, 'ok');
+      } catch (_) { /* toast helper missing — non-fatal */ }
+      return;
+    }
+    // Signed in: this card used to write only to localStorage while the
+    // toast promised a notification. Create (or cancel) the real server
+    // alert, which is what the bell and email fire from.
+    (async () => {
+      try {
+        const api = await import('./api.js');
+        if (cleared) {
+          const live = (serverAlerts || []).filter(x => x.itemId === itemId && x.status === 'ACTIVE');
+          for (const x of live) await api.cancelWatchlistAlert(x.id);
+          loadServerAlerts();
+          toast('Price alert cleared.', 'ok');
+          return;
+        }
+        const res = await api.createWatchlistAlert(itemId, n);
+        if (res && (res.error || res.code)) {
+          toast(res.message || res.error || 'Could not set the alert', 'err');
+          return;
+        }
+        loadServerAlerts();
+        toast(`Price alert set — we'll notify you when this drops to ${fmt(n)}.`, 'ok');
+      } catch (_) {
+        toast('Could not set the alert — network error. Please try again.', 'err');
+      }
+    })();
   };
 
   // The parent passes in the currently-filtered marketplace view, which

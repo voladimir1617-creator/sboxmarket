@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=227';
+} from './modals.js?v=228';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -3510,7 +3510,8 @@ export function App() {
       const res = await upsertSavedSearch({
         name: entry.name, q: entry.search, category: entry.category,
         rarity: entry.rarity, sort: entry.sort,
-        minPrice: entry.minPrice, maxPrice: entry.maxPrice,
+        // Same cleanup as the grid's own filter, so "$20" saves as 20.
+        minPrice: cleanPriceParam(entry.minPrice) || '', maxPrice: cleanPriceParam(entry.maxPrice) || '',
         minDiscountPct: entry.minDiscountPct,
         dealsOnly: entry.dealsOnly,
         newOnly: entry.newOnly,
@@ -4470,14 +4471,22 @@ export function App() {
         const { fetchSavedSearches, bulkMergeSavedSearches } = await import('./api.js');
         if (!localStorage.getItem(sentKey)) {
           // Send only the filter fields — server generates fresh ids.
+          // Every filter the preset carries: dropping the extras here
+          // turned "Hats · Auctions · ≥20% off" into plain "Hats" on first
+          // sign-in, and its match alerts then fired for every hat.
           const payload = (savedSearches || []).map(s => ({
             name:     s.name,
             q:        s.search || '',
             category: s.category,
             rarity:   s.rarity,
             sort:     s.sort,
-            minPrice: s.minPrice || '',
-            maxPrice: s.maxPrice || ''
+            minPrice: cleanPriceParam(s.minPrice) || '',
+            maxPrice: cleanPriceParam(s.maxPrice) || '',
+            minDiscountPct: s.minDiscountPct,
+            dealsOnly:      s.dealsOnly,
+            newOnly:        s.newOnly,
+            affordableOnly: s.affordableOnly,
+            listingType:    s.listingType
           }));
           const merged = await bulkMergeSavedSearches(payload);
           if (!alive) return;
@@ -5408,6 +5417,18 @@ export function App() {
       // offered. Matches the buy-success personalisation (batch 880).
       const n = parseFloat(amount);
       const itemName = res.itemName;
+      // An offer at or above the seller's auto-accept threshold is accepted
+      // on the spot: the wallet is charged and a trade opens. Saying "the
+      // seller has 7 days" there left the buyer waiting on a sale that
+      // had already happened.
+      if (res.status === 'ACCEPTED') {
+        showToast(itemName
+          ? `Offer accepted! You bought "${itemName}" for ${fmt(n)}. Track it in Profile → Trades.`
+          : `Offer accepted! You bought it for ${fmt(n)}. Track it in Profile → Trades.`, 'ok');
+        load(true);
+        loadWallet();
+        return res;
+      }
       const copy = itemName
         ? `Offered ${fmt(n)} on "${itemName}" — the seller has 7 days to respond.`
         : `Offered ${fmt(n)} — the seller has 7 days to respond.`;
