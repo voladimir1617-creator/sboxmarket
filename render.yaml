@@ -1,0 +1,56 @@
+# Render Blueprint: the public DEMO copy of SkinBox on Render's free plan.
+# The "Deploy to Render" button in docs/HOSTING.md reads this file.
+#
+# It creates two things, both on the free plan:
+#   * skinbox-demo     the website, built from ./Dockerfile
+#   * skinbox-demo-db  a Postgres database for it
+#
+# The demo profile (application-demo.yml) keeps every money and staff route
+# shut and refuses to start with live Stripe keys or dev sign-in, so nothing
+# here can take or pay out real money. Real money is the `prod` profile and
+# waits for the owner's "go live".
+services:
+  - type: web
+    name: skinbox-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: demo
+      # Sized for the 512 MB free instance.
+      - key: JAVA_TOOL_OPTIONS
+        value: >-
+          -XX:+UseSerialGC -Xss512k -XX:MaxRAMPercentage=60.0
+          -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m
+          -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom
+      - key: APP_UNSUBSCRIBE_SECRET
+        generateValue: true
+      - key: DB_HOST
+        fromDatabase:
+          name: skinbox-demo-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: skinbox-demo-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: skinbox-demo-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: skinbox-demo-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: skinbox-demo-db
+          property: password
+
+databases:
+  - name: skinbox-demo-db
+    plan: free
+    databaseName: skinbox
+    user: skinbox
