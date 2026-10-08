@@ -1,9 +1,11 @@
 package com.sboxmarket
 
 import com.sboxmarket.model.Item
+import com.sboxmarket.model.Listing
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.WatchlistAlert
 import com.sboxmarket.repository.ItemRepository
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.WatchlistAlertRepository
 import org.springframework.beans.factory.annotation.Autowired
@@ -42,7 +44,12 @@ class WatchlistAlertListedOnlySpec extends Specification {
         alerts.findTriggeredForItem(item.id).isEmpty()
 
         when: "a real listing makes the item listed at that floor"
+        // A real ACTIVE row, so the scheduled floor refresh agrees with
+        // isListed=true instead of racing the assertion back to false.
+        ctx.getBean(ListingRepository).save(new Listing(item: item, price: new BigDecimal('4.00'),
+            status: 'ACTIVE', sellerName: "AlertSeller-" + uniq, rarityScore: BigDecimal.ZERO))
         item.isListed = true
+        item.lowestPrice = new BigDecimal('4.00')
         items.save(item)
 
         then:

@@ -974,8 +974,7 @@ class PublicEndpointsHttpSpec extends Specification {
             def slurper = new groovy.json.JsonSlurper()
             def parsed = slurper.parseText(json)
             (parsed instanceof List ? parsed : parsed?.items ?: [])
-                .collect { it?.lowestPrice ?: 0 }
-                .take(3)
+                .collect { (it?.lowestPrice ?: 0) as BigDecimal }
         }
 
         when:
@@ -987,7 +986,15 @@ class PublicEndpointsHttpSpec extends Specification {
         then:
         upper.response.status == 200
         lower.response.status == 200
-        extract(upper.response.contentAsString) == extract(lower.response.contentAsString)
+        // Both must come back ascending. Comparing the two responses' first
+        // rows value-for-value raced the shared test DB: a sale or floor
+        // refresh from another spec could re-price an item between the two
+        // requests and fail the match with both orders correct.
+        def up = extract(upper.response.contentAsString)
+        def low = extract(lower.response.contentAsString)
+        up.size() >= 2
+        up == up.toSorted()
+        low == low.toSorted()
     }
 
     def "GET /api/listings?sort=PRICE_DESC matches price_desc (batch 661)"() {
