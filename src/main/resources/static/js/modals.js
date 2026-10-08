@@ -11680,7 +11680,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             return h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 6 } },
               'Leave blank to manually review every offer. Set a percent to instantly accept offers within that discount of your ask.');
           }
-          const threshold = +(p * (1 - pct / 100)).toFixed(2);
+          // Whole cents, rounded half-up like the server's check; the float
+          // toFixed form previewed $1.03 on a $1.15 ask where $1.04 is needed.
+          const threshold = Math.round(Math.round(p * 100) * (100 - pct) / 100) / 100;
           return h('div', {
             style: {
               fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700
@@ -13044,7 +13046,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // + typed fallback + live preview of how many listings will be
     // touched.
     bulkAdjustOpen && (() => {
-      const buyNowCount = (stall || []).filter(l => l && l.listingType !== 'AUCTION' && !l.hidden).length;
+      // Hidden (away-mode) rows count: the server re-prices every active
+      // Buy Now listing, hidden or not.
+      const buyNowCount = (stall || []).filter(l => l && l.listingType !== 'AUCTION').length;
       const setChip = (n) => { setBulkAdjustPct(String(n)); setBulkAdjustErr(''); };
       const pctNum = parseFloat(bulkAdjustPct);
       const previewValid = isFinite(pctNum) && pctNum !== 0 && Math.abs(pctNum) <= 50;
@@ -13986,7 +13990,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       if (!Number.isFinite(pct) || pct <= 0 || newP <= 0) return null;
                       if (pct > 50) return h('div', { style: { fontSize: 11, color: 'var(--red)', marginTop: 6, fontWeight: 700 } },
                         'Auto-accept % must be ≤ 50. Set a lower number before saving.');
-                      const threshold = +(newP * (1 - pct / 100)).toFixed(2);
+                      const threshold = Math.round(Math.round(newP * 100) * (100 - pct) / 100) / 100;
                       return h('div', {
                         style: { fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700 }
                       }, `✓ Offers of ${fmt(threshold)} or higher will auto-accept (${pct}% off ${fmt(newP)}).`);
@@ -14093,7 +14097,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         className: 'btn btn-ghost',
                         style: { padding: '7px 10px', fontSize: 11, opacity: 0.5, cursor: 'not-allowed' },
                         disabled: true,
-                        title: "Auctions with bids are price-locked — cancel + relist to change price"
+                        title: "Auctions with bids are locked — they settle when the timer ends"
                       }, 'Price locked')
                     : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l) }, '✎ Edit'),
                   // Match-top-bid quick-action (batch 416). Renders only

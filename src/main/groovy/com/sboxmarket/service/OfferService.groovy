@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 
 /**
@@ -292,8 +294,7 @@ class OfferService {
         // manual) and the seller isn't banned. Failures fall back to
         // the regular PENDING state so the buyer doesn't lose their
         // offer.
-        def autoAccepted = tryAutoAccept(listing, saved, amount)
-        if (autoAccepted != null) return autoAccepted
+        Closure notifySeller = {
         // Seller notification + email — only fires for PENDING offers
         // (auto-accept uses the purchase flow's own seller-notify +
         // receipt path, so duplicating here would double-ring the bell).
@@ -327,6 +328,10 @@ class OfferService {
                 log.warn("OFFER_RECEIVED email failed for seller ${listing.sellerUserId}: ${e.message}")
             }
         }
+        }
+        def autoAccepted = tryAutoAccept(listing, saved, amount, notifySeller)
+        if (autoAccepted != null) return autoAccepted
+        notifySeller()
         saved
     }
 
@@ -373,7 +378,7 @@ class OfferService {
      * outer tx commits as designed. Mirrors `BidService.runInIsolatedTx`
      * which closed the same family of bugs in the auction sweepers.
      */
-    private Offer tryAutoAccept(Listing listing, Offer saved, BigDecimal amount) {
+    private Offer tryAutoAccept(Listing listing, Offer saved, BigDecimal amount, Closure notifyPending) {
         if (listing?.maxDiscount == null
                 || listing.maxDiscount <= BigDecimal.ZERO
                 || listing.maxDiscount >= BigDecimal.ONE
@@ -388,6 +393,37 @@ class OfferService {
         def threshold = (listing.price - (listing.price * listing.maxDiscount))
             .setScale(2, BigDecimal.ROUND_HALF_UP)
         if (amount < threshold) return null
+        // Inside a live transaction the offer row is not committed yet, so
+        // a REQUIRES_NEW accept run now cannot see it ("Offer not found")
+        // and every auto-accept silently fell back to PENDING. Run it right
+        // after the offer commits instead; the buyer's response object is
+        // updated in place before the controller serialises it, and the
+        // seller only gets the "new offer" ping if the accept fails.
+        if (transactionManager != null && TransactionSynchronizationManager.isSynchronizationActive()) {
+            Long sellerId = listing.sellerUserId
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override void afterCommit() {
+                    boolean accepted = false
+                    try {
+                        banGuard.assertNotBanned(sellerId)
+                        runInIsolatedTx { acceptOffer(sellerId, saved.id) }
+                        // acceptOffer only returns once the row is ACCEPTED.
+                        saved.status = 'ACCEPTED'
+                        accepted = true
+                    } catch (Exception e) {
+                        log.warn("Auto-accept failed for offer ${saved.id}: ${e.message} — leaving in PENDING")
+                    }
+                    if (!accepted && notifyPending != null) {
+                        try {
+                            runInIsolatedTx { notifyPending() }
+                        } catch (Exception e) {
+                            log.warn("Offer ${saved.id} seller notification failed: ${e.message}")
+                        }
+                    }
+                }
+            })
+            return saved
+        }
         try {
             banGuard.assertNotBanned(listing.sellerUserId)
             runInIsolatedTx { acceptOffer(listing.sellerUserId, saved.id) }
@@ -520,8 +556,7 @@ class OfferService {
         // was honoured for initial offers but ignored for raises —
         // converting buyers had to wait for manual seller action
         // anyway, defeating the feature.
-        def autoAccepted = tryAutoAccept(listing, saved, amount)
-        if (autoAccepted != null) return autoAccepted
+        Closure notifySeller = {
         if (original.sellerUserId != null) {
             try {
                 notificationService?.push(
@@ -551,6 +586,10 @@ class OfferService {
                 log.warn("Buyer-raise email failed for seller ${original.sellerUserId}: ${e.message}")
             }
         }
+        }
+        def autoAccepted = tryAutoAccept(listing, saved, amount, notifySeller)
+        if (autoAccepted != null) return autoAccepted
+        notifySeller()
         saved
     }
 
@@ -792,6 +831,15 @@ class OfferService {
             // and locking them out of the dup-guard on that listing.
             closeCounteredParent(offer)
             throw new ListingNotAvailableException(offer.listingId)
+        }
+        // A hidden listing (away mode or a manual hide) can't be bought, so
+        // the purchase below would fail with a generic "no longer
+        // available" and the seller could retry forever without learning
+        // why. Say what to do; the offer stays PENDING.
+        if (listing.hidden) {
+            throw new BadRequestException("LISTING_HIDDEN", sellerAcceptingOffer
+                ? "This listing is hidden. Unhide it (or turn off away mode) to accept offers."
+                : "The seller has paused this listing. Try again once it's back on the market.")
         }
 
         // Resolve buyer wallet via SteamUser → username = "steam_<steamId64>"

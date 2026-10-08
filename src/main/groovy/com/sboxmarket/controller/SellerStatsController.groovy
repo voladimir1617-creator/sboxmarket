@@ -175,6 +175,7 @@ class SellerStatsController {
             : 0L
         long ratingCount = 0L
         BigDecimal ratingAvg = null
+        Double ratingRaw = null
         if (reviewRepository != null) {
             try {
                 def agg = reviewRepository.aggregateForUser(uid)
@@ -182,6 +183,7 @@ class SellerStatsController {
                     def row = agg[0]
                     ratingCount = (row[0] ?: 0L) as Long
                     if (ratingCount > 0 && row[1] != null) {
+                        ratingRaw = (row[1] as Number).doubleValue()
                         ratingAvg = (row[1] as BigDecimal).setScale(2, java.math.RoundingMode.HALF_UP)
                     }
                 }
@@ -189,7 +191,10 @@ class SellerStatsController {
                 log.debug("aggregateForUser(${uid}) failed: ${e.message}")
             }
         }
-        boolean ratingOk = ratingCount == 0L || (ratingAvg != null && ratingAvg.doubleValue() >= 4.0d)
+        // Judge the unrounded average, like /verified and the badge do: a
+        // 3.996 average rounds to 4.00 and used to show "verified" here
+        // while the seller's listings carried no badge.
+        boolean ratingOk = ratingCount == 0L || (ratingRaw != null && ratingRaw >= 4.0d)
         boolean salesOk = soldCount >= 10L
         boolean verified = salesOk && ratingOk
         ResponseEntity.ok([

@@ -1178,4 +1178,22 @@ class ListingsHttpSpec extends Specification {
         then:
         seen == ids.sort()
     }
+
+    def "a sale still counts for the original seller after the buyer relists the item"() {
+        given:
+        // Relisting flips the bought row (the seller's sale record) from
+        // SOLD to RELISTED; seller stats and sales history must keep it.
+        def uniq = System.nanoTime()
+        Long sellerId = 900_000_000L + (uniq % 1_000_000L)
+        def item = itemRepo.save(new Item(
+            name: "RelistSale-${uniq}", category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0, lowestPrice: new BigDecimal('7.00'), iconEmoji: '🎩'))
+        listingRepo.save(new Listing(item: item, price: new BigDecimal('7.00'),
+            status: 'RELISTED', sellerName: "RelistSeller-${uniq}", rarityScore: BigDecimal.ZERO,
+            sellerUserId: sellerId, buyerUserId: sellerId + 1, soldAt: System.currentTimeMillis()))
+
+        expect:
+        listingRepo.countSoldBySeller(sellerId) == 1L
+        listingRepo.sumRevenueBySeller(sellerId) == new BigDecimal('7.00')
+    }
 }

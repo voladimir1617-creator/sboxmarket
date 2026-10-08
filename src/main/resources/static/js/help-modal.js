@@ -21,7 +21,7 @@ const FAQ = [
   },
   {
     q: 'How do I run an auction (as a seller)?',
-    a: "In the Sell Items flow, toggle Listing type to Auction instead of Buy Now. Pick a duration (6h / 12h / 1d / 2d / 3d / 7d), set a starting bid, and hit List for Sale. Bidders push the price up from there until the timer runs out; the top bidder's wallet is charged automatically. Anti-snipe: any bid placed in the final 30 seconds extends the auction by another 30 seconds so nobody can win purely on timing. You can cancel an auction any time, but once it has bids you can't change the starting price — cancel + relist instead. When the auction ends with no bids, the item returns to your inventory automatically."
+    a: "In the Sell Items flow, toggle Listing type to Auction instead of Buy Now. Pick a duration (6h / 12h / 1d / 2d / 3d / 7d), set a starting bid, and hit List for Sale. Bidders push the price up from there until the timer runs out; the top bidder's wallet is charged automatically. Anti-snipe: any bid placed in the final 30 seconds extends the auction by another 30 seconds so nobody can win purely on timing. You can cancel or re-price an auction until the first bid lands; after that it's locked and settles when the timer runs out. When the auction ends with no bids, the item returns to your inventory automatically."
   },
   {
     q: 'How does depositing money work?',

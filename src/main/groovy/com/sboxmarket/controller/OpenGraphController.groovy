@@ -478,7 +478,7 @@ class OpenGraphController {
         ['How do auctions work?',
          "Auction listings show a countdown + current-bid input. Minimum bid is the current price plus \$0.05, and bidders can set an auto-bid cap so the bot keeps raising for them. Anti-snipe extends the auction by 30 seconds if a bid lands in the final minute. When the timer runs out the winner's wallet is charged automatically."],
         ['How do I run an auction as a seller?',
-         "In the Sell Items flow, toggle the Listing type to Auction. Pick a duration (6h through 7 days), set a starting bid, and hit List. Anti-snipe extends the close by 30 seconds whenever a bid lands in the final 30 seconds. You can cancel any time, but once bids land you can't change the starting price — cancel + relist instead. No bids by the end? The item returns to your inventory automatically."],
+         "In the Sell Items flow, toggle the Listing type to Auction. Pick a duration (6h through 7 days), set a starting bid, and hit List. Anti-snipe extends the close by 30 seconds whenever a bid lands in the final 30 seconds. You can cancel or re-price it until the first bid lands; after that it's locked and settles when it ends. No bids by the end? The item returns to your inventory automatically."],
         ['What is a Stall?',
          "Your Stall is your personal storefront — the list of items you currently have up for sale. Other users can browse it via your profile. You can cancel any listing from My Stall and the item returns to your inventory."],
         ['What are Offers?',
