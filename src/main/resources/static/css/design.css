@@ -30103,3 +30103,10 @@ html body:has(.cart-tray) .toast-stack, html body:has(.cart-tray) .sale-toasts, 
    steps aside whenever a dialog (the buy confirm included) is open. */
 html body:has(.cart-confirm-backdrop) .item-buy-bar,
 html body:has([aria-modal="true"]) .item-buy-bar { display: none !important; }
+/* The cookie-preferences puck sits bottom-left on phones (left 16px,
+   bottom 88px), right where the tray's cart icon and the Buy bar's item
+   name are. Lift it above them the same way the Filters button is lifted. */
+@media (max-width: 720px) {
+  html body:has(.cart-tray) button[aria-label="Cookie preferences"] { bottom: calc(146px + env(safe-area-inset-bottom, 0px)) !important; }
+  html body:has(.item-buy-bar) button[aria-label="Cookie preferences"] { bottom: calc(136px + env(safe-area-inset-bottom, 0px)) !important; }
+}

@@ -11,3 +11,18 @@
 # heuristic; a line-ending conversion applied to a zip corrupts it, and a
 # corrupt wrapper is worse than the missing one it replaced. State it.
 gradle/wrapper/gradle-wrapper.jar binary
+
+# Byte-exact on every checkout, Windows included. index.html loads these two
+# with a sha384 `integrity` hash. With core.autocrlf=true a Windows checkout
+# rewrote their line endings, the hash stopped matching, the browser refused
+# both files and every page rendered blank (2026-10-08). `-text` means git
+# never converts them. They are LF in the index today, so this changes no
+# bytes in the repo, only what a checkout is allowed to do to them.
+src/main/resources/static/js/vendor/react.production.min.js -text
+src/main/resources/static/js/vendor/react-dom.production.min.js -text
+
+# Shell scripts run under sh/bash, which reads a CRLF shebang as a missing
+# "/bin/sh\r" interpreter. The Dockerfile copies gradlew into a Linux image, so
+# a CRLF copy from a Windows checkout breaks the image build. Already LF here.
+gradlew eol=lf
+*.sh eol=lf
