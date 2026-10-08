@@ -646,6 +646,8 @@ class ReviewService {
                 if (stars >= 1 && stars <= 5) buckets[5 - stars] = n
             }
         }
-        [count: count, average: rounded, histogram: buckets]
+        // averageRaw is the unrounded mean, for threshold checks: 3.96
+        // rounds to 4.0 for display but must not earn the >= 4.0 badge.
+        [count: count, average: rounded, averageRaw: avg, histogram: buckets]
     }
 }

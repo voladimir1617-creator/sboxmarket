@@ -3677,7 +3677,7 @@ export function FaqModal({ onClose }) {
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'No FAQs match "', h('strong', { style: { color: 'var(--accent)' } }, q.trim()), '"'),
           h('div', { style: { maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
-            'Try a broader keyword, or open a ticket and a CSR will reply within the hour.'),
+            'Try a broader keyword, or open a ticket — a CSR replies within 24 hours (within 4 hours for trade, payment, and refund issues).'),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
             h('button', {
               className: 'btn btn-ghost',
@@ -11232,7 +11232,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
 
   const submit = async () => {
     setError('');
-    const p = parseFloat(price);
+    // Whole cents, so the price we send is exactly what the breakdown and the
+    // toast show (the server would otherwise round "1.005" up to $1.01).
+    const p = Math.round(parseFloat(price) * 100) / 100;
     // Floor at $0.01 — matches the relist DTO @DecimalMin("0.01") and the
     // server PRICE_TOO_LOW guard. Without this a sub-cent price (e.g. 0.004)
     // passed `<= 0` and rounded to $0.00 in NUMERIC(10,2) → a free, instantly
@@ -11283,9 +11285,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     // and the server treats null the same way.
     const rawPct = (sellAutoPct || '').trim();
     if (rawPct) {
-      const pct = parseFloat(rawPct);
-      if (!Number.isFinite(pct) || pct < 1 || pct > 50) {
-        setError('Auto-accept discount must be between 1% and 50%.');
+      // Whole percents only: the column stores two decimals of the
+      // fraction, so 7.5% was saved as 8% while the preview said 7.5%.
+      const pct = Number(rawPct);
+      if (!Number.isInteger(pct) || pct < 1 || pct > 50) {
+        setError('Auto-accept discount must be a whole number from 1% to 50%.');
         return;
       }
       opts.maxDiscount = pct / 100;
@@ -11559,7 +11563,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('div', { className: 'price-suggest-row' },
         (() => {
           const floor = parseFloat(isSteam ? (item.suggestedPrice || 0) : (item.lowestPrice || 0));
-          const steamPrice = parseFloat(isSteam ? (item.steamPrice || item.suggestedPrice || 0) : (item.steamPrice || 0));
+          const steamPrice = parseFloat(item.steamPrice || 0);
           const chips = [];
           if (floor > 0) chips.push({ label: 'Floor', v: floor });
           if (floor > 0) chips.push({ label: '−5%', v: +(floor * 0.95).toFixed(2), hint: 'Undercut, sells faster' });
@@ -11611,7 +11615,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         })()
       ),
       (() => {
-        const p = parseFloat(price) || 0;
+        const p = Math.round((parseFloat(price) || 0) * 100) / 100;
         const isAuction = sellType === 'AUCTION';
         if (p <= 0) return h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 8 } },
           'A 2% platform fee is deducted when the item sells.');
@@ -11659,7 +11663,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // have a real Steam reference + the price exceeds it by at
           // least $0.05 so rounding near equality doesn't nag.
           (() => {
-            const steam = parseFloat(isSteam ? (item.steamPrice || item.suggestedPrice || 0) : (item.steamPrice || 0));
+            const steam = parseFloat(item.steamPrice || 0);
             if (!(steam > 0) || !(p > 0)) return null;
             if (p <= steam + 0.04) return null;
             const vsSteam = Math.round(((p - steam) / steam) * 100);
@@ -11787,9 +11791,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     const opts = {};
     const rawBulkPct = (bulkAutoPct || '').trim();
     if (rawBulkPct) {
-      const pct = parseFloat(rawBulkPct);
-      if (!Number.isFinite(pct) || pct < 1 || pct > 50) {
-        toast('Auto-accept discount must be between 1% and 50%.', 'err');
+      const pct = Number(rawBulkPct);
+      if (!Number.isInteger(pct) || pct < 1 || pct > 50) {
+        toast('Auto-accept discount must be a whole number from 1% to 50%.', 'err');
         return;
       }
       opts.maxDiscount = pct / 100;
@@ -12848,23 +12852,46 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   };
 
   const saveEdit = async (id) => {
+    // Validate the price as typed. parseFloat('1,250') is 1 and
+    // parseFloat('$12') is NaN, so a comma or a currency sign used to
+    // reprice a $1,250 listing to $1.00 (where any buy order could fill
+    // it at once) or send a null price.
+    const priceStr = String(editPrice || '').trim();
+    if (!/^\d+(\.\d{1,2})?$/.test(priceStr)) {
+      toast('Enter the price as a plain number with up to 2 decimals, e.g. 1250 or 12.50 (no commas or $).', 'err');
+      return;
+    }
+    const priceNum = parseFloat(priceStr);
+    if (!(priceNum >= 0.01 && priceNum <= 100000)) {
+      toast('Price must be between $0.01 and $100,000.', 'err');
+      return;
+    }
+    const original = (stall || []).find(l => l.id === id);
     const patch = {
-      price: parseFloat(editPrice),
+      price: priceNum,
       description: editDesc
     };
     // Translate the integer percent back to a 0..1 fraction. Empty
-    // string / 0 clears the auto-accept so the seller opts out.
-    const pct = parseFloat(editAutoPct);
-    if (editAutoPct.trim() === '' || !isFinite(pct) || pct <= 0) {
-      patch.maxDiscount = null;
-    } else {
-      patch.maxDiscount = Math.min(50, Math.max(1, pct)) / 100;
+    // string / 0 clears the auto-accept so the seller opts out. Out of
+    // range blocks the save (the hint already says so) instead of being
+    // clamped to 50% behind the seller's back, and the field is only
+    // sent when it changed so editing just the description can't
+    // rewrite a 12.5% threshold to 13%.
+    const autoStr = String(editAutoPct || '').trim();
+    const pct = autoStr === '' ? 0 : Number(autoStr);
+    if (autoStr !== '' && !(Number.isInteger(pct) && pct >= 0 && pct <= 50)) {
+      toast('Auto-accept % must be a whole number from 1 to 50 (blank = off).', 'err');
+      return;
+    }
+    const origMd = parseFloat(original?.maxDiscount);
+    const origPct = isFinite(origMd) && origMd > 0 ? Math.round(origMd * 100) : 0;
+    if (pct !== origPct) {
+      patch.maxDiscount = pct > 0 ? pct / 100 : null;
     }
     // Batch 911 — snapshot the original listing BEFORE the save so the
     // toast can contrast the old price vs. the new, naming the item.
     // Mirrors the "Payout: X (+$Y vs. current)" preview (batch 894)
     // that the same form already shows above the Save button.
-    const original = (stall || []).find(l => l.id === id);
     const itemName = original?.item?.name || null;
     const oldPrice = original ? parseFloat(original.price) : null;
     let res;
@@ -12880,7 +12907,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     setEditing(null);
     load();
     onRefresh && onRefresh();
-    const newP = parseFloat(editPrice);
+    const newP = priceNum;
     const delta = (oldPrice != null && isFinite(oldPrice)) ? (newP - oldPrice) : null;
     const deltaStr = delta != null && Math.abs(delta) >= 0.01
       ? ` (${delta >= 0 ? '+' : ''}${fmt(delta)})`
@@ -13486,7 +13513,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             if (data.skippedAuctions) parts.push(`${data.skippedAuctions} auction${data.skippedAuctions === 1 ? '' : 's'} with live bids skipped`);
             if (data.failed)          parts.push(`${data.failed} failed`);
             toast(parts.join(' · ') + '.', 'ok');
-            await onRefresh();
+            // Reload the stall itself, not just the market grid, or every
+            // cancelled row stays on screen with live Edit/Hide buttons.
+            load();
+            onRefresh && await onRefresh();
           } catch (_) { toast('Network error cancelling listings.', 'err'); }
         },
         title: 'Cancel every active BUY_NOW listing and every no-bid auction'
@@ -14009,7 +14039,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       h('input', {
                         className: 'price-input',
                         value: editAutoPct,
-                        onChange: e => setEditAutoPct(e.target.value.replace(/[^0-9]/g, '')),
+                        onChange: e => setEditAutoPct(e.target.value.replace(/[^0-9.]/g, '')),
                         onKeyDown: (e) => {
                           if (e.key === 'Enter') { e.preventDefault(); saveEdit(l.id); }
                           else if (e.key === 'Escape') { e.preventDefault(); setEditing(null); }
@@ -14027,8 +14057,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       const pct = parseFloat(editAutoPct);
                       const newP = parseFloat(editPrice) || parseFloat(l.price) || 0;
                       if (!Number.isFinite(pct) || pct <= 0 || newP <= 0) return null;
-                      if (pct > 50) return h('div', { style: { fontSize: 11, color: 'var(--red)', marginTop: 6, fontWeight: 700 } },
-                        'Auto-accept % must be ≤ 50. Set a lower number before saving.');
+                      if (pct > 50 || !Number.isInteger(pct)) return h('div', { style: { fontSize: 11, color: 'var(--red)', marginTop: 6, fontWeight: 700 } },
+                        'Auto-accept % must be a whole number from 1 to 50. Fix it before saving.');
                       const threshold = Math.round(Math.round(newP * 100) * (100 - pct) / 100) / 100;
                       return h('div', {
                         style: { fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700 }

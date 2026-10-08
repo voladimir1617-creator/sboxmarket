@@ -128,4 +128,18 @@ class ItemServiceSearchRelevanceSpec extends Specification {
         result[0].name == 'Hat'
         result[1].name == null
     }
+
+    def "an exact name with _ or % still ranks first when q arrives LIKE-escaped"() {
+        given: "ItemController escapes _ and % before calling search"
+        itemRepository.searchByName('Hat\\_100\\%') >> [
+            item(1L, 'Big Hat_100% Gold', new BigDecimal("500")),
+            item(2L, 'Hat_100%',          new BigDecimal("10")),
+        ]
+
+        when:
+        def result = service.search('Hat\\_100\\%', null, null, null, null, null)
+
+        then:
+        result*.name == ['Hat_100%', 'Big Hat_100% Gold']
+    }
 }

@@ -93,7 +93,7 @@ const FAQ = [
   },
   {
     q: 'What if the item I bought never arrives — or arrives wrong?',
-    a: "Your money sits in escrow, not the seller's wallet, until you confirm receipt. If the seller never sends the Steam trade offer, the trade auto-cancels with a full refund after 3 days of seller inactivity — you don't have to do anything. If the offer was sent but the item is wrong or missing, you have 8 days from purchase to confirm receipt or file a dispute: go to Profile → Trades, find the row, and click 'Report issue' / 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff triage disputes in rotating CSR shifts and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
+    a: "Your money sits in escrow, not the seller's wallet, until you confirm receipt. If the seller never sends the Steam trade offer, the trade auto-cancels with a full refund after 3 days of seller inactivity — you don't have to do anything. If the offer was sent but the item is wrong or missing, you have 8 days from when the seller marks it sent to confirm receipt or file a dispute: go to Profile → Trades, find the row, and click 'Report issue' / 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff triage disputes in rotating CSR shifts and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
   },
   {
     q: 'What happens if I get banned? Can I appeal?',

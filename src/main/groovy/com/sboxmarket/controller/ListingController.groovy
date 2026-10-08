@@ -1027,7 +1027,8 @@ class ListingController {
         // successfully to show up as verified. Opinionated defaults that
         // can be tuned without touching clients.
         def verified = soldCount >= 10L &&
-            ((ratingSummary.count ?: 0) == 0 || ((ratingSummary.average ?: 0.0) as double) >= 4.0d)
+            ((ratingSummary.count ?: 0) == 0 ||
+             ((ratingSummary.averageRaw ?: ratingSummary.average ?: 0.0) as double) >= 4.0d)
         // Public follower count — cheap indexed COUNT. Silently zero
         // when the feature isn't wired in the current profile.
         def followerCount = sellerFollowService?.countFollowers(userId) ?: 0L

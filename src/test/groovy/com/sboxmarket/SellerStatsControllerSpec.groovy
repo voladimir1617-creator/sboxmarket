@@ -253,6 +253,32 @@ class SellerStatsControllerSpec extends Specification {
         resp.body[0].ratingAverage == new BigDecimal('4.50')
     }
 
+    def "search() escapes LIKE wildcards so % and _ match literally"() {
+        when:
+        controller.search('a_b%c\\d', null, null)
+
+        then:
+        1 * steamUserRepository.searchPublicSellers('a\\_b\\%c\\\\d', _) >> []
+    }
+
+    def "search() ranks a wide candidate set before trimming to the limit"() {
+        given: 'the query returns names A→Z; the busy verified seller sorts last alphabetically'
+        1 * steamUserRepository.searchPublicSellers('an', { it.pageSize == SellerStatsController.SELLER_SEARCH_CANDIDATES }) >> [
+            ([1L, 'Andy', null] as Object[]),
+            ([2L, 'Anna', null] as Object[]),
+            ([3L, 'Zane', null] as Object[])
+        ]
+        1 * listingRepository.countSoldByMultipleSellers(_) >> [([3L, 80L] as Object[])]
+        1 * listingRepository.countActiveByMultipleSellers(_) >> []
+        1 * reviewRepository.aggregateForUsers(_) >> []
+
+        when:
+        def resp = controller.search('an', null, 1)
+
+        then: 'Zane is returned even though only one result was asked for'
+        resp.body*.sellerUserId == [3L]
+    }
+
     def "search() ranks verified sellers above unverified ones"() {
         given: 'two Bobs — only the second qualifies for the ✓ badge'
         1 * steamUserRepository.searchPublicSellers('bob', _) >> [

@@ -26,6 +26,13 @@ export function InfoModal({ title, onClose, children, wide }) {
   // None of this changes visual behaviour. Pure a11y lift.
   const panelRef = useRef(null);
   const closeRef = useRef(null);
+  // Callers pass onClose inline, so it's a new function on every parent
+  // render. Keying the effect on it re-ran the focus jump on every
+  // keystroke in a child input (stall review box, stall filter, report
+  // box) and parked focus on ✕, where the next Space closed the page.
+  // Read the latest handler through a ref and run the effect once.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement;
     // Defer one tick so React has committed the DOM.
@@ -36,6 +43,7 @@ export function InfoModal({ title, onClose, children, wide }) {
       }
     });
     const onKey = (e) => {
+      const onClose = onCloseRef.current;
       if (e.key === 'Escape' && typeof onClose === 'function') {
         // If a child dialog is stacked on top of this full-page modal — a second
         // .modal-backdrop (e.g. the trades confirm-receipt / leave-review modal)
@@ -109,7 +117,7 @@ export function InfoModal({ title, onClose, children, wide }) {
         }
       } catch (_) {}
     };
-  }, [onClose]);
+  }, []);
   // Only wire aria-labelledby when there's a real title — otherwise it
   // would point screen readers at an empty <h1> and announce nothing.
   const hasTitle = title != null && String(title).trim() !== '';

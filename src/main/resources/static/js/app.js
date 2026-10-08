@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=226';
+} from './modals.js?v=227';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -2010,7 +2010,7 @@ function BlockSellerButton({ sellerId, sellerName, showToast }) {
 // so the button label reflects reality; click flips optimistically.
 // Click-when-following unfollows, click-when-not follows. Shows the
 // current follower count as a quiet chip so buyers see social proof.
-function FollowSellerButton({ sellerId, sellerName, showToast }) {
+function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) {
   const [status, setStatus] = useState(null);
   const [busy, setBusy]     = useState(false);
   useEffect(() => {
@@ -2031,10 +2031,10 @@ function FollowSellerButton({ sellerId, sellerName, showToast }) {
         return;
       }
       const nowFollowing = !status.following;
-      setStatus({
-        following: nowFollowing,
-        followerCount: status.followerCount + (nowFollowing ? 1 : -1)
-      });
+      const nextCount = Math.max(0, status.followerCount + (nowFollowing ? 1 : -1));
+      setStatus({ following: nowFollowing, followerCount: nextCount });
+      // Keep the stall's own "Followers" stat in step with the button.
+      onCountChange && onCountChange(nextCount);
       // Batch 918 — name the seller in the follow/unfollow toast so
       // a user who has bounced between several stalls sees exactly
       // which one just flipped. Falls back to plain copy when no name
@@ -8228,7 +8228,8 @@ export function App() {
               // state so signed-out users see the social proof chip; the
               // click path nudges them to sign in if needed.
               me && me.id !== stallData.seller.id &&
-                h(FollowSellerButton, { sellerId: stallData.seller.id, sellerName: stallData.seller.displayName || stallData.seller.name, showToast }),
+                h(FollowSellerButton, { sellerId: stallData.seller.id, sellerName: stallData.seller.displayName || stallData.seller.name, showToast,
+                  onCountChange: (n) => setStallData(d => (d && d.seller) ? { ...d, seller: { ...d.seller, followerCount: n } } : d) }),
               // Block seller — only on someone else's stall (can't block
               // yourself). Silent for the blocked user; reversible at any
               // time from Profile → Personal → Blocked. Batch 344.
