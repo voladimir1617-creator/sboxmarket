@@ -112,7 +112,7 @@ class ListingController {
             // Strip null bytes — Postgres rejects 0x00 in UTF-8 strings
             // with "invalid byte sequence for encoding UTF8". A crafted
             // `?search=%00` from a scanner triggers a 500 without this.
-            search = search.replace('\u0000', '')
+            search = search.replace('\u0000', '').trim()
             if (search.length() > 100) search = search.substring(0, 100)
         }
         // Batch 661 — normalise sort case-insensitively so a share URL

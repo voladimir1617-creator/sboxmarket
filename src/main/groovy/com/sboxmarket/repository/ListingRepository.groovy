@@ -561,9 +561,9 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
           AND (:category    = '' OR l.item.category = :category)
           AND (:rarity      = '' OR l.item.rarity   = :rarity)
           AND (:listingType = '' OR l.listingType   = :listingType)
-          AND (:minPrice IS NULL OR l.price >= :minPrice)
-          AND (:maxPrice IS NULL OR l.price <= :maxPrice)
-        ORDER BY l.price ASC
+          AND (:minPrice IS NULL OR (CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL THEN l.currentBid ELSE l.price END) >= :minPrice)
+          AND (:maxPrice IS NULL OR (CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL THEN l.currentBid ELSE l.price END) <= :maxPrice)
+        ORDER BY l.price ASC, l.id ASC
     """)
     List<Listing> findActivePublic(
         @Param("q") String q,
