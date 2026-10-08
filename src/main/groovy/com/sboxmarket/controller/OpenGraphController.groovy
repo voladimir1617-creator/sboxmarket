@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ClassPathResource
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import com.sboxmarket.config.CorrelationIdFilter
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RestController
@@ -276,18 +277,9 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            // `private` not `public` — every OG response carries the
-            // CsrfFilter's Set-Cookie header for first-load users (it
-            // mints `sbox_csrf` if no cookie is present). A shared
-            // cache like Cloudflare that captured the response would
-            // serve user A's cookie to user B on the cache hit,
-            // collapsing two visitors onto the same CSRF token and
-            // defeating per-user CSRF protection downstream. Per-user
-            // browser cache (`private`) still gets the 5-min benefit
-            // for refreshes; only the multi-tenant shared cache is
-            // excluded — and crawlers, the primary cacheable consumer
-            // here, don't carry cookies anyway.
-            .header('Cache-Control', 'private, max-age=300')
+            // Revalidate on every visit, never stored by a shared cache:
+            // see CorrelationIdFilter.HTML_CACHE_CONTROL.
+            .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
             .body(out)
     }
 
@@ -436,18 +428,9 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            // `private` not `public` — every OG response carries the
-            // CsrfFilter's Set-Cookie header for first-load users (it
-            // mints `sbox_csrf` if no cookie is present). A shared
-            // cache like Cloudflare that captured the response would
-            // serve user A's cookie to user B on the cache hit,
-            // collapsing two visitors onto the same CSRF token and
-            // defeating per-user CSRF protection downstream. Per-user
-            // browser cache (`private`) still gets the 5-min benefit
-            // for refreshes; only the multi-tenant shared cache is
-            // excluded — and crawlers, the primary cacheable consumer
-            // here, don't carry cookies anyway.
-            .header('Cache-Control', 'private, max-age=300')
+            // Revalidate on every visit, never stored by a shared cache:
+            // see CorrelationIdFilter.HTML_CACHE_CONTROL.
+            .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
             .body(out)
     }
 
@@ -524,10 +507,9 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            // `private` not `public` — see itemPage's same-rationale
-            // comment. The Set-Cookie collision risk under a shared CDN
-            // cache applies to every OG-rendered route, not just /item.
-            .header('Cache-Control', 'private, max-age=3600')
+            // Revalidate on every visit, never stored by a shared cache:
+            // see CorrelationIdFilter.HTML_CACHE_CONTROL.
+            .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
             .body(out)
     }
 
@@ -582,10 +564,9 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            // `private` not `public` — see itemPage's same-rationale
-            // comment. The Set-Cookie collision risk under a shared CDN
-            // cache applies to every OG-rendered route, not just /item.
-            .header('Cache-Control', 'private, max-age=3600')
+            // Revalidate on every visit, never stored by a shared cache:
+            // see CorrelationIdFilter.HTML_CACHE_CONTROL.
+            .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
             .body(out)
     }
 
@@ -626,10 +607,9 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            // `private` not `public` — see itemPage's same-rationale
-            // comment. The Set-Cookie collision risk under a shared CDN
-            // cache applies to every OG-rendered route, not just /item.
-            .header('Cache-Control', 'private, max-age=3600')
+            // Revalidate on every visit, never stored by a shared cache:
+            // see CorrelationIdFilter.HTML_CACHE_CONTROL.
+            .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
             .body(out)
     }
 
@@ -708,18 +688,9 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            // `private` not `public` — every OG response carries the
-            // CsrfFilter's Set-Cookie header for first-load users (it
-            // mints `sbox_csrf` if no cookie is present). A shared
-            // cache like Cloudflare that captured the response would
-            // serve user A's cookie to user B on the cache hit,
-            // collapsing two visitors onto the same CSRF token and
-            // defeating per-user CSRF protection downstream. Per-user
-            // browser cache (`private`) still gets the 5-min benefit
-            // for refreshes; only the multi-tenant shared cache is
-            // excluded — and crawlers, the primary cacheable consumer
-            // here, don't carry cookies anyway.
-            .header('Cache-Control', 'private, max-age=300')
+            // Revalidate on every visit, never stored by a shared cache:
+            // see CorrelationIdFilter.HTML_CACHE_CONTROL.
+            .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
             .body(out)
     }
 
@@ -779,7 +750,7 @@ class OpenGraphController {
                           Q('<meta name="robots" content="noindex, nofollow">'))
         return ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            .header('Cache-Control', 'no-cache, must-revalidate')
+            .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
             .body(out)
     }
 
@@ -805,7 +776,7 @@ class OpenGraphController {
                           Q('<meta name="robots" content="noindex, nofollow">'))
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)
-                .header('Cache-Control', 'no-cache, must-revalidate')
+                .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
                 .body(out)
     }
 

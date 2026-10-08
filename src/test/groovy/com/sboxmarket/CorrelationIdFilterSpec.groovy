@@ -275,7 +275,7 @@ class CorrelationIdFilterSpec extends Specification {
         filter.doFilter(req, resp, chain)
 
         then:
-        resp.getHeader('Cache-Control') == 'no-cache, must-revalidate'
+        resp.getHeader('Cache-Control') == CorrelationIdFilter.HTML_CACHE_CONTROL
 
         where:
         path << ['/some-spa-route', '/leaderboard', '/deals']

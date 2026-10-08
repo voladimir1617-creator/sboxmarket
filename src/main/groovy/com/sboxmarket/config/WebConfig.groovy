@@ -407,7 +407,7 @@ class SpaNotFoundController {
     // with it — a mismatch shows up immediately as a forward loop or a 404
     // with an empty body on every unknown path.
     @RequestMapping(value = ['/spa-404', '/spa-404/'])
-    ResponseEntity<String> notFound(HttpServletRequest request) {
+    ResponseEntity<String> notFound(HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
         // On a forward this is the URL the caller actually asked for; on a
         // direct hit it is null and the request URI is already /spa-404.
         String original = (request.getAttribute('jakarta.servlet.forward.request_uri') ?: request.requestURI) as String
@@ -423,11 +423,14 @@ class SpaNotFoundController {
                     .body('{"error":"not found"}')
         }
 
+        // Never let a CDN or a browser pin a 404 for a path a later
+        // release might turn into a real route. setHeader, not a
+        // ResponseEntity header: CorrelationIdFilter already stamped the
+        // shell header on the original path, and an entity header would
+        // be appended as a second Cache-Control value.
+        response.setHeader('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
         ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .contentType(MediaType.TEXT_HTML)
-                // Never let a CDN or a browser pin a 404 for a path a later
-                // release might turn into a real route.
-                .header('Cache-Control', 'no-cache, must-revalidate')
                 .header('X-Robots-Tag', 'noindex')
                 .body(spaShellHtml())
     }
