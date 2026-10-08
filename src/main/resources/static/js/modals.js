@@ -1,7 +1,7 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
 import { GridCard } from './cards.js?v=8';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -274,6 +274,18 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   const cheapestBuyNow = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id) || null;
   const auctionOnly    = !cheapestBuyNow && !!(listings[0] && listings[0].listingType === 'AUCTION');
   const [offerOpen, setOfferOpen] = useState(false);
+  // Phone item pages: once the Buy / Cart row scrolls off the top, a slim
+  // bar pinned above the bottom navigation keeps the price and Buy in
+  // reach. Desktop already keeps the whole right rail sticky, so the bar
+  // is hidden there by CSS.
+  const [buyRailEl, setBuyRailEl] = useState(null);
+  const [buyRailOut, setBuyRailOut] = useState(false);
+  useEffect(() => {
+    if (!buyRailEl || typeof IntersectionObserver === 'undefined') { setBuyRailOut(false); return; }
+    const io = new IntersectionObserver(([e]) => setBuyRailOut(!e.isIntersecting && e.boundingClientRect.top < 0));
+    io.observe(buyRailEl);
+    return () => io.disconnect();
+  }, [buyRailEl]);
   // CSFloat-1:1 — single-listing "Buy Now" is a two-step flow on csfloat:
   // the click opens a confirm dialog showing the item + price breakdown,
   // and only the "Confirm purchase" button actually fires the purchase.
@@ -931,8 +943,37 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             const cheap = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id);
             if (!cheap) return null;
             const youOwn = me && cheap.sellerUserId === me.id;
+            const cheapInCart = !!(cartHas && cartHas(cheap.id));
             return h(React.Fragment, null,
-              h('div', { className: 'item-rail-actions' },
+              /* Phone Buy bar: same handlers as the row below, so Buy opens
+                 the usual confirm step and nothing about buying changes.
+                 Portalled to <body> because this rail is a containing block
+                 for fixed elements (will-change: transform). */
+              isPageMode && buyRailOut && !youOwn && ReactDOM.createPortal(h('div', {
+                className: 'item-buy-bar',
+                role: 'region',
+                'aria-label': 'Buy this item'
+              },
+                h('div', { className: 'item-buy-bar-info' },
+                  h('span', { className: 'item-buy-bar-name' }, item.name),
+                  h('span', { className: 'item-buy-bar-price' }, fmt(cheap.price))
+                ),
+                h('button', {
+                  className: 'item-buy-bar-cart',
+                  onClick: () => onAddToCart && onAddToCart(cheap),
+                  disabled: cheapInCart,
+                  'aria-label': cheapInCart ? 'Already in your cart' : 'Add this listing to your cart',
+                  title: cheapInCart ? 'Already in your cart' : 'Add this listing to your cart'
+                }, h(MaterialIcon, { name: cheapInCart ? 'check' : 'shopping_cart', size: 18 })),
+                h('button', {
+                  className: 'item-buy-bar-buy',
+                  onClick: () => {
+                    if (!me) { signInWithSteam(); return; }
+                    requestBuy(cheap.id, cheap.price, cheap.item);
+                  }
+                }, me ? 'Buy now' : 'Sign in to buy')
+              ), document.body),
+              h('div', { className: 'item-rail-actions', ref: setBuyRailEl },
                 h('button', {
                   className: 'item-rail-actions-buy',
                   onClick: () => {

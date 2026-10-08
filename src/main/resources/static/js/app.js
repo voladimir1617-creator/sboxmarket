@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=228';
+} from './modals.js?v=229';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -4154,8 +4154,9 @@ export function App() {
   // merged via /api/cart/bulk-merge — the server returns ids only, so
   // newly-arriving rows (e.g. user added on desktop, opened cart on
   // mobile) show "Loading… $0.00" until this effect backfills them.
+  // Market and home hydrate too, so the cart tray's total is real.
   useEffect(() => {
-    if (routeName !== 'cart' || cart.length === 0) return;
+    if (!['cart', 'market', 'home'].includes(routeName) || cart.length === 0) return;
     const stubs = cart.filter(it => !it.name || it.name === 'Loading…' || !it.itemId);
     if (stubs.length === 0) return;
     let alive = true;
@@ -9803,6 +9804,31 @@ export function App() {
        of being glued to a specific section. See .site-root { display:flex
        flex-direction:column min-height:100vh } in styles.css. */
     h(SiteFooter, null),
+
+    /* Cart tray: while browsing the market with items in the cart, a slim
+       bar at the bottom shows how many are queued and their total, with a
+       Checkout button that opens the cart page, where the existing review
+       and confirm step runs. DMarket, Waxpeer and CS.Trade keep the same
+       running total in view while you pick items. */
+    (routeName === 'market' || routeName === 'home') && cart.length > 0 && h('div', {
+      className: 'cart-tray',
+      role: 'region',
+      'aria-label': 'Cart summary'
+    },
+      h('span', { className: 'cart-tray-icon', 'aria-hidden': 'true' },
+        h(MaterialIcon, { name: 'shopping_cart', size: 18 })),
+      h('div', { className: 'cart-tray-info' },
+        h('span', { className: 'cart-tray-count' },
+          cart.length + (cart.length === 1 ? ' item in cart' : ' items in cart')),
+        h('span', { className: 'cart-tray-total' },
+          privacy ? '$•••••' : cart.some(it => it.price == null) ? '…' : fmt(parseFloat(cartTotal) || 0))
+      ),
+      h('a', {
+        className: 'btn btn-accent cart-tray-checkout',
+        href: '/cart',
+        onClick: (e) => { e.preventDefault(); navigate('/cart'); }
+      }, 'Checkout')
+    ),
 
     /* CSFloat-1:1 — fixed bottom navigation bar, mobile only (shown at
        ≤720px via the .csfloat-mobile-nav @media rule in design.css). The
