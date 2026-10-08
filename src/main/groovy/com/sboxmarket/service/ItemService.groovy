@@ -25,6 +25,8 @@ class ItemService {
         itemRepository.findById(id).orElseThrow { new NotFoundException("Item", id) }
     }
 
+    private static boolean priced(Item i) { i?.lowestPrice != null && i.lowestPrice > 0 }
+
     List<Item> search(String q, String category, String rarity, String sort,
                       BigDecimal minPrice, BigDecimal maxPrice) {
 
@@ -66,15 +68,22 @@ class ItemService {
         // came back blank) would crash every minPrice/maxPrice query.
         // Treat null as "exclude" so unpriced items are silently
         // dropped from a banded search, never throw.
-        if (minPrice != null) items = items.findAll { it.lowestPrice != null && it.lowestPrice >= minPrice }
-        if (maxPrice != null) items = items.findAll { it.lowestPrice != null && it.lowestPrice <= maxPrice }
+        // An unlisted item carries lowestPrice 0, not null: it has no price,
+        // so it is outside every band too (a "max $5" search returned every
+        // unlisted item as a $0 match).
+        if (minPrice != null) items = items.findAll { it.lowestPrice != null && it.lowestPrice > 0 && it.lowestPrice >= minPrice }
+        if (maxPrice != null) items = items.findAll { it.lowestPrice != null && it.lowestPrice > 0 && it.lowestPrice <= maxPrice }
 
         // sort — classic Groovy switch on a mutable copy so we never touch a
         // repository-backed list (same reliability fix applied to ListingService)
         def sorted = new ArrayList<Item>(items)
         switch (sort) {
             case 'price_asc':
-                sorted.sort { a, b -> a.lowestPrice <=> b.lowestPrice }; break
+                // Unpriced (0 / null) items go last, not first: they have no
+                // floor, so "cheapest first" must not open on a page of them.
+                sorted.sort { a, b ->
+                    (priced(a) ? 0 : 1) <=> (priced(b) ? 0 : 1) ?: a.lowestPrice <=> b.lowestPrice
+                }; break
             case 'price_desc':
                 sorted.sort { a, b -> b.lowestPrice <=> a.lowestPrice }; break
             case 'popular':

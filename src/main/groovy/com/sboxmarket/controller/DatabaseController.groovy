@@ -91,7 +91,10 @@ class DatabaseController {
             case 'most_traded': sortOrder = Sort.by(Sort.Direction.DESC, 'totalSold');   break
             case 'most_viewed': sortOrder = Sort.by(Sort.Direction.DESC, 'viewCount');   break
             case 'price_desc':  sortOrder = Sort.by(Sort.Direction.DESC, 'lowestPrice'); break
-            case 'price_asc':   sortOrder = Sort.by(Sort.Direction.ASC,  'lowestPrice'); break
+            // Unlisted items carry lowestPrice 0: put them after every priced
+            // item so "cheapest first" doesn't open on pages of "—" rows.
+            case 'price_asc':   sortOrder = org.springframework.data.jpa.domain.JpaSort.unsafe(Sort.Direction.ASC, '(CASE WHEN i.lowestPrice > 0 THEN 0 ELSE 1 END)')
+                                    .and(Sort.by(Sort.Direction.ASC, 'lowestPrice')); break
             case 'newest':      sortOrder = Sort.by(Sort.Direction.DESC, 'createdAt');   break
             case 'rarest':
             default:            sortOrder = Sort.by(Sort.Direction.ASC,  'supply');      break

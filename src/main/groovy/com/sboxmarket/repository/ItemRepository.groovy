@@ -94,8 +94,8 @@ interface ItemRepository extends JpaRepository<Item, Long> {
         WHERE (:q        = '' OR LOWER(i.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\')
           AND (:category = '' OR i.category = :category)
           AND (:rarity   = '' OR i.rarity   = :rarity)
-          AND (:minPrice IS NULL OR i.lowestPrice >= :minPrice)
-          AND (:maxPrice IS NULL OR i.lowestPrice <= :maxPrice)
+          AND (:minPrice IS NULL OR (i.lowestPrice > 0 AND i.lowestPrice >= :minPrice))
+          AND (:maxPrice IS NULL OR (i.lowestPrice > 0 AND i.lowestPrice <= :maxPrice))
     """)
     Page<Item> searchCatalogue(
         @Param("q") String q,
@@ -119,8 +119,8 @@ interface ItemRepository extends JpaRepository<Item, Long> {
         WHERE (:q        = '' OR LOWER(i.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\')
           AND (:category = '' OR i.category = :category)
           AND (:rarity   = '' OR i.rarity   = :rarity)
-          AND (:minPrice IS NULL OR i.lowestPrice >= :minPrice)
-          AND (:maxPrice IS NULL OR i.lowestPrice <= :maxPrice)
+          AND (:minPrice IS NULL OR (i.lowestPrice > 0 AND i.lowestPrice >= :minPrice))
+          AND (:maxPrice IS NULL OR (i.lowestPrice > 0 AND i.lowestPrice <= :maxPrice))
           AND EXISTS (
               SELECT 1 FROM Listing l
               WHERE l.item = i

@@ -846,9 +846,11 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
 
     /** Dollar volume of sold listings for an item since a cutoff.
      *  Complement to the count — drives the "$X volume / 30d" chip on
-     *  item detail. Null-safe SUM returns 0 for items with no sales. */
+     *  item detail. Null-safe SUM returns 0 for items with no sales.
+     *  Auctions count at the winning bid (currentBid), not the start price. */
     @Query("""
-        SELECT COALESCE(SUM(l.price), 0) FROM Listing l
+        SELECT COALESCE(SUM(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL
+                                 THEN l.currentBid ELSE l.price END), 0) FROM Listing l
         WHERE l.item.id = :itemId
           AND l.status IN ('SOLD','RELISTED')
           AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)

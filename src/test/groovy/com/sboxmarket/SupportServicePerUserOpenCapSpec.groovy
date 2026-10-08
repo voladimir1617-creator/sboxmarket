@@ -102,8 +102,8 @@ class SupportServicePerUserOpenCapSpec extends Specification {
         noExceptionThrown()
         ticket != null
         ticket.userId == 10L
-        // First save (open ticket) + second save (status flip to
-        // WAITING_USER after auto-reply) — matches the create flow in
+        // First save (open ticket) + second save (after the auto-reply,
+        // status stays WAITING_STAFF) — matches the create flow in
         // SupportService.create.
         (2.._) * ticketRepository.save(_ as SupportTicket)
     }
@@ -119,7 +119,7 @@ class SupportServicePerUserOpenCapSpec extends Specification {
 
         then:
         noExceptionThrown()
-        ticket.status == 'WAITING_USER'
+        ticket.status == 'WAITING_STAFF'
     }
 
     def "the cap is consulted BEFORE sanitization so abusive input doesn't burn CPU"() {

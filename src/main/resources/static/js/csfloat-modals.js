@@ -97,8 +97,16 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
   // used to actually fetch. Previously every keystroke fired a full
   // `/api/database` round-trip (LIKE '%q%' scan + rate-limit token
   // burn). Same pattern as the marketplace search (app.js ~line 2507).
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch]   = useState('');
+  // Seed from /db?q=… so links like the item page's "look it up in the
+  // Database" open on that item instead of the whole catalogue.
+  const initialQ = (() => {
+    try {
+      if (!/^\/db\/?$/.test(window.location.pathname)) return '';
+      return (new URLSearchParams(window.location.search).get('q') || '').slice(0, 100);
+    } catch (_) { return ''; }
+  })();
+  const [searchInput, setSearchInput] = useState(initialQ);
+  const [search, setSearch]   = useState(initialQ);
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
@@ -1484,7 +1492,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
         isOwner && h('button', {
           className: 'btn btn-ghost',
           title: viewing.loadout.visibility === 'PUBLIC'
-            ? 'Make PRIVATE — hide from Discover. Only you + people with the direct link can view.'
+            ? 'Make PRIVATE — hide from Discover. Only you can view it; its link stops working for everyone else.'
             : 'Make PUBLIC — show in Discover so others can favorite + clone.',
           onClick: async () => {
             const nextVis = viewing.loadout.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
@@ -1591,7 +1599,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
           className: 'price-input',
           'aria-label': 'New loadout name',
           value: renameDraft,
-          maxLength: 100,
+          // The server keeps 80 characters (TextSanitizer.LIMIT_SHORT).
+          maxLength: 80,
           onChange: e => setRenameDraft(e.target.value),
           onKeyDown: async (e) => {
             if (e.key === 'Enter' && !renameBusy) {
@@ -1614,7 +1623,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                 // despite the "renamed" toast. Update `viewing` in place.
                 setViewing(prev => prev ? {
                   ...prev,
-                  loadout: { ...prev.loadout, name: trimmed }
+                  loadout: { ...prev.loadout, name: (res && res.name) || trimmed }
                 } : prev);
                 toast('Loadout renamed.', 'ok');
                 await load();
@@ -1648,7 +1657,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
               // stayed stale. Update `viewing` in place.
               setViewing(prev => prev ? {
                 ...prev,
-                loadout: { ...prev.loadout, name: trimmed }
+                loadout: { ...prev.loadout, name: (res && res.name) || trimmed }
               } : prev);
               toast('Loadout renamed.', 'ok');
               await load();
@@ -1932,8 +1941,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
               // Share / copy-link — stops the card-open click, grabs the
               // canonical /loadout/:id URL, and drops it on the clipboard.
               // Sellers / loadout curators paste this into Discord / Steam
-              // groups; same affordance as the stall share button.
-              h('button', {
+              // groups; same affordance as the stall share button. Hidden on
+              // PRIVATE loadouts: the link 404s for anyone but the owner.
+              l.visibility !== 'PRIVATE' && h('button', {
                 className: 'loadout-card-share',
                 title: 'Copy link to this loadout',
                 'aria-label': 'Copy link',

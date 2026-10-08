@@ -58,7 +58,8 @@ class SupportServiceSpec extends Specification {
         ticket.userId == 10L
         ticket.subject == 'My deposit is stuck'
         ticket.category == 'PAYMENT'
-        ticket.status == 'WAITING_USER'
+        // The auto-reply is not a person: the ticket stays in the staff queue
+        ticket.status == 'WAITING_STAFF'
         // USER message + STAFF auto-reply
         2 * messageRepository.save({ SupportMessage m -> m.ticketId == 1L })
         1 * notificationService.push(10L, 'SUPPORT_REPLY', _, _, _, _)

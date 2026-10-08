@@ -2399,6 +2399,8 @@ class AdminService {
         // Strip null bytes so a crafted input can't poison Postgres.
         if (q.length() > 100) q = q.substring(0, 100)
         q = q.replace('\u0000', '')
+        // The ticket search query declares ESCAPE '\\': match `_` / `%` literally.
+        q = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
         // 500-row cap — consistent with listWithdrawals / listTrades.
         def rows = q.isEmpty()
             ? (supportTicketRepository.findForAdmin(status) ?: []).take(500)
@@ -2463,7 +2465,14 @@ class AdminService {
         requireAdmin(adminUserId)
         def admin = steamUserRepository.findById(adminUserId).orElseThrow { new ForbiddenException("Unknown admin") }
         def t = supportTicketRepository.findById(ticketId).orElseThrow { new NotFoundException("SupportTicket", ticketId) }
-        def cleanBody = textSanitizer.body(body)
+        // Same state-machine guard as CsrService.reply: a stale admin tab must
+        // not silently un-close a resolved ticket and ping the user about it.
+        if (t.status == 'RESOLVED') {
+            throw new BadRequestException("ALREADY_RESOLVED",
+                "Ticket is resolved — ask the user to reopen it from their support page before replying")
+        }
+        // Keep line breaks, same as the user's side of the thread.
+        def cleanBody = TextSanitizer.multiline(textSanitizer, body)
         if (!cleanBody || cleanBody.isEmpty()) {
             throw new BadRequestException("INVALID_BODY", "Reply body required")
         }

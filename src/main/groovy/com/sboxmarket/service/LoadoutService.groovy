@@ -260,6 +260,9 @@ class LoadoutService {
             target.itemName = null
             target.itemEmoji = null
             target.snapshotPrice = BigDecimal.ZERO
+            // An empty slot shows no lock, so drop it: a lock left behind
+            // made Generate fill the slot and then keep its pick locked.
+            target.locked = false
         }
         loadoutSlotRepository.save(target)
         recalcTotal(loadout)
