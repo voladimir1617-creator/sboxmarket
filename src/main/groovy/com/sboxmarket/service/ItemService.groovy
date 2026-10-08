@@ -101,7 +101,10 @@ class ItemService {
         // among themselves, etc.). A null name can never be exact, so the
         // `?.` guard treats it as a non-match rather than NPEing.
         if (q) {
-            String needle = q.trim().toLowerCase()
+            // `q` arrives LIKE-escaped from ItemController (\%, \_, \\), so
+            // undo that before comparing, or a name with _ % or \ never got
+            // its exact-match boost.
+            String needle = q.replaceAll(/\\(.)/, '$1').trim().toLowerCase()
             sorted.sort(true) { a, b ->
                 int ra = (a.name?.toLowerCase() == needle) ? 0 : 1
                 int rb = (b.name?.toLowerCase() == needle) ? 0 : 1

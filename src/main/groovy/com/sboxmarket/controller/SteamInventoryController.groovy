@@ -470,7 +470,7 @@ class SteamInventoryController {
                 imageUrl:    steamItem.iconUrl as String,
                 accentColor: '#13192a',
                 lowestPrice: price,
-                steamPrice:  price,
+                steamPrice:  null,  // no Steam quote yet: never present the seller's own ask as a Steam reference
                 supply:      1,
                 totalSold:   0,
                 trendPercent: 0
@@ -732,7 +732,7 @@ class SteamInventoryController {
                         imageUrl:    steamItem.iconUrl as String,
                         accentColor: '#13192a',
                         lowestPrice: price,
-                        steamPrice:  price,
+                        steamPrice:  null,  // no Steam quote yet: never present the seller's own ask as a Steam reference
                         supply:      1,
                         totalSold:   0,
                         trendPercent: 0

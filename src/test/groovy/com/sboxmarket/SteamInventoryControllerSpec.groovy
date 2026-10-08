@@ -443,7 +443,9 @@ class SteamInventoryControllerSpec extends Specification {
         def resp = controller.listFromSteam([assetId: '1001', price: '9.99'], req)
 
         then: "a new Item row is persisted before the listing is created"
-        1 * itemRepository.save({ it.name == 'Wizard Hat' && it.category == 'Hats' }) >> { args -> args[0].tap { it.id = 88L } }
+        // steamPrice stays null: the seller's own ask is not a Steam quote,
+        // and the sell form would otherwise show it as "Steam $9.99".
+        1 * itemRepository.save({ it.name == 'Wizard Hat' && it.category == 'Hats' && it.steamPrice == null }) >> { args -> args[0].tap { it.id = 88L } }
         resp.body.itemId == 88L
         resp.body.listingId == 7001L
         resp.body.listingType == 'BUY_NOW'

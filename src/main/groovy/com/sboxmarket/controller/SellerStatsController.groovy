@@ -29,6 +29,9 @@ import java.util.concurrent.atomic.AtomicReference
 @Slf4j
 class SellerStatsController {
 
+    /** How many name matches the seller search ranks before trimming to `limit`. */
+    static final int SELLER_SEARCH_CANDIDATES = 200
+
     @Autowired TradeRepository    tradeRepository
     @Autowired SteamUserRepository steamUserRepository
     @Autowired(required = false) ReviewRepository reviewRepository
@@ -249,7 +252,15 @@ class SellerStatsController {
         if (q.length() > 60) q = q.substring(0, 60)
         // Same Elvis-on-zero fix as above + sibling controllers.
         int lim = Math.min(Math.max(limit != null ? limit : 10, 1), 25)
-        def rows = steamUserRepository.searchPublicSellers(q, PageRequest.of(0, lim))
+        // The query's LIKE carries ESCAPE '\\' but the input was never
+        // escaped, so "%%" or "__" listed every seller and "xX_Sniper" also
+        // matched "xXaSniper". Escape like /api/items does.
+        String like = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        // Rank over a wider candidate set than we return. The query sorts
+        // alphabetically, so cutting at `lim` first meant the relevance sort
+        // below only ever reordered the first few names A→Z and a busy
+        // verified seller late in the alphabet never showed up.
+        def rows = steamUserRepository.searchPublicSellers(like, PageRequest.of(0, SELLER_SEARCH_CANDIDATES))
         if (rows == null || rows.isEmpty()) return cached([])
         def ids = rows.collect { (it[0] as Long) }
         Map<Long, Long> soldBy = [:]
@@ -310,7 +321,7 @@ class SellerStatsController {
             def ac = (b.activeListings as long) <=> (a.activeListings as long)
             if (ac != 0) return ac
             (a.displayName as String ?: '') <=> (b.displayName as String ?: '')
-        }
+        }.take(lim)
         // Batch 811 — `public, max-age=60`. Search results for a given
         // query string are viewer-agnostic — seller rating/sold counts
         // don't change by who's asking. A shared cache absorbs the
