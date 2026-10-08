@@ -69,6 +69,18 @@ class HtmlDocumentCacheHeadersSpec extends Specification {
         ]
     }
 
+    @Unroll
+    def "HEAD #path answers with the same Cache-Control as GET"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.head(path)).andReturn()
+
+        then:
+        r.response.getHeaders('Cache-Control') == [CorrelationIdFilter.HTML_CACHE_CONTROL]
+
+        where:
+        path << ['/', '/some-spa-route', '/market', '/watchlist', '/item/987654321', '/index.html']
+    }
+
     def "item, stall and loadout pages for real rows also revalidate"() {
         given:
         def item = itemRepo.save(new Item(name: "CacheSpec-${uniq}", category: 'Hats', rarity: 'Standard',
