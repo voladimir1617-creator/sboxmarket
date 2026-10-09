@@ -571,7 +571,7 @@ class CsrServiceSpec extends Specification {
 
     // ── flagListing ───────────────────────────────────────────────
 
-    def "flagListing appends a [FLAGGED] note and returns ok"() {
+    def "flagListing queues the listing for admin review and leaves its public description alone"() {
         given:
         def listing = new Listing(id: 100L, description: 'original description')
         steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
@@ -579,13 +579,12 @@ class CsrServiceSpec extends Specification {
         listingRepository.save(_) >> { args -> args[0] }
 
         when:
-        service.flagListing(5L, 100L, 'suspect pricing')
+        def result = service.flagListing(5L, 100L, 'suspect pricing')
 
         then:
-        // The sanitizer returns its input unchanged per the setup() default.
-        // The clean(_, _) stub echoes arg[0] back, so the concatenated string
-        // with the [FLAGGED …] marker survives.
-        listing.description?.contains('[FLAGGED')
+        result.flagged == true
+        listing.description == 'original description'
+        listing.reportCount == 1
     }
 
     def "flagListing writes a LISTING_FLAGGED audit row (actor=CSR, subject=seller, resource=listing)"() {
@@ -616,7 +615,7 @@ class CsrServiceSpec extends Specification {
         then:
         noExceptionThrown()
         result.flagged == true
-        listing.description?.contains('[FLAGGED')
+        listing.reportCount == 1
     }
 
     def "flagListing refuses an unknown listing"() {

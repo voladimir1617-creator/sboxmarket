@@ -7,6 +7,8 @@ import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.SupportMessage
 import com.sboxmarket.model.SupportTicket
 import com.sboxmarket.model.Transaction
+import com.sboxmarket.model.ListingReport
+import com.sboxmarket.repository.ListingReportRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.OfferRepository
 import com.sboxmarket.repository.SteamUserRepository
@@ -59,6 +61,7 @@ class CsrService {
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
     @Autowired ListingRepository listingRepository
+    @Autowired(required = false) ListingReportRepository listingReportRepository
     @Autowired OfferRepository offerRepository
     @Autowired SupportTicketRepository supportTicketRepository
     @Autowired SupportMessageRepository supportMessageRepository
@@ -87,13 +90,19 @@ class CsrService {
         if (!(user.role in ['CSR', 'ADMIN'])) {
             throw new ForbiddenException("Customer service privileges required")
         }
+        // A ban keeps the role (banUser refuses only ADMIN targets) and a
+        // banned user can still sign in, so without this a banned CSR kept
+        // replying to tickets and issuing goodwill credit.
+        if (Boolean.TRUE.equals(user.banned)) {
+            throw new ForbiddenException("Customer service privileges required")
+        }
     }
 
     /** True if the user's role unlocks the CSR panel in the UI. */
     boolean isCsr(Long userId) {
         if (userId == null) return false
         def user = steamUserRepository.findById(userId).orElse(null)
-        user?.role in ['CSR', 'ADMIN']
+        user?.role in ['CSR', 'ADMIN'] && !Boolean.TRUE.equals(user?.banned)
     }
 
     // ── Dashboard ───────────────────────────────────────────────────
@@ -123,14 +132,18 @@ class CsrService {
         // Use the indexed search method instead of the old full-table scan.
         // PageRequest.of(0, 20) caps results at 20 so a single CSR search
         // never dumps the whole user table.
+        // The query declares ESCAPE '\\'; escape the input so `_` and `%`
+        // match literally and a trailing backslash isn't a broken pattern.
+        def likeQ = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
         def users = steamUserRepository.searchByNameOrSteamId(
-            q, org.springframework.data.domain.PageRequest.of(0, 20))
+            likeQ, org.springframework.data.domain.PageRequest.of(0, 20)) ?: []
 
-        // Allow a numeric id lookup as a power-user convenience — matches
-        // `id == q` exactly. Uses findById (indexed PK) instead of scan.
-        if (users.isEmpty() && q ==~ /\d{1,18}/) {
-            def byId = steamUserRepository.findById(q as Long).orElse(null)
-            if (byId != null) users = [byId]
+        // Numeric id lookup ("user #42"). Checked first and put on top: a
+        // short number is a substring of countless 17-digit Steam ids, so
+        // the old "only when nothing else matched" fallback almost never ran.
+        if (q ==~ /\d{1,18}/) {
+            def byId = steamUserRepository.findById(q as Long)?.orElse(null)
+            if (byId != null) users = [byId] + users.findAll { it.id != byId.id }
         }
 
         def matches = users.take(20).collect { u ->
@@ -509,21 +522,35 @@ class CsrService {
         requireCsr(csrUserId)
         def listing = listingRepository.findById(listingId)
             .orElseThrow { new NotFoundException("Listing", listingId) }
-        def csr = steamUserRepository.findById(csrUserId).orElse(null)
-        // Append a flag note to the listing description so admins see it in the
-        // moderation queue. We don't have a dedicated flag table — the note is
-        // a low-risk hint that the admin can act on, nothing more.
+        // The flag goes into the admin "Reported listings" queue as a report
+        // row. It used to be appended to listing.description, which is the
+        // seller's public text: every buyer saw the CSR's name and the
+        // accusation, admins never saw it (their queue reads reportCount),
+        // and a near-full description silently cut the note off.
         def cleanReason = textSanitizer.cleanShort(reason ?: 'no reason')
-        def note = "[FLAGGED by ${textSanitizer.cleanShort(csr?.displayName ?: csrUserId.toString())}: ${cleanReason}]"
-        // 500-char cap matches the column size (V39). Append-append
-        // patterns will eventually hit the ceiling but that's intended —
-        // once a listing's description is full of flag notes it's past
-        // the point where another flag helps anyone.
-        listing.description = textSanitizer.clean(((listing.description ?: '') + ' ' + note), 500)
+        boolean alreadyFlagged = false
+        if (listingReportRepository != null) {
+            def existing = listingReportRepository.findByListingIdAndReporterUserId(listingId, csrUserId)
+            if (existing.isPresent()) {
+                alreadyFlagged = true
+                def row = existing.get()
+                row.note = textSanitizer.clean("Staff flag: ${cleanReason}".toString(), 500)
+                listingReportRepository.save(row)
+            } else {
+                listingReportRepository.save(new ListingReport(
+                    listingId:      listingId,
+                    reporterUserId: csrUserId,
+                    reason:         'Other',
+                    note:           textSanitizer.clean("Staff flag: ${cleanReason}".toString(), 500),
+                    createdAt:      System.currentTimeMillis()))
+            }
+        }
+        if (!alreadyFlagged) listing.reportCount = (listing.reportCount ?: 0) + 1
+        listing.lastReportedAt = System.currentTimeMillis()
         listingRepository.save(listing)
         // Audit-log the flag (matches the TICKET_REPLIED / TICKET_CLOSED /
         // CSR_CREDIT pattern above). Flagging mutates persistent listing
-        // state — it rewrites the description column — so it's a staff
+        // state (a report row and the listing's report count), so it's a staff
         // mutation that needs the same forensic trail as every other CSR
         // action. Without this the Audit tab's per-user view shows a CSR's
         // credits and ticket replies but silently drops their listing
@@ -537,6 +564,6 @@ class CsrService {
             log.warn("LISTING_FLAGGED audit-log failed for csr=${csrUserId} listing=${listingId}: ${e.message}")
         }
         log.warn("CSR ${csrUserId} flagged listing ${listingId}: ${reason}")
-        [id: listing.id, flagged: true, description: listing.description]
+        [id: listing.id, flagged: true, reportCount: listing.reportCount]
     }
 }

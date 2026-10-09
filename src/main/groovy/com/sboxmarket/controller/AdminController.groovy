@@ -833,12 +833,24 @@ class AdminController {
         // future-dated values are coerced to null so a typo doesn't
         // produce an empty screen with no error.
         Long sinceMs = (since != null && since > 0L && since <= System.currentTimeMillis()) ? since : null
-        def rows
+        def rows = auditRows(event, actor, subject, sinceMs)
+        ResponseEntity.ok(rows)
+    }
+
+    /** One indexed query on the most specific filter, then the remaining
+     *  filters applied to its rows, so "event X by actor Y" means both.
+     *  The old if/else chain used only the first filter given and
+     *  silently dropped the rest. */
+    private List auditRows(String event, Long actor, Long subject, Long sinceMs) {
+        List rows
         if (event)        rows = auditService.byEvent(event, sinceMs)
         else if (actor)   rows = auditService.byActor(actor, sinceMs)
         else if (subject) rows = auditService.bySubject(subject, sinceMs)
         else              rows = auditService.recent(sinceMs)
-        ResponseEntity.ok(rows)
+        (rows ?: []).findAll { r ->
+            (!actor   || r.actorUserId == actor) &&
+            (!subject || r.subjectUserId == subject)
+        }
     }
 
     /** Audit log CSV export — honors the same event/actor/subject filters
@@ -854,11 +866,7 @@ class AdminController {
                                     HttpServletRequest req) {
         requireAdmin(req)
         Long sinceMs = (since != null && since > 0L && since <= System.currentTimeMillis()) ? since : null
-        def rows
-        if (event)        rows = auditService.byEvent(event, sinceMs)
-        else if (actor)   rows = auditService.byActor(actor, sinceMs)
-        else if (subject) rows = auditService.bySubject(subject, sinceMs)
-        else              rows = auditService.recent(sinceMs)
+        def rows = auditRows(event, actor, subject, sinceMs)
         // Cap at 5000 rows (batch 493) — matches the trades CSV cap.
         // A long-running site's audit table is unbounded; without this
         // cap the CSV response could OOM the JVM on a download click.

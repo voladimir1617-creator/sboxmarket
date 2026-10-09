@@ -153,6 +153,22 @@ export function useTradePolicy() {
   return policy;
 }
 
+// Wallet ledger direction. A REFUND with a listingId reverses a purchase
+// and credits the wallet; a REFUND without one is a deposit refunded to
+// the card, which takes money OUT (StripeService writes it that way).
+// Showing every REFUND as "+" put deposit refunds on the wrong side of
+// every in/out total.
+function isWalletCredit(t) {
+  const type = t && t.type;
+  if (type === 'REFUND') return t.listingId != null;
+  return type === 'DEPOSIT' || type === 'SALE' || type === 'ADJUSTMENT_CREDIT';
+}
+function isWalletDebit(t) {
+  const type = t && t.type;
+  if (type === 'REFUND') return t.listingId == null;
+  return type === 'PURCHASE' || type === 'WITHDRAW' || type === 'WITHDRAWAL' || type === 'ADJUSTMENT_DEBIT';
+}
+
 // ── Item detail ──────────────────────────────────────────────────
 /** "3h" / "25m" / "2d" — a median delay, rounded the way a person says it. */
 // Price-history rows from the last `days` calendar days (rows are oldest
@@ -6400,13 +6416,11 @@ function ProfileTransactionsTab({ transactions, privacy }) {
   // never emits (ADMIN_CREDIT, CSR_CREDIT, BUY_ORDER_REFUND, ADMIN_DEBIT,
   // AUCTION_HOLD) AND missed the real ADJUSTMENT_* pair — so a staff
   // wallet adjustment was silently dropped from the 30-day net figure.
-  const CREDIT_TYPES = new Set(['DEPOSIT','SALE','REFUND','ADJUSTMENT_CREDIT']);
-  const DEBIT_TYPES  = new Set(['PURCHASE','WITHDRAW','WITHDRAWAL','ADJUSTMENT_DEBIT']);
   let credits = 0, debits = 0;
   recent.forEach(t => {
     const amt = Math.abs(parseFloat(t.amount) || 0);
-    if (CREDIT_TYPES.has(t.type)) credits += amt;
-    else if (DEBIT_TYPES.has(t.type)) debits += amt;
+    if (isWalletCredit(t)) credits += amt;
+    else if (isWalletDebit(t)) debits += amt;
   });
   const net = credits - debits;
   // Type filter. ALL = no filtering, IN/OUT = every credit / debit type,
@@ -6416,18 +6430,18 @@ function ProfileTransactionsTab({ transactions, privacy }) {
   // window above — the summary cards already surface the 30d view.
   const FILTER_TYPES = {
     ALL:      null,
-    IN:       CREDIT_TYPES,
-    OUT:      DEBIT_TYPES,
+    IN:       { has: (_type, t) => isWalletCredit(t) },
+    OUT:      { has: (_type, t) => isWalletDebit(t) },
     PURCHASE: new Set(['PURCHASE']),
     SALE:     new Set(['SALE']),
     DEPOSIT:  new Set(['DEPOSIT']),
-    WITHDRAW: new Set(['WITHDRAW']),
-    REFUND:   new Set(['REFUND','BUY_ORDER_REFUND']),
-    ADJUST:   new Set(['ADMIN_CREDIT','ADMIN_DEBIT','ADJUSTMENT_CREDIT','CSR_CREDIT'])
+    WITHDRAW: new Set(['WITHDRAW','WITHDRAWAL']),
+    REFUND:   new Set(['REFUND']),
+    ADJUST:   new Set(['ADJUSTMENT_CREDIT','ADJUSTMENT_DEBIT'])
   };
   const countFor = (key) => {
     const set = FILTER_TYPES[key];
-    return set == null ? transactions.length : transactions.filter(t => set.has(t.type)).length;
+    return set == null ? transactions.length : transactions.filter(t => set.has(t.type, t)).length;
   };
   // Compute the distinct YYYY-MM buckets present in the ledger so the
   // dropdown only offers months the user actually has activity in.
@@ -6437,7 +6451,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
     transactions.forEach(t => {
       if (!t.createdAt) return;
       const d = new Date(t.createdAt);
-      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      const key = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
       set.add(key);
     });
     return Array.from(set).sort().reverse();
@@ -6449,13 +6463,13 @@ function ProfileTransactionsTab({ transactions, privacy }) {
   };
   const visibleTx = (() => {
     const set = FILTER_TYPES[txFilter];
-    let rows = set == null ? transactions : transactions.filter(t => set.has(t.type));
+    let rows = set == null ? transactions : transactions.filter(t => set.has(t.type, t));
     // Month filter narrows to a single calendar month (YYYY-MM).
     if (txMonth) {
       rows = rows.filter(t => {
         if (!t.createdAt) return false;
         const d = new Date(t.createdAt);
-        const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        const key = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
         return key === txMonth;
       });
     }
@@ -6584,7 +6598,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
             // same value are visually distinct — parity with the
             // WalletModal history rows (~line 14127), which the bare
             // fmt() here lacked.
-            const inbound = CREDIT_TYPES.has(tx.type);
+            const inbound = isWalletCredit(tx);
             return h('td', {
               className: 'right db-mono',
               style: privacy ? null : { color: inbound ? 'var(--green)' : 'var(--text-secondary)' }
@@ -16452,8 +16466,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
               const weekAgo = Date.now() - 7 * 86_400_000;
               const last7 = transactions.filter(t => (t.createdAt || 0) >= weekAgo && t.status === 'COMPLETED');
               const sum = (pred) => last7.filter(pred).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-              const inbound7  = sum(t => ['DEPOSIT','SALE','REFUND','ADJUSTMENT_CREDIT'].includes(t.type));
-              const outbound7 = sum(t => ['PURCHASE','WITHDRAW','WITHDRAWAL','ADJUSTMENT_DEBIT'].includes(t.type));
+              const inbound7  = sum(t => isWalletCredit(t));
+              const outbound7 = sum(t => isWalletDebit(t));
               const net7 = inbound7 - outbound7;
               // Filter by type first so the CSV export button renders the
               // "N transactions" count the user actually sees in the list.
@@ -16466,7 +16480,9 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                     return t === txTypeFilter;
                   });
               // Month filter (batch 638) — YYYY-MM applied to the tx's
-              // createdAt in the local calendar. Distinct-month options
+              // createdAt in UTC, the same month the CSV export uses (a
+              // local month put a Jan 31 evening sale in January on screen
+              // and in February's export). Distinct-month options
               // are derived from the source `transactions` list so the
               // dropdown only surfaces months the user actually has
               // history in, oldest → newest with the current month at
@@ -16475,7 +16491,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                 if (!ts) return null;
                 const d = new Date(ts);
                 if (isNaN(d.getTime())) return null;
-                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
               };
               const monthLabelOf = (key) => {
                 if (!key) return '';
@@ -16583,7 +16599,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                               ? `No transactions in ${monthLabelOf(txMonth)}`
                               : 'No transactions match this filter')
                     : filtered.map(tx => {
-                        const inbound = tx.type === 'DEPOSIT' || tx.type === 'SALE' || tx.type === 'REFUND' || tx.type === 'ADJUSTMENT_CREDIT';
+                        const inbound = isWalletCredit(tx);
                         const typeLabel = (tx.type || 'UNKNOWN').toString();
                         const prettyType = typeLabel.charAt(0) + typeLabel.slice(1).toLowerCase().replace('_', ' ');
                         const canCancel = (tx.type === 'WITHDRAW' || tx.type === 'WITHDRAWAL') && tx.status === 'PENDING';

@@ -166,11 +166,12 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
      *  refunds) cost three queries, not thirty. PENDING and FAILED rows are
      *  excluded so the tiles only ever show money that actually moved. */
     @Query("""
-        SELECT t.type, COUNT(t), COALESCE(SUM(t.amount), 0) FROM Transaction t
+        SELECT (CASE WHEN t.type = 'REFUND' AND t.listingId IS NULL THEN 'DEPOSIT_REFUND' ELSE t.type END),
+               COUNT(t), COALESCE(SUM(t.amount), 0) FROM Transaction t
         WHERE t.walletId = :walletId
           AND t.status = 'COMPLETED'
           AND t.createdAt >= :since
-        GROUP BY t.type
+        GROUP BY (CASE WHEN t.type = 'REFUND' AND t.listingId IS NULL THEN 'DEPOSIT_REFUND' ELSE t.type END)
     """)
     List<Object[]> summarizeCompletedByTypeSince(
         @Param('walletId') Long walletId,

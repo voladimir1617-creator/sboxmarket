@@ -326,6 +326,12 @@ class ReviewService {
             .orElseThrow { new NotFoundException("Review", reviewId) }
         def buyerId = review.fromUserId
         def sellerId = review.toUserId
+        // Staff who also sell must not remove reviews of their own stall —
+        // the same self-target rule as CANT_BAN_SELF / CANT_CREDIT_SELF.
+        if (staffUserId != null && staffUserId == sellerId) {
+            throw new com.sboxmarket.exception.BadRequestException("CANT_MODERATE_OWN_STALL",
+                "You can't remove reviews of your own stall — ask another staff member.")
+        }
         def oldRating = review.rating
         def itemName = review.itemName
         def cleanReason = reason?.trim() ?: 'policy violation'

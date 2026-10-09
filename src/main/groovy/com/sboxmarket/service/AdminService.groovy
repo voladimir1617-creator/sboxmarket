@@ -911,7 +911,9 @@ class AdminService {
             org.springframework.data.domain.Sort.Direction.DESC, 'createdAt')
         def page = org.springframework.data.domain.PageRequest.of(0, 200, sort)
         if (search) {
-            return steamUserRepository.searchByNameOrSteamId(search.trim(), page)
+            // Escape LIKE wildcards to match the query's ESCAPE '\\' clause.
+            def likeQ = search.trim().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            return steamUserRepository.searchByNameOrSteamId(likeQ, page)
         }
         def roleFilter = (role == null || role.isBlank()) ? 'ANY' : role.trim().toUpperCase()
         // Drop the filter path + hit findAll(page) when no filters are
@@ -1181,6 +1183,11 @@ class AdminService {
     SteamUser unbanUser(Long adminUserId, Long targetUserId) {
         requireAdmin(adminUserId)
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
+        // Unbanning someone who isn't banned emailed them "your account has
+        // been reinstated" and logged an unban that never happened.
+        if (!Boolean.TRUE.equals(user.banned)) {
+            throw new BadRequestException("NOT_BANNED", "This user is not banned")
+        }
         user.banned = false
         user.banReason = null
         steamUserRepository.save(user)
@@ -1253,6 +1260,11 @@ class AdminService {
             throw new BadRequestException("CANT_REVOKE_SELF", "You cannot revoke your own admin role")
         }
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
+        // Same shape as revokeCsr's NOT_CSR: on a CSR this silently demoted
+        // them to USER, logged ADMIN_REVOKED and emailed "admin role revoked".
+        if (user.role != 'ADMIN') {
+            throw new BadRequestException("NOT_ADMIN", "This user is not an admin")
+        }
         // Last-admin lockout guard: refuse to demote the final remaining admin,
         // else two admins can mutually demote each other (or one demotes the
         // rest) -> zero admins -> the entire /api/admin surface (withdrawals,
