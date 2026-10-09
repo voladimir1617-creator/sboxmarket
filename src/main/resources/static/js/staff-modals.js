@@ -1858,7 +1858,14 @@ function AdminAuditTab() {
                   'ANNOUNCEMENT_CREATED','ANNOUNCEMENT_DEACTIVATED',
                   'TRADE_DISPUTED','TRADE_CANCELLED','TRADE_AUTO_CANCELLED','TRADE_AUTO_RELEASED',
                   'TRADE_FORCE_RELEASED','TRADE_FORCE_CANCELLED','TRADE_MESSAGE_DELETED',
-                  'REVIEW_DELETED_STAFF'];
+                  'REVIEW_DELETED_STAFF',
+                  // Logged but missing from the list, so staff couldn't
+                  // isolate wallet freezes or CSR activity by event.
+                  'WALLET_FROZEN','WALLET_UNFROZEN','TICKET_REPLIED','TICKET_CLOSED',
+                  'LISTING_FLAGGED','LISTING_REPORTS_DISMISSED',
+                  'REVIEW_CREATED','REVIEW_DELETED','REVIEW_REPLIED',
+                  'LOADOUT_DELETED_STAFF','ADMIN_MESSAGE_SENT','ADMIN_CLEAR_SIMULATED',
+                  'MONEY_RESET','WITHDRAW_REVERSED'];
   // Apply the client-side free-text filter against whatever the backend
   // returned. Case-insensitive on summary + the pre-resolved display names.
   const displayRows = (() => {
@@ -3694,14 +3701,14 @@ function CsrFlagTab() {
       if (res.error || res.code) {
         setResult({ ok: false, msg: res.message || res.error });
       } else {
-        setResult({ ok: true, msg: 'Flag note appended to listing #' + res.id });
+        setResult({ ok: true, msg: 'Listing #' + res.id + ' added to the admin review queue' });
         setId(''); setReason('');
       }
     } finally { setBusy(false); }
   };
   return h('div', { className: 'profile-panel' },
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 } },
-      'Flagging a listing appends an admin-visible note to its description. Use when you spot something during a support chat that an admin should review. Does not remove the listing — admins take the final action.'),
+      'Flagging a listing adds it to the admins\' Reported listings queue with your note. The seller and buyers don\'t see it. Does not remove the listing — admins take the final action.'),
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 10 } },
       h('input', {
         className: 'price-input',
@@ -3727,8 +3734,8 @@ function CsrFlagTab() {
     h('textarea', {
       className: 'price-input',
       style: { width: '100%', minHeight: 70, marginBottom: 10, resize: 'vertical' },
-      placeholder: 'Additional note (optional, 500 char max)',
-      maxLength: 500,
+      placeholder: 'Additional note (optional, 80 char max)',
+      maxLength: 80,
       value: REASONS.includes(reason) ? '' : reason,
       onChange: e => setReason(e.target.value)
     }),

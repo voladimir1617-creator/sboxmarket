@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=231';
+} from './modals.js?v=232';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -77,7 +77,10 @@ import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious } 
 // had pasted "$5" / "5,50". Unusable input simply drops the bound.
 function cleanPriceParam(raw) {
   if (raw == null) return null;
-  const t = String(raw).replace(/[$\s]/g, '').replace(',', '.');
+  let t = String(raw).replace(/[$\s]/g, '');
+  // "5,50" is a decimal comma; any other comma is a thousands separator.
+  // Turning every comma into a point read "1,000" as $1.
+  t = /^\d+,\d{1,2}$/.test(t) ? t.replace(',', '.') : t.replace(/,/g, '');
   if (t === '' || !/^\d*\.?\d*$/.test(t)) return null;
   const n = parseFloat(t);
   if (!Number.isFinite(n) || n < 0 || n > 10000000) return null;
@@ -212,6 +215,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
+  const replyWindowOpen = review.createdAt == null || (Date.now() - Number(review.createdAt)) <= 72 * 3600 * 1000;
   // Batch 850 — inline reason drawers for admin-remove + report-review.
   // Replace native `window.prompt` that had no ARIA, no multiline input,
   // and silently failed on some mobile browsers. `null` = closed; string
@@ -350,7 +354,9 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       h('span', { className: 'stall-review-reply-label' }, 'Seller response'),
       h('div', { className: 'stall-review-reply-body' }, review.sellerReply)
     ),
-    isOwner && !editing && h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
+    // The server refuses reply edits 72h after the review (ReviewService
+    // REPLY_EDIT_WINDOW_MS); past that the buttons only led to an error.
+    isOwner && !editing && replyWindowOpen && h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
       h('button', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
@@ -376,7 +382,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
     // self-delete button above). Uses the admin override endpoint
     // that bypasses the self-only check + pings the buyer with the
     // staff-supplied reason.
-    me && me.role === 'ADMIN' && !isAuthor && !editing && h('div', {
+    me && me.role === 'ADMIN' && !isAuthor && !isOwner && !editing && h('div', {
       style: { marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }
     },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
@@ -484,7 +490,9 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       })
       )
     ),
-    isAuthor && err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
+    // Shown to everyone who can act on the row: a failed admin remove or
+    // reply removal used to set this and show nothing.
+    !editing && err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
     isOwner && editing && h('div', { className: 'stall-review-reply-edit' },
       h('textarea', {
         value: draft,
@@ -3472,7 +3480,7 @@ export function App() {
       minDiscountPct > 0 ? `≥${minDiscountPct}% off` : (dealsOnly ? 'Deals' : null),
       newOnly ? 'New' : null,
       affordableOnly ? 'Affordable' : null,
-      (minPrice || maxPrice) ? `${currencySymbol()}${minPrice || 0}–${maxPrice || '∞'}` : null
+      (minPrice || maxPrice) ? `$${minPrice || 0}–${maxPrice || '∞'}` : null
     ].filter(Boolean).join(' · ') || 'Untitled';
     setSaveSearchDraft(defaultName);
   };
@@ -4996,7 +5004,10 @@ export function App() {
     if (urlMax != null && urlMax !== maxPrice) setMaxPrice(urlMax);
     if (urlQ && urlQ !== search) { setSearch(urlQ); setSearchInput(urlQ); }
     if ([0, 5, 10, 20, 30, 50].includes(urlDiscount) && urlDiscount !== minDiscountPct) setMinDiscountPct(urlDiscount);
-    if (urlType && urlType !== listingTypeFilter) setListingTypeFilter(urlType);
+    // Same canonical form as the initial read: "?type=auction" left
+    // 'auction' in state, which the grid treats as buy-now only.
+    const canonType = urlType ? String(urlType).toUpperCase() : null;
+    if (canonType && ['ALL', 'BUY_NOW', 'AUCTION'].includes(canonType) && canonType !== listingTypeFilter) setListingTypeFilter(canonType);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeName, route.path, window.location.search]);
 
@@ -6995,8 +7006,8 @@ export function App() {
             // raw USD-anchored amount so a "5" in the box always means
             // "USD 5" regardless of display currency. (Matches the same
             // anchor convention used by the price-range chips below.)
-            h('input', { className: 'price-input', placeholder: currencySymbol() + ' Min', value: minPrice, onChange: e => setMinPrice(e.target.value), 'aria-label': 'Minimum price filter (USD-anchored)', inputMode: 'decimal' }),
-            h('input', { className: 'price-input', placeholder: currencySymbol() + ' Max', value: maxPrice, onChange: e => setMaxPrice(e.target.value), 'aria-label': 'Maximum price filter (USD-anchored)', inputMode: 'decimal' })
+            h('input', { className: 'price-input', placeholder: '$ Min', value: minPrice, onChange: e => setMinPrice(e.target.value), 'aria-label': 'Minimum price filter (USD-anchored)', inputMode: 'decimal' }),
+            h('input', { className: 'price-input', placeholder: '$ Max', value: maxPrice, onChange: e => setMaxPrice(e.target.value), 'aria-label': 'Maximum price filter (USD-anchored)', inputMode: 'decimal' })
           ),
           /* csfloat-style quick price chips. SBox prices cluster $1-$10 so the
              ranges are scaled accordingly (csfloat uses <$10/$10-50/$50-250/>$250).
@@ -7475,10 +7486,10 @@ export function App() {
               h('strong', null, category), h('span', { 'aria-hidden': true }, ' ✕')),
             rarity !== 'All' && h('button', { className: 'filter-chip', onClick: () => setRarity('All'), 'aria-label': `Remove rarity filter: ${rarity}` },
               h('strong', null, rarity), h('span', { 'aria-hidden': true }, ' ✕')),
-            minPrice && h('button', { className: 'filter-chip', onClick: () => setMinPrice(''), 'aria-label': `Remove minimum price filter ${currencySymbol()}${minPrice}` },
-              '≥ ', currencySymbol(), h('strong', null, minPrice), h('span', { 'aria-hidden': true }, ' ✕')),
-            maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice(''), 'aria-label': `Remove maximum price filter ${currencySymbol()}${maxPrice}` },
-              '≤ ', currencySymbol(), h('strong', null, maxPrice), h('span', { 'aria-hidden': true }, ' ✕')),
+            minPrice && h('button', { className: 'filter-chip', onClick: () => setMinPrice(''), 'aria-label': `Remove minimum price filter $${minPrice}` },
+              '≥ $', h('strong', null, minPrice), h('span', { 'aria-hidden': true }, ' ✕')),
+            maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice(''), 'aria-label': `Remove maximum price filter $${maxPrice}` },
+              '≤ $', h('strong', null, maxPrice), h('span', { 'aria-hidden': true }, ' ✕')),
             // Batch 651 — removable min-discount chip.
             minDiscountPct > 0 && h('button', { className: 'filter-chip', onClick: () => setMinDiscountPct(0), 'aria-label': `Remove minimum discount filter: ${minDiscountPct}% off` },
               '≥ ', h('strong', null, minDiscountPct + '%'), ' off', h('span', { 'aria-hidden': true }, ' ✕')),

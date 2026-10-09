@@ -107,6 +107,13 @@ class SavedSearchService {
         // rather than persisting data that quietly breaks matching. (audit P3)
         def minPrice = normalisePriceBound(payload.minPrice as String)
         def maxPrice = normalisePriceBound(payload.maxPrice as String)
+        // The market grid swaps reversed bounds; a preset saved as min 50 /
+        // max 10 matched nothing, so its alerts never fired.
+        if (minPrice && maxPrice && new BigDecimal(minPrice) > new BigDecimal(maxPrice)) {
+            def lo = maxPrice
+            maxPrice = minPrice
+            minPrice = lo
+        }
         // Batch 957 — the extended filter set. Clamp numerics, whitelist
         // enums. Booleans pass through with a null-safe default.
         int minDisc = 0
@@ -305,7 +312,9 @@ class SavedSearchService {
         // "$20" and "12,50" filter fine on screen, so saving that view must
         // keep the bound instead of dropping it to "no limit".
         def s = raw.trim().replace('\$', '').replaceAll(/\s+/, '')
-        if (s ==~ /^\d+,\d{1,2}$/) s = s.replace(',', '.')
+        // "5,50" is a decimal comma; any other comma separates thousands, so
+        // "1,000" saves as 1000 instead of failing to parse and dropping.
+        s = (s ==~ /^\d+,\d{1,2}$/) ? s.replace(',', '.') : s.replace(',', '')
         s = s.take(16)
         if (s.isEmpty()) return ''
         try {

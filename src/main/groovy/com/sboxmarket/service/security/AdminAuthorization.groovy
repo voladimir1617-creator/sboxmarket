@@ -33,11 +33,16 @@ class AdminAuthorization {
         if (user.role != 'ADMIN') {
             throw new ForbiddenException("Admin privileges required")
         }
+        // Account deletion can mark an ADMIN row banned without dropping
+        // the role; a banned account never keeps staff powers.
+        if (Boolean.TRUE.equals(user.banned)) {
+            throw new ForbiddenException("Admin privileges required")
+        }
     }
 
     boolean isAdmin(Long userId) {
         if (userId == null) return false
         def user = steamUserRepository.findById(userId).orElse(null)
-        user?.role == 'ADMIN'
+        user?.role == 'ADMIN' && !Boolean.TRUE.equals(user?.banned)
     }
 }

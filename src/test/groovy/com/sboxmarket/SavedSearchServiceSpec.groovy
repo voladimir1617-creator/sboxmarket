@@ -109,9 +109,10 @@ class SavedSearchServiceSpec extends Specification {
         repository.countByUser(10L) >> 0L
 
         when:
-        // "1,000" / "$5" / "abc" would all throw new BigDecimal(...) in the
-        // matcher; a negative bound is meaningless. All normalise to ''.
-        service.upsert(10L, [name: 'junkprice', minPrice: '1,000', maxPrice: 'abc'])
+        // "abc" / "-5" would throw or mean nothing in the matcher, so both
+        // normalise to ''. ("1,000" is a thousands separator and now saves
+        // as 1000 — see DefectPassSevenSpec.)
+        service.upsert(10L, [name: 'junkprice', minPrice: '-5', maxPrice: 'abc'])
 
         then:
         1 * repository.save({ it.minPrice == '' && it.maxPrice == '' }) >> { SavedSearch s -> s }

@@ -312,7 +312,10 @@ class WalletController {
     /** Transaction types the activity summary reports, and the tile each
      *  one lands in. WITHDRAWAL is the legacy spelling of WITHDRAW (older
      *  rows and the admin tools use both), so both feed one tile. Adjustments
-     *  are staff corrections, not activity, and are left out. */
+     *  are staff corrections, not activity, and are left out. The summary
+     *  query reports a REFUND with no listing (a deposit refunded to the
+     *  card, money out) as DEPOSIT_REFUND, so it no longer shows on the
+     *  Bought tile as "$X refunded". */
     static final Map<String, String> ACTIVITY_KIND = [
         DEPOSIT:    'deposits',
         SALE:       'sales',
