@@ -266,7 +266,7 @@ class BuyOrderController {
     ResponseEntity<String> exportCsv(@RequestParam(required = false) String status,
                                      HttpServletRequest req) {
         def uid = requireUser(req)
-        def rows = buyOrderService.listForBuyer(uid)
+        def rows = buyOrderService.listHistoryForBuyer(uid)
         // Optional `?status=ACTIVE|FILLED|CANCELLED` mirrors the UI's
         // filter chip strip — a buyer who narrows the visible list and
         // clicks ⇣ CSV expects to download what they're looking at, not

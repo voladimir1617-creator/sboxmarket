@@ -1951,7 +1951,7 @@ Thanks for your patience.
             // The disclaimer is required because s&box is a Facepunch
             // game — every email mentions skin trading and Facepunch
             // hasn't endorsed this marketplace, so we say so explicitly.
-            return body + "\n\n—\nManage your email preferences: " + base + "/settings" +
+            return body + "\n\n—\nManage your email preferences: " + base + "/profile/personal" +
                    unsubLine +
                    "\nNeed help? Reply to this email or visit " + base + "/support" +
                    "\n\n© 2026 SkinBox · Not affiliated with Facepunch\n"

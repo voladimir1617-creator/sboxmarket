@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=232';
+} from './modals.js?v=233';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -4851,11 +4851,15 @@ export function App() {
     setWatchlist([]);
     try { localStorage.removeItem('sb_cart'); } catch (_) {}
     try { localStorage.removeItem('sb_watchlist'); } catch (_) {}
-    // Forget the one-time cart merge so rows added as a guest after this
-    // sign-out are merged into the account on the next sign-in instead of
-    // being overwritten by the server list.
+    // Local alert targets and price snapshots belong to this user too.
+    try { localStorage.removeItem('sb_watchlist_alerts'); } catch (_) {}
+    try { localStorage.removeItem('sb_watchlist_snap'); } catch (_) {}
+    // Forget the one-time cart and watchlist merges so rows added as a
+    // guest after this sign-out are merged into the account on the next
+    // sign-in instead of being overwritten by the server list.
     if (me?.id != null) {
       try { localStorage.removeItem(`sb_cart_synced:${me.id}`); } catch (_) {}
+      try { localStorage.removeItem(`sb_watchlist_synced:${me.id}`); } catch (_) {}
     }
     // Any route that only makes sense for a signed-in user would now
     // render the generic sign-in empty state on the current URL. Land
@@ -8019,7 +8023,7 @@ export function App() {
                   }
                   // Refresh stall so the banner disappears and the
                   // blockedByViewer flag flips back to false.
-                  const fresh = await fetchPublicStall(stallData.seller.id);
+                  const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
                   if (fresh) setStallData(fresh);
                   showToast('Unblocked.', 'ok');
                 }
@@ -8302,7 +8306,7 @@ export function App() {
             h(StallBioBlock, {
               bio: stallData.seller.stallBio,
               canEdit: me && me.id === stallData.seller.id,
-              onSaved: () => { fetchPublicStall(route.params.id).then(s => setStallData(s || { __notFound: true })); }
+              onSaved: () => { fetchPublicStall(route.params.id, { fresh: true }).then(s => setStallData(s || { __notFound: true })); }
             }),
             stallData.count === 0
               ? h('div', { className: 'empty-inline' },

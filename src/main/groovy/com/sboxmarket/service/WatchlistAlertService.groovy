@@ -389,9 +389,15 @@ class WatchlistAlertService {
             def user = steamUserRepository?.findById(a.userId)?.orElse(null)
             boolean userBanned = user != null && Boolean.TRUE.equals(user.banned)
             if (!userBanned) {
+                // "Notify When Listed" alerts store a 99999+ sentinel target;
+                // word them as a restock like the email does, never quote it.
+                boolean isRestock = a.targetPrice != null &&
+                    a.targetPrice.compareTo(new BigDecimal('99999')) >= 0
                 notificationService?.push(a.userId, 'WATCHLIST_PRICE_DROP',
-                    "Price drop · ${name}",
-                    "Floor price reached \$${currentFloor.toPlainString()} (target \$${a.targetPrice.toPlainString()})",
+                    isRestock ? "Restock · ${name}" : "Price drop · ${name}",
+                    isRestock
+                        ? "Listed again at \$${currentFloor.toPlainString()}"
+                        : "Floor price reached \$${currentFloor.toPlainString()} (target \$${a.targetPrice.toPlainString()})",
                     a.itemId,
                     "/item/${a.itemId}")
                 // Defer the price-drop EMAIL to afterCommit. fireRow runs inside

@@ -36,6 +36,7 @@ class ApiKeyService {
     @Autowired TextSanitizer textSanitizer
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     @Autowired(required = false) EmailService emailService
+    @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
 
     List<ApiKey> listForUser(Long userId) {
         apiKeyRepository.findByUser(userId)
@@ -53,6 +54,9 @@ class ApiKeyService {
      */
     @Transactional
     Map create(Long userId, String label, String scope = null) {
+        // A ban revokes every key; a banned user who signs back in must
+        // not be able to mint a fresh one.
+        banGuard?.assertNotBanned(userId)
         // Batch 692 — reject the mint if the user is already at the
         // active-key ceiling. Revoke-first is the intended escape
         // hatch; revoked keys don't count so a user can always churn

@@ -691,6 +691,13 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       const qtyStr = qtyN > 1 ? ` × ${qtyN}` : '';
       if (res && res.status === 'FILLED') {
         toast(`Buy order for "${itemName}" filled right away from an existing listing. Check Profile → Trades.`, 'ok');
+      } else if (res && Number.isFinite(Number(res.quantity)) && Number(res.quantity) < qtyN) {
+        // Some units matched live listings on create (and were charged);
+        // the rest stay open. Saying "charged only when a listing
+        // matches" here would hide the charge that already happened.
+        const left = Number(res.quantity);
+        const got = qtyN - left;
+        toast(`Buy order for "${itemName}": ${got} filled right away from existing listings, ${left} still open at max ${fmt(max)}. Check Profile → Trades.`, 'ok');
       } else {
         toast(`Buy order placed for "${itemName}" at max ${fmt(max)}${qtyStr}. Your wallet is charged only when a listing matches — keep enough balance for it.`,
           'ok');
@@ -2083,7 +2090,7 @@ export function NotificationsModal({ onClose, me }) {
   // wipes unread rows in every other bucket too. Full view (no filter)
   // still uses the cheap single-endpoint `/read-all`.
   const clear = async () => {
-    const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0);
+    const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0) || mutedSet.size > 0;
     if (filterActive) {
       const ids = groups.flatMap(g => g.items).filter(n => !n.read).map(n => n.id);
       if (ids.length === 0) { load(); return; }
@@ -2134,7 +2141,7 @@ export function NotificationsModal({ onClose, me }) {
   // will go away). Full-view still gets the confirm — deleting every
   // read row across every bucket is a bigger commitment.
   const clearRead = async () => {
-    const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0);
+    const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0) || mutedSet.size > 0;
     if (filterActive) {
       const ids = groups.flatMap(g => g.items).filter(n => n.read).map(n => n.id);
       if (ids.length === 0) { load(); return; }
@@ -2254,11 +2261,17 @@ export function NotificationsModal({ onClose, me }) {
   }, [data.items, filter, typeFilter, search, mutedSet.size]);
 
   const count = groups.reduce((s, g) => s + g.items.length, 0);
+  // Muted rows are hidden from the list, so the title and chips count
+  // only what can be shown (the bell badge already does the same).
+  const shownItems = mutedSet.size > 0
+    ? data.items.filter(n => !mutedSet.has(typeOf(n.kind)))
+    : data.items;
+  const shownUnread = mutedSet.size > 0 ? shownItems.filter(n => !n.read).length : data.unread;
 
   if (!me) return h(InfoModal, { title: 'Notifications', onClose },
     h(SignInNeededEmptyState, { what: 'your notifications' }));
 
-  return h(InfoModal, { title: `Notifications · ${data.unread} unread`, onClose },
+  return h(InfoModal, { title: `Notifications · ${shownUnread} unread`, onClose },
     // Batch 769 — muted-kinds banner. When the user has muted specific
     // notification categories via Settings, surface a concise "X types
     // muted · manage" line so they're not confused about a quiet bell
@@ -2283,14 +2296,14 @@ export function NotificationsModal({ onClose, me }) {
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
       h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, onClick: () => setFilter('ALL') },
-        'All ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, data.items.length)),
+        'All ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length)),
       h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, onClick: () => setFilter('UNREAD') },
-        'Unread ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, data.unread)),
+        'Unread ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownUnread)),
       h('div', { style: { flex: 1 } }),
       data.items.length > 0 && (() => {
         // Batch 635 — dynamic label: when a filter is active, show the
         // visible-unread count so the user knows the click is scoped.
-        const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0);
+        const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0) || mutedSet.size > 0;
         const visibleUnread = filterActive ? groups.flatMap(g => g.items).filter(n => !n.read).length : 0;
         return h('button', {
           className: 'btn btn-ghost',
@@ -2307,7 +2320,7 @@ export function NotificationsModal({ onClose, me }) {
         // Batch 636 — dynamic label mirrors the Mark-visible-read button:
         // when a filter is active, the count shows only the visible-and-
         // read rows so the user knows exactly what's about to be deleted.
-        const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0);
+        const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0) || mutedSet.size > 0;
         const visibleRead = filterActive ? groups.flatMap(g => g.items).filter(n => n.read).length : 0;
         return h('button', {
           className: 'btn btn-ghost',

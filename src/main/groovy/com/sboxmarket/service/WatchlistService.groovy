@@ -161,6 +161,13 @@ class WatchlistService {
         // can be raised in the first place, so no try/catch is needed.
         def existing = repository.findExistingItemIds(userId, cleaned).toSet()
         def toAdd = cleaned.findAll { !existing.contains(it) }
+        // A guest's localStorage can still hold a since-deleted item id;
+        // saving it would trip the items FK and fail the whole merge on
+        // every sign-in. Keep only ids that are still in the catalogue.
+        if (catalogueRepository != null && !toAdd.isEmpty()) {
+            def live = catalogueRepository.findAllById(toAdd)*.id.toSet()
+            toAdd = toAdd.findAll { live.contains(it) }
+        }
         // Truncate at the per-user cap including pre-existing rows.
         def headroom = MAX_PER_USER - repository.countByUser(userId) as int
         if (headroom <= 0) return list(userId)

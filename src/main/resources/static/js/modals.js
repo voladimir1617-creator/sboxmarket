@@ -2281,7 +2281,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         const floor = parseFloat(item.lowestPrice) || 0;
         const typed = parseFloat(alertTarget);
         const valid = Number.isFinite(typed) && typed > 0 && typed <= 100000;
-        const aboveFloor = valid && floor > 0 && typed > floor;
+        // The sweep fires when floor <= target, so a target equal to the
+        // floor fires right away too.
+        const aboveFloor = valid && floor > 0 && typed >= floor;
         const bump = (deltaPct) => {
           const base = Number.isFinite(typed) && typed > 0 ? typed : floor;
           if (!base) return;
@@ -2407,7 +2409,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             floor > 0 && h('span', null, 'Current floor ', h('strong', null, fmt(floor)), ' · '),
             valid
               ? (aboveFloor
-                  ? 'This target is already above the current floor — the alert will fire immediately.'
+                  ? 'This target is already at or above the current floor — the alert will fire immediately.'
                   : `We'll ping you when any listing on this item drops to ${fmt(typed)} or lower.`)
               : 'Enter a positive dollar amount.'
           ),
@@ -4315,11 +4317,21 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       // toast either way so the "Re-sync from Steam" button feels live.
       const res = await syncSteam();
       if (res && res.ok === false) {
-        toast('Steam sync failed — try again in a minute.', 'err');
+        toast(res.error || 'Steam sync failed — try again in a minute.', 'err');
+        return;
+      }
+      // Inside the server's cooldown the call returns ok without
+      // contacting Steam; say so instead of claiming a fresh sync.
+      if (res && res.throttled) {
+        const wait = Number(res.retryInSec) > 0 ? ` in ${Number(res.retryInSec)}s` : ' in a few seconds';
+        toast(`Just synced — try again${wait}.`, 'warn');
         return;
       }
       const fresh = await fetchProfile();
       setProfile(fresh);
+      // The header name and avatar read the app-level user, not the
+      // profile, so refresh that too or a Steam rename stays stale.
+      try { onRefresh && onRefresh(); } catch (_) {}
       toast('Profile re-synced from Steam.', 'ok');
     } finally { setSyncing(false); }
   };
@@ -4402,6 +4414,19 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
                   border: '1px solid rgba(251,191,36,0.4)' },
                 title: 'Check your inbox for a verification link — required for withdrawals.'
               }, 'Email unverified');
+            }
+            // Low ratings put the Account Standing gauge below at Poor or
+            // At Risk; the header must not call that good standing.
+            const standing = profile?.accountStanding;
+            if (standing && (standing.state === 'poor' || standing.state === 'at_risk')) {
+              return h('span', {
+                style: { marginLeft: 10, padding: '2px 8px', borderRadius: 4,
+                  fontSize: 10, fontWeight: 800,
+                  background: 'rgba(251,191,36,0.12)',
+                  color: '#fbbf24',
+                  border: '1px solid rgba(251,191,36,0.4)' },
+                title: standing.note || 'See Account Standing below.'
+              }, standing.label || 'At Risk');
             }
             return h('span', {
               style: { marginLeft: 10, padding: '2px 8px', borderRadius: 4,
@@ -5385,6 +5410,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       if (Array.isArray(res.recoveryCodes) && res.recoveryCodes.length) {
         setBackupCodes(res.recoveryCodes);
       }
+      // Re-read the profile so has2fa flips on: the backup-codes panel
+      // only renders in the enabled branch, and the row would otherwise
+      // still say Disabled with the one-time codes never shown.
+      try { refreshProfile && await refreshProfile(); } catch (_) { /* enabled either way */ }
       refreshRecoveryStatus();
       toast('Two-factor authentication enabled — save your backup codes below.', 'ok');
     } finally { setTwofaBusy(false); }
@@ -5409,6 +5438,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       setRecoveryStatus(null);
       setDisableDrawerOpen(false);
       setDisableCode('');
+      try { refreshProfile && await refreshProfile(); } catch (_) { /* disabled either way */ }
       toast('Two-factor authentication disabled.', 'ok');
     } finally { setDisableBusy(false); }
   };
@@ -6935,7 +6965,7 @@ function ProfileBuyOrdersTab() {
                   'aria-label': 'New quantity',
                   value: editQty, onChange: e => setEditQty(e.target.value),
                   placeholder: 'Qty',
-                  title: "Remaining quantity (can't exceed original)"
+                  title: "Remaining quantity (can't exceed what's still unfilled)"
                 }),
                 h('button', { className: 'buy-btn', style: { padding: '4px 10px', fontSize: 11 }, disabled: busy, onClick: () => saveEdit(o) }, 'Save'),
                 h('button', { className: 'btn btn-ghost', style: { padding: '4px 8px', fontSize: 11 }, onClick: cancelEdit, 'aria-label': 'Cancel edit' }, '✕')
@@ -15108,7 +15138,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       return;
     }
     loadServerAlerts();
-    const who = a?.itemName ? `"${a.itemName}"` : 'item';
+    const nm = a ? alertItemName(a.itemId) : null;
+    const who = nm ? `"${nm}"` : 'item';
     // Restock-style alerts encode targetPrice ≥ 99999 as "any future
     // listing" — don't read out the magic number in the toast.
     const isRestock = a?.targetPrice != null && parseFloat(a.targetPrice) >= 99999;
@@ -15153,7 +15184,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       const deltaStr = isFinite(oldN) && Math.abs(oldN - n) >= 0.01
         ? ` (was ${fmt(oldN)})`
         : '';
-      const who = a?.itemName ? `"${a.itemName}"` : 'item';
+      const nm = a ? alertItemName(a.itemId) : null;
+      const who = nm ? `"${nm}"` : 'item';
       toast(`Alert target on ${who} updated to ${fmt(n)}${deltaStr}.`, 'ok');
     } finally { setServerAlertBusy(false); }
   };
@@ -15216,6 +15248,16 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   // the nav badge and the page disagree — a real bug.
   const [pool, setPool] = useState(() => allListings || []);
   const [fallbackItems, setFallbackItems] = useState({}); // id → item
+  // What a buyer pays now: an auction with bids is at its current bid,
+  // not its starting price, so it must not pose as the cheapest copy.
+  const wlShownPrice = (l) => parseFloat(
+    l && l.listingType === 'AUCTION' && l.currentBid != null ? l.currentBid : l?.price);
+  // Name for an alert row: alerts carry only itemId, so look it up in
+  // the unfiltered pool, then the catalogue fallback.
+  const alertItemName = (itemId) => {
+    for (const l of (pool || [])) { if (l?.item?.id === itemId && l.item.name) return l.item.name; }
+    return fallbackItems[itemId]?.name || null;
+  };
   useEffect(() => {
     let alive = true;
     fetchListings({ limit: 500 }).then(rows => {
@@ -15261,7 +15303,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       if (!l?.item) return;
       if (!watchlist.includes(l.item.id)) return;
       const cur = byItem[l.item.id];
-      if (!cur || parseFloat(l.price) < parseFloat(cur.price)) byItem[l.item.id] = l;
+      if (!cur || wlShownPrice(l) < wlShownPrice(cur)) byItem[l.item.id] = l;
     });
     watchlist.forEach(id => {
       if (byItem[id] != null) return;
@@ -15527,16 +15569,19 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                   // listing matches (new/out-of-stock item).
                   let itemName = null;
                   let floor = null;
-                  if (Array.isArray(allListings)) {
-                    for (const l of allListings) {
+                  // The unfiltered pool, not the market grid's filtered
+                  // page, so a category filter can't hide the item.
+                  if (Array.isArray(pool)) {
+                    for (const l of pool) {
                       if (!l || !l.item) continue;
                       if (l.item.id !== a.itemId) continue;
                       if (l.status && l.status !== 'ACTIVE') continue;
                       itemName = itemName || l.item.name;
-                      const p = parseFloat(l.price);
+                      const p = wlShownPrice(l);
                       if (Number.isFinite(p) && (floor == null || p < floor)) floor = p;
                     }
                   }
+                  itemName = itemName || alertItemName(a.itemId);
                   const target = parseFloat(a.targetPrice);
                   // Restock-mode alerts encode targetPrice ≥ 99999 as
                   // "any future listing." For those the price gap is

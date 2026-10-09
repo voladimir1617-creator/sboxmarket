@@ -557,7 +557,7 @@ class BuyOrderControllerSpec extends Specification {
                                originalQuantity: 3, status: 'ACTIVE',
                                createdAt: 1700L, updatedAt: 1800L)
         authedSession(100L)
-        1 * buyOrderService.listForBuyer(100L) >> [row]
+        1 * buyOrderService.listHistoryForBuyer(100L) >> [row]
 
         when:
         def resp = controller.exportCsv(null, req)
@@ -572,7 +572,7 @@ class BuyOrderControllerSpec extends Specification {
     def "exportCsv() with no orders emits just the header row"() {
         given:
         authedSession(100L)
-        1 * buyOrderService.listForBuyer(100L) >> []
+        1 * buyOrderService.listHistoryForBuyer(100L) >> []
 
         when:
         def resp = controller.exportCsv(null, req)
@@ -590,7 +590,7 @@ class BuyOrderControllerSpec extends Specification {
                                    maxPrice: new BigDecimal('3.00'), quantity: 1, originalQuantity: 1,
                                    status: 'EXPIRED', createdAt: 1L, updatedAt: 1L)
         authedSession(100L)
-        1 * buyOrderService.listForBuyer(100L) >> [active, expired]
+        1 * buyOrderService.listHistoryForBuyer(100L) >> [active, expired]
 
         when:
         def resp = controller.exportCsv('EXPIRED', req)
@@ -605,7 +605,7 @@ class BuyOrderControllerSpec extends Specification {
         given: anonSession()
         when:  controller.exportCsv(null, req)
         then:  thrown(UnauthorizedException)
-        0 * buyOrderService.listForBuyer(_)
+        0 * buyOrderService.listHistoryForBuyer(_)
     }
 
     def "exportCsv(status='ACTIVE') filters out non-ACTIVE rows"() {
@@ -626,7 +626,7 @@ class BuyOrderControllerSpec extends Specification {
                                      originalQuantity: 1, status: 'CANCELLED',
                                      createdAt: 1700L, updatedAt: 1800L)
         authedSession(100L)
-        1 * buyOrderService.listForBuyer(100L) >> [active, filled, cancelled]
+        1 * buyOrderService.listHistoryForBuyer(100L) >> [active, filled, cancelled]
 
         when:
         def resp = controller.exportCsv('active', req)
@@ -648,7 +648,7 @@ class BuyOrderControllerSpec extends Specification {
                                originalQuantity: 3, status: 'ACTIVE',
                                createdAt: 1700L, updatedAt: 1800L)
         authedSession(100L)
-        1 * buyOrderService.listForBuyer(100L) >> [row]
+        1 * buyOrderService.listHistoryForBuyer(100L) >> [row]
 
         when:
         def resp = controller.exportCsv('NOT_A_STATUS', req)
