@@ -73,7 +73,7 @@ class SupportService {
             case 'REFUND':
                 return "Thanks — a refund specialist will review your trade details and the item delivery status, " +
                        "then follow up here. Typical review turnaround is under 24 hours. If you have a screenshot " +
-                       "of the Steam trade offer (or the missing / mismatched item) feel free to attach it in a reply."
+                       "of the Steam trade offer (or the missing / mismatched item) paste a link to it in a reply."
             case 'ACCOUNT':
                 return "For account issues, please confirm the Steam ID64 shown in your Personal Info tab. We can " +
                        "verify your session from that value and reset anything that looks off."
@@ -187,7 +187,7 @@ class SupportService {
 
         notificationService?.push(userId, 'SUPPORT_REPLY',
             "Support opened · #${ticket.id}",
-            "A support agent has replied to your ticket", ticket.id, '/support')
+            "We got your ticket. A staff member will reply in this thread.", ticket.id, '/support')
         // Admin + CSR fan-out (batch 505). New tickets used to land
         // silently in /admin?tab=tickets and wait for someone to
         // manually reload — shift gaps meant a REFUND category ticket
@@ -306,6 +306,13 @@ class SupportService {
         if (ticket.status != 'RESOLVED') {
             throw new BadRequestException("NOT_RESOLVED",
                 "Only resolved tickets can be reopened")
+        }
+        // Same open-ticket cap as create(): a reopen also puts a thread
+        // back in the staff queue and pings every staff member.
+        if (ticketRepository.countOpenByUser(userId) >= MAX_OPEN_TICKETS_PER_USER) {
+            throw new BadRequestException("TOO_MANY_OPEN_TICKETS",
+                "You already have ${MAX_OPEN_TICKETS_PER_USER} open support tickets. " +
+                "Please resolve an existing one before reopening this one.")
         }
         ticket.status = 'WAITING_STAFF'
         ticket.updatedAt = System.currentTimeMillis()
@@ -446,7 +453,7 @@ class SupportService {
                 }
                 notificationService?.push(t.userId, 'TICKET_AUTO_RESOLVED',
                     "Support ticket auto-closed · ${t.subject ?: 'your question'}",
-                    "Staff didn't hear back from you within ${autoResolveWaitingUserDays} days, so the thread was auto-closed. Open a new ticket any time if you still need help.",
+                    "Staff didn't hear back from you within ${autoResolveWaitingUserDays} days, so the thread was auto-closed. Reopen it from Support any time if you still need help.",
                     t.id, '/support')
                 closed++
             } catch (Exception e) {

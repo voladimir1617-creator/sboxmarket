@@ -2498,13 +2498,23 @@ class AdminService {
         t.updatedAt = System.currentTimeMillis()
         supportTicketRepository.save(t)
 
-        notificationService?.push(t.userId, 'SUPPORT_REPLY',
-            "New reply on ticket #${t.id}",
-            t.subject, t.id, '/support')
+        // Same delivery suppression as CsrService.reply: a banned owner
+        // gets no bell or email about staff activity on a frozen ticket.
+        def owner = null
+        try {
+            def lookup = steamUserRepository.findById(t.userId)
+            owner = (lookup != null) ? lookup.orElse(null) : null
+        } catch (Exception ignored) { /* treat as unknown */ }
+        boolean ownerBanned = (owner != null && Boolean.TRUE.equals(owner.banned))
+        if (!ownerBanned) {
+            notificationService?.push(t.userId, 'SUPPORT_REPLY',
+                "New reply on ticket #${t.id}",
+                t.subject, t.id, '/support')
+        }
         // Email the user (batch 475 — same path as CsrService.reply).
-        if (emailService != null) {
+        if (emailService != null && !ownerBanned) {
             try {
-                def user = steamUserRepository.findById(t.userId).orElse(null)
+                def user = owner
                 if (emailService.canSendSecurityTo(user)) {
                     emailService.sendSupportReply(user.email, user.displayName,
                         t.id, t.subject, cleanBody)
@@ -2535,6 +2545,18 @@ class AdminService {
         t.status = 'RESOLVED'
         t.updatedAt = System.currentTimeMillis()
         supportTicketRepository.save(t)
+        // Tell the owner, as CsrService.close does (the admin toast says the
+        // user can reopen, which they can't know about without a ping).
+        def owner = null
+        try {
+            def lookup = steamUserRepository.findById(t.userId)
+            owner = (lookup != null) ? lookup.orElse(null) : null
+        } catch (Exception ignored) { /* treat as unknown */ }
+        if (!(owner != null && Boolean.TRUE.equals(owner.banned))) {
+            notificationService?.safePush(t.userId, 'TICKET_CLOSED',
+                "Support ticket resolved · #${t.id}",
+                t.subject, t.id, '/support')
+        }
         auditService?.log(AuditService.TICKET_CLOSED, adminUserId, t.userId, ticketId,
             "Closed ticket #${ticketId}: ${t.subject}")
         t

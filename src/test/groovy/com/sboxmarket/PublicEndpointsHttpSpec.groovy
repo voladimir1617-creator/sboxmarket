@@ -60,13 +60,15 @@ class PublicEndpointsHttpSpec extends Specification {
             MockMvcRequestBuilders.post('/api/unsubscribe')
                 .param('email', email)
                 .param('t', tok)
+                .param('List-Unsubscribe', 'One-Click')
         ).andReturn()
 
         then:
         r.response.status == 200
+        r.response.contentAsString == 'OK'
     }
 
-    def "GET /api/unsubscribe with valid token returns success idempotently (batch 891)"() {
+    def "GET /api/unsubscribe with valid token shows the confirm form (link scanners must not unsubscribe)"() {
         // Mint a token the same way the email footer does; use an email
         // that doesn't have an account — we still expect success so
         // attackers can't enumerate registered addresses.
@@ -77,6 +79,24 @@ class PublicEndpointsHttpSpec extends Specification {
         when:
         def r = mockMvc.perform(
             MockMvcRequestBuilders.get('/api/unsubscribe')
+                .param('email', email)
+                .param('t', tok)
+        ).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString.contains('Confirm unsubscribe')
+        r.response.contentAsString.contains('<form method="post" action="/api/unsubscribe"')
+    }
+
+    def "the confirm form's POST returns the result page"() {
+        given:
+        def email = 'ghost-nobody-has-this@example.invalid'
+        def tok = emailService.unsubscribeToken(email)
+
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/unsubscribe')
                 .param('email', email)
                 .param('t', tok)
         ).andReturn()

@@ -60,8 +60,9 @@ class CsrfFilter extends OncePerRequestFilter {
         // from the user's mail client (Gmail/Outlook) without any
         // session cookie. The HMAC-signed token in the query string IS
         // the auth, so CSRF gating adds nothing here and would block
-        // the advertised flow. GET + POST both route to the same
-        // controller action which validates the token.
+        // the advertised flow. GET only shows a confirm form; its
+        // button and the mail client both POST, and the POST validates
+        // the token before changing anything.
         '/api/unsubscribe'
     ]
 

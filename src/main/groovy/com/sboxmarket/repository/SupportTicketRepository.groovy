@@ -144,6 +144,9 @@ interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
      * discarding the user's reply and closing a ticket they expected
      * staff to read.
      */
+    // Own transaction: the daily sweep calls this outside one, and a bare
+    // @Modifying query then throws, so no stale ticket was ever closed.
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE SupportTicket t

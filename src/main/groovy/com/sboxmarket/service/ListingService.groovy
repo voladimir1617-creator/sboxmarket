@@ -297,11 +297,22 @@ class ListingService {
         // Away mode never hides an auction that already has bids: hidden
         // auctions reject new bids but still settle, so rivals would be
         // frozen out while the leader wins at today's price.
-        def listings = (listingRepository.findActiveBySeller(sellerUserId) ?: []).findAll {
-            !(hidden && it.listingType == 'AUCTION' && (it.bidCount ?: 0) > 0)
+        // It also only touches its own rows: going away marks the rows it
+        // hides, and coming back un-hides only those, so a listing the
+        // seller hid by hand stays hidden (and doesn't read as "away").
+        def active = listingRepository.findActiveBySeller(sellerUserId) ?: []
+        def listings = hidden
+            ? active.findAll {
+                !Boolean.TRUE.equals(it.hidden) &&
+                !(it.listingType == 'AUCTION' && (it.bidCount ?: 0) > 0)
+              }
+            : awayHiddenRows(active)
+        listings.each {
+            it.hidden = hidden
+            it.tradeLink = hidden ? AWAY_MARKER : null
         }
-        listings.each { it.hidden = hidden }
         listingRepository.saveAll(listings)
+        if (!hidden) rematchUnhidden(listings)
         // Re-compute the denormalised Item.lowestPrice for every item a
         // hidden-or-unhidden listing touches. Without this, an item
         // whose public floor WAS this seller's now-hidden listing keeps
@@ -459,6 +470,37 @@ class ListingService {
         out
     }
 
+    /** Marks a listing hidden by away mode, in the otherwise unused
+     *  `trade_link` column (no schema change). Cleared whenever the
+     *  seller sets `hidden` on that listing themselves. */
+    static final String AWAY_MARKER = 'AWAY'
+
+    /** The rows coming back from away mode. Rows hidden before the marker
+     *  existed carry none: when nothing is marked and every active row is
+     *  hidden, that is the old whole-stall away state, so all come back. */
+    private static List<Listing> awayHiddenRows(List<Listing> active) {
+        def marked = active.findAll { Boolean.TRUE.equals(it.hidden) && it.tradeLink == AWAY_MARKER }
+        if (!marked.isEmpty()) return marked
+        if (!active.isEmpty() && active.every { Boolean.TRUE.equals(it.hidden) }) return active
+        []
+    }
+
+    /** Listings that become visible again can now fill a standing buy
+     *  order (matching skips hidden rows), so offer them to the engine
+     *  the way a fresh listing is. Deferred like save(). */
+    private void rematchUnhidden(List<Listing> rows) {
+        if (buyOrderService == null) return
+        rows.findAll { it.listingType != 'AUCTION' }.each { l ->
+            deferOrRun { buyOrderService.tryMatch(l) }
+        }
+    }
+
+    /** Active listings away mode is currently hiding. */
+    long countAwayHiddenActive(Long sellerUserId) {
+        if (sellerUserId == null) return 0L
+        listingRepository.countAwayHiddenActiveBySeller(sellerUserId)
+    }
+
     /** Count of the seller's active listings that are currently hidden
      *  (away mode is on for them). Drives the My Stall "you're on
      *  vacation" indicator — derived from the rows themselves so it
@@ -486,10 +528,12 @@ class ListingService {
         log.info("Vacation-mode sweep: ${expired.size()} user(s) past their resume time, un-hiding")
         expired.each { user ->
             try {
-                def listings = listingRepository.findActiveBySeller(user.id)
-                listings.each { it.hidden = false }
+                // Only the rows away mode hid; hand-hidden ones stay hidden.
+                def listings = awayHiddenRows(listingRepository.findActiveBySeller(user.id) ?: [])
+                listings.each { it.hidden = false; it.tradeLink = null }
                 if (!listings.isEmpty()) {
                     listingRepository.saveAll(listings)
+                    rematchUnhidden(listings)
                 }
                 user.awayModeUntil = null
                 steamUserRepository.save(user)
@@ -812,6 +856,11 @@ class ListingService {
             touchedItemIds.each { itemId ->
                 try { updateItemFloorPrice(itemId) } catch (Exception ignore) {}
             }
+            // A cut can bring a visible listing under a standing buy
+            // order's cap; the single-listing editor re-matches through
+            // save(), so the bulk path must too.
+            def cutIds = priceDrops.collect { it.listingId } as Set
+            rematchUnhidden(active.findAll { cutIds.contains(it.id) })
         }
         // PRICE_DROPPED fan-out for cart-holders (batch 539). Mirrors
         // the single-listing editor in ListingController. Cap the

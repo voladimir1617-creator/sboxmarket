@@ -2886,7 +2886,9 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   // Prefer the live-polled copy, but fall back to props for first paint.
   const view = live || listing;
   const remaining = view.expiresAt - now;
-  const ended = remaining <= 0;
+  // A seller-cancelled auction keeps its future end time but is no
+  // longer ACTIVE; treat it as over so the bid form closes.
+  const ended = remaining <= 0 || (!!view.status && view.status !== 'ACTIVE');
   const fmtTime = (ms) => {
     if (ms <= 0) return 'Ended';
     const s = Math.floor(ms / 1000);
@@ -2973,6 +2975,12 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     b.bidderUserId === me.id && (b.status === 'WINNING' || b.status === 'WON'));
   const auctionHadBids = (view.bidCount || 0) > 0 || view.currentBid != null;
   const viewerHasBid = history.some(b => b.bidderUserId && me && b.bidderUserId === me.id);
+  // The ended banner reads the settled outcome, not the clock: until the
+  // sweep settles (status still ACTIVE) nothing is won yet, and a settle
+  // that fails (winner can't pay, frozen, banned) leaves no WON row.
+  const wonRow = history.find(b => b.status === 'WON') || null;
+  const settling = remaining <= 0 && view.status === 'ACTIVE';
+  const viewerWon = !!me && !!wonRow && wonRow.bidderUserId === me.id;
   const viewerIsLosing = viewerHasBid && !viewerIsTop && !ended;
   const extensionActive = extendedUntil > now;
   // Distinct bidder count — lets the header read "12 bids · 4 bidders"
@@ -3003,6 +3011,10 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         if (Number.isFinite(v) && v > best) best = v;
       }
     });
+    // A cap the rival's bid already passed is spent: showing "we'll keep
+    // you on top up to this amount" next to "You were outbid" misleads.
+    const cur = view.currentBid != null ? parseFloat(view.currentBid) : null;
+    if (!viewerIsTop && cur != null && best <= cur) return null;
     return best > 0 ? best : null;
   })();
   // Active AUTO bid row for the viewer — needed so we can cancel the
@@ -3021,7 +3033,9 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   })();
   const stopAutoBid = async () => {
     if (!yourActiveAutoBidId || cancellingCap) return;
-    if (!confirm(`Stop auto-raising on this auction? Your current bid (${fmt(view.currentBid || view.price)}) stays live.`)) return;
+    if (!confirm(viewerIsTop
+      ? `Stop auto-raising on this auction? Your current bid (${fmt(view.currentBid || view.price)}) stays live.`
+      : 'Stop auto-raising on this auction? Bids you already placed stay as they are.')) return;
     setCancellingCap(true);
     try {
       const { cancelAutoBid } = await import('./api.js');
@@ -3102,27 +3116,35 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     // bidder doesn't have to parse the mute "Ended" label.
     ended && h('div', {
       className: 'auction-status-banner',
-      style: auctionHadBids
-        ? (viewerIsTop
+      style: auctionHadBids && !settling && wonRow
+        ? (viewerWon
             ? { background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)', color: 'var(--green)' }
             : { background: 'rgba(148,163,184,0.1)', border: '1px solid var(--border)', color: 'var(--text-secondary)' })
         : { background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', color: '#fbbf24' }
     },
       h('span', { className: 'auction-status-icon' },
-        !auctionHadBids ? '…' :
-        viewerIsTop ? '✓' : '!'),
+        (!auctionHadBids || settling || !wonRow) ? '…' :
+        viewerWon ? '✓' : '!'),
       h('span', { style: { flex: 1 } },
-        !auctionHadBids
+        settling
+          ? h('span', null,
+              h('strong', null, 'Auction ended — settling. '),
+              'The result shows here in a few seconds.')
+          : !auctionHadBids
           ? h('span', null,
               h('strong', null, 'Auction ended with no bids'),
               ' — the item is back in the seller\'s inventory.')
-          : viewerIsTop
+          : !wonRow
+            ? h('span', null,
+                h('strong', null, 'Auction closed without a sale'),
+                ' — the top bid couldn\'t be completed, so the item went back to the seller.')
+          : viewerWon
             ? h('span', null,
                 h('strong', null, 'You won this auction! '),
-                'Paid ', fmt(view.currentBid), ' — open Profile → Trades to confirm.')
+                'Paid ', fmt(wonRow.amount), ' — open Profile → Trades to confirm.')
             : h('span', null,
                 h('strong', null, 'Auction ended. '),
-                (view.currentBidderName || 'A bidder') + ' won at ' + fmt(view.currentBid) + '.')
+                (view.currentBidderName || 'A bidder') + ' won at ' + fmt(wonRow.amount) + '.')
       )
     ),
     h('div', { className: 'auction-header' },
@@ -3218,7 +3240,10 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     // current-bid header and the bid form so it's visually separate from
     // the normal bid path. Hidden once the auction has ended or when the
     // viewer is the seller (can't buy-now your own auction).
+    // Hidden once bidding reaches the Buy Now price: the server refuses
+    // Buy Now from then on (BUY_NOW_UNAVAILABLE).
     !ended && view.buyNowPrice != null && parseFloat(view.buyNowPrice) > 0 &&
+      !(view.currentBid != null && parseFloat(view.currentBid) >= parseFloat(view.buyNowPrice)) &&
       (!me || me.id !== view.sellerUserId) && h('div', {
         className: 'auction-status-banner',
         style: { background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.35)',
@@ -3315,7 +3340,8 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         style: { color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline', fontSize: 11 }
       }, 'Fix in Profile →')
     ),
-    !ended && h('div', { className: 'auction-bid-form' },
+    // No bid form on your own auction — the server refuses seller bids.
+    !ended && (!me || me.id !== view.sellerUserId) && h('div', { className: 'auction-bid-form' },
       h('input', { className: 'wallet-amount-input', type: 'number', step: '0.05', min: minNext,
         inputMode: 'decimal', enterKeyHint: 'send',
         'aria-label': 'Bid amount',

@@ -37,6 +37,7 @@ class WatchlistService {
      *  ids whose Item no longer exists). Optional so unit specs that don't
      *  exercise the filter can leave it unset (null → no filtering). */
     @Autowired(required = false) com.sboxmarket.repository.ItemRepository catalogueRepository
+    @Autowired(required = false) com.sboxmarket.repository.WatchlistAlertRepository alertRepository
 
     /** Star an item. Idempotent — if the user already has it, no-op +
      *  return false so the caller can short-circuit a redundant write.
@@ -102,6 +103,13 @@ class WatchlistService {
     @Transactional
     int clear(Long userId) {
         if (userId == null) return 0
+        // "Clear all" also stops the price alerts on those items; left
+        // ACTIVE they kept sending bells and emails with no card left on
+        // the watchlist to cancel them from.
+        if (alertRepository != null) {
+            def starredIds = repository.findItemIdsByUser(userId) ?: []
+            if (!starredIds.isEmpty()) alertRepository.cancelActiveForItems(userId, starredIds)
+        }
         int n = repository.deleteByUser(userId)
         if (n > 0) log.info("Cleared ${n} watchlist item(s) for user ${userId}")
         n
