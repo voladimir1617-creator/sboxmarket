@@ -687,13 +687,14 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     List<Object[]> countSoldByItemsSince(@Param("itemIds") List<Long> itemIds, @Param("since") Long since)
 
     /** Lifetime + windowed revenue for a seller (batch 605). Sums the
-     *  gross listing `price` (not the post-fee credit) so sellers see
+     *  gross sale price (the winning bid for an auction, else the
+     *  listing `price`; not the post-fee credit) so sellers see
      *  top-line revenue; the net figure is always visible in the
      *  wallet transaction history via the SALE rows. `soldAt` gate
      *  mirrors the count variants so partial / pending trades don't
      *  inflate the number. */
     @Query("""
-        SELECT COALESCE(SUM(l.price), 0) FROM Listing l
+        SELECT COALESCE(SUM(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL THEN l.currentBid ELSE l.price END), 0) FROM Listing l
         WHERE l.sellerUserId = :uid
           AND l.status IN ('SOLD','RELISTED')
           AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)
@@ -701,7 +702,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     BigDecimal sumRevenueBySeller(@Param("uid") Long uid)
 
     @Query("""
-        SELECT COALESCE(SUM(l.price), 0) FROM Listing l
+        SELECT COALESCE(SUM(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL THEN l.currentBid ELSE l.price END), 0) FROM Listing l
         WHERE l.sellerUserId = :uid
           AND l.status IN ('SOLD','RELISTED')
           AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId)

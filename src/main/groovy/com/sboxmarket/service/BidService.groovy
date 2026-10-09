@@ -335,6 +335,22 @@ class BidService {
             }
         }
 
+        // A leader raising their own bid keeps the auto-bid cap they
+        // already set. Without this the new MANUAL row (null cap) became
+        // the row a challenger is resolved against, so a $100 cap
+        // silently shrank to the raised amount and the next bidder won
+        // just above it.
+        if (listing.currentBidderId != null && listing.currentBidderId == bidderUserId) {
+            def standingCap = (bidRepository.findByListing(listingId) ?: [])
+                .findAll { it.bidderUserId == bidderUserId && it.status in ['WINNING', 'OUTBID'] &&
+                           it.kind == 'AUTO' && it.maxAmount != null }
+                .collect { it.maxAmount }
+                .max()
+            if (standingCap != null && standingCap > amount && (maxAmount == null || standingCap > maxAmount)) {
+                maxAmount = standingCap
+            }
+        }
+
         def kind = (maxAmount != null && maxAmount > amount) ? 'AUTO' : 'MANUAL'
 
         // Outbid the previous top bidder (if any). Look up their
@@ -558,7 +574,7 @@ class BidService {
                 previousTopId,
                 'AUCTION_OUTBID',
                 "You were outbid on ${listing.item?.name}",
-                "New top bid: \$${amount.toPlainString()}",
+                "New top bid: \$${listing.currentBid.toPlainString()}",
                 listingId,
                 listing.item?.id != null ? "/item/${listing.item.id}" : null
             )
@@ -571,7 +587,9 @@ class BidService {
             // never durably landed. Inline fallback preserves the no-tx test
             // path. (audit P3)
             final Long prevId = previousTopId
-            final BigDecimal newTop = amount
+            // listing.currentBid, not `amount`: the new bidder's own auto-raise
+            // can have lifted the price above what they submitted.
+            final BigDecimal newTop = listing.currentBid
             final String itemNameOb = listing.item?.name
             final String itemUrlOb = listing.item?.id != null ? "/item/${listing.item.id}".toString() : null
             def sendOutbid = {
@@ -946,7 +964,22 @@ class BidService {
         bid.maxAmount = null
         bid.kind = 'MANUAL'
         bidRepository.save(bid)
+        clearOtherLiveCaps(userId, bid.listingId, [bid.id] as Set)
         1
+    }
+
+    /** The user's older live rows on the same auction can still carry a
+     *  cap from before a bot re-raise or a self-raise. Left in place, the
+     *  bid panel kept showing "Your auto-bid cap" after a cancel and the
+     *  next self-raise carried the cancelled cap forward again. */
+    private void clearOtherLiveCaps(Long userId, Long listingId, Set<Long> alreadyCleared) {
+        if (listingId == null) return
+        def stale = (bidRepository.findByListing(listingId) ?: []).findAll {
+            it.bidderUserId == userId && !(it.id in alreadyCleared) &&
+                it.status in ['WINNING', 'OUTBID'] && (it.maxAmount != null || it.kind == 'AUTO')
+        }
+        stale.each { b -> b.maxAmount = null; b.kind = 'MANUAL' }
+        if (!stale.isEmpty()) bidRepository.saveAll(stale)
     }
 
     /** Bulk cancel of every active auto-raise the user owns. Returns the
@@ -957,6 +990,8 @@ class BidService {
         def rows = bidRepository.findActiveAutoBidsForUser(userId)
         rows.each { b -> b.maxAmount = null; b.kind = 'MANUAL' }
         if (!rows.isEmpty()) bidRepository.saveAll(rows)
+        def ids = rows*.id as Set
+        rows*.listingId.unique().each { lid -> clearOtherLiveCaps(userId, lid, ids) }
         rows.size()
     }
 

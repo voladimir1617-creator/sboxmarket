@@ -11,13 +11,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow } from './cards.js?v=8';
+import { GridCard, ListingRow } from './cards.js?v=9';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=230';
+} from './modals.js?v=231';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -6312,7 +6312,8 @@ export function App() {
                       const isOnline = l.sellerLastSeenAt
                         ? (Date.now() - Number(l.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
                         : false;
-                      const isVerified = (l.sellerReviewCount || 0) >= 5;
+                      // Five 1★ reviews must not earn a check mark.
+                      const isVerified = (l.sellerReviewCount || 0) >= 5 && (l.sellerRating || 0) >= 4;
                       return h('div', { className: 'csfloat-hero-stack-online' },
                         isOnline && h('span', { className: 'csfloat-hero-stack-online-dot' }),
                         h('span', { className: 'csfloat-hero-stack-online-text' }, isOnline ? 'Online' : 'Offline'),
@@ -6580,11 +6581,12 @@ export function App() {
                       ? (Date.now() - Number(top.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
                       : false;
                     const views = parseInt(top.item?.viewCount, 10) || 0;
-                    const isVerified = (top.sellerReviewCount || 0) >= 5;
+                    // Five 1★ reviews must not earn a check mark.
+                    const isVerified = (top.sellerReviewCount || 0) >= 5 && (top.sellerRating || 0) >= 4;
                     return h('div', { className: 'csfloat-home-hero-feature-statusrow' },
                       h('span', { className: `csfloat-home-hero-feature-dot${isOnline ? ' online' : ''}` }),
                       isOnline ? 'Online' : 'Offline',
-                      isVerified && h('span', { className: 'csfloat-home-hero-feature-verified', title: 'Verified seller (5+ reviews)' },
+                      isVerified && h('span', { className: 'csfloat-home-hero-feature-verified', title: 'Verified seller (5+ reviews, rated 4★+)' },
                         h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
                           h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
                         )

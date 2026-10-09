@@ -346,7 +346,8 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           const isOnline = listing.sellerLastSeenAt
             ? (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
             : false;
-          const isVerified = (listing.sellerReviewCount || 0) >= 5;
+          // Five 1★ reviews must not earn a check mark.
+          const isVerified = (listing.sellerReviewCount || 0) >= 5 && (listing.sellerRating || 0) >= 4;
           const listedAgo = !isAuction && listing.listedAt ? 'Listed ' + timeAgo(listing.listedAt) : null;
           return h('div', { className: 'gc-card-meta' },
             h('div', {
@@ -357,7 +358,7 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             },
               h('span', { className: 'gc-online-dot' + (isOnline ? '' : ' offline'), 'aria-hidden': 'true' }),
               isOnline ? 'Online' : 'Offline',
-              isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews)' },
+              isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews, rated 4★+)' },
                 h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
                   h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
                 )

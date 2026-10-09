@@ -2953,7 +2953,12 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   // banner so the bidder knows whether they're currently winning, losing,
   // or yet to bid. Anti-sniping soft-close is server-side; this panel
   // just surfaces the state.
-  const viewerIsTop = me && view.currentBidderId && view.currentBidderId === me.id;
+  // The listing payload never carries currentBidderId (redacted
+  // server-side), so read "am I on top" from the viewer's own bid rows:
+  // the leader's live row is WINNING, and the winner's row reads WON.
+  const viewerIsTop = !!me && history.some(b =>
+    b.bidderUserId === me.id && (b.status === 'WINNING' || b.status === 'WON'));
+  const auctionHadBids = (view.bidCount || 0) > 0 || view.currentBid != null;
   const viewerHasBid = history.some(b => b.bidderUserId && me && b.bidderUserId === me.id);
   const viewerIsLosing = viewerHasBid && !viewerIsTop && !ended;
   const extensionActive = extendedUntil > now;
@@ -3084,17 +3089,17 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     // bidder doesn't have to parse the mute "Ended" label.
     ended && h('div', {
       className: 'auction-status-banner',
-      style: view.currentBidderId && view.currentBidderId !== view.sellerUserId
+      style: auctionHadBids
         ? (viewerIsTop
             ? { background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)', color: 'var(--green)' }
             : { background: 'rgba(148,163,184,0.1)', border: '1px solid var(--border)', color: 'var(--text-secondary)' })
         : { background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', color: '#fbbf24' }
     },
       h('span', { className: 'auction-status-icon' },
-        !view.currentBidderId || view.currentBidderId === view.sellerUserId ? '…' :
+        !auctionHadBids ? '…' :
         viewerIsTop ? '✓' : '!'),
       h('span', { style: { flex: 1 } },
-        !view.currentBidderId || view.currentBidderId === view.sellerUserId
+        !auctionHadBids
           ? h('span', null,
               h('strong', null, 'Auction ended with no bids'),
               ' — the item is back in the seller\'s inventory.')

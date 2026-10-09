@@ -199,7 +199,10 @@ class MarketplaceJourneyIntegrationSpec extends Specification {
         }
 
         and: "the category facet narrows to the seeded item's own category"
-        def hats = rest.getForEntity(url('/api/listings?category=Hats'), String)
+        // Scoped by the token: the shared test DB holds well over a page of
+        // cheaper Hats listings (seeded auctions sort by their current bid),
+        // so the unscoped first page need not reach the $64 row.
+        def hats = rest.getForEntity(url("/api/listings?category=Hats&search=${token}"), String)
         okOr429(hats)
         if (hats.statusCode == HttpStatus.OK) {
             assert hats.body.contains(token)
@@ -213,7 +216,7 @@ class MarketplaceJourneyIntegrationSpec extends Specification {
         }
 
         and: "the rarity facet matches the seeded Limited item"
-        def limited = rest.getForEntity(url('/api/listings?rarity=Limited'), String)
+        def limited = rest.getForEntity(url("/api/listings?rarity=Limited&search=${token}"), String)
         okOr429(limited)
         if (limited.statusCode == HttpStatus.OK) {
             assert limited.body.contains(token)

@@ -5,6 +5,7 @@ import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.SellerFollow
 import com.sboxmarket.repository.ListingRepository
+import com.sboxmarket.repository.NotificationRepository
 import com.sboxmarket.repository.SellerFollowRepository
 import com.sboxmarket.repository.SteamUserRepository
 import groovy.util.logging.Slf4j
@@ -31,6 +32,7 @@ class SellerFollowService {
     @Autowired SteamUserRepository steamUserRepository
     @Autowired ListingRepository listingRepository
     @Autowired(required = false) NotificationService notificationService
+    @Autowired(required = false) NotificationRepository notificationRepository
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) UserBlockService userBlockService
 
@@ -140,7 +142,7 @@ class SellerFollowService {
         // fuel for active sellers AND a subtle fraud signal — a stall
         // getting rapid follower growth from fresh accounts is a
         // targeting pattern staff can investigate.
-        if (notificationService != null) {
+        if (notificationService != null && !followPingedRecently(sellerUserId, followerUserId)) {
             try {
                 def follower = steamUserRepository.findById(followerUserId).orElse(null)
                 def followerName = follower?.displayName ?: "user #${followerUserId}"
@@ -248,8 +250,29 @@ class SellerFollowService {
      * tolerating per-row push failures. No-op when the seller has no
      * followers yet.
      */
+    /** Unfollow deletes the row, so unfollow/follow toggling pushed a fresh
+     *  "New follower" every time. Hundreds of those filled the seller's bell
+     *  and the per-user cap then trimmed their real unread notifications.
+     *  One ping per follower per day. */
+    static final long FOLLOW_PING_WINDOW_MS = 24L * 60L * 60L * 1000L
+
+    private boolean followPingedRecently(Long sellerUserId, Long followerUserId) {
+        if (notificationRepository == null) return false
+        try {
+            return notificationRepository.countRecentByKindAndRef(sellerUserId, 'SELLER_FOLLOWED',
+                followerUserId, System.currentTimeMillis() - FOLLOW_PING_WINDOW_MS) > 0L
+        } catch (Exception e) {
+            log.debug("Follow-ping dedupe lookup failed: ${e.message}")
+            return false
+        }
+    }
+
     void notifyFollowersOfNewListing(Listing listing) {
         if (listing?.sellerUserId == null) return
+        // A listing waiting on its escrow deposit (PENDING_ESCROW) or a
+        // hidden one can't be bought yet. SteamEscrowService calls this
+        // again when the deposit lands and the listing goes ACTIVE.
+        if (listing.status != 'ACTIVE' || Boolean.TRUE.equals(listing.hidden)) return
         def followers = repo.findBySellerUserId(listing.sellerUserId)
         if (followers.isEmpty()) return
         def sellerName = listing.sellerName ?: 'A seller you follow'

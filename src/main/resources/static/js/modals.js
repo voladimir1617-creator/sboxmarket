@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=8';
+import { GridCard } from './cards.js?v=9';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -4767,8 +4767,8 @@ function EmailBucketMutes() {
   if (!loaded) return h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Loading categories…');
   if (available.length === 0) return null;
   const LABELS = {
-    TRADES:    { name: 'Trade activity',          hint: 'Emails when a sale clears escrow + money lands in your wallet' },
-    AUCTIONS:  { name: 'Auction activity',        hint: 'Outbid notices + auction-won confirmations' },
+    TRADES:    { name: 'Trade activity',          hint: 'New sales to send, trade updates and disputes, offers and counters, buy-order fills, and payouts. Muting it also mutes "you sold an item" emails.' },
+    AUCTIONS:  { name: 'Auction activity',        hint: 'Outbid notices, auctions ending soon, auction won and auction ended without a sale' },
     WATCHLIST: { name: 'Watchlist alerts',        hint: 'Price-drop emails for items you are watching' },
     FOLLOWS:   { name: 'Followed sellers',        hint: 'Emails when a seller you follow lists a new item' },
     MATCHES:   { name: 'Saved-search matches',    hint: 'Emails when a fresh listing matches one of your saved searches' }
@@ -12858,7 +12858,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     fetchMyStallSoldWithTotal().then(({ items, total, error }) => {
       if (!alive) return;
       if (error) { setSoldErr(true); return; }  // retry card, not false "No sales yet"
-      setSold(items);
+      // An auction's `price` is its starting bid; it sold at the winning
+      // bid, so every gross/net/30d figure on this tab reads that instead.
+      setSold((items || []).map(l =>
+        l && l.listingType === 'AUCTION' && l.currentBid != null ? { ...l, price: l.currentBid } : l));
       setSoldRowCount(total);
     });
     return () => { alive = false; };

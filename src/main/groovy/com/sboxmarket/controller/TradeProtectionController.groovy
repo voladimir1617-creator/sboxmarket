@@ -46,9 +46,22 @@ class TradeProtectionController {
     ResponseEntity<Map> quote(@RequestParam String price) {
         BigDecimal parsed
         try {
-            parsed = new BigDecimal(price)
+            // Length cap before parsing: BigDecimal accepts exponents like
+            // 1e3000000, and the fee arithmetic on one burns seconds of CPU
+            // on an unauthenticated endpoint.
+            if (price == null || price.length() > 20) throw new NumberFormatException()
+            parsed = new BigDecimal(price.trim())
         } catch (NumberFormatException e) {
             throw new BadRequestException('INVALID_PRICE', 'price must be a number')
+        }
+        // Same bounds a listing price has; a quote for -5 or 1e9 covers
+        // nothing anyone can buy.
+        if (parsed <= BigDecimal.ZERO || parsed > new BigDecimal('100000')) {
+            throw new BadRequestException('INVALID_PRICE', 'price must be between $0.01 and $100,000')
+        }
+        parsed = parsed.setScale(2, java.math.RoundingMode.HALF_UP)
+        if (parsed < new BigDecimal('0.01')) {
+            throw new BadRequestException('INVALID_PRICE', 'price must be between $0.01 and $100,000')
         }
         def fee = tradeProtectionService.quote(parsed)
         ResponseEntity.ok()
