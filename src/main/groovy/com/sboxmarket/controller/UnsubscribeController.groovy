@@ -91,7 +91,7 @@ class UnsubscribeController {
         }
         if (!emailService.verifyUnsubscribeToken(lower, token)) {
             log.warn("Unsubscribe: invalid token for email={}", EmailService.maskEmail(lower))
-            return page('That unsubscribe link has expired or is malformed. Sign in and toggle email preferences from /settings.', false)
+            return page('That unsubscribe link has expired or is malformed. Sign in and toggle email preferences from Profile → Personal Info.', false)
         }
         // Normalize the optional per-bucket selector. Only honour values
         // that match the canonical MUTABLE_EMAIL_BUCKETS whitelist —
@@ -277,7 +277,7 @@ class UnsubscribeController {
     <p>${escaped}</p>
     <div class="row">
       <a class="btn primary" href="/">Back to SkinBox</a>
-      <a class="btn ghost" href="/settings">Manage preferences</a>
+      <a class="btn ghost" href="/profile/personal">Manage preferences</a>
     </div>
   </div>
 </body>

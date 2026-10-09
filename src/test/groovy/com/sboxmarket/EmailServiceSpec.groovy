@@ -924,6 +924,8 @@ class EmailServiceSpec extends Specification {
         1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
             // CAN-SPAM footer + RFC-8058 one-click unsubscribe.
             f.text.contains('Manage your email preferences') &&
+            // The email switches live on Profile → Personal Info, not /settings.
+            f.text.contains('/profile/personal') &&
             f.text.contains('One-click unsubscribe') &&
             f.listUnsub.contains('/api/unsubscribe?email=') &&
             f.listUnsub.contains('user%40example.com')

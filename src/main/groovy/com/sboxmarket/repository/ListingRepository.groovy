@@ -205,9 +205,12 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
      *  chip. Both are public surfaces, so a hidden-by-seller listing
      *  shouldn't pull the public floor down. When a seller unhides, a
      *  subsequent listing mutation re-runs this aggregate and picks up
-     *  the row again. */
+     *  the row again. An auction counts at its current bid once it has
+     *  one, so the floor and the price alerts never quote a starting
+     *  price nobody can buy at. */
     @Query("""
-        SELECT MIN(l.price) FROM Listing l
+        SELECT MIN(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL
+                        THEN l.currentBid ELSE l.price END) FROM Listing l
         WHERE l.item.id = :itemId
           AND l.status = 'ACTIVE'
           AND (l.hidden IS NULL OR l.hidden = false)

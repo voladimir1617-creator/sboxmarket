@@ -346,6 +346,17 @@ class BuyOrderService {
             org.springframework.data.domain.PageRequest.of(0, BUY_ORDER_LIST_CAP))
     }
 
+    /** Export cap for the buy-order CSV — the list's 300-row display
+     *  cap must not cut the "full history" download. Same ceiling as
+     *  the trades CSV. */
+    static final int BUY_ORDER_EXPORT_CAP = 5000
+
+    List<BuyOrder> listHistoryForBuyer(Long buyerUserId) {
+        if (buyerUserId == null) return []
+        buyOrderRepository.findByBuyerPaged(buyerUserId,
+            org.springframework.data.domain.PageRequest.of(0, BUY_ORDER_EXPORT_CAP))
+    }
+
     /** Total buy-order count for the X-Total-Count header on
      *  /api/buy-orders. */
     long countForBuyer(Long buyerUserId) {
@@ -648,6 +659,12 @@ class BuyOrderService {
             // originalQuantity so the ceiling is unchanged.
             int cap = (o.quantity != null && o.quantity > 0) ? o.quantity : 1
             q = Math.min(q, cap)
+            // Every screen reads originalQuantity − quantity as "units
+            // filled", so dropping unfilled units must drop them from
+            // the placed count too, or a 5 → 2 edit reads as 3 fills.
+            if (o.quantity != null && q < o.quantity && o.originalQuantity != null) {
+                o.originalQuantity = Math.max(q, o.originalQuantity - (o.quantity - q))
+            }
             o.quantity = q
         }
         o.updatedAt = System.currentTimeMillis()

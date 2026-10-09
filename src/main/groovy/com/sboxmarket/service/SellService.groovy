@@ -428,13 +428,12 @@ class SellService {
         // Synchronous watchlist-alert sweep (batch 389). The scheduled
         // sweeper runs every 5 min, which is fine for ambient listings but
         // feels sluggish for the user who has a $10 alert and the seller
-        // just listed at $8. Firing here fans the alert out within seconds.
-        // Scoped to this one item so a thousand alerts on OTHER items
-        // don't get re-scanned on every relist. Isolated try/catch.
-        try {
-            watchlistAlertService?.sweepForItem(saved.item?.id)
-        } catch (Exception e) {
-            log.warn("Watchlist alert sync-sweep failed for listing ${saved.id}: ${e.message}")
+        // just listed at $8. Scoped to this one item. It reads the item's
+        // committed floor, so it is deferred like the floor refresh above
+        // (registered after it, so it runs after it): inside the relist tx
+        // it would only ever see the old floor and never fire.
+        if (_floorItemId != null && watchlistAlertService != null) {
+            deferOrRun { watchlistAlertService.sweepForItem(_floorItemId) }
         }
         saved
     }

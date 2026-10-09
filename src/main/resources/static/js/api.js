@@ -761,12 +761,15 @@ export async function fetchPublicStallSold(userId, limit) {
   const data = await safeJson(`${API}/listings/stall/${userId}/recent-sales${qs}`, undefined, { expect: [404] });
   return Array.isArray(data) ? data : [];
 }
-export async function fetchPublicStall(userId) {
+export async function fetchPublicStall(userId, { fresh = false } = {}) {
   // Endpoint returns 200 with `{notFound: true}` for missing ids (keeps
   // Chrome's auto-logged fetch 404 out of the console). Translate the
   // sentinel to null so the SPA's existing `__notFound` branch still
   // fires from the standard `stall || { __notFound: true }` fallback.
-  const data = await safeJson(`${API}/listings/stall/${userId}`, undefined, { expect: [404] });
+  // `fresh` skips the browser's 30s cached copy — used right after the
+  // owner changes the stall, so the page shows the save, not the old one.
+  const data = await safeJson(`${API}/listings/stall/${userId}`,
+    fresh ? { cache: 'no-store' } : undefined, { expect: [404] });
   // safeJson returns null on ANY fetch error (HTTP non-2xx or network); the stall
   // endpoint returns an object on success and {notFound:true} for a missing id, so
   // a null here means a GENUINE error, not "not found". Return a distinct sentinel

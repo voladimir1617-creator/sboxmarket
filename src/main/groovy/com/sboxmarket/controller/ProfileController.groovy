@@ -518,7 +518,11 @@ class ProfileController {
         if (state) {
             def want = state.trim().toUpperCase()
             // 'ALL' is a UI-only sentinel meaning "no filter"; ignore it.
-            if (want != 'ALL' && want != '') {
+            // 'OPEN' is the Trades-tab chip for anything not yet settled
+            // (pending or disputed), never a stored state.
+            if (want == 'OPEN') {
+                trades = trades.findAll { !((it.state ?: '').toUpperCase() in ['VERIFIED', 'CANCELLED']) }
+            } else if (want != 'ALL' && want != '') {
                 trades = trades.findAll { (it.state ?: '').toUpperCase() == want }
             }
         }
@@ -649,7 +653,10 @@ class ProfileController {
         // untouched.
         enforceVerificationSendCooldown(uid, System.currentTimeMillis())
 
-        user.email = textSanitizer.cleanShort(emailRaw)
+        // EMAIL_RE already limits this to plain address characters; the
+        // 80-char short-text clean would cut a valid long address and
+        // send the verification link to a different domain.
+        user.email = emailRaw
         // V63 — write the canonical form alongside the raw email so the
         // partial UNIQUE index on canonical_email actually has a value to
         // enforce against, and so the next caller's findByCanonicalEmail
@@ -804,9 +811,10 @@ class ProfileController {
         if (raw == null || raw.trim().isEmpty()) {
             user.stallBio = null
         } else {
-            def clean = textSanitizer.medium(raw)
-            if (clean == null) clean = ''
-            if (clean.length() > 500) clean = clean.substring(0, 500)
+            // Line by line, so the bio keeps the line breaks the stall
+            // renders with pre-wrap instead of collapsing to one line.
+            def clean = (TextSanitizer.multiline(textSanitizer, raw) ?: '').trim()
+            if (clean.length() > 500) clean = clean.substring(0, 500).trim()
             user.stallBio = clean
         }
         steamUserRepository.save(user)
@@ -1419,7 +1427,11 @@ class ProfileController {
         // about to click. A token already in 2FA-staging form is fine
         // to overwrite (re-enroll before confirm is a legitimate retry).
         def pendingTok = user.emailVerificationToken
-        if (pendingTok && !pendingTok.startsWith('totp_pending:')) {
+        // An expired link can never be clicked, so it must not block 2FA
+        // forever (the message below tells the user waiting will help).
+        boolean tokenExpired = user.emailVerificationTokenExpiresAt != null &&
+            System.currentTimeMillis() > user.emailVerificationTokenExpiresAt
+        if (pendingTok && !pendingTok.startsWith('totp_pending:') && !tokenExpired) {
             throw new BadRequestException("EMAIL_VERIFICATION_PENDING",
                 "Verify your email (or wait for that link to expire) before enabling two-factor authentication.")
         }
@@ -1428,6 +1440,8 @@ class ProfileController {
         // confirmation succeeds. Use the verificationToken column as a
         // lightweight staging slot so we don't need a new DB column.
         user.emailVerificationToken = "totp_pending:${secret}"
+        // Staging tokens carry no expiry; drop the dead email link's one.
+        user.emailVerificationTokenExpiresAt = null
         steamUserRepository.save(user)
         ResponseEntity.ok([
             secret:     secret,

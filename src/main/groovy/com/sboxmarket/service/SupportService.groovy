@@ -207,7 +207,7 @@ class SupportService {
                         notificationService.push(s.id, 'SUPPORT_REPLY',
                             "New support ticket · #${ticket.id}",
                             "[${catLabel}] ${cleanSubject.take(100)} — from ${cleanName ?: 'user ' + userId}",
-                            ticket.id, '/admin?tab=tickets')
+                            ticket.id, staffTicketsPath(s))
                     } catch (Exception e) {
                         log.warn("New-ticket staff push failed for uid=${s.id}: ${e.message}")
                     }
@@ -276,7 +276,7 @@ class SupportService {
                         notificationService?.push(s.id, 'SUPPORT_REPLY',
                             "User reply on ticket #${ticketId}",
                             "${cleanName ?: 'User ' + userId}: ${cleanBody.take(120)}",
-                            ticketId, '/admin?tab=tickets')
+                            ticketId, staffTicketsPath(s))
                     } catch (Exception e) {
                         log.warn("User-reply staff push failed for uid=${s.id}: ${e.message}")
                     }
@@ -322,7 +322,7 @@ class SupportService {
                         notificationService?.push(s.id, 'SUPPORT_REPLY',
                             "Ticket #${ticketId} reopened",
                             "User reopened the resolved thread.",
-                            ticketId, '/admin?tab=tickets')
+                            ticketId, staffTicketsPath(s))
                     } catch (Exception e) {
                         log.warn("Reopen staff push failed for uid=${s.id}: ${e.message}")
                     }
@@ -459,5 +459,11 @@ class SupportService {
                 : ""
             log.info("Support sweeper: auto-closed ${closed} stale WAITING_USER ticket(s) idle >${autoResolveWaitingUserDays}d${backlog}")
         }
+    }
+
+    /** Where a staff ticket ping should land: only ADMINs can open
+     *  /admin, so a CSR gets the tickets tab of their own console. */
+    private static String staffTicketsPath(def staff) {
+        staff?.role == 'ADMIN' ? '/admin?tab=tickets' : '/csr?tab=tickets'
     }
 }

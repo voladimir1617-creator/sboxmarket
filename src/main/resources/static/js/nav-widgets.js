@@ -1,6 +1,6 @@
 // Top-right nav icons: notification bell + theme picker.
 import { h, React, useState, useEffect, useCallback, timeAgo, signInWithSteam, toast } from './utils.js';
-import { fetchNotifications, fetchUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from './api.js';
+import { fetchNotifications, fetchUnreadNotificationCount, markAllNotificationsRead, markNotificationRead, markNotificationsReadBatch } from './api.js';
 import { navigate, paths } from './router.js';
 import { MaterialIcon } from './primitives.js';
 
@@ -248,7 +248,7 @@ export function NotificationBell({ me }) {
     const data = await fetchNotifications(muted.size > 0 ? 100 : 12);
     // A failed fetch keeps what's already shown instead of blanking the
     // badge and flashing "all caught up".
-    if (data?.error) return;
+    if (data?.error) return null;
     const all = Array.isArray(data?.items) ? data.items : [];
     const visible = muted.size > 0 ? all.filter(n => !muted.has(kindBucket(n.kind))) : all;
     const visibleUnread = visible.filter(n => !n.read).length;
@@ -261,6 +261,7 @@ export function NotificationBell({ me }) {
     // unread row.
     const serverUnread = Number.isFinite(data?.unread) ? data.unread : visibleUnread;
     setUnread(muted.size > 0 ? visibleUnread : serverUnread);
+    return visible;
   }, [me]);
 
   // Cheap unread-only poll (batch 1011) — hits `/api/notifications/unread-count`
@@ -293,8 +294,34 @@ export function NotificationBell({ me }) {
   // Refresh the full item list whenever the dropdown opens — covers
   // both the first-open hydration AND the mid-session re-open refresh
   // so the flyout never renders rows stale from an earlier view.
+  //
+  // Opening the bell also clears the badge for what the dropdown shows
+  // (CSFloat/Slack/GitHub pattern) — but only the rows actually on
+  // screen. A blanket read-all also flipped unread rows past the 12
+  // shown and rows hidden by mutes, so /notifications then said "all
+  // caught up" about pings the user never saw. Rows keep their unread
+  // accent for this open; the badge re-reads the server count.
   useEffect(() => {
-    if (open) loadFull();
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const visible = await loadFull();
+      if (cancelled || !me || !Array.isArray(visible)) return;
+      const ids = visible.slice(0, 12).filter(n => !n.read).map(n => n.id);
+      if (ids.length === 0) return;
+      try { await markNotificationsReadBatch(ids); } catch (_) { return; }
+      if (cancelled) return;
+      const muted = readMuted();
+      if (muted.size > 0) {
+        // The badge is counted from the loaded rows when mutes are on.
+        const left = visible.filter(n => !n.read).length - ids.length;
+        setUnread(Math.max(0, left));
+      } else {
+        const n = await fetchUnreadNotificationCount();
+        if (!cancelled && n != null) setUnread(n);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [open, loadFull]);
 
   // Play the notify ding when the unread count *grows* between polls.
@@ -441,21 +468,6 @@ export function NotificationBell({ me }) {
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
-
-  // Opening the bell auto-clears the unread badge — CSFloat/Slack/GitHub
-  // pattern. The rows keep their visual unread accent (blue border) so
-  // the user can still see at a glance what's new, but the badge drops
-  // to 0 immediately instead of forcing a per-row dismiss dance. Fires
-  // once per open → close cycle; no-op when there's nothing unread.
-  useEffect(() => {
-    if (!open || !me || unread === 0) return;
-    let cancelled = false;
-    (async () => {
-      try { await markAllNotificationsRead(); } catch (_) {}
-      if (!cancelled) await load();
-    })();
-    return () => { cancelled = true; };
-  }, [open, me]);
 
   const clearAll = async () => {
     if (!me) return;
