@@ -2,7 +2,7 @@
 // module doesn't pull in staff code paths. Both panels are tabbed, use
 // InfoModal as the shell, and call into api.js for I/O.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, fmt, timeAgo, toast, linkifyText } from './utils.js';
+import { h, React, useState, useEffect, useCallback, fmt, timeAgo, toast, linkifyText } from './utils.js';
 import { InfoModal } from './info-modal.js';
 import { ReasonDrawer, MaterialIcon } from './primitives.js';
 import {
@@ -3356,9 +3356,13 @@ function AdminTicketsTab() {
     if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
     setView(t);
   };
+  // Enter auto-repeat (or Enter then a click) re-entered this before the
+  // async busy state landed and posted the reply twice; a ref latches now.
+  const sendingRef = React.useRef(false);
   const sendReply = async () => {
-    if (!reply.trim() || !viewing?.ticket) return;
+    if (!reply.trim() || !viewing?.ticket || sendingRef.current) return;
     const t = viewing.ticket;
+    sendingRef.current = true;
     setBusy(true);
     try {
       const res = await adminTicketReply(t.id, reply);
@@ -3374,7 +3378,7 @@ function AdminTicketsTab() {
       // CSR-side toast so both staff flows feel consistent. Previously
       // the flow succeeded silently.
       toast(`Reply posted to ticket #${t.id}. User will see it + get an email.`, 'ok');
-    } finally { setBusy(false); }
+    } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
     if (!viewing?.ticket) return;
@@ -3917,9 +3921,13 @@ function CsrTicketsTab() {
     if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
     setView(t);
   };
+  // Enter auto-repeat (or Enter then a click) re-entered this before the
+  // async busy state landed and posted the reply twice; a ref latches now.
+  const sendingRef = React.useRef(false);
   const sendReply = async () => {
-    if (!reply.trim() || !viewing?.ticket) return;
+    if (!reply.trim() || !viewing?.ticket || sendingRef.current) return;
     const t = viewing.ticket;
+    sendingRef.current = true;
     setBusy(true);
     try {
       const res = await csrTicketReply(t.id, reply);
@@ -3935,7 +3943,7 @@ function CsrTicketsTab() {
       // their reply actually posted. Mirror the user-side support
       // flow's toast (batch 898).
       toast(`Reply posted to ticket #${t.id}. User will see it + get an email.`, 'ok');
-    } finally { setBusy(false); }
+    } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
     if (!viewing?.ticket) return;

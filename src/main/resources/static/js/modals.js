@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=9';
+import { GridCard } from './cards.js?v=10';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -320,6 +320,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   const cheapestBuyNow = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id) || null;
   const auctionOnly    = !cheapestBuyNow && !!(listings[0] && listings[0].listingType === 'AUCTION');
   const [offerOpen, setOfferOpen] = useState(false);
+  // Which auction the bid panel bids on. An item can have several
+  // auctions from different sellers; the row's Bid button picks one,
+  // otherwise the first (cheapest) auction is shown.
+  const [selectedAuctionId, setSelectedAuctionId] = useState(null);
   // Phone item pages: once the Buy / Cart row scrolls off the top, a slim
   // bar pinned above the bottom navigation keeps the price and Buy in
   // reach. Desktop already keeps the whole right rail sticky, so the bar
@@ -1477,9 +1481,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // price-ascending, so a cheaper BUY_NOW would otherwise occupy
           // listings[0] and hide a perfectly biddable auction (un-biddable
           // dead-end on the most common mixed-listing case).
-          const auctionListing = (listings || []).find(l => l.listingType === 'AUCTION');
+          const auctions = (listings || []).filter(l => l.listingType === 'AUCTION');
+          const auctionListing = auctions.find(l => l.id === selectedAuctionId) || auctions[0];
           return auctionListing && h('div', { 'data-auction-panel': 'true' },
-            h(AuctionBidPanel, { listing: auctionListing, me, wallet, onPlaced: onRefresh })
+            h(AuctionBidPanel, { key: auctionListing.id, listing: auctionListing, me, wallet, onPlaced: onRefresh })
           );
         })(),
         h('h2', { className: 'modal-section-title' },
@@ -1917,11 +1922,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     ? h('button', {
                         className: 'buy-btn',
                         onClick: () => {
-                          // Scroll the auction bid panel into view so the
-                          // click always lands on an actionable surface.
-                          // The main AuctionBidPanel mounts at the top of
-                          // the modal — data-auction-panel lets us find it
-                          // without wiring refs through the whole tree.
+                          // Point the bid panel at THIS auction, then scroll
+                          // it into view. The main AuctionBidPanel mounts at
+                          // the top of the modal — data-auction-panel lets us
+                          // find it without wiring refs through the tree.
+                          setSelectedAuctionId(l.id);
                           const el = document.querySelector('[data-auction-panel]');
                           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         },
@@ -10436,7 +10441,7 @@ function ProfileSupportTab() {
       } else if (topic === 'bug') {
         draft = {
           subject: 'Bug report',
-          category: 'OTHER',
+          category: 'BUG',
           body:
             'What happened?\n\n\n' +
             'What did you expect to happen?\n\n\n' +
@@ -13992,6 +13997,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       // offering a filter with a single non-zero bucket.
       const nonZero = ['BUY_NOW','AUCTION','HIDDEN'].filter(k => counts[k] > 0).length;
       if (nonZero <= 1) return null;
+      // A saved chip whose bucket emptied shows as All (the list does too).
+      const activeChip = (stallTypeFilter !== 'ALL' && counts[stallTypeFilter] > 0) ? stallTypeFilter : 'ALL';
       return h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 } },
         [
           { id: 'ALL',     label: 'All' },
@@ -14000,8 +14007,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           { id: 'HIDDEN',  label: 'Hidden' }
         ].map(opt => h('button', {
           key: opt.id,
-          className: `wallet-tx-filter-chip ${stallTypeFilter === opt.id ? 'active' : ''}`,
-          'aria-pressed': stallTypeFilter === opt.id,
+          className: `wallet-tx-filter-chip ${activeChip === opt.id ? 'active' : ''}`,
+          'aria-pressed': activeChip === opt.id,
           onClick: () => setStallTypeFilterPersist(opt.id),
           disabled: counts[opt.id] === 0 && opt.id !== 'ALL'
         }, `${opt.label} · ${counts[opt.id]}`))
@@ -14040,9 +14047,22 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             // behaviour; HIDDEN narrows to hidden rows regardless of
             // listing type; BUY_NOW / AUCTION narrow to the matching
             // non-hidden listings.
-            const filteredByType = stallTypeFilter === 'ALL' ? stall
-              : stallTypeFilter === 'HIDDEN' ? stall.filter(l => l.hidden)
-              : stallTypeFilter === 'AUCTION' ? stall.filter(l => l.listingType === 'AUCTION' && !l.hidden)
+            //
+            // The saved chip only applies while the chip row is on screen
+            // to change it (more than 3 rows, 2+ non-empty kinds) and its
+            // bucket is non-empty — otherwise un-hiding the last hidden row
+            // left "No hidden listings." over a stall of live ones with no
+            // way back, even after reopening.
+            const typeCount = (k) => k === 'HIDDEN' ? stall.filter(l => l.hidden).length
+              : k === 'AUCTION' ? stall.filter(l => l.listingType === 'AUCTION' && !l.hidden).length
+              : stall.filter(l => l.listingType !== 'AUCTION' && !l.hidden).length;
+            const chipsShown = stall.length > 3 &&
+              ['BUY_NOW','AUCTION','HIDDEN'].filter(k => typeCount(k) > 0).length > 1;
+            const typeFilter = (stallTypeFilter !== 'ALL' && chipsShown && typeCount(stallTypeFilter) > 0)
+              ? stallTypeFilter : 'ALL';
+            const filteredByType = typeFilter === 'ALL' ? stall
+              : typeFilter === 'HIDDEN' ? stall.filter(l => l.hidden)
+              : typeFilter === 'AUCTION' ? stall.filter(l => l.listingType === 'AUCTION' && !l.hidden)
               : stall.filter(l => l.listingType !== 'AUCTION' && !l.hidden);
             // Drop any listing whose item DTO didn't hydrate (null `item`).
             // The stall rows below dereference l.item.name / l.item.id
@@ -14057,7 +14077,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             return filtered.length === 0
               ? [h('div', { key: 'empty', className: 'empty-inline' },
                   h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
-                    `No ${stallTypeFilter.toLowerCase()} listings.`))]
+                    `No ${typeFilter === 'ALL' ? 'active' : typeFilter.toLowerCase().replace('_', ' ')} listings.`))]
               : filtered.map(l => h('div', { key: l.id, 'data-listing-id': l.id, className: `stall-row ${l.hidden ? 'hidden-listing' : ''}` },
             h('div', { className: 'item-thumb', style: { width: 48, height: 48 } }, h(ItemImage, { item: l.item, variant: 'mini' })),
             h('div', { style: { flex: 1, minWidth: 0 } },
@@ -15839,7 +15859,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
               className: 'btn-danger-ghost',
               style: { padding: '6px 12px', fontSize: 11 },
               onClick: async () => {
-                if (!confirm(`Clear all ${rows.length} watchlisted items?`)) return;
+                if (!confirm(`Clear all ${rows.length} watchlisted items and cancel their price alerts?`)) return;
                 try {
                   const { clearWatchlist } = await import('./api.js');
                   await clearWatchlist();
@@ -15851,6 +15871,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                 localStorage.removeItem('sb_watchlist_alerts');
                 setSnapshots({});
                 setAlerts({});
+                // The server cancelled the price alerts on those items too.
+                try { loadServerAlerts(); } catch (_) {}
                 toast(`Cleared ${rows.length} watched item${rows.length === 1 ? '' : 's'}.`, 'ok');
               }
             }, '✕ Clear all')

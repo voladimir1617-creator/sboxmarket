@@ -1358,6 +1358,9 @@ class ListingController {
                     "Can't hide an auction that already has bids — it stays visible until it ends.")
             }
             listing.hidden = hide
+            // The seller now owns this row's visibility: away mode's
+            // return must not flip it back.
+            listing.tradeLink = null
         }
         if (body.containsKey('description')) {
             // HTML-strip + cap at 500 chars — matches the column size
@@ -1393,7 +1396,10 @@ class ListingController {
         // listing see a ping and can capture the cheaper price.
         // Capped at 50 recipients to bound fan-out cost on a listing
         // that sat in many carts.
+        // A hidden listing can't be bought, so a cut on one must not tell
+        // cart or offer holders to act on it (the bulk path skips them too).
         if (oldPrice != null && saved.price != null && saved.price < oldPrice
+                && !Boolean.TRUE.equals(saved.hidden)
                 && cartItemRepository != null && notificationService != null) {
             try {
                 def others = cartItemRepository.findOtherUsersWithListing(saved.id, userId) ?: []
@@ -1431,6 +1437,7 @@ class ListingController {
         // messaging is more actionable ("your offer could buy outright
         // now"). Only fires on real drops.
         if (oldPrice != null && saved.price != null && saved.price < oldPrice
+                && !Boolean.TRUE.equals(saved.hidden)
                 && offerService != null) {
             try {
                 offerService.notifyOfferHoldersOfPriceDrop(saved.id, oldPrice, saved.price,
@@ -1731,9 +1738,19 @@ class ListingController {
         // "Hidden" is derived from the listing rows themselves — a stall
         // can be all-hidden without a return timer (manual indefinite
         // away). Cheap COUNT-flag derivation.
-        def hiddenCount = listingService.countHiddenActive(userId)
+        // Away is on when away mode is hiding rows, or a return date is
+        // set (a stall of only bid-on auctions has nothing to hide). A
+        // listing the seller hid by hand doesn't count. Rows hidden
+        // before the away marker existed: a fully hidden stall still
+        // reads as away.
+        boolean away = listingService.countAwayHiddenActive(userId) > 0 ||
+            (until != null && until > System.currentTimeMillis())
+        if (!away) {
+            long hiddenCount = listingService.countHiddenActive(userId)
+            away = hiddenCount > 0 && hiddenCount == listingService.countActiveBySeller(userId)
+        }
         ResponseEntity.ok([
-            hidden: hiddenCount > 0,
+            hidden: away,
             until:  until
         ])
     }

@@ -57,34 +57,74 @@ class UnsubscribeController {
     @PostMapping
     ResponseEntity<String> unsubscribePost(@RequestParam(required = false) String email,
                                            @RequestParam(required = false, name = 't') String token,
-                                           @RequestParam(required = false) String kind) {
-        def r = unsubscribe(email, token, kind)
-        // Mail clients expect 2xx + empty body for the one-click handshake.
-        return ResponseEntity.status(r.statusCode).body('OK')
+                                           @RequestParam(required = false) String kind,
+                                           @RequestParam(required = false, name = 'List-Unsubscribe') String oneClick) {
+        def r = doUnsubscribe(email, token, kind)
+        // Mail clients expect 2xx + a bare body for the one-click handshake;
+        // the confirm button on the GET page posts without it and gets the
+        // HTML result card instead.
+        if (oneClick != null && oneClick.trim().equalsIgnoreCase('One-Click')) {
+            return ResponseEntity.status(r.statusCode).body('OK')
+        }
+        r
     }
 
-    /** Test-only 2-arg convenience overload. The deployed mapping is on
-     *  the 3-arg `unsubscribePost(email, token, kind)` so Spring sees a
-     *  single @PostMapping (avoids the ambiguous-mapping startup
-     *  exception that a Groovy default-value overload would trigger).
-     *  Existing UnsubscribeControllerSpec calls land here and forward
-     *  to the canonical handler with kind=null. */
+    /** Test-only convenience overloads. The deployed mapping is on the
+     *  4-arg `unsubscribePost` so Spring sees a single @PostMapping.
+     *  These behave as a mail client's RFC 8058 one-click POST. */
     ResponseEntity<String> unsubscribePost(String email, String token) {
-        unsubscribePost(email, token, (String) null)
+        unsubscribePost(email, token, (String) null, 'One-Click')
     }
 
-    /** Test-only 2-arg convenience overload (see unsubscribePost
-     *  variant above for the rationale). Forwards to the mapped
-     *  3-arg `unsubscribe(email, token, kind)` with kind=null so the
-     *  existing UnsubscribeControllerSpec keeps compiling unchanged. */
+    ResponseEntity<String> unsubscribePost(String email, String token, String kind) {
+        unsubscribePost(email, token, kind, 'One-Click')
+    }
+
+    /** Test-only 2-arg convenience overload of the GET page. */
     ResponseEntity<String> unsubscribe(String email, String token) {
         unsubscribe(email, token, (String) null)
     }
 
+    /**
+     * The emailed link only shows a confirm button. Corporate link
+     * scanners and mail prefetchers GET every URL in a message, so a GET
+     * that changed state unsubscribed people who never clicked; the
+     * change happens on the button's POST (or a mail client's RFC 8058
+     * one-click POST) instead.
+     */
     @GetMapping(produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> unsubscribe(@RequestParam(required = false) String email,
                                        @RequestParam(required = false, name = 't') String token,
                                        @RequestParam(required = false) String kind) {
+        def lower = (email ?: '').trim().toLowerCase()
+        if (!lower || !token) {
+            return page('Missing email or token — open the link from your email again.', false)
+        }
+        if (!emailService.verifyUnsubscribeToken(lower, token)) {
+            log.warn("Unsubscribe: invalid token for email={}", EmailService.maskEmail(lower))
+            return page('That unsubscribe link has expired or is malformed. Sign in and toggle email preferences from Profile → Personal Info.', false)
+        }
+        String bucket = null
+        if (kind != null) {
+            def candidate = kind.trim().toUpperCase()
+            if (candidate && EmailService.MUTABLE_EMAIL_BUCKETS.contains(candidate)) bucket = candidate
+        }
+        def what = bucket ? "${bucket.toLowerCase()} emails" : 'email notifications'
+        def form = """<form method="post" action="/api/unsubscribe" class="row">
+      <input type="hidden" name="email" value="${esc(lower)}">
+      <input type="hidden" name="t" value="${esc(token)}">${bucket ? """
+      <input type="hidden" name="kind" value="${esc(bucket)}">""" : ''}
+      <button type="submit" class="btn primary">Unsubscribe</button>
+      <a class="btn ghost" href="/profile/personal">Manage preferences</a>
+    </form>"""
+        page("Stop ${what} to this address? Security notices still arrive.", true, form, 'Confirm unsubscribe')
+    }
+
+    private static String esc(String v) {
+        (v ?: '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+    }
+
+    private ResponseEntity<String> doUnsubscribe(String email, String token, String kind) {
         def lower = (email ?: '').trim().toLowerCase()
         if (!lower || !token) {
             return page('Missing email or token — open the link from your email again.', false)
@@ -161,7 +201,7 @@ class UnsubscribeController {
             : 'Preferences saved. You\'re unsubscribed from email notifications.', true)
     }
 
-    private static ResponseEntity<String> page(String message, boolean ok) {
+    private static ResponseEntity<String> page(String message, boolean ok, String actionsHtml = null, String heading = null) {
         // Tiny self-contained HTML response — no SPA assets, no fonts,
         // just a styled card. The CSP on the main site doesn't cover
         // an inline <style> + <script>, so we keep this page dead
@@ -260,6 +300,7 @@ class UnsubscribeController {
     .btn.primary {
       background: var(--ink); color: var(--bg);
       border: 1px solid var(--ink);
+      font-family: inherit; cursor: pointer;
     }
     .btn.primary:hover { filter: brightness(0.95); }
     .btn.ghost {
@@ -273,12 +314,12 @@ class UnsubscribeController {
   <div class="card">
     <div class="kicker">SkinBox · Email preferences</div>
     <div class="icon">${icon}</div>
-    <h1>${ok ? "Unsubscribed" : "Couldn't process"}</h1>
+    <h1>${heading ?: (ok ? "Unsubscribed" : "Couldn't process")}</h1>
     <p>${escaped}</p>
-    <div class="row">
+    ${actionsHtml ?: """<div class="row">
       <a class="btn primary" href="/">Back to SkinBox</a>
       <a class="btn ghost" href="/profile/personal">Manage preferences</a>
-    </div>
+    </div>"""}
   </div>
 </body>
 </html>"""

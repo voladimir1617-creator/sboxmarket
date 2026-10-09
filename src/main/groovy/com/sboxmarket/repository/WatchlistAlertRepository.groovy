@@ -241,4 +241,18 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM WatchlistAlert a WHERE a.userId = :uid")
     int deleteByUser(@Param("uid") Long uid)
+
+    /** Cancel the user's ACTIVE alerts on the given items — used when the
+     *  watchlist is cleared, so alerts on items they stopped watching
+     *  don't keep pinging. */
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("""
+        UPDATE WatchlistAlert a
+           SET a.status = 'CANCELLED'
+         WHERE a.userId = :uid
+           AND a.status = 'ACTIVE'
+           AND a.itemId IN :itemIds
+    """)
+    int cancelActiveForItems(@Param("uid") Long uid, @Param("itemIds") List<Long> itemIds)
 }

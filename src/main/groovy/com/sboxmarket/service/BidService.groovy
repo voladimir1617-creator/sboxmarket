@@ -739,8 +739,25 @@ class BidService {
      *  of a bare "Listing #N". Bulk-fetches the listings in one query to
      *  avoid N+1 when the user has many active bids. */
     List<Bid> liveBidsForUser(Long userId) {
-        def bids = bidRepository.findLiveBidsForUser(userId)
+        def bids = onePerAuction(bidRepository.findLiveBidsForUser(userId), 'WINNING')
         decorateWithListing(bids)
+    }
+
+    /** One row per auction for the My Bids tabs. Raising your own bid
+     *  (or an auto-bid re-raise) flips your older rows to OUTBID, and
+     *  settle turns them LOST or CANCELLED, so the raw rows listed a
+     *  winning bidder as outbid against themself, counted one lost
+     *  auction three times in the win rate, and summed every superseded
+     *  amount into "lost". Keeps the `preferred`-status row, else the
+     *  highest amount; order follows each auction's newest row. */
+    private static List<Bid> onePerAuction(List<Bid> bids, String preferred) {
+        if (bids == null || bids.isEmpty()) return bids
+        def byListing = new LinkedHashMap<Long, List<Bid>>()
+        bids.each { b -> byListing.computeIfAbsent(b.listingId) { new ArrayList<Bid>() }.add(b) }
+        byListing.values().collect { rows ->
+            rows.find { it.status == preferred } ?:
+                rows.max { a, b -> (a.amount ?: BigDecimal.ZERO) <=> (b.amount ?: BigDecimal.ZERO) ?: ((a.createdAt ?: 0L) <=> (b.createdAt ?: 0L)) }
+        }
     }
 
     /** Past bids — WON, LOST, CANCELLED. Drives Profile → Bids → Past
@@ -748,8 +765,8 @@ class BidService {
      *  doesn't ship thousands of rows on every tab open. Enriched with
      *  the same item fields as the live list so the UI is symmetric. */
     List<Bid> pastBidsForUser(Long userId) {
-        def bids = bidRepository.findPastBidsForUser(userId,
-            org.springframework.data.domain.PageRequest.of(0, 100))
+        def bids = onePerAuction(bidRepository.findPastBidsForUser(userId,
+            org.springframework.data.domain.PageRequest.of(0, 100)), 'WON')
         decorateWithListing(bids)
     }
 
@@ -1240,7 +1257,10 @@ class BidService {
             // item was stuck: not in seller's inventory (no SOLD row), not
             // on the marketplace (EXPIRED status), not listed under
             // MyStall Active. The seller had no way to relist it.
-            listing.status = 'SOLD'
+            // A house auction (no seller account) has no inventory to go
+            // back to; SOLD with a null buyer passed every "real sale"
+            // filter and showed up in recent sales and volume.
+            listing.status = listing.sellerUserId == null ? 'EXPIRED' : 'SOLD'
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
@@ -1278,7 +1298,10 @@ class BidService {
         // state otherwise). Batch 316 bug fix.
         boolean winnerInvalid = (winnerUser == null) || Boolean.TRUE.equals(winnerUser.banned)
         if (winnerInvalid) {
-            listing.status = 'SOLD'
+            // A house auction (no seller account) has no inventory to go
+            // back to; SOLD with a null buyer passed every "real sale"
+            // filter and showed up in recent sales and volume.
+            listing.status = listing.sellerUserId == null ? 'EXPIRED' : 'SOLD'
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
@@ -1324,7 +1347,10 @@ class BidService {
             } catch (Exception ignore) { /* never block settle on the count probe */ }
         }
         if (frozen || disputed) {
-            listing.status = 'SOLD'
+            // A house auction (no seller account) has no inventory to go
+            // back to; SOLD with a null buyer passed every "real sale"
+            // filter and showed up in recent sales and volume.
+            listing.status = listing.sellerUserId == null ? 'EXPIRED' : 'SOLD'
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
@@ -1361,7 +1387,10 @@ class BidService {
             // should make this near-impossible, but balance can drop
             // between bid and settle if the bidder spent the money on
             // another listing in the meantime.
-            listing.status = 'SOLD'
+            // A house auction (no seller account) has no inventory to go
+            // back to; SOLD with a null buyer passed every "real sale"
+            // filter and showed up in recent sales and volume.
+            listing.status = listing.sellerUserId == null ? 'EXPIRED' : 'SOLD'
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)

@@ -268,7 +268,9 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         }, ' · ★ ', listing.sellerRating.toFixed(1))
       ),
       // Buy-Now ceiling chip on auction cards — small chip above price row.
-      isAuction && listing.buyNowPrice && parseFloat(listing.buyNowPrice) > 0 && h('div', { style: { padding: '0 0 4px' } },
+      isAuction && listing.buyNowPrice && parseFloat(listing.buyNowPrice) > 0 &&
+        !(listing.currentBid != null && parseFloat(listing.currentBid) >= parseFloat(listing.buyNowPrice)) &&
+        h('div', { style: { padding: '0 0 4px' } },
         h('span', {
           style: {
             fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4,

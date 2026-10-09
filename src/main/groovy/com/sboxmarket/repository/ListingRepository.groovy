@@ -370,6 +370,11 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("SELECT COUNT(l) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'ACTIVE' AND l.hidden = true")
     long countHiddenActiveBySeller(@Param("uid") Long uid)
 
+    /** Active rows that away mode hid (see ListingService.AWAY_MARKER),
+     *  as opposed to rows the seller hid one by one. */
+    @Query("SELECT COUNT(l) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'ACTIVE' AND l.hidden = true AND l.tradeLink = 'AWAY'")
+    long countAwayHiddenActiveBySeller(@Param("uid") Long uid)
+
     /** Most-recent listedAt timestamp across every ACTIVE listing the
      *  seller has up right now. Drives the public-stall "Last listed Xh
      *  ago" activity chip (batch 1045) — a sharper signal of a seller's

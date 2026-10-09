@@ -72,12 +72,26 @@ class UnsubscribeControllerSpec extends Specification {
         resp.body.contains("expired or is malformed")
     }
 
-    def "GET with valid token + matching user flips the flag and saves"() {
+    def "GET with a valid token only shows a confirm form and changes nothing"() {
+        when: 'a mail scanner or prefetcher opens the emailed link'
+        def resp = controller.unsubscribe('ALICE@example.com', 'good-token')
+
+        then: 'no lookup, no save; the page posts the confirmation back'
+        1 * emailService.verifyUnsubscribeToken('alice@example.com', 'good-token') >> true
+        0 * steamUserRepository.findByEmailIgnoreCase(_)
+        0 * steamUserRepository.save(_)
+        resp.body.contains('Confirm unsubscribe')
+        resp.body.contains('<form method="post" action="/api/unsubscribe"')
+        resp.body.contains('value="alice@example.com"')
+        resp.body.contains('value="good-token"')
+    }
+
+    def "the confirm button's POST flips the flag and shows the result card"() {
         given:
         def u = new SteamUser(id: 42L, email: 'alice@example.com', emailNotificationsEnabled: true)
 
-        when:
-        def resp = controller.unsubscribe('ALICE@example.com', 'good-token')
+        when: 'browser form POST: no List-Unsubscribe=One-Click field'
+        def resp = controller.unsubscribePost('ALICE@example.com', 'good-token', null, null)
 
         then:
         1 * emailService.verifyUnsubscribeToken('alice@example.com', 'good-token') >> true
@@ -87,9 +101,9 @@ class UnsubscribeControllerSpec extends Specification {
         resp.body.contains("unsubscribed from email notifications")
     }
 
-    def "GET with valid token + NO matching user still returns success (enumeration guard)"() {
+    def "POST with valid token + NO matching user still returns success (enumeration guard)"() {
         when:
-        def resp = controller.unsubscribe('ghost@example.com', 'good-token')
+        def resp = controller.unsubscribePost('ghost@example.com', 'good-token', null, null)
 
         then: 'idempotent success — never reveal whether an address is registered'
         1 * emailService.verifyUnsubscribeToken('ghost@example.com', 'good-token') >> true
@@ -98,13 +112,13 @@ class UnsubscribeControllerSpec extends Specification {
         resp.body.contains("Unsubscribed")
     }
 
-    def "GET flips every matching row when email is shared (defensive)"() {
+    def "POST flips every matching row when email is shared (defensive)"() {
         given: 'two rows match — save both, never short-circuit'
         def u1 = new SteamUser(id: 1L, email: 'dup@example.com', emailNotificationsEnabled: true)
         def u2 = new SteamUser(id: 2L, email: 'dup@example.com', emailNotificationsEnabled: true)
 
         when:
-        controller.unsubscribe('dup@example.com', 'good-token')
+        controller.unsubscribePost('dup@example.com', 'good-token', null, null)
 
         then:
         1 * emailService.verifyUnsubscribeToken('dup@example.com', 'good-token') >> true

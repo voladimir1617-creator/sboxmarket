@@ -185,6 +185,15 @@ class SteamMarketPriceService {
                 // Use lowest_price as the primary, fall back to median
                 def bestPrice = lowestPrice ?: medianPrice
                 if (bestPrice != null && bestPrice > BigDecimal.ZERO) {
+                    // Re-read the row first. The loop's list was loaded up to
+                    // ~10 minutes ago (8s throttle per item) and save() writes
+                    // every column, so the stale copy would undo sales, views
+                    // and listings that landed meanwhile — and an item listed
+                    // since would still read as unlisted below.
+                    def fresh = item.id != null ? itemRepository.findById(item.id) : null
+                    def current = (fresh != null) ? fresh.orElse(null) : item
+                    if (current == null) { skipped++; continue }
+                    item = current
                     applyPriceUpdate(item, lowestPrice, bestPrice)
 
                     itemRepository.save(item)
