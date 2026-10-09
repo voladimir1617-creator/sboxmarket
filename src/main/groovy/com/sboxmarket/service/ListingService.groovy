@@ -85,6 +85,13 @@ class ListingService {
         'Other'
     ]
 
+    /** The price a market card shows: the current bid for an auction
+     *  that has bids, otherwise the listing price. Matches the CASE the
+     *  findActivePublic price filter uses. */
+    private static BigDecimal shownPrice(Listing l) {
+        (l?.listingType == 'AUCTION' && l?.currentBid != null) ? l.currentBid : l?.price
+    }
+
     List<Listing> getActiveListings(String sort, String category, String rarity,
                                     BigDecimal minPrice, BigDecimal maxPrice,
                                     String search, String listingType) {
@@ -108,10 +115,13 @@ class ListingService {
         def sorted = new ArrayList<Listing>(listings)
         switch (sort) {
             case 'price_asc':
-                // already in price ASC from the query
+                // The query orders by l.price, which for a bid-on auction
+                // is its starting price; cards and the price filter use the
+                // current bid. Sort on the price the card shows.
+                sorted.sort { a, b -> (shownPrice(a) <=> shownPrice(b)) ?: ((a.id ?: 0L) <=> (b.id ?: 0L)) }
                 break
             case 'price_desc':
-                sorted.sort { a, b -> b.price <=> a.price }
+                sorted.sort { a, b -> (shownPrice(b) <=> shownPrice(a)) ?: ((a.id ?: 0L) <=> (b.id ?: 0L)) }
                 break
             case 'newest':
                 sorted.sort { a, b -> b.listedAt <=> a.listedAt }
@@ -284,7 +294,12 @@ class ListingService {
                 log.warn("setAwayMode user-row update failed for ${sellerUserId}: ${e.message}")
             }
         }
-        def listings = listingRepository.findActiveBySeller(sellerUserId)
+        // Away mode never hides an auction that already has bids: hidden
+        // auctions reject new bids but still settle, so rivals would be
+        // frozen out while the leader wins at today's price.
+        def listings = (listingRepository.findActiveBySeller(sellerUserId) ?: []).findAll {
+            !(hidden && it.listingType == 'AUCTION' && (it.bidCount ?: 0) > 0)
+        }
         listings.each { it.hidden = hidden }
         listingRepository.saveAll(listings)
         // Re-compute the denormalised Item.lowestPrice for every item a

@@ -573,7 +573,7 @@ class ListingController {
               .append(esc(l.item?.category ?: '')).append(',')
               .append(esc(l.item?.rarity ?: '')).append(',')
               .append(esc(l.listingType ?: 'BUY_NOW')).append(',')
-              .append(l.price?.toPlainString() ?: '').append(',')
+              .append(ItemController.salePrice(l)?.toPlainString() ?: '').append(',')
               .append(l.soldAt ?: '').append(',')
               .append(l.buyerUserId != null ? ("user_" + l.buyerUserId) : '')
               .append('\n')
@@ -705,7 +705,8 @@ class ListingController {
         def out = rows.collect { l ->
             [
                 listingId: l.id,
-                price:     l.price,
+                // Winning bid for an auction — l.price is its starting bid.
+                price:     ItemController.salePrice(l),
                 soldAt:    l.soldAt,
                 listingType: l.listingType,
                 item: l.item == null ? null : [
@@ -1345,7 +1346,19 @@ class ListingController {
         // truthy → `{"hidden":"false"}` flipped the listing hidden=true
         // (seller un-hiding their listing actually re-hid it). Same bug
         // class as 692506e + 9913875.
-        if (body.containsKey('hidden'))      listing.hidden      = parseHiddenFlag(body.hidden)
+        if (body.containsKey('hidden')) {
+            def hide = parseHiddenFlag(body.hidden)
+            // A hidden auction rejects new bids but still settles, so
+            // hiding one that has bids froze the rivals out and let the
+            // leader win at today's price — the same manipulation the
+            // AUCTION_HAS_BIDS price lock above exists to stop.
+            if (Boolean.TRUE.equals(hide) && !Boolean.TRUE.equals(listing.hidden) &&
+                    listing.listingType == 'AUCTION' && (listing.bidCount ?: 0) > 0) {
+                throw new com.sboxmarket.exception.BadRequestException("AUCTION_HAS_BIDS",
+                    "Can't hide an auction that already has bids — it stays visible until it ends.")
+            }
+            listing.hidden = hide
+        }
         if (body.containsKey('description')) {
             // HTML-strip + cap at 500 chars — matches the column size
             // (V39), the SellService.relist cap, and the sell-form

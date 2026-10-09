@@ -29,6 +29,12 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.userId = :uid")
     long countByUser(@Param("uid") Long uid)
 
+    /** How many `kind` notifications about `refId` the user got since
+     *  `since`. Lets one-per-actor pings (a new follower) dedupe repeats. */
+    @Query("SELECT COUNT(n) FROM Notification n WHERE n.userId = :uid AND n.kind = :kind AND n.refId = :refId AND n.createdAt >= :since")
+    long countRecentByKindAndRef(@Param("uid") Long uid, @Param("kind") String kind,
+                                 @Param("refId") Long refId, @Param("since") Long since)
+
     /** Bulk-delete a user's notifications older than `cutoff` (epoch ms).
      *  Drives the per-user row cap: once a user exceeds the cap we purge
      *  everything older than their Nth-newest row in one set-based DELETE

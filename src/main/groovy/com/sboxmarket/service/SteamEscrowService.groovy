@@ -72,6 +72,7 @@ class SteamEscrowService {
     @Autowired(required = false) SteamUserRepository steamUserRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SavedSearchService savedSearchService
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SellerFollowService sellerFollowService
 
     /** Master switch for the escrow pollers, independent of the bot's own
      *  enabled flag — lets ops freeze deposit/return sweeps without unsetting
@@ -1153,6 +1154,9 @@ class SteamEscrowService {
                 // on the deposit, so this is the moment they're true.
                 try { savedSearchService?.notifyMatchingForListing(saved) }
                 catch (Exception e) { log.warn("SteamEscrow: saved-search fanout failed for listing ${listingId}: ${e.message}") }
+                // Followers are skipped the same way until now.
+                try { sellerFollowService?.notifyFollowersOfNewListing(saved) }
+                catch (Exception e) { log.warn("SteamEscrow: follower fanout failed for listing ${listingId}: ${e.message}") }
             }
         } catch (Exception e) {
             log.warn("SteamEscrow: could not activate listing ${listingId}: ${e.message}")

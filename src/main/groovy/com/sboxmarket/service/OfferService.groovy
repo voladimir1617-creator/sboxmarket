@@ -821,6 +821,15 @@ class OfferService {
         if (offer.status != 'PENDING') {
             throw new OfferNotPendingException(offerId, offer.status)
         }
+        // The offer UI stops showing an offer at its auto-decline time,
+        // but the sweeper only runs every few hours. Without this an offer
+        // the buyer was told had lapsed could still be accepted and charged.
+        if (autoDeclineDays > 0) {
+            def expiresAt = computeExpiresAt(offer)
+            if (expiresAt != null && expiresAt <= System.currentTimeMillis()) {
+                throw new OfferNotPendingException(offerId, 'EXPIRED')
+            }
+        }
 
         def listing = listingRepository.findById(offer.listingId)
                 .orElseThrow { new NotFoundException("Listing", offer.listingId) }
@@ -955,8 +964,13 @@ class OfferService {
         // Temporarily lower the listing price to the offer price so the existing
         // PurchaseService can run unchanged. This is internal — listing transitions
         // to SOLD immediately after.
+        // Never above the current ask: the seller may have lowered the
+        // price below a pending offer since it was made (the buyer is only
+        // pinged about the drop), and accepting must not charge more than
+        // the item now costs.
         def originalPrice = listing.price
-        listing.price = offer.amount
+        BigDecimal chargedPrice = (originalPrice != null && originalPrice < offer.amount) ? originalPrice : offer.amount
+        listing.price = chargedPrice
         listingRepository.save(listing)
 
         try {
@@ -1070,7 +1084,7 @@ class OfferService {
         }
 
         log.info("Offer ${offer.id} accepted, listing ${offer.listingId} sold for \$${offer.amount}")
-        [accepted: true, listingId: offer.listingId, finalPrice: offer.amount]
+        [accepted: true, listingId: offer.listingId, finalPrice: chargedPrice]
     }
 
     @Transactional
@@ -1214,9 +1228,20 @@ class OfferService {
         // for system listings (sellerUserId is null).
         if (offer.sellerUserId != null && notificationService != null) {
             try {
-                notificationService.push(offer.sellerUserId, 'OFFER_REJECTED',
-                    "Buyer withdrew their offer · ${offer.itemName ?: 'listing'}",
-                    "They cancelled their \$${offer.amount.toPlainString()} offer before you responded.",
+                // Three cases, three messages: declining the seller's own
+                // counter (the amount is the seller's price), withdrawing an
+                // original the seller already countered, or withdrawing an
+                // offer the seller never answered.
+                boolean wasCounter = offer.author == 'SELLER'
+                String title = wasCounter
+                    ? "Buyer declined your counter · ${offer.itemName ?: 'listing'}"
+                    : "Buyer withdrew their offer · ${offer.itemName ?: 'listing'}"
+                String body = wasCounter
+                    ? "They declined your \$${offer.amount.toPlainString()} counter."
+                    : wasCountered
+                        ? "They withdrew their \$${offer.amount.toPlainString()} offer after your counter."
+                        : "They cancelled their \$${offer.amount.toPlainString()} offer before you responded."
+                notificationService.push(offer.sellerUserId, 'OFFER_REJECTED', title, body,
                     offer.id, '/offers')
             } catch (Exception e) {
                 log.warn("Buyer-cancel push failed for seller ${offer.sellerUserId}: ${e.message}")

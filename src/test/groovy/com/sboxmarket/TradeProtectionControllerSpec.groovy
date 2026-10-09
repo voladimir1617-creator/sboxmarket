@@ -133,11 +133,23 @@ class TradeProtectionControllerSpec extends Specification {
 
         where:
         raw      || parsed
-        '0'      || new BigDecimal('0')
         '100'    || new BigDecimal('100')
         '49.99'  || new BigDecimal('49.99')
         '1e3'    || new BigDecimal('1e3')
-        '-5.00'  || new BigDecimal('-5.00')   // negative parses; the service floors it
+    }
+
+    @Unroll
+    def "quote refuses #raw before doing any arithmetic"() {
+        when:
+        controller.quote(raw)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'INVALID_PRICE'
+        0 * tradeProtectionService.quote(_)
+
+        where:
+        raw << ['0', '-5.00', '0.001', '100000.01', '1e3000000', '1' * 21]
     }
 
     def "quote echoes the service MIN_FEE constant as the floor"() {

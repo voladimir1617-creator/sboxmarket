@@ -226,13 +226,16 @@ class BuyOrderServiceSpec extends Specification {
         500      | 100
     }
 
-    def "create whitelists category and rarity — invalid values become null"() {
+    def "create whitelists category and rarity — on an item order invalid values become null"() {
+        // Without an itemId the order matches on category / rarity alone,
+        // so an unknown value there is refused (DefectPassSixSpec); with an
+        // itemId they are display-only and simply dropped.
         given:
         itemRepository.findById(_) >> Optional.empty()
         buyOrderRepository.save(_) >> { BuyOrder o -> o }
 
         when:
-        def order = service.create(10L, 'Alice', null, 'Weapons', 'Mythic', new BigDecimal("50"), 1)
+        def order = service.create(10L, 'Alice', 42L, 'Weapons', 'Mythic', new BigDecimal("50"), 1)
 
         then:
         order.category == null

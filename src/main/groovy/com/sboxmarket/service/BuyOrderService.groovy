@@ -158,6 +158,7 @@ class BuyOrderService {
         if (maxPrice == null || maxPrice <= BigDecimal.ZERO) {
             throw new BadRequestException("INVALID_PRICE", "Max price must be positive")
         }
+        maxPrice = centsOrReject(maxPrice)
         // Defense-in-depth upper cap. The DTO layer already enforces this
         // (@DecimalMax 100000), but services can be called without going
         // through a controller (scheduled jobs, other services, tests).
@@ -177,6 +178,18 @@ class BuyOrderService {
         // they can be plain-text-only.
         def safeCategory = (category in ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories']) ? category : null
         def safeRarity   = (rarity in ['Limited','Off-Market','Standard']) ? rarity : null
+        // An order with no item matches on category / rarity alone, and a
+        // null there means "any". Nulling an unknown value turned a typo
+        // like "hats" into an order that auto-buys every listing under
+        // the cap, so refuse it instead.
+        if (itemId == null) {
+            if (isSpecified(category) && safeCategory == null) {
+                throw new BadRequestException("INVALID_CATEGORY", "Unknown category: ${textSanitizer.cleanShort(category)}")
+            }
+            if (isSpecified(rarity) && safeRarity == null) {
+                throw new BadRequestException("INVALID_RARITY", "Unknown rarity: ${textSanitizer.cleanShort(rarity)}")
+            }
+        }
 
         def order = new BuyOrder(
             buyerUserId:      buyerUserId,
@@ -528,14 +541,20 @@ class BuyOrderService {
         if (active.isEmpty()) return 0
         int n = 0
         def now = System.currentTimeMillis()
-        active.each { o ->
+        active.each { stale ->
             try {
+                // Re-read just before writing: a fill can land between the
+                // list read and this save, and writing the stale ACTIVE copy
+                // turned a FILLED order back into CANCELLED.
+                def fresh = buyOrderRepository.findById(stale.id)
+                def o = fresh != null ? fresh.orElse(null) : stale
+                if (o == null || o.status != 'ACTIVE') return
                 o.status = 'CANCELLED'
                 o.updatedAt = now
                 buyOrderRepository.save(o)
                 n++
             } catch (Exception e) {
-                log.warn("Bulk cancel failed for order ${o.id}: ${e.message}")
+                log.warn("Bulk cancel failed for order ${stale.id}: ${e.message}")
             }
         }
         log.info("Bulk-cancelled ${n} buy order(s) for user ${buyerUserId}")
@@ -565,8 +584,12 @@ class BuyOrderService {
     @Transactional
     BuyOrder update(Long buyerUserId, Long orderId, BigDecimal newMaxPrice, Integer newQuantity) {
         banGuard.assertNotBanned(buyerUserId)
-        def o = buyOrderRepository.findById(orderId)
+        def probe = buyOrderRepository.findById(orderId)
             .orElseThrow { new NotFoundException("BuyOrder", orderId) }
+        // Lock the row the same way cancel() and the matcher do. A plain
+        // read let a fill that committed mid-edit be overwritten by this
+        // stale ACTIVE copy, so the order filled again past its quantity.
+        def o = buyOrderRepository.findByIdForUpdate(orderId) ?: probe
         if (o.buyerUserId != buyerUserId) {
             throw new ForbiddenException("Not your buy order")
         }
@@ -604,6 +627,7 @@ class BuyOrderService {
             if (newMaxPrice <= BigDecimal.ZERO) {
                 throw new BadRequestException("INVALID_PRICE", "Max price must be positive")
             }
+            newMaxPrice = centsOrReject(newMaxPrice)
             if (newMaxPrice > new BigDecimal("100000")) {
                 throw new BadRequestException("PRICE_TOO_HIGH",
                     "Max price must not exceed \$100,000")
@@ -897,5 +921,20 @@ class BuyOrderService {
             }
         }
         log.info("Buy-order auto-expire sweep: fired ${fired} of ${stale.size()} candidates (rest claimed by sibling pods or status-changed)")
+    }
+
+    /** Buy-order prices are stored at 2dp (NUMERIC(19,2)). Round up front
+     *  so the create response, the first fill probe and later fills all
+     *  agree, and refuse anything that rounds below one cent. */
+    private static BigDecimal centsOrReject(BigDecimal price) {
+        def p = price.setScale(2, java.math.RoundingMode.HALF_UP)
+        if (p < new BigDecimal("0.01")) {
+            throw new BadRequestException("INVALID_PRICE", "Max price must be at least \$0.01")
+        }
+        p
+    }
+
+    private static boolean isSpecified(String v) {
+        v != null && !v.trim().isEmpty() && v != 'All'
     }
 }

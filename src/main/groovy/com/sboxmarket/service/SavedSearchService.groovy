@@ -465,9 +465,14 @@ class SavedSearchService {
         }
 
         int sent = 0
+        // One ping per user per listing: someone with "knives" and "all
+        // under $50" saved got two bells and two emails for one knife, and
+        // each duplicate used up a slot of the 50-per-listing cap.
+        Set<Long> notified = new HashSet<Long>()
         for (SavedSearch preset : all) {
             if (sent >= 50) break
             if (preset.userId == null) continue
+            if (notified.contains(preset.userId)) continue
             if (preset.userId == listing.sellerUserId) continue
             if (!matches(preset, listing)) continue
             // Skip if the preset owner has blocked the listing's seller
@@ -499,6 +504,7 @@ class SavedSearchService {
                 def itemUrl = listing.item?.id != null ? "/item/${listing.item.id}".toString() : null
                 notificationService.push(preset.userId, 'LISTING_MATCH',
                     title.toString(), body.toString(), listing.id, itemUrl)
+                notified << (preset.userId as Long)
                 // Mirror to email — gated on the global toggle, verified
                 // address, and the per-bucket MATCHES mute (shipped in
                 // batch 257). Best-effort: failure here doesn't undo
