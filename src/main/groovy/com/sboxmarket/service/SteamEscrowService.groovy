@@ -1149,6 +1149,15 @@ class SteamEscrowService {
             def l = listingRepository.findById(listingId).orElse(null)
             if (l != null && l.status == STATUS_PENDING_ESCROW) {
                 l.status = STATUS_ACTIVE
+                // An auction's clock starts when it becomes biddable. The
+                // deposit wait (up to a day, or a Steam hold of a week or
+                // more) used to come out of its duration, so a slow deposit
+                // went live already expired and the sweep closed it unsold.
+                long now = System.currentTimeMillis()
+                if (l.listingType == 'AUCTION' && l.expiresAt != null && l.listedAt != null && now > l.listedAt) {
+                    l.expiresAt = l.expiresAt + (now - l.listedAt)
+                    l.listedAt = now
+                }
                 def saved = listingRepository.save(l)
                 // Saved-search matches are skipped while the listing waits
                 // on the deposit, so this is the moment they're true.

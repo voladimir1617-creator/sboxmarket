@@ -92,7 +92,11 @@ class WatchlistService {
     @Transactional
     boolean remove(Long userId, Long itemId) {
         if (userId == null || itemId == null) return false
-        repository.deleteByUserAndItem(userId, itemId) > 0
+        boolean removed = repository.deleteByUserAndItem(userId, itemId) > 0
+        // Same as clear(): an unstarred item's price alert kept pinging with
+        // no watchlist card left to cancel it from.
+        if (removed && alertRepository != null) alertRepository.cancelActiveForItems(userId, [itemId])
+        removed
     }
 
     /** Clear every starred row for the user in one DELETE. Returns

@@ -212,10 +212,13 @@ class BidServiceSpec extends Specification {
         // Outbid notification goes to the new bidder (Alice), not the auto-cap holder
         1 * notificationService.push(10L, 'AUCTION_OUTBID', _, _, 100L, _)
         0 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, _, _)
-        // Service returns the bot-placed bid, not Alice's bid
-        result.bidderUserId == 7L
-        result.kind == 'AUTO'
-        result.amount == new BigDecimal('25.25')
+        // The bot row carries the re-raise
+        savedBids.any { it.bidderUserId == 7L && it.kind == 'AUTO' && it.amount == new BigDecimal('25.25') && it.status == 'WINNING' }
+        // Alice gets her own bid back, marked OUTBID (it used to be the
+        // other bidder's WINNING row, which the UI read as her success)
+        result.bidderUserId == 10L
+        result.amount == new BigDecimal('25')
+        result.status == 'OUTBID'
     }
 
     def "placeBid with AUTO vs AUTO: higher-cap bidder wins at loser_cap + INC"() {
@@ -767,7 +770,9 @@ class BidServiceSpec extends Specification {
         // A wins the tie at their cap; B (latecomer) is outbid.
         listing.currentBidderId == 7L
         listing.currentBid == new BigDecimal('40')
-        result.bidderUserId == 7L
+        // B is told their own bid lost, not handed A's winning row.
+        result.bidderUserId == 10L
+        result.status == 'OUTBID'
         1 * notificationService.push(10L, 'AUCTION_OUTBID', _, _, 100L, _)
     }
 
@@ -1923,10 +1928,11 @@ class BidServiceSpec extends Specification {
         def result = service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
 
         then:
-        // Bot re-raise fired — the returned row is the AUTO winner for Bob.
-        result.bidderUserId == 7L
-        result.kind == 'AUTO'
-        result.status == 'WINNING'
+        // Bot re-raise fired — the saved AUTO row is the winner for Bob,
+        // and Alice gets her own bid back as OUTBID.
+        saved.any { it.bidderUserId == 7L && it.kind == 'AUTO' && it.status == 'WINNING' }
+        result.bidderUserId == 10L
+        result.status == 'OUTBID'
         // Bob's stale earlier row is demoted (the bot's new row is the
         // live WINNING one). previousTop is excluded from being kept since
         // it is not the bot-placed row.

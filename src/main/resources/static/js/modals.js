@@ -10614,7 +10614,7 @@ function ProfileSupportTab() {
         ))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
+        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', value: reply, maxLength: 2000, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
         h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: submitReply }, 'Send')
       )
     );
@@ -10654,7 +10654,7 @@ function ProfileSupportTab() {
         ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, c))
       ),
       h('div', { className: 'wallet-input-label' }, 'Message'),
-      h('textarea', { className: 'wallet-amount-input', 'aria-label': 'Ticket message body', style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), placeholder: 'Describe your issue…' }),
+      h('textarea', { className: 'wallet-amount-input', 'aria-label': 'Ticket message body', style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), maxLength: 2000, placeholder: 'Describe your issue…' }),
       h('button', { className: 'btn btn-accent wallet-submit', disabled: busy, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
     (() => {
@@ -15317,7 +15317,19 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   };
   useEffect(() => {
     let alive = true;
-    fetchListings({ limit: 500 }).then(rows => {
+    // The server caps a page at 100, so `limit: 500` only ever returned the
+    // first 100 listings, and every watched item past them showed as
+    // "NO LISTINGS". Walk up to five pages for the pool this view meant.
+    (async () => {
+      let all = [];
+      for (let offset = 0; offset < 500; offset += 100) {
+        const rows = await fetchListings({ limit: 100, offset });
+        if (!Array.isArray(rows)) break;
+        all = all.concat(rows);
+        if (rows.length < 100) break;
+      }
+      return all;
+    })().then(rows => {
       if (alive && Array.isArray(rows)) setPool(rows);
     }).catch(() => {});
     return () => { alive = false; };
@@ -15405,8 +15417,14 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     const cur = parseFloat(l.price);
     const delta = snap != null ? cur - snap : 0;
     const pct = snap && snap > 0 ? (delta / snap) * 100 : 0;
-    const target = alerts[l.item.id];
-    const alertHit = target != null && !l.__noListing && isFinite(cur) && cur <= target;
+    // Signed in, the server alert is the real one: the Price alerts strip
+    // edits and cancels it, and it follows the user across devices. The
+    // browser copy is only for signed-out viewers.
+    const live = me?.id ? (serverAlerts || []).find(x => x.itemId === l.item.id && x.status === 'ACTIVE') : null;
+    const target = (me?.id && serverAlerts != null) ? (live ? parseFloat(live.targetPrice) : undefined) : alerts[l.item.id];
+    // An auction is "at target" by its current bid, not its start price.
+    const shown = wlShownPrice(l);
+    const alertHit = target != null && isFinite(target) && !l.__noListing && isFinite(shown) && shown <= target;
     return { listing: l, snap, delta, pct, target, alertHit };
   });
   // Apply drops + category + state filters together. Category filter is
@@ -15976,7 +15994,9 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                             inputMode: 'decimal',
                             enterKeyHint: 'done',
                             'aria-label': 'Target price (USD-anchored)',
-                            placeholder: `Target price (${currencySymbol()})`,
+                            // The target is stored and compared in USD; a local
+                            // symbol here invited ¥1500 that saved as $1500.
+                            placeholder: 'Target price (USD)',
                             title: 'Type a price (USD-anchored). When the listing drops at or below this number, you get a notification.',
                             value: alertDraft,
                             autoFocus: true,

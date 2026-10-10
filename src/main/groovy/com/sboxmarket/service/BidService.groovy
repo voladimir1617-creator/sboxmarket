@@ -536,7 +536,11 @@ class BidService {
                 // re-raise is the sole WINNING bid.
                 markOthersOutbid(listingId, botBid)
                 publishBidEvent(listing, 'bid')
-                return botBid
+                // Answer with the caller's own bid, now OUTBID. Returning the
+                // re-raise row told the bidder they were WINNING (and showed
+                // them the other bidder's amount) while they had just lost.
+                bid.status = 'OUTBID'
+                return bid
             } else if (bMax > aMax && bMax > amount) {
                 // New bidder's auto-cap beats the previous top's max. Bot
                 // raises B on their own behalf to (aMax + INC) capped at bMax.

@@ -2951,7 +2951,12 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     setErr('');
     if (!me) { setErr('Sign in to bid'); return; }
     const a = parseFloat(amount);
-    if (!a || a < parseFloat(minNext)) { setErr(`Minimum bid is ${fmt(minNext)}`); return; }
+    // Bids are typed and sent in USD (the inputs say so); the converted
+    // figure is shown alongside for a viewer browsing in another currency.
+    if (!a || a < parseFloat(minNext)) {
+      setErr(`Minimum bid is $${minNext} USD` + (currencySymbol() !== '$' ? ` (≈ ${fmt(minNext)})` : ''));
+      return;
+    }
     // Auto-bid cap guard. The server only treats maxAmount as an AUTO cap
     // when it's strictly above the bid amount (BidService line 198) —
     // otherwise it silently downgrades to a plain MANUAL bid and the
@@ -2969,6 +2974,13 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       const res = await placeBid(listing.id, a, maxAmount ? parseFloat(maxAmount) : null);
       if (res.code || res.error) { setErr(res.message || res.error); return; }
       setAmount(''); setMax('');
+      // Another bidder's auto-bid cap out-raised this bid on the spot.
+      if (res.status === 'OUTBID') {
+        toast(`Bid ${fmt(a)} placed, but another bidder's auto-bid raised past it. You're outbid.`, 'warn');
+        load();
+        onPlaced && onPlaced();
+        return;
+      }
       // Batch 882 — silent bid-placed was disorienting. A buyer
       // clicking "Place bid" and getting no feedback beyond the panel
       // state change couldn't tell the click actually landed. Now a
@@ -3365,12 +3377,14 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     !ended && (!me || me.id !== view.sellerUserId) && h('div', { className: 'auction-bid-form' },
       h('input', { className: 'wallet-amount-input', type: 'number', step: '0.05', min: minNext,
         inputMode: 'decimal', enterKeyHint: 'send',
-        'aria-label': 'Bid amount',
-        placeholder: `Min ${fmt(minNext)}`, value: amount, onChange: e => setAmount(e.target.value) }),
+        'aria-label': 'Bid amount in US dollars',
+        // The field takes USD. It showed the converted minimum ("Min ¥2,980")
+        // and then sent the typed number as dollars.
+        placeholder: `Min $${minNext} USD`, value: amount, onChange: e => setAmount(e.target.value) }),
       h('input', { className: 'wallet-amount-input', type: 'number', step: '0.05',
         inputMode: 'decimal', enterKeyHint: 'done',
-        'aria-label': 'Auto-bid maximum cap',
-        placeholder: 'Auto-bid cap (optional)', value: maxAmount, onChange: e => setMax(e.target.value) }),
+        'aria-label': 'Auto-bid maximum cap in US dollars',
+        placeholder: 'Auto-bid cap, USD (optional)', value: maxAmount, onChange: e => setMax(e.target.value) }),
       // Quick-bid chips — one-click increments from the minimum next
       // bid. Min button just echoes the minimum, +$0.50 / +$5 add to
       // it, +10% is percentage-based for higher-value auctions where
@@ -3380,14 +3394,13 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         (() => {
           const base = parseFloat(minNext) || 0;
           if (!(base > 0)) return null;
-          // Chip labels echo the currency symbol so a CAD/EUR user
-          // sees "+CA$0.50" / "+€0.50" instead of a hardcoded "+$0.50"
-          // — the underlying bid still goes to the server as USD.
-          const sym = currencySymbol();
+          // The chips fill the USD bid field, so they read in dollars: a
+          // "+€0.50" chip that added $0.50 and showed a converted total
+          // put a different number on the chip than in the field.
           const chips = [
             { label: 'Min',           v: base },
-            { label: `+${sym}0.50`,   v: +(base + 0.50).toFixed(2) },
-            { label: `+${sym}5`,      v: +(base + 5.00).toFixed(2) },
+            { label: '+$0.50',        v: +(base + 0.50).toFixed(2) },
+            { label: '+$5',           v: +(base + 5.00).toFixed(2) },
             { label: '+10%',          v: +(base * 1.10).toFixed(2) }
           ];
           return chips.map((c, i) => h('button', {
@@ -3395,10 +3408,10 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
             type: 'button',
             className: 'price-suggest-chip',
             onClick: () => setAmount(c.v.toFixed(2)),
-            title: `Set bid to ${fmt(c.v)}`
+            title: `Set bid to $${c.v.toFixed(2)} USD`
           },
             h('span', { className: 'price-suggest-chip-label' }, c.label),
-            h('span', { className: 'price-suggest-chip-amt' }, fmt(c.v))
+            h('span', { className: 'price-suggest-chip-amt' }, '$' + c.v.toFixed(2))
           ));
         })()
       ),
