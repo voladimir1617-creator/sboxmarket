@@ -235,6 +235,12 @@ class SteamAuthController {
 
         try {
             def user = steamAuthService.upsertUser(steamId64)
+            // A deleted account gets no new session.
+            if (com.sboxmarket.service.SteamAuthService.isDeletedAccount(user)) {
+                log.info("Steam login refused: account ${user.id} was deleted at the user's request")
+                try { resp.sendRedirect(appendLoginParam(nextPath, 'failed')) } catch (Exception ignore) {}
+                return
+            }
             // Rotate the session to prevent session fixation — the old
             // pre-login session ID (which an attacker might have fixated
             // via a crafted link) is invalidated, and a fresh session

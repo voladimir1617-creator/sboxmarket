@@ -165,6 +165,9 @@ class ProfileController {
     @Autowired(required = false) com.sboxmarket.repository.SellerFollowRepository sellerFollowRepository
     @Autowired(required = false) com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository
     @Autowired(required = false) com.sboxmarket.repository.SavedSearchRepository savedSearchRepository
+    @Autowired(required = false) com.sboxmarket.repository.WatchlistItemRepository watchlistItemRepository
+    @Autowired(required = false) com.sboxmarket.repository.LoadoutRepository loadoutRepository
+    @Autowired(required = false) com.sboxmarket.repository.LoadoutFavoriteRepository loadoutFavoriteRepository
     @Autowired(required = false) com.sboxmarket.repository.AuditLogRepository auditLogRepository
     @Autowired(required = false) com.sboxmarket.service.AuditService auditService
     @Autowired(required = false) com.sboxmarket.repository.ApiKeyRepository apiKeyRepository
@@ -979,9 +982,28 @@ class ProfileController {
                 sort:        s.sort,
                 minPrice:    s.minPrice,
                 maxPrice:    s.maxPrice,
-                createdAt:   s.createdAt,
-                lastFiredAt: s.lastFiredAt
+                minDiscountPct: s.minDiscountPct,
+                dealsOnly:   s.dealsOnly,
+                newOnly:     s.newOnly,
+                affordableOnly: s.affordableOnly,
+                listingType: s.listingType,
+                // (SavedSearch has no lastFiredAt: reading it threw, and the
+                // whole export 500'd for anyone with a saved search.)
+                createdAt:   s.createdAt
             ] } ?: [],
+            // Starred items and the user's own loadouts (names and notes
+            // they wrote) are their data too; the export left them out.
+            watchlistItemIds: watchlistItemRepository?.findItemIdsByUser(uid) ?: [],
+            loadouts: (loadoutRepository?.findByOwner(uid) ?: []).collect { l -> [
+                id:          l.id,
+                name:        l.name,
+                description: l.description,
+                visibility:  l.visibility,
+                totalValue:  l.totalValue,
+                createdAt:   l.createdAt,
+                updatedAt:   l.updatedAt
+            ] },
+            favoriteLoadoutIds: loadoutFavoriteRepository?.findLoadoutIdsByUser(uid) ?: [],
             // Batch 721 — API keys included in the GDPR export. Metadata
             // only; raw tokens are only returned once at mint time + the
             // hash is @JsonIgnore'd on the entity. Users asking for a

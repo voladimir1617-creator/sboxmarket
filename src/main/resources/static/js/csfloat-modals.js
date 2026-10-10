@@ -34,7 +34,9 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
     fetchWatchlist().then(data => {
       if (!alive) return;
       const ids = Array.isArray(data)
-        ? data.map(r => r?.item?.id ?? r?.itemId).filter(Boolean)
+        // /api/watchlist returns plain item ids; accept row objects too.
+        ? data.map(r => Number(r != null && typeof r === 'object' ? (r.item?.id ?? r.itemId) : r))
+              .filter(Number.isFinite)
         : [];
       setStarred(new Set(ids));
     }).catch(() => setStarred(new Set()));

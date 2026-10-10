@@ -45,6 +45,11 @@ import org.springframework.transaction.annotation.Transactional
 @Slf4j
 class AdminService {
 
+    /** Ban reason stamped on an account erased at the user's request. Sign-in
+     *  checks it so a deleted account is not revived by logging in again. */
+    static final String DELETED_BAN_REASON = 'Account deleted at user request'
+
+
     @Value('${admin.bootstrap-steam-ids:}') String bootstrapIds
 
     /** Per-admin cumulative wallet-CREDIT cap over a rolling 24h window.
@@ -97,6 +102,7 @@ class AdminService {
     // GDPR PII scrub on account deletion — blank user-authored free text
     // (review comments, trade chat bodies) while keeping the row skeletons. (audit P2)
     @Autowired(required = false) com.sboxmarket.repository.ReviewRepository reviewRepository
+    @Autowired(required = false) com.sboxmarket.repository.LoadoutRepository loadoutRepository
     @Autowired(required = false) com.sboxmarket.repository.TradeMessageRepository tradeMessageRepository
     @Autowired(required = false) javax.sql.DataSource dataSource
     @Autowired BanGuard banGuard
@@ -1657,7 +1663,7 @@ class AdminService {
         user.adminNotes = (user.adminNotes ?: '') +
             "\n[DELETION finalised by admin ${adminUserId} on ${new Date()}]"
         user.banned = true
-        user.banReason = 'Account deleted at user request'
+        user.banReason = DELETED_BAN_REASON
         user.deletionRequestedAt = null  // request is now fulfilled
         // Bump sessionEpoch so any still-live session (legit owner OR
         // attacker) is kicked on next /api/* request. Same rationale as
@@ -1758,6 +1764,14 @@ class AdminService {
         if (reviewRepository != null) {
             int n = reviewRepository.blankCommentsByAuthor(targetUserId)
             if (n > 0) log.info("finalizeDeletion: scrubbed ${n} review comment(s) for user ${targetUserId}")
+            // The comment went but the author name on the review stayed, so
+            // other sellers' stalls kept showing who wrote it.
+            reviewRepository.renameAuthor(targetUserId, "Deleted user #${targetUserId}".toString())
+        }
+        // Public loadouts kept the old owner name in Discover and on share
+        // cards. Make them private under the placeholder handle.
+        if (loadoutRepository != null) {
+            loadoutRepository.hideAndRenameForOwner(targetUserId, "Deleted user #${targetUserId}".toString())
         }
         if (tradeMessageRepository != null) {
             int n = tradeMessageRepository.blankBodiesBySender(targetUserId)

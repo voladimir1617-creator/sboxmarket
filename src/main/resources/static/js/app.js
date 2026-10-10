@@ -4857,12 +4857,16 @@ export function App() {
     // Local alert targets and price snapshots belong to this user too.
     try { localStorage.removeItem('sb_watchlist_alerts'); } catch (_) {}
     try { localStorage.removeItem('sb_watchlist_snap'); } catch (_) {}
+    // Saved searches are synced to the account too; leaving them here
+    // would merge this user's presets into the next account to sign in.
+    persistSavedSearches([]);
     // Forget the one-time cart and watchlist merges so rows added as a
     // guest after this sign-out are merged into the account on the next
     // sign-in instead of being overwritten by the server list.
     if (me?.id != null) {
       try { localStorage.removeItem(`sb_cart_synced:${me.id}`); } catch (_) {}
       try { localStorage.removeItem(`sb_watchlist_synced:${me.id}`); } catch (_) {}
+      try { localStorage.removeItem(`sb_saved_searches_synced:${me.id}`); } catch (_) {}
     }
     // Any route that only makes sense for a signed-in user would now
     // render the generic sign-in empty state on the current URL. Land
@@ -8571,7 +8575,10 @@ export function App() {
                 reviewTradeId ? 'Leave a review' : 'Leave a review'
               ),
               !reviewTradeId && h('div', { className: 'stall-review-cta-rows' },
-                eligibleTrades.slice(0, 6).map(t => h('div', { key: t.tradeId, className: 'stall-review-cta-row' },
+                // Unreviewed trades first so a seventh-newest trade still waiting
+                // for its review is not hidden behind six already reviewed.
+                [...eligibleTrades.filter(t => !t.reviewed), ...eligibleTrades.filter(t => t.reviewed)]
+                  .slice(0, 6).map(t => h('div', { key: t.tradeId, className: 'stall-review-cta-row' },
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { className: 'stall-review-cta-item' }, t.itemName || 'Trade'),
                     h('div', { className: 'stall-review-cta-sub' },

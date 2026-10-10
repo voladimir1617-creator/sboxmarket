@@ -389,6 +389,10 @@ class SteamAuthService {
         // network blip) once with a short back-off before giving up, and
         // log the give-up at WARN with the kind clearly named so alerts
         // can distinguish a true Steam outage from a single missing profile.
+        // An account erased at the user's request stays erased: copying the
+        // Steam name, avatar and profile link back would undo the scrub.
+        if (isDeletedAccount(user)) return user
+
         def profile = fetchProfileWithRetry(steamId64)
 
         if (profile != null) {
@@ -568,5 +572,11 @@ class SteamAuthService {
             avatarUrl  : profile.avatarFull?.text() ?: profile.avatarMedium?.text() ?: null,
             profileUrl : "https://steamcommunity.com/profiles/${steamId64}"
         ]
+    }
+
+    /** True for an account finalised as deleted (see AdminService.finalizeDeletion). */
+    static boolean isDeletedAccount(com.sboxmarket.model.SteamUser user) {
+        user != null && Boolean.TRUE.equals(user.banned) &&
+            user.banReason == AdminService.DELETED_BAN_REASON
     }
 }
