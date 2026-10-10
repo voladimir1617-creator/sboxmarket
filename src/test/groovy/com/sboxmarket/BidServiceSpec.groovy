@@ -487,14 +487,16 @@ class BidServiceSpec extends Specification {
         def t0 = System.currentTimeMillis()
         def listing = auctionListing(currentBid: new BigDecimal("20"),
                                      currentBidderId: 7L,
-                                     // 5ms of slack at guard time
-                                     expiresAt: t0 + 5L)
+                                     // Slack at guard time: wide enough that a cold CI
+                                     // runner reaches the entry guard before expiry
+                                     // (5ms was not), still shorter than the stall below.
+                                     expiresAt: t0 + 500L)
         listingRepository.findById(_) >> Optional.of(listing)
         steamUserRepository.findById(10L) >> {
             // Simulate slow DB / network work between the two
             // System.currentTimeMillis() reads — long enough to push
             // wall-clock past listing.expiresAt before the soft-close.
-            Thread.sleep(50L)
+            Thread.sleep(1_000L)
             Optional.of(new SteamUser(id: 10L, steamId64: 'SID10',
                 tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=10&token=abc'))
         }
