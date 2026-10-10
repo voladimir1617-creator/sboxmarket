@@ -5374,9 +5374,13 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       setEmailResult({ err: 'That doesn\'t look like a valid email address (name@domain.tld).' });
       return;
     }
+    if (emailVerified && trimmed.toLowerCase() === (profile?.user?.email || '').toLowerCase()) {
+      setEditingEmail(false);
+      return;
+    }
     const res = await setEmail(trimmed);
     if (res.code || res.error) { setEmailResult({ err: res.message || res.error }); return; }
-    setEmailResult({ ok: true, token: res.token });
+    setEmailResult({ ok: true, token: res.token, verified: res.verified === true, sentTo: res.verified ? null : res.email });
     setEditingEmail(false);
     // Same stale-prop trap as the trade URL above: re-read so the row shows
     // the address just saved instead of "(not set)".
@@ -5687,13 +5691,18 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', { className: 'buy-btn', onClick: saveEmail }, 'Save'),
           h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => setEditingEmail(false), 'aria-label': 'Cancel email edit' }, '✕')
         ),
-        // If /email returned a token (dev-mode), show the verify input
-        emailResult?.token && h('div', { style: { padding: 10, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', borderRadius: 6, width: '100%' } },
-          h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 } },
+        // Mail was sent (no token comes back when real mail is on): say so,
+        // otherwise Save and Resend look like they did nothing.
+        emailResult?.ok && !emailResult.token && !emailResult.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } },
+          `Verification email sent${emailResult.sentTo ? ` to ${emailResult.sentTo}` : ''}. Check your inbox.`),
+        // The email tells the user to paste its code here, so the box shows
+        // whenever the address is unverified, not only in dev mode.
+        (emailResult?.token || (hasEmail && !emailVerified && !editingEmail)) && h('div', { style: { padding: 10, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', borderRadius: 6, width: '100%' } },
+          emailResult?.token && h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 } },
             'Dev mode: use this token to verify the email.'),
-          h('div', { className: 'mono', style: { fontSize: 11, color: 'var(--accent)', marginBottom: 6 } }, emailResult.token),
+          emailResult?.token && h('div', { className: 'mono', style: { fontSize: 11, color: 'var(--accent)', marginBottom: 6 } }, emailResult.token),
           h('div', { style: { display: 'flex', gap: 6 } },
-            h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Paste token', value: emailToken, onChange: e => setEmailToken(e.target.value) }),
+            h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Paste the code from the email', value: emailToken, onChange: e => setEmailToken(e.target.value) }),
             h('button', { className: 'buy-btn', onClick: () => confirmEmail() }, 'Verify')
           )
         ),

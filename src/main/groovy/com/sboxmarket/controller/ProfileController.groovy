@@ -597,6 +597,12 @@ class ProfileController {
         if (!EMAIL_RE.matcher(emailRaw).matches()) {
             throw new BadRequestException("INVALID_EMAIL", "Please enter a valid email address")
         }
+        // Re-saving the address that is already verified changes nothing.
+        // It used to un-verify it, which blocked withdrawals and security
+        // mail until the user clicked a fresh link.
+        if (Boolean.TRUE.equals(user.emailVerified) && user.email?.toLowerCase() == emailRaw) {
+            return ResponseEntity.ok([email: user.email, verified: true] as Map)
+        }
         // Refuse while a 2FA enrollment is staged in the overloaded
         // emailVerificationToken column. Writing the fresh random email
         // token here would clobber "totp_pending:<secret>" and strand the
@@ -633,8 +639,24 @@ class ProfileController {
             : []
         def collision = existing.find { it.id != uid }
         if (collision != null) {
-            throw new BadRequestException("EMAIL_TAKEN",
-                "That email is already linked to another SkinBox account. Use a different address or contact support if this is yours.")
+            long nowMs = System.currentTimeMillis()
+            boolean pendingLink = collision.emailVerificationToken &&
+                !collision.emailVerificationToken.startsWith('totp_pending:') &&
+                (collision.emailVerificationTokenExpiresAt == null || collision.emailVerificationTokenExpiresAt > nowMs)
+            if (Boolean.TRUE.equals(collision.emailVerified) || pendingLink) {
+                throw new BadRequestException("EMAIL_TAKEN",
+                    "That email is already linked to another SkinBox account. Use a different address or contact support if this is yours.")
+            }
+            // An address another account typed in and never verified (its
+            // link has expired) is not theirs. Holding it forever let anyone
+            // lock the real owner out of verifying, and so out of withdrawals.
+            collision.email = null
+            collision.canonicalEmail = null
+            if (!collision.emailVerificationToken?.startsWith('totp_pending:')) {
+                collision.emailVerificationToken = null
+                collision.emailVerificationTokenExpiresAt = null
+            }
+            steamUserRepository.saveAndFlush(collision)
         }
         // Security-sensitive email-change notification (batch 512).
         // Before we overwrite, capture the previous verified address so
@@ -1386,6 +1408,11 @@ class ProfileController {
         if (user.emailVerificationToken?.startsWith('totp_pending:')) {
             throw new BadRequestException("INVALID_TOKEN",
                 "Finish or cancel two-factor setup before verifying your email.")
+        }
+        // Opening the link a second time: already done, say so instead of
+        // "token does not match".
+        if (Boolean.TRUE.equals(user.emailVerified) && !user.emailVerificationToken) {
+            return ResponseEntity.ok([email: user.email, verified: true] as Map)
         }
         // Constant-time compare: a plain `!=` on a 32-hex security token
         // leaks the matching-prefix length via response timing. An attacker

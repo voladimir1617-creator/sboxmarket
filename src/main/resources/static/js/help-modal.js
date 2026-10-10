@@ -173,7 +173,10 @@ export function HelpModal({ onClose }) {
   useEffect(() => {
     if (_autoExpanded) return;
     if (initialQ && filteredFaq.length > 0) {
-      setOpenIdx(filteredFaq[0].origIdx);
+      // Prefer a question that names the term over one that only
+      // mentions it in passing in its answer.
+      const best = filteredFaq.find(item => item.q.toLowerCase().includes(q)) || filteredFaq[0];
+      setOpenIdx(best.origIdx);
       setAutoExpanded(true);
     }
   }, [initialQ, filteredFaq, _autoExpanded]);
