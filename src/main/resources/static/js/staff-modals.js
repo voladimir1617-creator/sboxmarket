@@ -3424,7 +3424,7 @@ function AdminTicketsTab() {
           { id: 'deposit',   label: '💳 Deposit',   body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
           { id: 'trade',     label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page. Let me know if you need me to nudge them.' },
           { id: 'refund',    label: '↩ Refund',    body: 'I can issue a refund to your sboxmarket wallet balance for this trade. Confirm you\'d like that and I\'ll process it — Stripe-side chargebacks would go through your card issuer instead.' },
-          { id: 'resolved',  label: '✓ Resolved',  body: 'Glad that\'s sorted. I\'m marking this resolved — reply here any time if anything else comes up.' }
+          { id: 'resolved',  label: '✓ Resolved',  body: 'Glad that\'s sorted. If nothing else comes up this ticket closes on its own. Reply here any time if you need more help.' }
         ].map(tpl => h('button', {
           key: tpl.id,
           className: 'wallet-tx-filter-chip',
@@ -3985,7 +3985,7 @@ function CsrTicketsTab() {
           { id: 'deposit',  label: '💳 Deposit',  body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
           { id: 'trade',    label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page.' },
           { id: 'refund',   label: '↩ Refund',    body: 'I can issue a refund to your sboxmarket wallet balance for this trade. Confirm you\'d like that and I\'ll process it.' },
-          { id: 'resolved', label: '✓ Resolved',  body: 'Glad that\'s sorted. I\'m marking this resolved — reply here any time if anything else comes up.' }
+          { id: 'resolved', label: '✓ Resolved',  body: 'Glad that\'s sorted. If nothing else comes up this ticket closes on its own. Reply here any time if you need more help.' }
         ].map(tpl => h('button', {
           key: tpl.id,
           className: 'wallet-tx-filter-chip',

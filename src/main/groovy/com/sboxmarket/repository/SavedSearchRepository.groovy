@@ -25,6 +25,7 @@ interface SavedSearchRepository extends JpaRepository<SavedSearch, Long> {
     SavedSearch findByUserAndName(@Param('uid') Long userId,
                                    @Param('name') String name)
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM SavedSearch s WHERE s.userId = :uid AND s.id = :id")
     int deleteByUserAndId(@Param('uid') Long userId, @Param('id') Long id)
@@ -32,6 +33,7 @@ interface SavedSearchRepository extends JpaRepository<SavedSearch, Long> {
     /** Wipe every saved search for one user. Used by the GDPR
      *  finalizeDeletion flow so a deleted user's preference rows don't
      *  keep running against the saved-search sweeper forever. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM SavedSearch s WHERE s.userId = :uid")
     int deleteByUser(@Param('uid') Long userId)

@@ -13,6 +13,7 @@ interface LoadoutFavoriteRepository extends JpaRepository<LoadoutFavorite, Long>
     @Query("SELECT f FROM LoadoutFavorite f WHERE f.userId = :uid AND f.loadoutId = :lid")
     LoadoutFavorite findByUserAndLoadout(@Param("uid") Long userId, @Param("lid") Long loadoutId)
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM LoadoutFavorite f WHERE f.userId = :uid AND f.loadoutId = :lid")
     int deleteByUserAndLoadout(@Param("uid") Long userId, @Param("lid") Long loadoutId)
@@ -49,6 +50,7 @@ interface LoadoutFavoriteRepository extends JpaRepository<LoadoutFavorite, Long>
      *  grows without bound and the next favorite-count query for the
      *  re-used IDENTITY id would be wrong. Returns the row count so the
      *  service can log the cleanup. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM LoadoutFavorite f WHERE f.loadoutId = :lid")
     int deleteByLoadoutId(@Param("lid") Long loadoutId)

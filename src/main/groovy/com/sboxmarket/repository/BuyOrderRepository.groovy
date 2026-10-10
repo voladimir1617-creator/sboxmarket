@@ -215,6 +215,7 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
      * Also persists `updatedAt` so the row sorts correctly under any
      * future sweep that filters on `updatedAt <= :cutoff` again.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE BuyOrder b

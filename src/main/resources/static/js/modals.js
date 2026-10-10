@@ -536,7 +536,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         if (!alive || !Array.isArray(rows)) return;
         const live = rows.filter(o => o.status === 'PENDING' || o.status === 'COUNTERED');
         const map = {};
-        live.forEach(o => { if (o.listingId != null) map[o.listingId] = o; });
+        // Rows arrive newest first: keep the newest live row per listing, so a
+        // seller's PENDING counter wins over the buyer's COUNTERED original.
+        live.forEach(o => { if (o.listingId != null && !map[o.listingId]) map[o.listingId] = o; });
         setMyOffersByListing(map);
       } catch (_) { if (alive) setMyOffersByListing({}); }
     })();
@@ -783,7 +785,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // the recent ceiling or the recent floor.
   const priceExtremes = useMemo(() => {
     if (!history || history.length < 2) return null;
-    const nums = history.map(r => parseFloat(r.price)).filter(n => Number.isFinite(n) && n > 0);
+    // The chip reads "1Y low" but the server sends ~400 days of rows.
+    const nums = historyWithinDays(history, 365, false)
+      .map(r => parseFloat(r.price)).filter(n => Number.isFinite(n) && n > 0);
     if (nums.length < 2) return null;
     const last30 = historyWithinDays(history, 30, false)
       .map(r => parseFloat(r.price)).filter(n => Number.isFinite(n) && n > 0);
@@ -1522,7 +1526,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           slicedHistory && slicedHistory.length >= 2
             ? h(Sparkline, { data: slicedHistory, color: 'var(--cta)', height: 150, showAxes: true })
             : h('div', { className: 'chart-empty', style: { height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 } },
-                'Price history will appear here after the next market sync.')
+                // Listed items only gain history from sales, so "next sync" never came.
+                'Not enough sales in this range to chart yet.')
         ),
 
         // Recent sales strip — buyers anchor fairness on the actual sale
@@ -1880,7 +1885,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     if (!me || isMine) return null;
                     const mine = myOffersByListing[l.id];
                     if (!mine) return null;
-                    const isCountered = mine.status === 'COUNTERED';
+                    // The seller's own counter row (PENDING, author SELLER) is the live one.
+                    const isCountered = mine.status === 'COUNTERED' || mine.author === 'SELLER';
                     return h('span', {
                       style: {
                         fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
@@ -1890,7 +1896,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                         marginRight: 6, whiteSpace: 'nowrap'
                       },
                       title: isCountered
-                        ? 'The seller countered your offer. Check Profile → Offers to accept or raise.'
+                        ? 'The seller countered your offer. Check Profile → Offers to accept or decline.'
                         : 'Your offer is pending. Seller has not responded yet.'
                     }, isCountered ? '↩ Countered ' : 'Offered ',
                       fmt(parseFloat(mine.amount || 0)));
@@ -2456,15 +2462,22 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             gap: 10, flexWrap: 'wrap'
           }
         },
-          h('span', null,
-            'You already have a ',
-            h('strong', null, myLive.status === 'COUNTERED' ? 'COUNTERED' : 'PENDING'),
-            ' offer on this listing at ',
-            h('strong', { style: { color: 'var(--accent)' } }, fmt(parseFloat(myLive.amount || 0))),
-            '. Raise it from your Offers tab instead of creating a new one.'
-          ),
+          // A live seller counter is the buyer's to accept or decline, not raise.
+          myLive.author === 'SELLER'
+            ? h('span', null,
+                'The seller countered your offer at ',
+                h('strong', { style: { color: 'var(--accent)' } }, fmt(parseFloat(myLive.amount || 0))),
+                '. Accept or decline it from your Offers tab.'
+              )
+            : h('span', null,
+                'You already have a ',
+                h('strong', null, myLive.status === 'COUNTERED' ? 'COUNTERED' : 'PENDING'),
+                ' offer on this listing at ',
+                h('strong', { style: { color: 'var(--accent)' } }, fmt(parseFloat(myLive.amount || 0))),
+                '. Raise it from your Offers tab instead of creating a new one.'
+              ),
           h('a', {
-            href: '/offers',
+            href: '/offers/outgoing',
             className: 'btn btn-accent',
             style: { padding: '5px 12px', fontSize: 11, textDecoration: 'none' },
             onClick: (e) => { e.stopPropagation(); onClose && onClose(); }
@@ -9407,7 +9420,9 @@ function ProfileOffersTab() {
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Accept failed', 'err'); return; }
       await load();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
-      toast(`Accepted offer on ${label} for ${fmt(o?.amount || 0)} — trade opened.`, 'ok');
+      // The server may charge less than the offer (the ask dropped below it).
+      const paid = res?.finalPrice != null ? parseFloat(res.finalPrice) : parseFloat(o?.amount || 0);
+      toast(`Accepted offer on ${label} for ${fmt(paid)} — trade opened.`, 'ok');
     } finally { setBusy(false); }
   };
   const doReject = async (id) => {
@@ -9565,6 +9580,7 @@ function ProfileOffersTab() {
           : o.status === 'CANCELLED' ? 'Cancelled'
           : o.status === 'EXPIRED'   ? 'Expired'
           : o.status === 'COUNTERED' ? 'Countered'
+          : o.status === 'CLOSED'    ? 'Closed'
           : o.status),
         // The seller's own counter waits on the buyer: no Accept / Counter /
         // Reject here (they failed, or told the buyer their own price was declined).
@@ -14498,7 +14514,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       await load();
       onRefresh && onRefresh();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
-      const amtBit = o?.amount != null ? ` at ${fmt(parseFloat(o.amount))}` : '';
+      const paid = res?.finalPrice != null ? res.finalPrice : o?.amount;
+      const amtBit = paid != null ? ` at ${fmt(parseFloat(paid))}` : '';
       const buyerBit = o?.buyerName ? ` from ${o.buyerName}` : '';
       toast(`Accepted ${label}${amtBit}${buyerBit} — trade opened.`, 'ok');
     } finally { setBusy(false); }
@@ -14881,6 +14898,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
             : offer.status === 'CANCELLED' ? 'Cancelled'
             : offer.status === 'EXPIRED'   ? 'Expired'
             : offer.status === 'COUNTERED' ? 'Countered'
+            : offer.status === 'CLOSED'    ? 'Closed'
             : offer.status)
     );
   };
@@ -14897,7 +14915,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     { id: 'REJECTED',  label: 'Rejected' },
     { id: 'COUNTERED', label: 'Countered' },
     { id: 'CANCELLED', label: 'Cancelled' },
-    { id: 'EXPIRED',   label: 'Expired' }
+    { id: 'EXPIRED',   label: 'Expired' },
+    { id: 'CLOSED',    label: 'Closed' }
   ];
   const q = (offerSearch || '').trim().toLowerCase();
   const list = rawList == null

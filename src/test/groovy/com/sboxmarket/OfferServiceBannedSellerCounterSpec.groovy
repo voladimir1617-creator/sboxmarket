@@ -131,7 +131,7 @@ class OfferServiceBannedSellerCounterSpec extends Specification {
         original.status == 'CLOSED'
 
         and: 'the buyer is told why the offer could not close'
-        1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, 5L, '/offers')
+        1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, 5L, '/offers/outgoing')
     }
 
     def "buyer accepting a SELLER counter still works when the seller is NOT banned (regression guard)"() {

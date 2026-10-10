@@ -35,11 +35,13 @@ interface CartItemRepository extends JpaRepository<CartItem, Long> {
     boolean existsByUserAndListing(@Param('uid') Long userId,
                                     @Param('listingId') Long listingId)
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM CartItem c WHERE c.userId = :uid AND c.listingId = :listingId")
     int deleteByUserAndListing(@Param('uid') Long userId,
                                 @Param('listingId') Long listingId)
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM CartItem c WHERE c.userId = :uid")
     int deleteAllByUser(@Param('uid') Long userId)
@@ -74,6 +76,7 @@ interface CartItemRepository extends JpaRepository<CartItem, Long> {
                                           @Param('excludeUserId') Long excludeUserId,
                                           org.springframework.data.domain.Pageable pageable)
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM CartItem c WHERE c.listingId = :listingId")
     int deleteAllByListing(@Param('listingId') Long listingId)
@@ -85,6 +88,7 @@ interface CartItemRepository extends JpaRepository<CartItem, Long> {
      *  case where a status flipped without going through the batched
      *  cart scrub (e.g. expired auction, bulkCancel). Keeps the cart
      *  UI from accumulating stale-grey rows forever. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         DELETE FROM CartItem c

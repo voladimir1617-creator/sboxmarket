@@ -271,13 +271,10 @@ class ItemController {
 
     @GetMapping("/{id}/history")
     ResponseEntity<List<PriceHistory>> getPriceHistory(@PathVariable Long id) {
-        // Price-history samples are written once a day by the scheduler;
-        // any browser opening the chart multiple times in a 5-minute
-        // window sees identical data. Short browser-cache header cuts
-        // the round-trip on tab-focus refetch (batch 424) without
-        // risking a noticeable stale read.
+        // Rows are written on every sale, so cache no longer than the
+        // recent-sales strip (60s) or the chart lags the sale beside it.
         ResponseEntity.ok()
-            .header('Cache-Control', 'public, max-age=300')
+            .header('Cache-Control', 'public, max-age=60')
             .body(itemService.getPriceHistory(id))
     }
 

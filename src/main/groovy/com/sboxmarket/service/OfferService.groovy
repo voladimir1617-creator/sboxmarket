@@ -115,6 +115,58 @@ class OfferService {
         }
     }
 
+    /** Wallet freeze and deposit-dispute gates shared by makeOffer and
+     *  buyerRaise: a raise opens a new PENDING offer the seller can
+     *  accept (or that auto-accepts), so it needs the same checks. */
+    private void assertBuyerWalletCanOffer(Long buyerUserId) {
+        def buyerUser = steamUserRepository?.findById(buyerUserId)?.orElse(null)
+        if (buyerUser != null) {
+            def buyerWallet = walletRepository.findByUsername("steam_${buyerUser.steamId64}")
+            if (buyerWallet != null && Boolean.TRUE.equals(buyerWallet.frozen)) {
+                throw new BadRequestException("WALLET_FROZEN",
+                    "Your wallet is frozen by staff" +
+                        (buyerWallet.frozenReason ? ": ${buyerWallet.frozenReason}" : '') +
+                        ". Open a support ticket to resolve.")
+            }
+            // Dispute-hold fail-early (batch 511). Mirrors the check
+            // PurchaseService.buy does at offer acceptance time — stops
+            // the offer landing in the seller's queue only to fail
+            // cryptically with PURCHASE_DISPUTE_HOLD when they try to
+            // accept. Null-safe: transactionRepository is @Autowired
+            // optional for legacy specs with mocked collaborators.
+            if (buyerWallet != null && transactionRepository != null) {
+                long disputed = transactionRepository.countActiveDisputedDeposits(buyerWallet.id)
+                if (disputed > 0L) {
+                    throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
+                        "Offers are paused while you have ${disputed} unresolved deposit " +
+                        "dispute${disputed == 1 ? '' : 's'} on file.")
+                }
+            }
+        }
+    }
+
+    /** An offer past its auto-decline time reads as lapsed in the UI even
+     *  before the sweep closes it; acceptOffer refuses it, and a counter
+     *  or raise must not revive it either. */
+    private void assertNotLapsed(Offer o) {
+        if (autoDeclineDays > 0) {
+            def expiresAt = computeExpiresAt(o)
+            if (expiresAt != null && expiresAt <= System.currentTimeMillis()) {
+                throw new OfferNotPendingException(o.id, 'EXPIRED')
+            }
+        }
+    }
+
+    /** Symmetric block check shared by makeOffer and buyerRaise. */
+    private void assertNotBlocked(Long sellerUserId, Long buyerUserId, Long listingId) {
+        if (sellerUserId != null && userBlockService != null) {
+            if (userBlockService.isBlocked(sellerUserId, buyerUserId)
+                    || userBlockService.isBlocked(buyerUserId, sellerUserId)) {
+                throw new ListingNotAvailableException(listingId)
+            }
+        }
+    }
+
     @Transactional
     Offer makeOffer(Long buyerUserId, String buyerName, Long listingId, BigDecimal amount,
                     String message = null) {
@@ -142,30 +194,7 @@ class OfferService {
         // effort lookup: if the wallet row doesn't exist yet, skip the
         // check (the buyer hasn't interacted with the wallet flow yet,
         // which means they're not the frozen target of staff action).
-        def buyerUser = steamUserRepository?.findById(buyerUserId)?.orElse(null)
-        if (buyerUser != null) {
-            def buyerWallet = walletRepository.findByUsername("steam_${buyerUser.steamId64}")
-            if (buyerWallet != null && Boolean.TRUE.equals(buyerWallet.frozen)) {
-                throw new BadRequestException("WALLET_FROZEN",
-                    "Your wallet is frozen by staff" +
-                        (buyerWallet.frozenReason ? ": ${buyerWallet.frozenReason}" : '') +
-                        ". Open a support ticket to resolve.")
-            }
-            // Dispute-hold fail-early (batch 511). Mirrors the check
-            // PurchaseService.buy does at offer acceptance time — stops
-            // the offer landing in the seller's queue only to fail
-            // cryptically with PURCHASE_DISPUTE_HOLD when they try to
-            // accept. Null-safe: transactionRepository is @Autowired
-            // optional for legacy specs with mocked collaborators.
-            if (buyerWallet != null && transactionRepository != null) {
-                long disputed = transactionRepository.countActiveDisputedDeposits(buyerWallet.id)
-                if (disputed > 0L) {
-                    throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
-                        "Offers are paused while you have ${disputed} unresolved deposit " +
-                        "dispute${disputed == 1 ? '' : 's'} on file.")
-                }
-            }
-        }
+        assertBuyerWalletCanOffer(buyerUserId)
         buyerName = textSanitizer.cleanShort(buyerName)
         // Optional buyer note. Sanitised + capped server-side so the
         // seller's offer row never renders raw user input. Empty string
@@ -228,12 +257,7 @@ class OfferService {
         // buyer, the offer path is closed. The error message is generic
         // (NOT_AVAILABLE / same as hidden-listing) so neither side can
         // enumerate the other's block list via the response code.
-        if (listing.sellerUserId != null && userBlockService != null) {
-            if (userBlockService.isBlocked(listing.sellerUserId, buyerUserId)
-                    || userBlockService.isBlocked(buyerUserId, listing.sellerUserId)) {
-                throw new ListingNotAvailableException(listingId)
-            }
-        }
+        assertNotBlocked(listing.sellerUserId, buyerUserId, listingId)
         if (amount >= listing.price) {
             throw new BadRequestException("OFFER_TOO_HIGH",
                 "Offer must be below the asking price (\$${listing.price}) — use Buy Now instead")
@@ -491,6 +515,7 @@ class OfferService {
         if (original.status != 'PENDING') {
             throw new OfferNotPendingException(originalOfferId, original.status)
         }
+        assertNotLapsed(original)
         if (amount <= original.amount) {
             throw new BadRequestException("RAISE_NOT_HIGHER",
                 "A raise must be above your current offer (\$${original.amount})")
@@ -506,6 +531,10 @@ class OfferService {
         if (listing.status != 'ACTIVE' || Boolean.TRUE.equals(listing.hidden)) {
             throw new ListingNotAvailableException(original.listingId)
         }
+        // Same gates as a fresh offer: a blocked pair, a frozen wallet or
+        // an open deposit dispute must not be able to keep raising.
+        assertNotBlocked(listing.sellerUserId, buyerUserId, original.listingId)
+        assertBuyerWalletCanOffer(buyerUserId)
         if (amount >= listing.price) {
             throw new BadRequestException("RAISE_AT_OR_ABOVE_ASK",
                 "At or above the ask, buy instead of offer (ask \$${listing.price})")
@@ -643,6 +672,7 @@ class OfferService {
         if (original.status != 'PENDING') {
             throw new OfferNotPendingException(originalOfferId, original.status)
         }
+        assertNotLapsed(original)
         def listing = listingRepository.findById(original.listingId)
                 .orElseThrow { new NotFoundException("Listing", original.listingId) }
         // Reject counters on a listing that's no longer ACTIVE (sold via
@@ -694,7 +724,7 @@ class OfferService {
                     "Seller countered your offer · ${listing.item?.name ?: 'listing'}",
                     "They're asking \$${amount.toPlainString()} (you offered \$${original.amount.toPlainString()}).",
                     saved.id,
-                    '/offers')
+                    '/offers/outgoing')
             } catch (Exception e) {
                 log.warn("OFFER_COUNTERED push failed for buyer ${original.buyerUserId}: ${e.message}")
             }
@@ -831,6 +861,11 @@ class OfferService {
             }
         }
 
+        // A block placed after the counter closes it to the buyer too,
+        // as it does for a fresh offer or a raise.
+        if (buyerAcceptingCounter) {
+            assertNotBlocked(offer.sellerUserId, offer.buyerUserId, offer.listingId)
+        }
         def listing = listingRepository.findById(offer.listingId)
                 .orElseThrow { new NotFoundException("Listing", offer.listingId) }
         if (listing.status != 'ACTIVE') {
@@ -866,6 +901,12 @@ class OfferService {
         if (actualWallet == null) {
             throw new NotFoundException("Wallet for buyer ${offer.buyerUserId}")
         }
+        // The buyer accepting a counter is right here: let them top up and
+        // try again. Expiring it killed the negotiation and told them their
+        // own offer "was accepted", while the seller heard nothing.
+        if (buyerAcceptingCounter && actualWallet.balance < offer.amount) {
+            throw new InsufficientBalanceException(offer.amount, actualWallet.balance)
+        }
         if (actualWallet.balance < offer.amount) {
             offer.status = 'EXPIRED'
             offerRepository.save(offer)
@@ -885,7 +926,7 @@ class OfferService {
                         "Offer couldn't close · ${offer.itemName ?: 'listing'}",
                         "Your \$${offer.amount.toPlainString()} offer was accepted but your wallet balance dropped below that amount. Top up and make a new offer.",
                         offer.id,
-                        '/offers')
+                        '/offers/outgoing')
                 } catch (Exception e) {
                     log.warn("Offer-insufficient-balance push failed for buyer ${offer.buyerUserId}: ${e.message}")
                 }
@@ -915,7 +956,7 @@ class OfferService {
                         "Offer couldn't close · ${offer.itemName ?: 'listing'}",
                         "Your \$${offer.amount.toPlainString()} offer was accepted but couldn't process because your account is currently restricted. Contact support if you believe this is in error.",
                         offer.id,
-                        '/offers')
+                        '/offers/outgoing')
                 } catch (Exception e) {
                     log.warn("Offer-buyer-banned push failed for buyer ${offer.buyerUserId}: ${e.message}")
                 }
@@ -953,7 +994,7 @@ class OfferService {
                         "Counter couldn't close · ${offer.itemName ?: 'listing'}",
                         "You accepted the seller's \$${offer.amount.toPlainString()} counter, but the seller's account is currently restricted. The offer was closed — no funds were moved.",
                         offer.id,
-                        '/offers')
+                        '/offers/outgoing')
                 } catch (Exception e) {
                     log.warn("Offer-seller-banned push failed for buyer ${offer.buyerUserId}: ${e.message}")
                 }
@@ -1142,7 +1183,7 @@ class OfferService {
                 notificationService.push(offer.buyerUserId, 'OFFER_REJECTED',
                     "Counter withdrawn · ${offer.itemName ?: 'listing'}",
                     "The seller withdrew their \$${offer.amount.toPlainString()} counter. You can make a new offer.",
-                    offer.id, '/offers')
+                    offer.id, '/offers/outgoing')
             } catch (Exception e) {
                 log.warn("Counter-withdrawn push failed for buyer ${offer.buyerUserId}: ${e.message}")
             }
@@ -1154,7 +1195,7 @@ class OfferService {
             try {
                 notificationService.push(offer.buyerUserId, 'OFFER_REJECTED',
                     "Offer rejected · ${offer.itemName ?: 'listing'}",
-                    body, offer.id, '/offers')
+                    body, offer.id, '/offers/outgoing')
             } catch (Exception e) {
                 log.warn("OFFER_REJECTED push failed for buyer ${offer.buyerUserId}: ${e.message}")
             }
@@ -1501,6 +1542,8 @@ class OfferService {
         [
             id:             o.id,
             listingId:      o.listingId,
+            // The Offers page links each row to /item/:id from this.
+            itemId:         o.itemId,
             buyerUserId:    o.buyerUserId,
             sellerUserId:   o.sellerUserId,
             amount:         o.amount,
@@ -1733,13 +1776,18 @@ class OfferService {
                 closeCounteredParent(offer)
                 def itemName = listingsById[offer.listingId]?.item?.name ?: 'this item'
                 def itemId = listingsById[offer.listingId]?.item?.id
+                // A lapsed SELLER counter is the buyer's unanswered reply,
+                // not the seller's silence, and its amount is the seller's.
+                boolean lapsedCounter = offer.author == 'SELLER'
                 notificationService?.push(
                     offer.buyerUserId,
                     'OFFER_REJECTED',
-                    "Offer auto-declined · ${itemName}",
-                    "Your \$${offer.amount?.toPlainString() ?: '0'} offer on ${itemName} expired after ${autoDeclineDays} days with no seller response.",
+                    lapsedCounter ? "Counter-offer expired · ${itemName}" : "Offer auto-declined · ${itemName}",
+                    lapsedCounter
+                        ? "The seller's \$${offer.amount?.toPlainString() ?: '0'} counter on ${itemName} expired after ${autoDeclineDays} days without an answer."
+                        : "Your \$${offer.amount?.toPlainString() ?: '0'} offer on ${itemName} expired after ${autoDeclineDays} days with no seller response.",
                     offer.listingId,
-                    itemId != null ? "/item/${itemId}" : '/offers'
+                    itemId != null ? "/item/${itemId}" : '/offers/outgoing'
                 )
             } catch (Exception e) {
                 log.warn("offer auto-decline failed for id=${offer.id}: ${e.message}")
@@ -1841,14 +1889,27 @@ class OfferService {
                 long hoursLeft = Math.max(1L, msLeft.intdiv(60L * 60L * 1000L))
                 long daysLeft = Math.max(1L, hoursLeft.intdiv(24L))
                 String windowText = hoursLeft >= 48L ? "${daysLeft} day${daysLeft == 1 ? '' : 's'}" : "${hoursLeft}h"
-                notificationService?.push(
-                    offer.sellerUserId,
-                    'OFFER_RECEIVED',
-                    "Pending offer expiring in ${windowText} · ${itemName}",
-                    "A \$${offer.amount?.toPlainString() ?: '0'} offer is still waiting for your response. Accept, counter, or reject before it auto-declines.",
-                    offer.listingId,
-                    itemId != null ? "/item/${itemId}" : '/offers'
-                )
+                // A pending SELLER counter waits on the buyer, so the
+                // reminder goes to them, not to the seller about their own price.
+                if (offer.author == 'SELLER') {
+                    notificationService?.push(
+                        offer.buyerUserId,
+                        'OFFER_COUNTERED',
+                        "Counter-offer expiring in ${windowText} · ${itemName}",
+                        "The seller's \$${offer.amount?.toPlainString() ?: '0'} counter is still waiting for your answer. Accept or decline it before it expires.",
+                        offer.listingId,
+                        '/offers/outgoing'
+                    )
+                } else {
+                    notificationService?.push(
+                        offer.sellerUserId,
+                        'OFFER_RECEIVED',
+                        "Pending offer expiring in ${windowText} · ${itemName}",
+                        "A \$${offer.amount?.toPlainString() ?: '0'} offer is still waiting for your response. Accept, counter, or reject before it auto-declines.",
+                        offer.listingId,
+                        itemId != null ? "/item/${itemId}" : '/offers'
+                    )
+                }
                 // No entity-save needed — claimNudge already stamped
                 // sellerNudgedAt atomically via the conditional UPDATE
                 // above. A redundant offerRepository.save(offer) here

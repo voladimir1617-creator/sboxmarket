@@ -498,7 +498,7 @@ class OfferServiceSpec extends Specification {
         // by the claimAutoExpire conditional UPDATE (wave 128), not an
         // entity save — winning the claim (returns 1) gates the fan-out.
         1 * offerRepository.claimAutoExpire(1L, _) >> 1
-        1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, _, '/offers')
+        1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, _, '/offers/outgoing')
     }
 
     def "sweepStaleOffers is a no-op when nothing is stale"() {
@@ -547,7 +547,7 @@ class OfferServiceSpec extends Specification {
         then: "sibling row #2 still wins its claim — not blocked by row #1's failure"
         1 * offerRepository.claimAutoExpire(2L, _) >> 1
         and: "sibling row's buyer push still fires — sweep didn't abort (only row #2 reaches the push)"
-        1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, 100L, '/offers')
+        1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, 100L, '/offers/outgoing')
         and: "no exception bubbles out — bad row was swallowed in the per-row catch"
         noExceptionThrown()
     }
@@ -671,7 +671,7 @@ class OfferServiceSpec extends Specification {
         1 * notificationService.push(10L, 'OFFER_REJECTED',
             { String title -> title.contains("couldn't close") },
             { String body -> body.contains('Top up') },
-            1L, '/offers')
+            1L, '/offers/outgoing')
     }
 
     def "acceptOffer flips offer to EXPIRED when the listing went SOLD between offer + accept"() {
@@ -747,7 +747,7 @@ class OfferServiceSpec extends Specification {
         1 * notificationService.push(10L, 'OFFER_REJECTED',
             { String title -> title.contains("couldn't close") },
             { String body -> body.contains('restricted') },
-            1L, '/offers')
+            1L, '/offers/outgoing')
     }
 
     def "acceptOffer expires other pending offers on the same listing after a successful sale"() {
@@ -1637,7 +1637,7 @@ class OfferServiceSpec extends Specification {
         then:
         own.status == 'REJECTED'
         1 * notificationService.push(10L, 'OFFER_REJECTED', 'Counter withdrawn · Hat',
-            { it.contains('withdrew their $45') }, 2L, '/offers')
+            { it.contains('withdrew their $45') }, 2L, '/offers/outgoing')
         0 * notificationService.push(10L, _, { it.startsWith('Offer rejected') }, _, _, _)
     }
 

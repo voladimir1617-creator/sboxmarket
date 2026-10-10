@@ -4,7 +4,7 @@
 // Every modal follows the same pattern as ./modals.js — narrow prop surface,
 // uses InfoModal as the shell, calls into ./api.js for I/O.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol, fxToUsd } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths } from './router.js';
@@ -101,7 +101,8 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
   // Database" open on that item instead of the whole catalogue.
   const initialQ = (() => {
     try {
-      if (!/^\/db\/?$/.test(window.location.pathname)) return '';
+      // /database is a route alias for the same page.
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return '';
       return (new URLSearchParams(window.location.search).get('q') || '').slice(0, 100);
     } catch (_) { return ''; }
   })();
@@ -148,9 +149,10 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       // Parse price bounds lazily at fetch time so partial-typed values
       // (trailing dot, empty) don't thrash the query while the user
       // types. Blank / NaN / negative / > $100k is dropped.
+      // The boxes are labelled in the viewer's currency; the API takes USD.
       const parseB = (s) => {
-        const n = parseFloat(s);
-        return (Number.isFinite(n) && n >= 0 && n <= 100000) ? n : null;
+        const n = fxToUsd(parseFloat(s));
+        return (n != null && Number.isFinite(n) && n >= 0 && n <= 100000) ? Math.round(n * 100) / 100 : null;
       };
       const res = await fetchDatabase({
         q: search || null, category, rarity, sort,

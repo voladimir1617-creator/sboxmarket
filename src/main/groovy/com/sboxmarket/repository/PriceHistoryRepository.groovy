@@ -46,6 +46,11 @@ interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long> {
     @Query("SELECT p FROM PriceHistory p WHERE p.item.id = :itemId ORDER BY p.recordedAt DESC LIMIT 1")
     java.util.Optional<PriceHistory> findLatestByItem(@Param("itemId") Long itemId)
 
+    /** Rows for one item on one UTC day label, oldest first. Used to undo a
+     *  cancelled sale's write on the day it was recorded. */
+    @Query("SELECT p FROM PriceHistory p WHERE p.item.id = :itemId AND p.dayLabel = :day ORDER BY p.recordedAt ASC")
+    List<PriceHistory> findByItemIdAndDay(@Param("itemId") Long itemId, @Param("day") String day)
+
     /**
      * Retention prune. The read path (`findByItemIdSince`) caps hydration
      * at a 400-day window, but until this method existed the write path

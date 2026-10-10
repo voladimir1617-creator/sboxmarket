@@ -33,6 +33,7 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
      *  comment a deleted author wrote, keeping the row (rating + FK skeleton)
      *  so the counterparty's aggregate score + the audit trail stay intact.
      *  Returns the row count for logging. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Review r SET r.comment = null WHERE r.fromUserId = :uid AND r.comment IS NOT NULL")
     int blankCommentsByAuthor(@Param('uid') Long fromUserId)

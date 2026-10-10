@@ -43,6 +43,7 @@ interface ReviewHelpfulVoteRepository extends JpaRepository<ReviewHelpfulVote, L
     List<Long> findVotedReviewIds(@Param('userId') Long userId,
                                   @Param('reviewIds') List<Long> reviewIds)
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM ReviewHelpfulVote v WHERE v.reviewId = :reviewId AND v.userId = :userId")
     int deleteByReviewAndUser(@Param('reviewId') Long reviewId, @Param('userId') Long userId)

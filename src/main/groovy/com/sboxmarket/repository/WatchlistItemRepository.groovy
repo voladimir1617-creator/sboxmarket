@@ -34,6 +34,7 @@ interface WatchlistItemRepository extends JpaRepository<WatchlistItem, Long> {
     """)
     boolean existsByUserAndItem(@Param('uid') Long userId, @Param('itemId') Long itemId)
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM WatchlistItem w WHERE w.userId = :uid AND w.itemId = :itemId")
     int deleteByUserAndItem(@Param('uid') Long userId, @Param('itemId') Long itemId)
@@ -42,6 +43,7 @@ interface WatchlistItemRepository extends JpaRepository<WatchlistItem, Long> {
      *  count removed so the caller can surface "Cleared N items" in
      *  the toast. Used by the "Clear watchlist" button and by the
      *  GDPR deletion flow. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM WatchlistItem w WHERE w.userId = :uid")
     int deleteByUser(@Param('uid') Long userId)

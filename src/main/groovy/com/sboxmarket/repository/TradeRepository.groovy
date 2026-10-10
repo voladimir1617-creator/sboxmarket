@@ -275,6 +275,7 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
      * nudge fires TWICE per trade, defeating the per-trade "one nudge
      * total" guarantee the reviewNudgeSentAt column was added to make.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE Trade t
@@ -295,6 +296,7 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
      * warning total" promise the slowSellerWarnedAt column was added to
      * make. Buyer and seller both receive the heads-up TWICE.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE Trade t

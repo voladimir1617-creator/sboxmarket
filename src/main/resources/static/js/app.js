@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=234';
+} from './modals.js?v=235';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -8296,7 +8296,10 @@ export function App() {
                     ? `Seller is away · back ${new Date(stallData.awayUntil).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
                     : 'Seller is away'),
                 h('div', { className: 'stall-away-sub' },
-                  `All ${stallData.awayCount || 'active'} listings are temporarily hidden until the seller is back. You can still view their stall and leave a review.`)
+                  (stallData.awayCount > 0
+                    ? `${stallData.awayCount} listing${stallData.awayCount === 1 ? ' is' : 's are'} temporarily hidden until the seller is back.`
+                    : 'Their listings are temporarily hidden until the seller is back.')
+                  + ' You can still view their stall and leave a review.')
               )
             ),
             // Stall bio — rendered when the seller has set one. Plain
