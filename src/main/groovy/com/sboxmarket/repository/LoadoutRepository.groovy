@@ -31,6 +31,13 @@ interface LoadoutRepository extends JpaRepository<Loadout, Long> {
 
     long countByOwnerUserId(Long ownerUserId)
 
+    /** Account erasure: take the owner's loadouts out of Discover and the
+     *  share cards, and drop the owner name stamped on them. */
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Loadout l SET l.visibility = 'PRIVATE', l.ownerName = :name WHERE l.ownerUserId = :uid")
+    int hideAndRenameForOwner(@Param("uid") Long uid, @Param("name") String name)
+
     /** Cheapest catalogue item in a category that fits a budget ceiling AND
      *  is not one of the already-picked item ids. Used by
      *  `LoadoutService.autoGenerate` so the AI-Generate fill never drops the

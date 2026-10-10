@@ -38,6 +38,13 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query("UPDATE Review r SET r.comment = null WHERE r.fromUserId = :uid AND r.comment IS NOT NULL")
     int blankCommentsByAuthor(@Param('uid') Long fromUserId)
 
+    /** Same erasure: the author name stamped on each review they wrote
+     *  becomes the deleted account's placeholder handle. */
+    @org.springframework.transaction.annotation.Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Review r SET r.fromDisplayName = :name WHERE r.fromUserId = :uid")
+    int renameAuthor(@Param('uid') Long fromUserId, @Param('name') String name)
+
     /** Spam guard — count short, recent reviews authored by this buyer
      *  since the given epoch-ms cutoff. A "short" review is one whose
      *  comment is null/blank or shorter than the supplied length. Used
