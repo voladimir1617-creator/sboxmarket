@@ -5702,7 +5702,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             'Dev mode: use this token to verify the email.'),
           emailResult?.token && h('div', { className: 'mono', style: { fontSize: 11, color: 'var(--accent)', marginBottom: 6 } }, emailResult.token),
           h('div', { style: { display: 'flex', gap: 6 } },
-            h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Paste the code from the email', value: emailToken, onChange: e => setEmailToken(e.target.value) }),
+            h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Paste token', value: emailToken, onChange: e => setEmailToken(e.target.value) }),
             h('button', { className: 'buy-btn', onClick: () => confirmEmail() }, 'Verify')
           )
         ),
