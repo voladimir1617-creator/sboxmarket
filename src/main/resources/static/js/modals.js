@@ -1861,7 +1861,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                   // no float, and on the row it drew as a stray blue tick.)
                   (() => {
                     const ref = parseFloat(item.steamPrice) || 0;
-                    const p = parseFloat(l.price) || 0;
+                    // An auction is priced at its current bid, not its start price.
+                    const p = parseFloat(l.listingType === 'AUCTION' && l.currentBid != null ? l.currentBid : l.price) || 0;
                     if (ref <= 0 || p <= 0 || p >= ref) return null;
                     const pct = Math.round((1 - p / ref) * 100);
                     if (pct < 5) return null;
@@ -7542,7 +7543,9 @@ function ProfileTradesTab({ me, privacy }) {
       const next = qs.toString();
       window.history.replaceState({}, '', window.location.pathname + (next ? '?' + next : ''));
     } catch (_) {}
-  }, [trades?.length]);
+    // The query string is a dependency too: a bell click while already on
+    // the Trades tab changes only the URL, not the number of trades.
+  }, [trades?.length, window.location.search]);
   // Deep-link: `?highlight=<tradeId>` scrolls a specific trade row into
   // view and flashes it so notification click-through lands on the right
   // row instead of dumping the user at the top of a 30-trade list.
@@ -7573,7 +7576,9 @@ function ProfileTradesTab({ me, privacy }) {
       const next = qs.toString();
       window.history.replaceState({}, '', window.location.pathname + (next ? '?' + next : ''));
     } catch (_) {}
-  }, [trades?.length]);
+    // The query string is a dependency too: a bell click while already on
+    // the Trades tab changes only the URL, not the number of trades.
+  }, [trades?.length, window.location.search]);
   const toggleChat = async (tradeId) => {
     if (openChat === tradeId) {
       setOpenChat(null);

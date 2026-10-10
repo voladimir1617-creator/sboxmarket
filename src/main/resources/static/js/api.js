@@ -398,8 +398,10 @@ export async function fetchItem(itemId) {
   // one thing — "the catalogue answered, and this id is not in it" (a 404,
   // or the 200 `{notFound:true}` sentinel). A 500 or a dead socket raises
   // instead, so the item page can tell "removed" from "unreachable".
+  // 400 too: an id too long for the server's Long (`/item/99999999999999999999`
+  // matches the route) is an id that cannot exist, not an outage to retry.
   const data = await safeJson(`${API}/items/${itemId}`,
-    undefined, { expect: [404], throwOnFailure: true });
+    undefined, { expect: [400, 404], throwOnFailure: true });
   if (data && data.notFound) return null;
   return data || null;
 }
@@ -605,7 +607,7 @@ export async function fetchListingsForItem(itemId) {
   // timeout — is unreadable, and the item page now says so instead of
   // claiming the item "has been removed or never existed".
   const data = await safeJson(`${API}/listings/item/${itemId}`,
-    undefined, { expect: [404], throwOnFailure: true });
+    undefined, { expect: [400, 404], throwOnFailure: true });
   return Array.isArray(data) ? data : [];
 }
 

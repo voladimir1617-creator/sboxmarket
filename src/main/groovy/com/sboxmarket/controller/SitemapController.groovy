@@ -41,12 +41,9 @@ class SitemapController {
     private static final List<Map<String, String>> STATIC_URLS = [
         [loc: '/',                          freq: 'hourly',  priority: '1.0'],
         // /market is the canonical marketplace route (PWA start_url + OpenSearch
-        // template both point here). /search is a back-compat alias that the
-        // SPA routes to the same component. Both deserve indexing — but
-        // crawlers that prefer the canonical (per <link rel="canonical">)
-        // will pick /market.
+        // template both point here). /search is a back-compat alias whose page
+        // declares /market as canonical, so it stays out of the sitemap.
         [loc: '/market',                    freq: 'hourly',  priority: '0.9'],
-        [loc: '/search',                    freq: 'hourly',  priority: '0.9'],
         [loc: '/db',                        freq: 'daily',   priority: '0.8'],
         [loc: '/loadout',                   freq: 'daily',   priority: '0.6'],
         [loc: '/help',                      freq: 'monthly', priority: '0.5'],

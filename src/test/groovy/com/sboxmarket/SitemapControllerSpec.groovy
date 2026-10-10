@@ -107,9 +107,9 @@ class SitemapControllerSpec extends Specification {
         then:
         body.contains('<urlset')
         body.contains('<loc>https://skinbox.test/</loc>')
-        // Lap-K added /market alongside /search — both deserve indexing.
+        // /market is canonical; /search declares /market canonical, so it is left out.
         body.contains('<loc>https://skinbox.test/market</loc>')
-        body.contains('<loc>https://skinbox.test/search</loc>')
+        !body.contains('<loc>https://skinbox.test/search</loc>')
         body.contains('<loc>https://skinbox.test/db</loc>')
         body.contains('<loc>https://skinbox.test/loadout</loc>')
         body.contains('<loc>https://skinbox.test/help</loc>')

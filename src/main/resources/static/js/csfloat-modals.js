@@ -2089,7 +2089,12 @@ export function NotificationsModal({ onClose, me }) {
       // shows instead of a deceptive "all caught up" empty state.
       const res = await fetchNotifications();
       if (res && res.error) setLoadErr(true);
-      else setData(res);
+      else {
+        setData(res);
+        // Every mutation on this page reloads through here: let the nav
+        // bell, tab title and favicon re-read the count now, not 25s later.
+        try { window.dispatchEvent(new Event('sb:notifications-changed')); } catch (_) {}
+      }
     } catch (_) {
       setLoadErr(true);
     } finally {
@@ -2203,6 +2208,7 @@ export function NotificationsModal({ onClose, me }) {
         unread: Math.max(0, (prev?.unread || 0) - 1)
       }));
       try { await markNotificationRead(n.id); } catch (_) {}
+      try { window.dispatchEvent(new Event('sb:notifications-changed')); } catch (_) {}
     }
     let target = n.path || kindFallbackPath(n.kind, n.refId);
     // Batch 744 — append `?highlight=<tradeId>` for TRADE_* notifications

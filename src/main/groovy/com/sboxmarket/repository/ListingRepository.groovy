@@ -90,7 +90,8 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     List<Listing> findActiveOrderByNewest()
 
-    /** Cheapest-first active listings for one item — drives the public
+    /** Cheapest-first active listings for one item (an auction counts at its
+     *  current bid, as in the grid) — drives the public
      *  `/api/listings/item/{id}` endpoint AND the homepage rails'
      *  per-item cheapest projection. Excludes hidden listings so a
      *  seller who listed cheap and then flipped Hide doesn't leak into
@@ -100,7 +101,8 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         WHERE l.item.id = :itemId
           AND l.status = 'ACTIVE'
           AND (l.hidden IS NULL OR l.hidden = false)
-        ORDER BY l.price ASC
+        ORDER BY CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL
+                      THEN l.currentBid ELSE l.price END ASC, l.id ASC
     """)
     List<Listing> findCheapestForItem(@Param("itemId") Long itemId)
 

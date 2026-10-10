@@ -231,6 +231,9 @@ export function NotificationBell({ me }) {
   // N unread already" render doesn't trigger a ding for every unread
   // row a user already had before they loaded the page.
   const lastUnreadRef = React.useRef(-1);
+  // Ids this open already marked read on the server (rows keep their unread
+  // accent for the open). A click on one must not count the badge down again.
+  const markedOnOpenRef = React.useRef(new Set());
 
   // Full fetch — 100 notification rows + unread count. Called on first
   // mount and whenever the user opens the dropdown (so the flyout
@@ -310,6 +313,7 @@ export function NotificationBell({ me }) {
       const ids = visible.slice(0, 12).filter(n => !n.read).map(n => n.id);
       if (ids.length === 0) return;
       try { await markNotificationsReadBatch(ids); } catch (_) { return; }
+      ids.forEach(id => markedOnOpenRef.current.add(id));
       if (cancelled) return;
       const muted = readMuted();
       if (muted.size > 0) {
@@ -378,6 +382,16 @@ export function NotificationBell({ me }) {
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
+  }, [me, open, loadFull, loadCount]);
+
+  // The full /notifications page marks rows read or deletes them without
+  // going through the bell; it fires this event so the badge, tab title
+  // and favicon follow at once.
+  useEffect(() => {
+    if (!me) return;
+    const onChanged = () => { if (open) loadFull(); else loadCount(); };
+    window.addEventListener('sb:notifications-changed', onChanged);
+    return () => window.removeEventListener('sb:notifications-changed', onChanged);
   }, [me, open, loadFull, loadCount]);
 
   // Mirror unread count into the browser tab title so users glancing at a
@@ -501,7 +515,9 @@ export function NotificationBell({ me }) {
   };
 
   const onItemClick = async (n) => {
-    if (!n.read) {
+    if (!n.read && markedOnOpenRef.current.has(n.id)) {
+      setItems(prev => prev.map(row => row.id === n.id ? { ...row, read: true } : row));
+    } else if (!n.read) {
       // Batch 775 — optimistic local bump-down of the unread count so
       // the bell badge ticks down the moment the user clicks a row,
       // not 25s later when the next poll lands. Also flip the row's
