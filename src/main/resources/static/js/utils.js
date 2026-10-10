@@ -40,6 +40,15 @@ export const fxConvertUsd = (usd) => {
   return Number.isFinite(raw) ? raw * rate : 0;
 };
 
+// Inverse of fxConvertUsd: an amount the viewer typed in their display
+// currency, back to USD (what the API filters on).
+export const fxToUsd = (local) => {
+  const code = currentCurrency();
+  const rate = FX_RATES[code] || 1;
+  const raw = Number(local);
+  return Number.isFinite(raw) ? raw / rate : null;
+};
+
 export const fmt = (n) => {
   const code = currentCurrency();
   const rate = FX_RATES[code];

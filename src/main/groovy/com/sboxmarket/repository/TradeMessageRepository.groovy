@@ -60,6 +60,7 @@ interface TradeMessageRepository extends JpaRepository<TradeMessage, Long> {
      * the DB before the UPDATE evaluates its WHERE so no row escapes
      * the readAt-IS-NULL filter spuriously.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
         UPDATE TradeMessage m
@@ -78,6 +79,7 @@ interface TradeMessageRepository extends JpaRepository<TradeMessage, Long> {
      * structure + read-receipts stay coherent. Empty string (not null) keeps
      * the column safe under a NOT NULL constraint. Returns the row count.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE TradeMessage m SET m.body = '' WHERE m.senderUserId = :uid AND m.body <> ''")
     int blankBodiesBySender(@Param('uid') Long senderUserId)

@@ -144,6 +144,7 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
      * it (custodyState != PENDING_DEPOSIT) — so a just-deposited item is NOT
      * wrongly failed and its now-ACTIVE listing is NOT clawed back to CANCELLED.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE EscrowedItem e
@@ -204,6 +205,7 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
      * Steam rejects noisily, and — if the seller happens to accept the first
      * between the two sends — an offer for an asset the bot no longer owns.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE EscrowedItem e
@@ -264,6 +266,7 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
      * deposit requests for a single listing; only one can ever be accepted, so
      * the other becomes garbage the seller has to work out how to dismiss.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE EscrowedItem e
@@ -291,6 +294,7 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
      * cannot both fire the seller notification and so the ERROR line is rate-
      * limited to one per backoff window instead of one per tick, forever.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE EscrowedItem e

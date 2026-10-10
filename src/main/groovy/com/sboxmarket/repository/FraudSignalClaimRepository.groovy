@@ -29,6 +29,7 @@ interface FraudSignalClaimRepository extends JpaRepository<FraudSignalClaim, Lon
      *  claim older than that can never re-trip the same signature, and
      *  the table is bounded by the active-attack rate × 24h, not by
      *  uptime years. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM FraudSignalClaim c WHERE c.claimedAt < :cutoff")
     int deleteOlderThan(@Param("cutoff") Long cutoff)

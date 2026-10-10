@@ -174,6 +174,7 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
      * STOMPED — accept/reject lost, offer status flipped EXPIRED, both
      * parties left in inconsistent state.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE Offer o
@@ -197,6 +198,7 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
      * `sellerNudgedAt IS NULL` predicate in the UPDATE makes the second
      * pod's claim a no-op (the first pod already stamped it non-null).
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE Offer o

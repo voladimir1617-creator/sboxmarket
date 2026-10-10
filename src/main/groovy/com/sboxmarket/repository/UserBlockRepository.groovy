@@ -64,6 +64,7 @@ interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     List<Long> findBlockedIdsForBlocker(@Param('uid') Long blockerUserId,
                                         org.springframework.data.domain.Pageable pageable)
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         DELETE FROM UserBlock b
@@ -76,6 +77,7 @@ interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     /** Wipe every row the given user created (their block list). Used
      *  by AdminService.finalizeDeletion when the user's account is
      *  deleted — no reason to keep their preference rows. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM UserBlock b WHERE b.blockerUserId = :uid")
     int deleteByBlocker(@Param('uid') Long blockerUserId)
@@ -83,6 +85,7 @@ interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     /** Wipe every row that targets the given user (other people who
      *  blocked them). Also used by finalizeDeletion — when the target
      *  account is gone the blocker's rows against it become dead FKs. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("DELETE FROM UserBlock b WHERE b.blockedUserId = :uid")
     int deleteByBlocked(@Param('uid') Long blockedUserId)

@@ -138,6 +138,7 @@ class TradeService {
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
     @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
+    @Autowired(required = false) PriceHistoryService priceHistoryService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     // Optional — decorates trade rows with itemImageUrl + itemAccentColor
     // so the Profile → Trades tab can render an item thumbnail next to the
@@ -1358,10 +1359,23 @@ class TradeService {
         // Skip no-op — if the listing was already returned (double-
         // cancel after admin override) don't re-stamp soldAt.
         if (listing.status == 'SOLD' && listing.buyerUserId == t.sellerUserId) return
+        final Long saleSoldAt = listing.soldAt ?: t.createdAt
         listing.status      = 'SOLD'
         listing.buyerUserId = t.sellerUserId
         listing.soldAt      = System.currentTimeMillis()
         listingRepository.save(listing)
+        // The sale was charted when it was bought; take it back off.
+        if (listing.item != null) {
+            try {
+                // The price record() wrote at purchase: the listing's price,
+                // or the winning bid for an auction.
+                def chartedPrice = listing.listingType == 'AUCTION' && listing.currentBid != null
+                    ? listing.currentBid : listing.price
+                priceHistoryService?.reverseSale(listing.item, chartedPrice, saleSoldAt)
+            } catch (Exception e) {
+                log.warn("price-history reversal failed for trade ${t.id}: ${e.message}")
+            }
+        }
 
         // Reverse the totalSold bump that PurchaseService.buy /
         // BidService.settleAuction applied when this trade first opened.

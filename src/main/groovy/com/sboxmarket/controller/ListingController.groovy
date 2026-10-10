@@ -1009,7 +1009,17 @@ class ListingController {
         // that hydrated every listing row (with JOIN FETCH l.item) just
         // to call .size() on it.
         long totalActive = listingService.countActiveBySeller(userId)
-        def away = visible.isEmpty() && totalActive > 0
+        long hiddenActive = listingService.countHiddenActive(userId)
+        // Same rule as the owner's /away check: away mode is hiding rows or
+        // a return date is set. Listings hidden by hand don't make a seller
+        // "away", and a bid-on auction away mode left up doesn't hide it.
+        long awayHidden = listingService.countAwayHiddenActive(userId)
+        boolean legacyAllHidden = awayHidden == 0L && totalActive > 0 && hiddenActive == totalActive &&
+            (user.awayModeUntil == null || user.awayModeUntil <= System.currentTimeMillis())
+        def away = awayHidden > 0L ||
+            (user.awayModeUntil != null && user.awayModeUntil > System.currentTimeMillis()) ||
+            legacyAllHidden
+        long awayCount = legacyAllHidden ? totalActive : awayHidden
         def ratingSummary = reviewService?.summaryForUser(userId) ?: [count: 0, average: null]
         def soldCount = listingService.countSoldBySeller(userId)
         // Last-24h / 7d / 30d sold counts. Batch 534 shipped 30d; batch
@@ -1144,9 +1154,10 @@ class ListingController {
                 banned:            isBanned
             ],
             listings:         visible,
-            count:            visible.size(),
+            // A COUNT, not the grid's size: the grid stops at 500 rows.
+            count:            Math.max(0L, totalActive - hiddenActive),
             away:             away && !isBanned,
-            awayCount:        (away && !isBanned) ? totalActive : 0,
+            awayCount:        (away && !isBanned) ? awayCount : 0,
             // Scheduled "back on X" timestamp when the seller explicitly
             // set an until-date on the away toggle (batch 628). Null when
             // the seller just flipped away without a schedule. Future

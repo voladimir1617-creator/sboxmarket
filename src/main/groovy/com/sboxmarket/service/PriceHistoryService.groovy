@@ -2,6 +2,7 @@ package com.sboxmarket.service
 
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.PriceHistory
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.PriceHistoryRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
@@ -59,6 +60,7 @@ class PriceHistoryService {
     private final ConcurrentHashMap<String, Long> recentWrites = new ConcurrentHashMap<>()
 
     @Autowired PriceHistoryRepository priceHistoryRepository
+    @Autowired(required = false) ListingRepository listingRepository
 
     /** Optional so unit tests that build the service with `new
      *  PriceHistoryService(...)` (no Spring context) still work — in that
@@ -220,6 +222,48 @@ class PriceHistoryService {
                     volume:   bump,
                     dayLabel: today
                 ))
+            }
+        }
+    }
+
+    /**
+     * Undo a sale's chart write when its trade is cancelled. record() runs at
+     * purchase time, so without this a bought-then-cancelled sale (an
+     * outlier price, say) stayed in the chart, the 30D range, the deal
+     * verdicts and the 1Y low for good. Takes one off that day's volume and
+     * re-points the day's price at the latest real sale left that day; with
+     * none left, a row only that sale wrote is removed.
+     *
+     * Call after the listing has been handed back to the seller, so the
+     * sales query below no longer counts it.
+     */
+    void reverseSale(Item item, BigDecimal price, Long soldAt) {
+        if (item?.id == null || price == null || soldAt == null) return
+        def fmt = new SimpleDateFormat(DAY_LABEL_PATTERN)
+        fmt.timeZone = TimeZone.getTimeZone('UTC')
+        def day = fmt.format(new Date(soldAt))
+        long dayStart = soldAt - Math.floorMod(soldAt, 86_400_000L)
+        long dayEnd = dayStart + 86_400_000L
+        final Long itemId = item.id
+        deferOrRun {
+            def rows = priceHistoryRepository.findByItemIdAndDay(itemId, day) ?: []
+            if (rows.isEmpty()) return
+            def row = rows.last()
+            int left = Math.max(0, (row.volume ?: 0) - 1)
+            def remaining = (listingRepository?.findRecentSalesForItem(itemId,
+                    org.springframework.data.domain.PageRequest.of(0, 200)) ?: [])
+                .findAll { it.soldAt != null && it.soldAt >= dayStart && it.soldAt < dayEnd }
+            if (!remaining.isEmpty()) {
+                def last = remaining[0]
+                def lastPrice = last.listingType == 'AUCTION' && last.currentBid != null ? last.currentBid : last.price
+                if (lastPrice != null) row.price = lastPrice
+                row.volume = Math.max(left, 1)
+                priceHistoryRepository.save(row)
+            } else if (left == 0 && row.price != null && row.price.compareTo(price) == 0) {
+                priceHistoryRepository.delete(row)
+            } else {
+                row.volume = left
+                priceHistoryRepository.save(row)
             }
         }
     }

@@ -171,6 +171,7 @@ interface ItemRepository extends JpaRepository<Item, Long> {
      *  SCMM subscription count that the scheduled sync used to write.
      *  Single UPDATE means two concurrent sales can't clobber each other
      *  the way a read-modify-write would (no @Version on Item). */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("UPDATE Item i SET i.totalSold = COALESCE(i.totalSold, 0) + 1 WHERE i.id = :itemId")
     int incrementTotalSold(@Param("itemId") Long itemId)
@@ -179,6 +180,7 @@ interface ItemRepository extends JpaRepository<Item, Long> {
      *  unwound (trade cancelled, dispute refunded, seller banned-out).
      *  Clamps at zero with GREATEST so a missed-increment can't push the
      *  counter negative and pollute "Most Traded" with bogus rows. */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("UPDATE Item i SET i.totalSold = GREATEST(COALESCE(i.totalSold, 0) - 1, 0) WHERE i.id = :itemId")
     int decrementTotalSold(@Param("itemId") Long itemId)

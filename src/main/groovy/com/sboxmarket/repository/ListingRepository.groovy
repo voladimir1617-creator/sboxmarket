@@ -381,7 +381,9 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
      *  engagement than `lastSyncedAt` (Steam sync) because it reflects
      *  real marketplace action. Null when the seller has no active
      *  listings. Indexed COUNT-style aggregate, cheap. */
-    @Query("SELECT MAX(l.listedAt) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'ACTIVE'")
+    // Hidden rows (away mode, hand-hidden) aren't on the stall, so they
+    // must not read as "Last listed 2h ago" above an empty grid.
+    @Query("SELECT MAX(l.listedAt) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'ACTIVE' AND (l.hidden IS NULL OR l.hidden = false)")
     Long findLastListedAtBySeller(@Param("uid") Long uid)
 
     /** Most-recent soldAt timestamp for the seller — drives the stall
@@ -496,6 +498,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
      * `=false` predicate and returns 0 — the late pod bails before any
      * recipient lookup happens, so the fan-out fires exactly once.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE Listing l
