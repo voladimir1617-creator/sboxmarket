@@ -1739,9 +1739,11 @@ export async function leaveReview(tradeId, rating, comment) {
     body: JSON.stringify({ tradeId, rating, comment })
   });
 }
-export async function fetchReviewsForUser(userId) {
+export async function fetchReviewsForUser(userId, { fresh = false } = {}) {
   // 404 = unknown user (paired with a dead stall landing); not a bug.
-  const data = await safeJson(`${API}/reviews/user/${userId}`, undefined, { expect: [404] });
+  // `fresh` skips the 60s browser cache, so a refetch right after posting,
+  // replying to or deleting a review shows the change.
+  const data = await safeJson(`${API}/reviews/user/${userId}`, fresh ? { cache: 'no-store' } : undefined, { expect: [404] });
   return Array.isArray(data) ? data : [];
 }
 /** Reviews the signed-in user has authored (as a buyer). Auth-gated —

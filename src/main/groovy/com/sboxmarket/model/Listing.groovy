@@ -214,6 +214,12 @@ class Listing {
     @Transient
     Integer sellerReviewCount
 
+    /** ✓ Verified seller, by the stall's rule (10+ real sales and no
+     *  reviews or an average of 4.0+), attached by ListingController so
+     *  the grid card badge matches the stall and item page. Not persisted. */
+    @Transient
+    Boolean sellerVerified
+
     /** Seller's epoch-ms `lastSeenAt`, attached at serialization time by
      *  ListingController#decorateWithSellerLastSeen so the marketplace
      *  can render real "Online now" presence dots. Null when sellerUserId

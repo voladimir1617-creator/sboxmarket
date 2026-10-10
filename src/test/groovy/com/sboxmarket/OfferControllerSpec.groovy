@@ -206,6 +206,7 @@ class OfferControllerSpec extends Specification {
         authedSession(100L)
         1 * steamUserRepository.findById(100L) >> Optional.of(user)
         1 * offerService.makeOffer(100L, 'alice', 42L, new BigDecimal('20'), 'please') >> offer
+        offerService.computeExpiresAt(offer) >> 1234L
 
         when:
         def resp = controller.create(
@@ -213,7 +214,7 @@ class OfferControllerSpec extends Specification {
 
         then:
         resp.body == [id: 9L, status: 'PENDING',
-                      amount: new BigDecimal('20'), itemName: 'Chef Hat']
+                      amount: new BigDecimal('20'), itemName: 'Chef Hat', expiresAt: 1234L]
     }
 
     def "create() resolves the buyer id from the SESSION — not from the request body"() {

@@ -330,7 +330,7 @@ class CsrService {
         } catch (Exception ignored) { /* treat as unknown */ }
         boolean ownerBanned = (owner != null && Boolean.TRUE.equals(owner.banned))
         if (!ownerBanned) {
-            notificationService?.push(t.userId, 'SUPPORT_REPLY',
+            notificationService?.safePush(t.userId, 'SUPPORT_REPLY',
                 "New reply on ticket #${t.id}",
                 t.subject, t.id, '/support')
             // Email the user too (batch 475). The bell notification can sit

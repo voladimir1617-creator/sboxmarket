@@ -108,14 +108,14 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * tradeRepository.findById(7L) >> Optional.of(t)
         // no prior offer row
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> []
-        // buyer trade URL resolved once and reused for the mark-sent offer url
+        // buyer trade URL resolved once to address the offer
         1 * steamUserRepository.findById(2L) >> Optional.of(buyerWithUrl())
         1 * bot.sendOffer('https://steamcommunity.com/tradeoffer/new/?partner=2&token=abc', ['555'], 'sboxmarket delivery') >>
                 SteamBotResult.success([ok: true, offerId: '987', status: 'sent'])
         // offer recorded as an attempt row (authoritative offer store)
         1 * attemptRepository.save({ SteamDeliveryAttempt a -> a.steamOfferId == '987' && a.phase == 'SEND' && a.success })
-        // drives the EXISTING transition on the seller's behalf
-        1 * tradeService.sellerMarkSent(1L, 7L, 'https://steamcommunity.com/tradeoffer/new/?partner=2&token=abc')
+        // drives the EXISTING transition on the seller's behalf, linking the bot's offer
+        1 * tradeService.sellerMarkSent(1L, 7L, 'https://steamcommunity.com/tradeoffer/987/')
         1 * notificationService.safePush(2L, _, _, _, _, _)
     }
 
@@ -237,9 +237,8 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> [offerRow('987', 'active')]
         1 * bot.getOfferStatus('987') >> SteamBotResult.success([ok: true, offerId: '987', status: 'accepted'])
         _ * attemptRepository.save(_)
-        // mark-sent runs first (needs the buyer trade URL for the offer-url arg)
-        1 * steamUserRepository.findById(2L) >> Optional.of(buyerWithUrl())
-        1 * tradeService.sellerMarkSent(1L, 7L, _ as String)
+        // mark-sent runs first, linking the bot's own offer
+        1 * tradeService.sellerMarkSent(1L, 7L, 'https://steamcommunity.com/tradeoffer/987/')
         // then buyerConfirm on the re-loaded BUYER_CONFIRM trade
         1 * tradeService.buyerConfirm(2L, 7L)
     }

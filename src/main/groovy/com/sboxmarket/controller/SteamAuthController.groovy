@@ -57,6 +57,7 @@ class SteamAuthController {
      *  door is OPEN. */
     static final String DEV_LOGIN_NO_SEED_USERS = 'no seed users'
 
+    @Autowired(required = false) com.sboxmarket.config.ClientIpResolver clientIpResolver
     @Autowired SteamAuthService steamAuthService
     @Autowired SteamUserRepository steamUserRepository
     @Autowired(required = false) com.sboxmarket.service.AuditService auditService
@@ -461,18 +462,14 @@ class SteamAuthController {
         }
     }
 
-    private static String clientIp(HttpServletRequest req) {
-        def cf = req.getHeader('CF-Connecting-IP')
-        if (cf && !cf.trim().isEmpty()) return cf.trim().take(64)
-        def xff = req.getHeader('X-Forwarded-For')
-        if (xff) {
-            // First non-empty token — a crafted `,`/`,,` header is non-blank
-            // but splits to a zero-length array, so the old `split(',')[0]`
-            // threw ArrayIndexOutOfBoundsException.
-            for (String tok : xff.split(',')) {
-                def t = tok?.trim()
-                if (t) return t.take(64)
-            }
+    // The audit row this alert counts against stores the IP from
+    // ClientIpResolver, which only trusts forwarding headers from known
+    // proxies. Reading CF-Connecting-IP / X-Forwarded-For raw let a client
+    // name the victim's usual IP to silence the alert, or a random one to
+    // fire it on every login.
+    private String clientIp(HttpServletRequest req) {
+        if (clientIpResolver != null) {
+            try { return (clientIpResolver.resolve(req) ?: '').take(64) } catch (Exception ignored) { }
         }
         (req.remoteAddr ?: '').take(64)
     }

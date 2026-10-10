@@ -102,8 +102,10 @@ class OfferController {
             body.listingId, body.amount, body.message)
         // Batch 881 — include itemName so the frontend toast can render
         // "Offered $X on '<item>'" instead of a generic "Offer sent".
+        // expiresAt lets the toast name the real response window
+        // (offer.auto-decline-days), not a hard-coded 7 days.
         ResponseEntity.ok([id: offer.id, status: offer.status, amount: offer.amount,
-            itemName: offer.itemName])
+            itemName: offer.itemName, expiresAt: offerService.computeExpiresAt(offer)])
     }
 
     @PostMapping("/{id}/accept")

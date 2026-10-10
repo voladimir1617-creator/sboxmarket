@@ -179,7 +179,7 @@ class CsrServiceSpec extends Specification {
         msg.author == 'STAFF'
         msg.body == 'here is the answer'
         ticket.status == 'WAITING_USER'
-        1 * notificationService.push(10L, 'SUPPORT_REPLY', _, _, _, _)
+        1 * notificationService.safePush(10L, 'SUPPORT_REPLY', _, _, _, _)
     }
 
     def "reply writes a TICKET_REPLIED audit row (actor=CSR, subject=ticket owner)"() {

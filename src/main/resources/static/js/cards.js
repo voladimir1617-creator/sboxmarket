@@ -348,8 +348,8 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           const isOnline = listing.sellerLastSeenAt
             ? (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
             : false;
-          // Five 1★ reviews must not earn a check mark.
-          const isVerified = (listing.sellerReviewCount || 0) >= 5 && (listing.sellerRating || 0) >= 4;
+          // The server applies the stall's ✓ rule (10+ sales, rating 4+ or none).
+          const isVerified = listing.sellerVerified === true;
           const listedAgo = !isAuction && listing.listedAt ? 'Listed ' + timeAgo(listing.listedAt) : null;
           return h('div', { className: 'gc-card-meta' },
             h('div', {

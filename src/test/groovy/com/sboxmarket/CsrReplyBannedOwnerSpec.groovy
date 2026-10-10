@@ -91,6 +91,7 @@ class CsrReplyBannedOwnerSpec extends Specification {
 
         and: 'no bell push to a banned account'
         0 * notificationService.push(10L, _, _, _, _, _)
+        0 * notificationService.safePush(10L, 'SUPPORT_REPLY', _, _, _, _)
 
         and: 'no security email to a banned account, even though canSendSecurityTo says yes'
         0 * emailService.sendSupportReply(*_)
@@ -118,7 +119,7 @@ class CsrReplyBannedOwnerSpec extends Specification {
         service.reply(5L, 1L, 'here is the answer')
 
         then: 'both delivery channels fire for a non-banned owner'
-        1 * notificationService.push(10L, 'SUPPORT_REPLY', _, _, _, _)
+        1 * notificationService.safePush(10L, 'SUPPORT_REPLY', _, _, _, _)
         1 * emailService.sendSupportReply('alice@example.com', 'Active Alice', 1L, 'help', 'here is the answer')
     }
 }
