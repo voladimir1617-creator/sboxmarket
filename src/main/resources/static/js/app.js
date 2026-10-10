@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=236';
+} from './modals.js?v=237';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -4971,6 +4971,8 @@ export function App() {
   // filter state. Without this the URL-sync useEffect below would
   // immediately rewrite the URL with the previous in-memory state,
   // wiping the params the visitor just arrived with.
+  // The query string the market URL-sync last wrote (see below).
+  const lastSyncedSearchRef = useRef(null);
   useEffect(() => {
     if (routeName !== 'market' && routeName !== 'home') return;
     const params = new URLSearchParams(window.location.search);
@@ -4993,6 +4995,27 @@ export function App() {
         && (params.has('q') || params.has('search') || params.has('query'))) {
       navigate('/market' + (window.location.search || ''), true);
       return;
+    }
+    // Our own URL-sync below wrote this query string from current state, so
+    // there is nothing to read back (and reading it back mid-edit could undo
+    // a filter changed since).
+    if (window.location.search === lastSyncedSearchRef.current) return;
+    // A link that names any filter (breadcrumb, rarity chip, home rail)
+    // describes the whole view: filters it leaves out go back to their
+    // defaults instead of keeping what an earlier search left behind.
+    const FILTER_KEYS = ['q', 'search', 'query', 'category', 'rarity', 'min', 'max', 'minPrice', 'maxPrice',
+                         'type', 'listingType', 'deals', 'new', 'aff', 'discount'];
+    if (FILTER_KEYS.some(k => params.has(k))) {
+      const has = (...ks) => ks.some(k => params.has(k));
+      if (!has('q', 'search', 'query') && search) { setSearch(''); setSearchInput(''); }
+      if (!has('category') && category !== 'All') setCategory('All');
+      if (!has('rarity') && rarity !== 'All') setRarity('All');
+      if (!has('min', 'minPrice') && minPrice) setMinPrice('');
+      if (!has('max', 'maxPrice') && maxPrice) setMaxPrice('');
+      if (!has('type', 'listingType') && listingTypeFilter !== 'ALL') setListingTypeFilter('ALL');
+      if (!has('deals') && dealsOnly) setDealsOnly(false);
+      if (!has('new') && newOnly) setNewOnly(false);
+      if (!has('aff') && affordableOnly) setAffordableOnly(false);
     }
     const urlSort = params.get('sort');
     const urlCategory = params.get('category');
@@ -5045,6 +5068,7 @@ export function App() {
     }
     const q = qs.toString();
     const nextSearch = q ? '?' + q : '';
+    lastSyncedSearchRef.current = nextSearch;
     if (window.location.search !== nextSearch) {
       window.history.replaceState({}, '', window.location.pathname + nextSearch);
     }
@@ -5098,7 +5122,10 @@ export function App() {
         setListings(prev => {
           const prevIds = new Set(prev.map(l => l.id));
           const nextIds = new Set(data.map(l => l.id));
-          const soldCount = [...prevIds].filter(id => !nextIds.has(id)).length;
+          // With a full page, a row missing from the refresh may only have
+          // been pushed past row 100 by a new or re-priced listing, so it is
+          // not counted as sold. Only a short page shows every match.
+          const soldCount = data.length >= 100 ? 0 : [...prevIds].filter(id => !nextIds.has(id)).length;
           // Gated by the Settings > "Sale notifications" toggle. Default
           // is ON (sb_notifs absent or not 'false'); a user who muted
           // the toggle sees the grid update silently. Without this
