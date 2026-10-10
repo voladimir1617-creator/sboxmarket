@@ -76,7 +76,10 @@ class SteamBotResult {
 
     boolean isAccepted() { return ok && status == 'accepted' }
     boolean isSent() { return ok && (status == 'sent' || status == 'active' || status == 'pending') }
-    boolean isTerminalFailure() { return ok && (status == 'declined' || status == 'expired' || status == 'canceled' || status == 'canceled_2fa' || status == 'invalid_items') }
+    /** Steam offer states that end an offer without delivery. */
+    static final Set<String> TERMINAL_FAILURE_STATES = ['declined', 'expired', 'canceled', 'canceled_2fa', 'invalid_items'] as Set
+
+    boolean isTerminalFailure() { return ok && TERMINAL_FAILURE_STATES.contains(status) }
     boolean isInEscrow() { return ok && status == 'in_escrow' }
 
     @Override

@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=10';
+import { GridCard } from './cards.js?v=11';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -7583,16 +7583,20 @@ function ProfileTradesTab({ me, privacy }) {
     setChatDraft('');
     await loadChat(tradeId);
   };
+  // Synchronous latch: a quick double Enter fired two posts before the
+  // `chatSending` state update landed.
+  const chatSendingRef = useRef(false);
   const sendChat = async (tradeId) => {
     const body = chatDraft.trim();
-    if (!body) return;
+    if (!body || chatSendingRef.current) return;
+    chatSendingRef.current = true;
     setChatSending(true);
     try {
       const res = await postTradeMessage(tradeId, body);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Message not sent', 'err'); return; }
       setChatDraft('');
       await loadChat(tradeId);
-    } finally { setChatSending(false); }
+    } finally { chatSendingRef.current = false; setChatSending(false); }
   };
   // Review modal state — which trade we're reviewing, current star pick,
   // comment text, and whether the submit is in flight. Null = closed.
@@ -8892,7 +8896,8 @@ function ProfileTradesTab({ me, privacy }) {
                 // "Sent the trade" / "Give me 5 min", buyers see "Got it,
                 // thanks" / "Confirmed on my end". Trade-URL-missing state
                 // shows a prompt for it.
-                (() => {
+                // A completed trade's chat is read-only on the server (TRADE_CLOSED).
+                t.state !== 'VERIFIED' && (() => {
                   const isBuyer = me && t.buyerUserId === me.id;
                   const base = [
                     { l: 'Hey',          v: 'Hey — when you\'re ready.' },
@@ -8916,7 +8921,9 @@ function ProfileTradesTab({ me, privacy }) {
                     }, c.l))
                   );
                 })(),
-                h('div', { style: { display: 'flex', gap: 6 } },
+                t.state === 'VERIFIED'
+                  ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'This trade is complete, so the chat is read-only.')
+                  : h('div', { style: { display: 'flex', gap: 6 } },
                   h('input', {
                     className: 'chat-input',
                     style: { flex: 1 },
@@ -9967,7 +9974,8 @@ function ProfileReviewsTab({ me }) {
       // genuine server error surfaces the Retry card instead of a false "No reviews
       // yet". fetchReviewSummary already degrades gracefully, so it can't mask the err.
       const [rRes, sum] = await Promise.all([
-        fetch(`/api/reviews/user/${me.id}`, { credentials: 'same-origin' }),
+        // no-store: this reloads right after a reply, inside the 60s cache window.
+        fetch(`/api/reviews/user/${me.id}`, { credentials: 'same-origin', cache: 'no-store' }),
         fetchReviewSummary(me.id)
       ]);
       if (!rRes.ok && rRes.status !== 404) throw new Error('HTTP ' + rRes.status);
@@ -14180,6 +14188,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       // sequentially kept having to reach for the
                       // mouse to hit Save; keyboard parity cuts that
                       // to a typing-only flow.
+                      h('span', { style: { alignSelf: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' } }, 'USD'),
                       h('input', {
                         className: 'price-input',
                         value: editPrice,
@@ -14188,7 +14197,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                           if (e.key === 'Enter') { e.preventDefault(); saveEdit(l.id); }
                           else if (e.key === 'Escape') { e.preventDefault(); setEditing(null); }
                         },
-                        placeholder: 'price', style: { width: 90 },
+                        // The edit takes US dollars while the page shows the
+                        // viewer's currency; say so rather than let €10 be saved as $10.
+                        placeholder: 'price (USD)', style: { width: 90 },
+                        title: 'Enter the price in US dollars. Prices elsewhere on this page are converted to your display currency.',
+                        'aria-label': 'Price in US dollars',
                         autoFocus: true
                       }),
                       h('input', {

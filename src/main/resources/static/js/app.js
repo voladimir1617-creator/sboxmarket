@@ -11,13 +11,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow } from './cards.js?v=10';
+import { GridCard, ListingRow } from './cards.js?v=11';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=235';
+} from './modals.js?v=236';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -4018,12 +4018,15 @@ export function App() {
       if (res && !res.error && !res.code) {
         setReviewTradeId(null); setReviewText(''); setReviewStars(5);
         // Refresh reviews + eligibility so the UI reflects the new state.
-        const [reviews, eligible] = await Promise.all([
-          fetchReviewsForUser(route.params.id),
-          fetchEligibleReviews(route.params.id)
+        const [reviews, eligible, stall] = await Promise.all([
+          fetchReviewsForUser(route.params.id, { fresh: true }),
+          fetchEligibleReviews(route.params.id),
+          // The rating header comes from the stall payload; refresh it too.
+          fetchPublicStall(route.params.id, { fresh: true })
         ]);
         setStallReviews(reviews);
         setEligibleTrades(Array.isArray(eligible) ? eligible : []);
+        if (stall && !stall.__error) setStallData(stall);
         showToast('Review posted.', 'ok');
       } else {
         // Pre-fix: a backend rejection (already-reviewed, validation failure,
@@ -5445,9 +5448,12 @@ export function App() {
         loadWallet();
         return res;
       }
+      // The response window is configurable; read it from the offer.
+      const daysLeft = res.expiresAt ? Math.max(1, Math.round((Number(res.expiresAt) - Date.now()) / 86400000)) : null;
+      const windowBit = daysLeft ? ` — the seller has ${daysLeft} day${daysLeft === 1 ? '' : 's'} to respond.` : '.';
       const copy = itemName
-        ? `Offered ${fmt(n)} on "${itemName}" — the seller has 7 days to respond.`
-        : `Offered ${fmt(n)} — the seller has 7 days to respond.`;
+        ? `Offered ${fmt(n)} on "${itemName}"${windowBit}`
+        : `Offered ${fmt(n)}${windowBit}`;
       showToast(copy, 'ok');
     }
     return res;
@@ -8664,7 +8670,7 @@ export function App() {
                           // ships the reviewer's raw fromUserId (2026-05-21).
                           isAuthor: !!r.mine,
                           onSaved: async () => {
-                            const fresh = await fetchReviewsForUser(stallData.seller.id);
+                            const fresh = await fetchReviewsForUser(stallData.seller.id, { fresh: true });
                             setStallReviews(fresh);
                           }
                         }))

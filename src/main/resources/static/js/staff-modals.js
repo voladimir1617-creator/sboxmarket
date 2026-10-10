@@ -1830,7 +1830,11 @@ function AdminAuditTab() {
   // actor id, subject id) still drive the fetch so we don't scan rows we
   // don't need.
   const [textSearch, setTextSearch] = useState('');
+  // Each keystroke in the id boxes fires a fetch; only the newest reply may
+  // land, or typing "123" could finish on actor 1's rows.
+  const auditReqId = React.useRef(0);
   const load = useCallback(async () => {
+    const reqId = ++auditReqId.current;
     setRows(null);
     // Batch 556 — translate the chip's hours-ago value into a wall-clock
     // millis `since` value at fetch time. Done here (not in the chip's
@@ -1838,12 +1842,14 @@ function AdminAuditTab() {
     const sinceMs = filter.since
       ? (Date.now() - (parseInt(filter.since, 10) * 3_600_000))
       : null;
-    setRows(await adminAudit({
+    const result = await adminAudit({
       event:   filter.event   || null,
       actor:   filter.actor   || null,
       subject: filter.subject || null,
       since:   sinceMs || null
-    }));
+    });
+    if (reqId !== auditReqId.current) return;
+    setRows(result);
   }, [filter]);
   useEffect(() => { load(); }, [load]);
 
@@ -1885,8 +1891,8 @@ function AdminAuditTab() {
       h('select', { className: 'sort-select', 'aria-label': 'Filter by audit event', value: filter.event, onChange: e => setFilter(f => ({ ...f, event: e.target.value })) },
         EVENTS.map(ev => h('option', { key: ev || 'all', value: ev }, ev || 'All events'))
       ),
-      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', value: filter.actor, onChange: e => setFilter(f => ({ ...f, actor: e.target.value })) }),
-      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Subject user #id', value: filter.subject, onChange: e => setFilter(f => ({ ...f, subject: e.target.value })) }),
+      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', value: filter.actor, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, actor: e.target.value.replace(/\D/g, '') })) }),
+      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Subject user #id', value: filter.subject, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, subject: e.target.value.replace(/\D/g, '') })) }),
       // Batch 556 — date-horizon chips. Each chip stores its hours-ago
       // value; the load() callback translates to a wall-clock floor at
       // fetch time. "All time" clears the bound so the server returns
@@ -2733,7 +2739,15 @@ function AdminUsersTab({ me }) {
       h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 11 },
-        href: search ? `/api/admin/users.csv?search=${encodeURIComponent(search)}` : '/api/admin/users.csv',
+        // Carry the role / banned chip too: "Banned" used to export everyone.
+        href: (() => {
+          const p = new URLSearchParams();
+          if (search) p.set('search', search);
+          if (roleFilter === 'BANNED') p.set('banned', 'true');
+          else if (roleFilter !== 'ALL') { p.set('role', roleFilter); p.set('banned', 'false'); }
+          const qs = p.toString();
+          return '/api/admin/users.csv' + (qs ? '?' + qs : '');
+        })(),
         title: 'Export the current user list as a CSV'
       }, '⇣ CSV')
     ),

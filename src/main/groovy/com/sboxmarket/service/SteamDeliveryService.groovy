@@ -150,6 +150,13 @@ class SteamDeliveryService {
         Trade trade = tradeRepository.findById(tradeId).orElse(null)
         if (trade == null) return
         SteamDeliveryAttempt existingOffer = latestOfferAttempt(tradeId)
+        // A declined / expired / canceled offer was already reported once.
+        // Re-polling it every tick re-sent the same "offer was declined"
+        // notification to both sides every 30 seconds until the day-8 park.
+        if (existingOffer != null && existingOffer.phase == 'POLL' && existingOffer.success &&
+                SteamBotResult.TERMINAL_FAILURE_STATES.contains(existingOffer.offerState)) {
+            return
+        }
 
         if (trade.state == STATE_AWAITING_SEND) {
             if (existingOffer == null) {
@@ -209,7 +216,9 @@ class SteamDeliveryService {
             // public transition. Reuse the already-resolved partner trade URL as
             // the offer URL (it satisfies the steamcommunity.com/tradeoffer
             // validation and gives the buyer a one-click link).
-            advanceMarkSent(trade, tradeUrl)
+            // Link the buyer to the bot's actual offer; their own partner
+            // trade URL opened a new-trade page addressed to themselves.
+            advanceMarkSent(trade, res.offerId ? "https://steamcommunity.com/tradeoffer/${res.offerId}/".toString() : tradeUrl)
             safeNotifyBuyer(trade,
                 "A trade offer for your purchase (trade #${trade.id}) has been sent by our bot. Accept it in Steam to complete delivery.")
         } else {
@@ -242,7 +251,7 @@ class SteamDeliveryService {
             // If the trade is still SELLER_SEND (mark-sent never landed),
             // advance it first so buyerConfirm's state gate is satisfied.
             if (trade.state == STATE_AWAITING_SEND) {
-                advanceMarkSent(trade)
+                advanceMarkSent(trade, offer.steamOfferId ? "https://steamcommunity.com/tradeoffer/${offer.steamOfferId}/".toString() : null)
                 // Re-load: advanceMarkSent saved through TradeService.
                 trade = tradeRepository.findById(trade.id).orElse(trade)
             }

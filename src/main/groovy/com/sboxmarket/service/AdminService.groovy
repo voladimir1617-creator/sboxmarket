@@ -1155,6 +1155,17 @@ class AdminService {
             .orElseThrow { new NotFoundException("SteamUser", targetUserId) }
         user.sessionEpoch = System.currentTimeMillis()
         steamUserRepository.save(user)
+        // API keys are sessions too: one minted from a hijacked cookie kept
+        // working after "Sessions revoked". Same step ban and deletion take.
+        try {
+            apiKeyService?.revokeAll(targetUserId)
+        } catch (Exception e) {
+            log.warn("API key revoke on force-logout failed for user ${targetUserId}: ${e.message}")
+        }
+        notificationService?.safePush(targetUserId, 'SECURITY_ALERT',
+            "Signed out by staff",
+            "Support signed you out of every device and revoked your API keys. Sign in again with Steam to continue.",
+            null, '/profile/personal')
         auditService?.log(AuditService.USER_FORCE_LOGOUT, adminUserId, targetUserId, null,
             "Revoked all live sessions")
         log.warn("Admin ${adminUserId} force-logged-out user ${targetUserId} (${user.steamId64})")
@@ -1832,6 +1843,12 @@ class AdminService {
         // just re-signs in via Steam, so no user-facing breakage.
         target.sessionEpoch = System.currentTimeMillis()
         steamUserRepository.save(target)
+        // A compromise recovery: keys minted by whoever held the account go too.
+        try {
+            apiKeyService?.revokeAll(targetUserId)
+        } catch (Exception e) {
+            log.warn("API key revoke on 2FA reset failed for user ${targetUserId}: ${e.message}")
+        }
         def cleanNote = textSanitizer.medium(note) ?: '(no note)'
         notificationService?.safePush(targetUserId, 'TWOFA_RESET',
             "Your 2FA was reset by staff",
@@ -2507,7 +2524,7 @@ class AdminService {
         } catch (Exception ignored) { /* treat as unknown */ }
         boolean ownerBanned = (owner != null && Boolean.TRUE.equals(owner.banned))
         if (!ownerBanned) {
-            notificationService?.push(t.userId, 'SUPPORT_REPLY',
+            notificationService?.safePush(t.userId, 'SUPPORT_REPLY',
                 "New reply on ticket #${t.id}",
                 t.subject, t.id, '/support')
         }

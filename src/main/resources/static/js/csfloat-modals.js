@@ -112,6 +112,19 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+  // Keep ?q= in step with the search, so a refresh or a shared link shows
+  // what's on screen (clearing the box used to bring the old q back).
+  useEffect(() => {
+    try {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return;
+      const params = new URLSearchParams(window.location.search);
+      const q = (search || '').trim();
+      if ((params.get('q') || '') === q) return;
+      if (q) params.set('q', q); else params.delete('q');
+      const qs = params.toString();
+      window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
+    } catch (_) { /* history unavailable */ }
+  }, [search]);
   const [category, setCat]    = useState('All');
   const [rarity, setRar]      = useState('All');
   const [sort, setSort]       = useState('rarest');

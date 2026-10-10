@@ -860,15 +860,39 @@ class ListingController {
         // every page of new sellers) presence was never attached and every
         // card read "Offline" while its seller was on the site.
         decorateWithSellerLastSeen(rows, sellerIds)
-        if (reviewService == null) return
-        def summaries = reviewService.summariesForUsers(sellerIds)
-        if (summaries == null || summaries.isEmpty()) return
+        def summaries = reviewService != null ? (reviewService.summariesForUsers(sellerIds) ?: [:]) : [:]
         rows.each { l ->
             def s = l.sellerUserId == null ? null : summaries[l.sellerUserId]
             if (s != null) {
                 l.sellerRating       = s.average == null ? null : (s.average as Double)
                 l.sellerReviewCount  = (s.count as Number)?.intValue()
             }
+        }
+        decorateWithSellerVerified(rows, sellerIds, summaries)
+    }
+
+    /** Same ✓ rule as the stall and /api/sellers/verified: 10+ real sales
+     *  and (no reviews or an average of 4.0+). The card used its own rule
+     *  (5+ reviews at 4+), so a seller could be verified on one and not
+     *  the other. One GROUP BY for the whole page. */
+    private void decorateWithSellerVerified(List<Listing> rows, Set<Long> sellerIds, Map summaries) {
+        def listingRepository = listingService?.listingRepository
+        if (listingRepository == null || sellerIds == null || sellerIds.isEmpty()) return
+        Map<Long, Long> sold = [:]
+        try {
+            (listingRepository.countSoldByMultipleSellers(sellerIds as List<Long>) ?: []).each { row ->
+                sold[(row[0] as Long)] = (row[1] as Number).longValue()
+            }
+        } catch (Exception e) {
+            log.debug("seller sold-count decoration failed: ${e.message}")
+            return
+        }
+        rows.each { l ->
+            if (l.sellerUserId == null) return
+            def s = summaries ? summaries[l.sellerUserId] : null
+            long reviews = s?.count != null ? (s.count as Number).longValue() : 0L
+            boolean ratingOk = reviews == 0L || (s?.average != null && (s.average as Double) >= 4.0d)
+            l.sellerVerified = (sold[l.sellerUserId] ?: 0L) >= 10L && ratingOk
         }
     }
 

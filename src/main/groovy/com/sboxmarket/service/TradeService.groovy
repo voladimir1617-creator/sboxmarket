@@ -1196,6 +1196,15 @@ class TradeService {
                 "Seller has already marked the Steam trade offer as sent. " +
                 "If you didn't receive the item or the wrong item arrived, open a dispute instead.")
         }
+        // Same hole on a bot-delivered trade: the bot can send the Steam offer
+        // before the trade leaves PENDING_SELLER_SEND (mark-sent failed or is
+        // pending). A cancel then refunded the buyer while the offer was still
+        // open for them to accept. Staff can still force-cancel.
+        if (!isAdmin && t.state == 'PENDING_SELLER_SEND' && botOfferInFlight(t)) {
+            throw new BadRequestException("OFFER_IN_FLIGHT",
+                "Our bot has already sent the Steam trade offer for this trade. " +
+                "If something is wrong, open a dispute instead.")
+        }
 
         // Anti-double-payout guard. If this trade was disputed first,
         // dispute() already fired Trade Protection's autoClaim — which
@@ -1789,6 +1798,12 @@ class TradeService {
      *  the proxy. */
     @Transactional
     protected void autoCancelStaleSellerTrade(Trade trade) {
+        // A bot offer is out (or was accepted): refunding now could leave the
+        // buyer with the item and the money. Hold it for staff instead.
+        if (botOfferInFlight(trade)) {
+            parkUndeliveredTrade(trade)
+            return
+        }
         // Trade Protection arbiter (batch 1083) — mirror cancel(): hold the
         // protection row lock while deciding refund-vs-skip so a concurrent
         // dispute autoClaim (its own committed REQUIRES_NEW credit, which the
@@ -1978,6 +1993,23 @@ class TradeService {
      * is how the delivery defect above stayed invisible in the first place.
      * With no bot there are no offer rows anyway, so this costs nothing.
      */
+    /** True when the bot has sent a Steam offer for this trade that has not
+     *  failed (declined / expired / canceled): the buyer can still take, or
+     *  has taken, the item. False with no delivery log or no offer row. */
+    protected boolean botOfferInFlight(Trade t) {
+        try {
+            if (t?.id == null || steamDeliveryAttemptRepository == null) return false
+            def rows = steamDeliveryAttemptRepository.findLatestWithOffer(
+                    t.id, org.springframework.data.domain.PageRequest.of(0, 1))
+            if (rows == null || rows.isEmpty()) return false
+            String state = rows.get(0)?.offerState?.toLowerCase()
+            return !(state in SteamBotResult.TERMINAL_FAILURE_STATES)
+        } catch (Exception e) {
+            log.warn("Trade #{}: delivery log unreadable ({}) while checking for a live bot offer", t?.id, e.message)
+            return false
+        }
+    }
+
     protected String acceptedDeliveryStateFor(Trade t) {
         try {
             if (t?.id == null) return null
