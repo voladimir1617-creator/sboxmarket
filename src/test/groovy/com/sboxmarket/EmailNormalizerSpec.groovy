@@ -139,9 +139,12 @@ class EmailNormalizerSpec extends Specification {
         given: 'an existing account on the canonical Gmail mailbox owned by uid=42'
         authedSession(100L)
         def caller = new SteamUser(id: 100L, steamId64: '1', emailVerificationToken: null)
+        // Verified: an expired, never-verified claim no longer blocks the
+        // real owner (DefectPassFifteenSpec), so the holder here proved it.
         def squatter = new SteamUser(id: 42L, steamId64: '2',
             email: 'voladimir1617@gmail.com',
-            canonicalEmail: 'voladimir1617@gmail.com')
+            canonicalEmail: 'voladimir1617@gmail.com',
+            emailVerified: true)
         steamUserRepository.findById(100L) >> Optional.of(caller)
         // The canonical lookup MUST return the existing row for every
         // alias that collapses to the same key — that's the whole point

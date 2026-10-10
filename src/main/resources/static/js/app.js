@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=238';
+} from './modals.js?v=239';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -3608,11 +3608,14 @@ export function App() {
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`/api/items?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
-        if (!alive || !r.ok) return;
+        if (!alive) return;
+        // A failed lookup (429, 5xx) must not leave the previous query's
+        // items under the new text, where Enter would open one of them.
+        if (!r.ok) { setSuggest([]); return; }
         const items = await r.json();
         if (!alive) return;
         setSuggest(Array.isArray(items) ? items.slice(0, 8) : []);
-      } catch (_) {}
+      } catch (_) { if (alive) setSuggest([]); }
     }, 180);
     return () => { alive = false; clearTimeout(t); };
   }, [searchInput]);
