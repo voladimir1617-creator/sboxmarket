@@ -842,6 +842,31 @@ class OfferServiceSpec extends Specification {
         counter.status == 'ACCEPTED'
     }
 
+    def "a buyer accepting the seller's counter is not told their offer was accepted"() {
+        given:
+        def counter = new Offer(
+            id: 5L, listingId: 100L, buyerUserId: 10L, sellerUserId: 99L,
+            amount: new BigDecimal("45"), askingPrice: new BigDecimal("50"),
+            status: 'PENDING', author: 'SELLER')
+        def listing = activeListing(price: new BigDecimal("50"))
+        def buyer   = new SteamUser(id: 10L, steamId64: '111')
+        def wallet  = new Wallet(id: 500L, balance: new BigDecimal("500"))
+        offerRepository.findById(5L) >> Optional.of(counter)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_111') >> wallet
+        offerRepository.findPendingForListing(100L) >> []
+        offerRepository.save(_) >> { Offer o -> o }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.acceptOffer(10L, 5L)
+
+        then:
+        0 * notificationService.push(10L, 'OFFER_ACCEPTED', _, _, _, _)
+        counter.status == 'ACCEPTED'
+    }
+
     def "acceptOffer on a SELLER counter closes the buyer's COUNTERED original (P1 bug fix)"() {
         // Accepting the counter is the counter's HAPPY-PATH terminal
         // state — yet it was the one terminal transition that never ran

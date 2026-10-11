@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=241';
+} from './modals.js?v=242';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -229,7 +229,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   const [helpfulCount, setHelpfulCount] = useState(Number(review.helpfulCount || 0));
   const [hasVoted, setHasVoted]         = useState(!!review.viewerHasVoted);
   const [voteBusy, setVoteBusy]         = useState(false);
-  const canVote = !!me && !isAuthor;
+  // The server refuses votes on reviews of your own stall (SELF_VOTE) too.
+  const canVote = !!me && !isAuthor && !isOwner;
   const toggleHelpful = async () => {
     if (!canVote || voteBusy) return;
     // Optimistic update — flip the state immediately so the click

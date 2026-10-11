@@ -335,7 +335,7 @@ class CsrService {
         if (!ownerBanned) {
             notificationService?.safePush(t.userId, 'SUPPORT_REPLY',
                 "New reply on ticket #${t.id}",
-                t.subject, t.id, '/support')
+                t.subject, t.id, "/support?ticket=${t.id}".toString())
             // Email the user too (batch 475). The bell notification can sit
             // unread for hours; an email lands in the user's inbox so they
             // know to come back. Gated on email + verified — same pattern

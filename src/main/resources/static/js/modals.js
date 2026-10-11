@@ -7518,6 +7518,19 @@ function ProfileTradesTab({ me, privacy }) {
     setRoleFilter(v);
     try { localStorage.setItem('sb_trade_role', v); } catch (_) {}
   };
+  // A bell deep link must land on a visible row: the saved role filter or
+  // "Collapse active" would otherwise hide it and the click does nothing.
+  const revealTrade = (id) => {
+    const t = (trades || []).find(x => x.id === id);
+    if (!t) return;
+    const pending = ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state);
+    if (collapseActive && pending) setCollapseActive(false);
+    if (filter !== 'ALL') setFilter('ALL');
+    if (roleFilter !== 'all') setRole('all');
+    setTradeSearch('');
+    setTradeDateFrom(null);
+    setTradeDateTo(null);
+  };
   // Search box for the trade list (batch 374). Case-insensitive match
   // against item name + counterparty display. Helpful when a user with
   // 100+ historical trades needs to find "that hat I sold last month."
@@ -7560,6 +7573,7 @@ function ProfileTradesTab({ me, privacy }) {
       const id = parseInt(target, 10);
       if (!Number.isFinite(id)) return;
       if (!trades.some(t => t.id === id)) return;  // Not a trade this user is in
+      revealTrade(id);
       setOpenChat(id);
       setChatDraft('');
       loadChat(id);
@@ -7583,19 +7597,19 @@ function ProfileTradesTab({ me, privacy }) {
       const id = parseInt(target, 10);
       if (!Number.isFinite(id)) return;
       if (!trades.some(t => t.id === id)) return;
-      const el = document.getElementById('trade-' + id);
-      if (el) {
-        // Delay by one frame so React's current render flushes to the
-        // DOM before we measure + scroll. Smooth scroll feels more
-        // deliberate than an instant jump; flash uses the existing
-        // `--accent` token so the color matches the site theme.
-        requestAnimationFrame(() => {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          el.style.transition = 'box-shadow 0.25s ease';
-          el.style.boxShadow = '0 0 0 2px var(--accent), 0 0 24px rgba(30,165,255,0.4)';
-          setTimeout(() => { el.style.boxShadow = ''; }, 1800);
-        });
-      }
+      revealTrade(id);
+      // Delay by a couple of frames so the filter reset above renders
+      // the row before we measure + scroll. Smooth scroll feels more
+      // deliberate than an instant jump; flash uses the existing
+      // `--accent` token so the color matches the site theme.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const el = document.getElementById('trade-' + id);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.transition = 'box-shadow 0.25s ease';
+        el.style.boxShadow = '0 0 0 2px var(--accent), 0 0 24px rgba(30,165,255,0.4)';
+        setTimeout(() => { el.style.boxShadow = ''; }, 1800);
+      }));
       qs.delete('highlight');
       const next = qs.toString();
       window.history.replaceState({}, '', window.location.pathname + (next ? '?' + next : ''));
@@ -7867,12 +7881,12 @@ function ProfileTradesTab({ me, privacy }) {
     let rows = filter === 'ALL'
       ? trades
       : filter === 'OPEN'
-        ? trades.filter(t => !['VERIFIED','CANCELLED'].includes(t.state))
+        ? trades.filter(t => ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state))
         : trades.filter(t => t.state === filter);
     // Collapse active — drop every PENDING_* row, leaving only the
     // settled states. Only applies when the state filter isn't already
     // narrowing to a pending bucket (which would zero the list).
-    if (collapseActive) {
+    if (collapseActive && (filter === 'ALL' || filter === 'VERIFIED' || filter === 'DISPUTED' || filter === 'CANCELLED')) {
       rows = rows.filter(t => !['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state));
     }
     return rows;
@@ -8271,13 +8285,14 @@ function ProfileTradesTab({ me, privacy }) {
             : h('div', null,
                 h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                   'No trades match this filter.'),
-                (filter !== 'ALL' || roleFilter !== 'all' || tradeSearch || tradeDateFrom != null || tradeDateTo != null)
+                (filter !== 'ALL' || roleFilter !== 'all' || collapseActive || tradeSearch || tradeDateFrom != null || tradeDateTo != null)
                   && h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 12 },
                     onClick: () => {
                       setFilter('ALL');
-                      setRoleFilter('all');
+                      setRole('all');
+                      setCollapseActive(false);
                       setTradeSearch('');
                       setTradeDateFrom(null);
                       setTradeDateTo(null);
@@ -9676,7 +9691,12 @@ function ProfileOffersTab() {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '5px 10px', fontSize: 11 },
                   disabled: busy,
-                  onClick: () => { setCounterFor(o.id); setCounterAmt(((parseFloat(o.amount) || 0) + 1).toFixed(2)); },
+                  onClick: () => {
+                    // A raise must stay under the ask; +$1 often isn't.
+                    const amt = parseFloat(o.amount) || 0, ask = parseFloat(o.askingPrice);
+                    setCounterFor(o.id);
+                    setCounterAmt((ask > amt ? Math.min(amt + 1, (amt + ask) / 2) : amt + 1).toFixed(2));
+                  },
                   title: 'Raise your offer without waiting for the seller'
                 }, '↑ Raise'),
                 h('button', {
@@ -14585,7 +14605,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       const paid = res?.finalPrice != null ? res.finalPrice : o?.amount;
       const amtBit = paid != null ? ` at ${fmt(parseFloat(paid))}` : '';
-      const buyerBit = o?.buyerName ? ` from ${o.buyerName}` : '';
+      // A SELLER-authored row is a counter the viewer (the buyer) accepted,
+      // so "from <buyerName>" would name the viewer.
+      const buyerBit = o?.author !== 'SELLER' && o?.buyerName ? ` from ${o.buyerName}` : '';
       toast(`Accepted ${label}${amtBit}${buyerBit} — trade opened.`, 'ok');
     } finally { setBusy(false); }
   };
@@ -14950,7 +14972,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                         style: { border: '1px solid var(--border)', color: 'var(--accent)', padding: '7px 11px', fontSize: 11 },
                         onClick: () => {
                           setCounterFor(offer.id);
-                          setCounterAmt((parseFloat(offer.amount) + 1).toFixed(2));
+                          // A raise must stay under the ask; +$1 often isn't.
+                          const amt = parseFloat(offer.amount) || 0, ask = parseFloat(offer.askingPrice);
+                          setCounterAmt((ask > amt ? Math.min(amt + 1, (amt + ask) / 2) : amt + 1).toFixed(2));
                         }, disabled: busy,
                         title: 'Raise your own offer'
                       }, 'Raise'),
