@@ -34,6 +34,7 @@ class WatchlistAlertService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
+    @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
 
     /** Hard cap per user. Protects the sweeper from one-user-creates-
      *  a-million-alerts abuse and keeps the watchlist UI sane. */
@@ -378,6 +379,17 @@ class WatchlistAlertService {
             // mutation of the alert object. Mirroring the flip on the
             // in-memory entity keeps callers and unit-test assertions
             // ("a.status == 'FIRED'") agreeing with the row in the DB.
+            // The user's own listing is not a price drop for them. If it is
+            // what reached the target, wait for another seller's listing
+            // instead of using the alert up on it.
+            if (listingRepository != null && a.targetPrice != null) {
+                BigDecimal own = listingRepository.minPriceForItemBySeller(a.itemId, a.userId)
+                if (own != null && own.compareTo(a.targetPrice) <= 0) {
+                    BigDecimal others = listingRepository.minPriceForItemExcludingSeller(a.itemId, a.userId)
+                    if (others == null || others.compareTo(a.targetPrice) > 0) return false
+                    currentFloor = others
+                }
+            }
             long nowMs = System.currentTimeMillis()
             int claimed = repo.claimForFiring(a.id, nowMs)
             if (claimed <= 0) {

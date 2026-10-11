@@ -36,8 +36,12 @@ export function InfoModal({ title, onClose, children, wide }) {
   useEffect(() => {
     const prev = document.activeElement;
     // Defer one tick so React has committed the DOM.
+    // On a full-page route the panel is the page itself: it is not a
+    // popup, so don't steal focus to ✕ and don't trap Tab inside it (the
+    // trap made the header nav, search and footer unreachable by keyboard).
+    const isPage = () => !!document.querySelector('.site-root.full-page-mode');
     const id = requestAnimationFrame(() => {
-      if (closeRef.current) {
+      if (closeRef.current && !isPage()) {
         try { closeRef.current.focus({ preventScroll: true }); }
         catch { closeRef.current.focus(); }
       }
@@ -74,7 +78,7 @@ export function InfoModal({ title, onClose, children, wide }) {
       // Focus trap: aria-modal alone does NOT keep Tab inside the dialog,
       // so without this a keyboard user tabs straight out into the
       // background page. Cycle focus across the panel's focusables.
-      if (e.key === 'Tab' && panelRef.current) {
+      if (e.key === 'Tab' && panelRef.current && !isPage()) {
         // Filter out hidden elements: a modal body can hold conditionally
         // styled or collapsed-section controls. Calling .focus() on a
         // display:none / zero-size element silently no-ops, which would

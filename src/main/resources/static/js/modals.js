@@ -11107,7 +11107,16 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const toggleBulk = (assetId) => {
     setBulkSelected(prev => {
       const next = new Set(prev);
-      if (next.has(assetId)) next.delete(assetId); else next.add(assetId);
+      if (next.has(assetId)) next.delete(assetId);
+      else {
+        // The server lists at most 20 per call and rejects the whole batch
+        // past that, so stop at 20 here instead of failing on submit.
+        if (next.size >= 20) {
+          toast('You can list up to 20 items at once.', 'warn');
+          return prev;
+        }
+        next.add(assetId);
+      }
       return next;
     });
   };
@@ -16136,7 +16145,10 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   // the `busy` state flag is async, leaving a rapid-double-click window that
   // could fire two withdrawal/deposit POSTs. This ref latches synchronously.
   const submittingRef = useRef(false);
-  useDialogA11y(panelRef, onClose);
+  // /wallet is a full-page route, so the popup behaviour (Escape leaves
+  // the page, focus pulled to the first control on every 8s balance poll)
+  // is off, as on the item page.
+  useDialogA11y(panelRef, onClose, false);
   const [totpCode, setTotpCode] = useState('');
   const [busy, setBusy]     = useState(false);
   const [error, setError]   = useState('');
