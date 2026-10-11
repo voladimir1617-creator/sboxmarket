@@ -116,6 +116,7 @@ interface TradeMessageRepository extends JpaRepository<TradeMessage, Long> {
           AND (t.buyerUserId = :uid OR t.sellerUserId = :uid)
           AND m.senderUserId <> :uid
           AND m.readAt IS NULL
+          AND t.state <> 'CANCELLED'
     """)
     long countUnreadForUser(@Param('uid') Long userId)
 

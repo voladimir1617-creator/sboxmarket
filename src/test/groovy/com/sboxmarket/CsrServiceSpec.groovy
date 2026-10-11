@@ -355,7 +355,7 @@ class CsrServiceSpec extends Specification {
         then:
         1 * notificationService.safePush(99L, 'TICKET_CLOSED',
             { String title -> title.contains('#7') && title.contains('resolved') },
-            'Trade did not arrive', 7L, '/support')
+            'Trade did not arrive', 7L, '/support?ticket=7')
     }
 
     def "close rejects an already-RESOLVED ticket (no silent re-resolve)"() {

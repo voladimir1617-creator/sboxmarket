@@ -324,6 +324,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // auctions from different sellers; the row's Bid button picks one,
   // otherwise the first (cheapest) auction is shown.
   const [selectedAuctionId, setSelectedAuctionId] = useState(null);
+  // `/item/<id>?listing=<auctionId>` from an outbid or ending-soon bell
+  // entry: show that auction, not the first one on the item.
+  useEffect(() => {
+    try {
+      const lid = Number(new URLSearchParams(window.location.search).get('listing'));
+      if (Number.isFinite(lid) && lid > 0) setSelectedAuctionId(lid);
+    } catch (_) { /* no listing in the URL */ }
+  }, [item?.id, window.location.search]);
   // Phone item pages: once the Buy / Cart row scrolls off the top, a slim
   // bar pinned above the bottom navigation keeps the price and Buy in
   // reach. Desktop already keeps the whole right rail sticky, so the bar
@@ -1621,7 +1629,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         thread && thread.length > 0 && h('div', null,
           h('h2', { className: 'modal-section-title' }, h('div', { className: 'section-title-dot' }), `Offer thread (${thread.length})`),
           h('div', { className: 'item-offer-thread' },
-            thread.slice(-8).map(o => h('div', {
+            // The thread arrives newest first: keep the 8 newest (the live offer
+            // and its counters) and show them oldest to newest.
+            thread.slice(0, 8).reverse().map(o => h('div', {
               key: o.id,
               className: `item-offer-bubble ${o.author === 'SELLER' ? 'seller' : 'buyer'} ${o.status !== 'PENDING' ? 'past' : ''}`
             },
@@ -7530,6 +7540,11 @@ function ProfileTradesTab({ me, privacy }) {
   const loadChat = async (tradeId) => {
     const rows = await fetchTradeMessages(tradeId);
     setChatThreads(prev => ({ ...prev, [tradeId]: rows }));
+    // Fetching the thread marks it read on the server; drop the row's
+    // badge too so it doesn't come back when the chat is hidden.
+    setTrades(prev => Array.isArray(prev)
+      ? prev.map(x => x.id === tradeId && x.unreadCount ? { ...x, unreadCount: 0 } : x)
+      : prev);
   };
   // Deep-link: if the URL carries `?openChat=<id>` (set by the TRADE_MESSAGE
   // notification's path), auto-open that trade's chat panel and load the
@@ -8935,8 +8950,11 @@ function ProfileTradesTab({ me, privacy }) {
                     }, c.l))
                   );
                 })(),
-                t.state === 'VERIFIED'
-                  ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'This trade is complete, so the chat is read-only.')
+                (t.state === 'VERIFIED' || t.state === 'CANCELLED')
+                  ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+                      t.state === 'CANCELLED'
+                        ? 'This trade was cancelled, so the chat is read-only.'
+                        : 'This trade is complete, so the chat is read-only.')
                   : h('div', { style: { display: 'flex', gap: 6 } },
                   h('input', {
                     className: 'chat-input',
@@ -10503,6 +10521,21 @@ function ProfileSupportTab() {
   const openTicket = async (id) => {
     setViewing(await fetchSupportTicket(id));
   };
+  // `/support?ticket=<id>` from a "ticket closed" bell entry: open that
+  // ticket and show every status, since the default filter hides
+  // resolved tickets.
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const id = Number(qs.get('ticket'));
+      if (!Number.isFinite(id) || id <= 0) return;
+      setStatusFilter('ALL');
+      openTicket(id);
+      qs.delete('ticket');
+      const next = qs.toString();
+      window.history.replaceState({}, '', window.location.pathname + (next ? '?' + next : ''));
+    } catch (_) { /* no ticket in the URL */ }
+  }, [window.location.search]);
 
   const submitCreate = async () => {
     if (!form.subject.trim() || !form.body.trim()) return;

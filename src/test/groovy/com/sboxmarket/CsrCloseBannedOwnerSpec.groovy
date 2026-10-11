@@ -99,6 +99,6 @@ class CsrCloseBannedOwnerSpec extends Specification {
         service.close(5L, 1L)
 
         then: 'bell push fires for a non-banned owner'
-        1 * notificationService.safePush(10L, 'TICKET_CLOSED', _, _, 1L, '/support')
+        1 * notificationService.safePush(10L, 'TICKET_CLOSED', _, _, 1L, '/support?ticket=1')
     }
 }
