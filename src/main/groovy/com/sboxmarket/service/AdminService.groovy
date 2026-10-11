@@ -908,10 +908,8 @@ class AdminService {
 
     /** Batch 765 — listUsers with role + banned filters. `role` is one
      *  of "USER", "ADMIN", "CSR", or null/blank for any. `banned` is
-     *  TRUE / FALSE / null (any). `search` still takes precedence over
-     *  the filter path — a staff member typing a query should see
-     *  search hits regardless of role/banned state, matching the
-     *  principle-of-least-surprise. */
+     *  TRUE / FALSE / null (any). With a `search` the role / banned
+     *  filters narrow the search hits, matching the chip on screen. */
     List<SteamUser> listUsers(String search, String role, Boolean banned) {
         def sort = org.springframework.data.domain.Sort.by(
             org.springframework.data.domain.Sort.Direction.DESC, 'createdAt')
@@ -919,7 +917,14 @@ class AdminService {
         if (search) {
             // Escape LIKE wildcards to match the query's ESCAPE '\\' clause.
             def likeQ = search.trim().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
-            return steamUserRepository.searchByNameOrSteamId(likeQ, page)
+            def hits = steamUserRepository.searchByNameOrSteamId(likeQ, page)
+            // Apply the role / banned chips to search hits too, so the CSV
+            // export of a filtered search matches what the screen shows.
+            def wantRole = (role == null || role.isBlank()) ? null : role.trim().toUpperCase()
+            return hits.findAll { u ->
+                (wantRole == null || (u.role ?: 'USER').toUpperCase() == wantRole) &&
+                (banned == null || ((u.banned ?: false) as boolean) == banned)
+            }
         }
         def roleFilter = (role == null || role.isBlank()) ? 'ANY' : role.trim().toUpperCase()
         // Drop the filter path + hit findAll(page) when no filters are

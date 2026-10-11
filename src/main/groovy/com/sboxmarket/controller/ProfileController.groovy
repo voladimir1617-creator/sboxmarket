@@ -194,6 +194,15 @@ class ProfileController {
      * the caller's first attempt past the expiry).
      */
     private void check2faLockout(Long uid) {
+        // The withdraw gate counts failures in TotpService; honour that
+        // lockout here too so a session locked out on withdraw can't keep
+        // guessing on /2fa/disable with a fresh budget.
+        long sharedMs = totpService?.lockoutRemainingMs(uid) ?: 0L
+        if (sharedMs > 0L) {
+            long sec = Math.max(1L, (sharedMs / 1000L) as long)
+            throw new BadRequestException("TWOFA_LOCKED",
+                "Too many failed two-factor attempts. Try again in ${sec}s.")
+        }
         def entry = TWOFA_FAILS.get(uid)
         if (entry == null) return
         long count = entry[0]
@@ -221,6 +230,7 @@ class ProfileController {
      *  via a coarse size check — when over cap we drop the entry rather
      *  than allowing the map to grow without bound under a wide-id sweep. */
     private void record2faFail(Long uid) {
+        totpService?.recordFail(uid)
         long now = System.currentTimeMillis()
         // Bounded map — once over cap, refuse to track new entries. The
         // global IP-level rate limit (20/10s on /api/profile) is the
@@ -244,6 +254,7 @@ class ProfileController {
      *  stale counter on their next legit attempt. */
     private void clear2faFails(Long uid) {
         TWOFA_FAILS.remove(uid)
+        totpService?.clearFails(uid)
     }
 
     @GetMapping("/me")

@@ -192,8 +192,13 @@ class TotpService {
      */
     String consumeRecoveryCode(String storedHashes, String candidate) {
         if (!storedHashes || !candidate) return null
-        def normalized = candidate.trim().toLowerCase().replaceAll(/[^0-9a-z-]/, '')
+        def normalized = candidate.trim().toLowerCase().replaceAll(/[^0-9a-z]/, '')
         if (!normalized) return null
+        // Codes are hashed in their printed xxxx-xxxx-xxxx form; rebuild the
+        // hyphens so a code typed without them (or with spaces) still matches.
+        if (normalized.size() == 12) {
+            normalized = normalized[0..3] + '-' + normalized[4..7] + '-' + normalized[8..11]
+        }
         def wantHash = sha256Hex(normalized)
         def parts = storedHashes.split(/\s+/).findAll { it }
         // Match with a constant-time compare so a timing side-channel can't
