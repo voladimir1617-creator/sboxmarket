@@ -219,6 +219,29 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     BigDecimal minPriceForItem(@Param("itemId") Long itemId)
 
+    /** Same floor, split by seller: the price alert check needs to know
+     *  whether the floor that reached a target is the alert owner's own
+     *  listing. */
+    @Query("""
+        SELECT MIN(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL
+                        THEN l.currentBid ELSE l.price END) FROM Listing l
+        WHERE l.item.id = :itemId
+          AND l.status = 'ACTIVE'
+          AND (l.hidden IS NULL OR l.hidden = false)
+          AND l.sellerUserId = :sellerId
+    """)
+    BigDecimal minPriceForItemBySeller(@Param("itemId") Long itemId, @Param("sellerId") Long sellerId)
+
+    @Query("""
+        SELECT MIN(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL
+                        THEN l.currentBid ELSE l.price END) FROM Listing l
+        WHERE l.item.id = :itemId
+          AND l.status = 'ACTIVE'
+          AND (l.hidden IS NULL OR l.hidden = false)
+          AND (l.sellerUserId IS NULL OR l.sellerUserId <> :sellerId)
+    """)
+    BigDecimal minPriceForItemExcludingSeller(@Param("itemId") Long itemId, @Param("sellerId") Long sellerId)
+
     /** Live ACTIVE-listing count for one item — drives the 60s `supply`
      *  reconcile in ListingFloorRefreshService. `Item.supply` is a
      *  denormalised display field (item-modal "Supply" stat, /db Supply

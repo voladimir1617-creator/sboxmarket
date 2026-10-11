@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=240';
+} from './modals.js?v=241';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -4743,6 +4743,9 @@ export function App() {
       const tag = (e.target?.tagName || '').toLowerCase();
       // Ignore keys typed inside any input/textarea/select/contenteditable
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
+      // Single-key shortcuts only: Ctrl/Cmd+V must paste, not flip the
+      // grid view, and Cmd+G must not arm the "g" prefix.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === '/') {
         e.preventDefault();
         const el = document.querySelector('.search-input');
@@ -5023,6 +5026,10 @@ export function App() {
       if (!has('deals') && dealsOnly) setDealsOnly(false);
       if (!has('new') && newOnly) setNewOnly(false);
       if (!has('aff') && affordableOnly) setAffordableOnly(false);
+      // The URL leaves sort out when it is the default (High→Low), so a
+      // shared link without one means High→Low, not the viewer's own
+      // remembered sort.
+      if (!has('sort') && sort !== 'price_desc') setSort('price_desc');
     }
     const urlSort = params.get('sort');
     const urlCategory = params.get('category');
@@ -5180,7 +5187,11 @@ export function App() {
         maxPrice: cleanPriceParam(maxPrice),
         search:   (search || '').trim() || null,
         limit:    100,
-        offset:   listings.length
+        // Overlap the last page by 25 rows: rows shown earlier may have sold
+        // since (the poll stops past 100 rows), which shifts everything
+        // up, and a plain offset would skip that many listings. The id
+        // dedupe below drops the repeats.
+        offset:   Math.max(0, listings.length - 25)
       });
       // Filters changed mid-flight — load() already replaced `listings`
       // with the new set. Appending this stale page would corrupt it.
