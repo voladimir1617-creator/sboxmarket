@@ -1880,7 +1880,13 @@ function AdminAuditTab() {
                   'LISTING_FLAGGED','LISTING_REPORTS_DISMISSED',
                   'REVIEW_CREATED','REVIEW_DELETED','REVIEW_REPLIED',
                   'LOADOUT_DELETED_STAFF','ADMIN_MESSAGE_SENT','ADMIN_CLEAR_SIMULATED',
-                  'MONEY_RESET','WITHDRAW_REVERSED'];
+                  'MONEY_RESET','WITHDRAW_REVERSED',
+                  // Also logged; MANUAL_PAYOUT_REQUIRED rows need staff action.
+                  'MANUAL_PAYOUT_REQUIRED','TRADE_VERIFIED',
+                  'TRADE_PROTECTION_ENABLED','TRADE_PROTECTION_CLAIMED',
+                  'TRADE_PROTECTION_CLAIM_REFUSED','TRADE_PROTECTION_REVERSED',
+                  'REVIEW_SPAM_BLOCKED','ADMIN_SIMULATE_LISTINGS',
+                  'ADMIN_SYNC_PRICES','ADMIN_SYNC_SCMM','ADMIN_TEST_EMAIL'];
   // Apply the client-side free-text filter against whatever the backend
   // returned. Case-insensitive on summary + the pre-resolved display names.
   const displayRows = (() => {
@@ -2760,17 +2766,11 @@ function AdminUsersTab({ me }) {
         title: 'Export the current user list as a CSV'
       }, '⇣ CSV')
     ),
-    // Role / status chip filter — applied below the search. Counts
-    // derived from the already-fetched rows so the chip labels show
-    // exactly how many match each filter.
-    rows && rows.length > 0 && (() => {
-      const count = {
-        ALL:    rows.length,
-        USER:   rows.filter(r => (r.role || 'USER') === 'USER' && !r.banned).length,
-        CSR:    rows.filter(r => r.role === 'CSR').length,
-        ADMIN:  rows.filter(r => r.role === 'ADMIN').length,
-        BANNED: rows.filter(r => r.banned).length
-      };
+    // Role / status chip filter — applied below the search. The filter
+    // runs server-side, so the loaded rows only describe the active chip:
+    // only that chip carries a count, and the row stays up on an empty
+    // result so "All" is always there to go back to.
+    rows !== null && (() => {
       return h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 } },
         [
           { id: 'ALL',    label: 'All' },
@@ -2790,7 +2790,7 @@ function AdminUsersTab({ me }) {
           // those chips disabled themselves. Clicking re-fetches with
           // the new filter, which is the actual source of truth.
           onClick: () => setRoleFilter(opt.id)
-        }, roleFilter === opt.id ? opt.label : `${opt.label} · ${count[opt.id]}`))
+        }, roleFilter === opt.id ? `${opt.label} · ${rows.length}` : opt.label))
       );
     })(),
     (() => {
@@ -3867,7 +3867,10 @@ function CsrLookupTab() {
       h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Steam ID / display name / user #id', value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') search(); } }),
       h('button', { className: 'btn btn-accent', disabled: busy, onClick: search }, busy ? '…' : 'Search')
     ),
-    data && ((data.matches || []).length === 0
+    data && (data.error
+      ? h('div', { className: 'wallet-error', role: 'alert' }, 'Lookup failed, so we can\'t say whether this user exists. ',
+          h('button', { className: 'btn btn-sm', disabled: busy, onClick: search }, 'Retry'))
+      : (data.matches || []).length === 0
       ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search', size: 26 })),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No matches.'))
       : (data.matches || []).map(u => h('div', { key: u.id, className: 'csr-user-card' },

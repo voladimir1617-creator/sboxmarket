@@ -164,7 +164,10 @@ class CsrService {
             // ones, so CSR can spot a repeat-offender pattern even after
             // staff cleared the row.
             long activeDisputes = wallet ? transactionRepository.countActiveDisputedDeposits(wallet.id) : 0L
-            long lifetimeDisputes = tx.count { it.type == 'DEPOSIT' && (it.status == 'DISPUTED' || (it.description ?: '').contains('DISPUTE_CLEARED')) } as long
+            // Lifetime means lifetime: scan a wider window than the 10 rows
+            // shown, matching the admin paths' 500-row scan.
+            def disputeScan = wallet ? transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.id, PageRequest.of(0, 500)) : []
+            long lifetimeDisputes = disputeScan.count { it.type == 'DEPOSIT' && (it.status == 'DISPUTED' || (it.description ?: '').contains('DISPUTE_CLEARED')) } as long
             // Rating summary (batch 489) — gives CSR a one-glance
             // trust signal for the user. Null when no reviews yet.
             Map ratingSummary = null

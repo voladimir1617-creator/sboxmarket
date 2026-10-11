@@ -2025,7 +2025,13 @@ export async function csrCheck() {
     return (data && typeof data === 'object') ? data : { csr: false };
   } catch (_) { return { csr: false }; }
 }
-export async function csrStats() { return (await safeJson(`${API}/csr/stats`)) || {}; }
+// Throws on failure so the dashboard shows its error panel instead of
+// rendering an outage as an empty queue.
+export async function csrStats() {
+  const s = await safeJson(`${API}/csr/stats`);
+  if (!s || typeof s !== 'object') throw new Error('Failed to load queue stats');
+  return s;
+}
 export async function csrLookup(q) {
   try {
     const r = await fetch(`${API}/csr/users/lookup?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
