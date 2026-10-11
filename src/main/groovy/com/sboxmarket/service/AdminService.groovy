@@ -2586,7 +2586,7 @@ class AdminService {
         if (!(owner != null && Boolean.TRUE.equals(owner.banned))) {
             notificationService?.safePush(t.userId, 'TICKET_CLOSED',
                 "Support ticket resolved · #${t.id}",
-                t.subject, t.id, '/support')
+                t.subject, t.id, "/support?ticket=${t.id}".toString())
         }
         auditService?.log(AuditService.TICKET_CLOSED, adminUserId, t.userId, ticketId,
             "Closed ticket #${ticketId}: ${t.subject}")

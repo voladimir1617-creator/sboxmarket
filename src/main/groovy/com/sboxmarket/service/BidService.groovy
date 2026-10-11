@@ -489,7 +489,7 @@ class BidService {
                                 "Auto-bid skipped — balance too low",
                                 "You were outbid on ${listing.item?.name ?: 'an auction'} and your auto-bid cap (\$${(previousTopBid?.maxAmount ?: BigDecimal.ZERO).toPlainString()}) couldn't fire because your wallet balance dropped below the next required bid (\$${raised.toPlainString()}). Top up to keep bidding.",
                                 listingId,
-                                listing.item?.id != null ? "/item/${listing.item.id}" : null)
+                                listing.item?.id != null ? "/item/${listing.item.id}?listing=${listingId}" : null)
                         } catch (Exception e) {
                             log.warn("Auto-bid skip notification failed for ${previousTopId}: ${e.message}")
                         }
@@ -524,7 +524,7 @@ class BidService {
                         "Outbid on ${listing.item?.name} by auto-bid",
                         "The previous top bidder's auto-cap out-raised you to \$${raised.toPlainString()}.",
                         listingId,
-                        listing.item?.id != null ? "/item/${listing.item.id}" : null
+                        listing.item?.id != null ? "/item/${listing.item.id}?listing=${listingId}" : null
                     )
                 } catch (Exception e) {
                     log.warn("Auto-bid outbid push failed for user ${bidderUserId}: ${e.message}")
@@ -580,7 +580,8 @@ class BidService {
                 "You were outbid on ${listing.item?.name}",
                 "New top bid: \$${listing.currentBid.toPlainString()}",
                 listingId,
-                listing.item?.id != null ? "/item/${listing.item.id}" : null
+                // ?listing= picks this auction when the item has several.
+                listing.item?.id != null ? "/item/${listing.item.id}?listing=${listingId}" : null
             )
             // Email the displaced bidder — the notification bell may go
             // unchecked for hours; by the time they see it the auction
@@ -1171,7 +1172,7 @@ class BidService {
                     notificationService.push(uid, 'AUCTION_ENDING',
                         "Ending in ~${mins}m · ${itemName}",
                         priceStr, listing.id,
-                        "/item/${listing.item?.id ?: ''}".toString())
+                        "/item/${listing.item?.id ?: ''}?listing=${listing.id}".toString())
                 } catch (Exception e) {
                     log.warn("AUCTION_ENDING push failed for uid=${uid}: ${e.message}")
                 }

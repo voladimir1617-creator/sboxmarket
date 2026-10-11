@@ -406,9 +406,11 @@ class CsrService {
         } catch (Exception ignored) { /* treat as unknown */ }
         boolean ownerBanned = (owner != null && Boolean.TRUE.equals(owner.banned))
         if (!ownerBanned) {
+            // Link to the ticket itself: the Support list hides resolved
+            // tickets by default.
             notificationService?.safePush(t.userId, 'TICKET_CLOSED',
                 "Support ticket resolved · #${t.id}",
-                t.subject, t.id, '/support')
+                t.subject, t.id, "/support?ticket=${t.id}".toString())
         }
         try {
             auditService?.log(AuditService.TICKET_CLOSED, csrUserId, t.userId, ticketId,

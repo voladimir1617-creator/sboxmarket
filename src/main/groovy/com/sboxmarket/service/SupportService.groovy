@@ -454,7 +454,7 @@ class SupportService {
                 notificationService?.push(t.userId, 'TICKET_AUTO_RESOLVED',
                     "Support ticket auto-closed · ${t.subject ?: 'your question'}",
                     "Staff didn't hear back from you within ${autoResolveWaitingUserDays} days, so the thread was auto-closed. Reopen it from Support any time if you still need help.",
-                    t.id, '/support')
+                    t.id, "/support?ticket=${t.id}".toString())
                 closed++
             } catch (Exception e) {
                 log.warn("Auto-close failed for ticket ${t.id}: ${e.message}")

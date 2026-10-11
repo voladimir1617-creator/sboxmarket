@@ -33,6 +33,15 @@ export function AdminModal({ onClose, me }) {
     } catch { return 'dashboard'; }
   })();
   const [tab, setTab] = useState(initialTab);
+  // A bell link to another ?tab= while the panel is already open changes
+  // only the URL; follow it instead of staying on the current tab.
+  const searchNow = window.location.search;
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(searchNow).get('tab');
+      if (t) setTab(t);
+    } catch (_) { /* keep the current tab */ }
+  }, [searchNow]);
   // Priority-tab badge counts (batch 487). Polls dashboardStats every
   // 60s so the tab bar shows "⚠ Disputes (3)" / "💸 Withdrawals (5)"
   // without clicking in. Helps admins notice work piling up in tabs
@@ -3644,6 +3653,15 @@ export function CsrModal({ onClose, me }) {
     } catch { return 'dashboard'; }
   })();
   const [tab, setTab] = useState(initialTab);
+  // A bell link to another ?tab= while the panel is already open changes
+  // only the URL; follow it instead of staying on the current tab.
+  const searchNow = window.location.search;
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(searchNow).get('tab');
+      if (t) setTab(t);
+    } catch (_) { /* keep the current tab */ }
+  }, [searchNow]);
   const TABS = [
     { id: 'dashboard', label: 'Queue' },
     { id: 'lookup',    label: 'User Lookup' },

@@ -1417,6 +1417,22 @@ class BidServiceSpec extends Specification {
             new BigDecimal('20'), '/item/1')
     }
 
+    def "the outbid bell entry opens the auction the user was outbid on"() {
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('15'),
+            currentBidderId: 7L, currentBidderName: 'Bob', bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        bidRepository.save(_) >> { Bid b -> b.id = 2L; b }
+        listingRepository.save(_) >> { Listing l -> l }
+        steamUserRepository.findById(7L) >> Optional.of(new SteamUser(id: 7L, steamId64: '7', displayName: 'Bob'))
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('20'), null)
+
+        then: 'the link names the listing, so an item with two auctions opens the right one'
+        1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, 100L, '/item/1?listing=100')
+    }
+
     def "placeBid does NOT email when previous top bidder's email is unverified"() {
         given:
         def listing = auctionListing(currentBid: new BigDecimal('15'),

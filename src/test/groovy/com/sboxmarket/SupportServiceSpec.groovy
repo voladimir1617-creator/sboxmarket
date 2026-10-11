@@ -484,8 +484,8 @@ class SupportServiceSpec extends Specification {
         // win, so the per-row push only fires for a won claim.
         1 * ticketRepository.claimAutoResolve(1L, _) >> 1
         1 * ticketRepository.claimAutoResolve(2L, _) >> 1
-        1 * notificationService.push(10L, 'TICKET_AUTO_RESOLVED', _, _, 1L, '/support')
-        1 * notificationService.push(20L, 'TICKET_AUTO_RESOLVED', _, _, 2L, '/support')
+        1 * notificationService.push(10L, 'TICKET_AUTO_RESOLVED', _, _, 1L, '/support?ticket=1')
+        1 * notificationService.push(20L, 'TICKET_AUTO_RESOLVED', _, _, 2L, '/support?ticket=2')
     }
 
     def "sweepStaleWaitingUser is a no-op when disabled (0 days)"() {
@@ -518,6 +518,6 @@ class SupportServiceSpec extends Specification {
         then:
         // The good ticket still got its auto-resolved push even though
         // the bad one blew up mid-batch — per-row isolation holds.
-        1 * notificationService.push(10L, 'TICKET_AUTO_RESOLVED', _, _, 1L, '/support')
+        1 * notificationService.push(10L, 'TICKET_AUTO_RESOLVED', _, _, 1L, '/support?ticket=1')
     }
 }
