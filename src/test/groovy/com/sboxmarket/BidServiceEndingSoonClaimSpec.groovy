@@ -107,6 +107,24 @@ class BidServiceEndingSoonClaimSpec extends Specification {
         3 * emailService.sendAuctionEnding(_, _, _, _, _, _)
     }
 
+    def "the ending-soon email links to the auction itself, not just the item"() {
+        given:
+        def listing = makeListing(1002L)
+        listingRepository.claimEndingSoonNotify(1002L) >> 1
+        bidRepository.findByListing(1002L) >> [new Bid(bidderUserId: 42L)]
+        watchlistAlertRepository.findActiveUserIdsForItem(99L) >> []
+        steamUserRepository.findAllById(_) >> [
+            new SteamUser(id: 42L, banned: false, email: 'a@x', displayName: 'A', emailVerified: true)
+        ]
+        emailService.canSendTo(_, 'AUCTIONS') >> true
+
+        when:
+        service.notifyEndingSoon(listing)
+
+        then:
+        1 * emailService.sendAuctionEnding('a@x', _, _, _, _, '/item/99?listing=1002')
+    }
+
     // ── (2) Losing claim — UPDATE returns 0 → fan-out skipped ─────────────
 
     def "notifyEndingSoon bails when claimEndingSoonNotify returns 0 (sibling pod beat us)"() {

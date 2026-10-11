@@ -14438,7 +14438,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     const priced = parseFloat(l.price) || 0;
                     const best   = parseFloat(demand.bestBid) || 0;
                     if (!(best > 0 && priced > 0 && best < priced)) return null;
-                    if (l.listingType === 'AUCTION' && (l.bidCount ?? 0) > 0) return null;
+                    // Buy orders only fill visible Buy Now listings; on an
+                    // auction or a hidden row this would just cut the price.
+                    if ((l.listingType || 'BUY_NOW') !== 'BUY_NOW' || l.hidden) return null;
                     return h('button', {
                       className: 'btn btn-ghost',
                       style: {
@@ -14458,7 +14460,16 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       }
                     }, 'Match ', fmt(best));
                   })(),
-                  h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => toggleHidden(l) }, l.hidden ? 'Show' : 'Hide'),
+                  (() => {
+                    // The server refuses to hide an auction once it has bids.
+                    const lockedHide = !l.hidden && l.listingType === 'AUCTION' && (l.bidCount ?? 0) > 0;
+                    return h('button', {
+                      className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 },
+                      disabled: lockedHide,
+                      title: lockedHide ? 'Auctions with bids stay visible until they settle' : undefined,
+                      onClick: () => toggleHidden(l)
+                    }, l.hidden ? 'Show' : 'Hide');
+                  })(),
                   // Copy a direct link to this listing's item detail page —
                   // sellers paste it into Discord / Steam groups to drive
                   // traffic. Falls back to window.prompt on old browsers

@@ -2198,7 +2198,10 @@ class AdminService {
         if (rows == null || rows.isEmpty()) return []
         def out = []
         rows.each { l ->
-            def reports = listingReportRepository?.findByListingIdOrderByCreatedAtDesc(l.id) ?: []
+            // Only the live reports: a dismiss zeroes reportCount but keeps
+            // the rows, and each new report adds one newest-first row.
+            def reports = (listingReportRepository?.findByListingIdOrderByCreatedAtDesc(l.id) ?: [])
+                .take((l.reportCount ?: 0) as int)
             def reasons = reports.take(5).collect { it.reason }
             def distinctReporters = reports.collect { it.reporterUserId }.unique().size()
             out << [
@@ -2401,7 +2404,9 @@ class AdminService {
     Map dismissListingReports(Long adminUserId, Long listingId, String note) {
         requireAdmin(adminUserId)
         def listing = listingRepository.findById(listingId).orElseThrow { new NotFoundException("Listing", listingId) }
-        def reports = listingReportRepository?.findByListingIdOrderByCreatedAtDesc(listingId) ?: []
+        // Reports already dismissed once don't get a second "reviewed" ping.
+        def reports = (listingReportRepository?.findByListingIdOrderByCreatedAtDesc(listingId) ?: [])
+            .take((listing.reportCount ?: 0) as int)
         def cleanNote = textSanitizer.medium(note) ?: 'no policy violation found'
         def distinct = reports.collect { it.reporterUserId }.unique()
         distinct.each { uid ->

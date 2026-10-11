@@ -596,7 +596,7 @@ class BidService {
             // can have lifted the price above what they submitted.
             final BigDecimal newTop = listing.currentBid
             final String itemNameOb = listing.item?.name
-            final String itemUrlOb = listing.item?.id != null ? "/item/${listing.item.id}".toString() : null
+            final String itemUrlOb = listing.item?.id != null ? "/item/${listing.item.id}?listing=${listing.id}".toString() : null
             def sendOutbid = {
                 try {
                     def prev = steamUserRepository.findById(prevId).orElse(null)
@@ -1197,7 +1197,7 @@ class BidService {
                 // mirroring WatchlistAlertService.fireRow (the bell push above
                 // already tolerates rollback because it defers). Inline fallback
                 // keeps the no-tx unit-test path unchanged. (audit P2)
-                final def itemUrl = listing.item?.id != null ? "/item/${listing.item.id}".toString() : null
+                final def itemUrl = listing.item?.id != null ? "/item/${listing.item.id}?listing=${listing.id}".toString() : null
                 final BigDecimal topBid = listing.currentBid ?: listing.price ?: BigDecimal.ZERO
                 final def recipientIds = recipients
                 final long minsLeft = (long) mins

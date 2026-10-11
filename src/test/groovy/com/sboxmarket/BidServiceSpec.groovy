@@ -1414,7 +1414,7 @@ class BidServiceSpec extends Specification {
 
         then:
         1 * emailService.sendAuctionOutbid('bob@example.com', 'Bob', 'Wizard Hat',
-            new BigDecimal('20'), '/item/1')
+            new BigDecimal('20'), '/item/1?listing=100')
     }
 
     def "the outbid bell entry opens the auction the user was outbid on"() {

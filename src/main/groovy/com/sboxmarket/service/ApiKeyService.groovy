@@ -71,7 +71,9 @@ class ApiKeyService {
         def cleanLabel = textSanitizer.cleanShort(label) ?: 'Untitled'
         def raw = PREFIX + randomToken(32)
         def hash = sha256(raw)
-        def prefix = raw.substring(0, Math.min(14, raw.length()))
+        // sbx_live_ + 11 hex chars: 14 chars left only 5 hex (~1M values)
+        // against a UNIQUE column, so mints started colliding with a 500.
+        def prefix = raw.substring(0, Math.min(20, raw.length()))
         def scp = 'RO'.equalsIgnoreCase(scope) ? 'RO' : 'RW'
         def key = new ApiKey(
             userId:       userId,
