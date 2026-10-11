@@ -1048,7 +1048,10 @@ class OfferService {
         // ping to their old offer. This distinct notification names the
         // offer acceptance explicitly and deep-links to /profile?tab=trades
         // (where the new trade row is, ready for them to act).
-        if (offer.buyerUserId != null && notificationService != null) {
+        // Skipped when the buyer accepted the seller's counter: they took
+        // the action themselves, and "your offer was accepted" would name
+        // the seller's price as theirs.
+        if (!buyerAcceptingCounter && offer.buyerUserId != null && notificationService != null) {
             try {
                 notificationService.push(offer.buyerUserId, 'OFFER_ACCEPTED',
                     "Offer accepted · ${offer.itemName ?: 'listing'}",
@@ -1073,7 +1076,7 @@ class OfferService {
         } catch (Exception e) {
             log.debug("Trade-id lookup for offer-accepted email failed: ${e.message}")
         }
-        if (offer.buyerUserId != null && emailService != null && steamUserRepository != null) {
+        if (!buyerAcceptingCounter && offer.buyerUserId != null && emailService != null && steamUserRepository != null) {
             try {
                 // Renamed from `buyer` to `buyerForEmail` to avoid the
                 // Groovy scope clash with the outer `def buyer` at line

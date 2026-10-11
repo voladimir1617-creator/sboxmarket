@@ -2545,7 +2545,7 @@ class AdminService {
         if (!ownerBanned) {
             notificationService?.safePush(t.userId, 'SUPPORT_REPLY',
                 "New reply on ticket #${t.id}",
-                t.subject, t.id, '/support')
+                t.subject, t.id, "/support?ticket=${t.id}".toString())
         }
         // Email the user (batch 475 — same path as CsrService.reply).
         if (emailService != null && !ownerBanned) {

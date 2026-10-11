@@ -187,7 +187,7 @@ class SupportService {
 
         notificationService?.push(userId, 'SUPPORT_REPLY',
             "Support opened · #${ticket.id}",
-            "We got your ticket. A staff member will reply in this thread.", ticket.id, '/support')
+            "We got your ticket. A staff member will reply in this thread.", ticket.id, "/support?ticket=${ticket.id}".toString())
         // Admin + CSR fan-out (batch 505). New tickets used to land
         // silently in /admin?tab=tickets and wait for someone to
         // manually reload — shift gaps meant a REFUND category ticket
