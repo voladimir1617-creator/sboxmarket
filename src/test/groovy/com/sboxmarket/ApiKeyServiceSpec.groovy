@@ -249,7 +249,7 @@ class ApiKeyServiceSpec extends Specification {
         result.token.substring('sbx_live_'.length()) ==~ /[0-9a-f]{64}/
     }
 
-    def "publicPrefix is a safe 14-char fragment that never reveals the secret body"() {
+    def "publicPrefix is a safe 20-char fragment that never reveals the secret body"() {
         given:
         apiKeyRepository.save(_) >> { args -> args[0] }
 
@@ -257,10 +257,10 @@ class ApiKeyServiceSpec extends Specification {
         def result = service.create(10L, 'bot')
 
         then:
-        result.key.publicPrefix.length() == 14
-        result.key.publicPrefix == result.token.substring(0, 14)
-        // The prefix is only 5 hex chars of the 64-char secret body —
-        // far too little to brute-force the remaining 236 bits.
+        result.key.publicPrefix.length() == 20
+        result.key.publicPrefix == result.token.substring(0, 20)
+        // The prefix is only 11 hex chars of the 64-char secret body —
+        // far too little to brute-force the remaining 212 bits.
         !result.key.tokenHash.contains(result.key.publicPrefix.substring(9))
     }
 

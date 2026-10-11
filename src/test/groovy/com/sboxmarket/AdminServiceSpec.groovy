@@ -1420,6 +1420,47 @@ class AdminServiceSpec extends Specification {
         1 * notificationService.push(99L, 'REPORT_REVIEWED', _, _, _, _)
     }
 
+    def "a second dismiss only covers the reports filed since the first"() {
+        given: 'one new report on top of two already dismissed (rows are newest first)'
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item,
+            reportCount: 1, lastReportedAt: 12345L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> [
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 77L, reason: 'Scam'),
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 42L, reason: 'Misread'),
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 99L, reason: 'Misread'),
+        ]
+
+        when:
+        def res = service.dismissListingReports(1L, 100L, 'No policy violation')
+
+        then:
+        res.dismissed == 1
+        1 * notificationService.push(77L, 'REPORT_REVIEWED', _, _, _, _)
+        0 * notificationService.push(42L, 'REPORT_REVIEWED', _, _, _, _)
+        0 * notificationService.push(99L, 'REPORT_REVIEWED', _, _, _, _)
+    }
+
+    def "the reported-listings queue shows only reports filed since the last dismiss"() {
+        given:
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item, reportCount: 1)
+        listingRepository.selectReportedActive() >> [listing]
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> [
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 77L, reason: 'Scam', note: 'new'),
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 42L, reason: 'Misread', note: 'old'),
+        ]
+
+        when:
+        def row = service.findReportedListings(50)[0]
+
+        then:
+        row.distinctReporters == 1
+        row.recentNotes*.note == ['new']
+    }
+
     def "dismissListingReports is a no-op on the counter when there are zero detail rows"() {
         given:
         def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')

@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=242';
+} from './modals.js?v=243';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -3615,7 +3615,16 @@ export function App() {
         if (!r.ok) { setSuggest([]); return; }
         const items = await r.json();
         if (!alive) return;
-        setSuggest(Array.isArray(items) ? items.slice(0, 8) : []);
+        // The endpoint sorts by price; rank by name match first so the item
+        // actually named what was typed isn't pushed out of the top 8.
+        const ql = q.toLowerCase();
+        const rank = (it) => {
+          const n = String(it?.name || '').toLowerCase();
+          return n === ql ? 0 : n.startsWith(ql) ? 1 : 2;
+        };
+        setSuggest(Array.isArray(items)
+          ? items.map((it, i) => [it, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).slice(0, 8).map(x => x[0])
+          : []);
       } catch (_) { if (alive) setSuggest([]); }
     }, 180);
     return () => { alive = false; clearTimeout(t); };
@@ -6068,6 +6077,9 @@ export function App() {
                 pendingActions && pendingActions.total > 0 ? ` · ${pendingActions.total} action${pendingActions.total === 1 ? '' : 's'} need attention` : ''
               }`,
               onKeyDown: (e) => {
+                // Keys pressed on a menu item bubble up here; leave them to
+                // the item, or Enter on "Deposit" just closed the menu.
+                if (e.target !== e.currentTarget) return;
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
                   setMenuOpen(o => !o);
@@ -9711,7 +9723,16 @@ export function App() {
             onClose: () => closeToPrevious(paths.market()),
             onBuy: handleBuy,
             onMakeOffer: handleMakeOffer,
-            onRefresh: () => { load(); loadWallet(); },
+            // Also re-read this item's listings: a bid or a settled auction
+            // otherwise left the table showing the old price and a live Bid.
+            onRefresh: () => {
+              load(); loadWallet();
+              const itemId = route.params.id;
+              fetchListingsForItem(itemId).then(fresh => {
+                if (!Array.isArray(fresh)) return;
+                setSelected(s => (s && String(s.item?.id) === String(itemId)) ? { ...s, listings: fresh } : s);
+              }).catch(() => {});
+            },
             // Re-read the signed-in user after the buy confirm saves a trade
             // URL inline, so every other trade-URL gate on the page lifts.
             onMeChanged: loadMe,
