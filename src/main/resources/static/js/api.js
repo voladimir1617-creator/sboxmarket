@@ -962,12 +962,14 @@ export async function logoutSteam() {
 // ── Offers ──────────────────────────────────────────────────────
 export async function fetchIncomingOffers() {
   const data = await safeJson(`${API}/offers/incoming`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the inbox must not read that as no offers.
+  return Array.isArray(data) ? data : null;
 }
 
 export async function fetchOutgoingOffers() {
   const data = await safeJson(`${API}/offers/outgoing`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the inbox must not read that as no offers.
+  return Array.isArray(data) ? data : null;
 }
 
 /** { listingId: { bestAmount, count, newestAt } } for every active

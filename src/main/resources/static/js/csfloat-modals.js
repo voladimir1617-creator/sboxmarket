@@ -2471,6 +2471,8 @@ export function NotificationsModal({ onClose, me }) {
               tabIndex: 0,
               'aria-label': `${n.read ? '' : 'Unread. '}Open notification: ${n.title || n.kind || ''} — ${timeAgo(n.createdAt)}`,
               onKeyDown: (e) => {
+                // Keys on the row's own buttons (mark unread, delete) are theirs.
+                if (e.target !== e.currentTarget) return;
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
                   open(n);
