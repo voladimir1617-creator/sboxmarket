@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=243';
+} from './modals.js?v=244';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -5024,7 +5024,7 @@ export function App() {
     // describes the whole view: filters it leaves out go back to their
     // defaults instead of keeping what an earlier search left behind.
     const FILTER_KEYS = ['q', 'search', 'query', 'category', 'rarity', 'min', 'max', 'minPrice', 'maxPrice',
-                         'type', 'listingType', 'deals', 'new', 'aff', 'discount'];
+                         'type', 'listingType', 'deals', 'new', 'aff', 'discount', 'sort'];
     if (FILTER_KEYS.some(k => params.has(k))) {
       const has = (...ks) => ks.some(k => params.has(k));
       if (!has('q', 'search', 'query') && search) { setSearch(''); setSearchInput(''); }
@@ -5036,6 +5036,7 @@ export function App() {
       if (!has('deals') && dealsOnly) setDealsOnly(false);
       if (!has('new') && newOnly) setNewOnly(false);
       if (!has('aff') && affordableOnly) setAffordableOnly(false);
+      if (!has('discount') && minDiscountPct) setMinDiscountPct(0);
       // The URL leaves sort out when it is the default (High→Low), so a
       // shared link without one means High→Low, not the viewer's own
       // remembered sort.
