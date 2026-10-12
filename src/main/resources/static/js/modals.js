@@ -2313,6 +2313,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           setAlertTarget(next.toFixed(2));
         };
         return h('div', {
+          className: 'item-alert-panel',
+          // Escape closes the panel, not the page (app.js skips its
+          // Escape-to-market while this panel is open).
+          onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); setAlertOpen(false); } },
           style: {
             padding: '14px 30px', background: 'var(--bg-secondary)',
             borderRadius: 8, margin: '10px 30px'
@@ -10040,6 +10044,7 @@ function ProfileReviewsTab({ me }) {
   // Distinguish "you have no reviews" from "the fetch failed" — a 500/offline used
   // to render "No reviews yet", misrepresenting the user's reputation as empty.
   const [reviewsErr, setReviewsErr] = useState(false);
+  const [givenErr, setGivenErr] = useState(false);
   const [pending, setPending] = useState(null);
   const [summary, setSummary] = useState(null);
   const [starFilter, setStarFilter] = useState(0);
@@ -10078,8 +10083,17 @@ function ProfileReviewsTab({ me }) {
   }, [me?.id]);
   const loadGiven = useCallback(async () => {
     if (!me) return;
-    const list = await fetchMyAuthoredReviews();
-    setGiven(Array.isArray(list) ? list : []);
+    setGivenErr(false);
+    // Raw fetch, as in loadReceived: a failed load must not read as
+    // "No reviews given yet".
+    try {
+      const res = await fetch('/api/reviews/mine', { credentials: 'same-origin', cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const list = await res.json();
+      setGiven(Array.isArray(list) ? list : []);
+    } catch (_) {
+      setGivenErr(true);
+    }
   }, [me?.id]);
   const loadPending = useCallback(async () => {
     if (!me) return;
@@ -10160,6 +10174,11 @@ function ProfileReviewsTab({ me }) {
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
       'Something went wrong fetching your reviews — your reputation is safe; check your connection and retry.'),
     h('button', { className: 'btn btn-accent', onClick: loadReceived }, 'Retry')
+  );
+  if (mode === 'given' && givenErr) return h('div', { className: 'empty-inline', style: { padding: '24px 16px' } },
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load the reviews you've written"),
+    h('button', { className: 'btn btn-accent', onClick: loadGiven }, 'Retry')
   );
   if (rows === null) return h('div', { className: 'spinner' });
 
@@ -10376,7 +10395,7 @@ function ProfileReviewsTab({ me }) {
                       href: '/stall/' + r.toUserId,
                       style: { color: 'inherit', textDecoration: 'none' },
                       title: "View this seller's stall"
-                    }, '→ about seller #' + r.toUserId)
+                    }, '→ about ' + (r.toUserName || ('seller #' + r.toUserId)))
               ),
               // Verified buyer chip — every review is trade-gated.
               h('span', {
@@ -10463,7 +10482,9 @@ function ProfileReviewsTab({ me }) {
                   )
                 )
               : mode === 'received'
-                ? h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
+                // The server closes replies 72h after the review (the stall
+                // page hides these buttons the same way).
+                ? ((r.createdAt == null || (Date.now() - Number(r.createdAt)) <= 72 * 3600 * 1000) && h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
                     h('button', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
@@ -10474,7 +10495,7 @@ function ProfileReviewsTab({ me }) {
                       style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
                       onClick: () => submit(r.id, true)
                     }, 'Remove reply')
-                  )
+                  ))
                 : mode === 'given' && editGivenId !== r.id && h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
                     h('button', {
                       className: 'btn btn-ghost',
@@ -14596,6 +14617,10 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // substrings. Empty = everything. Only surfaces when the list is long
   // enough to warrant it (threshold below), so small inboxes stay clean.
   const [offerSearch, setOfferSearch] = useState('');
+  // Filters belong to the tab they were set on; the other tab can be too
+  // short to render the chips and search box, which would leave it
+  // filtered with no way to clear it.
+  useEffect(() => { setStatusFilter('ALL'); setOfferSearch(''); }, [tab]);
   // Load-failure state. Pre-fix, a rejected fetch left `incoming`/`outgoing`
   // null forever → the `list === null` branch rendered a spinner with no
   // way out. Track the error so we can show a retryable message instead.
@@ -14614,6 +14639,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     setLoadErr(false);
     try {
       const [i, o] = await Promise.all([fetchIncomingOffers(), fetchOutgoingOffers()]);
+      if (!Array.isArray(i) || !Array.isArray(o)) { setLoadErr(true); return; }
       setIn(i);
       setOut(o);
     } catch (_) {

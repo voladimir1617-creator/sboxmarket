@@ -3,6 +3,7 @@ package com.sboxmarket.controller
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Review
+import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.ReviewService
 import groovy.util.logging.Slf4j
 import jakarta.servlet.http.HttpServletRequest
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.*
 class ReviewController {
 
     @Autowired ReviewService reviewService
+    @Autowired SteamUserRepository steamUserRepository
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -105,6 +107,11 @@ class ReviewController {
         int cap = parseLimit(req, 200, 200)
         def rows = reviewService.listAuthoredBy(uid)
         if (rows.size() > cap) rows = rows.take(cap)
+        // Name the seller each review is about (one bulk lookup), so the
+        // Given tab isn't a list of bare user ids.
+        def ids = rows*.toUserId.findAll { it != null }.unique()
+        def names = ids ? steamUserRepository.findAllById(ids).collectEntries { [(it.id): it.displayName] } : [:]
+        rows.each { it.toUserName = names[it.toUserId] as String }
         ResponseEntity.ok(rows)
     }
 

@@ -198,6 +198,23 @@ class ReviewControllerSpec extends Specification {
         resp.body.is(rows)
     }
 
+    def "mine() names the seller each authored review is about"() {
+        given:
+        def users = Mock(com.sboxmarket.repository.SteamUserRepository)
+        controller.steamUserRepository = users
+        def rows = [new Review(id: 1L, fromUserId: 100L, toUserId: 7L),
+                    new Review(id: 2L, fromUserId: 100L, toUserId: 7L)]
+        authedSession(100L)
+        1 * reviewService.listAuthoredBy(100L) >> rows
+        1 * users.findAllById([7L]) >> [new com.sboxmarket.model.SteamUser(id: 7L, displayName: 'KnifeShop')]
+
+        when:
+        def resp = controller.mine(req)
+
+        then:
+        resp.body*.toUserName == ['KnifeShop', 'KnifeShop']
+    }
+
     // ── eligible / pending ─────────────────────────────────────
 
     def "eligible() requires sign-in"() {
