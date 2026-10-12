@@ -30424,3 +30424,32 @@ html body .site-root .info-modal-body > div[style*="margin: 18px"] > div:first-c
   html body .site-root .settings-row > div:nth-child(2):has(> .toggle-switch):has(> .btn) { width: 100% !important; max-width: 100% !important; }
   html body .site-root .settings-row > div:nth-child(2):has(> .btn) > .toggle-switch { margin-left: auto !important; }
 }
+/* Look pass round six 2026-10-12
+   Item page: the buy column was a sticky box capped at the window
+   height with its own hidden scroll, so on a 900px-tall screen the
+   "sold this week", last sold, volume and 1Y low figures sat below its
+   cut-off edge with nothing to show they were there. It now runs its
+   full height and scrolls with the page, the way Market listings on
+   other marketplaces read. */
+@media (min-width: 1101px) {
+  html body main.modal.item-page.item-page > .modal-header > div:nth-child(2) { position: relative !important; top: auto !important; max-height: none !important; overflow: visible !important; }
+  /* The low-balance notice under the page sat 30px in from the column
+     it belongs to. */
+  html body .site-root.full-page-mode main.modal.item-page > div:not([class]) { margin-left: 0 !important; margin-right: 0 !important; }
+}
+@media (min-width: 1101px) {
+  /* Its figure chips came in three heights; each row now shares one. */
+  html body main.modal.item-page.item-page > .modal-header > div:nth-child(2) > .modal-demand-chip { display: flex !important; flex-wrap: wrap !important; align-items: center !important; align-self: stretch !important; column-gap: 4px !important; }
+}
+/* Market: the live-sales tape and the category tabs under the top bar
+   still stopped 60px short of each edge, a framed strip under a full
+   width bar. Their background and rule now run edge to edge (painted
+   with a border-image outset, since the tape clips its own overflow). */
+html body .site-root > .pulse { border-image-source: linear-gradient(to bottom, rgb(30, 33, 39) 0, rgb(21, 23, 28) calc(100% - 1px), oklch(0.3 0.012 260) calc(100% - 1px)) !important; border-image-slice: 0 fill !important; border-image-width: 0 !important; border-image-outset: 0 100vmax !important; }
+html body nav.csfloat-subnav { border-image-source: linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06)) !important; border-image-slice: 1 !important; border-image-width: 0 0 1px 0 !important; border-image-outset: 0 100vmax !important; }
+@media (max-width: 900px) {
+  /* Phones: each card's add-to-cart "+" was a 44x40 blue block covering
+     a third of the picture; it is now the same 32px square as the
+     watchlist heart beside it. */
+  html body .site-root a.grid-card .grid-thumb > .grid-cart-btn { width: 32px !important; height: 32px !important; min-width: 32px !important; min-height: 32px !important; padding: 0 !important; font-size: 16px !important; line-height: 32px !important; right: 46px !important; top: 9px !important; }
+}
