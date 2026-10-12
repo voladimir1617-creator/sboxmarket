@@ -512,6 +512,7 @@ class SeedService {
                 int offset = rng.nextInt(eligible.size())
 
                 Bid topRow = null
+                BigDecimal firstAmount = null
                 BigDecimal topAmount = null
                 Long topBidderId = null
                 String topBidderName = null
@@ -556,6 +557,7 @@ class SeedService {
                     )
                     bidRepository.save(bid)
                     bidsCreated++
+                    if (i == 0) firstAmount = amount
 
                     if (i == n - 1) {
                         topRow = bid
@@ -569,6 +571,11 @@ class SeedService {
                 // over the rows we just wrote, so the header count, the
                 // "current bid" chip and the history list can never disagree.
                 if (topRow != null) {
+                    // A live auction cannot take a first bid under its starting
+                    // price (BidService: first bid floor = listing.price), so a
+                    // seeded book that opens below it read as impossible: "start
+                    // $69.12" over bids of $43-$54. Open the lot at its first bid.
+                    if (firstAmount != null && l.price != null && l.price > firstAmount) l.price = firstAmount
                     l.bidCount          = n
                     l.currentBid        = topAmount
                     l.currentBidderId   = topBidderId

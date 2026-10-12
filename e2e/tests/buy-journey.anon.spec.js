@@ -110,9 +110,18 @@ test.describe('browse and find', () => {
     // over 3 cards is the same class of false statement as "Marketplace is
     // empty" over a 500 — a confident number that nothing produced.
     const meta = await page.locator('.results-meta').innerText();
-    const claimed = parseInt((meta.match(/(\d+)\s+listings? found/) || [])[1], 10);
+    const claimed = parseInt((meta.match(/(\d+)\s+items? found/) || [])[1], 10);
     expect(Number.isFinite(claimed), `results-meta should state a count, got "${meta}"`).toBeTruthy();
     expect(claimed).toBe(n);
+
+    // One card per item; the listing total beside it must be what the
+    // sidebar's rarity counts add up to, not a second, different answer.
+    const listed = parseInt((meta.match(/·\s*(\d+)\s+listings/) || [])[1], 10);
+    const all = await (await page.request.get('/api/listings')).json();
+    const items = new Set(all.map((l) => l.item && l.item.id));
+    if (all.length > items.size) {
+      expect(listed, `results-meta should give the listing total, got "${meta}"`).toBe(all.length);
+    }
   });
 
   test('search narrows the grid to rows that actually match', async ({ page }) => {

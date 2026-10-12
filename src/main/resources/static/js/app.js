@@ -7626,7 +7626,18 @@ export function App() {
             : (loading && dedupedListings.length === 0)
               ? 'Loading listings…'
               : h('span', null,
-                  h('strong', null, dedupedListings.length), dedupedListings.length === 1 ? ' listing found' : ' listings found',
+                  // The grid shows one card per ITEM, so the count names items;
+                  // the listing total beside it is what the rarity and category
+                  // counts in the sidebar add up to. "38 listings found" over a
+                  // sidebar summing to 79 read as two different answers.
+                  h('strong', null, dedupedListings.length), dedupedListings.length === 1 ? ' item found' : ' items found',
+                  (() => {
+                    const shown = new Set(dedupedListings.map(l => l?.item?.id));
+                    const n = listings.filter(l => shown.has(l?.item?.id)).length;
+                    return n > dedupedListings.length
+                      ? h('span', { className: 'results-meta-listings' }, ` · ${n} listings`)
+                      : null;
+                  })(),
                   category !== 'All' && h('span', null, ' in ', h('strong', null, category)),
                   search && h('span', null, ' matching ', h('strong', null, `"${search}"`))
                 )
@@ -9429,7 +9440,14 @@ export function App() {
                   h('strong', null, 'Delivery is not instant. '),
                   'Your wallet is charged now, but the seller has to send you a Steam trade offer by hand. ',
                   'Your money stays in escrow until you confirm the item arrived — and if the seller never sends it, ',
-                  'the purchase cancels itself and you are refunded in full.')
+                  'the purchase cancels itself and you are refunded in full.',
+                  // A mixed cart: the house items do not wait on anyone, and
+                  // the copy above alone told the buyer they all did.
+                  (() => {
+                    const house = cart.filter(it => it.sellerUserId == null).length;
+                    return house > 0 && h('span', { 'data-testid': 'delivery-expectation-mixed' },
+                      ` ${house === 1 ? 'One item here is' : `${house} items here are`} held by ${BRAND.name} and ${house === 1 ? 'goes' : 'go'} straight to your Platform Inventory.`);
+                  })())
               : h('span', null,
                   h('strong', null, 'Delivered in-platform. '),
                   `These listings are held by ${BRAND.name}, so there is no seller to wait on and no Steam trade offer to accept.`))
