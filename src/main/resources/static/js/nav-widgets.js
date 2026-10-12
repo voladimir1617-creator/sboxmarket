@@ -312,7 +312,12 @@ export function NotificationBell({ me }) {
       if (cancelled || !me || !Array.isArray(visible)) return;
       const ids = visible.slice(0, 12).filter(n => !n.read).map(n => n.id);
       if (ids.length === 0) return;
-      try { await markNotificationsReadBatch(ids); } catch (_) { return; }
+      try {
+        // writeJson reports failure as {error}, not a throw; only rows the
+        // server really flipped may skip the per-click mark-read later.
+        const r = await markNotificationsReadBatch(ids);
+        if (!r || r.error || r.code) return;
+      } catch (_) { return; }
       ids.forEach(id => markedOnOpenRef.current.add(id));
       if (cancelled) return;
       const muted = readMuted();

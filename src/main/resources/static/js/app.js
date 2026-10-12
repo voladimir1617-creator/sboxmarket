@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=250';
+} from './modals.js?v=251';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -5293,7 +5293,7 @@ export function App() {
           if (!alive) return;
         }
         if (item) {
-          setSelected({ item, listings: itemListings, history });
+          setSelected({ item, listings: itemListings, history: history || [], historyFailed: history === null });
           // Refine the route-driven title with the real item name — e.g.
           // "Black Modern Watch · SkinBox". Preserves the unread prefix.
           const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
@@ -5536,6 +5536,9 @@ export function App() {
     setNewOnly(false);
     setAffordableOnly(false);
     setListingTypeFilter('ALL');
+    // Hide-mine is remembered across visits, so an empty grid it caused
+    // must be clearable from here too.
+    setHideMineP(false);
   };
 
   // derived data
@@ -7717,7 +7720,7 @@ export function App() {
                 const hasQueryFilters = !!(search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0);
                 const onlyTypeFilter  = !hasQueryFilters && listingTypeFilter !== 'ALL';
                 const hasClientFilters = !hasQueryFilters && !onlyTypeFilter &&
-                    (dealsOnly || newOnly || affordableOnly);
+                    (dealsOnly || newOnly || affordableOnly || (hideMine && !!me?.id));
                 const isError = !!loadError;
                 let title, sub;
                 if (isError) {
@@ -9749,6 +9752,7 @@ export function App() {
             item: selected.item,
             listings: selected.listings,
             history: selected.history,
+            historyFailed: !!selected.historyFailed,
             me,
             wallet,
             // 2026-05-02 page-mode: /item/:id is a real page (per

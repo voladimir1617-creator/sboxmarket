@@ -378,7 +378,8 @@ export async function fetchHistory(itemId) {
   // The endpoint always returns 200 with a (possibly empty) list for any
   // id, so there's no 404 to mute here.
   const data = await safeJson(`${API}/items/${itemId}/history`);
-  return Array.isArray(data) ? data : [];
+  // null = load failed, so the chart can say so instead of "not enough sales".
+  return Array.isArray(data) ? data : null;
 }
 
 /** Public marketplace rollup — { volume24h, activeListings, floorPrice }.
@@ -1950,7 +1951,7 @@ export async function fetchAuctionsEndingSoon(withinMs) {
 export async function fetchRecentSales(itemId, limit) {
   const qs = limit ? `?limit=${limit}` : '';
   const data = await safeJson(`${API}/items/${itemId}/recent-sales${qs}`);
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : null;  // null = load failed; callers keep what they show
 }
 /** Aggregate buy-order signals for an item: count of ACTIVE orders
  *  plus top-of-book (highest maxPrice). Drives the "N buyers want
@@ -2505,7 +2506,8 @@ export async function bulkListFromSteam(assetIds, price, opts = {}) {
 // ── Support tickets ─────────────────────────────────────────────
 export async function fetchSupportTickets() {
   const data = await safeJson(`${API}/support/tickets`);
-  return Array.isArray(data) ? data : [];
+  // null = load failed, so the page can say so instead of "No tickets yet".
+  return Array.isArray(data) ? data : null;
 }
 
 export async function fetchSupportTicket(id) {
