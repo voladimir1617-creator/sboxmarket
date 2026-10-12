@@ -30203,3 +30203,70 @@ html body .info-modal .profile-panel { text-align: left !important; }
   html body:has(.item-buy-bar):has(button[aria-label="Cookie preferences"]) .site-footer { padding-bottom: 190px !important; }
 }
 html body .toggle-switch.on::before, html body [role="switch"][aria-checked="true"]::before { left: 1px !important; }
+
+/* Production look pass 2026-10-12
+   The site read as a box floating in a darker frame: the page column
+   carried its own gradient, the top bar stopped 60px short of each edge,
+   and every full page (profile, wallet, watchlist, offers, database...)
+   sat on a second, wider rounded panel that ended in a hard edge with
+   empty space below. One surface edge to edge now: the column is the
+   page colour, the top bar's background runs the full width, and full
+   pages sit straight on the page, lined up with the top bar. */
+html body .site-root { background-image: none !important; }
+html body nav.nav::before { content: "" !important; position: absolute !important; top: 0 !important; bottom: -1px !important; left: -60px !important; right: -60px !important; background: inherit !important; border-bottom: inherit !important; z-index: -1 !important; pointer-events: none !important; }
+@media (max-width: 768px) {
+  html body nav.nav::before { left: -16px !important; right: -16px !important; }
+}
+html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) { background: transparent !important; background-color: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; max-width: calc(100% - 120px) !important; }
+@media (max-width: 768px) {
+  html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) { max-width: 100% !important; }
+}
+/* Database: one continuous rule under each row instead of a dash under
+   every cell, the category in the same type as the item name, and the
+   min/max price boxes filling their row instead of clipping to "$ Mi". */
+html body .db-table thead tr > th, html body .db-table tbody tr > td { box-shadow: none !important; border-bottom: 0 !important; }
+html body .db-table tbody td.db-cat { font-family: inherit !important; font-size: 13px !important; font-weight: 400 !important; letter-spacing: 0 !important; color: rgb(158, 167, 177) !important; }
+html body .site-root .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+html body .site-root .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > input.price-input[type="number"] { width: 100% !important; min-width: 0 !important; }
+html body .site-root .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > input.price-input[type="number"] + input.price-input[type="number"] { margin-left: 0 !important; }
+/* Empty states on full pages were near-black cards on a near-black page
+   once the page panel went; give them the same surface as other cards. */
+html body .site-root.full-page-mode .empty-inline { background-color: rgb(27, 29, 36) !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; }
+/* Full pages: every title starts at the same height and left edge (some
+   sat flush under the top bar, some centred, Sell on the left). */
+html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) { padding-top: 28px !important; }
+html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) > .info-modal-header { text-align: left !important; }
+/* Wallet top-up presets: five amounts in one row instead of four and a
+   stray fifth; on phones the fifth spans the row. */
+html body .wallet-modal .wallet-preset-row.wallet-preset-row { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+@media (max-width: 720px) {
+  html body .wallet-modal .wallet-preset-row.wallet-preset-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  html body .wallet-modal .wallet-preset-row > .wallet-preset-btn:last-child:nth-child(odd) { grid-column: 1 / -1 !important; }
+}
+/* Support tab: the New Ticket button sat on the empty card's top edge. */
+html body .profile-panel > .btn.btn-accent + .empty-inline { margin-top: 16px !important; }
+/* Settings on phones: label on the left, its control on the right, the
+   way the desktop page reads, instead of everything stacked and centred. */
+@media (max-width: 720px) {
+  html body .site-root.full-page-mode .settings-row { flex-direction: row !important; flex-wrap: wrap !important; align-items: center !important; justify-content: space-between !important; text-align: left !important; gap: 10px 16px !important; }
+  html body .site-root.full-page-mode .settings-row > div:first-child { flex: 1 1 180px !important; min-width: 0 !important; text-align: left !important; justify-content: flex-start !important; }
+  html body .site-root.full-page-mode .settings-row > div:nth-child(2):not(.toggle-switch) { max-width: 100% !important; justify-content: flex-start !important; flex-wrap: wrap !important; }
+}
+/* Home "six steps": the icon tile, a stray dot and the step card each sat
+   at a different height, with the text split across the card. Each step
+   is now one row: the icon tile as its marker, then a card with the
+   step's name above its one-line explanation. */
+html body .csfloat-home-journey-steps > .csfloat-home-journey-step { align-items: center !important; gap: 20px !important; padding: 0 !important; margin: 0 0 12px !important; height: auto !important; min-height: 0 !important; }
+html body .csfloat-home-journey-steps > .csfloat-home-journey-step::before, html body .csfloat-home-journey-steps > .csfloat-home-journey-step::after { content: none !important; display: none !important; }
+html body .csfloat-home-journey-steps > .csfloat-home-journey-step > .csfloat-home-journey-step-icon { flex: 0 0 auto !important; }
+html body .csfloat-home-journey-steps > .csfloat-home-journey-step > .csfloat-home-journey-step-body { flex: 1 1 auto !important; min-width: 0 !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 18px 22px !important; flex-direction: column !important; align-items: flex-start !important; justify-content: center !important; gap: 4px !important; }
+html body .csfloat-home-journey-steps .csfloat-home-journey-step-label { font-size: 17px !important; line-height: 1.3 !important; margin: 0 !important; }
+html body .csfloat-home-journey-steps .csfloat-home-journey-step-sub { margin: 0 !important; }
+/* Home hero on phones: the two buttons wrapped onto two lines at two
+   different widths; stack them at one full width. */
+@media (max-width: 720px) {
+  html body .csfloat-home-hero .csfloat-home-hero-actions { flex-direction: column !important; align-items: stretch !important; }
+  html body .csfloat-home-hero .csfloat-home-hero-actions > .csfloat-home-hero-cta { width: 100% !important; justify-content: center !important; }
+}
+/* Item page: same as the other full pages, no outlined frame. */
+html body .site-root.full-page-mode main.modal.item-page { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; background-color: transparent !important; }
