@@ -1664,6 +1664,33 @@ class BidServiceSpec extends Specification {
         service.tradeService = null
     }
 
+    def "the sweep pushes the settled result to open auction pages"() {
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
+            seller: 99L, expiresAt: now - 1000L
+        )
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        bidRepository.findByListing(100L) >> [new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal("50"), status: 'WINNING')]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'winner', banned: true))
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        def publisher = Mock(org.springframework.context.ApplicationEventPublisher)
+        service.applicationEventPublisher = publisher
+
+        when:
+        service.sweepExpired()
+
+        then:
+        1 * publisher.publishEvent({ it instanceof com.sboxmarket.event.AuctionBidPlacedEvent && it.status == 'SOLD' })
+
+        cleanup:
+        service.applicationEventPublisher = null
+    }
+
     def "settle closes out every live bid when the winner is banned (no orphaned WINNING rows)"() {
         // No-sale settle path: a winner banned between bid-time and
         // settle-time returns the item to the seller. Every bid on the

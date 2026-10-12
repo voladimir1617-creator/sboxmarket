@@ -1296,6 +1296,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
       return;
     }
     const fresh = await fetchLoadout(viewing.loadout.id);
+    // A failed reload must not blank the open loadout into a spinner.
+    if (!fresh) { toast('Saved, but the loadout did not reload. Refresh to see the change.', 'err'); return; }
     setViewing(fresh);
   };
 
@@ -1307,6 +1309,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
       return;
     }
     const fresh = await fetchLoadout(viewing.loadout.id);
+    // A failed reload must not blank the open loadout into a spinner.
+    if (!fresh) { toast('Saved, but the loadout did not reload. Refresh to see the change.', 'err'); return; }
     setViewing(fresh);
     toast(res.locked ? `${slot} slot locked — Generate will skip it.` : `${slot} slot unlocked.`, 'ok');
   };
@@ -1336,6 +1340,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
         return;
       }
       const fresh = await fetchLoadout(viewing.loadout.id);
+      if (!fresh) { toast('Saved, but the loadout did not reload. Refresh to see the change.', 'err'); return; }
       setViewing(fresh);
       // Count how many slots were actually filled for the success
       // toast — if everything was locked or the budget was impossibly

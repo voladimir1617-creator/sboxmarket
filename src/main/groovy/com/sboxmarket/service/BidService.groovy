@@ -1039,7 +1039,13 @@ class BidService {
         def expired = listingRepository.findExpiredAuctions(now)
         for (Listing listing : expired) {
             try {
-                runInIsolatedTx { settle(listing) }
+                runInIsolatedTx {
+                    def wasActive = listing.status == 'ACTIVE'
+                    settle(listing)
+                    // Push the result to open auction pages, or they sit
+                    // on "settling" until their next slow poll.
+                    if (wasActive && listing.status != 'ACTIVE') publishBidEvent(listing, 'settled')
+                }
             } catch (Exception e) {
                 // Even with REQUIRES_NEW the OUTER loop runs uncatched —
                 // any per-listing failure is logged here and we continue
