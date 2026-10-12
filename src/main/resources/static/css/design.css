@@ -30405,3 +30405,22 @@ html body .site-root.full-page-mode .modal.info-modal.info-modal:has(> .info-mod
 /* Footer: a 17px strip of page colour split the footer band from its
    copyright row. */
 html body footer.site-footer .site-footer-bottom { margin-top: 0 !important; }
+/* Look pass round five 2026-10-12
+   Settings: a rule under the last row of each section and another above
+   the next heading drew double lines. */
+html body .site-root.full-page-mode .info-modal-body .settings-row + h2.settings-section-heading.settings-section-heading:not(:first-of-type) { border-top-width: 0 !important; }
+/* Profile: "Account Standing" was blown up to 24px by a site-wide rule
+   for inline 16px titles, louder than the page title; it now matches
+   the "Earnings" label above it. */
+html body .site-root .info-modal-body > div[style*="margin: 18px"] > div:first-child > div[style*="font-size: 16px"][style*="font-weight: 700"]:first-child { font-size: 14px !important; font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 0.3px !important; }
+@media (max-width: 720px) {
+  /* Wallet on phones: the deposit steps sat 48px in from each side of
+     a 358px card; the panel's extra margin is gone. */
+  html body .wallet-modal .wallet-panel { margin-left: 0 !important; margin-right: 0 !important; }
+}
+@media (max-width: 720px) {
+  /* Settings on phones: Sound effects' switch sat mid-row after the test
+     button; it now ends the row like every other switch. */
+  html body .site-root .settings-row > div:nth-child(2):has(> .toggle-switch):has(> .btn) { width: 100% !important; max-width: 100% !important; }
+  html body .site-root .settings-row > div:nth-child(2):has(> .btn) > .toggle-switch { margin-left: auto !important; }
+}
