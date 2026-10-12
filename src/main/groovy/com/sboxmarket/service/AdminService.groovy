@@ -2455,9 +2455,12 @@ class AdminService {
         // The ticket search query declares ESCAPE '\\': match `_` / `%` literally.
         q = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
         // 500-row cap — consistent with listWithdrawals / listTrades.
-        def rows = q.isEmpty()
-            ? (supportTicketRepository.findForAdmin(status) ?: []).take(500)
-            : (supportTicketRepository.searchForAdmin(status, q) ?: []).take(500)
+        def all = q.isEmpty()
+            ? (supportTicketRepository.findForAdmin(status) ?: [])
+            : (supportTicketRepository.searchForAdmin(status, q) ?: [])
+        // Newest first, but the waiting queue keeps its OLDEST 500 so the
+        // longest-waiting tickets are never the ones cut off.
+        def rows = status in ['OPEN', 'WAITING_STAFF'] ? all.takeRight(500) : all.take(500)
         if (rows.isEmpty()) return []
         // Fraud-signal enrichment (batch 525). Same pattern as batch 514
         // (withdrawals) and 515 (disputes) — give staff triage context

@@ -2374,6 +2374,8 @@ function AdminCatalogueTab() {
       // admin to eyeball the row to tell whether the PUT actually landed.
       toast(`Catalogue updated — ${fresh.name || editing.name} saved.`, 'ok');
       setEditing(null);
+    } catch (_) {
+      setErr('Network error, nothing was saved. Try again.');
     } finally { setBusy(false); }
   };
   return h('div', { className: 'admin-tab-content' },
@@ -2445,7 +2447,7 @@ function AdminCatalogueTab() {
               value: draft.rarity,
               onChange: e => setDraft(d => ({ ...d, rarity: e.target.value }))
             },
-              ['Standard','Off-Market','Limited','Unique','Rare','Exceedingly Rare'].map(r =>
+              ['Standard','Off-Market','Limited'].map(r =>
                 h('option', { key: r, value: r }, r))
             )
           ),
@@ -3377,6 +3379,8 @@ function AdminTicketsTab() {
   const open = async (id) => {
     const t = await adminTicket(id);
     if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
+    // A draft belongs to the ticket it was written on.
+    setReply('');
     setView(t);
   };
   // Enter auto-repeat (or Enter then a click) re-entered this before the
@@ -3422,7 +3426,7 @@ function AdminTicketsTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => setView(null) }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
           h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
@@ -3496,9 +3500,12 @@ function AdminTicketsTab() {
     ),
     list === null
       ? h('div', { className: 'spinner' })
+      : list.error
+        ? h('div', { className: 'wallet-error', role: 'alert' }, 'Tickets failed to load, so this is not an empty queue. ',
+            h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
       : list.length === 0
         ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'support_agent', size: 26 })),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No tickets.'))
+            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, search ? 'No tickets match that search.' : 'No tickets.'))
         : h('table', { className: 'db-table' },
             h('thead', null, h('tr', null,
               h('th', null, 'ID'), h('th', null, 'Subject'),
@@ -3954,6 +3961,8 @@ function CsrTicketsTab() {
   const open = async (id) => {
     const t = await csrTicket(id);
     if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
+    // A draft belongs to the ticket it was written on.
+    setReply('');
     setView(t);
   };
   // Enter auto-repeat (or Enter then a click) re-entered this before the
@@ -3999,7 +4008,7 @@ function CsrTicketsTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => setView(null) }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
           h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))
@@ -4052,9 +4061,12 @@ function CsrTicketsTab() {
     ),
     list === null
       ? h('div', { className: 'spinner' })
+      : list.error
+        ? h('div', { className: 'wallet-error', role: 'alert' }, 'Tickets failed to load, so this is not an empty queue. ',
+            h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
       : list.length === 0
         ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'support_agent', size: 26 })),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Queue is clear.'))
+            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, search ? 'No tickets match that search.' : 'Queue is clear.'))
         : h('table', { className: 'db-table' },
             h('thead', null, h('tr', null,
               h('th', null, 'ID'), h('th', null, 'Subject'), h('th', null, 'User'),

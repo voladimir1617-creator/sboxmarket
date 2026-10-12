@@ -1605,7 +1605,8 @@ export async function adminTickets(status, search) {
   if (search) qp.set('search', search);
   const suffix = qp.toString() ? '?' + qp.toString() : '';
   const data = await safeJson(`${API}/admin/tickets${suffix}`);
-  return Array.isArray(data) ? data : [];
+  // A failed load must not read as an empty queue.
+  return Array.isArray(data) ? data : { error: true };
 }
 export async function adminTicket(id) { return safeJson(`${API}/admin/tickets/${id}`); }
 export async function adminTicketReply(id, body) {
@@ -2051,7 +2052,8 @@ export async function csrTickets(status, search) {
   if (search) qp.set('search', search);
   const suffix = qp.toString() ? '?' + qp.toString() : '';
   const data = await safeJson(`${API}/csr/tickets${suffix}`);
-  return Array.isArray(data) ? data : [];
+  // A failed load must not read as an empty queue.
+  return Array.isArray(data) ? data : { error: true };
 }
 export async function csrTicket(id) { return safeJson(`${API}/csr/tickets/${id}`); }
 export async function csrTicketReply(id, body) {

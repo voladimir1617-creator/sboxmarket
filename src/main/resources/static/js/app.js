@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=243';
+} from './modals.js?v=245';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -3642,10 +3642,11 @@ export function App() {
   // Mobile filters bottom-sheet — at <768px the sidebar collapses out of
   // the layout grid; we expose it again as a slide-up drawer when the
   // floating "Filters" pill is tapped. Open state lives at App level so
-  // the FAB and the drawer stay in sync. Auto-closes on resize > 768px.
+  // the FAB and the drawer stay in sync. Auto-closes once the sidebar is
+  // back in the layout (1100px and up; design.css hides it below that).
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   useEffect(() => {
-    const onResize = () => { if (window.innerWidth > 768 && mobileFiltersOpen) setMobileFiltersOpen(false); };
+    const onResize = () => { if (window.innerWidth > 1099 && mobileFiltersOpen) setMobileFiltersOpen(false); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [mobileFiltersOpen]);
@@ -5024,7 +5025,7 @@ export function App() {
     // describes the whole view: filters it leaves out go back to their
     // defaults instead of keeping what an earlier search left behind.
     const FILTER_KEYS = ['q', 'search', 'query', 'category', 'rarity', 'min', 'max', 'minPrice', 'maxPrice',
-                         'type', 'listingType', 'deals', 'new', 'aff', 'discount'];
+                         'type', 'listingType', 'deals', 'new', 'aff', 'discount', 'sort'];
     if (FILTER_KEYS.some(k => params.has(k))) {
       const has = (...ks) => ks.some(k => params.has(k));
       if (!has('q', 'search', 'query') && search) { setSearch(''); setSearchInput(''); }
@@ -5036,6 +5037,7 @@ export function App() {
       if (!has('deals') && dealsOnly) setDealsOnly(false);
       if (!has('new') && newOnly) setNewOnly(false);
       if (!has('aff') && affordableOnly) setAffordableOnly(false);
+      if (!has('discount') && minDiscountPct) setMinDiscountPct(0);
       // The URL leaves sort out when it is the default (High→Low), so a
       // shared link without one means High→Low, not the viewer's own
       // remembered sort.
@@ -8421,9 +8423,16 @@ export function App() {
                       return name.includes(search) || cat.includes(search);
                     });
                   }
+                  // An auction sorts by its current bid, the price its card shows.
+                  const stallPrice = (l) => {
+                    const cb = l?.listingType === 'AUCTION' ? parseFloat(l.currentBid) : NaN;
+                    if (isFinite(cb) && cb > 0) return cb;
+                    const p = parseFloat(l?.price);
+                    return isFinite(p) ? p : 0;
+                  };
                   rows = [...rows].sort((a, b) => {
-                    if (stallSort === 'price_asc')  return parseFloat(a.price) - parseFloat(b.price);
-                    if (stallSort === 'price_desc') return parseFloat(b.price) - parseFloat(a.price);
+                    if (stallSort === 'price_asc')  return stallPrice(a) - stallPrice(b);
+                    if (stallSort === 'price_desc') return stallPrice(b) - stallPrice(a);
                     if (stallSort === 'newest')     return (b.listedAt || 0) - (a.listedAt || 0);
                     if (stallSort === 'rarity')     return (a.item?.supply || 0) - (b.item?.supply || 0);
                     return 0;
@@ -8507,7 +8516,12 @@ export function App() {
                 if (idx >= 0 && idx < 30) days[idx] += 1;
               });
               const maxCount = Math.max(...days);
-              const total = days.reduce((a, b) => a + b, 0);
+              const sampled = days.reduce((a, b) => a + b, 0);
+              // The sample stops at 200 sales; past that the true 30-day
+              // count comes from the seller stats and the bars and gross
+              // only cover the sampled sales.
+              const capped = (stallSold || []).length >= 200;
+              const total = capped ? Math.max(sampled, Number(stallData?.seller?.soldLast30d) || 0) : sampled;
               // Integer-cents accumulation — see the 24h-vol chip; float reduce
               // drifts vs the server's exact BigDecimal revenue. (audit)
               const revenue = recent.reduce((sum, s) => sum + Math.round((parseFloat(s.price) || 0) * 100), 0) / 100;
@@ -8516,7 +8530,9 @@ export function App() {
                   h('span', { className: 'section-title-dot' }),
                   `Sales · last 30 days`,
                   h('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 } },
-                    `${total} sale${total === 1 ? '' : 's'} · ${fmt(revenue)} gross`)
+                    capped
+                      ? `${total} sales · ${fmt(revenue)} gross on the latest ${sampled}`
+                      : `${total} sale${total === 1 ? '' : 's'} · ${fmt(revenue)} gross`)
                 ),
                 h('div', {
                   style: { display: 'flex', alignItems: 'flex-end', gap: 2, height: 46,

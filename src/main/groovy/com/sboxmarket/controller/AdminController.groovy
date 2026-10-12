@@ -220,7 +220,15 @@ class AdminController {
         if (body.containsKey('rarity')) {
             def r = (body.rarity as String ?: '').trim()
             if (r.length() > 40) throw new com.sboxmarket.exception.BadRequestException("INVALID_RARITY", "rarity too long")
-            item.rarity = r.isEmpty() ? 'Standard' : r
+            // Only the rarities the market filters know; anything else
+            // drops the item out of every rarity filter.
+            def canon = r.isEmpty() ? 'Standard'
+                : com.sboxmarket.util.ListingEnums.canonEnum(r, com.sboxmarket.util.ListingEnums.RARITIES - 'All', null)
+            if (canon == null) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_RARITY",
+                    "rarity must be one of ${(com.sboxmarket.util.ListingEnums.RARITIES - 'All').join(', ')}".toString())
+            }
+            item.rarity = canon
         }
         if (body.containsKey('imageUrl')) {
             def u = (body.imageUrl as String ?: '').trim()
@@ -232,7 +240,7 @@ class AdminController {
         }
         if (body.containsKey('accentColor')) {
             def c = (body.accentColor as String ?: '').trim()
-            if (c && !(c ==~ /#[0-9A-Fa-f]{3,8}/)) {
+            if (c && !(c ==~ /#([0-9A-Fa-f]{3,4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})/)) {
                 throw new com.sboxmarket.exception.BadRequestException("INVALID_COLOR", "accentColor must be a #hex string")
             }
             item.accentColor = c.isEmpty() ? null : c

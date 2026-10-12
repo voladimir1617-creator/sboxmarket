@@ -4173,6 +4173,13 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
 
   useEffect(() => {
     localStorage.setItem('sb_privacy', privacy ? '1' : '0');
+    // Same-tab listeners (the nav wallet chip) only hear a dispatched
+    // event; a localStorage write alone reaches other tabs only.
+    try {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'sb_privacy', newValue: privacy ? '1' : '0'
+      }));
+    } catch (_) {}
   }, [privacy]);
 
   // 2026-05-20 — sync the active tab with the route param. The modal
@@ -4357,7 +4364,9 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         return;
       }
       const fresh = await fetchProfile();
-      setProfile(fresh);
+      // A failed re-read returns null; keep the profile we have rather
+      // than showing "not set" / "2FA Disabled" for a user who has both.
+      if (fresh) setProfile(fresh);
       // The header name and avatar read the app-level user, not the
       // profile, so refresh that too or a Steam rename stays stale.
       try { onRefresh && onRefresh(); } catch (_) {}
@@ -4736,7 +4745,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         // Batch 929 — lightweight profile refresh for actions that need
         // to pick up the new `profile.user.deletionRequestedAt` state
         // without triggering a Steam sync round-trip (onSync does both).
-        refreshProfile: () => fetchProfile().then(setProfile),
+        refreshProfile: () => fetchProfile().then(p => { if (p) setProfile(p); }),
+        // Keep the loaded profile in step with the email switch, or the
+        // tab re-seeds the old value the next time it mounts.
+        onEmailPref: (v) => setProfile(p => (p && p.user) ? { ...p, user: { ...p.user, emailNotificationsEnabled: v } } : p),
         // Re-reads the app-level `me` too: the trade-URL gates on the item
         // page, cart and bargain drawer read `me.tradeUrl`, not `profile`.
         onMeChanged: onRefresh
@@ -4760,6 +4772,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
 function EmailPrefToggle({ initial, onChange }) {
   const [on, setOn] = useState(initial !== false);
   const [busy, setBusy] = useState(false);
+  // The tab can render before the profile loads (initial undefined reads
+  // as "On"); follow the real value once it arrives.
+  useEffect(() => {
+    if (!busy && typeof initial === 'boolean') setOn(initial);
+  }, [initial]);
   const toggle = async () => {
     if (busy) return;
     setBusy(true);
@@ -4884,6 +4901,9 @@ function EmailBucketMutes() {
 function FollowingListRow() {
   const [rows, setRows] = useState(null);
   const [names, setNames] = useState({});
+  // Every followed seller is loaded; the first 10 show until expanded so
+  // sellers past #10 can still be unfollowed or muted from here.
+  const [showAllFollows, setShowAllFollows] = useState(false);
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -4984,7 +5004,7 @@ function FollowingListRow() {
         title: anyLoud
           ? 'Mute new-listing pings from every followed seller (follow rows stay)'
           : 'Un-mute new-listing pings from every followed seller'
-      }, anyLoud ? 'all' : 'all'),
+      }, anyLoud ? '🔕 Mute all' : '🔔 Unmute all'),
       rows.length > 1 && h('button', {
         className: 'btn btn-ghost',
         style: { marginLeft: 6, padding: '2px 8px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
@@ -4993,7 +5013,7 @@ function FollowingListRow() {
       }, '✕ all')
     ),
     h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
-      rows.slice(0, 10).map(r => h('div', {
+      (showAllFollows ? rows : rows.slice(0, 10)).map(r => h('div', {
         key: r.id,
         style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }
       },
@@ -5025,8 +5045,12 @@ function FollowingListRow() {
           'aria-label': 'Unfollow this seller'
         }, '✕')
       )),
-      rows.length > 10 && h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
-        `+ ${rows.length - 10} more`)
+      rows.length > 10 && h('button', {
+        className: 'btn btn-ghost',
+        style: { padding: '2px 8px', fontSize: 11, color: 'var(--text-muted)' },
+        'aria-expanded': showAllFollows,
+        onClick: () => setShowAllFollows(v => !v)
+      }, showAllFollows ? 'Show fewer' : `+ ${rows.length - 10} more`)
     )
   );
 }
@@ -5267,7 +5291,7 @@ function SecurityActivityRow() {
   );
 }
 
-function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refreshProfile, onMeChanged, privacy }) {
+function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refreshProfile, onMeChanged, privacy, onEmailPref }) {
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft]     = useState('');
   const [emailToken, setEmailToken]     = useState('');
@@ -6094,7 +6118,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 credentials: 'same-origin',
                 headers: { 'X-CSRF-Token': (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1] || '' }
               });
-              if (res.ok || res.status === 204 || res.status === 401) {
+              // A 401 means this session had already ended, so nothing was
+              // revoked: other devices may still be signed in.
+              if (res.status === 401) {
+                toast('Your session here already ended. Sign in again, then sign out everywhere.', 'err');
+              } else if (res.ok || res.status === 204) {
                 toast('Signed out everywhere — redirecting…', 'ok');
                 setTimeout(() => { window.location.href = '/'; }, 600);
               } else {
@@ -6178,7 +6206,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'stretch', gap: 10 } },
         h(EmailPrefToggle, {
           initial: profile?.user?.emailNotificationsEnabled !== false,
-          onChange: (v) => setEmailsOn(!!v)
+          onChange: (v) => { setEmailsOn(!!v); if (onEmailPref) onEmailPref(!!v); }
         }),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
           'Security + account-state emails (verification, withdrawal, ban) always send regardless of the settings below.'),
@@ -6201,10 +6229,20 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 11 },
           onClick: async () => {
             if (!confirm('Sign out of every device?\n\nThis will end your session here and on every other browser or bot you\'ve signed in from. You\'ll need to sign in with Steam again.')) return;
+            let res;
             try {
               const { signOutEverywhere } = await import('./api.js');
-              await signOutEverywhere();
-            } catch (_) { /* 401 on self is fine — we just nuked the session */ }
+              res = await signOutEverywhere();
+            } catch (_) { res = { error: 'Could not reach the server.' }; }
+            // writeJson returns an error object instead of throwing. Only a
+            // real success revoked the other sessions; anything else must
+            // not read as "signed out everywhere".
+            if (res && (res.error || res.code)) {
+              toast(res.code === 'SESSION_EXPIRED'
+                ? 'Your session here already ended. Sign in again, then sign out everywhere.'
+                : (res.error || 'Could not sign out of all devices. Try again.'), 'err');
+              return;
+            }
             // Land on the marketplace — the SPA session-expired banner
             // will fire on the first /api/* fetch after this.
             location.href = '/';

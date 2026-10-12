@@ -151,6 +151,11 @@ class SteamAuthController {
         if (safeNext != null && safeNext != '/') {
             try { req.getSession(true).setAttribute(SESSION_NEXT, safeNext) }
             catch (Exception ignore) { /* session unavailable → just lose the hint */ }
+        } else {
+            // A sign-in started from / must not inherit the target of an
+            // earlier, abandoned sign-in.
+            try { req.getSession(false)?.removeAttribute(SESSION_NEXT) }
+            catch (Exception ignore) { /* no session → nothing to clear */ }
         }
         resp.sendRedirect(steamAuthService.buildLoginUrl())
     }
