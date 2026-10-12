@@ -30217,7 +30217,7 @@ html body nav.nav::before { content: "" !important; position: absolute !importan
 @media (max-width: 768px) {
   html body nav.nav::before { left: -16px !important; right: -16px !important; }
 }
-html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) { background: transparent !important; background-color: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; max-width: calc(100% - 120px) !important; }
+html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) { background: transparent !important; background-color: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; max-width: calc(100% - 88px) !important; }
 @media (max-width: 768px) {
   html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) { max-width: 100% !important; }
 }
@@ -30322,3 +30322,51 @@ html body #root .loadout-tabs > .btn.btn-accent { width: auto !important; min-wi
 @media (max-width: 720px) {
   html body #root .site-root.full-page-mode .modal.info-modal:has(.loadout-list) > .info-modal-header { padding-left: 0 !important; padding-right: 0 !important; }
 }
+/* Look pass round three 2026-10-12
+   Full pages started their content on three different left edges (Buy
+   Orders at 100px, Sell/Offers/My Stall at 124px, the Sell title further
+   in again) and Help was still a boxed card with a centred title while
+   FAQ, Settings and Cart sat on the page. Every full page now lines its
+   title and content up on one edge, the same edge as the top bar's logo
+   on wide pages. */
+html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal.info-modal { padding-left: 0 !important; padding-right: 0 !important; background: transparent !important; background-color: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding-top: 28px !important; }
+html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal.info-modal > .info-modal-header { padding-left: 24px !important; padding-right: 24px !important; text-align: left !important; }
+html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal.info-modal > .info-modal-body { padding-left: 24px !important; padding-right: 24px !important; }
+/* Help sat 60px lower than every other page. */
+html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal.info-modal:has(.help-intro) { margin-top: 0 !important; }
+/* Empty states: one solid card style (Sell's was dashed). */
+html body .site-root.full-page-mode .modal-backdrop .empty-inline.empty-inline { border-style: solid !important; }
+/* Buy Orders: the trade-URL notice's button and the Create button were
+   stretched to 320px and parked mid-row; they size to their label, the
+   notice's button on the right, Create on the page edge. */
+html body .site-root.full-page-mode .modal.info-modal[aria-labelledby^="info-modal-h-buy-orders"] > .info-modal-body > div > .btn.btn { width: auto !important; min-width: 0 !important; max-width: none !important; flex: 0 0 auto !important; margin-left: 0 !important; margin-right: 0 !important; height: 36px !important; padding: 0 16px !important; font-size: 13px !important; }
+html body .site-root.full-page-mode .modal.info-modal[aria-labelledby^="info-modal-h-buy-orders"] > .info-modal-body > div:has(> .btn) { justify-content: space-between !important; }
+html body .site-root.full-page-mode .modal.info-modal[aria-labelledby^="info-modal-h-buy-orders"] > .info-modal-body > div:has(> .btn) > span { text-align: left !important; }
+/* My Stall: "Active CSV" sat alone on a row above the filter chips; it
+   now ends the chips' row. */
+html body .site-root div:has(> .stall-list):has(> div > a[href$="active.csv"]) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; column-gap: 12px !important; align-items: start !important; }
+html body .site-root div:has(> .stall-list) > div:has(> a[href$="active.csv"]) { grid-column: 2 !important; grid-row: 1 !important; margin: 0 !important; }
+html body .site-root div:has(> .stall-list):has(> div > a[href$="active.csv"]) > div:not(.stall-list):not(:has(> a[href$="active.csv"])) { grid-column: 1 !important; grid-row: 1 !important; }
+html body .site-root div:has(> .stall-list):has(> div > a[href$="active.csv"]) > .stall-list { grid-column: 1 / -1 !important; }
+/* Home hero and footer were still panels ending 60px short of each
+   edge, the last of the "box in a frame" look; their colour now runs
+   the full width like the top bar. */
+html body .site-root .csfloat-home-hero { box-shadow: 0 0 0 100vmax rgb(8, 10, 18) !important; clip-path: inset(0 -100vmax) !important; }
+html body footer.site-footer .site-footer-inner, html body footer.site-footer .site-footer-bottom { background-color: rgb(27, 29, 36) !important; border-radius: 0 !important; box-shadow: 0 0 0 100vmax rgb(27, 29, 36) !important; clip-path: inset(0 -100vmax) !important; }
+html body footer.site-footer .site-footer-bottom { border-top: 1px solid rgba(255, 255, 255, 0.06) !important; }
+/* Home deal cards used their own half-styled body (name and category
+   indented, price centred, seller status beside or under the price
+   depending on the card); they now read exactly like the Market cards:
+   left-aligned, price block then a ruled status/age row at the bottom. */
+html body .site-root .csfloat-home-preview-row > a.grid-card .grid-body { display: flex !important; flex-direction: column !important; padding: 14px 14px 12px !important; text-align: left !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .grid-name, html body .site-root .csfloat-home-preview-row > a.grid-card .grid-cat { padding: 0 !important; text-align: left !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .grid-name { font-size: 15px !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .grid-cat { font-size: 12px !important; margin-top: 2px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .grid-footer { display: flex !important; flex-direction: column !important; align-items: stretch !important; flex: 1 1 auto !important; padding: 8px 0 0 !important; margin-top: 6px !important; gap: 6px !important; text-align: left !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .grid-footer > div:first-child { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 2px !important; width: 100% !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .grid-price { display: flex !important; align-items: center !important; justify-content: space-between !important; width: 100% !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .gc-card-meta { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; width: 100% !important; margin-top: auto !important; padding-top: 8px !important; border-top: 1px solid oklch(0.3 0.012 260) !important; font-size: 11px !important; text-align: left !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .gc-online-row { margin-top: 0 !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card .gc-card-age { font-size: 11px !important; color: rgb(120, 128, 138) !important; white-space: nowrap !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card { display: flex !important; flex-direction: column !important; }
+html body .site-root .csfloat-home-preview-row > a.grid-card > .grid-body { flex: 1 1 auto !important; }
