@@ -568,7 +568,7 @@ export async function fetchFollowing() {
   // The server defaults to 50 rows but lets a user follow 200; ask for
   // all of them so sellers past #50 can still be unfollowed or muted.
   const data = await safeJson(`${API}/follows?limit=200`);
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : null;  // null = load failed, not "follows nobody"
 }
 /** Unfollow every seller in one call. Returns `{unfollowed:N}`. */
 export async function unfollowAllSellers() {
@@ -1988,7 +1988,7 @@ export async function fetchBuyOrderProjectedPosition(itemId, maxPrice) {
  *  Empty array for signed-out users or users who follow nobody. */
 export async function fetchFollowingFeed() {
   const data = await safeJson(`${API}/follows/feed`);
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : null;  // null = load failed; callers keep what they have
 }
 
 /** Bulk cart-row freshness probe. The cart is persisted client-side
@@ -2548,7 +2548,9 @@ export async function reopenSupportTicket(id) {
 // ── API keys ────────────────────────────────────────────────────
 export async function fetchApiKeys() {
   const data = await safeJson(`${API}/api-keys`);
-  return Array.isArray(data) ? data : [];
+  // null on failure, so the page can say the load failed instead of
+  // claiming the user has no keys (and hiding Revoke).
+  return Array.isArray(data) ? data : null;
 }
 
 export async function createApiKey(label, scope) {

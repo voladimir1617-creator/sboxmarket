@@ -349,6 +349,47 @@ class ApiKeyAuthFilterSpec extends Specification {
         'GET'    | '/api/csr/tickets'
     }
 
+    @spock.lang.Unroll
+    def "an RW key cannot dodge the account block with #path"() {
+        given:
+        def req = new MockHttpServletRequest('PUT', path)
+        req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
+        0 * chain.doFilter(_, _)
+        resp.status == 403
+
+        where:
+        path << [
+            '/api/profile;x/trade-url',
+            '/api/%70rofile/email',
+            '/api//profile/trade-url',
+            '/api/api-keys;jsessionid=1',
+            '/api/Profile/trade-url',
+        ]
+    }
+
+    def "an RW key is refused when only the decoded servlet path names the account endpoint"() {
+        given:
+        def req = new MockHttpServletRequest('PUT', '/api/whatever')
+        req.servletPath = '/api/profile/trade-url'
+        req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
+        0 * chain.doFilter(_, _)
+        resp.status == 403
+    }
+
     def "a read-only key cannot read admin data either"() {
         given:
         def req = new MockHttpServletRequest('GET', '/api/admin/users.csv')

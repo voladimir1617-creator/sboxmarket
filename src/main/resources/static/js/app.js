@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=249';
+} from './modals.js?v=250';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -1904,7 +1904,8 @@ function FollowingRail({ me, watchlist, onToggleStar, onOpen, onAddToCart, cartH
     const load = async () => {
       try {
         const data = await fetchFollowingFeed();
-        if (alive) setRows(Array.isArray(data) ? data : []);
+        // A failed refresh keeps the rail it already shows.
+        if (alive && Array.isArray(data)) setRows(data);
       } catch (_) {}
     };
     load();
@@ -3875,7 +3876,7 @@ export function App() {
     setReportSellerOpen(true);
   };
   const submitReportSeller = async () => {
-    if (!stallData?.seller?.id) return;
+    if (!stallData?.seller?.id || reportSellerBusyRef.current) return;
     setReportSellerErr('');
     setReportSellerBusy(true);
     reportSellerBusyRef.current = true;
@@ -3888,7 +3889,7 @@ export function App() {
       }
       setReportSellerOpen(false);
       showToast('Report filed — Support will review, track in /support.', 'ok');
-    } finally { setReportSellerBusy(false); }
+    } finally { reportSellerBusyRef.current = false; setReportSellerBusy(false); }
   };
   // Report drawer a11y — Escape + initial focus + focus restore + Tab trap via the
   // shared useDialogA11y contract (was Escape-only, so Tab escaped to the stall page
@@ -4970,6 +4971,7 @@ export function App() {
     }
     else if (login === 'failed') {
       showToast('Steam sign-in failed. Please try again.', 'err');
+      try { sessionStorage.removeItem('sb_login_return_url'); } catch (_) {}
       dirty = true;
     }
     if (dirty) window.history.replaceState({}, '', window.location.pathname);
