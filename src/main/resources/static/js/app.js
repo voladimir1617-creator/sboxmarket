@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=246';
+} from './modals.js?v=247';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -4820,6 +4820,7 @@ export function App() {
         if (document.querySelector('.cart-confirm-backdrop') ||
             document.querySelectorAll('.modal-backdrop').length > 1 ||
             document.querySelector('.item-offer-drawer') ||
+            document.querySelector('.item-alert-panel') ||
             document.querySelector('.item-lightbox') ||
             document.querySelector('.csfloat-cart-popover-container, .nav-picker-panel, .notif-dropdown, #user-menu-panel')) return;
         if (shortcutsOpen)        setShortcutsOpen(false);

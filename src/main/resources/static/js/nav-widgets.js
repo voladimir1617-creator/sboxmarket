@@ -474,7 +474,14 @@ export function NotificationBell({ me }) {
   useEffect(() => {
     if (!open) return;
     const onDoc = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
-    const onKey = e => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = e => {
+      if (e.key !== 'Escape') return;
+      // Focus was inside the panel that is about to unmount; hand it
+      // back to the bell instead of dropping it on <body>.
+      const inPanel = wrapRef.current && wrapRef.current.contains(document.activeElement);
+      setOpen(false);
+      if (inPanel) { const b = wrapRef.current.querySelector('button'); if (b) b.focus(); }
+    };
     document.addEventListener('click', onDoc);
     document.addEventListener('keydown', onKey);
     return () => {

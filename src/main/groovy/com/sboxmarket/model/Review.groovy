@@ -68,6 +68,11 @@ class Review {
     @Column(length = 80)
     String fromDisplayName
 
+    /** Seller's display name, filled in only for the author's own
+     *  "Given" list. Not stored. */
+    @Transient
+    String toUserName
+
     @Column(length = 255)
     String itemName
 
