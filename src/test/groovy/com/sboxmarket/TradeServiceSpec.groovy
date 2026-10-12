@@ -1865,9 +1865,10 @@ class TradeServiceSpec extends Specification {
 
     // ── expiresAt decoration (Visual Manual §29) ──────────────────
 
-    def "listForUserWithCounterparty decorates PENDING_SELLER_ACCEPT with expiresAt = updatedAt + sellerResponseDays"() {
+    def "listForUserWithCounterparty decorates PENDING_SELLER_ACCEPT with expiresAt = createdAt + sellerResponseDays"() {
         given:
         def t = tradeIn('PENDING_SELLER_ACCEPT', [id: 1L])
+        t.createdAt = 1_700_000_000_000L
         t.updatedAt = 1_700_000_000_000L
         tradeRepository.findByParticipantPaged(20L, _) >> [t]
 
@@ -1876,9 +1877,23 @@ class TradeServiceSpec extends Specification {
 
         then:
         rows.size() == 1
-        // 3 days past updatedAt, per the service's default sellerResponseDays config.
+        // 3 days past the purchase, per the service's default sellerResponseDays config.
         rows[0].expiresAt == 1_700_000_000_000L + (3L * 24L * 60L * 60L * 1000L)
         rows[0].state == 'PENDING_SELLER_ACCEPT'
+    }
+
+    def "accepting does not restart the seller's window: PENDING_SELLER_SEND still expires 3 days after the purchase"() {
+        given: 'bought at T, accepted two days later'
+        def t = tradeIn('PENDING_SELLER_SEND', [id: 1L])
+        t.createdAt = 1_700_000_000_000L
+        t.updatedAt = 1_700_000_000_000L + (2L * 24L * 60L * 60L * 1000L)
+        tradeRepository.findByParticipantPaged(20L, _) >> [t]
+
+        when:
+        def rows = service.listForUserWithCounterparty(20L)
+
+        then: 'the buyer was told "sent within 3 days or refunded", so the clock is the purchase, not the accept'
+        rows[0].expiresAt == 1_700_000_000_000L + (3L * 24L * 60L * 60L * 1000L)
     }
 
     def "listForUserWithCounterparty decorates PENDING_BUYER_CONFIRM with expiresAt = updatedAt + autoReleaseDays"() {
