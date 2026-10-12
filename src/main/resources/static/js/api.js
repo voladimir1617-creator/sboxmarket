@@ -2158,6 +2158,12 @@ export async function fetchTradeMessages(tradeId) {
   const data = await safeJson(`${API}/trades/${tradeId}/messages`);
   return Array.isArray(data) ? data : [];
 }
+// Same as fetchTradeMessages but null on failure, so a failed load is
+// never shown as an empty thread.
+export async function fetchTradeMessagesOrNull(tradeId) {
+  const data = await safeJson(`${API}/trades/${tradeId}/messages`);
+  return Array.isArray(data) ? data : null;
+}
 export async function postTradeMessage(tradeId, body) {
   return writeJson(`${API}/trades/${tradeId}/messages`, {
     method: 'POST', credentials: 'same-origin',
