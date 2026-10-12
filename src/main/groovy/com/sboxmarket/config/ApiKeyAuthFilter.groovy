@@ -133,7 +133,11 @@ class ApiKeyAuthFilter extends OncePerRequestFilter {
         //      long-lived session on every call.
         // A pre-existing browser session on the request is neither read
         // nor modified, so there is no cross-user contamination either.
-        if (forbiddenForApiKey(path, isWrite)) {
+        // Check the decoded servlet path too: the raw URI can hide
+        // '/api/profile' behind ';params' or percent-escapes that the
+        // router strips before matching.
+        String decoded = (req.servletPath ?: '') + (req.pathInfo ?: '')
+        if (forbiddenForApiKey(path, isWrite) || forbiddenForApiKey(decoded, isWrite)) {
             resp.status = 403
             resp.contentType = 'application/json'
             resp.writer.write('{"code":"API_KEY_FORBIDDEN","message":"API keys cannot use this endpoint. Sign in on the website instead."}')
@@ -163,11 +167,27 @@ class ApiKeyAuthFilter extends OncePerRequestFilter {
         '/api/api-keys', '/api/profile', '/api/wallet/connect', '/api/auth/steam/logout-all'
     ].asImmutable()
 
-    static boolean forbiddenForApiKey(String path, boolean isWrite) {
-        if (path == null) return false
+    static boolean forbiddenForApiKey(String rawPath, boolean isWrite) {
+        if (rawPath == null) return false
+        String path = canonical(rawPath)
         def under = { String p -> path == p || path.startsWith(p + '/') }
         if (STAFF_PREFIXES.any(under)) return true
         isWrite && ACCOUNT_WRITE_PREFIXES.any(under)
+    }
+
+    /** The path as the router sees it: ';params' dropped from every
+     *  segment, percent-escapes decoded, repeated and trailing slashes
+     *  folded, lower case. */
+    static String canonical(String path) {
+        String p = path.replaceAll(';[^/]*', '')
+        try {
+            p = URLDecoder.decode(p.replace('+', '%2B'), 'UTF-8')
+        } catch (IllegalArgumentException ignored) {
+            // Malformed escape: keep the undecoded form.
+        }
+        p = p.replaceAll(';[^/]*', '').toLowerCase(Locale.ROOT).replaceAll('/{2,}', '/')
+        while (p.length() > 1 && p.endsWith('/')) p = p.substring(0, p.length() - 1)
+        p
     }
 
     static class ApiKeyRequest extends HttpServletRequestWrapper {

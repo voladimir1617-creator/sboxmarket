@@ -4908,6 +4908,8 @@ function FollowingListRow() {
   // Every followed seller is loaded; the first 10 show until expanded so
   // sellers past #10 can still be unfollowed or muted from here.
   const [showAllFollows, setShowAllFollows] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -4915,7 +4917,9 @@ function FollowingListRow() {
         const { fetchFollowing, fetchSellerNames } = await import('./api.js');
         const r = await fetchFollowing();
         if (!alive) return;
-        setRows(Array.isArray(r) ? r : []);
+        if (r === null) { setLoadErr(true); return; }
+        setLoadErr(false);
+        setRows(r);
         // One bulk round-trip for every followed seller's displayName —
         // replaces the prior N+1 stall-fetch-per-row pattern that fired
         // the full /api/listings/stall/{id} (listings + reviews + aggregates)
@@ -4923,10 +4927,10 @@ function FollowingListRow() {
         const ids = [...new Set((r || []).map(x => x.sellerUserId))];
         const namesMap = await fetchSellerNames(ids);
         if (alive) setNames(namesMap || {});
-      } catch (_) { if (alive) setRows([]); }
+      } catch (_) { if (alive) setLoadErr(true); }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [reloadKey]);
   const doUnfollow = async (sellerId) => {
     // Batch 925 — capture the seller name from the enriched-names map
     // BEFORE the row filter runs so the toast names the right stall.
@@ -4996,6 +5000,12 @@ function FollowingListRow() {
       ? `Muted pings from ${rows.length} seller${rows.length === 1 ? '' : 's'} (still following).`
       : `Un-muted pings from ${rows.length} seller${rows.length === 1 ? '' : 's'}.`, 'ok');
   };
+  if (loadErr && !rows) return h('div', { className: 'profile-row', role: 'alert' },
+    h('div', { className: 'profile-row-label' }, 'Following'),
+    h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
+      'Could not load the sellers you follow. ',
+      h('button', { className: 'btn btn-ghost', style: { padding: '2px 8px', fontSize: 11 },
+        onClick: () => { setLoadErr(false); setReloadKey(k => k + 1); } }, 'Retry')));
   if (!rows || rows.length === 0) return null;
   return h('div', { className: 'profile-row' },
     h('div', { className: 'profile-row-label' },
@@ -10898,7 +10908,13 @@ function ProfileDevelopersTab() {
   const [newKey, setNewKey] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => { setKeys(await fetchApiKeys()); }, []);
+  const [keysErr, setKeysErr] = useState(false);
+  const load = useCallback(async () => {
+    const res = await fetchApiKeys();
+    if (res === null) { setKeysErr(true); return; }
+    setKeysErr(false);
+    setKeys(res);
+  }, []);
   useEffect(() => { load(); }, [load]);
 
   const mint = async () => {
@@ -10994,7 +11010,11 @@ function ProfileDevelopersTab() {
         }, 'Dismiss')
       )
     ),
-    keys === null
+    keysErr && keys === null
+      ? h('div', { className: 'empty-inline', role: 'alert' },
+          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your API keys.'),
+          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setKeysErr(false); load(); } }, 'Retry'))
+    : keys === null
       ? h('div', { className: 'spinner' })
       : keys.length === 0
         ? h('div', { className: 'empty-inline' },
@@ -11250,7 +11270,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
 
   const loadSteam = useCallback(async () => {
     const d = await fetchSteamInventory();
-    setSteamData(d);
+    // A failed refresh keeps a grid that already loaded; only a first
+    // load (or one already in error) shows the error card.
+    setSteamData(prev => (d && d.error && prev && !prev.error && Array.isArray(prev.items) && prev.items.length) ? prev : d);
     return !(d && d.error);  // success flag drives the poll's backoff
   }, []);
   const loadInternal = useCallback(async () => {
@@ -11347,6 +11369,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       await loadSteam();
       if (res && res.ok === false) {
         toast(res.error || 'Steam sync failed — try again in a few minutes.', 'err');
+        return;
+      }
+      if (res && res.throttled) {
+        const wait = Number(res.retryInSec) > 0 ? ` in ${res.retryInSec}s` : ' shortly';
+        toast(`Synced recently, so nothing new was fetched. Try again${wait}.`, 'warn');
         return;
       }
       const n = (res && typeof res.inventorySize === 'number') ? res.inventorySize : null;
@@ -11546,14 +11573,20 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       const res = kind === 'steam'
         ? await listFromSteam(row.assetId, price, { listingType: 'BUY_NOW' })
         : await relistItem(row.id,       price, { listingType: 'BUY_NOW' });
-      if (res && (res.code || res.error)) {
-        toast(res.message || res.error || 'Could not quick-sell', 'err');
+      if (!res || res.code || res.error) {
+        toast((res && (res.message || res.error)) || 'Could not quick-sell', 'err');
         return;
       }
       // Batch 885 — name the quick-sold item so sellers burst-selling
       // across their inventory can confirm the correct row fired.
       const itemName = row?.name || row?.item?.name;
-      toast(
+      // Under bot escrow the listing is held until the seller sends the item.
+      const held = res.status === 'PENDING_ESCROW' || res.escrowPending === true;
+      if (held) toast(
+        `${itemName ? `"${itemName}"` : 'Your item'} is reserved at ${fmt(price)} — accept the Steam trade offer from our bot to send us the item, and it goes live the moment we receive it.`,
+        'warn'
+      );
+      else toast(
         itemName
           ? `Listed "${itemName}" at ${fmt(price)} — auto-match on next sweep.`
           : `Listed at ${fmt(price)} — auto-match on next sweep.`,
@@ -12147,15 +12180,19 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         toast(res.message || res.error || 'Bulk list failed', 'err');
         return;
       }
+      if (!res) { toast('Bulk list failed — check your listings before trying again.', 'err'); return; }
       const ok = (res?.ok || []).length;
       const failed = (res?.failed || []).length;
+      const heldCount = (res?.ok || []).filter(r => r && (r.status === 'PENDING_ESCROW' || r.escrowPending === true)).length;
       if (ok > 0) {
         setBulkSelected(new Set());
         setBulkPrice('');
         await onRefresh();
         await loadSteam();
       }
-      if (failed === 0) {
+      if (heldCount > 0) {
+        toast(`Reserved ${heldCount} item${heldCount === 1 ? '' : 's'} at ${fmt(p)}${failed ? ` · ${failed} failed` : ''} — accept the Steam trade offer from our bot and they go live the moment we receive them.`, 'warn');
+      } else if (failed === 0) {
         toast(`Listed ${ok} item${ok === 1 ? '' : 's'} at ${fmt(p)}.`, 'ok');
       } else {
         toast(`Listed ${ok} · ${failed} failed (${(res.failed || []).slice(0, 3).map(f => f.code).join(', ')}${failed > 3 ? '…' : ''})`,

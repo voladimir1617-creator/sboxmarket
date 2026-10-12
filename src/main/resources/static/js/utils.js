@@ -462,6 +462,10 @@ export function signInWithSteam() {
     if (!isLoginLanding && !isRootNoParams) {
       sessionStorage.setItem('sb_login_return_url', cur);
       nextPath = cur;
+    } else {
+      // Drop a page left over from an abandoned earlier sign-in, or a
+      // home-page sign-in would land the user on that old page.
+      sessionStorage.removeItem('sb_login_return_url');
     }
   } catch (_) { /* sessionStorage unavailable — still fire the redirect */ }
   // Only append `?next=...` when the destination differs from `/` so the
