@@ -78,3 +78,26 @@ test('Verify with an empty code box says what to do', async ({ page }) => {
   await row.getByRole('button', { name: 'Verify', exact: true }).click();
   await expect(row).toContainText(/Paste the code from your verification email/);
 });
+
+test('a cart mixing player and SkinBox listings says which ones wait on a trade', async ({ page }) => {
+  const me = await (await page.request.get('/api/auth/steam/me')).json();
+  const all = await activeListings(page);
+  const house = all.find((l) => l.sellerUserId == null);
+  const player = all.find((l) => l.sellerUserId != null && l.sellerUserId !== me.id);
+  test.skip(!house || !player, 'need one house and one player listing');
+
+  const hdrs = await csrfHeaders(page);
+  for (const l of [house, player]) {
+    expect((await page.request.post(`/api/cart/${l.id}`, { headers: hdrs })).ok()).toBeTruthy();
+  }
+  try {
+    await page.goto('/cart');
+    await page.getByRole('button', { name: /Checkout ·/ }).click();
+    await expect(page.getByTestId('delivery-expectation-seller')).toBeVisible();
+    await expect(page.getByTestId('delivery-expectation-mixed'))
+      .toContainText(/One item here is held by .+ and goes straight to your Platform Inventory/);
+    await page.getByRole('button', { name: /^Cancel$/ }).click();
+  } finally {
+    for (const l of [house, player]) await page.request.delete(`/api/cart/${l.id}`, { headers: hdrs });
+  }
+});
