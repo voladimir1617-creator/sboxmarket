@@ -5432,7 +5432,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     // see stale empty state). Explicit button click still uses the
     // input value.
     const raw = (tokenArg != null ? tokenArg : emailToken).trim();
-    if (!raw) return;
+    // An empty box used to return silently, so Verify read as a dead button.
+    if (!raw) { setEmailResult({ err: 'Paste the code from your verification email into the box, then press Verify.' }); return; }
     const res = await verifyEmail(raw);
     if (res.code || res.error) { setEmailResult({ err: res.message || res.error }); return; }
     setEmailResult({ ok: true, verified: true });
@@ -8501,7 +8502,12 @@ function ProfileTradesTab({ me, privacy }) {
                     // sellers miss the deadline by half a day.
                     if (hours < 1)       label = Math.max(1, Math.floor(msLeft / 60_000)) + 'm left';
                     else if (hours < 24) label = Math.floor(hours) + 'h left';
-                    else                 label = Math.floor(hours / 24) + 'd left';
+                    // Days alone read "2d left" a second after a buyer was told
+                    // "3 days"; carry the hours so the chip matches the promise.
+                    else {
+                      const d = Math.floor(hours / 24), hr = Math.floor(hours % 24);
+                      label = d + 'd' + (hr ? ' ' + hr + 'h' : '') + ' left';
+                    }
                     const urgent = hours < 12;
                     // The deadline does opposite things per state — name
                     // which one, viewer-aware, so a buyer doesn't read a

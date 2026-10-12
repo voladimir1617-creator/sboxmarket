@@ -587,7 +587,9 @@ class TradeService {
         switch (t.state) {
             case 'PENDING_SELLER_ACCEPT':
             case 'PENDING_SELLER_SEND':
-                return t.updatedAt + (sellerResponseDays * 24L * 60L * 60L * 1000L)
+                // From the purchase, same clock as findStaleSellerPending:
+                // accepting does not buy the seller another full window.
+                return (t.createdAt ?: t.updatedAt) + (sellerResponseDays * 24L * 60L * 60L * 1000L)
             case 'PENDING_BUYER_CONFIRM':
                 return t.updatedAt + (autoReleaseDays * 24L * 60L * 60L * 1000L)
             default:
@@ -1746,7 +1748,7 @@ class TradeService {
                     log.debug("Slow-seller-warning claim lost for trade ${trade.id} — sibling pod or status change")
                     return
                 }
-                def hoursIdle = Math.max(24L, (long) ((System.currentTimeMillis() - (trade.updatedAt ?: 0L)) / 3_600_000L))
+                def hoursIdle = Math.max(24L, (long) ((System.currentTimeMillis() - (trade.createdAt ?: trade.updatedAt ?: 0L)) / 3_600_000L))
                 if (!bannedBuyers.contains(trade.buyerUserId)) {
                     notificationService?.push(trade.buyerUserId, 'TRADE_SLOW_SELLER',
                         "Trade #${trade.id} — seller hasn't responded",

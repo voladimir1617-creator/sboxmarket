@@ -171,15 +171,18 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
                                              org.springframework.data.domain.Pageable pageable)
 
     /** Seller-no-response sweep — stale PENDING_SELLER_ACCEPT /
-     *  PENDING_SELLER_SEND trades past the response window. Without
+     *  PENDING_SELLER_SEND trades past the response window. The window
+     *  runs from the PURCHASE (createdAt), not the last state change:
+     *  keyed off updatedAt, accepting at day 2.9 restarted the clock and
+     *  a buyer promised "sent within 3 days or refunded" could wait ~6. Without
      *  this, a non-responsive seller could freeze buyer funds in escrow
      *  indefinitely: the PENDING_BUYER_CONFIRM sweep above only handles
      *  the tail end of the state machine. */
     @Query("""
         SELECT t FROM Trade t
         WHERE t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND')
-          AND t.updatedAt <= :cutoff
-        ORDER BY t.updatedAt ASC
+          AND t.createdAt <= :cutoff
+        ORDER BY t.createdAt ASC
     """)
     List<Trade> findStaleSellerPending(@Param("cutoff") Long cutoff)
 
@@ -187,8 +190,8 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     @Query("""
         SELECT t FROM Trade t
         WHERE t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND')
-          AND t.updatedAt <= :cutoff
-        ORDER BY t.updatedAt ASC
+          AND t.createdAt <= :cutoff
+        ORDER BY t.createdAt ASC
     """)
     List<Trade> findStaleSellerPending(@Param("cutoff") Long cutoff,
                                         org.springframework.data.domain.Pageable pageable)
@@ -201,9 +204,9 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     @Query("""
         SELECT t FROM Trade t
         WHERE t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND')
-          AND t.updatedAt <= :cutoff
+          AND t.createdAt <= :cutoff
           AND t.slowSellerWarnedAt IS NULL
-        ORDER BY t.updatedAt ASC
+        ORDER BY t.createdAt ASC
     """)
     List<Trade> findSlowSellerUnwarned(@Param("cutoff") Long cutoff)
 
@@ -211,9 +214,9 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     @Query("""
         SELECT t FROM Trade t
         WHERE t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND')
-          AND t.updatedAt <= :cutoff
+          AND t.createdAt <= :cutoff
           AND t.slowSellerWarnedAt IS NULL
-        ORDER BY t.updatedAt ASC
+        ORDER BY t.createdAt ASC
     """)
     List<Trade> findSlowSellerUnwarned(@Param("cutoff") Long cutoff,
                                         org.springframework.data.domain.Pageable pageable)

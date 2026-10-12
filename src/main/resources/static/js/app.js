@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=246';
+} from './modals.js?v=247';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -5450,7 +5450,12 @@ export function App() {
         }
         return;
       }
-      setSelected(null);
+      // On /item/:id the page IS the selection: clearing it left the buyer
+      // staring at "Item not found · removed or never existed" right after
+      // a successful buy. Re-load the item instead, so the bought listing
+      // drops out and any other listings of the same item stay on screen.
+      if (routeName === 'item') setItemRetry(n => n + 1);
+      else setSelected(null);
       // The purchase creates an escrow trade; the item only lands in
       // inventory after the seller sends + buyer confirms. Old toast
       // said "added to your inventory" which was misleading during the
