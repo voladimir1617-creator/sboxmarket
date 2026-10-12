@@ -1201,6 +1201,27 @@ class ListingServiceSpec extends Specification {
         0 * listingRepository.saveAll(_)
     }
 
+    def "setAwayMode clamps the picker's last day (end of day 90, local time) instead of rejecting it"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        def user = new com.sboxmarket.model.SteamUser(id: 5L)
+        steamUserRepo.findById(5L) >> Optional.of(user)
+        listingRepository.findActiveBySeller(5L) >> []
+        def ninetyDays = 90L * 24L * 60L * 60L * 1000L
+        def before = System.currentTimeMillis()
+        def endOfDay90 = before + ninetyDays + (20L * 60L * 60L * 1000L)
+
+        when:
+        service.setAwayMode(5L, true, endOfDay90)
+
+        then:
+        notThrown(com.sboxmarket.exception.BadRequestException)
+        user.awayModeUntil != null
+        user.awayModeUntil >= before + ninetyDays
+        user.awayModeUntil <= System.currentTimeMillis() + ninetyDays
+    }
+
     def "setAwayMode rejects a 'until' more than 90 days out"() {
         given:
         def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)

@@ -278,10 +278,17 @@ class ListingService {
                                 throw new BadRequestException('AWAY_UNTIL_PAST',
                                     "'until' must be in the future")
                             }
-                            if (awayUntil > maxAhead) {
+                            // The date picker offers day 90 and the client
+                            // snaps it to 23:59 local time, which lands up
+                            // to two days past the limit depending on the
+                            // time zone. Clamp that last day instead of
+                            // rejecting the latest date the picker shows.
+                            def graceMs = 2L * 24L * 60L * 60L * 1000L
+                            if (awayUntil > maxAhead + graceMs) {
                                 throw new BadRequestException('AWAY_UNTIL_TOO_FAR',
                                     "'until' must be within 90 days from now")
                             }
+                            if (awayUntil > maxAhead) awayUntil = maxAhead
                         }
                         user.awayModeUntil = awayUntil
                     } else {

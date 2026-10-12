@@ -308,7 +308,7 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
   );
 }
 
-export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onMeChanged, onCreateBuyOrder, onAddToCart, cartHas, watchlist, onToggleStar, isPageMode }) {
+export function ItemModal({ item, listings, history, historyFailed, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onMeChanged, onCreateBuyOrder, onAddToCart, cartHas, watchlist, onToggleStar, isPageMode }) {
   // CSFloat-1:1 — the buy / offer surfaces must target the cheapest
   // BUY_NOW listing, not listings[0]. Listings come back sorted
   // price-ascending, so an auction sitting on a low current bid can
@@ -479,7 +479,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   useEffect(() => {
     if (!item?.id) return;
     let alive = true;
-    fetchRecentSales(item.id, recentSalesLimit).then(rows => { if (alive) setRecentSales(rows || []); });
+    fetchRecentSales(item.id, recentSalesLimit).then(rows => {
+      if (!alive) return;
+      // A failed load keeps the rows already shown instead of wiping the section.
+      if (Array.isArray(rows)) setRecentSales(rows);
+      else if (recentSalesLimit > 10) toast('Could not load more sales — try again.', 'err');
+    });
     return () => { alive = false; };
   }, [item?.id, recentSalesLimit]);
   // Reset the expansion when the modal swaps to a different item so
@@ -1179,7 +1184,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 // rather than a fabricated +$0.00 / 0.0% pill that reads
                 // as a confident "no change".
                 ? h('div', { className: 'modal-stat-val', style: { color: 'var(--ink-3)' },
-                    title: 'Not enough price history yet to compute a 30-day change' }, 'No data yet')
+                    title: historyFailed ? 'Price history could not be loaded' : 'Not enough price history yet to compute a 30-day change' },
+                    historyFailed ? 'Unavailable' : 'No data yet')
                 : h('div', { className: 'modal-stat-val', style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
                     h('span', {
                       className: 'modal-trend-pill ' + (trendFlat ? 'flat' : trendUp ? 'up' : 'down'),
@@ -1535,7 +1541,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             ? h(Sparkline, { data: slicedHistory, color: 'var(--cta)', height: 150, showAxes: true })
             : h('div', { className: 'chart-empty', style: { height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 } },
                 // Listed items only gain history from sales, so "next sync" never came.
-                'Not enough sales in this range to chart yet.')
+                historyFailed ? 'Price history could not be loaded. Reload the page to try again.'
+                  : 'Not enough sales in this range to chart yet.')
         ),
 
         // Recent sales strip — buyers anchor fairness on the actual sale
@@ -10589,8 +10596,22 @@ function ProfileSupportTab() {
   // active queue is front and centre.
   const [statusFilter, setStatusFilter] = useState('OPEN');
 
-  const load = useCallback(async () => { setTickets(await fetchSupportTickets()); }, []);
+  const [ticketsErr, setTicketsErr] = useState(false);
+  const load = useCallback(async () => {
+    const res = await fetchSupportTickets();
+    if (res === null) { setTicketsErr(true); return; }
+    setTicketsErr(false);
+    setTickets(res);
+  }, []);
   useEffect(() => { load(); }, [load]);
+  // Show a ticket only when it actually loaded; a failed fetch used to
+  // set null, which silently closed the thread or ignored the click.
+  const showTicket = async (id) => {
+    const t = await fetchSupportTicket(id);
+    if (t && t.ticket) { setViewing(t); return true; }
+    toast('Could not load that ticket — try again.', 'err');
+    return false;
+  };
 
   // Batch 803 — deep-link pre-fill for "Request a cap raise" links on
   // the Wallet banners. `/support?topic=cap-raise&kind=deposit&used=X&cap=Y`
@@ -10648,9 +10669,7 @@ function ProfileSupportTab() {
     } catch (_) { /* no URLSearchParams or no search — silent */ }
   }, []);
 
-  const openTicket = async (id) => {
-    setViewing(await fetchSupportTicket(id));
-  };
+  const openTicket = async (id) => { await showTicket(id); };
   // `/support?ticket=<id>` from a "ticket closed" bell entry: open that
   // ticket and show every status, since the default filter hides
   // resolved tickets.
@@ -10700,7 +10719,7 @@ function ProfileSupportTab() {
       const res = await replySupportTicket(viewing.ticket.id, reply);
       if (res && res.error) { toast(res.error, 'err'); return; }
       setReply('');
-      setViewing(await fetchSupportTicket(viewing.ticket.id));
+      await showTicket(viewing.ticket.id);
       // Batch 898 — subtle reply-sent toast so a user who sends a
       // reply and immediately scrolls up in the thread (long tickets
       // have 20+ messages) knows their reply landed. Also serves as
@@ -10717,7 +10736,7 @@ function ProfileSupportTab() {
     const t = viewing.ticket;
     const res = await resolveSupportTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
-    setViewing(await fetchSupportTicket(t.id));
+    await showTicket(t.id);
     load();
     const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
     toast(`Ticket #${t.id}${subjStr} resolved. Reopen any time from the thread.`, 'ok');
@@ -10735,7 +10754,7 @@ function ProfileSupportTab() {
         toast(res.message || res.error || 'Could not reopen', 'err');
         return;
       }
-      setViewing(await fetchSupportTicket(viewing.ticket.id));
+      await showTicket(viewing.ticket.id);
       load();
       toast('Ticket reopened — staff will pick it back up.', 'ok');
     } finally { setBusy(false); }
@@ -10833,6 +10852,9 @@ function ProfileSupportTab() {
       h('button', { className: 'btn btn-accent wallet-submit', disabled: busy, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
     (() => {
+      if (tickets === null && ticketsErr) return h('div', { className: 'empty-inline', role: 'alert' },
+          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your support tickets.'),
+          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setTicketsErr(false); load(); } }, 'Retry'));
       if (tickets === null) return h('div', { className: 'spinner' });
       if (tickets.length === 0) return creating ? null : h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -13322,8 +13344,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       setAwayUntil(null);
       setPickingAwayUntil(false);
     }
+    const prevUntil = awayUntil;
     const res = await setAwayMode(next);
-    if (res && res.error) { setAway(!next); toast(res.error, 'err'); return; }
+    if (res && res.error) { setAway(!next); setAwayUntil(prevUntil); toast(res.error, 'err'); return; }
     load();
     // Batch 919 — away mode toggle surfaces the right downstream
     // consequence. On → every active listing is hidden from public
@@ -13347,14 +13370,16 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       return;
     }
     // Optimistic: flip into away mode + stash the local timestamp.
+    const prevAway = away, prevUntil = awayUntil;
     setAway(true);
     setAwayUntil(until);
     setPickingAwayUntil(false);
     const res = await setAwayMode(true, until);
     if (res && (res.error || res.code)) {
-      // Server-side validation failed — rewind both fields.
-      setAway(false);
-      setAwayUntil(null);
+      // Server-side validation failed — rewind both fields to what the
+      // server still has (the picker only shows while already away).
+      setAway(prevAway);
+      setAwayUntil(prevUntil);
       toast(res.message || res.error || 'Could not schedule vacation', 'err');
       return;
     }
