@@ -225,9 +225,12 @@ class CsrService {
         // Cap at 500 rows — consistent with AdminService.listWithdrawals /
         // listTrades. Past that the CSR UI should use CSV / direct DB for
         // historical digging rather than hydrating a mega-list per refresh.
-        def rows = q.isEmpty()
-            ? (supportTicketRepository.findForAdmin(status) ?: []).take(500)
-            : (supportTicketRepository.searchForAdmin(status, q) ?: []).take(500)
+        def all = q.isEmpty()
+            ? (supportTicketRepository.findForAdmin(status) ?: [])
+            : (supportTicketRepository.searchForAdmin(status, q) ?: [])
+        // Newest first, but the waiting queue keeps its OLDEST 500 so the
+        // longest-waiting tickets are never the ones cut off.
+        def rows = status in ['OPEN', 'WAITING_STAFF'] ? all.takeRight(500) : all.take(500)
         if (rows.isEmpty()) return []
         // Fraud-signal enrichment (batch 527). Mirrors batch 525's
         // admin-ticket enrichment so CSR has the same triage context

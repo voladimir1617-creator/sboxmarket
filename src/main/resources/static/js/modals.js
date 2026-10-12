@@ -4746,6 +4746,9 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         // to pick up the new `profile.user.deletionRequestedAt` state
         // without triggering a Steam sync round-trip (onSync does both).
         refreshProfile: () => fetchProfile().then(p => { if (p) setProfile(p); }),
+        // Keep the loaded profile in step with the email switch, or the
+        // tab re-seeds the old value the next time it mounts.
+        onEmailPref: (v) => setProfile(p => (p && p.user) ? { ...p, user: { ...p.user, emailNotificationsEnabled: v } } : p),
         // Re-reads the app-level `me` too: the trade-URL gates on the item
         // page, cart and bargain drawer read `me.tradeUrl`, not `profile`.
         onMeChanged: onRefresh
@@ -5288,7 +5291,7 @@ function SecurityActivityRow() {
   );
 }
 
-function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refreshProfile, onMeChanged, privacy }) {
+function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refreshProfile, onMeChanged, privacy, onEmailPref }) {
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft]     = useState('');
   const [emailToken, setEmailToken]     = useState('');
@@ -6203,7 +6206,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'stretch', gap: 10 } },
         h(EmailPrefToggle, {
           initial: profile?.user?.emailNotificationsEnabled !== false,
-          onChange: (v) => setEmailsOn(!!v)
+          onChange: (v) => { setEmailsOn(!!v); if (onEmailPref) onEmailPref(!!v); }
         }),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
           'Security + account-state emails (verification, withdrawal, ban) always send regardless of the settings below.'),
