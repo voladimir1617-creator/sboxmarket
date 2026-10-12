@@ -10357,7 +10357,9 @@ function ProfileReviewsTab({ me }) {
         }, pending.length))
       );
     })(),
-    mode === 'received' && h('div', { className: 'profile-reviews-head' },
+    // With no reviews the empty state below already says so; the big
+    // average line only earns its place once there is a number to show.
+    mode === 'received' && (summary?.count || 0) > 0 && h('div', { className: 'profile-reviews-head' },
       h('div', { className: 'profile-reviews-avg' }, avgLabel)
     ),
     mode === 'received' && (summary?.count || 0) >= 3 && h('div', { className: 'rating-breakdown', style: { marginBottom: 14 } },
@@ -10780,8 +10782,11 @@ function ProfileSupportTab() {
     );
   }
 
+  // With no tickets the empty state carries the New Ticket button itself,
+  // like the other profile tabs, instead of a lone button above it.
+  const noTickets = Array.isArray(tickets) && tickets.length === 0;
   return h('div', { className: 'profile-panel' },
-    h('button', { className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => setCreating(c => !c) },
+    (creating || !noTickets) && h('button', { className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => setCreating(c => !c) },
       creating ? 'Cancel' : '+ New Ticket'),
     creating && h('div', { className: 'buyorder-form' },
       // Batch 683 — SLA commitment banner. Sets user expectations up
@@ -10819,9 +10824,13 @@ function ProfileSupportTab() {
     ),
     (() => {
       if (tickets === null) return h('div', { className: 'spinner' });
-      if (tickets.length === 0) return h('div', { className: 'empty-inline' },
+      if (tickets.length === 0) return creating ? null : h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No tickets yet. Open one above if you need help.'));
+          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            'No support tickets yet'),
+          h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+            'Open a ticket if something goes wrong with a trade, a payment or your account.'),
+          h('button', { className: 'btn btn-accent', onClick: () => setCreating(true) }, '+ New Ticket'));
       const filtered = statusFilter === 'ALL'
         ? tickets
         : statusFilter === 'OPEN'

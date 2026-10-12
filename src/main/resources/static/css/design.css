@@ -30453,3 +30453,17 @@ html body nav.csfloat-subnav { border-image-source: linear-gradient(rgba(255, 25
      watchlist heart beside it. */
   html body .site-root a.grid-card .grid-thumb > .grid-cart-btn { width: 32px !important; height: 32px !important; min-width: 32px !important; min-height: 32px !important; padding: 0 !important; font-size: 16px !important; line-height: 32px !important; right: 46px !important; top: 9px !important; }
 }
+
+/* Look pass round seven 2026-10-12: the 940px reading pages (Cart,
+   Notifications, Help, FAQ, Settings) start on the same left edge as every
+   other page instead of floating in the middle. */
+@media (min-width: 1101px) {
+  html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal.info-modal:not(.wide) { margin-left: 44px !important; margin-right: auto !important; }
+  /* A cart with items drops the fixed backdrop for a static one that starts
+     under the top bar, so its title sat 70px lower and 44px further in. */
+  html body .site-root.full-page-mode .modal-backdrop:has(.cart-grid) { padding-top: 0 !important; }
+  html body .site-root.full-page-mode .modal-backdrop:has(.cart-grid) > .modal.info-modal.info-modal { margin-left: 0 !important; margin-right: 0 !important; max-width: none !important; }
+}
+/* An empty state inside a profile panel was a bordered box inside the
+   panel's own box; the panel is the card, so the inner one goes flat. */
+html body .site-root .profile-panel > .empty-inline.empty-inline { border-color: transparent !important; background: transparent !important; }
