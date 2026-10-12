@@ -65,8 +65,8 @@ class SteamAuthControllerSpec extends Specification {
     def "login() redirects the browser to the service's OpenID URL"() {
         given:
         1 * steamAuthService.buildLoginUrl() >> 'https://steamcommunity.com/openid/login?...'
-        // No `next` provided → trivial home destination → no session attribute write.
-        0 * req.getSession(_)
+        // No `next` provided → trivial home destination → no session is created.
+        0 * req.getSession(true)
 
         when:
         controller.login(null, req, resp)
@@ -105,14 +105,27 @@ class SteamAuthControllerSpec extends Specification {
     def "login() drops a malformed `next` and stashes nothing"() {
         given:
         1 * steamAuthService.buildLoginUrl() >> 'https://steamcommunity.com/openid/login?...'
-        // `https://evil.com` sanitises to `/` → trivial → no session attribute write.
-        0 * req.getSession(_)
+        // `https://evil.com` sanitises to `/` → trivial → no session is created.
+        0 * req.getSession(true)
 
         when:
         controller.login('https://evil.com/steal', req, resp)
 
         then:
         1 * resp.sendRedirect('https://steamcommunity.com/openid/login?...')
+    }
+
+    def "a sign-in from home clears the target of an earlier, abandoned sign-in"() {
+        given: 'the pre-login session still holds /wallet from a sign-in the user backed out of'
+        1 * steamAuthService.buildLoginUrl() >> 'https://steamcommunity.com/openid/login?...'
+        req.getSession(false) >> ses
+
+        when:
+        controller.login(null, req, resp)
+
+        then:
+        1 * ses.removeAttribute(SteamAuthController.SESSION_NEXT)
+        0 * ses.setAttribute(SteamAuthController.SESSION_NEXT, _)
     }
 
     def "sanitizeNext rejects every off-site / header-injection vector"() {

@@ -66,6 +66,19 @@ class WatchlistControllerSpec extends Specification {
         0 * service.list(_)
     }
 
+    def "list() returns every star up to the per-user cap when no limit is asked for"() {
+        given:
+        authedSession()
+        req.getParameter('limit') >> null
+        service.list(100L) >> (1L..250L).toList()
+
+        when:
+        def body = controller.list(req).body
+
+        then:
+        body.size() == 250
+    }
+
     def "star() requires sign-in"() {
         given: anonSession()
         when:  controller.star(1L, req)

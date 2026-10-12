@@ -47,7 +47,9 @@ class WatchlistController {
     @GetMapping
     ResponseEntity<List<Long>> list(HttpServletRequest req) {
         def uid = requireUser(req)
-        int cap = parseLimit(req, 200, 500)
+        // Default to the full per-user cap: the client sync sends no limit,
+        // so a 200 default silently dropped every star past #200.
+        int cap = parseLimit(req, WatchlistService.MAX_PER_USER, WatchlistService.MAX_PER_USER)
         def ids = service.list(uid)
         if (ids.size() > cap) ids = ids.take(cap)
         ResponseEntity.ok(ids)
