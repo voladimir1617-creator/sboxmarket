@@ -30320,7 +30320,7 @@ html body #root .loadout-list > .loadout-card > .loadout-card-name { text-align:
 html body #root .loadout-list > .loadout-card > .loadout-card-owner { margin-top: 4px !important; }
 html body #root .loadout-tabs > .btn.btn-accent { width: auto !important; min-width: 0 !important; padding: 0 20px !important; margin-left: auto !important; }
 @media (max-width: 720px) {
-  html body #root .site-root.full-page-mode .modal.info-modal:has(.loadout-list) > .info-modal-header { padding-left: 0 !important; padding-right: 0 !important; }
+  html body #root .site-root.full-page-mode .modal.info-modal:has(.loadout-list) > .info-modal-header { padding-left: 24px !important; padding-right: 24px !important; }
 }
 /* Look pass round three 2026-10-12
    Full pages started their content on three different left edges (Buy
@@ -30370,3 +30370,38 @@ html body .site-root .csfloat-home-preview-row > a.grid-card .gc-online-row { ma
 html body .site-root .csfloat-home-preview-row > a.grid-card .gc-card-age { font-size: 11px !important; color: rgb(120, 128, 138) !important; white-space: nowrap !important; }
 html body .site-root .csfloat-home-preview-row > a.grid-card { display: flex !important; flex-direction: column !important; }
 html body .site-root .csfloat-home-preview-row > a.grid-card > .grid-body { flex: 1 1 auto !important; }
+/* Look pass round four 2026-10-12
+   Phones: Market cards ran to the 16px gutter while the logo, every full
+   page and most home sections sat 24px further in, leaving full pages a
+   300px column on a 390px screen. One 16px gutter everywhere now. */
+@media (max-width: 720px) {
+  html body nav.nav .nav-inner { padding-left: 0 !important; padding-right: 0 !important; }
+  html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal.info-modal > .info-modal-header, html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal.info-modal > .info-modal-body, html body #root .site-root.full-page-mode .modal.info-modal:has(.loadout-list) > .info-modal-header { padding-left: 0 !important; padding-right: 0 !important; }
+  html body .site-root .csfloat-home-hero-inner { padding-left: 0 !important; padding-right: 0 !important; }
+}
+@media (max-width: 720px) {
+  html body .site-root .csfloat-home-faq-inner, html body .site-root .csfloat-home-tiles-inner, html body .site-root .csfloat-home-metrics-inner, html body .site-root .csfloat-home-journey-inner, html body footer.site-footer .site-footer-inner, html body footer.site-footer .site-footer-bottom { padding-left: 0 !important; padding-right: 0 !important; }
+}
+/* Database: the "Filters" label took one cell of the two-column filter
+   grid, a centred half-width tab on phones; it spans the row now. */
+html body .site-root .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls::before { grid-column: 1 / -1 !important; text-align: left !important; }
+@media (max-width: 720px) {
+  /* Loadout Lab's Create button was inset 19px from the tabs above it. */
+  html body #root .loadout-tabs > .btn.btn-accent { margin-left: 0 !important; width: 100% !important; }
+  /* Profile: "Member since" wrapped onto its own line still carrying the
+     10px gap meant for sitting beside the Steam ID. */
+  html body .profile-hero-split .profile-id span[title^="Account created"] { margin-left: 0 !important; }
+}
+@media (max-width: 720px) {
+  /* Item page on phones: content sat 18-30px in from the gutter the rest
+     of the site uses; header, body and the trade-URL notice now line up
+     on it. */
+  html body .site-root.full-page-mode main.modal.item-page > .modal-header, html body .site-root.full-page-mode main.modal.item-page > .modal-body { padding-left: 4px !important; padding-right: 4px !important; }
+  html body .site-root.full-page-mode main.modal.item-page > div:not([class]) { margin-left: 4px !important; margin-right: 4px !important; }
+}
+/* Database: the only full page with a rule under its title and the title
+   12px higher than the rest. */
+html body .site-root.full-page-mode .modal.info-modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-header { padding-top: 12px !important; border-bottom: 0 !important; box-shadow: none !important; }
+/* Footer: a 17px strip of page colour split the footer band from its
+   copyright row. */
+html body footer.site-footer .site-footer-bottom { margin-top: 0 !important; }
