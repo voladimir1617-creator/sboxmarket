@@ -907,6 +907,27 @@ class ListingServiceSpec extends Specification {
         1 * listingRepository.saveAll(_)
     }
 
+    def "bulkAdjustPrices tells offer-holders about every visible price cut"() {
+        given:
+        def l1 = listingFor(id: 1L, price: new BigDecimal("10.00"))
+        def l2 = listingFor(id: 2L, price: new BigDecimal("20.00"))
+        l2.hidden = true
+        listingRepository.findActiveBySeller(99L) >> [l1, l2]
+        itemRepository.findById(_) >> Optional.empty()
+        def offers = Mock(com.sboxmarket.service.OfferService)
+        service.offerService = offers
+
+        when:
+        service.bulkAdjustPrices(99L, new BigDecimal("-20"))
+
+        then:
+        1 * offers.notifyOfferHoldersOfPriceDrop(1L, new BigDecimal("10.00"), new BigDecimal("8.00"), _, _)
+        0 * offers.notifyOfferHoldersOfPriceDrop(2L, _, _, _, _)
+
+        cleanup:
+        service.offerService = null
+    }
+
     def "bulkAdjustPrices skips AUCTION listings"() {
         given:
         def buyNow   = listingFor(id: 1L, price: new BigDecimal("10"))

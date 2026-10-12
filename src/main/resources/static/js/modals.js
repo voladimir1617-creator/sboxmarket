@@ -18,7 +18,7 @@ import {
   fetchBuyOrders, deleteBuyOrder, fetchAutoBids, fetchActiveBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey, revokeAllApiKeys,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, fetchTradesWithTotal, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
-  fetchTradeMessages, postTradeMessage,
+  fetchTradeMessages, fetchTradeMessagesOrNull, postTradeMessage,
   setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, cancel2fa, disable2fa,
   regenerate2faBackupCodes, fetch2faRecoveryStatus,
   fetchListings, fetchItem, fetchItemsByIds, leaveReview, fetchReviewSummary, fetchRecentSales,
@@ -6768,11 +6768,26 @@ function ProfileBuyOrdersTab() {
       // edit one of many orders — the toast confirms which row landed.
       // Report what was saved: the server caps quantity at the units
       // still unfilled, so asking for 5 on an order with 3 left saves 3.
-      const savedQty = Number.isFinite(res?.quantity) ? res.quantity : quantity;
+      // A raised max can also fill units on the spot from listings already
+      // at or under it, which lowers the returned quantity too; tell the
+      // two apart so a purchase is never reported as a quantity cap.
+      const prevLeft = Number.isFinite(o.quantity) ? o.quantity : quantity;
+      const kept = Math.min(quantity, prevLeft);
+      const filledNow = res?.status === 'FILLED' ? kept
+        : (Number.isFinite(res?.quantity) ? Math.max(0, kept - res.quantity) : 0);
+      const savedQty = Number.isFinite(res?.quantity) ? res.quantity : kept;
       const savedMax = res?.maxPrice != null ? parseFloat(res.maxPrice) : maxPrice;
+      const name = o.itemName || 'item';
+      if (filledNow > 0) {
+        toast(res?.status === 'FILLED'
+          ? `Buy order filled: bought ${filledNow} × "${name}" at or under ${fmt(savedMax)}. Check your trades.`
+          : `Buy order updated: bought ${filledNow} × "${name}" right away; ${savedQty} still open at max ${fmt(savedMax)}.`,
+          'ok');
+        return;
+      }
       const qtyStr = savedQty > 1 ? ` × ${savedQty}` : '';
-      const capped = savedQty < quantity ? ` (only ${savedQty} left to fill, so quantity stays at ${savedQty})` : '';
-      toast(`Buy order updated: "${o.itemName || 'item'}" → max ${fmt(savedMax)}${qtyStr}${capped}.`,
+      const capped = quantity > prevLeft ? ` (only ${prevLeft} left to fill, so quantity stays at ${prevLeft})` : '';
+      toast(`Buy order updated: "${name}" → max ${fmt(savedMax)}${qtyStr}${capped}.`,
         'ok');
     } finally { setBusy(false); }
   };
@@ -7593,8 +7608,13 @@ function ProfileTradesTab({ me, privacy }) {
   const [chatThreads, setChatThreads] = useState({});
   const [chatDraft, setChatDraft] = useState('');
   const [chatSending, setChatSending] = useState(false);
+  const [chatErrors, setChatErrors] = useState({});
   const loadChat = async (tradeId) => {
-    const rows = await fetchTradeMessages(tradeId);
+    const rows = await fetchTradeMessagesOrNull(tradeId);
+    // A failed load is not an empty thread, and the server marked
+    // nothing read, so the unread badge stays.
+    if (rows === null) { setChatErrors(prev => ({ ...prev, [tradeId]: true })); return; }
+    setChatErrors(prev => (prev[tradeId] ? { ...prev, [tradeId]: false } : prev));
     setChatThreads(prev => ({ ...prev, [tradeId]: rows }));
     // Fetching the thread marks it read on the server; drop the row's
     // badge too so it doesn't come back when the chat is hidden.
@@ -7669,6 +7689,15 @@ function ProfileTradesTab({ me, privacy }) {
     setChatDraft('');
     await loadChat(tradeId);
   };
+  // An open chat picks up the other party's replies and read ticks
+  // without being closed and reopened.
+  useEffect(() => {
+    if (openChat == null) return;
+    const tick = () => { if (document.visibilityState === 'visible') loadChat(openChat); };
+    const iv = setInterval(tick, 15000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', tick); };
+  }, [openChat]);
   // Synchronous latch: a quick double Enter fired two posts before the
   // `chatSending` state update landed.
   const chatSendingRef = useRef(false);
@@ -8921,7 +8950,11 @@ function ProfileTradesTab({ me, privacy }) {
                 h('div', {
                   style: { maxHeight: 200, overflowY: 'auto', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }
                 },
-                  (chatThreads[t.id] || []).length === 0
+                  chatErrors[t.id] && (chatThreads[t.id] || []).length === 0
+                    ? h('div', { role: 'alert', style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
+                        "Couldn't load messages. ",
+                        h('button', { className: 'btn btn-sm', onClick: () => loadChat(t.id) }, 'Retry'))
+                  : (chatThreads[t.id] || []).length === 0
                     ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
                         'No messages yet. Send the first one — the other party will see a notification.')
                     : chatThreads[t.id].map(m => {
@@ -8988,8 +9021,8 @@ function ProfileTradesTab({ me, privacy }) {
                 // "Sent the trade" / "Give me 5 min", buyers see "Got it,
                 // thanks" / "Confirmed on my end". Trade-URL-missing state
                 // shows a prompt for it.
-                // A completed trade's chat is read-only on the server (TRADE_CLOSED).
-                t.state !== 'VERIFIED' && (() => {
+                // A completed or cancelled trade's chat is read-only (TRADE_CLOSED).
+                t.state !== 'VERIFIED' && t.state !== 'CANCELLED' && (() => {
                   const isBuyer = me && t.buyerUserId === me.id;
                   const base = [
                     { l: 'Hey',          v: 'Hey — when you\'re ready.' },

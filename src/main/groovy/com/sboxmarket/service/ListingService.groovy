@@ -33,6 +33,7 @@ class ListingService {
     @Autowired(required = false) @Lazy SavedSearchService savedSearchService
     @Autowired(required = false) com.sboxmarket.repository.WatchlistItemRepository watchlistItemRepository
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
+    @Autowired(required = false) @Lazy OfferService offerService
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) PlatformTransactionManager transactionManager
     // Optional so existing unit specs that wire ListingService field-by-field
@@ -896,6 +897,19 @@ class ListingService {
                     }
                 } catch (Exception e) {
                     log.warn("PRICE_DROPPED (bulk) fan-out failed for listing=${drop.listingId}: ${e.message}")
+                }
+            }
+        }
+        // Offer-holders whose pending offer now meets the new ask get the
+        // same nudge the single-listing editor sends.
+        if (!priceDrops.isEmpty() && offerService != null) {
+            priceDrops.each { drop ->
+                try {
+                    offerService.notifyOfferHoldersOfPriceDrop(drop.listingId as Long,
+                        drop.oldPrice as BigDecimal, drop.newPrice as BigDecimal,
+                        drop.itemName as String, drop.itemId as Long)
+                } catch (Exception e) {
+                    log.warn("Offer-holder price-drop fan-out (bulk) failed for listing=${drop.listingId}: ${e.message}")
                 }
             }
         }
