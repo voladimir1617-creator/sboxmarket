@@ -30270,3 +30270,55 @@ html body .csfloat-home-journey-steps .csfloat-home-journey-step-sub { margin: 0
 }
 /* Item page: same as the other full pages, no outlined frame. */
 html body .site-root.full-page-mode main.modal.item-page { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; background-color: transparent !important; }
+
+/* Home page rhythm 2026-10-12
+   The sections under the hero were separated by 130-180px of empty page,
+   the stats row was narrower than the feature cards above it, and its
+   title was a 13px caption. One spacing step between sections, the stats
+   row at the same width as the cards, and its title set as a heading. */
+html body .csfloat-home-tiles { padding: 40px 0 0 !important; }
+html body .csfloat-home-tiles > .csfloat-home-tiles-inner { padding-top: 0 !important; padding-bottom: 0 !important; }
+html body .csfloat-home-metrics { padding: 48px 0 0 !important; }
+html body .csfloat-home-metrics .csfloat-home-metrics-eyebrow { text-align: left !important; font-size: 28px !important; font-weight: 700 !important; line-height: 1.2 !important; letter-spacing: -0.01em !important; text-transform: none !important; color: rgb(255, 255, 255) !important; margin: 0 0 24px !important; }
+html body .csfloat-home-metrics .csfloat-home-metrics-row { max-width: none !important; }
+html body .csfloat-home-journey { padding-top: 64px !important; padding-bottom: 32px !important; }
+html body .csfloat-home-faq { padding-top: 48px !important; padding-bottom: 32px !important; }
+html body .site-root:has(> .csfloat-home-hero) > .site-footer { margin-top: 48px !important; }
+/* The six-steps block sat in a narrower centred column on a gradient
+   that stopped dead at the FAQ; line it up with the sections around it. */
+html body .csfloat-home-journey { background-image: none !important; padding-left: 0 !important; padding-right: 0 !important; }
+html body .csfloat-home-journey > .csfloat-home-journey-inner { max-width: none !important; margin: 0 !important; padding: 0 24px !important; }
+/* Home deals rail on phones: the three tabs wrapped onto two lines and
+   the Visit Marketplace button took a row of its own. Tabs share one
+   line, the button sits under them at the same width. */
+@media (max-width: 720px) {
+  html body .csfloat-home-rail > .csfloat-home-rail-inner { padding-left: 0 !important; padding-right: 0 !important; gap: 8px !important; }
+  html body .csfloat-home-rail .csfloat-home-rail-tabs { flex-wrap: nowrap !important; width: 100% !important; }
+  html body .csfloat-home-rail .csfloat-home-rail-tabs > .csfloat-home-rail-tab { flex: 1 1 0 !important; justify-content: center !important; padding: 0 6px !important; white-space: nowrap !important; font-size: 13px !important; min-width: 0 !important; }
+  html body .csfloat-home-rail .csfloat-home-rail-cta { width: 100% !important; justify-content: center !important; height: 40px !important; }
+  html body .csfloat-home-preview > .csfloat-home-preview-inner { padding-left: 0 !important; padding-right: 0 !important; }
+}
+/* My Stall toolbar: the four controls were three different sizes and on
+   phones wrapped into a ragged staircase. One button size everywhere;
+   on phones Away Mode gets its own line and the rest pair up evenly. */
+html body .stall-toolbar > .btn { font-size: 12px !important; height: 34px !important; padding: 0 12px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
+@media (max-width: 720px) {
+  html body .stall-toolbar { gap: 8px !important; row-gap: 8px !important; }
+  html body .stall-toolbar > * { margin-left: 0 !important; }
+  html body .stall-toolbar > span:nth-child(2) { flex: 1 1 calc(100% - 60px) !important; text-align: left !important; }
+  html body .stall-toolbar > div:empty { display: none !important; }
+  html body .stall-toolbar > .btn, html body .stall-toolbar > span:nth-child(4) { flex: 1 1 calc(50% - 4px) !important; min-width: 0 !important; }
+  html body .stall-toolbar > span:nth-child(4) { display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 34px !important; }
+}
+/* Loadout Lab: the page title sat 24px left of everything under it, card
+   names were centred over left-aligned rows with a 60px hole under the
+   items, and Create was a 320px slab. Line them up and size Create like
+   the other page actions. */
+html body #root .site-root.full-page-mode .modal.info-modal:has(.loadout-list) > .info-modal-header { padding-left: 24px !important; padding-right: 24px !important; }
+html body #root .loadout-list > .loadout-card { min-height: 0 !important; }
+html body #root .loadout-list > .loadout-card > .loadout-card-name { text-align: left !important; }
+html body #root .loadout-list > .loadout-card > .loadout-card-owner { margin-top: 4px !important; }
+html body #root .loadout-tabs > .btn.btn-accent { width: auto !important; min-width: 0 !important; padding: 0 20px !important; margin-left: auto !important; }
+@media (max-width: 720px) {
+  html body #root .site-root.full-page-mode .modal.info-modal:has(.loadout-list) > .info-modal-header { padding-left: 0 !important; padding-right: 0 !important; }
+}
