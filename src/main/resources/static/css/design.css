@@ -30539,3 +30539,12 @@ html body .site-root a.grid-card .grid-body > .grid-name { margin-top: 0 !import
   html body .site-root main.layout .toolbar > .type-toggle > * { padding-left: 6px !important; padding-right: 6px !important; min-width: 0 !important; }
   html body .site-root main.layout .toolbar > .deals-chip { flex: 0 0 auto !important; width: auto !important; padding-left: 10px !important; padding-right: 10px !important; order: 4 !important; }
 }
+
+/* Look pass 2026-10-13, item page. The sales figures under the price box
+   (listings, sold, last sold, volume, range, 1Y low) were seven half-width
+   pills stacked down the left half of the column with the right half
+   empty; their margins were already cut for two per row, so they now sit
+   two per row and fill the column. */
+@media (min-width: 1101px) {
+  html body .site-root main.modal.item-page.item-page > .modal-header > div:nth-child(2) > .modal-demand-chip { display: inline-flex !important; vertical-align: top !important; box-sizing: border-box !important; width: calc(50% - 4px) !important; }
+}
