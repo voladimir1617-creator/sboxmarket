@@ -325,8 +325,10 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
                 const lp = parseFloat(listing?.price ?? 0);
                 if (!(sp > 0) || !(lp > 0)) return null;
                 if (sp > lp) {
-                  // Real discount — struck-through to anchor the saving.
-                  return h('div', { className: 'grid-steam-price' }, fmt(sp));
+                  // Real discount: the Steam price struck through to anchor
+                  // the saving, labelled so it can't read as this seller's
+                  // own earlier price.
+                  return h('div', { className: 'grid-steam-price', style: { textDecoration: 'none' }, title: 'Steam Market reference price for this item' }, 'Steam ', h('s', null, fmt(sp)));
                 }
                 // More than 3x the Steam reference: the card would advertise
                 // a huge premium ("$230.00 · Steam $0.74"), which says more
