@@ -2389,7 +2389,9 @@ export function NotificationsModal({ onClose, me }) {
         { id: 'WALLET',   label: 'Wallet' },
         { id: 'OTHER',    label: 'Other' }
       ].map(opt => {
-        const c = opt.id === 'ALL' ? data.items.length : data.items.filter(n => typeOf(n.kind) === opt.id).length;
+        // Count what the list can show: muted types are filtered out of it,
+        // so counting them offered a "Matches · 7" chip that opened empty.
+        const c = opt.id === 'ALL' ? shownItems.length : shownItems.filter(n => typeOf(n.kind) === opt.id).length;
         return h('button', {
           key: opt.id,
           className: `wallet-tx-filter-chip ${typeFilter === opt.id ? 'active' : ''}`,

@@ -15770,6 +15770,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   // place. Shown in a compact summary strip above the card grid so the
   // user sees how many alerts are pending + can cancel any of them.
   const [serverAlerts, setServerAlerts] = useState(null);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
   const loadServerAlerts = useCallback(async () => {
     // Anon callers always 401 here — skip the round-trip so the network
     // panel + console error stream stay clean for sign-out browsing.
@@ -16105,6 +16106,190 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
         title: 'Download your watchlist as CSV — item ids, current floor, Steam price, and supply. Useful for tracking price movement across spreadsheet snapshots.'
       }, '⇣ CSV')
     ),
+    // Price alerts sit above the watchlist itself: an alert can be set
+    // without starring the item, so with an empty watchlist the strip
+    // used to be unreachable and those alerts could not be seen or cancelled.
+    serverAlerts && serverAlerts.length > 0 && (() => {
+      const active = serverAlerts.filter(a => a.status === 'ACTIVE');
+      const fired  = serverAlerts.filter(a => a.status === 'FIRED');
+      return h('div', {
+        style: {
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+          borderRadius: 8, padding: '10px 14px', marginBottom: 14,
+          fontSize: 12
+        }
+      },
+        h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: active.length > 0 ? 8 : 0 } },
+          h('span', { style: { fontWeight: 700, color: 'var(--text-primary)' } },
+            'Price alerts'),
+          h('span', { style: { color: 'var(--green)', fontWeight: 700 } }, `${active.length} watching`),
+          fired.length > 0 && h('span', { style: { color: '#fbbf24', fontWeight: 700 } },
+            ` · ${fired.length} fired`),
+          h('div', { style: { flex: 1 } }),
+          fired.length > 0 && h('button', {
+            className: 'btn btn-ghost',
+            style: { padding: '3px 10px', fontSize: 11, border: '1px solid var(--border)' },
+            title: 'Delete every fired alert so only still-watching rows stay',
+            onClick: async () => {
+              // Batch 913 — snapshot the count before clearing so
+              // the toast cites the number of rows just deleted.
+              const before = fired.length;
+              const { clearFiredWatchlistAlerts } = await import('./api.js');
+              const res = await clearFiredWatchlistAlerts();
+              if (res && (res.error || res.code)) {
+                toast(res.message || res.error || 'Could not clear fired alerts', 'err');
+                return;
+              }
+              loadServerAlerts();
+              toast(`${before} fired alert${before === 1 ? '' : 's'} cleared.`, 'ok');
+            }
+          }, 'Clear fired')
+        ),
+        active.length > 0 && h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+          (showAllAlerts ? active : active.slice(0, 5)).map(a => {
+            // Enrich with item name + current floor (batch 394). Look
+            // up the cheapest active listing for this item from the
+            // allListings prop the modal already has in scope — zero
+            // extra round trips. Falls back to "Item #N" when no
+            // listing matches (new/out-of-stock item).
+            let itemName = null;
+            let floor = null;
+            // The unfiltered pool, not the market grid's filtered
+            // page, so a category filter can't hide the item.
+            if (Array.isArray(pool)) {
+              for (const l of pool) {
+                if (!l || !l.item) continue;
+                if (l.item.id !== a.itemId) continue;
+                if (l.status && l.status !== 'ACTIVE') continue;
+                itemName = itemName || l.item.name;
+                const p = wlShownPrice(l);
+                if (Number.isFinite(p) && (floor == null || p < floor)) floor = p;
+              }
+            }
+            itemName = itemName || alertItemName(a.itemId);
+            const target = parseFloat(a.targetPrice);
+            // Restock-mode alerts encode targetPrice ≥ 99999 as
+            // "any future listing." For those the price gap is
+            // meaningless — surface a "watching" state instead.
+            const isRestock = Number.isFinite(target) && target >= 99999;
+            const gap = (!isRestock && Number.isFinite(target) && floor != null) ? floor - target : null;
+            const gapPct = (gap != null && target > 0) ? (gap / target) * 100 : null;
+            let gapLabel = null;
+            let gapColor = 'var(--text-muted)';
+            if (isRestock) {
+              if (floor == null) {
+                gapLabel = 'awaiting restock';
+                gapColor = 'var(--text-muted)';
+              } else {
+                gapLabel = 'restock fires next sweep';
+                gapColor = 'var(--green)';
+              }
+            } else if (gap != null) {
+              if (gap <= 0) { gapLabel = 'match ready'; gapColor = 'var(--green)'; }
+              else if (gapPct < 10) { gapLabel = `${gapPct.toFixed(0)}% above`; gapColor = '#fbbf24'; }
+              else { gapLabel = `${gapPct.toFixed(0)}% above`; gapColor = 'var(--text-muted)'; }
+            } else if (floor == null) {
+              gapLabel = 'no listings';
+              gapColor = 'var(--text-muted)';
+            }
+            return h('div', {
+              key: a.id,
+              style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-secondary)' }
+            },
+              h('a', {
+                href: '/item/' + a.itemId,
+                style: { color: 'var(--accent)', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+                title: itemName || ('Item #' + a.itemId)
+              }, itemName || ('Item #' + a.itemId)),
+              h('span', {
+                className: 'db-mono',
+                style: { color: 'var(--text-primary)', fontWeight: 700 },
+                title: isRestock
+                  ? 'Restock-style alert — fires on any future listing regardless of price.'
+                  : `Fires when the floor drops to or below ${fmt(a.targetPrice)}.`
+              }, isRestock ? '↻ restock' : ('≤ ' + fmt(a.targetPrice))),
+              gapLabel && h('span', {
+                style: { fontSize: 10, color: gapColor, fontWeight: 700 },
+                title: gap != null
+                  ? (gap <= 0
+                      ? `Current floor ${fmt(floor)} is at or below your target — the sweeper will fire this alert on its next pass.`
+                      : `Current floor ${fmt(floor)} — ${fmt(gap)} above your target.`)
+                  : 'No active listings on this item right now.'
+              }, gapLabel),
+            // Edit target — batch 832 replaces the window.prompt
+            // with an inline number input + Save/Cancel so the
+            // user doesn't lose the visual context of which
+            // alert row they're editing. Uses the same upsert
+            // endpoint as the "Set Price Alert" button on the
+            // item modal (WatchlistAlertService.upsertAlert is
+            // an upsert, so resaving with the same itemId
+            // updates the existing row).
+            editingServerAlertId === a.id
+              ? h('span', { style: { display: 'inline-flex', gap: 4, alignItems: 'center' } },
+                  h('input', {
+                    className: 'price-input',
+                    type: 'number', min: '0.01', step: '0.01',
+                    inputMode: 'decimal', enterKeyHint: 'done',
+                    'aria-label': 'New alert target price',
+                    style: { width: 72, padding: '1px 6px', fontSize: 10, height: 22 },
+                    value: serverAlertDraft,
+                    onChange: e => setServerAlertDraft(e.target.value),
+                    onKeyDown: (e) => {
+                      if (e.key === 'Enter' && !serverAlertBusy) {
+                        e.preventDefault(); saveEditServerAlert(a);
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setEditingServerAlertId(null);
+                        setServerAlertDraft('');
+                      }
+                    },
+                    autoFocus: true
+                  }),
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { padding: '1px 6px', fontSize: 10, border: '1px solid var(--border)' },
+                    disabled: serverAlertBusy,
+                    onClick: () => saveEditServerAlert(a),
+                    title: 'Save new target',
+                    'aria-label': 'Save new target'
+                  }, '✓'),
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { padding: '1px 6px', fontSize: 10, border: '1px solid var(--border)' },
+                    disabled: serverAlertBusy,
+                    onClick: () => { setEditingServerAlertId(null); setServerAlertDraft(''); },
+                    title: 'Cancel edit',
+                    'aria-label': 'Cancel alert edit'
+                  }, '✕')
+                )
+              : h('button', {
+                  className: 'btn btn-ghost',
+                  style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
+                  onClick: () => startEditServerAlert(a),
+                  title: 'Change the target price for this alert',
+                  'aria-label': 'Change the target price for this alert'
+                }, '✎'),
+            editingServerAlertId !== a.id && h('button', {
+              className: 'btn btn-ghost',
+              style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
+              onClick: () => cancelServerAlert(a.id),
+              title: 'Cancel this price alert',
+              'aria-label': 'Cancel this price alert'
+            }, '✕')
+            );
+          }),
+          // Every alert past the fifth used to be a bare "+ N more" with
+          // no way to edit or cancel it; it now opens the full list.
+          active.length > 5 && h('button', {
+            className: 'btn btn-ghost',
+            'data-testid': 'watchlist-alerts-more',
+            style: { fontSize: 10, padding: '2px 8px', marginTop: 4, alignSelf: 'flex-start', border: '1px solid var(--border)' },
+            'aria-expanded': showAllAlerts,
+            onClick: () => setShowAllAlerts(v => !v)
+          }, showAllAlerts ? 'Show fewer' : `+ ${active.length - 5} more`)
+        )
+      );
+    })(),
     starred.length === 0
       ? h('div', null,
           // Boss QA G10 — empty-state icon bumped to 48px in a 72px
@@ -16207,180 +16392,6 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
           // an inline list (first 5) with per-row cancel buttons. When
           // there are none, render nothing so anonymous users and users
           // who never set an alert don't see dead chrome.
-          serverAlerts && serverAlerts.length > 0 && (() => {
-            const active = serverAlerts.filter(a => a.status === 'ACTIVE');
-            const fired  = serverAlerts.filter(a => a.status === 'FIRED');
-            return h('div', {
-              style: {
-                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                borderRadius: 8, padding: '10px 14px', marginBottom: 14,
-                fontSize: 12
-              }
-            },
-              h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: active.length > 0 ? 8 : 0 } },
-                h('span', { style: { fontWeight: 700, color: 'var(--text-primary)' } },
-                  'Price alerts'),
-                h('span', { style: { color: 'var(--green)', fontWeight: 700 } }, `${active.length} watching`),
-                fired.length > 0 && h('span', { style: { color: '#fbbf24', fontWeight: 700 } },
-                  ` · ${fired.length} fired`),
-                h('div', { style: { flex: 1 } }),
-                fired.length > 0 && h('button', {
-                  className: 'btn btn-ghost',
-                  style: { padding: '3px 10px', fontSize: 11, border: '1px solid var(--border)' },
-                  title: 'Delete every fired alert so only still-watching rows stay',
-                  onClick: async () => {
-                    // Batch 913 — snapshot the count before clearing so
-                    // the toast cites the number of rows just deleted.
-                    const before = fired.length;
-                    const { clearFiredWatchlistAlerts } = await import('./api.js');
-                    const res = await clearFiredWatchlistAlerts();
-                    if (res && (res.error || res.code)) {
-                      toast(res.message || res.error || 'Could not clear fired alerts', 'err');
-                      return;
-                    }
-                    loadServerAlerts();
-                    toast(`${before} fired alert${before === 1 ? '' : 's'} cleared.`, 'ok');
-                  }
-                }, 'Clear fired')
-              ),
-              active.length > 0 && h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-                active.slice(0, 5).map(a => {
-                  // Enrich with item name + current floor (batch 394). Look
-                  // up the cheapest active listing for this item from the
-                  // allListings prop the modal already has in scope — zero
-                  // extra round trips. Falls back to "Item #N" when no
-                  // listing matches (new/out-of-stock item).
-                  let itemName = null;
-                  let floor = null;
-                  // The unfiltered pool, not the market grid's filtered
-                  // page, so a category filter can't hide the item.
-                  if (Array.isArray(pool)) {
-                    for (const l of pool) {
-                      if (!l || !l.item) continue;
-                      if (l.item.id !== a.itemId) continue;
-                      if (l.status && l.status !== 'ACTIVE') continue;
-                      itemName = itemName || l.item.name;
-                      const p = wlShownPrice(l);
-                      if (Number.isFinite(p) && (floor == null || p < floor)) floor = p;
-                    }
-                  }
-                  itemName = itemName || alertItemName(a.itemId);
-                  const target = parseFloat(a.targetPrice);
-                  // Restock-mode alerts encode targetPrice ≥ 99999 as
-                  // "any future listing." For those the price gap is
-                  // meaningless — surface a "watching" state instead.
-                  const isRestock = Number.isFinite(target) && target >= 99999;
-                  const gap = (!isRestock && Number.isFinite(target) && floor != null) ? floor - target : null;
-                  const gapPct = (gap != null && target > 0) ? (gap / target) * 100 : null;
-                  let gapLabel = null;
-                  let gapColor = 'var(--text-muted)';
-                  if (isRestock) {
-                    if (floor == null) {
-                      gapLabel = 'awaiting restock';
-                      gapColor = 'var(--text-muted)';
-                    } else {
-                      gapLabel = 'restock fires next sweep';
-                      gapColor = 'var(--green)';
-                    }
-                  } else if (gap != null) {
-                    if (gap <= 0) { gapLabel = 'match ready'; gapColor = 'var(--green)'; }
-                    else if (gapPct < 10) { gapLabel = `${gapPct.toFixed(0)}% above`; gapColor = '#fbbf24'; }
-                    else { gapLabel = `${gapPct.toFixed(0)}% above`; gapColor = 'var(--text-muted)'; }
-                  } else if (floor == null) {
-                    gapLabel = 'no listings';
-                    gapColor = 'var(--text-muted)';
-                  }
-                  return h('div', {
-                    key: a.id,
-                    style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-secondary)' }
-                  },
-                    h('a', {
-                      href: '/item/' + a.itemId,
-                      style: { color: 'var(--accent)', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-                      title: itemName || ('Item #' + a.itemId)
-                    }, itemName || ('Item #' + a.itemId)),
-                    h('span', {
-                      className: 'db-mono',
-                      style: { color: 'var(--text-primary)', fontWeight: 700 },
-                      title: isRestock
-                        ? 'Restock-style alert — fires on any future listing regardless of price.'
-                        : `Fires when the floor drops to or below ${fmt(a.targetPrice)}.`
-                    }, isRestock ? '↻ restock' : ('≤ ' + fmt(a.targetPrice))),
-                    gapLabel && h('span', {
-                      style: { fontSize: 10, color: gapColor, fontWeight: 700 },
-                      title: gap != null
-                        ? (gap <= 0
-                            ? `Current floor ${fmt(floor)} is at or below your target — the sweeper will fire this alert on its next pass.`
-                            : `Current floor ${fmt(floor)} — ${fmt(gap)} above your target.`)
-                        : 'No active listings on this item right now.'
-                    }, gapLabel),
-                  // Edit target — batch 832 replaces the window.prompt
-                  // with an inline number input + Save/Cancel so the
-                  // user doesn't lose the visual context of which
-                  // alert row they're editing. Uses the same upsert
-                  // endpoint as the "Set Price Alert" button on the
-                  // item modal (WatchlistAlertService.upsertAlert is
-                  // an upsert, so resaving with the same itemId
-                  // updates the existing row).
-                  editingServerAlertId === a.id
-                    ? h('span', { style: { display: 'inline-flex', gap: 4, alignItems: 'center' } },
-                        h('input', {
-                          className: 'price-input',
-                          type: 'number', min: '0.01', step: '0.01',
-                          inputMode: 'decimal', enterKeyHint: 'done',
-                          'aria-label': 'New alert target price',
-                          style: { width: 72, padding: '1px 6px', fontSize: 10, height: 22 },
-                          value: serverAlertDraft,
-                          onChange: e => setServerAlertDraft(e.target.value),
-                          onKeyDown: (e) => {
-                            if (e.key === 'Enter' && !serverAlertBusy) {
-                              e.preventDefault(); saveEditServerAlert(a);
-                            } else if (e.key === 'Escape') {
-                              e.preventDefault();
-                              setEditingServerAlertId(null);
-                              setServerAlertDraft('');
-                            }
-                          },
-                          autoFocus: true
-                        }),
-                        h('button', {
-                          className: 'btn btn-ghost',
-                          style: { padding: '1px 6px', fontSize: 10, border: '1px solid var(--border)' },
-                          disabled: serverAlertBusy,
-                          onClick: () => saveEditServerAlert(a),
-                          title: 'Save new target',
-                          'aria-label': 'Save new target'
-                        }, '✓'),
-                        h('button', {
-                          className: 'btn btn-ghost',
-                          style: { padding: '1px 6px', fontSize: 10, border: '1px solid var(--border)' },
-                          disabled: serverAlertBusy,
-                          onClick: () => { setEditingServerAlertId(null); setServerAlertDraft(''); },
-                          title: 'Cancel edit',
-                          'aria-label': 'Cancel alert edit'
-                        }, '✕')
-                      )
-                    : h('button', {
-                        className: 'btn btn-ghost',
-                        style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
-                        onClick: () => startEditServerAlert(a),
-                        title: 'Change the target price for this alert',
-                        'aria-label': 'Change the target price for this alert'
-                      }, '✎'),
-                  editingServerAlertId !== a.id && h('button', {
-                    className: 'btn btn-ghost',
-                    style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
-                    onClick: () => cancelServerAlert(a.id),
-                    title: 'Cancel this price alert',
-                    'aria-label': 'Cancel this price alert'
-                  }, '✕')
-                  );
-                }),
-                active.length > 5 && h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4 } },
-                  `+ ${active.length - 5} more`)
-              )
-            );
-          })(),
           // Category chip row — only rendered when the watchlist spans
           // more than one category, so a user with 3 items in the same
           // category doesn't see noise. Each chip is a one-click filter.
