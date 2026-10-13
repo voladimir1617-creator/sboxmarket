@@ -3870,6 +3870,13 @@ export function FaqModal({ onClose }) {
         h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.45, marginTop: 4 } }, f.sub)
       ))
     ),
+    // The selling fee as a sum a seller can check (Waxpeer: "Sell for $100,
+    // get $94"). One flat, unfloored rate, so one sentence is the whole
+    // answer, worked by the same sellerPayout() mirror of TradeService.FEE_RATE.
+    (!t || /fee|charge|pric|cost/.test(t)) && h('div', {
+      'data-testid': 'faq-fee-example',
+      style: { fontSize: 13, color: 'var(--text-secondary)', margin: '-8px 0 20px', textAlign: 'center' }
+    }, 'Sell for ', fmt(100), ', get ', fmt(sellerPayout(100)), '.'),
     filtered.length === 0
       ? h('div', {
           // Batch 928 — richer zero-match state with Clear + Open-ticket

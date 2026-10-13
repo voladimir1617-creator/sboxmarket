@@ -30568,3 +30568,15 @@ html body .site-root section.csfloat-home-metrics .csfloat-home-metrics-row .csf
 /* Cards: SkinBox's own stock carries the item page's lightning mark in the
    slot where an online seller shows the green dot. */
 html body .site-root a.grid-card .gc-online-row.gc-house-row { display: inline-flex !important; align-items: center !important; gap: 3px !important; color: var(--accent, #3b82f6) !important; }
+
+/* FAQ group headings (Getting started / Buying and selling / Money / When
+   something goes wrong): the footer's column-eyebrow look, so they read as
+   labels over the question rows rather than as a fifth question. */
+html body .help-faq h3.help-faq-group,
+html body .full-page-mode .info-modal .help-faq h3.help-faq-group {
+  font-size: 12px !important; font-weight: 700 !important; letter-spacing: 0.1em !important;
+  text-transform: uppercase !important; color: var(--text-muted, #9aa3b2) !important;
+  margin: 28px 0 6px !important; padding: 0 !important; line-height: 1.4 !important;
+}
+html body .help-faq h3.help-faq-group:first-child,
+html body .full-page-mode .info-modal .help-faq h3.help-faq-group:first-child { margin-top: 4px !important; }

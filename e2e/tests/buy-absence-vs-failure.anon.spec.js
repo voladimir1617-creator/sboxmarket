@@ -206,7 +206,7 @@ test.describe('the item page tells "gone" from "could not ask"', () => {
     // The invented explanation must be gone. A buyer mid-purchase being told
     // the item "never existed" during an outage is how a dispute starts.
     await expect(page.locator('[data-testid="item-not-found"]')).toHaveCount(0);
-    await expect(page.locator('text=/removed or never existed/i')).toHaveCount(0);
+    await expect(page.locator('text=/removed or (never existed|the link is wrong)/i')).toHaveCount(0);
 
     // Recoverable in place — Retry re-runs the load without a full reload.
     const retry = page.getByRole('button', { name: /^Retry$/i });
