@@ -295,6 +295,29 @@ test.describe('The seller journey — what he is shown', () => {
     await expect(page.locator('.sell-summary')).not.toContainText(/\$500\.00/);
   });
 
+  test('the summary strip hides zero counts, uses our name, and adds up only real Steam prices', async ({ page }) => {
+    // Zero chips ("0 locked", "0 already in catalogue") were noise, and the
+    // last chip called the site "sboxmarket" when everywhere else it is
+    // SkinBox. The Steam-worth chip sums only rows Steam has priced and
+    // says how many that is, rather than guessing the rest.
+    await stubSteamInventory(page, [
+      steamRow({ name: 'Priced Hat', assetId: '900201', assetIds: ['900201'], catalogueId: null, steamPrice: 3.5 }),
+      steamRow({ name: 'Unpriced Hat', assetId: '900202', assetIds: ['900202'], catalogueId: null, steamPrice: null }),
+    ]);
+    await stubQuietMarket(page);
+
+    await page.goto('/sell');
+    const strip = page.locator('.sell-summary');
+    await expect(page.getByTestId('sell-summary-listable')).toBeVisible({ timeout: 20_000 });
+    await expect(strip).toContainText(/2\s*new to SkinBox/);
+    await expect(strip).not.toContainText(/sboxmarket/i);
+    await expect(strip).not.toContainText(/0\s*locked/i);
+    await expect(strip).not.toContainText(/already in catalogue/i);
+    const worth = page.getByTestId('sell-summary-steam-worth');
+    await expect(worth).toContainText(/Worth about\s*\$3\.50\s*on Steam/);
+    await expect(worth).toContainText(/1 of 2 priced/);
+  });
+
   test('a listing whose reply we could not read is neither a success nor a failure', async ({ page }) => {
     // `writeJson` parses with `try { body = await r.json(); } catch { body = null; }`,
     // so a 2xx whose body is not JSON — a proxy's HTML error page, a

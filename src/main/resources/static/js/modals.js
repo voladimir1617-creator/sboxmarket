@@ -1172,7 +1172,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       : null,
                     h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, letterSpacing: 0.3 } }, '↗ View on Steam')
                   )
-                : h('div', { className: 'modal-stat-val' }, '—')
+                // No Steam reference until the live price sync fills it (seed
+                // data never invents one), so say why instead of a bare dash.
+                : h('div', { className: 'modal-stat-val', style: { color: 'var(--text-muted)', fontSize: 14 } }, 'No Steam price yet')
             ),
             // I3 Boss-QA: 30D delta promoted to a proper trend pill
             // (matches the home Hottest rail style). Filled badge with
@@ -3799,6 +3801,27 @@ export function FaqModal({ onClose }) {
       onChange: e => setQ(e.target.value),
       'aria-label': 'Search FAQ'
     }),
+    // What we charge, as tiles (the home "2% Platform fee" style) instead
+    // of a search result. Shown on the plain FAQ and on any fee search,
+    // which is where the footer "Fees & Pricing" link lands. Rates are the
+    // ones the code charges: TradeService.FEE_RATE (2%, seller, on release);
+    // nothing added at checkout; card deposits and bank payouts carry the
+    // payment processor's own fee, passed on and quoted before confirming.
+    (!t || /fee|charge|pric|cost/.test(t)) && h('div', {
+      'aria-label': 'Fees',
+      'data-testid': 'faq-fee-tiles',
+      style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }
+    },
+      [
+        { num: '2%', label: 'Selling fee', sub: 'Paid by the seller, taken from the sale once delivery is confirmed.' },
+        { num: '0%', label: 'Buying fee', sub: 'Buyers pay the listed price, nothing added at checkout.' },
+        { num: 'At cost', label: 'Wallet deposits & withdrawals', sub: "Stripe's processing fee, passed on and shown before you confirm." }
+      ].map(f => h('div', { key: f.label, className: 'csfloat-home-metric' },
+        h('div', { className: 'csfloat-home-metric-num' }, f.num),
+        h('div', { className: 'csfloat-home-metric-label' }, f.label),
+        h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.45, marginTop: 4 } }, f.sub)
+      ))
+    ),
     filtered.length === 0
       ? h('div', {
           // Batch 928 — richer zero-match state with Clear + Open-ticket
@@ -3830,7 +3853,21 @@ export function FaqModal({ onClose }) {
           // the previous div: bold ink-primary, 14px, 6px bottom margin.
           h('h3', { style: { fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px', fontSize: 14 } }, highlightMatch(question, q)),
           h('div', { style: { color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 13 } }, highlightMatch(answer, q))
-        ))
+        )),
+    // A way out at the end of the list, so a reader who scrolled every
+    // answer is not left at a dead end. Same support route as the banner.
+    filtered.length > 0 && h('div', {
+      'data-testid': 'faq-still-stuck',
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap', paddingTop: 16, borderTop: '1px solid var(--border)' }
+    },
+      h('span', { style: { fontSize: 13, color: 'var(--text-secondary)' } }, 'Still stuck?'),
+      h('a', {
+        href: '/support',
+        className: 'btn btn-accent',
+        style: { padding: '8px 14px', fontSize: 12 },
+        onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate('/support'); }
+      }, 'Open a ticket →')
+    )
   );
 }
 
@@ -12475,6 +12512,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // the next price level), so the realisable liquid value of
           // a stack of N is bounded by the buy-order book depth, not
           // N × bestBid. Keep the conservative one-per-row sum.
+          const cataloguedRows = steamList.filter(s => s.catalogueId).length;
+          const newRows = steamList.length - cataloguedRows;
+          const listableRows = steamList.filter(s => copiesListable(s) > 0).length;
+          const steamPriced = steamList.filter(s => copiesListable(s) > 0 && parseFloat(s.steamPrice) > 0);
+          const steamPricedRows = steamPriced.length;
+          const steamWorth = steamPriced.reduce((acc, s) => acc + parseFloat(s.steamPrice) * copiesListable(s), 0);
           let liquidValue = 0;
           let liquidCount = 0;
           steamList.forEach(s => {
@@ -12502,12 +12545,23 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
               'data-testid': 'sell-summary-listed',
               title: 'Copies already on sale here. Reprice or cancel them in My Stall.'
             }, h('span', { className: 'sell-summary-num' }, listedAssets), ' already listed'),
-            h('div', { className: 'sell-summary-chip warn' },
+            // A zero here is noise ("0 locked"), so these three only show
+            // when they have something to count.
+            lockedAssets > 0 && h('div', { className: 'sell-summary-chip warn' },
               h('span', { className: 'sell-summary-num' }, lockedAssets), ' locked'),
-            h('div', { className: 'sell-summary-chip accent' },
-              h('span', { className: 'sell-summary-num' }, steamList.filter(s => s.catalogueId).length), ' already in catalogue'),
-            h('div', { className: 'sell-summary-chip' },
-              h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.catalogueId).length), ' new to sboxmarket'),
+            cataloguedRows > 0 && h('div', { className: 'sell-summary-chip accent' },
+              h('span', { className: 'sell-summary-num' }, cataloguedRows), ' already in catalogue'),
+            newRows > 0 && h('div', { className: 'sell-summary-chip' },
+              h('span', { className: 'sell-summary-num' }, newRows), ` new to ${BRAND.name}`),
+            // What the listable copies are worth on Steam. Only rows Steam
+            // has actually priced count; a missing reference is never
+            // estimated, and the chip says when it covers only some rows.
+            steamPricedRows > 0 && h('div', {
+              className: 'sell-summary-chip',
+              'data-testid': 'sell-summary-steam-worth',
+              title: 'Sum of the Steam Community Market reference price across the copies you can still list. Items Steam has not priced are left out, not guessed.'
+            }, 'Worth about ', h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(steamWorth)), ' on Steam',
+              steamPricedRows < listableRows ? ` (${steamPricedRows} of ${listableRows} priced)` : ''),
             estValue > 0 && h('div', {
               className: 'sell-summary-chip accent',
               title: 'Sum of the floor price across the catalogued copies you can still list (stacks counted by quantity; copies already on sale are in My Stall, not here). A rough "what\'s this inventory worth?" number — actual sale prices can land above or below.'

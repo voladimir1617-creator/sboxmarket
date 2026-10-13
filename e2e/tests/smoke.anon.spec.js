@@ -39,6 +39,27 @@ test.describe('public smoke (signed out)', () => {
     await expect(page.locator('text=/Price history/i')).toBeVisible();
   });
 
+  test('an item with no Steam reference says so instead of a bare dash', async ({ page }) => {
+    // Seed data never invents a Steam price, so until the live sync runs the
+    // reference box is empty. It names why rather than showing "—".
+    await page.goto('/item/4');
+    const box = page.locator('.modal-stat-box', { hasText: /Steam reference/i });
+    await expect(box).toBeVisible({ timeout: 15_000 });
+    await expect(box).toContainText(/No Steam price yet|\$/);
+    await expect(box.locator('.modal-stat-val')).not.toHaveText('—');
+  });
+
+  test('Fees & Pricing lands on fee tiles, and the FAQ ends with a way to support', async ({ page }) => {
+    await page.goto('/faq?q=' + encodeURIComponent('platform fee'));
+    const tiles = page.getByTestId('faq-fee-tiles');
+    await expect(tiles).toBeVisible({ timeout: 15_000 });
+    await expect(tiles).toContainText(/2%\s*Selling fee/i);
+    await expect(tiles).toContainText(/0%\s*Buying fee/i);
+    await page.goto('/faq');
+    await expect(page.getByTestId('faq-still-stuck')).toContainText(/Still stuck\?/);
+    await expect(page.getByTestId('faq-still-stuck').getByRole('link', { name: /Open a ticket/ })).toBeVisible();
+  });
+
   test('item database (/db) renders a table', async ({ page }) => {
     await page.goto('/db');
     await expect(page).toHaveURL(/\/db/);
