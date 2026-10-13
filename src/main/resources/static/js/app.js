@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=264';
+} from './modals.js?v=265';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -64,7 +64,7 @@ function LazyStaffPanel({ which, me, onClose }) {
   return h(Mod, { onClose, me });
 }
 import { HelpModal } from './help-modal.js';
-import { InfoModal } from './info-modal.js';
+import { InfoModal, markAuthKnown } from './info-modal.js';
 import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious } from './router.js';
 
 // ── Pending trade reminder — surfaces a slim banner whenever the signed-in
@@ -4666,6 +4666,7 @@ export function App() {
       }
       return m;
     } finally {
+      markAuthKnown();
       setMeLoaded(true);
     }
   }, []);
@@ -9671,7 +9672,7 @@ export function App() {
       )
     ),
     routeName === 'faq'           && h(FaqModal,        { onClose: () => navigate(paths.market()) }),
-    routeName === 'settings'      && h(SettingsModal,   { onClose: () => navigate(paths.market()), me }),
+    routeName === 'settings'      && h(SettingsModal,   { onClose: () => navigate(paths.market()), me, meLoaded }),
     routeName === 'affiliate'     && h(AffiliateModal,  { onClose: () => navigate(paths.market()) }),
     // Deep-link handling — notifications like TRADE_MESSAGE land us on
     // `/profile/trades`. The router's :tab pattern feeds initialTab so
@@ -9711,8 +9712,8 @@ export function App() {
     }),
     routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); }, me }),
     routeName === 'buyorders'     && h(BuyOrdersModal,     { onClose: () => { setPreselectedBuyItem(null); navigate(paths.market()); }, me, wallet, preselectedItem: preselectedBuyItem }),
-    routeName === 'loadouts'      && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me }),
-    routeName === 'loadout'       && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, loadoutId: route.params?.id }),
+    routeName === 'loadouts'      && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, meLoaded }),
+    routeName === 'loadout'       && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, meLoaded, loadoutId: route.params?.id }),
     routeName === 'notifications' && h(NotificationsModal, { onClose: () => navigate(paths.market()), me }),
     routeName === 'support'       && h(ProfileModal,        { onClose: () => navigate(paths.market()), me, wallet, transactions, onRefresh: loadWallet, initialTab: 'support' }),
     // Staff panels — role-gated. Non-staff users who type the URL hit a

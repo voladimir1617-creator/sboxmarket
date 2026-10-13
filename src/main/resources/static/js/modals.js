@@ -3927,7 +3927,7 @@ export function FaqModal({ onClose }) {
 }
 
 // ── Settings ────────────────────────────────────────────────────
-export function SettingsModal({ onClose, me }) {
+export function SettingsModal({ onClose, me, meLoaded = true }) {
   const [currency, setCurrency] = useState(localStorage.getItem('sb_currency') || 'USD');
   const [notifs, setNotifs]     = useState(localStorage.getItem('sb_notifs') !== 'false');
   const [sounds, setSounds]     = useState(localStorage.getItem('sb_sounds') !== 'false');
@@ -4078,6 +4078,10 @@ export function SettingsModal({ onClose, me }) {
   // signed-in account. Show a clearly-labelled sign-in nudge in place
   // of the notification panel so anon users aren't toggling an opt-out
   // for events they can't receive yet.
+  // Until the sign-in check answers, draw only the frame: drawing the
+  // signed-out version first flashed the sign-in banner at a signed-in
+  // visitor, then slid every row 140px when Notifications & sound arrived.
+  if (!meLoaded) return h(InfoModal, { title: 'Settings', onClose });
   return h(InfoModal, { title: 'Settings', onClose },
     !me && h('div', {
       style: {

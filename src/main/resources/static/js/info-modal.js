@@ -176,6 +176,14 @@ export function InfoModal({ title, onClose, children, wide }) {
 // arriving via a footer/help link should still have a no-login fallback
 // instead of hitting a brick wall.
 //   { to: 'support@…', subject: '…', label: '…' }
+//
+// Until the app's first sign-in check answers, `me` is null for everyone,
+// so a signed-in visitor saw this gate flash before their page drew. The
+// app calls markAuthKnown() once the check answers; until then the gate
+// keeps its place but stays invisible.
+let authKnown = false;
+export function markAuthKnown() { authKnown = true; }
+
 export function SignInNeededEmptyState({ what, mailto }) {
   const mailHref = mailto && mailto.to
     ? `mailto:${mailto.to}` + (mailto.subject ? `?subject=${encodeURIComponent(mailto.subject)}` : '')
@@ -184,7 +192,11 @@ export function SignInNeededEmptyState({ what, mailto }) {
   // empty state) so CSS can vertically-center it on a full-page route —
   // otherwise the short gate card strands at the top of a 2K viewport with
   // a large void below (design review #2).
-  return h('div', { className: 'empty-inline empty-authgate' },
+  return h('div', {
+    className: 'empty-inline empty-authgate',
+    'aria-hidden': authKnown ? undefined : 'true',
+    style: authKnown ? undefined : { visibility: 'hidden' }
+  },
     h('div', {
       className: 'empty-icon',
       // G10 Boss QA — sign-in lock icon was 26px and read as a tiny
