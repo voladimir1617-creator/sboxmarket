@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=260';
+} from './modals.js?v=261';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -7757,8 +7757,19 @@ export function App() {
                   title = 'No listings match your filters';
                   sub   = 'Try clearing the Deals, New, price, or discount filters to broaden the view.';
                 } else if (hasQueryFilters) {
-                  title = 'No listings match your filters';
-                  sub   = 'Try a broader search, clear the filters, or list one of your own items.';
+                  // A typed search gets its words back (White.market keeps
+                  // the query in view above its empty state) and a way to
+                  // ask for the item: a buy order sellers can see. React
+                  // escapes the text; it is cut so a pasted paragraph
+                  // can't push the actions off screen.
+                  const q = String(search || '').trim();
+                  const onlySearch = !!q && category === 'All' && rarity === 'All' && !minPrice && !maxPrice && !(minDiscountPct > 0);
+                  title = onlySearch
+                    ? 'No listings for "' + (q.length > 40 ? q.slice(0, 39) + '…' : q) + '"'
+                    : 'No listings match your filters';
+                  sub   = q
+                    ? 'Nobody is selling that right now. Clear the filters, or place a buy order and sellers will see it.'
+                    : 'Try a broader search, clear the filters, or list one of your own items.';
                 } else {
                   title = 'Marketplace is empty';
                   sub   = 'Be the first to list an item — head to Sell to put one of your skins up for grabs.';
@@ -7791,6 +7802,14 @@ export function App() {
                         setDealsOnly(false); setNewOnly(false); setAffordableOnly(false);
                       }
                     }, 'Clear Filters'),
+                    // Same link the empty buy-orders tab uses. The buy-order
+                    // page doesn't read a query from its URL, so no prefill.
+                    !isError && hasQueryFilters && String(search || '').trim() && h('a', {
+                      className: 'btn btn-ghost',
+                      style: { border: '1px solid var(--border)' },
+                      href: paths.buyorders(),
+                      'data-testid': 'market-empty-buy-order'
+                    }, '+ Create buy order'),
                     !isError && me && h('a', { className: 'btn btn-accent', href: paths.sell() }, 'Sell Items')
                   )
                 );
@@ -8935,7 +8954,7 @@ export function App() {
         nfTitle = 'Item not found';
         nfIconNode = h(MaterialIcon, { name: 'search_off', size: 32 });
         nfHeading = 'Item not found';
-        nfBody = "The item you were looking for has been removed or never existed. It may have been merged into another entry by the catalogue sync.";
+        nfBody = "This item has been removed or the link is wrong. Search the market for it, or go back to the marketplace.";
       }
       return h(InfoModal,       { title: nfTitle, onClose: () => navigate(paths.market()) },
       h('div', { className: 'empty-inline', style: { position: 'relative', overflow: 'hidden', paddingTop: 100 } },
@@ -9751,7 +9770,7 @@ export function App() {
           h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
             itemLoadError
               ? "We couldn't reach the marketplace to look this item up, so we can't tell you whether it's still for sale. This is usually temporary — try again in a moment."
-              : 'The item you were looking for has been removed or never existed. It may have been merged into another entry by the catalogue sync.'),
+              : 'This item has been removed or the link is wrong. Search the market for it, or go back to the marketplace.'),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
             itemLoadError && h('button', {
               className: 'btn btn-accent',

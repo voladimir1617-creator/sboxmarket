@@ -55,9 +55,23 @@ test.describe('public smoke (signed out)', () => {
     await expect(tiles).toBeVisible({ timeout: 15_000 });
     await expect(tiles).toContainText(/2%\s*Selling fee/i);
     await expect(tiles).toContainText(/0%\s*Buying fee/i);
+    await expect(page.getByTestId('faq-fee-example')).toHaveText('Sell for $100.00, get $98.00.');
     await page.goto('/faq');
     await expect(page.getByTestId('faq-still-stuck')).toContainText(/Still stuck\?/);
     await expect(page.getByTestId('faq-still-stuck').getByRole('link', { name: /Open a ticket/ })).toBeVisible();
+  });
+
+  test('a search that finds nothing names the query and offers a buy order', async ({ page }) => {
+    await page.goto('/market?q=' + encodeURIComponent('zz no such skin zz'));
+    const title = page.getByTestId('market-empty');
+    await expect(title).toHaveText('No listings for "zz no such skin zz"', { timeout: 15_000 });
+    await expect(page.getByTestId('market-empty-buy-order')).toHaveAttribute('href', '/buy-orders');
+  });
+
+  test('the Help Center FAQ sits under four group headings', async ({ page }) => {
+    await page.goto('/help');
+    await expect(page.getByTestId('help-faq-group')).toHaveText(
+      ['Getting started', 'Buying and selling', 'Money', 'When something goes wrong'], { timeout: 15_000 });
   });
 
   test('item database (/db) renders a table', async ({ page }) => {

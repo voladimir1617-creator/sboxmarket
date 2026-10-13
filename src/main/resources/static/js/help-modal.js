@@ -8,113 +8,151 @@ import { navigate, paths } from './router.js';
 
 const FAQ = [
   {
+    s: 'start',
     q: 'What is SkinBox?',
     a: "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. Sellers set their own price, and every listing is backed by a real Steam account. The platform is cheaper than going through the Steam store — a flat 2% on each sale vs Steam's 12%. Moving money in and out is separate and is not free: card deposits and bank payouts carry the payment processor's own charge, passed through at cost with no markup, and the wallet screen shows you the exact figure before you confirm."
   },
   {
+    s: 'start',
     q: 'How do I sign in?',
     a: "Click the ‘Sign in through Steam’ button in the top-right of any page. You'll be redirected to steamcommunity.com to approve the login. Your password never touches our servers — we only see your public Steam profile via OpenID."
   },
   {
+    s: 'trade',
     q: 'How do I list an item I own on Steam?',
     a: "Open Sell Items from the user menu. The Steam Inventory tab fetches your real Steam inventory for s&box (appid 590830) — click any item, pick Buy Now or Auction, set a price (or starting bid + duration for auctions), and hit List for Sale. The listing appears on the marketplace immediately and a 2% platform fee is deducted when it sells."
   },
   {
+    s: 'trade',
     q: 'How do I run an auction (as a seller)?',
     a: "In the Sell Items flow, toggle Listing type to Auction instead of Buy Now. Pick a duration (6h / 12h / 1d / 2d / 3d / 7d), set a starting bid, and hit List for Sale. Bidders push the price up from there until the timer runs out; the top bidder's wallet is charged automatically. Anti-snipe: any bid placed in the final 30 seconds extends the auction by another 30 seconds so nobody can win purely on timing. You can cancel or re-price an auction until the first bid lands; after that it's locked and settles when the timer runs out. When the auction ends with no bids, the item returns to your inventory automatically."
   },
   {
+    s: 'money',
     q: 'How does depositing money work?',
     a: "Open Wallet → Deposit, enter any amount between $1 and $10,000, and you'll be handed off to Stripe Checkout. Once the payment clears, the webhook credits your balance automatically. There's a rolling $5,000 cap on how much you can deposit in any 24-hour window — the Deposit form shows how much you have left for the day before you submit."
   },
   {
+    s: 'money',
     q: 'How do withdrawals work?',
     a: "Wallet → Withdraw. You'll need a verified email address first (verify it from Profile → Personal). The first time, Set up cash-out links your bank account or debit card through Stripe (this is also the identity check). Then enter an amount; if you have 2FA enabled you'll also enter a fresh 6-digit code. Your balance is debited and the payout is sent to your Stripe cash-out account straight away; Stripe pays it on to your bank, usually within 1–2 business days. A rolling $5,000 cap applies per 24-hour window, and withdrawals are paused while any deposit on your account is under a chargeback dispute."
   },
   {
+    s: 'trade',
     q: 'What are Buy Orders?',
     a: "A standing offer to auto-purchase a specific item as soon as a listing drops to your max price. Open any item, hit Place Buy Order, pick a max, and walk away. When a matching listing appears, we charge your wallet and assign the item automatically. Cancel from your Profile → Buy Orders tab."
   },
   {
+    s: 'trade',
     q: 'What are Offers?',
     a: "A soft bargain on an existing listing. Go to an item's detail view, hit Make Offer, and enter an amount below the asking price. The seller sees it in their Offers tab and can Accept, Reject, or counter. Accepting auto-transfers funds + item through the same flow as a direct purchase."
   },
   {
+    s: 'trade',
     q: 'How do Auto-accept offers work (sellers)?',
     a: "When you list an item for Buy Now, there's an optional Auto-accept % field (1–50%). Setting it to 10%, for example, means any offer at or above 90% of your asking price auto-accepts — funds transfer and the trade opens without you having to click Accept. Offers below your threshold still queue for manual review. Great for high-volume sellers who don't want to babysit the Offers tab. The same control appears on the MyStall edit form and the bulk-list action bar, so you can flip it on existing listings or apply it uniformly across a batch. Set it to blank (or 0) to go back to manual review for every offer."
   },
   {
+    s: 'trade',
     q: 'How do auctions work?',
     a: "Auction listings show a countdown timer and a Bid input. Enter your bid — the minimum is the current price plus one increment (the increment scales with price, from $0.05 on cheap items up to $100 on four-figure ones). You can also set an auto-bid cap, and the proxy-bidder will raise your bid by the minimum increment until it hits your cap. When the timer runs out, the winner's wallet is charged and the seller is credited (minus 2%)."
   },
   {
+    s: 'money',
     q: 'Is my money safe?',
     a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. When you buy an item the payment is held in escrow — not paid to the seller — until you confirm receipt or the 8-day trade-hold window passes, so a seller can't take your money and ghost you. Withdrawals are queued for manual admin approval before payout and require a verified email (plus a 2FA code if you've enabled it). Session cookies are HttpOnly and SameSite-strict in production, and every wallet write is logged with a correlation id for audit."
   },
   {
+    s: 'money',
     q: 'Why is SkinBox cheaper than Steam?',
     a: "Steam charges 12% on Workshop sales. SkinBox charges a flat 2% to the seller at sale time — that is the only fee SkinBox keeps, and it is the only one that funds the site. Moving money is a separate cost and is not free: card deposits and bank payouts carry Stripe's own charge, which is passed through at cost with no markup added. The wallet screen shows the exact deduction and the exact amount you will receive before you confirm anything. The green '−X%' chip on each card shows how much you save versus the Steam store price."
   },
   {
+    s: 'problems',
     q: 'My purchase is stuck, what do I do?',
     a: "Open a ticket from Profile → Support → + New Ticket and include the transaction id from your Trades tab. Clara, the automated first-responder, replies instantly with the most likely fix; a human agent follows up within 4 hours for trade, payment, and refund tickets (these jump the queue), or within 24 hours for everything else."
   },
   {
+    s: 'problems',
     q: 'How do I report a suspicious listing or user?',
     a: "On any item detail page, the Report button next to each active listing opens a short report form (reason + optional note). To report a user directly — e.g. chat harassment or a scam attempt before the trade opens — open the seller's stall page and hit Report. Both flows route to the support queue; the reporter is notified when staff acts."
   },
   {
+    s: 'start',
     q: 'Is there a system status page?',
     a: "Yes — /status.html probes the core services (marketplace, catalogue, auctions, API) every 30 seconds and shows green/amber/red for each. There's a direct link under Resources in the site footer."
   },
   {
+    s: 'start',
     q: 'Is there a Chrome / Edge extension to value my Steam inventory?',
     a: "Yes — the SkinBox Inventory Valuer extension adds a per-tile price badge on your Steam inventory page and a floating panel with Steam Market vs SkinBox totals. Install it from the Chrome Web Store (link on the site footer when it ships). No account is required — the extension uses Steam's public priceoverview endpoint + the SkinBox public listings API."
   },
   {
+    s: 'problems',
     q: 'Can I cancel a pending withdrawal?',
     a: "Yes. Wallet → Transactions has a 'Cancel' button next to every PENDING withdrawal row. The full amount is credited back immediately and the row flips to CANCELLED. You don't need to wait for an admin rejection."
   },
   {
+    s: 'problems',
     q: 'Why did my buy order auto-expire?',
     a: "Standing buy orders auto-expire after 30 days of inactivity. This prevents a long-forgotten order from surprise-firing months after you stopped wanting the item. If you're still interested, re-create it from Profile → Buy Orders — the wallet hold is released automatically so nothing is lost."
   },
   {
+    s: 'trade',
     q: 'How do I earn the ✓ Verified seller badge?',
     a: "Complete 10+ sales AND maintain a rating of 4★ or higher (or have no reviews yet). Your progress bar is visible on My Stall — it shows exactly how many more sales or what rating improvement you need. Verified sellers get a badge on every listing they own, which lifts buyer conversion and trust."
   },
   {
+    s: 'problems',
     q: 'I lost access to my 2FA device — what do I do?',
     a: "Open a support ticket (Profile → Support → + New Ticket) with category Account and include your Steam ID. Staff will verify ownership via Steam OpenID handshake + ban-appeal questions and reset your 2FA. Once reset, every active session on your account is revoked for security, and you'll need to re-enrol a new device from Profile → 2FA on your next sign-in."
   },
   {
+    s: 'start',
     q: 'How do I delete my account?',
     a: "Profile → Personal → Delete account. Staff review deletion requests within 1-2 business days; while the request is pending you can cancel it via the same page. Once finalized: display name, avatar, email, trade URL and 2FA are wiped; listings and trade history stay on the ledger for audit. Funds in your wallet must be withdrawn first — the request is rejected if there's a pending withdrawal or open trade."
   },
   {
+    s: 'problems',
     q: 'What if the item I bought never arrives — or arrives wrong?',
     a: "Your money sits in escrow, not the seller's wallet, until you confirm receipt. If the seller never sends the Steam trade offer, the trade auto-cancels with a full refund after 3 days of seller inactivity — you don't have to do anything. If the offer was sent but the item is wrong or missing, you have 8 days from when the seller marks it sent to confirm receipt or file a dispute: go to Profile → Trades, find the row, and click 'Report issue' / 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff triage disputes in rotating CSR shifts and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
   },
   {
+    s: 'problems',
     q: 'What happens if I get banned? Can I appeal?',
     a: "Banned accounts can no longer list, bid, buy, offer, trade, or withdraw. Your Steam session is revoked immediately and future sign-ins land on a read-only state. To appeal, email appeals@skinbox.market from the Steam-verified address on your account with your Steam ID and a description of the incident — or simply reply to the suspension email. Appeals are reviewed by a senior admin (not the reviewer who banned you) within 1-2 business days. If the ban is lifted, your listings are NOT auto-restored — you'll need to re-list anything you want back on the market."
   },
   {
+    s: 'trade',
     q: 'Can I see who bought my item?',
     a: "Yes — Profile → Trades. Each completed trade row shows the buyer's display name, Steam ID, and the exact time they confirmed receipt. You can also leave a review on any VERIFIED trade, and their review shows on your stall. For privacy, wallet balances and real-name data are never exposed; buyer identity is limited to their public Steam profile."
   },
   {
+    s: 'problems',
     q: 'I think I found a security bug — how do I report it?',
     a: "Email security@skinbox.market with the subject '[disclosure] short title' and a reproduction you're comfortable sharing. We acknowledge within 72h and send a first status update within 7 days. Good-faith researchers get a safe-harbor commitment — see /legal/responsible-disclosure.html for the full policy, scope, and Hall of Fame. The machine-readable manifest lives at /.well-known/security.txt."
   },
   {
+    s: 'start',
     q: 'How do I use the API from a bot or browser extension?',
     a: "Mint an API key at Profile → Developers → + New Key. Pick RW (full access — can buy / sell / move funds) or RO (read-only — fetches listings + wallet balance but can't mutate anything). Send the raw token as Authorization: Bearer sbx_live_… on every request. The server accepts this in place of session cookies on the market and wallet /api/* routes, so no CSRF token is needed. Account settings (email, trade URL, 2FA, payout account), minting more keys and staff tools only work signed in on the website. Active-key cap is 20 per user — revoke stale ones first if you hit the wall. Every mint fires a security-alert email; if you see one you didn't trigger, click 'Revoke all active keys' in Profile → Developers and open a ticket."
   },
   {
+    s: 'start',
     q: 'How do I audit my own account activity?',
     a: "Two collapsed panels on Profile → Personal show your activity trail: Recent Sign-Ins (last 20 Steam logins with IP + browser) and Security Activity (last 50 events where your account was the subject — 2FA resets, API key mints, withdrawals, disputes, admin force-actions). Staff actions are marked with a blue STAFF chip so you can tell admin-initiated events apart from your own. If you see something you didn't trigger, use 'Sign out everywhere' + 'Revoke all active keys' on the same tab, then open a support ticket."
   }
+];
+
+// The FAQ in four groups, problems together (White.market and Waxpeer
+// both group theirs the same way). Order here is display order; each
+// question's `s` names its group, and no question moves between groups
+// on a search, so a filtered list keeps its headings.
+const FAQ_SECTIONS = [
+  { key: 'start',    title: 'Getting started' },
+  { key: 'trade',    title: 'Buying and selling' },
+  { key: 'money',    title: 'Money' },
+  { key: 'problems', title: 'When something goes wrong' }
 ];
 
 const SHORTCUTS = [
@@ -275,7 +313,15 @@ export function HelpModal({ onClose }) {
           )
         )
       : h('div', { className: 'help-faq' },
-          filteredFaq.map(item => {
+          FAQ_SECTIONS.flatMap(sec => {
+            const rows = filteredFaq.filter(item => item.s === sec.key);
+            if (rows.length === 0) return [];
+            // A label over its rows, styled in design.css (.help-faq-group).
+            return [h('h3', {
+              key: 'sec-' + sec.key,
+              className: 'help-faq-group',
+              'data-testid': 'help-faq-group'
+            }, sec.title)].concat(rows.map(item => {
             const isOpen = openIdx === item.origIdx;
             const panelId = `help-faq-panel-${item.origIdx}`;
             const btnId = `help-faq-q-${item.origIdx}`;
@@ -305,6 +351,7 @@ export function HelpModal({ onClose }) {
               // panel as "<question>, region".
               isOpen && h('div', { id: panelId, role: 'region', 'aria-labelledby': btnId, className: 'help-faq-a' }, highlightMatch(item.a, q))
             );
+            }));
           })
         ),
 
