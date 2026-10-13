@@ -169,6 +169,23 @@ class EscrowedItem {
     @Column(name = "return_confirmed_at")
     Long returnConfirmedAt
 
+    /** Short code shown to the seller on the site and written into every
+     *  trade offer our bot sends for this item, so he can tell our offer from
+     *  an impersonator's. Random, never derived from an id a scammer can see.
+     *  NULL on rows made before it existed; their offers carry no code. */
+    @Column(name = "security_code", length = 8)
+    String securityCode = newSecurityCode()
+
+    /** No 0/O, 1/I/L: the code is read off one screen and matched by eye on another. */
+    private static final String CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+    private static final java.security.SecureRandom CODE_RANDOM = new java.security.SecureRandom()
+
+    static String newSecurityCode() {
+        def sb = new StringBuilder(4)
+        4.times { sb.append(CODE_ALPHABET.charAt(CODE_RANDOM.nextInt(CODE_ALPHABET.length()))) }
+        sb.toString()
+    }
+
     /** PENDING_DEPOSIT, IN_ESCROW_HOLD, IN_CUSTODY, DELIVERED, RETURNED, FAILED. */
     @Column(name = "custody_state", length = 24, nullable = false)
     String custodyState = PENDING_DEPOSIT

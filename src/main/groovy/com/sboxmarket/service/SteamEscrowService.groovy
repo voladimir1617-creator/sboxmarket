@@ -315,7 +315,7 @@ class SteamEscrowService {
                 marketHashName: marketHashName,
                 custodyState: EscrowedItem.PENDING_DEPOSIT)
 
-        SteamBotResult res = steamTradeBotService.requestItems(tradeUrl, [assetId.trim()], offerMessage)
+        SteamBotResult res = steamTradeBotService.requestItems(tradeUrl, [assetId.trim()], messageFor(row))
         if (res.ok) {
             row.depositOfferId = res.offerId
             row.lastError = null
@@ -798,7 +798,7 @@ class SteamEscrowService {
             return false
         }
         String assetToSend = e.heldAssetId ?: e.assetId
-        SteamBotResult res = steamTradeBotService.sendOffer(tradeUrl, [assetToSend], offerMessage)
+        SteamBotResult res = steamTradeBotService.sendOffer(tradeUrl, [assetToSend], messageFor(e))
         if (res.ok) {
             e.returnOfferId = res.offerId
             e.custodyState = EscrowedItem.RETURNED
@@ -1013,7 +1013,7 @@ class SteamEscrowService {
                         || fresh.depositOfferId != null) continue
 
                 SteamBotResult res = steamTradeBotService.requestItems(
-                        tradeUrl, [(fresh.assetId ?: '').trim()], offerMessage)
+                        tradeUrl, [(fresh.assetId ?: '').trim()], messageFor(fresh))
                 if (res.ok) {
                     fresh.depositOfferId = res.offerId
                     fresh.lastError = null
@@ -1138,9 +1138,72 @@ class SteamEscrowService {
                 holdOverdue:     holding && e.escrowEndsAt != null && now > depositDeadlineFor(e),
                 itemLeftSeller:  e.depositAcceptedAt != null,
                 returnQueued:    e.returnRequestedAt != null,
+                offerSent:       e.depositOfferId != null,
+                securityCode:    e.securityCode,
                 message:         message
             ]
         }
+        return out
+    }
+
+    /** The trade-offer message for a custody row: the configured text plus
+     *  the row's security code, which the seller sees on the site too. */
+    String messageFor(EscrowedItem e) {
+        String base = offerMessage ?: ''
+        e?.securityCode ? "${base} · code ${e.securityCode}".toString() : base
+    }
+
+    /** How long a confirmed return stays on the seller's view as "back in
+     *  your Steam" before it drops off. */
+    static final long RETURN_SHOWN_FOR_MS = 24L * 60L * 60L * 1000L
+
+    /**
+     * What the bot holds for one seller, for the My Stall withdraw view:
+     * {@code heldListingIds} are listings whose skin sits in the bot right now
+     * (cancelling one is a withdrawal), and {@code returning} lists skins on
+     * their way back to the seller's Steam, plus ones that arrived in the last
+     * day. Empty when escrow is off. Never throws.
+     */
+    Map custodyForSeller(Long sellerUserId) {
+        Map out = [heldListingIds: [], returning: []]
+        if (!escrowEnabled || sellerUserId == null) return out
+        List<EscrowedItem> rows
+        try {
+            rows = escrowRepository.findBySellerUserIdAndCustodyStateIn(sellerUserId,
+                    [EscrowedItem.IN_CUSTODY, EscrowedItem.RETURNED]) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: seller custody lookup failed: ${ex.message}")
+            return out
+        }
+        long now = System.currentTimeMillis()
+        List<Map> returning = []
+        for (EscrowedItem e : rows) {
+            if (e.custodyState == EscrowedItem.IN_CUSTODY && e.returnRequestedAt == null) {
+                out.heldListingIds << e.listingId
+                continue
+            }
+            String state
+            String message
+            if (e.custodyState == EscrowedItem.IN_CUSTODY) {
+                state = 'RESENDING'
+                message = 'Our bot is sending this back to you. If you have no Steam trade URL saved in Profile, add one and it goes out on the next try.'
+            } else if (e.returnConfirmedAt == null) {
+                state = 'OFFER_SENT'
+                message = 'Our bot sent you a Steam trade offer with this item. Accept it in Steam to get it back.'
+            } else if (now - e.returnConfirmedAt <= RETURN_SHOWN_FOR_MS) {
+                state = 'BACK'
+                message = 'Back in your Steam inventory.'
+            } else {
+                continue
+            }
+            def item = null
+            try { item = listingRepository.findById(e.listingId).orElse(null)?.item } catch (Exception ignored) { }
+            returning << [listingId: e.listingId, name: e.marketHashName, state: state,
+                          returnOfferId: e.returnOfferId, securityCode: e.securityCode,
+                          item: item, message: message,
+                          at: e.returnConfirmedAt ?: e.returnRequestedAt]
+        }
+        out.returning = returning.sort { a, b -> (b.at ?: 0L) <=> (a.at ?: 0L) }
         return out
     }
 
