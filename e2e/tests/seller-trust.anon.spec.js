@@ -78,6 +78,11 @@ test.describe('The seller card beside Buy now', () => {
     await expect(card).toContainText('New seller');
     await expect(card).not.toContainText('100%');
     await expect(card).toContainText('Offline');
+    // The same row of figures as an established seller, with the ones we
+    // cannot know yet shown as a dash, never a made-up value.
+    await expect(card.locator('[data-stat="completed"]')).toContainText('0');
+    await expect(card.locator('[data-stat="ship"]')).toContainText('–');
+    await expect(card.locator('[data-stat="rate"]')).toHaveCount(0);
   });
 
   test('a FAILED record lookup says so instead of rendering a spotless record', async ({ page }) => {
@@ -102,14 +107,17 @@ test.describe('Signals on the page must be true', () => {
 
   // Every card whose seller is offline drew the GREEN online dot next to the
   // word "Offline": the stylesheet greys `.gc-online-dot.offline`, and the dot
-  // never got that class.
-  test('an Offline card never shows the online dot colour', async ({ page }) => {
+  // never got that class. Since the 10/13 look pass a card no longer labels a
+  // seller offline at all (presence is the signal, absence is silent), so the
+  // only dot a card may draw is a real Online one.
+  test('a card never says Offline, and any dot it draws is a real Online one', async ({ page }) => {
     await page.goto('/market');
-    const offlineRows = page.locator('.gc-online-row:not(.is-online)');
-    await expect(offlineRows.first()).toBeVisible({ timeout: 15_000 });
-    const bad = await offlineRows.evaluateAll((rows) => rows.filter((row) => {
-      const dot = row.querySelector('.gc-online-dot');
-      return dot && !dot.classList.contains('offline');
+    await expect(page.locator('a.grid-card').first()).toBeVisible({ timeout: 15_000 });
+    const metas = page.locator('a.grid-card .gc-card-meta');
+    await expect(metas.filter({ hasText: /\bOffline\b/ })).toHaveCount(0);
+    const bad = await page.locator('a.grid-card .gc-online-dot').evaluateAll((dots) => dots.filter((dot) => {
+      const row = dot.closest('.gc-online-row');
+      return !row || !row.classList.contains('is-online');
     }).length);
     expect(bad).toBe(0);
   });

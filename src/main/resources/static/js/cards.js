@@ -2,7 +2,7 @@
 import { h, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch, currencySymbol } from './utils.js';
 // (2026-05-20) Dropped `FloatBar` from this import — its only call site
 // in GridCard was removed (s&box has no float/wear; FloatBar is a no-op).
-import { ItemImage, RarityBadge, SteamMarketLink, Avatar, Money } from './primitives.js';
+import { ItemImage, RarityBadge, SteamMarketLink, Avatar, Money, MaterialIcon } from './primitives.js';
 
 // ── Countdown — shared 1s ticker so cards + item modal stay in sync ──
 function formatRemaining(ms) {
@@ -328,6 +328,11 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
                   // Real discount — struck-through to anchor the saving.
                   return h('div', { className: 'grid-steam-price' }, fmt(sp));
                 }
+                // More than 3x the Steam reference: the card would advertise
+                // a huge premium ("$230.00 · Steam $0.74"), which says more
+                // about a seed price or a stale reference than about the
+                // item. The item page still shows the reference in full.
+                if (lp > sp * 3) return null;
                 // Parity / premium — show as a plain reference, no strike,
                 // slightly dimmer so it doesn't compete with a real deal.
                 return h('div', {
@@ -351,21 +356,30 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           // The server applies the stall's ✓ rule (10+ sales, rating 4+ or none).
           const isVerified = listing.sellerVerified === true;
           const listedAgo = !isAuction && listing.listedAt ? 'Listed ' + timeAgo(listing.listedAt) : null;
+          // Presence is the signal, absence is silent: real markets never
+          // label sellers offline on a card, and a grid where nearly every
+          // card read "Offline" looked like a dead market. A listing SkinBox
+          // holds itself (sellerUserId === null) has no seller to wait on,
+          // so it carries the item page's lightning mark instead.
+          const isHouse = listing.sellerUserId === null;
+          const verifiedMark = isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews, rated 4★+)' },
+            h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
+              h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
+            )
+          );
+          if (!isOnline && !isHouse && !listedAgo && !verifiedMark) return null;
           return h('div', { className: 'gc-card-meta' },
-            h('div', {
-              className: `gc-online-row${isOnline ? ' is-online' : ''}`,
-              title: isOnline
-                ? 'Seller is online and likely to answer offers quickly'
-                : 'Seller is offline. Buy Now still goes through; offers may take longer'
-            },
-              h('span', { className: 'gc-online-dot' + (isOnline ? '' : ' offline'), 'aria-hidden': 'true' }),
-              isOnline ? 'Online' : 'Offline',
-              isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews, rated 4★+)' },
-                h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
-                  h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
-                )
-              )
-            ),
+            isHouse
+              ? h('div', {
+                  className: 'gc-online-row gc-house-row',
+                  title: 'Held by SkinBox: delivered in-platform, no seller to wait on'
+                }, h(MaterialIcon, { name: 'bolt', size: 14 }), 'Instant')
+              : isOnline
+                ? h('div', {
+                    className: 'gc-online-row is-online',
+                    title: 'Seller is online and likely to answer offers quickly'
+                  }, h('span', { className: 'gc-online-dot', 'aria-hidden': 'true' }), 'Online', verifiedMark)
+                : h('div', { className: 'gc-online-row gc-presence-quiet' }, verifiedMark),
             listedAgo && h('span', { className: 'gc-card-age' }, listedAgo)
           );
         })()

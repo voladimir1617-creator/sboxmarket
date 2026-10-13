@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=11';
+import { GridCard } from './cards.js?v=12';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -262,26 +262,35 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
       'Trade record unavailable right now. Your payment is held in escrow either way.');
   } else if (!rec) {
     body = h('div', { className: 'seller-trust-note', 'data-state': 'none' }, 'No public trade record.');
-  } else if (decided === 0) {
-    body = h('div', { className: 'seller-trust-note is-new', 'data-state': 'new' },
-      h('strong', null, 'New seller'), ' · no completed trades yet. ',
-      'Your payment stays in escrow until you confirm the item arrived.');
   } else {
+    // One row of figures for every seller with a record, new ones included
+    // (White.market shows "1 Success deals · 100% · - Delivery time"). A
+    // figure we do not have reads "–", never a made-up value: the success
+    // rate only exists once a trade has been decided, and the time to send
+    // only from 3 timed trades.
     const cells = [
       { key: 'completed', val: completed.toLocaleString(), label: completed === 1 ? 'trade completed' : 'trades completed',
         tip: 'Trades this seller completed: the buyer confirmed the item, or the release timer ran out after it was marked sent.' },
-      { key: 'rate', val: rec.completionRate + '%', label: `completed (${completed} of ${decided})`,
-        tip: 'Share of this seller\'s decided trades they completed. Only trades the seller cancelled or let time out count against it; a buyer backing out does not.' },
     ];
-    if (ship) cells.push({ key: 'ship', val: '~' + ship, label: 'median time to send',
-      tip: 'Median time from sale to the seller marking the Steam trade offer sent, over their last 90 days (shown from 3 trades).' });
+    if (decided > 0) cells.push({ key: 'rate', val: rec.completionRate + '%', label: `completed (${completed} of ${decided})`,
+      tip: 'Share of this seller\'s decided trades they completed. Only trades the seller cancelled or let time out count against it; a buyer backing out does not.' });
+    cells.push({ key: 'ship', val: ship ? '~' + ship : '–', label: 'median time to send',
+      tip: ship
+        ? 'Median time from sale to the seller marking the Steam trade offer sent, over their last 90 days (shown from 3 trades).'
+        : 'Not enough timed trades yet: shown once the seller has sent 3 trades in the last 90 days.' });
     if (reviews > 0 && rec.rating != null) cells.push({ key: 'rating', val: Number(rec.rating).toFixed(1),
       label: `rating (${reviews} review${reviews === 1 ? '' : 's'})`, icon: 'star',
       tip: 'Average of the reviews buyers left after completed trades.' });
-    body = h('div', { className: 'seller-trust-stats' },
+    const stats = h('div', { className: 'seller-trust-stats' },
       cells.map(c => h('div', { key: c.key, className: 'seller-trust-stat', 'data-stat': c.key, title: c.tip },
         h('span', { className: 'seller-trust-val' }, c.icon && h(LineIcon, { name: c.icon, size: 12 }), c.val),
         h('span', { className: 'seller-trust-label' }, c.label))));
+    body = decided === 0
+      ? h(React.Fragment, null, stats,
+          h('div', { className: 'seller-trust-note is-new', 'data-state': 'new' },
+            h('strong', null, 'New seller'), ' · no completed trades yet. ',
+            'Your payment stays in escrow until you confirm the item arrived.'))
+      : stats;
   }
 
   return h('section', { className: 'seller-trust', 'data-testid': 'seller-trust', 'aria-label': 'Seller' },
@@ -1295,6 +1304,20 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             ' want', buyOrderCount === 1 ? 's' : '', ' this right now',
             h('span', { style: { marginLeft: 6, fontSize: 10, opacity: 0.7 } }, buyOrdersOpen ? '▲' : '▼')
           ),
+          // Empty state of the same chip: the buy-orders panel used to exist
+          // only once someone had placed an order, so the first buyer had no
+          // way in from here. Only on a real zero (the lookup answered), never
+          // on a failed lookup.
+          buyOrderInfo.loaded && buyOrderCount === 0 && h('button', {
+            className: 'modal-demand-chip',
+            'data-testid': 'buy-orders-empty-chip',
+            onClick: () => setBuyOrdersOpen(v => !v),
+            style: { cursor: 'pointer', border: 'inherit', background: 'inherit', color: 'inherit' },
+            title: buyOrdersOpen ? 'Hide buy orders' : 'Nobody has a buy order on this item yet'
+          },
+            'No buy orders yet',
+            h('span', { style: { marginLeft: 6, fontSize: 10, opacity: 0.7 } }, buyOrdersOpen ? '▲' : '▼')
+          ),
           // Watcher chip — passive-demand signal complementing the
           // buyer-demand chip. "N watching" tells you who's waiting for
           // a price drop; the buy-order chip tells you who's committed
@@ -1444,7 +1467,21 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         buyOrderRows === null
           ? h('div', { style: { padding: 8, color: 'var(--text-muted)', fontStyle: 'italic' } }, 'Loading…')
           : buyOrderRows.length === 0
-            ? h('div', { style: { padding: 8, color: 'var(--text-muted)' } }, 'No active buy orders for this item right now.')
+            // White.market's empty Buy offers panel puts the action on the
+            // same line as the "no orders" sentence.
+            ? h('div', { 'data-testid': 'buy-orders-empty', style: { padding: 8, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } },
+                h('span', null, 'No active buy orders for this item right now.'),
+                me
+                  ? (!myBuyOrder && onCreateBuyOrder && h('button', {
+                      className: 'btn btn-accent',
+                      style: { padding: '6px 14px', fontSize: 12 },
+                      onClick: () => onCreateBuyOrder(item)
+                    }, 'Place Buy Order'))
+                  : h('button', {
+                      className: 'btn btn-accent',
+                      style: { padding: '6px 14px', fontSize: 12 },
+                      onClick: () => signInWithSteam()
+                    }, 'Sign in to place one'))
             : h('table', { style: { width: '100%', borderCollapse: 'collapse', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } },
                 h('thead', null,
                   h('tr', { style: { color: 'var(--text-muted)', fontSize: 10, letterSpacing: 0.4 } },
@@ -1469,7 +1506,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   ))
                 )
               ),
-        me && !myBuyOrder && h('button', {
+        me && !myBuyOrder && buyOrderRows && buyOrderRows.length > 0 && h('button', {
           className: 'btn btn-ghost',
           style: { marginTop: 10, width: '100%', border: '1px dashed var(--accent-border)', padding: '8px 12px', fontSize: 11, color: 'var(--accent)' },
           onClick: () => onCreateBuyOrder && onCreateBuyOrder(item),

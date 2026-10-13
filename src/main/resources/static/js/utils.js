@@ -145,14 +145,17 @@ export const custodyCopy = (mode = _custody) => {
     known:    true,
     tileTitle: 'Escrow Protected',
     tileBlurb: 'Listed skins sit in SkinBox escrow until they sell, then go straight to the buyer through Steam.',
-    heroSub:   'The s&box marketplace with escrow protection — verified sellers, secured trades, instant cash-out.',
+    heroSub:   'The s&box marketplace with escrow protection: your payment is held until the item is yours, and the seller is paid only after delivery.',
     shortLabel:'escrow-protected'
   };
   if (mode === 'NON_CUSTODIAL') return {
     known:    true,
-    tileTitle: 'Non-Custodial',
-    tileBlurb: 'Skins move seller-to-buyer through Steam. SkinBox never holds custody, so escrow risk is zero.',
-    heroSub:   'The non-custodial s&box marketplace — verified sellers, escrowed trades, instant cash-out.',
+    // No bot holds sellers' skins in this mode, but SkinBox still sells
+    // its own stock (listings with no seller), so a no-custody claim
+    // was false here too. Say what every trade shares: escrow.
+    tileTitle: 'Escrowed Trades',
+    tileBlurb: 'Your payment sits in escrow until the item is yours. Sellers send theirs by Steam trade, SkinBox stock is delivered on the spot.',
+    heroSub:   'Escrow on every trade: your payment is held until the item is yours, and the seller is paid only after delivery.',
     shortLabel:'non-custodial'
   };
   // Mode-neutral: says how trades are protected without claiming who holds
@@ -161,7 +164,7 @@ export const custodyCopy = (mode = _custody) => {
     known:    false,
     tileTitle: 'Protected Trades',
     tileBlurb: 'Every trade is escrowed end to end. Funds only reach the seller once the buyer has the item.',
-    heroSub:   'The s&box marketplace built on protected trades — verified sellers, escrowed trades, instant cash-out.',
+    heroSub:   'The s&box marketplace built on protected trades: your payment is held until the item is yours, and the seller is paid only after delivery.',
     shortLabel:'escrowed'
   };
 };
