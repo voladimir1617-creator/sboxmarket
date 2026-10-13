@@ -63,6 +63,31 @@ class TradeControllerSpec extends Specification {
         0 * tradeService.listForUserWithCounterparty(_)
     }
 
+    def "only the buyer is shown the delivery offer code, in the list and on the trade"() {
+        given:
+        def delivery = new com.sboxmarket.service.SteamDeliveryService(deliveryCodeSecret: 'k')
+        controller.steamDeliveryService = delivery
+        def t = new Trade(id: 9L, buyerUserId: 100L, sellerUserId: 200L, state: 'PENDING_BUYER_CONFIRM')
+        String code = delivery.deliveryCodeFor(t)
+
+        when:
+        def buyerList = controller.mine(req).body
+        def buyerGet  = controller.get(9L, req).body
+        def sellerGet = controller.get(9L, req).body
+
+        then:
+        3 * req.session >> ses
+        3 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >>> [100L, 100L, 200L]
+        1 * tradeService.listForUserWithCounterparty(100L) >> [[id: 9L, buyerUserId: 100L], [id: 8L, buyerUserId: 300L]]
+        1 * tradeService.countForUser(100L) >> 2L
+        2 * tradeService.get(9L) >> t
+        code
+        buyerList[0].deliveryCode == code
+        !buyerList[1].containsKey('deliveryCode')
+        buyerGet.deliveryCode == code
+        !sellerGet.containsKey('deliveryCode')
+    }
+
     def "mine() returns rows + X-Total-Count header"() {
         given:
         def rows = [[id: 1L], [id: 2L]]

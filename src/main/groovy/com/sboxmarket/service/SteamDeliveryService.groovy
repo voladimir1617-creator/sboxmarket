@@ -83,6 +83,36 @@ class SteamDeliveryService {
     @Value('${steam.delivery.offer-message:sboxmarket delivery}')
     String offerMessage
 
+    /** Key for the buyer's delivery code. Falls back to the unsubscribe
+     *  secret, which prod already requires; blank means no code. */
+    @Value('${steam.delivery.code-secret:${app.unsubscribe.secret:}}')
+    String deliveryCodeSecret
+
+    /** Same alphabet as the custody code: no 0/O, 1/I/L. */
+    private static final String CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+
+    /** The code our bot writes on the delivery offer for this trade, shown
+     *  only to the buyer on the site, so they can tell our offer from an
+     *  impersonator's. Keyed by a server secret, so neither the trade id
+     *  nor the seller's custody code gives it away. Null with no secret. */
+    String deliveryCodeFor(Trade trade) {
+        if (trade?.id == null || !deliveryCodeSecret?.trim()) return null
+        def mac = javax.crypto.Mac.getInstance('HmacSHA256')
+        mac.init(new javax.crypto.spec.SecretKeySpec(deliveryCodeSecret.getBytes('UTF-8'), 'HmacSHA256'))
+        byte[] d = mac.doFinal("delivery:${trade.id}".toString().getBytes('UTF-8'))
+        def sb = new StringBuilder(4)
+        4.times { int i -> sb.append(CODE_ALPHABET.charAt((d[i] & 0xff) % CODE_ALPHABET.length())) }
+        sb.toString()
+    }
+
+    /** The delivery offer message: the configured text plus the buyer's code,
+     *  matching the deposit and return offers. */
+    String messageFor(Trade trade) {
+        String base = offerMessage ?: ''
+        String code = deliveryCodeFor(trade)
+        code ? "${base} · code ${code}".toString() : base
+    }
+
     /** Per-tick candidate cap so a backlog can't blow the poll budget. */
     @Value('${steam.delivery.batch-size:50}')
     int batchSize = 50
@@ -198,7 +228,7 @@ class SteamDeliveryService {
             return
         }
 
-        SteamBotResult res = steamTradeBotService.sendOffer(tradeUrl, [assetId], offerMessage)
+        SteamBotResult res = steamTradeBotService.sendOffer(tradeUrl, [assetId], messageFor(trade))
         if (res.ok) {
             recordAttempt(trade.id, res.offerId, res.status ?: 'sent', 'SEND', true, null)
             log.info("SteamDelivery: sent offer ${res.offerId} for trade ${trade.id} (status ${res.status})")
