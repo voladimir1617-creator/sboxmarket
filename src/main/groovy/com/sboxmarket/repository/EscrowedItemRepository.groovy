@@ -330,4 +330,8 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
         WHERE e.listingId IN :listingIds
     """)
     List<EscrowedItem> findByListingIds(@Param('listingIds') Collection<Long> listingIds)
+
+    /** Every custody row a seller has in the given states — powers the
+     *  seller's "your skins in our bot / coming back to you" view. */
+    List<EscrowedItem> findBySellerUserIdAndCustodyStateIn(Long sellerUserId, Collection<String> states)
 }

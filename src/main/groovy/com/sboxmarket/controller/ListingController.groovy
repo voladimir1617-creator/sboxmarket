@@ -393,6 +393,24 @@ class ListingController {
         })
     }
 
+    /**
+     * The seller's skins in our bot, for My Stall: which active listings are
+     * held by the bot (cancelling one sends the skin back), and which skins
+     * are on their way back to the seller's Steam. Empty lists when the bot
+     * is off, so a manual-trade deployment shows nothing new.
+     */
+    @GetMapping("/my-stall/bot-custody")
+    ResponseEntity<Map> myStallBotCustody(HttpServletRequest req) {
+        def userId = requireUser(req)
+        Map view = [heldListingIds: [], returning: []]
+        try {
+            view = steamEscrowService?.custodyForSeller(userId) ?: view
+        } catch (Exception e) {
+            log.warn("bot-custody view failed for user {}: {}", userId, e.message)
+        }
+        ResponseEntity.ok(view)
+    }
+
     /** Seller earnings summary for the MyStall header (batch 605).
      *  Returns gross revenue and sold counts for lifetime, 30d, and 7d
      *  windows. "Gross" = listing price the buyer paid; the net-of-fee

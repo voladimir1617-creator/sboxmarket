@@ -129,8 +129,10 @@ class SteamEscrowServiceSpec extends Specification {
         // listing held PENDING_ESCROW (not buyable) BEFORE the request
         1 * listingRepository.findById(10L) >> Optional.of(l)
         1 * listingRepository.save({ Listing saved -> saved.status == SteamEscrowService.STATUS_PENDING_ESCROW })
-        // bot requests the specific asset FROM the seller
-        1 * bot.requestItems('https://steamcommunity.com/tradeoffer/new/?partner=1&token=xyz', ['555'], 'sboxmarket escrow') >>
+        // bot requests the specific asset FROM the seller, the offer message
+        // carrying the same security code the seller sees on the site
+        1 * bot.requestItems('https://steamcommunity.com/tradeoffer/new/?partner=1&token=xyz', ['555'],
+                { String m -> m ==~ /sboxmarket escrow · code [A-Z2-9]{4}/ }) >>
                 SteamBotResult.success([ok: true, offerId: '444', status: 'sent'])
         // custody row persisted PENDING_DEPOSIT with the deposit offer id
         1 * escrowRepository.save({ EscrowedItem e ->
@@ -301,7 +303,8 @@ class SteamEscrowServiceSpec extends Specification {
         then:
         1 * escrowRepository.findByListingId(10L) >> e
         1 * steamUserRepository.findById(1L) >> Optional.of(sellerWithUrl())
-        1 * bot.sendOffer('https://steamcommunity.com/tradeoffer/new/?partner=1&token=xyz', ['555'], 'sboxmarket escrow') >>
+        1 * bot.sendOffer('https://steamcommunity.com/tradeoffer/new/?partner=1&token=xyz', ['555'],
+                "sboxmarket escrow · code ${e.securityCode}".toString()) >>
                 SteamBotResult.success([ok: true, offerId: '777', status: 'sent'])
         1 * escrowRepository.save({ EscrowedItem r ->
             r.custodyState == EscrowedItem.RETURNED && r.returnOfferId == '777' })

@@ -111,6 +111,13 @@ class SkinDepositLoopSpec extends Specification {
         (new JsonSlurper().parseText(res.contentAsString) as List<Map>).find { it.id == tradeId }
     }
 
+    private Map myBotCustody() {
+        def res = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/my-stall/bot-custody')
+                .session(sellerSession)).andReturn().response
+        assert res.status == 200
+        new JsonSlurper().parseText(res.contentAsString) as Map
+    }
+
     def "a manual sale on the same deployment is not marked bot-delivered"() {
         given: "a listing that never went through the bot (created directly, legacy-style)"
         def item = new com.sboxmarket.model.Item(name: "Manual Hat ${System.nanoTime()}", category: 'Hats', rarity: 'Standard')
@@ -147,6 +154,13 @@ class SkinDepositLoopSpec extends Specification {
         res.status == 200
         listing.status == SteamEscrowService.STATUS_PENDING_ESCROW
         steam.openOffers().any { it.kind == 'receive' && it.partner == sellerSteamId && it.assetIds == [assetId] }
+
+        and: "the code the site shows him is the one written on the bot's offer"
+        def shown = new JsonSlurper().parseText(mockMvc.perform(MockMvcRequestBuilders
+                .get('/api/listings/my-stall/pending-escrow').session(sellerSession))
+                .andReturn().response.contentAsString)[0].escrow.securityCode as String
+        shown ==~ /[A-Z2-9]{4}/
+        steam.openOffers().find { it.kind == 'receive' }.message.endsWith("code $shown")
 
         when: "the seller accepts the deposit offer and the poller ticks"
         steam.acceptAll()
@@ -212,6 +226,10 @@ class SkinDepositLoopSpec extends Specification {
         given:
         Long listingId = listAndDeposit()
 
+        expect: "My Stall shows the skin as held by the bot, so its button withdraws"
+        myBotCustody().heldListingIds == [listingId]
+        myBotCustody().returning == []
+
         when: "the seller cancels the listing"
         def res = mockMvc.perform(MockMvcRequestBuilders.delete("/api/listings/$listingId")
                 .session(sellerSession)).andReturn().response
@@ -221,6 +239,12 @@ class SkinDepositLoopSpec extends Specification {
         def out = steam.openOffers().find { it.kind == 'give' && it.partner == sellerSteamId }
         out != null
         escrowRepository.findByListingId(listingId).custodyState == EscrowedItem.RETURNED
+        out.message.endsWith("code ${myBotCustody().returning[0].securityCode}")
+
+        and: "My Stall shows it on its way back, no longer held"
+        myBotCustody().heldListingIds == []
+        myBotCustody().returning*.state == ['OFFER_SENT']
+        myBotCustody().returning[0].name == skin
 
         when: "the seller declines that offer and the return poller ticks"
         steam.decline(out.id)
@@ -231,6 +255,8 @@ class SkinDepositLoopSpec extends Specification {
         owed.custodyState == EscrowedItem.IN_CUSTODY
         owed.returnRequestedAt != null
         steam.holds(FakeSteam.BOT, skin)
+        myBotCustody().heldListingIds == []
+        myBotCustody().returning*.state == ['RESENDING']
 
         when: "the retry sweep re-sends, the seller accepts, the poller ticks"
         escrowService.sweepPendingReturns()
@@ -243,6 +269,7 @@ class SkinDepositLoopSpec extends Specification {
         def back = escrowRepository.findByListingId(listingId)
         back.custodyState == EscrowedItem.RETURNED
         back.returnConfirmedAt != null
+        myBotCustody().returning*.state == ['BACK']
     }
 
     /**
@@ -327,7 +354,7 @@ class SkinDepositLoopSpec extends Specification {
                     return reply(502, [ok: false, error: 'INVENTORY_ERROR', message: 'item not in inventory'])
                 }
                 def id = String.valueOf(nextId++)
-                offers[id] = [id: id, kind: kind, partner: partnerId, assetIds: ids, state: 'active']
+                offers[id] = [id: id, kind: kind, partner: partnerId, assetIds: ids, state: 'active', message: json.message]
                 return reply(200, [ok: true, offerId: id, status: 'sent', steamStatus: 'sent', confirmed: true])
             }
             if (x.requestMethod == 'GET' && (m = path =~ /^\/offers\/(\d+)$/)) {
