@@ -489,7 +489,7 @@ export async function fetchReportReasons() {
 // ── Server-side watchlist price alerts ──────────────────────────
 export async function fetchWatchlistAlerts() {
   const data = await safeJson(`${API}/watchlist/alerts`);
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : null;  // null = load failed, not "no alerts"
 }
 export async function createWatchlistAlert(itemId, targetPrice) {
   return writeJson(`${API}/watchlist/alerts`, {

@@ -12993,6 +12993,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // price-vs-floor delta) — backs the third "Analytics" tab. Fetched lazily
   // when the seller opens the tab so the default Active view stays fast.
   const [analytics, setAnalytics] = useState(null);
+  const [analyticsErr, setAnalyticsErr] = useState(false);
   const [tab, setTab] = useState(
     initialTab === 'sold' ? 'sold'
       : initialTab === 'analytics' ? 'analytics'
@@ -13084,6 +13085,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   }, []);
   const maskEarn = (v) => privacy ? '$•••••' : fmt(v);
   const load = useCallback(() => {
+    // Analytics read the same listings; drop them so a price edit,
+    // cancel or hide refetches instead of showing stale rows.
+    setAnalytics(null);
     fetchMyStallWithTotal().then(({ items, total, error }) => {
       if (error) { setStallErr(true); return; }  // retry card, not a permanent spinner / false-empty
       setStallErr(false);
@@ -13185,12 +13189,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // (30-day item sales count) + view counts so opening this tab does ONE
   // round-trip and the per-row cells are filled from cached numbers.
   useEffect(() => {
-    if (!me || tab !== 'analytics' || analytics !== null) return;
+    if (!me || tab !== 'analytics' || analytics !== null || analyticsErr) return;
+    let alive = true;
+    // A failed load shows a retry card, not "No analytics yet".
     fetch('/api/listings/my-stall/analytics', { credentials: 'same-origin' })
-      .then(r => r.ok ? r.json() : [])
-      .then(rows => setAnalytics(Array.isArray(rows) ? rows : []))
-      .catch(() => setAnalytics([]));
-  }, [me, tab, analytics]);
+      .then(r => r.ok ? r.json() : null)
+      .then(rows => { if (!alive) return; if (Array.isArray(rows)) setAnalytics(rows); else setAnalyticsErr(true); })
+      .catch(() => { if (alive) setAnalyticsErr(true); });
+    return () => { alive = false; };
+  }, [me, tab, analytics, analyticsErr]);
 
   // Hoisted above the early-return for anon viewers so hook order stays
   // stable across the null→authed transition (React rules of hooks).
@@ -14015,7 +14022,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       'aria-labelledby': 'mystall-tab-' + tab
     },
     tab === 'analytics' && (
-      analytics === null
+      analytics === null && analyticsErr
+        ? h('div', { className: 'empty-inline', role: 'alert' },
+            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your listing analytics.'),
+            h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => setAnalyticsErr(false) }, 'Retry'))
+      : analytics === null
         ? h('div', { className: 'spinner' })
         : analytics.length === 0
           ? h('div', { className: 'empty-inline' },
@@ -15357,7 +15368,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
 }
 
 // ── Watchlist ───────────────────────────────────────────────────
-export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, onToggleStar, onAddToCart, cartHas, initialTab }) {
+export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, onToggleStar, onClearAll, onAddToCart, cartHas, initialTab }) {
   // Dedupe by item id (one card per item) and compute price drop since the
   // item was first starred. We store a { itemId → price } snapshot in
   // localStorage so each card can show "−$X since you watchlisted" even
@@ -15439,8 +15450,10 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     try {
       const { fetchWatchlistAlerts } = await import('./api.js');
       const data = await fetchWatchlistAlerts();
-      setServerAlerts(Array.isArray(data) ? data : []);
-    } catch (_) { setServerAlerts([]); }
+      // A failed load keeps what is already shown instead of reading as
+      // "no alerts".
+      if (Array.isArray(data)) setServerAlerts(data);
+    } catch (_) { /* keep the current list */ }
   }, [me?.id]);
   useEffect(() => { loadServerAlerts(); }, [loadServerAlerts]);
   const cancelServerAlert = async (id) => {
@@ -15536,10 +15549,18 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       try {
         const api = await import('./api.js');
         if (cleared) {
-          const live = (serverAlerts || []).filter(x => x.itemId === itemId && x.status === 'ACTIVE');
-          for (const x of live) await api.cancelWatchlistAlert(x.id);
+          if (serverAlerts == null) {
+            toast('Could not load your alerts — try again in a moment.', 'err');
+            return;
+          }
+          const live = serverAlerts.filter(x => x.itemId === itemId && x.status === 'ACTIVE');
+          let failed = 0;
+          for (const x of live) {
+            const r = await api.cancelWatchlistAlert(x.id);
+            if (r && (r.error || r.code)) failed++;
+          }
           loadServerAlerts();
-          toast('Price alert cleared.', 'ok');
+          toast(failed ? 'Could not clear the price alert — try again.' : 'Price alert cleared.', failed ? 'err' : 'ok');
           return;
         }
         const res = await api.createWatchlistAlert(itemId, n);
@@ -16175,13 +16196,24 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
               style: { padding: '6px 12px', fontSize: 11 },
               onClick: async () => {
                 if (!confirm(`Clear all ${rows.length} watchlisted items and cancel their price alerts?`)) return;
-                try {
-                  const { clearWatchlist } = await import('./api.js');
-                  await clearWatchlist();
-                } catch (_) { /* best-effort; state sync below still runs */ }
-                // Drop client-side state after the server flushes so
-                // the marketplace grid immediately un-stars cards.
-                starred.forEach(l => { if (l?.item?.id) onToggleStar(l.item.id); });
+                if (me?.id) {
+                  // One bulk DELETE. Its result is checked: per-item
+                  // unstar calls after it used to trip the rate limit and
+                  // re-star most rows while the toast claimed success.
+                  let res = null;
+                  try {
+                    const { clearWatchlist } = await import('./api.js');
+                    res = await clearWatchlist();
+                  } catch (_) { res = { error: 'Network error' }; }
+                  if (!res || res.error || res.code) {
+                    toast((res && (res.message || res.error)) || 'Could not clear your watchlist — try again.', 'err');
+                    return;
+                  }
+                }
+                // Drop client-side state so the marketplace grid un-stars
+                // cards at once (signed out, the list is local only).
+                if (typeof onClearAll === 'function') onClearAll();
+                else starred.forEach(l => { if (l?.item?.id) onToggleStar(l.item.id); });
                 localStorage.removeItem('sb_watchlist_snap');
                 localStorage.removeItem('sb_watchlist_alerts');
                 setSnapshots({});
