@@ -69,7 +69,7 @@ Every user starts with three fake skins. Partners accept offers by themselves
 after `FAKE_ACCEPT_AFTER_MS` (default 2000; `-1` means never), and
 `POST /fake/offers/:id/accept` or `/decline` settles one by hand. The inventory
 override only takes a loopback address, so it can never point real sellers at
-anything but Steam. `npm test` runs the fake's own tests.
+anything but Steam. `npm test` runs the sidecar's and the fake's tests.
 
 ## The go-live gate
 
@@ -174,16 +174,37 @@ parsing Steam's prose:
 ```json
 { "ok": false, "error": "RATE_LIMITED", "message": "..." }
 ```
-Codes: `RATE_LIMITED` (HTTP 429), `ESCROW_HOLD`, `BAD_TRADE_URL`, `INVENTORY_ERROR`,
-`NOT_READY` (HTTP 503 — not logged in / cookies not set yet), `BAD_REQUEST` (400),
-`ERROR` (generic 502).
+Codes: `RATE_LIMITED` (HTTP 429), `ESCROW_HOLD`, `BAD_TRADE_URL` (400), `INVENTORY_ERROR`,
+`NOT_READY` (HTTP 503 — not logged in / cookies not set yet), `STEAM_UNAVAILABLE` (503),
+`TRADE_BANNED_OR_UNTRADABLE`, `ASSET_COMMITTED` (409), `GIVES_ITEMS` (409),
+`OFFER_NOT_ACTIVE` (409), `NOTHING_TO_RECEIVE` (409), `BAD_REQUEST` (400), `ERROR` (502).
+Failures also carry `retryable: true/false`. Steam's numeric `eresult` decides the code
+before the message text does.
 
 - **Trade holds / escrow**: a sent offer the buyer accepts but that Steam puts on hold
   reports status `in_escrow` from `GET /offers/:id`. The backend should treat `in_escrow`
   as *not yet delivered* and keep polling; it becomes `accepted` when the hold clears.
-- **Mobile confirmation**: outgoing offers that come back `pending` are auto-confirmed with
+- **Mobile confirmation**: outgoing offers that come back `pending` are confirmed with
   `identity_secret`; `/offers/send` returns `confirmed: true/false` and `status: sent` once
-  confirmed.
+  confirmed. A failed confirmation is retried every `STEAM_BOT_CONFIRM_RETRY_MS` for that
+  offer only, and given up after an hour (`/health` shows `pendingConfirmations`). The bot
+  never runs steamcommunity's confirmation poller with the secret, because that confirms
+  **every** pending trade on the account, including one created with a stolen web session.
+- **Retried sends**: the backend times out at 15 s and re-sends, and Steam plus a
+  confirmation can take longer. Before sending, the bot looks for a live (or, for the same
+  partner and items, accepted) offer it already sent for those items, in its own memory and
+  in Steam's active-offer list so it survives a restart. Same partner and items: the existing
+  `offerId` comes back with `duplicate: true` and nothing new is sent. Any other live offer
+  holding one of those items: `409 ASSET_COMMITTED`, so one skin is never offered to two
+  people. If Steam cannot be asked, the send is refused (`503`, retryable) rather than risked.
+- **Incoming offers**: `/offers/incoming/:id/accept` only accepts an active offer that gives
+  the bot items and asks for none of its own (`GIVES_ITEMS` otherwise).
+- **Offer message**: Steam keeps 128 characters. The backend's `... · code ABC123` is shortened
+  from the front so the security code always survives; line breaks and control characters
+  are removed. `GET /offers/:id` returns the `message` Steam holds.
+- **Re-login**: after a fatal Steam error the bot logs in again after 30 s, doubling up to
+  15 min (30 min on Steam's login throttle). A wrong password is never retried, so the account
+  is not locked; fix `STEAM_BOT_PASSWORD` and restart. An expired web session is renewed.
 - **Rate limits**: Steam throttles trade APIs. The backend's poller uses a modest interval;
   on `RATE_LIMITED` it should back off and retry on the next poll tick (it does not crash a
   trade on a transient throttle).
@@ -194,6 +215,10 @@ Codes: `RATE_LIMITED` (HTTP 429), `ESCROW_HOLD`, `BAD_TRADE_URL`, `INVENTORY_ERR
 - Bind to `127.0.0.1` (default) or a private network only. Do **not** expose this port to
   the internet.
 - Every credential is env-only. `.env` is gitignored; only `.env.example` is tracked.
+- Requests are checked before Steam is called: trade URLs must be
+  `https://steamcommunity.com/tradeoffer/new/?partner=N&token=T`, asset and offer ids must be
+  digits, at most 20 assets per offer, no repeats. Trade tokens are blanked in logs. The API
+  token is compared in constant time.
 - Rotate `BOT_API_TOKEN` and the Steam secrets if you suspect compromise (rotating the
   mobile authenticator re-triggers the trade-hold period).
 
@@ -201,6 +226,10 @@ Codes: `RATE_LIMITED` (HTTP 429), `ESCROW_HOLD`, `BAD_TRADE_URL`, `INVENTORY_ERR
 
 ## Files
 - `index.js` — the sidecar (Steam login + HTTP API).
+- `lib/bot-core.js` — the trade logic behind every route, tested against a stand-in Steam.
+- `lib/guards.js` — request checks, message fitting, error codes (shared with the fake).
+- `lib/reconnect.js` — the re-login policy.
+- `fake-bot.js` — the fake Steam for local runs; `npm test` runs every test without `npm install`.
 - `package.json` — dependencies (`steam-user`, `steamcommunity`, `steam-tradeoffer-manager`,
   `steam-totp`, `express`).
 - `.env.example` — environment template (copy to `.env`).
