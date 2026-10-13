@@ -461,7 +461,22 @@ class BuyOrderService {
      *  no chip for basket orders (category-only, null itemId). */
     long countAheadInQueue(Long itemId, BigDecimal maxPrice, Long createdAt) {
         if (itemId == null || maxPrice == null) return 0L
-        buyOrderRepository.countAheadInQueue(itemId, maxPrice, createdAt ?: 0L)
+        long ts = createdAt ?: 0L
+        long ahead = buyOrderRepository.countAheadInQueue(itemId, maxPrice, ts)
+        // The matcher also fills category/rarity basket orders that fit this
+        // item, ranked by the same price-then-age priority; count them too.
+        def item = itemRepository?.findById(itemId)?.orElse(null)
+        if (item != null) {
+            ahead += buyOrderRepository.countBasketAheadInQueue(item.category, item.rarity, maxPrice, ts)
+        }
+        ahead
+    }
+
+    /** [category, rarity, maxPrice, createdAt] of every ACTIVE basket order,
+     *  so the "My Buy Orders" tab can rank item orders against the basket
+     *  orders the matcher would fill first. */
+    List<Object[]> activeBasketQueueRows() {
+        buyOrderRepository.activeBasketQueueRows() ?: []
     }
 
     /** Batched queue-rank source for the "My Buy Orders" tab — one query for
