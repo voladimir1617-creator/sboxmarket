@@ -732,6 +732,14 @@ export async function fetchMyStall() {
   return Array.isArray(data) ? data : [];
 }
 
+/** Listings held while the seller's skin is being deposited into the bot
+ *  (PENDING_ESCROW), each with an `escrow` block saying what is happening
+ *  and until when. Always empty while the bot is off. Never throws. */
+export async function fetchMyPendingEscrow() {
+  const data = await safeJson(`${API}/listings/my-stall/pending-escrow`);
+  return Array.isArray(data) ? data : [];
+}
+
 /** Variant with `X-Total-Count` — drives the "Showing most recent 500
  *  of N" banner on the MyStall Active tab when a prolific seller
  *  crosses the display cap (batch 1033). Keeps plain `fetchMyStall()`

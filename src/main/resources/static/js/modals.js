@@ -10,7 +10,7 @@ import { AuctionBidPanel } from './csfloat-modals.js';
 import { TradeProtectionPanel } from './trade-protection.js';
 import { SellerPayoutsCard } from './seller-payouts.js';
 import {
-  fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
+  fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyPendingEscrow, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, fetchConnectStatus, connectOnboard, updateStallListing, setAwayMode,
@@ -12970,6 +12970,10 @@ export function MyStallModal(props) {
 
 function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   const [stall, setStall] = useState(null);
+  // Listings waiting for the seller's skin to reach the bot (bot custody on).
+  // They are not live and not in `stall`, so without this the seller had no
+  // way to see them, or cancel one, until the 24h deposit timeout.
+  const [held, setHeld] = useState([]);
   // Active-stall fetch failure (vs a genuinely-empty stall) so the modal can
   // show a retry card instead of spinning forever / claiming the seller's live
   // listings vanished — sibling of soldErr. (audit P2)
@@ -13095,6 +13099,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       setStallTotal(total);
     });
     fetchBestOfferPerListing().then(m => setOfferMap(m || {}));
+    fetchMyPendingEscrow().then(rows => setHeld(rows));
     fetchMyVerificationProgress().then(v => setVerify(v || null)).catch(() => {});
     fetchMyStallEarnings().then(e => setEarnings(e || null)).catch(() => {});
   }, []);
@@ -13976,6 +13981,54 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           ' button on each row to drop to the top bid.')
       );
     })(),
+    // Waiting for your item — listings held until the bot receives the skin.
+    // Above the tabs so it shows whichever tab is open, and outside the
+    // Active tab's chip/CSV grid.
+    // Each row says what is happening in the server's own words (offer out,
+    // Steam trade hold until a date, or no offer sent yet) and can be
+    // cancelled, which returns anything the bot already received.
+    held.length > 0 && h('div', {
+      className: 'stall-held',
+      role: 'region', 'aria-label': 'Listings waiting for your item',
+      style: {
+        margin: '0 0 14px 0', padding: '10px 14px',
+        background: 'rgba(30,165,255,0.08)',
+        border: '1px solid var(--accent-border)',
+        borderRadius: 8, textAlign: 'left'
+      }
+    },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 } },
+        h('span', { style: { fontSize: 16 } }, '🔒'),
+        h('div', { style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: 'var(--accent)' } },
+          `Waiting for your item · ${held.length}`),
+        h('a', {
+          className: 'btn btn-ghost',
+          href: 'https://steamcommunity.com/my/tradeoffers/',
+          target: '_blank', rel: 'noopener noreferrer',
+          style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 }
+        }, 'Open Steam trade offers ↗')
+      ),
+      held.map(row => {
+        const l = row.listing || {};
+        const e = row.escrow || {};
+        return h('div', {
+          key: l.id, className: 'stall-held-row',
+          style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }
+        },
+          h('div', { style: { flex: 1, minWidth: 180 } },
+            h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' } },
+              l.item?.name || 'Item', ' · ', fmt(l.price)),
+            h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 } },
+              e.message || 'Waiting for our bot to receive your item. Your listing goes live the moment it arrives.')
+          ),
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
+            onClick: () => doCancel(l)
+          }, 'Cancel')
+        );
+      })
+    ),
     // Active vs Sold vs Analytics tabs. Sold tab reveals seller's own sale
     // history with gross revenue (pre-fee). Matches CSFloat's "My Sales".
     // WAI-ARIA tabs pattern + Arrow/Home/End keyboard nav, mirroring

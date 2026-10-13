@@ -1049,6 +1049,25 @@ class SteamEscrowService {
     }
 
     /**
+     * Which of these listings' sales the BOT is delivering: the item was in
+     * bot custody when it sold (IN_CUSTODY while the offer is out, DELIVERED
+     * once the buyer accepted). The trades list uses it to stop telling a
+     * seller to send a Steam offer by hand for an item the bot holds. Empty
+     * when escrow is off, so manual trades read exactly as before. Never throws.
+     */
+    Set<Long> botDeliveredListingIds(Collection<Long> listingIds) {
+        if (!escrowEnabled || listingIds == null || listingIds.isEmpty()) return [] as Set<Long>
+        try {
+            return (escrowRepository.findByListingIds(listingIds) ?: [])
+                    .findAll { it.custodyState in [EscrowedItem.IN_CUSTODY, EscrowedItem.DELIVERED] }
+                    .collect { it.listingId } as Set<Long>
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: bot-delivery lookup failed: ${ex.message}")
+            return [] as Set<Long>
+        }
+    }
+
+    /**
      * Seller-facing custody explanation for a set of held listings, keyed by
      * listing id — what is actually happening to their item, and when it ends.
      *
