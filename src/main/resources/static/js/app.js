@@ -3949,8 +3949,10 @@ export function App() {
   // the whole rarity bucket. Client-side filter on the already-fetched
   // stall payload so typing is instant and doesn't hit the API.
   const [stallSearch, setStallSearch] = useState('');
+  const stallLoadedIdRef = useRef(null);
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
+      stallLoadedIdRef.current = null;
       setStallData(null); setStallReviews(null); setEligibleTrades([]); setStallSold([]); return;
     }
     // 2026-05-20 — reset per-stall ephemeral UI state on every stall id
@@ -3970,6 +3972,13 @@ export function App() {
     setReviewTradeId(null);
     setReviewText('');
     setReviewStars(5);
+    // A different stall must not keep showing the previous seller's
+    // header, listings and reviews while its own load is in flight (or
+    // after that load fails). A same-stall refetch (sign-in) keeps them.
+    if (stallLoadedIdRef.current !== route.params.id) {
+      setStallData(null); setStallReviews(null);
+    }
+    stallLoadedIdRef.current = route.params.id;
     let alive = true;
     (async () => {
       // Two-phase fetch. Phase 1: probe whether the seller exists. Phase 2
@@ -4050,8 +4059,10 @@ export function App() {
           // The rating header comes from the stall payload; refresh it too.
           fetchPublicStall(route.params.id, { fresh: true })
         ]);
-        setStallReviews(reviews);
-        setEligibleTrades(Array.isArray(eligible) ? eligible : []);
+        // A failed refetch keeps the list already on screen instead of
+        // replacing it with "No reviews yet".
+        if (Array.isArray(reviews)) setStallReviews(reviews);
+        if (Array.isArray(eligible)) setEligibleTrades(eligible);
         if (stall && !stall.__error) setStallData(stall);
         showToast('Review posted.', 'ok');
       } else {
@@ -8128,7 +8139,7 @@ export function App() {
                   // Refresh stall so the banner disappears and the
                   // blockedByViewer flag flips back to false.
                   const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
-                  if (fresh) setStallData(fresh);
+                  if (fresh && !fresh.__error) setStallData(fresh);
                   showToast('Unblocked.', 'ok');
                 }
               }, 'Unblock')
@@ -8413,7 +8424,11 @@ export function App() {
             h(StallBioBlock, {
               bio: stallData.seller.stallBio,
               canEdit: me && me.id === stallData.seller.id,
-              onSaved: () => { fetchPublicStall(route.params.id, { fresh: true }).then(s => setStallData(s || { __notFound: true })); }
+              onSaved: () => {
+                // Keep the page on screen if the refetch fails; the bio
+                // itself saved, so only the header refresh is skipped.
+                fetchPublicStall(route.params.id, { fresh: true }).then(s => { if (s && !s.__error) setStallData(s); });
+              }
             }),
             stallData.count === 0
               ? h('div', { className: 'empty-inline' },
@@ -8786,7 +8801,7 @@ export function App() {
                           isAuthor: !!r.mine,
                           onSaved: async () => {
                             const fresh = await fetchReviewsForUser(stallData.seller.id, { fresh: true });
-                            setStallReviews(fresh);
+                            if (Array.isArray(fresh)) setStallReviews(fresh);
                           }
                         }))
                 ),

@@ -101,6 +101,23 @@ class UnsubscribeControllerSpec extends Specification {
         resp.body.contains("unsubscribed from email notifications")
     }
 
+    def "a failed save never reports success, to the browser or to a one-click mail client"() {
+        given:
+        def u = new SteamUser(id: 43L, email: 'fail@example.com', emailNotificationsEnabled: true)
+
+        when:
+        def page = controller.unsubscribePost('fail@example.com', 'good-token', null, null)
+        def oneClick = controller.unsubscribePost('fail@example.com', 'good-token', null, 'One-Click')
+
+        then:
+        2 * emailService.verifyUnsubscribeToken('fail@example.com', 'good-token') >> true
+        2 * steamUserRepository.findByEmailIgnoreCase('fail@example.com') >> [u]
+        2 * steamUserRepository.save(_) >> { throw new RuntimeException('db down') }
+        page.statusCode.value() == 500
+        !page.body.contains("You're unsubscribed")
+        oneClick.statusCode.value() == 500
+    }
+
     def "POST with valid token + NO matching user still returns success (enumeration guard)"() {
         when:
         def resp = controller.unsubscribePost('ghost@example.com', 'good-token', null, null)
