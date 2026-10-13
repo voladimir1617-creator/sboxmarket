@@ -178,6 +178,8 @@ else {
   }
   $lines = @(
     "# Written by setup-steam-bot.ps1. NEVER commit this file.",
+    "# Change to yes only once the owner has said go live.",
+    "STEAM_BOT_LIVE=no",
     "STEAM_BOT_USERNAME=$user",
     "STEAM_BOT_PASSWORD=$pw",
     "STEAM_BOT_SHARED_SECRET=$shared",

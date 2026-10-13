@@ -37,6 +37,9 @@ jobs:
       - name: Run unit tests (Spock)
         run: ./gradlew test --no-daemon
 
+      - name: Test the fake Steam bot (no npm install needed)
+        run: node --test steam-bot/test/fake-bot.test.js
+
       - name: Upload test report on failure
         if: failure()
         uses: actions/upload-artifact@v4

@@ -322,6 +322,9 @@ steam:
     # delivery resolves the bot-held asset from custody (SteamEscrowService).
     enabled:       ${STEAM_DELIVERY_ENABLED:true}
     test-asset-id: ${STEAM_DELIVERY_TEST_ASSET_ID:}
+  inventory:
+    # Loopback only (the local fake bot); anything else falls back to Steam.
+    base-url: ${STEAM_INVENTORY_BASE_URL:}
   escrow:
     # Master switch for the seller->bot deposit-confirm + return sweeps
     # (independent of the bot enabled flag). Mirrors steam.delivery.enabled.

@@ -123,6 +123,16 @@ function validateEnvOrExit() {
     }
   }
 
+  // The go-live gate. This process logs in to a REAL Steam account and moves
+  // REAL skins, and the whole marketplace stays in test mode until the owner
+  // says "go live". Until then the local loop runs on the fake bot instead
+  // (npm run fake), which needs no account and touches nothing on Steam.
+  if (String(process.env.STEAM_BOT_LIVE || '').trim() !== 'yes') {
+    problems.push('STEAM_BOT_LIVE is not "yes". This sidecar trades real skins on a real Steam ' +
+      'account, so it stays off until the owner says go live. For a local test run use ' +
+      '"npm run fake" instead, which needs no Steam account.');
+  }
+
   if (!problems.length) return;
 
   // eslint-disable-next-line no-console

@@ -254,6 +254,22 @@ Pinned by `RelistEscrowGateSpec`.
 
 ---
 
+## Return confirmation and bot-held sales (2026-10-13)
+
+- A custody row goes `RETURNED` when the return offer is **sent**. If the seller
+  declined or let it expire, the item stayed in the bot while the row said it had
+  gone home. `SteamEscrowService.pollReturnOffers` now watches `RETURNED` rows
+  until Steam reports the offer accepted (`return_confirmed_at`, migration V261);
+  a failed one goes back `IN_CUSTODY` with `returnRequestedAt` set, so
+  `sweepPendingReturns` sends it again.
+- `TradeService.open` opens a sale of a bot-held item (`IN_CUSTODY`) at
+  `PENDING_SELLER_SEND`. It used to open at `PENDING_SELLER_ACCEPT`, so the bot
+  sat on every sale until the seller clicked Accept, and the 3-day sweep
+  cancelled it if they never did.
+- `SkinDepositLoopSpec` runs list, deposit, buy, delivery and an unsold return
+  (declined, then re-sent) through the real services against an in-process fake
+  Steam. `steam-bot/fake-bot.js` serves the same contract for a local run.
+
 ## What is real vs. mocked (honest summary)
 
 - **Real:** the Node sidecar logs in a Steam bot, sends/auto-confirms trade

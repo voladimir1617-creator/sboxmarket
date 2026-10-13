@@ -187,6 +187,17 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
     """)
     List<EscrowedItem> findPendingReturns(@Param('cutoff') Long cutoff, Pageable page)
 
+    /** Return offers that went out and that Steam has not yet reported
+     *  accepted: the item may still be in the bot. */
+    @Query("""
+        SELECT e FROM EscrowedItem e
+        WHERE e.custodyState      = 'RETURNED'
+          AND e.returnOfferId    IS NOT NULL
+          AND e.returnConfirmedAt IS NULL
+        ORDER BY e.updatedAt ASC
+    """)
+    List<EscrowedItem> findUnconfirmedReturns(Pageable page)
+
     /**
      * Compare-and-swap claim for one return retry. Bumps the attempt counter
      * ONLY if the row is still IN_CUSTODY, still has a return outstanding, and
