@@ -74,6 +74,29 @@ test.describe('public smoke (signed out)', () => {
       ['Getting started', 'Buying and selling', 'Money', 'When something goes wrong'], { timeout: 15_000 });
   });
 
+  test('an item page loads as its own frame: skeleton first, footer kept off screen', async ({ page }) => {
+    // Hold the item's data back so the loading state is observable.
+    await page.route(/\/api\/(items|listings)\//, async (route) => {
+      await new Promise((r) => setTimeout(r, 2000));
+      await route.continue();
+    });
+    await page.goto('/item/12');
+    await expect(page.getByTestId('item-skeleton')).toBeVisible({ timeout: 10_000 });
+    // The old centred spinner left the footer on screen, then the loaded
+    // page shoved it away: the biggest layout shift on the site.
+    const footerTop = await page.locator('footer.site-footer').evaluate((f) => f.getBoundingClientRect().top);
+    expect(footerTop).toBeGreaterThanOrEqual(page.viewportSize().height);
+    await expect(page.getByTestId('item-skeleton')).toHaveCount(0, { timeout: 15_000 });
+  });
+
+  test('the Help Center promises no reply time nobody has set', async ({ page }) => {
+    await page.goto('/help');
+    await expect(page.getByTestId('help-faq-group').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText(/within (4|24) hours/i);
+    await page.getByRole('button', { name: /never arrives/ }).click();
+    await expect(page.locator('.help-faq-a')).toContainText(/^If the seller hasn't sent it within 3 days, the purchase cancels itself/);
+  });
+
   test('item database (/db) renders a table', async ({ page }) => {
     await page.goto('/db');
     await expect(page).toHaveURL(/\/db/);

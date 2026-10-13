@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=262';
+} from './modals.js?v=263';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -9786,14 +9786,30 @@ export function App() {
     ),
     routeName === 'item' && (selected || modalLoading) && (
       modalLoading
-        ? h('div', {
-            // In-page loading state — /item/:id is a real page, so the
-            // spinner sits centred in the page, not over a dark backdrop.
-            style: {
-              minHeight: '60vh', display: 'flex',
-              alignItems: 'center', justifyContent: 'center'
-            }
-          }, h('div', { className: 'spinner' }))
+        ? h('div', { className: 'modal-backdrop page-mode' },
+            // In-page loading state: the item page's own frame (preview
+            // column + buy column) in the grid's skeleton classes, so the
+            // title, price and buttons appear where they will sit rather
+            // than replacing one centred spinner (White.market shows the
+            // page shape at once). The page reserves a full screen so the
+            // footer doesn't flash in and get pushed away.
+            h('main', {
+              className: 'modal item-page',
+              'aria-busy': 'true',
+              'aria-label': 'Loading item',
+              'data-testid': 'item-skeleton',
+              style: { minHeight: '100vh' }
+            },
+              h('div', { className: 'modal-header' },
+                h('div', { className: 'modal-preview' },
+                  h('div', { className: 'skeleton-thumb', style: { width: '100%', height: '100%', minHeight: 280 } })),
+                h('div', null,
+                  h('div', { className: 'skeleton-line skeleton-line-sm', style: { width: '40%' } }),
+                  h('div', { className: 'skeleton-line skeleton-line-xl', style: { width: '70%', marginTop: 14 } }),
+                  h('div', { className: 'skeleton-line skeleton-line-xl', style: { width: '30%', marginTop: 18 } }),
+                  h('div', { className: 'skeleton-line', style: { width: '100%', height: 40, marginTop: 18 } }),
+                  h('div', { className: 'skeleton-line skeleton-line-md', style: { width: '85%', marginTop: 18 } }),
+                  h('div', { className: 'skeleton-line skeleton-line-md', style: { width: '60%' } })))))
         : h(ItemModal, {
             item: selected.item,
             listings: selected.listings,

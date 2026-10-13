@@ -70,7 +70,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'My purchase is stuck, what do I do?',
-    a: "Open a ticket from Profile → Support → + New Ticket and include the transaction id from your Trades tab. Clara, the automated first-responder, replies instantly with the most likely fix; a human agent follows up within 4 hours for trade, payment, and refund tickets (these jump the queue), or within 24 hours for everything else."
+    a: "First, three checks that clear most stuck trades: your Steam inventory is set to public; the Steam trade URL in your Profile is current; and you can trade on Steam (Steam Guard mobile authenticator on, no trade ban). Still stuck? Open a ticket from Profile → Support → + New Ticket and include the transaction id from your Trades tab. Clara, the automated first-responder, replies instantly with the most likely fix, and staff follow up as soon as they can; trade, payment and refund tickets jump the queue."
   },
   {
     s: 'problems',
@@ -115,7 +115,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'What if the item I bought never arrives — or arrives wrong?',
-    a: "Your money sits in escrow, not the seller's wallet, until you confirm receipt. If the seller never sends the Steam trade offer, the trade auto-cancels with a full refund after 3 days of seller inactivity — you don't have to do anything. If the offer was sent but the item is wrong or missing, you have 8 days from when the seller marks it sent to confirm receipt or file a dispute: go to Profile → Trades, find the row, and click 'Report issue' / 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff triage disputes in rotating CSR shifts and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
+    a: "If the seller hasn't sent it within 3 days, the purchase cancels itself and your money comes back in full. There's nothing to press. Until then your money sits in escrow, not the seller's wallet, and it stays there until you confirm receipt. If the offer was sent but the item is wrong or missing, you have 8 days from when the seller marks it sent to confirm receipt or file a dispute: go to Profile → Trades, find the row, and click 'Report issue' / 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff review the dispute and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
   },
   {
     s: 'problems',
@@ -290,7 +290,7 @@ export function HelpModal({ onClose }) {
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'No FAQs match "', h('strong', { style: { color: 'var(--accent)' } }, search.trim()), '"'),
           h('div', { style: { maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
-            'Try a broader keyword, or open a ticket — a CSR replies within 24 hours (within 4 hours for trade, payment, and refund issues).'),
+            'Try a broader keyword, or open a ticket and staff will answer as soon as they can (trade, payment and refund issues first).'),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
             h('button', {
               className: 'btn btn-ghost',
@@ -368,7 +368,7 @@ export function HelpModal({ onClose }) {
       h('div', null,
         h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, "Still need a hand?"),
         h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 } },
-          "Open a support ticket and a CSR will reply within 24 hours — within 4 hours for trade, payment, and refund issues. Include a transaction id if it's about a purchase.")
+          "Open a support ticket and staff will answer as soon as they can, trade, payment and refund issues first. Include a transaction id if it's about a purchase.")
       ),
       h('button', {
         className: 'btn btn-accent',
