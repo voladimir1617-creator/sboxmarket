@@ -309,6 +309,10 @@ steam:
   api-key:    ${STEAM_API_KEY:}
   realm:      ${STEAM_REALM:${app.public-url}/}
   return-url: ${STEAM_RETURN_URL:${app.public-url}/api/auth/steam/return}
+  inventory:
+    # Where seller inventories are read. Empty = Steam Community. Only a
+    # loopback address is honoured (the local fake bot, steam-bot/fake-bot.js).
+    base-url: ${STEAM_INVENTORY_BASE_URL:}
 
 admin:
   # Comma-separated list of Steam ID 64s that get auto-promoted to ADMIN on

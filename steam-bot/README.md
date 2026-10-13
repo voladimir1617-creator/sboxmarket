@@ -49,6 +49,36 @@ All endpoints except `/health` require `Authorization: Bearer <BOT_API_TOKEN>`.
 
 ---
 
+## Local test run, no Steam account (fake bot)
+
+`fake-bot.js` serves the same API against made-up inventories, so the whole
+loop (list, deposit into the bot, buy, delivery, return of an unsold skin) runs
+on one machine with nothing real moving. It needs no `npm install`.
+
+```bash
+cd steam-bot
+BOT_API_TOKEN=local-test npm run fake        # http://127.0.0.1:4000
+```
+Start SkinBox with:
+```
+STEAM_BOT_BASE_URL=http://127.0.0.1:4000
+BOT_API_TOKEN=local-test
+STEAM_INVENTORY_BASE_URL=http://127.0.0.1:4000   # steam.inventory.base-url
+```
+Every user starts with three fake skins. Partners accept offers by themselves
+after `FAKE_ACCEPT_AFTER_MS` (default 2000; `-1` means never), and
+`POST /fake/offers/:id/accept` or `/decline` settles one by hand. The inventory
+override only takes a loopback address, so it can never point real sellers at
+anything but Steam. `npm test` runs the fake's own tests.
+
+## The go-live gate
+
+`index.js` refuses to start unless `STEAM_BOT_LIVE=yes`. It is the one process
+that logs in to a real Steam account and moves real skins, so it stays off until
+the owner says go live.
+
+---
+
 ## Operator setup (go-live checklist)
 
 ### 1. Create a dedicated Steam bot account

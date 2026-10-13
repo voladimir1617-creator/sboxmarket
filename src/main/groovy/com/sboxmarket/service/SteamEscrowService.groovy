@@ -901,6 +901,57 @@ class SteamEscrowService {
     }
 
     /**
+     * Watches return offers until Steam says the seller took the item back.
+     *
+     * {@link #attemptReturn} marks a row RETURNED as soon as the offer is SENT.
+     * A seller who declines it, or lets it expire, leaves the item in the bot,
+     * and before this sweep the row still read RETURNED with nothing ever
+     * looking again: a real user's item, held by the platform, recorded as
+     * given back. Now an accepted offer stamps {@code returnConfirmedAt}, and a
+     * failed one puts the row back IN_CUSTODY with {@code returnRequestedAt}
+     * set, which is exactly what {@link #sweepPendingReturns} re-sends. A still
+     * open offer is left alone.
+     *
+     * NOT @Transactional, per-row try/catch, same posture as the other sweeps.
+     */
+    @Scheduled(initialDelayString = '${steam.escrow.return-confirm-initial-delay-ms:100000}',
+               fixedDelayString = '${steam.escrow.return-confirm-interval-ms:300000}')
+    void pollReturnOffers() {
+        if (!escrowSweepEnabled) return
+        if (!escrowEnabled) return
+        List<EscrowedItem> sent
+        try {
+            sent = escrowRepository.findUnconfirmedReturns(PageRequest.of(0, Math.max(1, batchSize))) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: failed to load unconfirmed returns: ${ex.message}")
+            return
+        }
+        for (EscrowedItem e : sent) {
+            try {
+                SteamBotResult res = steamTradeBotService.getOfferStatus(e.returnOfferId)
+                if (!res.ok) continue // bot unreachable: ask again next tick
+                if (res.accepted) {
+                    e.returnConfirmedAt = System.currentTimeMillis()
+                    e.lastError = null
+                    touch(e)
+                    log.info("SteamEscrow: seller ${e.sellerUserId} accepted return offer ${e.returnOfferId} for listing ${e.listingId}")
+                } else if (res.terminalFailure) {
+                    String failed = e.returnOfferId
+                    e.custodyState = EscrowedItem.IN_CUSTODY
+                    e.returnOfferId = null
+                    if (e.returnRequestedAt == null) e.returnRequestedAt = System.currentTimeMillis()
+                    touchError(e, "return offer ${failed} ${res.status}; item still held, re-sending")
+                    log.warn("SteamEscrow: return offer ${failed} for listing ${e.listingId} ended ${res.status}; item back IN_CUSTODY for re-send")
+                    safeNotifySeller(e.sellerUserId, e.listingId,
+                            "The Steam offer returning your item was not accepted, so our bot still holds it. We will send you a new offer shortly.")
+                }
+            } catch (Exception ex) {
+                log.warn("SteamEscrow: return confirm failed on escrow=${e?.id}: ${ex.message}")
+            }
+        }
+    }
+
+    /**
      * Re-request sweep for deposits whose trade offer never got created.
      *
      * {@link #pollDeposits} filters on {@code depositOfferId IS NOT NULL}, so a

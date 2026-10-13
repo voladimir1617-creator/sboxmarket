@@ -611,6 +611,13 @@ class TradeService {
         banGuard.assertNotBanned(buyerUserId)
         require(price != null && price > BigDecimal.ZERO, "Trade price must be positive")
         require(price <= new BigDecimal("100000"), "Trade price exceeds maximum (\$100,000)")
+        // When the bot already holds the seller's item (IN_CUSTODY) the seller
+        // committed to the sale at deposit time, and there is nothing left for
+        // them to accept or send: the bot delivers. Opening at SELLER_ACCEPT
+        // instead parked every bot-held sale until the seller happened to click
+        // Accept, and auto-cancelled it at the 3-day mark if they never did.
+        boolean botHeld = sellerUserId != null && listingId != null &&
+                steamEscrowService != null && steamEscrowService.heldAssetIdForListing(listingId) != null
         def trade = new Trade(
             listingId:      listingId,
             itemId:         itemId,
@@ -621,7 +628,8 @@ class TradeService {
             sellerWalletId: sellerWalletId,
             price:          price,
             feeAmount:      (price * FEE_RATE).setScale(2, BigDecimal.ROUND_HALF_UP),
-            state:          sellerUserId == null ? 'PENDING_BUYER_CONFIRM' : 'PENDING_SELLER_ACCEPT'
+            state:          sellerUserId == null ? 'PENDING_BUYER_CONFIRM'
+                            : (botHeld ? 'PENDING_SELLER_SEND' : 'PENDING_SELLER_ACCEPT')
         )
         tradeRepository.save(trade)
 
@@ -645,14 +653,18 @@ class TradeService {
         // escrow + money-held step. Both sides get the bell via safePush.
         notificationService?.safePush(buyerUserId, 'TRADE_OPENED',
             "Escrow opened · ${itemName}",
-            sellerUserId != null
+            botHeld
+                ? "${priceStr} held in escrow. Our bot is sending you the Steam offer."
+                : sellerUserId != null
                 ? "${priceStr} held in escrow until ${sellerName} sends the Steam offer."
                 : "${priceStr} held in escrow until the trade settles.",
             trade.id, '/profile?tab=trades')
         if (sellerUserId != null) {
             notificationService?.safePush(sellerUserId, 'TRADE_REQUESTED',
                 "New sale · ${itemName}",
-                "${buyerName} bought it for ${priceStr}. Accept the trade and send the Steam offer to release funds.",
+                botHeld
+                    ? "${buyerName} bought it for ${priceStr}. Our bot holds your item and is delivering it; you're paid when the buyer accepts."
+                    : "${buyerName} bought it for ${priceStr}. Accept the trade and send the Steam offer to release funds.",
                 trade.id, '/profile?tab=trades')
             // New-sale email (batch 564). The in-app bell push is great for
             // users actively on the site, but most sellers aren't in-app

@@ -161,6 +161,14 @@ class EscrowedItem {
     @Column(name = "deposit_accepted_at")
     Long depositAcceptedAt
 
+    /** When Steam reported the seller ACCEPTED our return offer, epoch millis.
+     *  RETURNED is written the moment the return offer is SENT, so on its own
+     *  it only means "offer out". NULL on a RETURNED row means the item may
+     *  still be in the bot: SteamEscrowService keeps polling that offer, and a
+     *  declined or expired one puts the row back IN_CUSTODY to be re-sent. */
+    @Column(name = "return_confirmed_at")
+    Long returnConfirmedAt
+
     /** PENDING_DEPOSIT, IN_ESCROW_HOLD, IN_CUSTODY, DELIVERED, RETURNED, FAILED. */
     @Column(name = "custody_state", length = 24, nullable = false)
     String custodyState = PENDING_DEPOSIT

@@ -2,6 +2,7 @@ package com.sboxmarket.service
 
 import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
 /**
@@ -26,6 +27,27 @@ class SteamInventoryService {
 
     static final String SBOX_APP_ID = "590830"
     static final String CONTEXT_ID  = "2"
+    static final String STEAM_COMMUNITY = "https://steamcommunity.com"
+
+    /** Where seller inventories are read from. Always Steam Community, except
+     *  that a LOOPBACK address may stand in for it so the fake Steam bot
+     *  (steam-bot/fake-bot.js) can play the seller's Steam inventory in a
+     *  local run of the whole deposit and delivery loop. Any other host is
+     *  ignored, so a stray setting can never point real sellers at a
+     *  look-alike inventory. */
+    @Value('${steam.inventory.base-url:}')
+    String inventoryBaseUrl = ''
+
+    String inventoryRoot() {
+        def raw = inventoryBaseUrl?.trim()
+        if (!raw) return STEAM_COMMUNITY
+        try {
+            def host = new URI(raw).host
+            if (host in ['127.0.0.1', 'localhost', '::1', '[::1]']) return raw.replaceAll('/+$', '')
+        } catch (Exception ignored) { }
+        log.warn("steam.inventory.base-url '${raw}' is not a loopback address; using Steam Community")
+        return STEAM_COMMUNITY
+    }
 
     /** Per-user cache (60s TTL). A user reloading /sell twice in a row,
      *  paging through their inventory, then triggering a bulk-list,
@@ -233,7 +255,7 @@ class SteamInventoryService {
                 return (cached.items as List<Map>)
             }
         }
-        def url = "https://steamcommunity.com/inventory/${steamId64}/${SBOX_APP_ID}/${CONTEXT_ID}?l=english&count=500"
+        def url = "${inventoryRoot()}/inventory/${steamId64}/${SBOX_APP_ID}/${CONTEXT_ID}?l=english&count=500"
 
         // Connection construction itself can throw — `new URL(...)` throws
         // MalformedURLException and `openConnection()` throws IOException —
