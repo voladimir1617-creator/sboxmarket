@@ -30510,3 +30510,19 @@ html body .bot-code-value { font: 700 15px/1.2 var(--mono); letter-spacing: 0.18
   html body .bot-steps { gap: 6px 12px; }
   html body .bot-step + .bot-step::before { display: none; }
 }
+
+/* Look pass 2026-10-13, homepage. The six trade steps sat in one 820px
+   column with the right half of the page empty; on a wide screen they
+   now fill the frame as two rows of three, like the tiles above them. */
+@media (min-width: 1101px) {
+  html body .site-root .csfloat-home-journey .csfloat-home-journey-inner { max-width: none !important; }
+  html body .site-root .csfloat-home-journey .csfloat-home-journey-steps { flex: none !important; width: 100% !important; max-width: none !important; display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 12px 16px !important; }
+  html body .site-root .csfloat-home-journey-steps > .csfloat-home-journey-step { margin: 0 !important; }
+  html body .site-root .csfloat-home-journey-steps > .csfloat-home-journey-step > .csfloat-home-journey-step-body { align-self: stretch !important; }
+}
+/* Phones: the tilted showcase card filled the first screen, so the first
+   real listing started below the fold. Real markets open on items; the
+   Top Deals rail now sits right under the two buttons. */
+@media (max-width: 720px) {
+  html body .site-root .csfloat-home-hero .csfloat-home-hero-art { display: none !important; }
+}
