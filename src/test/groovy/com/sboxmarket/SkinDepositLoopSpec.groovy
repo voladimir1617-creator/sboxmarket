@@ -73,6 +73,8 @@ class SkinDepositLoopSpec extends Specification {
     @Autowired EscrowedItemRepository escrowRepository
     @Autowired SteamEscrowService escrowService
     @Autowired SteamDeliveryService deliveryService
+    @Autowired com.sboxmarket.repository.ItemRepository itemRepository
+    @Autowired com.sboxmarket.service.TradeService tradeService
 
     SteamUser seller, buyer
     Wallet sellerWallet, buyerWallet
@@ -101,6 +103,28 @@ class SkinDepositLoopSpec extends Specification {
         def req = MockMvcRequestBuilders.post(path).session(session)
         if (body != null) req = req.contentType('application/json').content(body)
         mockMvc.perform(req).andReturn().response
+    }
+
+    private Map myTrade(MockHttpSession session, Long tradeId) {
+        def res = mockMvc.perform(MockMvcRequestBuilders.get('/api/trades').session(session)).andReturn().response
+        assert res.status == 200
+        (new JsonSlurper().parseText(res.contentAsString) as List<Map>).find { it.id == tradeId }
+    }
+
+    def "a manual sale on the same deployment is not marked bot-delivered"() {
+        given: "a listing that never went through the bot (created directly, legacy-style)"
+        def item = new com.sboxmarket.model.Item(name: "Manual Hat ${System.nanoTime()}", category: 'Hats', rarity: 'Standard')
+        item = itemRepository.save(item)
+        def listing = listingRepository.save(new com.sboxmarket.model.Listing(item: item, sellerUserId: seller.id,
+                sellerName: seller.displayName, price: 5.00G, status: 'ACTIVE'))
+        tradeService.open(listing.id, item.id, item.name, buyer.id, buyerWallet.id, seller.id, sellerWallet.id, 5.00G)
+        def trade = tradeRepository.findByListingId(listing.id)
+
+        expect:
+        trade.state == 'PENDING_SELLER_ACCEPT'
+        def row = myTrade(sellerSession, trade.id)
+        row != null
+        row.botManaged == null
     }
 
     /** List the seller's skin and let the bot take custody of it. */
@@ -153,6 +177,11 @@ class SkinDepositLoopSpec extends Specification {
         trade.state == 'PENDING_SELLER_SEND'
         walletRepository.findById(buyerWallet.id).get().balance == 460.00G
 
+        and: "the seller's Trades tab knows the bot is delivering, so it asks for no hand-sent offer"
+        def sellerRow = myTrade(sellerSession, trade.id)
+        sellerRow.botManaged == true
+        sellerRow.botDeliveryState == null
+
         when: "the delivery poller ticks"
         deliveryService.pollDeliveries()
 
@@ -160,6 +189,11 @@ class SkinDepositLoopSpec extends Specification {
         steam.openOffers().any { it.kind == 'give' && it.partner == buyerSteamId }
         tradeRepository.findById(trade.id).get().state == 'PENDING_BUYER_CONFIRM'
         walletRepository.findById(sellerWallet.id).get().balance == 0.00G
+
+        and: "the buyer's Trades tab shows the bot's offer is out"
+        def buyerRow = myTrade(buyerSession, trade.id)
+        buyerRow.botManaged == true
+        buyerRow.botDeliveryState in ['sent', 'active']
 
         when: "the buyer accepts in Steam and the poller ticks"
         steam.acceptAll()

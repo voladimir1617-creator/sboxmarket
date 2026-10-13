@@ -456,14 +456,42 @@ class TradeService {
                 log.warn("Counterparty rating bulk lookup failed: ${e.message}")
             }
         }
+        // Bot-delivered sales. The Trades tab already swaps the manual
+        // "send the Steam offer / Mark Sent" steps for a "delivering
+        // automatically" banner when a row carries botManaged, but nothing
+        // ever set it, so with the bot live a seller was told to hand-send an
+        // item the bot was holding. One bulk custody lookup; the latest offer
+        // state is read only for the few bot trades still in flight.
+        Set<Long> botListings = steamEscrowService == null ? ([] as Set<Long>)
+            : steamEscrowService.botDeliveredListingIds(trades*.listingId.findAll { it != null })
         trades.collect { t ->
             def cpId = t.buyerUserId == userId ? t.sellerUserId : t.buyerUserId
             def cp = cpId == null ? null : byId[cpId]
             def cpRating = cpId == null ? null : ratingByUser[cpId]
             def itemDecor = t.itemId == null ? null : itemDecorById[t.itemId]
-            tradeToMap(t, cp?.tradeUrl, cp?.displayName, cp?.steamId64, cp?.avatarUrl,
+            def row = tradeToMap(t, cp?.tradeUrl, cp?.displayName, cp?.steamId64, cp?.avatarUrl,
                 cpRating,
                 unreadCounts[t.id] ?: 0L, lastMessages[t.id], itemDecor, userId)
+            if (t.listingId != null && botListings.contains(t.listingId)) {
+                row.botManaged = true
+                row.botDeliveryState = t.state in ['PENDING_SELLER_SEND', 'PENDING_BUYER_CONFIRM']
+                    ? latestBotOfferState(t) : null
+            }
+            row
+        }
+    }
+
+    /** Latest Steam offer state the bot recorded for this trade (sent,
+     *  active, accepted, declined, ...), or null before the first offer. */
+    private String latestBotOfferState(Trade t) {
+        try {
+            if (steamDeliveryAttemptRepository == null) return null
+            def rows = steamDeliveryAttemptRepository.findLatestWithOffer(
+                    t.id, org.springframework.data.domain.PageRequest.of(0, 1))
+            return rows ? rows.get(0)?.offerState : null
+        } catch (Exception e) {
+            log.warn("Trade #{}: delivery log unreadable ({}) for the trades list", t?.id, e.message)
+            return null
         }
     }
 
