@@ -30526,3 +30526,16 @@ html body .bot-code-value { font: 700 15px/1.2 var(--mono); letter-spacing: 0.18
 @media (max-width: 720px) {
   html body .site-root .csfloat-home-hero .csfloat-home-hero-art { display: none !important; }
 }
+
+/* Look pass 2026-10-13, market grid. Every real skin market (White.market,
+   DMarket, Skinport) reads a card as "type, then name, then price": the
+   small category line now sits above the name instead of under it. */
+html body .site-root a.grid-card .grid-body > .grid-cat { order: -1 !important; margin: 0 0 3px !important; font-size: 11px !important; line-height: 1.3 !important; letter-spacing: 0.02em !important; }
+html body .site-root a.grid-card .grid-body > .grid-name { margin-top: 0 !important; }
+/* Phones: the All / Buy Now / Auction switch and the % Deals and New chips
+   took two full rows above the first card; they now share one. */
+@media (max-width: 720px) {
+  html body .site-root main.layout .toolbar > .type-toggle { flex: 1 1 180px !important; min-width: 0 !important; width: auto !important; }
+  html body .site-root main.layout .toolbar > .type-toggle > * { padding-left: 6px !important; padding-right: 6px !important; min-width: 0 !important; }
+  html body .site-root main.layout .toolbar > .deals-chip { flex: 0 0 auto !important; width: auto !important; padding-left: 10px !important; padding-right: 10px !important; order: 4 !important; }
+}
