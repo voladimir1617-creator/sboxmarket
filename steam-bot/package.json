@@ -12,7 +12,7 @@
     "start": "node index.js",
     "dev": "node index.js",
     "fake": "node fake-bot.js",
-    "test": "node --test test/fake-bot.test.js"
+    "test": "node --test test/fake-bot.test.js test/bot-core.test.js test/guards.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",

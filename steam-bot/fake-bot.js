@@ -29,20 +29,16 @@
  */
 
 const http = require('http');
+const { parseTradeUrl, validateOfferBody, isValidOfferId, tokenMatches } = require('./lib/guards');
 
 const BOT_STEAM_ID = '76561190000000001';
-const STEAM_ID_BASE = 76561197960265728n;
 const DEFAULT_ITEMS = ['Fake Wizard Hat', 'Fake Leather Jacket', 'Fake Aviator Glasses'];
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 
 /** steamid64 from a trade URL's partner= (a 32-bit account id), or null. */
 function partnerSteamId(tradeUrl) {
-  let url;
-  try { url = new URL(String(tradeUrl)); } catch (e) { return null; }
-  if (!/(^|\.)steamcommunity\.com$/.test(url.hostname)) return null;
-  const partner = url.searchParams.get('partner');
-  if (!partner || !/^\d+$/.test(partner) || !url.searchParams.get('token')) return null;
-  return (STEAM_ID_BASE + BigInt(partner)).toString();
+  const parsed = parseTradeUrl(tradeUrl);
+  return parsed ? parsed.steamId64 : null;
 }
 
 function createFakeBot(opts = {}) {
@@ -91,24 +87,31 @@ function createFakeBot(opts = {}) {
     offer.state = 'accepted';
   }
 
+  // The same request checks the real sidecar makes (lib/guards.js), and the
+  // same answer to a retried send: the offer already out, not a second one.
   function createOffer(kind, body) {
-    const { partnerTradeUrl, assetIds } = body || {};
-    if (!partnerTradeUrl || !Array.isArray(assetIds) || assetIds.length === 0) {
-      return [400, { ok: false, error: 'BAD_REQUEST',
-        message: 'partnerTradeUrl and non-empty assetIds[] are required' }];
+    const checked = validateOfferBody(body);
+    if (!checked.ok) return [checked.status, { ok: false, error: checked.error, message: checked.message }];
+    const { partner: { steamId64: partner }, assetIds: ids, message } = checked.value;
+    for (const o of offers.values()) {
+      if (o.kind !== kind || !o.assetIds.some((a) => ids.includes(a))) continue;
+      const exact = o.partner === partner && o.assetIds.length === ids.length && ids.every((a) => o.assetIds.includes(a));
+      if (exact && (o.state === 'active' || o.state === 'accepted')) {
+        return [200, { ok: true, offerId: o.id, status: 'sent', steamStatus: o.state, confirmed: true,
+          confirmError: null, duplicate: true }];
+      }
+      if (o.state === 'active') {
+        return [409, { ok: false, error: 'ASSET_COMMITTED', retryable: false,
+          message: 'an item in this offer is already in live offer #' + o.id }];
+      }
     }
-    const partner = partnerSteamId(partnerTradeUrl);
-    if (!partner) {
-      return [400, { ok: false, error: 'BAD_TRADE_URL', message: 'trade url is not a valid Steam trade url' }];
-    }
-    const ids = assetIds.map(String);
     const holder = kind === 'give' ? BOT_STEAM_ID : partner;
     const inv = inventoryOf(holder);
     if (!ids.every((id) => inv.some((it) => it.assetId === id))) {
       return [502, { ok: false, error: 'INVENTORY_ERROR',
         message: 'an item in this offer is not in the inventory it should come from' }];
     }
-    const offer = { id: String(nextOffer++), kind, partner, assetIds: ids, state: 'active', createdAt: now() };
+    const offer = { id: String(nextOffer++), kind, partner, assetIds: ids, message, state: 'active', createdAt: now() };
     offers.set(offer.id, offer);
     return [200, { ok: true, offerId: offer.id, status: 'sent', steamStatus: 'sent',
       confirmed: true, confirmError: null }];
@@ -121,7 +124,7 @@ function createFakeBot(opts = {}) {
       settle(offer, 'accepted');
     }
     return [200, { ok: true, offerId: offer.id, status: offer.state, isOurOffer: true,
-      partner: offer.partner, escrowEndsUnix: null, tradeId: offer.state === 'accepted' ? `T${offer.id}` : null }];
+      partner: offer.partner, message: offer.message || null, escrowEndsUnix: null, tradeId: offer.state === 'accepted' ? `T${offer.id}` : null }];
   }
 
   /** Steam Community's public inventory JSON for one user. */
@@ -153,12 +156,14 @@ function createFakeBot(opts = {}) {
       if (m[2] !== appId) return [200, { assets: [], descriptions: [], total_inventory_count: 0, success: 1 }];
       return [200, steamInventoryJson(m[1])];
     }
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth;
-    if (!token || token !== apiToken) return [401, { ok: false, error: 'unauthorized' }];
+    if (!tokenMatches(auth, apiToken)) return [401, { ok: false, error: 'unauthorized' }];
 
     if (method === 'POST' && path === '/offers/send') return createOffer('give', body);
     if (method === 'POST' && path === '/offers/request') return createOffer('receive', body);
-    if (method === 'GET' && (m = path.match(/^\/offers\/(\d+)$/))) return offerStatus(m[1]);
+    if (method === 'GET' && (m = path.match(/^\/offers\/([^/]+)$/))) {
+      if (!isValidOfferId(m[1])) return [400, { ok: false, error: 'BAD_REQUEST', message: 'offer id must be digits' }];
+      return offerStatus(m[1]);
+    }
     if (method === 'POST' && /^\/offers\/incoming\/\d+\/accept$/.test(path)) {
       return [404, { ok: false, error: 'ERROR', message: 'no matching incoming offer' }];
     }
