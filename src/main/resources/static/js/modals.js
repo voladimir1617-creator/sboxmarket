@@ -4262,7 +4262,9 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   // in while the modal is open, or the first render before auth resolves).
   // Batch 376 fix: every hook declaration lives above the guard clause.
   const [tab, setTab]             = useState(initialTab || 'personal');
-  const [profile, setProfile]     = useState(null);
+  // undefined until /profile/me answers (null if it failed), so the page
+  // can hold the Account Standing card's place while it loads.
+  const [profile, setProfile]     = useState(undefined);
   const [privacy, setPrivacy]     = useState(() => localStorage.getItem('sb_privacy') === '1');
   const [syncing, setSyncing]     = useState(false);
   // Actionable-trade count — trades where the signed-in user is the
@@ -4589,12 +4591,16 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           // Member-since chip — pulled from the profile's createdAt so
           // veterans get a subtle tenure signal (and brand-new users get
           // a nudge that they're fresh). Rendered next to Steam ID so
-          // the line stays compact. Falls through silently when the
-          // profile hasn't loaded yet.
-          profile?.user?.createdAt && h('span', {
-            style: { marginLeft: 10, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 },
-            title: 'Account created ' + new Date(profile.user.createdAt).toLocaleString()
-          }, '· Member since ', new Date(profile.user.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })),
+          // the line stays compact. The signed-in user already carries the
+          // date, so it shows at first paint rather than popping in (and
+          // pushing the page down) when the profile arrives.
+          (() => {
+            const createdAt = profile?.user?.createdAt || me.createdAt;
+            return createdAt && h('span', {
+              style: { marginLeft: 10, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 },
+              title: 'Account created ' + new Date(createdAt).toLocaleString()
+            }, '· Member since ', new Date(createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }));
+          })(),
           // Self-rating chip (batch 491). Renders the user's own seller
           // rating next to their tenure so sellers see their score at a
           // glance every time they open the profile. Hidden before the
@@ -4701,8 +4707,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
        → Banned. The current state highlights a coloured ring + fills the
        trailing line. Note line on the right explains the state (e.g.
        "No restrictions on your account" or "Average rating 2.4★"). */
-    profile?.accountStanding && (() => {
-      const standing = profile.accountStanding;
+    (profile === undefined || profile?.accountStanding) && (() => {
+      // While loading: the same card with no node lit and no note, so the
+      // tabs below don't jump down when the standing arrives.
+      const loading = profile === undefined;
+      const standing = loading ? { state: null, note: '\u00a0' } : profile.accountStanding;
       const NODES = [
         { id: 'excellent', label: 'Excellent', color: '#22c55e', icon: 'check_circle' },
         { id: 'good',      label: 'Good',      color: 'var(--accent)', icon: 'thumb_up' },
@@ -4710,9 +4719,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         { id: 'at_risk',   label: 'At Risk',   color: '#f97316', icon: 'shield' },
         { id: 'banned',    label: 'Banned',    color: '#ef4444', icon: 'block' }
       ];
-      const idx = Math.max(0, NODES.findIndex(n => n.id === standing.state));
+      const idx = loading ? -1 : Math.max(0, NODES.findIndex(n => n.id === standing.state));
       const active = NODES[idx] || NODES[1];
       return h('div', {
+        'aria-busy': loading ? 'true' : undefined,
+        'data-testid': 'account-standing',
         style: {
           margin: '18px 0',
           padding: '22px 26px',
@@ -4727,7 +4738,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         ),
         h('div', { style: {
           position: 'relative', paddingTop: 4,
-          display: 'grid', gridTemplateColumns: `repeat(${NODES.length}, 1fr)`, alignItems: 'flex-start'
+          display: 'grid', gridTemplateColumns: `repeat(${NODES.length}, 1fr)`, alignItems: 'flex-start',
+          // The lit node stands 12px taller and grows into it over 0.2s;
+          // hold that room throughout so the tabs below never dip.
+          minHeight: 75
         } },
           // Rail — behind the icon circles, spans from the centre of the
           // first node to the centre of the last. Segments up to the
@@ -4744,7 +4758,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
             style: {
               position: 'absolute',
               top: 22, left: `calc(${100 / (2 * NODES.length)}%)`,
-              width: `calc(${idx * (100 / NODES.length)}%)`,
+              width: `calc(${Math.max(0, idx) * (100 / NODES.length)}%)`,
               height: 2, background: active.color, zIndex: 0,
               transition: 'width 0.3s ease'
             }
