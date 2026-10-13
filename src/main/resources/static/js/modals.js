@@ -3887,7 +3887,7 @@ export function FaqModal({ onClose }) {
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'No FAQs match "', h('strong', { style: { color: 'var(--accent)' } }, q.trim()), '"'),
           h('div', { style: { maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
-            'Try a broader keyword, or open a ticket — a CSR replies within 24 hours (within 4 hours for trade, payment, and refund issues).'),
+            'Try a broader keyword, or open a ticket and staff will answer as soon as they can (trade, payment and refund issues first).'),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
             h('button', {
               className: 'btn btn-ghost',
@@ -9469,7 +9469,7 @@ function ProfileTradesTab({ me, privacy }) {
         const label = disputeTrade.itemName ? `"${disputeTrade.itemName}"` : `trade #${disputeTrade.id}`;
         setDisputeTrade(null);
         await load();
-        toast(`Dispute filed on ${label} — staff will respond within 4 hours.`, 'ok');
+        toast(`Dispute filed on ${label}. Staff will respond as soon as they can.`, 'ok');
       }
     }),
     // Refund-request drawer (batch 426). Replaces the previous
@@ -9497,7 +9497,7 @@ function ProfileTradesTab({ me, privacy }) {
       },
         h('div', { className: 'cart-confirm-title', id: 'refund-drawer-title' }, '↩ Request a refund'),
         h('div', { className: 'cart-confirm-sub' },
-          'Files a support ticket with the trade details pre-attached. Staff usually replies within 24h.'),
+          'Files a support ticket with the trade details pre-attached. Staff will answer as soon as they can.'),
         h('div', {
           style: {
             margin: '8px 0 12px', padding: '8px 10px',
@@ -10960,8 +10960,8 @@ function ProfileSupportTab() {
           '⏱ Response times'),
         h('div', null,
           ['TRADE','PAYMENT','REFUND'].includes(form.category)
-            ? 'Trade, payment, and refund tickets are triaged first — staff typically responds within 4 hours (≤ 24h worst case). Include transaction IDs in the message to speed up review.'
-            : 'Staff typically responds within 24 hours on business days. Trade, payment, and refund tickets jump the queue automatically. Include any relevant IDs, screenshots, or Steam offer URLs.')
+            ? 'Trade, payment, and refund tickets are answered first, as soon as staff can. Include transaction IDs in the message to speed up review.'
+            : 'Staff answer tickets as soon as they can. Trade, payment, and refund tickets jump the queue automatically. Include any relevant IDs, screenshots, or Steam offer URLs.')
       ),
       h('div', { className: 'wallet-input-label' }, 'Subject'),
       // a11y audit — visible label exists but wasn't programmatically tied
