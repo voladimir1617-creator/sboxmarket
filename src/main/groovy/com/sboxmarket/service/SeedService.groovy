@@ -997,7 +997,10 @@ class SeedService {
                 // emoji/category-glyph tile (ItemImage in primitives.js).
                 item.imageUrl     = (fx.size() > 6 ? fx[6] as String : null)
                 item.lowestPrice  = new BigDecimal(fx[5])
-                item.steamPrice   = item.lowestPrice * new BigDecimal('1.20')  // pretend Steam list is 20% above market
+                // No Steam reference until SteamMarketPriceService fetches a
+                // real quote. A made-up "lowest x 1.20" showed $300 on a card
+                // whose live Steam price was $0.74, then flipped after sync.
+                item.steamPrice   = null
                 item.supply       = 0      // no Listings exist yet
                 item.totalSold    = 0
                 item.viewCount    = 0L

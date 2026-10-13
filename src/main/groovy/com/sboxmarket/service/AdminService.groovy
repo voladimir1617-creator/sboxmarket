@@ -212,7 +212,13 @@ class AdminService {
         // dashboardStats comment has promised since batch 486. Trend
         // signal for ops: a spike here is a card-fraud surge even when
         // activeChargebacks stays low (because staff clear them fast).
-        def chargebacks30d = transactionRepository.countByTypeStatusSince('DEPOSIT', 'DISPUTED', since30d)
+        // Counted from the CHARGEBACK_OPENED audit rows (one per dispute, by
+        // when it was opened). Counting deposits still DISPUTED dropped every
+        // dispute staff had cleared, and keyed off the deposit's own date, so
+        // a dispute opened today on an older deposit never showed.
+        long chargebacks30d = auditLogRepository != null
+            ? auditLogRepository.countByEventTypeSince(AuditService.CHARGEBACK_OPENED, since30d)
+            : transactionRepository.countByTypeStatusSince('DEPOSIT', 'DISPUTED', since30d)
 
         // MARGIN, not revenue. `fees24h/7d/30d` above are gross fee income
         // reconstructed from Trade.feeAmount — they say nothing about what

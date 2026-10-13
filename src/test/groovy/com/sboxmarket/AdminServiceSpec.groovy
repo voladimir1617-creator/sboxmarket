@@ -1077,6 +1077,24 @@ class AdminServiceSpec extends Specification {
         stats.netMargin30d == new BigDecimal('85.00')
     }
 
+    def "Chargebacks 30d counts every dispute opened in the window, cleared ones included"() {
+        given: "four disputes opened this month; three already cleared, so only one deposit is still DISPUTED"
+        def audit = Mock(com.sboxmarket.repository.AuditLogRepository)
+        service.auditLogRepository = audit
+        steamUserRepository.count() >> 1L
+        walletRepository.sumAllBalances() >> BigDecimal.ZERO
+        transactionRepository.sumByTypeStatus(_, _) >> BigDecimal.ZERO
+        transactionRepository.sumByTypeSinceCompleted(_, _, _) >> BigDecimal.ZERO
+        transactionRepository.countByTypeStatusSince('DEPOSIT', 'DISPUTED', _) >> 1L
+        audit.countByEventTypeSince('CHARGEBACK_OPENED', _) >> 4L
+
+        when:
+        def stats = service.dashboardStats()
+
+        then:
+        stats.chargebacks30d == 4L
+    }
+
     def "dashboardStats uses indexed aggregates, not findAll scans"() {
         given:
         steamUserRepository.count() >> 42L

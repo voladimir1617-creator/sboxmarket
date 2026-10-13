@@ -11,7 +11,7 @@ import { TradeProtectionPanel } from './trade-protection.js';
 import { SellerPayoutsCard } from './seller-payouts.js';
 import {
   fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyPendingEscrow, fetchMyBotCustody, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
-  fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
+  fetchIncomingOffers, fetchOutgoingOffers, markLapsedOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, fetchConnectStatus, connectOnboard, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
@@ -3216,7 +3216,12 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
   const panelRef = useRef(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
-  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  // Escape must not close the drawer mid-submit, same as the backdrop and
+  // Cancel button: a rejected URL needs the drawer still open to fix it.
+  const stableCancel = useCallback(() => {
+    if (busyRef.current) return;
+    onCancelRef.current && onCancelRef.current();
+  }, []);
   useDialogA11y(panelRef, stableCancel);
   const [url, setUrl]   = useState('');
   const [busy, setBusy] = useState(false);
@@ -9509,7 +9514,7 @@ function ProfileOffersTab() {
     ]);
     if (!ri.ok || !ro.ok) throw new Error('HTTP ' + (ri.ok ? ro.status : ri.status));
     const [i, o] = await Promise.all([ri.json(), ro.json()]);
-    return { incoming: Array.isArray(i) ? i : [], outgoing: Array.isArray(o) ? o : [] };
+    return { incoming: Array.isArray(i) ? markLapsedOffers(i) : [], outgoing: Array.isArray(o) ? markLapsedOffers(o) : [] };
   }, []);
   const load = useCallback(async () => {
     setErr(false);
@@ -9813,8 +9818,10 @@ function ProfileOffersTab() {
           className: 'price-input',
           type: 'number', step: '0.01', min: '0.01',
           inputMode: 'decimal', enterKeyHint: 'send',
-          'aria-label': isIncoming ? 'Counter price' : 'Raise offer to',
-          placeholder: isIncoming ? 'Counter price' : 'Raise to',
+          // Offers are priced in USD; chips and tips below say so too, so a
+          // viewer on another display currency doesn't type euros here.
+          'aria-label': isIncoming ? 'Counter price in USD' : 'Raise offer to, in USD',
+          placeholder: isIncoming ? 'Counter (USD)' : 'Raise to (USD)',
           value: counterAmt,
           onChange: e => setCounterAmt(e.target.value)
         }),
@@ -9824,17 +9831,20 @@ function ProfileOffersTab() {
         // the "meet me slightly above" nudge; asking is the "decline
         // politely" signal.
         isIncoming && (() => {
+          const usd = (v => '$' + (Number(v) || 0).toFixed(2));
           const offer = parseFloat(o.amount) || 0;
           const ask = parseFloat(o.askingPrice) || 0;
           if (offer <= 0 || ask <= 0 || ask <= offer) return null;
           const midway = +(((offer + ask) / 2).toFixed(2));
           const plus10 = +((offer * 1.10).toFixed(2));
           const justUnderAsk = +(ask * 0.95).toFixed(2);
+          // Only amounts the form will accept: above the offer, at most the ask.
           const chips = [
-            { label: `${fmt(midway)} (midway)`,  v: midway },
-            { label: `+10% (${fmt(plus10)})`,    v: plus10 },
-            { label: `${fmt(justUnderAsk)} (−5% off ask)`, v: justUnderAsk }
-          ];
+            { label: `${usd(midway)} (midway)`,  v: midway },
+            { label: `+10% (${usd(plus10)})`,    v: plus10 },
+            { label: `${usd(justUnderAsk)} (−5% off ask)`, v: justUnderAsk }
+          ].filter(c => c.v > offer && c.v <= ask);
+          if (!chips.length) return null;
           return h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 4 } },
             chips.map(c => h('button', {
               key: c.label,
@@ -9853,16 +9863,19 @@ function ProfileOffersTab() {
         // the buyer's offer and the seller's ask. Disabling here saves
         // a server round-trip + toast on the obvious "≥ ask" mistake.
         (() => {
+          const usd = (v => '$' + (Number(v) || 0).toFixed(2));
           const amt = parseFloat(counterAmt);
           const offer = parseFloat(o.amount) || 0;
           const ask = parseFloat(o.askingPrice) || 0;
           const empty = !counterAmt || !Number.isFinite(amt) || amt <= 0;
           const tooLow  = !empty && ask > 0 && amt <= offer;
-          const tooHigh = !empty && ask > 0 && amt >= ask;
+          // The server takes a seller counter equal to the ask, but a buyer
+          // raise must stay below it (at the ask they just buy).
+          const tooHigh = !empty && ask > 0 && (isIncoming ? amt > ask : amt >= ask);
           const bad = empty || tooLow || tooHigh;
           const tip = empty   ? 'Enter an amount above the offer and below the ask'
-                    : tooLow  ? `Must be above the current ${isIncoming ? 'offer' : 'offer'} of ${fmt(offer)}`
-                    : tooHigh ? `Must be below the asking price of ${fmt(ask)}`
+                    : tooLow  ? `Must be above the current ${isIncoming ? 'offer' : 'offer'} of ${usd(offer)}`
+                    : tooHigh ? (isIncoming ? `Can't be above the asking price of ${usd(ask)}` : `Must be below the asking price of ${usd(ask)}`)
                               : undefined;
           return isIncoming
             ? h('button', { className: 'buy-btn', style: { whiteSpace: 'nowrap', width: 'auto', padding: '0 14px' }, disabled: busy || bad, onClick: () => doCounter(o.id), title: tip }, 'Send counter')
