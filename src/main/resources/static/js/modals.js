@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=12';
+import { GridCard } from './cards.js?v=13';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -12502,7 +12502,20 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         },
           h(MaterialIcon, { name: syncing ? 'hourglass_top' : 'refresh', size: 14 }),
           syncing ? 'Syncing…' : 'Re-sync now'
-        )
+        ),
+        // A genuinely empty inventory (read fine, nothing in it) gets the
+        // way forward CS.Deals gives: go buy something. Not on a fault,
+        // a private profile or a throttle, where re-syncing is the fix.
+        !steamData?.error && !couldNotRead && !isPrivate && !isThrottled && h('a', {
+          className: 'btn btn-ghost',
+          href: '/market',
+          'data-testid': 'sell-empty-market',
+          style: {
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 32, padding: '0 14px', fontSize: 12, lineHeight: 1,
+            border: '1px solid var(--border)', boxSizing: 'border-box'
+          }
+        }, 'Browse the market')
       )
     );
     })(),
