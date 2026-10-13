@@ -4739,8 +4739,9 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         h('div', { style: {
           position: 'relative', paddingTop: 4,
           display: 'grid', gridTemplateColumns: `repeat(${NODES.length}, 1fr)`, alignItems: 'flex-start',
-          // The lit node stands 12px taller; hold that room while loading.
-          minHeight: loading ? 75 : undefined
+          // The lit node stands 12px taller and grows into it over 0.2s;
+          // hold that room throughout so the tabs below never dip.
+          minHeight: 75
         } },
           // Rail — behind the icon circles, spans from the centre of the
           // first node to the centre of the last. Segments up to the

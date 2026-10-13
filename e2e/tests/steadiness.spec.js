@@ -54,7 +54,17 @@ test('Profile keeps the Account Standing card in place while it loads', async ({
   // Where it sits at first paint, while the card's data is still held back.
   const before = await tabs.evaluate((e) => e.getBoundingClientRect().top);
   await expect(page.getByTestId('account-standing')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId('account-standing')).not.toHaveAttribute('aria-busy', 'true', { timeout: 10_000 });
-  const after = await tabs.evaluate((e) => e.getBoundingClientRect().top);
-  expect(Math.abs(after - before)).toBeLessThan(2);
+  // Watch every frame as the standing arrives: the lit node grows over
+  // 0.2s, and the tabs must not dip while it does.
+  const tops = await tabs.evaluate((e) => new Promise((done) => {
+    const seen = [];
+    const t0 = performance.now();
+    const tick = () => {
+      seen.push(e.getBoundingClientRect().top);
+      if (document.querySelector('[data-testid="account-standing"][aria-busy]') || performance.now() - t0 < 600) requestAnimationFrame(tick);
+      else done(seen);
+    };
+    tick();
+  }));
+  for (const t of tops) expect(Math.abs(t - before)).toBeLessThan(2);
 });
