@@ -3,6 +3,7 @@ package com.sboxmarket.controller
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Trade
+import com.sboxmarket.service.SteamDeliveryService
 import com.sboxmarket.service.TradeProtectionService
 import com.sboxmarket.service.TradeService
 import groovy.util.logging.Slf4j
@@ -29,6 +30,14 @@ class TradeController {
      *  with only a TradeService still wire; `get()` null-guards it. */
     @Autowired(required = false) TradeProtectionService tradeProtectionService
 
+    /** Optional — supplies the buyer's delivery offer code. */
+    @Autowired(required = false) SteamDeliveryService steamDeliveryService
+
+    /** The buyer's delivery code, only for the buyer; null for anyone else. */
+    private String deliveryCodeForViewer(Trade t, Long uid) {
+        (t != null && t.buyerUserId == uid) ? steamDeliveryService?.deliveryCodeFor(t) : null
+    }
+
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (uid == null) throw new UnauthorizedException()
@@ -46,6 +55,14 @@ class TradeController {
         // for power-users.
         def uid = requireUser(req)
         def rows = tradeService.listForUserWithCounterparty(uid)
+        if (steamDeliveryService != null) {
+            rows?.each { Map r ->
+                if (r.buyerUserId == uid && r.id != null) {
+                    def code = steamDeliveryService.deliveryCodeFor(new Trade(id: r.id as Long, buyerUserId: uid))
+                    if (code) r.deliveryCode = code
+                }
+            }
+        }
         long total = tradeService.countForUser(uid)
         ResponseEntity.ok()
             .header("X-Total-Count", String.valueOf(total))
@@ -68,7 +85,10 @@ class TradeController {
         // without a second round-trip. tradeProtectionService is optional
         // (older wiring) — falls back to protected:false when absent.
         def protection = tradeProtectionService?.summary(id)
-        ResponseEntity.ok(tradePayload(t, protection))
+        def payload = tradePayload(t, protection)
+        def code = deliveryCodeForViewer(t, uid)
+        if (code) payload.deliveryCode = code
+        ResponseEntity.ok(payload)
     }
 
     /** Trade entity fields + the Trade Protection surface, as a Map so

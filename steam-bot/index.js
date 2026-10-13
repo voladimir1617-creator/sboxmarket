@@ -175,6 +175,9 @@ const SteamUser = loadDependency('steam-user');
 const SteamCommunity = loadDependency('steamcommunity');
 const TradeOfferManager = loadDependency('steam-tradeoffer-manager');
 const SteamTotp = loadDependency('steam-totp');
+const { createBotCore } = require('./lib/bot-core');
+const { createReconnector } = require('./lib/reconnect');
+const { tokenMatches } = require('./lib/guards');
 
 // ---------------------------------------------------------------------------
 // Steam clients
@@ -191,25 +194,6 @@ const state = {
   cookiesReady: false,
 };
 
-// Map our friendly status strings off the TradeOfferManager ETradeOfferState enum.
-function offerStateName(stateNum) {
-  const ETradeOfferState = TradeOfferManager.ETradeOfferState;
-  switch (stateNum) {
-    case ETradeOfferState.Invalid: return 'invalid';
-    case ETradeOfferState.Active: return 'active';
-    case ETradeOfferState.Accepted: return 'accepted';
-    case ETradeOfferState.Countered: return 'countered';
-    case ETradeOfferState.Expired: return 'expired';
-    case ETradeOfferState.Canceled: return 'canceled';
-    case ETradeOfferState.Declined: return 'declined';
-    case ETradeOfferState.InvalidItems: return 'invalid_items';
-    case ETradeOfferState.CreatedNeedsConfirmation: return 'needs_confirmation';
-    case ETradeOfferState.CanceledBySecondFactor: return 'canceled_2fa';
-    case ETradeOfferState.InEscrow: return 'in_escrow';
-    default: return 'unknown';
-  }
-}
-
 function logIn() {
   const logOnOptions = {
     accountName: CONFIG.username,
@@ -221,7 +205,10 @@ function logIn() {
   client.logOn(logOnOptions);
 }
 
+const reconnector = createReconnector({ logIn });
+
 client.on('loggedOn', () => {
+  reconnector.onLoggedOn();
   state.loggedIn = true;
   state.steamId = client.steamID ? client.steamID.getSteamID64() : null;
   // eslint-disable-next-line no-console
@@ -234,7 +221,10 @@ client.on('error', (err) => {
   state.lastError = err && err.message ? err.message : String(err);
   // eslint-disable-next-line no-console
   console.error('[bot] Steam client error:', state.lastError);
-  // steam-user auto-reconnects for most errors; for fatal ones we surface via /health.
+  // steam-user re-connects by itself after a plain disconnect, but an 'error'
+  // event means it has given up. Log in again on a growing delay (never after
+  // a wrong password, which would get the account locked).
+  reconnector.onFatalError(err);
 });
 
 client.on('disconnected', (eresult, msg) => {
@@ -294,7 +284,20 @@ client.on('webSession', (sessionID, cookies) => {
   }
 
   community.setCookies(cookies);
-  community.startConfirmationChecker(CONFIG.confirmRetryMs, CONFIG.identitySecret);
+  // NOT community.startConfirmationChecker(..., identitySecret): with the
+  // secret it confirms EVERY pending confirmation on the account, including a
+  // trade someone else created with a stolen web session to empty the bot.
+  // The bot confirms only offers it sent itself (bot-core confirmOwn), and
+  // re-tries the ones whose first confirmation failed on its own timer below.
+});
+
+// Steam web sessions expire on their own; ask for a fresh one instead of
+// letting every call fail until the next full re-login.
+community.on('sessionExpired', () => {
+  state.cookiesReady = false;
+  // eslint-disable-next-line no-console
+  console.warn('[bot] Steam web session expired; requesting a new one.');
+  if (state.loggedIn) client.webLogOn();
 });
 
 function wireManagerEvents() {
@@ -308,47 +311,39 @@ function wireManagerEvents() {
 
   manager.on('sentOfferChanged', (offer) => {
     // eslint-disable-next-line no-console
-    console.log('[bot] Sent offer #%s -> %s', offer.id, offerStateName(offer.state));
+    console.log('[bot] Sent offer #%s -> %s', offer.id, core.stateName(offer.state));
   });
 
   manager.on('receivedOfferChanged', (offer) => {
     // eslint-disable-next-line no-console
-    console.log('[bot] Received offer #%s -> %s', offer.id, offerStateName(offer.state));
+    console.log('[bot] Received offer #%s -> %s', offer.id, core.stateName(offer.state));
   });
 }
 
 // ---------------------------------------------------------------------------
-// Helpers for the HTTP layer
+// Trade logic (lib/bot-core.js, tested against a stand-in Steam)
 // ---------------------------------------------------------------------------
 function ready() {
   return state.loggedIn && state.cookiesReady && manager != null;
 }
 
-// Confirm a just-sent offer that needs mobile confirmation, using the identity secret.
-function confirmSentOffer(offer, cb) {
-  community.acceptConfirmationForObject(CONFIG.identitySecret, offer.id, (err) => {
-    if (err) {
-      // eslint-disable-next-line no-console
-      console.error('[bot] Confirmation failed for offer #%s: %s', offer.id, err.message || err);
-      return cb(err);
-    }
-    // eslint-disable-next-line no-console
-    console.log('[bot] Confirmed offer #%s', offer.id);
-    cb(null);
-  });
-}
+const core = createBotCore({
+  getManager: () => manager,
+  community,
+  identitySecret: CONFIG.identitySecret,
+  appId: CONFIG.appId,
+  contextId: CONFIG.contextId,
+  states: TradeOfferManager.ETradeOfferState,
+  isReady: ready,
+});
 
-// Normalise common Steam/network failures into a stable shape for the backend.
-function classifyError(err) {
-  const msg = (err && err.message ? err.message : String(err)) || 'unknown error';
-  let code = 'ERROR';
-  if (/rate limit|too many requests|429/i.test(msg)) code = 'RATE_LIMITED';
-  else if (/escrow|hold/i.test(msg)) code = 'ESCROW_HOLD';
-  else if (/not friends|trade url|token/i.test(msg)) code = 'BAD_TRADE_URL';
-  else if (/inventory/i.test(msg)) code = 'INVENTORY_ERROR';
-  else if (/revoked|not logged|cookies|session/i.test(msg)) code = 'NOT_READY';
-  return { code, message: msg };
-}
+// Our own offers whose confirmation failed get another try on this timer.
+setInterval(() => {
+  core.retryConfirmations().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error('[bot] confirmation retry failed:', err && err.message ? err.message : err);
+  });
+}, CONFIG.confirmRetryMs).unref();
 
 // ---------------------------------------------------------------------------
 // HTTP API
@@ -356,12 +351,10 @@ function classifyError(err) {
 const app = express();
 app.use(express.json({ limit: '256kb' }));
 
-// Bearer-token auth on every route except /health.
+// Bearer-token auth on every route except /health (constant-time compare).
 app.use((req, res, next) => {
   if (req.path === '/health') return next();
-  const auth = req.get('authorization') || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth;
-  if (!token || token !== CONFIG.apiToken) {
+  if (!tokenMatches(req.get('authorization') || '', CONFIG.apiToken)) {
     return res.status(401).json({ ok: false, error: 'unauthorized' });
   }
   next();
@@ -375,222 +368,31 @@ app.get('/health', (req, res) => {
     steamId: state.steamId,
     appId: CONFIG.appId,
     lastError: state.lastError,
+    pendingConfirmations: core.pendingConfirmations().length,
   });
 });
 
-// POST /offers/send { partnerTradeUrl, assetIds: [..], message }
-// Creates + sends a trade offer GIVING the listed app-590830 assets to the partner,
-// then auto-confirms it via the identity secret.
-app.post('/offers/send', (req, res) => {
-  if (!ready()) {
-    const e = classifyError(new Error('bot not ready / not logged in'));
-    return res.status(503).json({ ok: false, error: e.code, message: e.message });
-  }
-  const { partnerTradeUrl, assetIds, message } = req.body || {};
-  if (!partnerTradeUrl || !Array.isArray(assetIds) || assetIds.length === 0) {
-    return res.status(400).json({ ok: false, error: 'BAD_REQUEST',
-      message: 'partnerTradeUrl and non-empty assetIds[] are required' });
-  }
+const reply = (res) => ([status, body]) => res.status(status).json(body);
 
-  let offer;
-  try {
-    offer = manager.createOffer(partnerTradeUrl); // accepts a full trade URL (partner + token)
-  } catch (err) {
-    const e = classifyError(err);
-    return res.status(400).json({ ok: false, error: e.code, message: e.message });
-  }
-
-  const items = assetIds.map((id) => ({
-    appid: CONFIG.appId,
-    contextid: CONFIG.contextId,
-    assetid: String(id),
-    amount: 1,
-  }));
-  offer.addMyItems(items);
-  if (message) offer.setMessage(String(message));
-
-  offer.send((err, status) => {
-    if (err) {
-      const e = classifyError(err);
-      const http = e.code === 'RATE_LIMITED' ? 429 : 502;
-      return res.status(http).json({ ok: false, error: e.code, message: e.message });
-    }
-
-    // status is 'pending' (needs our mobile confirmation) or 'sent'.
-    const respond = (confirmed, confirmError) => {
-      res.json({
-        ok: true,
-        offerId: offer.id,
-        status: confirmed ? 'sent' : (status || 'pending'),
-        steamStatus: status,
-        confirmed: !!confirmed,
-        confirmError: confirmError ? classifyError(confirmError).message : null,
-      });
-    };
-
-    if (status === 'pending') {
-      confirmSentOffer(offer, (cerr) => respond(!cerr, cerr));
-    } else {
-      respond(true, null);
-    }
-  });
-});
-
-// POST /offers/request { partnerTradeUrl, assetIds: [..], message }
-// Creates + sends a trade offer that REQUESTS (receives, gives nothing) the
-// listed app-590830 assets FROM the partner — the seller→bot deposit/escrow
-// leg. Uses addTheirItem. The seller accepts the offer in their own Steam
-// client (their confirmation, not ours). Since the bot gives nothing, the
-// offer normally needs no mobile confirmation from us; we still handle a
-// 'pending' status defensively (e.g. if a future change adds bot-side items).
-app.post('/offers/request', (req, res) => {
-  if (!ready()) {
-    const e = classifyError(new Error('bot not ready / not logged in'));
-    return res.status(503).json({ ok: false, error: e.code, message: e.message });
-  }
-  const { partnerTradeUrl, assetIds, message } = req.body || {};
-  if (!partnerTradeUrl || !Array.isArray(assetIds) || assetIds.length === 0) {
-    return res.status(400).json({ ok: false, error: 'BAD_REQUEST',
-      message: 'partnerTradeUrl and non-empty assetIds[] are required' });
-  }
-
-  let offer;
-  try {
-    offer = manager.createOffer(partnerTradeUrl); // full trade URL (partner + token)
-  } catch (err) {
-    const e = classifyError(err);
-    return res.status(400).json({ ok: false, error: e.code, message: e.message });
-  }
-
-  // addTheirItem — the bot RECEIVES these assets from the partner and gives
-  // nothing. This is what makes the offer a deposit/escrow request.
-  const items = assetIds.map((id) => ({
-    appid: CONFIG.appId,
-    contextid: CONFIG.contextId,
-    assetid: String(id),
-    amount: 1,
-  }));
-  items.forEach((it) => offer.addTheirItem(it));
-  if (message) offer.setMessage(String(message));
-
-  offer.send((err, status) => {
-    if (err) {
-      const e = classifyError(err);
-      const http = e.code === 'RATE_LIMITED' ? 429 : 502;
-      return res.status(http).json({ ok: false, error: e.code, message: e.message });
-    }
-    // status is 'pending' (would need OUR confirmation — only if we were also
-    // giving items) or 'sent'. A pure receive offer is 'sent' immediately and
-    // simply waits for the seller to accept on their side.
-    const respond = (confirmed, confirmError) => {
-      res.json({
-        ok: true,
-        offerId: offer.id,
-        status: status || 'sent',
-        steamStatus: status,
-        confirmed: !!confirmed,
-        confirmError: confirmError ? classifyError(confirmError).message : null,
-      });
-    };
-    if (status === 'pending') {
-      confirmSentOffer(offer, (cerr) => respond(!cerr, cerr));
-    } else {
-      respond(true, null);
-    }
-  });
-});
-
-// GET /offers/:id -> normalized status
-app.get('/offers/:id', (req, res) => {
-  if (!ready()) {
-    return res.status(503).json({ ok: false, error: 'NOT_READY', message: 'bot not ready' });
-  }
-  manager.getOffer(req.params.id, (err, offer) => {
-    if (err) {
-      const e = classifyError(err);
-      const http = /no matching|not found/i.test(e.message) ? 404 : 502;
-      return res.status(http).json({ ok: false, error: e.code, message: e.message });
-    }
-    res.json({
-      ok: true,
-      offerId: offer.id,
-      status: offerStateName(offer.state),
-      stateNum: offer.state,
-      isOurOffer: offer.isOurOffer,
-      partner: offer.partner ? offer.partner.getSteamID64() : null,
-      escrowEndsUnix: offer.escrowEnds ? Math.floor(offer.escrowEnds.getTime() / 1000) : null,
-      tradeId: offer.tradeID || null,
-    });
-  });
-});
-
-// POST /offers/incoming/:id/accept -> accept an incoming offer (and confirm if needed)
-app.post('/offers/incoming/:id/accept', (req, res) => {
-  if (!ready()) {
-    return res.status(503).json({ ok: false, error: 'NOT_READY', message: 'bot not ready' });
-  }
-  manager.getOffer(req.params.id, (err, offer) => {
-    if (err) {
-      const e = classifyError(err);
-      const http = /no matching|not found/i.test(e.message) ? 404 : 502;
-      return res.status(http).json({ ok: false, error: e.code, message: e.message });
-    }
-    if (offer.isOurOffer) {
-      return res.status(400).json({ ok: false, error: 'BAD_REQUEST',
-        message: 'offer is outgoing, not incoming' });
-    }
-    offer.accept((aerr, status) => {
-      if (aerr) {
-        const e = classifyError(aerr);
-        const http = e.code === 'RATE_LIMITED' ? 429 : 502;
-        return res.status(http).json({ ok: false, error: e.code, message: e.message });
-      }
-      // status: 'pending' | 'accepted'. Confirm if Steam asks for mobile confirmation.
-      if (status === 'pending') {
-        community.acceptConfirmationForObject(CONFIG.identitySecret, offer.id, (cerr) => {
-          res.json({
-            ok: true,
-            offerId: offer.id,
-            status: cerr ? 'pending' : 'accepted',
-            confirmed: !cerr,
-            confirmError: cerr ? classifyError(cerr).message : null,
-          });
-        });
-      } else {
-        res.json({ ok: true, offerId: offer.id, status: 'accepted', confirmed: true });
-      }
-    });
-  });
-});
-
-// GET /inventory -> bot's own app-590830 inventory
-app.get('/inventory', (req, res) => {
-  if (!ready()) {
-    return res.status(503).json({ ok: false, error: 'NOT_READY', message: 'bot not ready' });
-  }
-  manager.getInventoryContents(CONFIG.appId, CONFIG.contextId, true, (err, inventory) => {
-    if (err) {
-      const e = classifyError(err);
-      return res.status(502).json({ ok: false, error: e.code, message: e.message });
-    }
-    res.json({
-      ok: true,
-      appId: CONFIG.appId,
-      count: inventory.length,
-      items: inventory.map((it) => ({
-        assetId: it.assetid,
-        classId: it.classid,
-        instanceId: it.instanceid,
-        marketHashName: it.market_hash_name,
-        name: it.name,
-        tradable: it.tradable,
-      })),
-    });
-  });
-});
+// Delivery and return leg: the bot GIVES the assets to the partner.
+app.post('/offers/send', (req, res) => core.send(req.body).then(reply(res)));
+// Deposit leg: the bot REQUESTS the assets from the seller and gives nothing.
+app.post('/offers/request', (req, res) => core.request(req.body).then(reply(res)));
+app.get('/offers/:id', (req, res) => core.getOffer(req.params.id).then(reply(res)));
+app.post('/offers/incoming/:id/accept', (req, res) => core.acceptIncoming(req.params.id).then(reply(res)));
+app.get('/inventory', (req, res) => core.inventory().then(reply(res)));
 
 // Fallback 404
 app.use((req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
+
+// A malformed JSON body (or any other Express error) answers in JSON, so the
+// backend reads an error code instead of an HTML page.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  const status = err && err.type === 'entity.parse.failed' ? 400 : (err && err.status) || 500;
+  res.status(status).json({ ok: false, error: status === 400 ? 'BAD_REQUEST' : 'ERROR',
+    message: status === 400 ? 'body is not valid JSON' : 'internal error' });
+});
 
 // ---------------------------------------------------------------------------
 // Boot

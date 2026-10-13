@@ -111,3 +111,49 @@ test('the bot starts empty and a user can be handed skins', () => withBot({}, as
   assert.ok(inv.descriptions.some((d) => d.market_hash_name === 'Gift Hat'));
   assert.strictEqual(BOT_STEAM_ID.length, 17);
 }));
+
+test('a retried deposit request gets the same offer back, not a second one', () => withBot({}, async (call) => {
+  const asset = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.assets[0];
+  const first = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [asset.assetid] });
+  const again = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [asset.assetid] });
+  assert.strictEqual(again.status, 200);
+  assert.strictEqual(again.body.offerId, first.body.offerId);
+  assert.strictEqual(again.body.duplicate, true);
+}));
+
+test('a held skin promised to one buyer cannot be offered to another', () => withBot({}, async (call) => {
+  const asset = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.assets[0];
+  const dep = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [asset.assetid] });
+  await call('POST', `/fake/offers/${dep.body.offerId}/accept`);
+  const held = (await call('GET', '/inventory')).body.items[0].assetId;
+  const toBuyer = await call('POST', '/offers/send', { partnerTradeUrl: BUYER_URL, assetIds: [held] });
+  assert.strictEqual(toBuyer.status, 200);
+  const toOther = await call('POST', '/offers/send', {
+    partnerTradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=33&token=qqq', assetIds: [held] });
+  assert.strictEqual(toOther.status, 409);
+  assert.strictEqual(toOther.body.error, 'ASSET_COMMITTED');
+  // Once the buyer declines, the skin is free to go back to the seller.
+  await call('POST', `/fake/offers/${toBuyer.body.offerId}/decline`);
+  const back = await call('POST', '/offers/send', { partnerTradeUrl: SELLER_URL, assetIds: [held] });
+  assert.strictEqual(back.status, 200);
+}));
+
+test('the security code written into the offer is what Steam shows the seller', () => withBot({}, async (call) => {
+  const [a, b] = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.assets;
+  const dep = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [a.assetid],
+    message: 'sboxmarket escrow · code K7Q2ZP' });
+  assert.strictEqual((await call('GET', `/offers/${dep.body.offerId}`)).body.message, 'sboxmarket escrow · code K7Q2ZP');
+  const long = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [b.assetid],
+    message: 'w'.repeat(200) + ' · code K7Q2ZP' });
+  const shown = (await call('GET', `/offers/${long.body.offerId}`)).body.message;
+  assert.ok(shown.length <= 128 && shown.endsWith('code K7Q2ZP'), shown);
+}));
+
+test('malformed ids and lookalike trade urls are refused', () => withBot({}, async (call) => {
+  assert.strictEqual((await call('GET', '/offers/abc')).status, 400);
+  const look = await call('POST', '/offers/request', {
+    partnerTradeUrl: 'https://steamcommunity.com.evil.example/tradeoffer/new/?partner=11&token=abc', assetIds: ['1'] });
+  assert.strictEqual(look.body.error, 'BAD_TRADE_URL');
+  const dup = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: ['1', '1'] });
+  assert.strictEqual(dup.status, 400);
+}));
