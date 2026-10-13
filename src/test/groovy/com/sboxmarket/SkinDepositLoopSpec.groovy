@@ -111,6 +111,13 @@ class SkinDepositLoopSpec extends Specification {
         (new JsonSlurper().parseText(res.contentAsString) as List<Map>).find { it.id == tradeId }
     }
 
+    private Map myBotCustody() {
+        def res = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/my-stall/bot-custody')
+                .session(sellerSession)).andReturn().response
+        assert res.status == 200
+        new JsonSlurper().parseText(res.contentAsString) as Map
+    }
+
     def "a manual sale on the same deployment is not marked bot-delivered"() {
         given: "a listing that never went through the bot (created directly, legacy-style)"
         def item = new com.sboxmarket.model.Item(name: "Manual Hat ${System.nanoTime()}", category: 'Hats', rarity: 'Standard')
@@ -212,6 +219,10 @@ class SkinDepositLoopSpec extends Specification {
         given:
         Long listingId = listAndDeposit()
 
+        expect: "My Stall shows the skin as held by the bot, so its button withdraws"
+        myBotCustody().heldListingIds == [listingId]
+        myBotCustody().returning == []
+
         when: "the seller cancels the listing"
         def res = mockMvc.perform(MockMvcRequestBuilders.delete("/api/listings/$listingId")
                 .session(sellerSession)).andReturn().response
@@ -222,6 +233,11 @@ class SkinDepositLoopSpec extends Specification {
         out != null
         escrowRepository.findByListingId(listingId).custodyState == EscrowedItem.RETURNED
 
+        and: "My Stall shows it on its way back, no longer held"
+        myBotCustody().heldListingIds == []
+        myBotCustody().returning*.state == ['OFFER_SENT']
+        myBotCustody().returning[0].name == skin
+
         when: "the seller declines that offer and the return poller ticks"
         steam.decline(out.id)
         escrowService.pollReturnOffers()
@@ -231,6 +247,8 @@ class SkinDepositLoopSpec extends Specification {
         owed.custodyState == EscrowedItem.IN_CUSTODY
         owed.returnRequestedAt != null
         steam.holds(FakeSteam.BOT, skin)
+        myBotCustody().heldListingIds == []
+        myBotCustody().returning*.state == ['RESENDING']
 
         when: "the retry sweep re-sends, the seller accepts, the poller ticks"
         escrowService.sweepPendingReturns()
@@ -243,6 +261,7 @@ class SkinDepositLoopSpec extends Specification {
         def back = escrowRepository.findByListingId(listingId)
         back.custodyState == EscrowedItem.RETURNED
         back.returnConfirmedAt != null
+        myBotCustody().returning*.state == ['BACK']
     }
 
     /**

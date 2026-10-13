@@ -10,7 +10,7 @@ import { AuctionBidPanel } from './csfloat-modals.js';
 import { TradeProtectionPanel } from './trade-protection.js';
 import { SellerPayoutsCard } from './seller-payouts.js';
 import {
-  fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyPendingEscrow, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
+  fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyPendingEscrow, fetchMyBotCustody, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, fetchConnectStatus, connectOnboard, updateStallListing, setAwayMode,
@@ -12263,6 +12263,19 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         syncing ? 'Syncing…' : 'Sync Steam'
       )
     ),
+    // With the bot on, listing from Steam is a deposit: say how it works
+    // before he picks anything, in the same box the sell form uses for what
+    // happens after it sells.
+    source === 'steam' && custody.known && custody.shortLabel === 'escrow-protected' && h('div', {
+      className: 'sell-obligations sell-deposit-steps', 'data-testid': 'sell-deposit-steps',
+      style: { marginTop: 0, marginBottom: 12 }
+    },
+      h('div', { className: 'sell-obligations-title' }, 'How a deposit works'),
+      h('ol', { className: 'sell-obligations-list', style: { listStyle: 'decimal' } },
+        h('li', null, 'Pick a skin below and set your price.'),
+        h('li', null, `Accept the Steam trade offer from the ${BRAND.name} bot. It asks for that one skin and gives nothing in return.`),
+        h('li', null, 'Your listing goes live the moment the bot has it. Unsold skins can be withdrawn back to your Steam from My Stall at any time.'))
+    ),
 
     source === 'steam' && steamData === null && h('div', { className: 'spinner' }),
     source === 'steam' && steamData && steamList.length === 0 && (() => {
@@ -12974,6 +12987,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // They are not live and not in `stall`, so without this the seller had no
   // way to see them, or cancel one, until the 24h deposit timeout.
   const [held, setHeld] = useState([]);
+  // Skins the bot holds for this seller and ones on their way back to Steam.
+  const [botCustody, setBotCustody] = useState({ heldListingIds: [], returning: [] });
   // Active-stall fetch failure (vs a genuinely-empty stall) so the modal can
   // show a retry card instead of spinning forever / claiming the seller's live
   // listings vanished — sibling of soldErr. (audit P2)
@@ -13100,6 +13115,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     });
     fetchBestOfferPerListing().then(m => setOfferMap(m || {}));
     fetchMyPendingEscrow().then(rows => setHeld(rows));
+    fetchMyBotCustody().then(v => setBotCustody(v));
     fetchMyVerificationProgress().then(v => setVerify(v || null)).catch(() => {});
     fetchMyStallEarnings().then(e => setEarnings(e || null)).catch(() => {});
   }, []);
@@ -13243,15 +13259,21 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // ternary below.
     const id = typeof listing === 'object' ? listing.id : listing;
     const itemName = typeof listing === 'object' ? listing?.item?.name : null;
-    const confirmMsg = itemName
-      ? `Remove the listing for "${itemName}"?`
-      : 'Remove this listing?';
+    // A skin the bot holds goes back to the seller's Steam when its listing
+    // is cancelled, so say that instead of a bare "remove".
+    const inBot = botCustody.heldListingIds.includes(id);
+    const label = itemName ? `"${itemName}"` : 'this item';
+    const confirmMsg = inBot
+      ? `Withdraw ${label}? Our bot takes it off sale and sends it back to your Steam with a trade offer.`
+      : itemName ? `Remove the listing for "${itemName}"?` : 'Remove this listing?';
     if (!confirm(confirmMsg)) return;
     const res = await cancelListing(id);
     if (res && res.error) { toast(res.error, 'err'); return; }
     load();
     onRefresh && onRefresh();
-    toast(itemName ? `Listing for "${itemName}" removed.` : 'Listing removed.', 'ok');
+    toast(inBot
+      ? `${itemName ? `"${itemName}"` : 'Your item'} is on its way back. Accept our bot's trade offer in Steam to get it.`
+      : itemName ? `Listing for "${itemName}" removed.` : 'Listing removed.', 'ok');
   };
 
   const startEdit = (l) => {
@@ -14029,6 +14051,42 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         );
       })
     ),
+    // Coming back to your Steam — withdrawn skins the bot is returning, and
+    // ones that arrived in the last day, so a withdrawal has a visible end.
+    botCustody.returning.length > 0 && h('div', {
+      className: 'stall-returning',
+      role: 'region', 'aria-label': 'Items coming back to your Steam',
+      style: {
+        margin: '0 0 14px 0', padding: '10px 14px',
+        background: 'rgba(34,197,94,0.06)',
+        border: '1px solid var(--border)',
+        borderRadius: 8, textAlign: 'left'
+      }
+    },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 } },
+        h('span', { style: { fontSize: 16 } }, '↩'),
+        h('div', { style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' } },
+          `Coming back to your Steam · ${botCustody.returning.length}`),
+        botCustody.returning.some(r => r.state !== 'BACK') && h('a', {
+          className: 'btn btn-ghost',
+          href: 'https://steamcommunity.com/my/tradeoffers/',
+          target: '_blank', rel: 'noopener noreferrer',
+          style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 }
+        }, 'Open Steam trade offers ↗')
+      ),
+      botCustody.returning.map(r => h('div', {
+        key: r.listingId, className: 'stall-returning-row',
+        style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }
+      },
+        h('div', { style: { flex: 1, minWidth: 180 } },
+          h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' } }, r.name || 'Item'),
+          h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 } }, r.message)
+        ),
+        h('span', {
+          style: { fontSize: 11, fontWeight: 700, color: r.state === 'BACK' ? 'var(--green)' : 'var(--accent)', padding: '4px 0' }
+        }, r.state === 'BACK' ? '✓ Returned' : 'On its way')
+      ))
+    ),
     // Active vs Sold vs Analytics tabs. Sold tab reveals seller's own sale
     // history with gross revenue (pre-fee). Matches CSFloat's "My Sales".
     // WAI-ARIA tabs pattern + Arrow/Home/End keyboard nav, mirroring
@@ -14737,6 +14795,16 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         title: 'This auction has bids and can no longer be cancelled — it settles when it ends.',
                         'aria-label': 'Auction locked — has active bids'
                       }, '🔒')
+                    : botCustody.heldListingIds.includes(l.id)
+                    // The bot holds this skin: cancelling sends it back to
+                    // the seller's Steam, so the button says Withdraw.
+                    ? h('button', {
+                        className: 'btn btn-ghost stall-withdraw',
+                        style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
+                        title: 'Take it off sale and send it back to your Steam',
+                        'aria-label': 'Withdraw to Steam',
+                        onClick: () => doCancel(l)
+                      }, 'Withdraw')
                     : h('button', {
                         className: 'btn btn-ghost',
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },

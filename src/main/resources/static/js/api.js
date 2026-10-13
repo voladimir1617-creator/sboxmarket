@@ -740,6 +740,17 @@ export async function fetchMyPendingEscrow() {
   return Array.isArray(data) ? data : [];
 }
 
+/** The seller's skins in our bot: listing ids the bot holds (cancelling one
+ *  withdraws the skin to Steam) and skins on their way back. Empty when the
+ *  bot is off. */
+export async function fetchMyBotCustody() {
+  const data = await safeJson(`${API}/listings/my-stall/bot-custody`);
+  return {
+    heldListingIds: Array.isArray(data?.heldListingIds) ? data.heldListingIds : [],
+    returning: Array.isArray(data?.returning) ? data.returning : []
+  };
+}
+
 /** Variant with `X-Total-Count` — drives the "Showing most recent 500
  *  of N" banner on the MyStall Active tab when a prolific seller
  *  crosses the display cap (batch 1033). Keeps plain `fetchMyStall()`

@@ -1144,6 +1144,57 @@ class SteamEscrowService {
         return out
     }
 
+    /** How long a confirmed return stays on the seller's view as "back in
+     *  your Steam" before it drops off. */
+    static final long RETURN_SHOWN_FOR_MS = 24L * 60L * 60L * 1000L
+
+    /**
+     * What the bot holds for one seller, for the My Stall withdraw view:
+     * {@code heldListingIds} are listings whose skin sits in the bot right now
+     * (cancelling one is a withdrawal), and {@code returning} lists skins on
+     * their way back to the seller's Steam, plus ones that arrived in the last
+     * day. Empty when escrow is off. Never throws.
+     */
+    Map custodyForSeller(Long sellerUserId) {
+        Map out = [heldListingIds: [], returning: []]
+        if (!escrowEnabled || sellerUserId == null) return out
+        List<EscrowedItem> rows
+        try {
+            rows = escrowRepository.findBySellerUserIdAndCustodyStateIn(sellerUserId,
+                    [EscrowedItem.IN_CUSTODY, EscrowedItem.RETURNED]) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: seller custody lookup failed: ${ex.message}")
+            return out
+        }
+        long now = System.currentTimeMillis()
+        List<Map> returning = []
+        for (EscrowedItem e : rows) {
+            if (e.custodyState == EscrowedItem.IN_CUSTODY && e.returnRequestedAt == null) {
+                out.heldListingIds << e.listingId
+                continue
+            }
+            String state
+            String message
+            if (e.custodyState == EscrowedItem.IN_CUSTODY) {
+                state = 'RESENDING'
+                message = 'Our bot is sending this back to you. If you have no Steam trade URL saved in Profile, add one and it goes out on the next try.'
+            } else if (e.returnConfirmedAt == null) {
+                state = 'OFFER_SENT'
+                message = 'Our bot sent you a Steam trade offer with this item. Accept it in Steam to get it back.'
+            } else if (now - e.returnConfirmedAt <= RETURN_SHOWN_FOR_MS) {
+                state = 'BACK'
+                message = 'Back in your Steam inventory.'
+            } else {
+                continue
+            }
+            returning << [listingId: e.listingId, name: e.marketHashName, state: state,
+                          returnOfferId: e.returnOfferId, message: message,
+                          at: e.returnConfirmedAt ?: e.returnRequestedAt]
+        }
+        out.returning = returning.sort { a, b -> (b.at ?: 0L) <=> (a.at ?: 0L) }
+        return out
+    }
+
     /** Resolve the bot-held asset id for a listing's confirmed custody, or
      *  null when the item isn't IN_CUSTODY. Used by the delivery leg to send
      *  the REAL asset to the buyer. */
