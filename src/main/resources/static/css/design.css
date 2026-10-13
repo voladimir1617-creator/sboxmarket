@@ -30580,3 +30580,18 @@ html body .full-page-mode .info-modal .help-faq h3.help-faq-group {
 }
 html body .help-faq h3.help-faq-group:first-child,
 html body .full-page-mode .info-modal .help-faq h3.help-faq-group:first-child { margin-top: 4px !important; }
+
+/* Steadiness: every full page (wallet, offers, My stall, sell, buy orders,
+   profile...) reserves at least one screen. These pages render a short
+   loading or empty state first and fill in a moment later; without the
+   reservation the footer showed in the gap and was then shoved off screen
+   (measured layout shift 0.4-0.8 on a phone). */
+html body .site-root.full-page-mode > .modal-backdrop { min-height: 100vh !important; }
+/* Steadiness: on a phone the loaded Payouts and Account Standing cards wrap
+   their sub-lines and note onto extra lines; hold those lines while loading
+   so the stall listings and profile tabs below stay put. */
+@media (max-width: 600px) {
+  html body .seller-payouts[aria-busy="true"] .wallet-activity-tile .wallet-activity-sub { min-height: 29px !important; }
+  html body .seller-payouts[aria-busy="true"] [data-testid="seller-payouts-next"] { min-height: 47px !important; }
+  html body [data-testid="account-standing"][aria-busy="true"] > div:first-child { min-height: 44px !important; }
+}

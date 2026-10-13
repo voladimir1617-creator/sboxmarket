@@ -1,0 +1,60 @@
+// @ts-check
+const { test, expect } = require('@playwright/test');
+
+// Signed-in full pages on a phone-sized screen (390x844). Before
+// 2026-10-13 a full page (wallet, offers, My stall, buy orders) first drew
+// a short shell with the site footer on screen, then the data arrived and
+// shoved the footer away: layout shifts of 0.4 to 0.8 on load. Each full
+// page now reserves at least one screen, so the footer starts below the fold.
+test.use({ viewport: { width: 390, height: 844 } });
+
+for (const path of ['/wallet', '/offers', '/me/stall', '/buy-orders']) {
+  test(`${path} reserves a full screen while it loads`, async ({ page }) => {
+    // Hold the page's data back so the loading state is observable.
+    await page.route(/\/api\/(?!auth)/, async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+    await page.goto(path);
+    const backdrop = page.locator('.site-root.full-page-mode > .modal-backdrop');
+    await expect(backdrop).toBeVisible({ timeout: 15_000 });
+    const footerTop = await page.locator('footer.site-footer').evaluate((f) => f.getBoundingClientRect().top);
+    expect(footerTop).toBeGreaterThanOrEqual(page.viewportSize().height);
+  });
+}
+
+// My stall: the Payouts card used to appear only once its figures arrived,
+// inserted above the stall toolbar and pushing the listings down ~200px.
+test('My stall keeps the Payouts card in place while its figures load', async ({ page }) => {
+  await page.route(/\/api\/wallet\/payouts/, async (route) => {
+    await new Promise((r) => setTimeout(r, 2000));
+    await route.continue();
+  });
+  await page.goto('/me/stall');
+  const toolbar = page.locator('.stall-toolbar');
+  await expect(toolbar).toBeVisible({ timeout: 15_000 });
+  // Where it sits at first paint, while the card's data is still held back.
+  const before = await toolbar.evaluate((e) => e.getBoundingClientRect().top);
+  await expect(page.getByTestId('seller-payouts')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('seller-payouts')).not.toHaveAttribute('aria-busy', 'true', { timeout: 10_000 });
+  const after = await toolbar.evaluate((e) => e.getBoundingClientRect().top);
+  expect(Math.abs(after - before)).toBeLessThan(2);
+});
+
+// Profile: the Account Standing card used to appear once the profile
+// arrived, inserted above the tabs and pushing them down ~180px.
+test('Profile keeps the Account Standing card in place while it loads', async ({ page }) => {
+  await page.route(/\/api\/profile\/me/, async (route) => {
+    await new Promise((r) => setTimeout(r, 2000));
+    await route.continue();
+  });
+  await page.goto('/profile');
+  const tabs = page.locator('.profile-tabs');
+  await expect(tabs).toBeVisible({ timeout: 15_000 });
+  // Where it sits at first paint, while the card's data is still held back.
+  const before = await tabs.evaluate((e) => e.getBoundingClientRect().top);
+  await expect(page.getByTestId('account-standing')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('account-standing')).not.toHaveAttribute('aria-busy', 'true', { timeout: 10_000 });
+  const after = await tabs.evaluate((e) => e.getBoundingClientRect().top);
+  expect(Math.abs(after - before)).toBeLessThan(2);
+});

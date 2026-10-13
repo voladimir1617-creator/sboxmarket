@@ -42,7 +42,7 @@ export function nextPayoutLine(p, now = Date.now()) {
 }
 
 export function SellerPayoutsCard({ refreshKey, mask }) {
-  const [p, setP] = useState(undefined);        // undefined = loading, null = failed
+  const [data, setP] = useState(undefined);     // undefined = loading, null = failed
   const [reload, setReload] = useState(0);
   const [showAll, setShowAll] = useState(false);
   useEffect(() => {
@@ -52,13 +52,16 @@ export function SellerPayoutsCard({ refreshKey, mask }) {
   }, [refreshKey, reload]);
   const money = mask || fmt;
 
-  if (p === undefined) return null;
-  if (p === null) {
+  if (data === null) {
     return h('section', { className: 'seller-payouts', 'data-testid': 'seller-payouts', style: { margin: '0 0 14px', fontSize: 12, color: 'var(--ink-3)' } },
       'Could not load your payouts. ',
       h('button', { type: 'button', className: 'btn btn-ghost', style: { padding: '2px 8px', fontSize: 12 }, onClick: () => setReload(n => n + 1) }, 'Retry'));
   }
 
+  // While the figures load, the card is drawn at its loaded size with blank
+  // amounts, so the stall below it does not jump down when they arrive.
+  const loading = data === undefined;
+  const p = loading ? {} : data;
   const available = num(p.available);
   const pending = p.pending || {};
   const onHold = p.onHold || {};
@@ -68,7 +71,9 @@ export function SellerPayoutsCard({ refreshKey, mask }) {
   const history = p.history || [];
   const shown = showAll ? history : history.slice(0, 3);
 
-  const action = p.frozen
+  const action = loading
+    ? { label: 'Request payout', disabled: true, tip: 'Loading your payouts.' }
+    : p.frozen
     ? { label: 'Wallet frozen', disabled: true, tip: 'Staff froze this wallet. Open a support ticket to resolve it.' }
     : available <= 0
       ? { label: 'Request payout', disabled: true, tip: 'Nothing to cash out yet. Sale money lands here once the buyer confirms.' }
@@ -91,6 +96,7 @@ export function SellerPayoutsCard({ refreshKey, mask }) {
     className: 'seller-payouts wallet-activity',
     'data-testid': 'seller-payouts',
     'aria-label': 'Payouts',
+    'aria-busy': loading ? 'true' : undefined,
     style: { margin: '0 0 14px', textAlign: 'left' }
   },
     h('div', { className: 'wallet-activity-head', style: { flexWrap: 'wrap' } },
@@ -121,15 +127,15 @@ export function SellerPayoutsCard({ refreshKey, mask }) {
         'data-kind': t.key
       },
         h('div', { className: 'wallet-activity-label' }, t.label),
-        h('div', { className: 'wallet-activity-amt' }, money(t.amt)),
-        h('div', { className: 'wallet-activity-sub' }, t.sub)
+        h('div', { className: 'wallet-activity-amt' }, loading ? '\u2014' : money(t.amt)),
+        h('div', { className: 'wallet-activity-sub' }, loading ? '\u00a0' : t.sub)
       ))
     ),
     h('div', { className: 'wallet-activity-sub', 'data-testid': 'seller-payouts-next', style: { margin: '10px 2px 0', fontSize: 12 } },
       h('strong', { style: { color: 'var(--ink-2)' } }, 'Next payout: '),
-      next.text,
-      next.date ? h('span', null, ' ', h('strong', { style: { color: 'var(--ink)' } }, day(next.date)), '.') : null,
-      !p.live && h('span', { style: { color: 'var(--ink-4)' } }, ' Test mode: payouts are recorded, no real money moves.')
+      loading ? 'Loading\u2026' : next.text,
+      !loading && next.date ? h('span', null, ' ', h('strong', { style: { color: 'var(--ink)' } }, day(next.date)), '.') : null,
+      !loading && !p.live && h('span', { style: { color: 'var(--ink-4)' } }, ' Test mode: payouts are recorded, no real money moves.')
     ),
     history.length > 0 && h('div', { style: { marginTop: 12 } },
       h('div', { className: 'wallet-activity-label', style: { margin: '0 2px 6px' } }, 'Payout history'),
