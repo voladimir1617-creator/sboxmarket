@@ -723,6 +723,13 @@ class SteamEscrowService {
      * @return true when a return offer was sent (custody → RETURNED).
      */
     @Transactional
+    /** True when this listing's item went through bot custody (a custody row
+     *  exists), so the real item lives in Steam, not in platform inventory. */
+    boolean hasCustodyRow(Long listingId) {
+        if (!escrowEnabled || listingId == null) return false
+        escrowRepository.findByListingId(listingId) != null
+    }
+
     boolean returnToSeller(Long listingId, String reason = 'listing cancelled') {
         if (!escrowEnabled) return false
         EscrowedItem e = escrowRepository.findByListingId(listingId)
