@@ -45,6 +45,31 @@ class SavedSearchService {
     // happy path unchanged.
     @Autowired(required = false) UserBlockService userBlockService
 
+
+    /** One match email per user per 5 minutes, like price-drop emails. A
+     *  seller bulk-listing 40 matching items would otherwise send 40 emails;
+     *  the bell still gets every match. */
+    static final long MATCH_EMAIL_WINDOW_MS = 5L * 60_000L
+    private final java.util.Map<Long, Long> lastMatchEmailAt =
+        java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<Long, Long>(256, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<Long, Long> e) {
+                    return size() > 8192
+                }
+            })
+
+    private boolean shouldSendMatchEmail(Long userId) {
+        if (userId == null) return true
+        long now = System.currentTimeMillis()
+        synchronized (lastMatchEmailAt) {
+            Long last = lastMatchEmailAt.get(userId)
+            if (last != null && (now - last) < MATCH_EMAIL_WINDOW_MS) return false
+            lastMatchEmailAt.put(userId, now)
+            return true
+        }
+    }
+
     /**
      * Upsert a preset. If the same `(userId, name)` already exists, the
      * existing row's filters are overwritten and the existing id is
@@ -519,7 +544,8 @@ class SavedSearchService {
                 // batch 257). Best-effort: failure here doesn't undo
                 // the bell push or the sent counter.
                 try {
-                    if (emailService != null && emailService.canSendTo(user, 'MATCHES')) {
+                    if (emailService != null && emailService.canSendTo(user, 'MATCHES')
+                            && shouldSendMatchEmail(preset.userId as Long)) {
                         emailService.sendSavedSearchMatch(user.email, user.displayName,
                             preset.name, listing.item?.name, listing.price, itemUrl)
                     }

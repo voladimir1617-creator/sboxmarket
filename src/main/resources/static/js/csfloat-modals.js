@@ -1328,7 +1328,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     // short-circuit a round-trip on truly empty input.
     const cleaned = String(budget || '').replace(/[^0-9.\-]/g, '');
     const parsed = cleaned ? parseFloat(cleaned) : NaN;
-    const b = Number.isFinite(parsed) && parsed > 0 ? parsed : 10000;
+    // The box shows its default via `fmt` (the display currency), so a
+    // typed figure is in that currency too; the API takes USD.
+    const b = Number.isFinite(parsed) && parsed > 0 ? (fxToUsd(parsed) || parsed) : 10000;
     setGeneratingLoadout(true);
     try {
       const res = await generateLoadout(viewing.loadout.id, b);
@@ -1600,7 +1602,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
           // stripped before parse so the user can paste a price chip from
           // /wallet without a NaN.
           inputMode: 'decimal',
-          title: 'Cap on AI-generate. Defaults to $10,000 if blank. $-prefix and commas are accepted.',
+          title: `Cap on Generate, in ${currencySymbol()}. Defaults to ${fmt(10000)} if blank. Currency signs and commas are accepted.`,
           'aria-label': 'Max budget for Generate'
         }),
         h('button', {
@@ -2003,7 +2005,12 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                     } else {
                       window.prompt('Copy this loadout link:', url);
                     }
-                  } catch (_) { window.prompt('Copy this loadout link:', url); }
+                  } catch (e) {
+                    // Closing the phone share sheet rejects with AbortError;
+                    // that is the user saying no, not a reason for a pop-up.
+                    if (e && e.name === 'AbortError') return;
+                    window.prompt('Copy this loadout link:', url);
+                  }
                 }
               }, h(MaterialIcon, { name: 'content_copy', size: 16 }))
             ))

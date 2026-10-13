@@ -2317,6 +2317,23 @@ class TradeServiceSpec extends Specification {
         0 * msgRepo.markIncomingRead(_, _, _)
     }
 
+    def "an admin who is the buyer reads their own chat like any participant, and the bell clears"() {
+        given:
+        def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)
+        service.tradeMessageRepository = msgRepo
+        adminAuthorization.isAdmin(_) >> true
+        def t = tradeIn('PENDING_BUYER_CONFIRM', [id: 7L, buyer: 10L, seller: 20L])
+        tradeRepository.findById(7L) >> Optional.of(t)
+        msgRepo.findByTradeRecent(7L, _) >> []
+
+        when:
+        service.listMessages(7L, 10L)
+
+        then:
+        1 * msgRepo.markIncomingRead(7L, 10L, _) >> 2
+        1 * notificationService.markReadForRef(10L, 'TRADE_MESSAGE', 7L)
+    }
+
     def "listMessages swallows mark-read failures and still returns the thread"() {
         given:
         def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)

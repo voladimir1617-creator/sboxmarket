@@ -291,15 +291,23 @@ class TradeService {
         // Mark every unread message NOT sent by the viewer as read
         // (V37 / batch 280) — drives the "✓✓ read" indicator the
         // sender will see on their own messages next time their thread
-        // re-fetches. Admin-side reads do NOT mark as read so staff
-        // forensics can still see the original unread state. Best-
+        // re-fetches. A non-participant admin reading for forensics does
+        // NOT mark as read, so the original unread state survives; an admin
+        // who is the buyer or seller is just a participant here. Best-
         // effort: failure here doesn't block the thread fetch.
-        if (isParticipant && !isAdmin) {
+        if (isParticipant) {
             try {
                 tradeMessageRepository.markIncomingRead(tradeId, viewerUserId,
                     System.currentTimeMillis())
             } catch (Exception e) {
                 log.warn("markIncomingRead failed for trade ${tradeId} viewer ${viewerUserId}: ${e.message}")
+            }
+            // Reading the thread also clears its bell entries, so one chat
+            // message isn't left unread in two places.
+            try {
+                notificationService?.markReadForRef(viewerUserId, 'TRADE_MESSAGE', tradeId)
+            } catch (Exception e) {
+                log.warn("TRADE_MESSAGE bell clear failed for trade ${tradeId} viewer ${viewerUserId}: ${e.message}")
             }
         }
         // Batch 1028 — cap the thread at the most-recent 200 messages.
@@ -338,9 +346,22 @@ class TradeService {
         def msg = tradeMessageRepository.findById(messageId)
             .orElseThrow { new NotFoundException('TradeMessage', messageId) }
         if (msg.redactedAt == null) {
+            String oldBody = msg.body ?: ''
             msg.body = ''
             msg.redactedAt = System.currentTimeMillis()
             tradeMessageRepository.save(msg)
+            // The counterparty's bell row carries the same text as its
+            // preview; scrub it too or a redacted phishing link stays live.
+            try {
+                def trade = tradeRepository.findById(msg.tradeId).orElse(null)
+                Long recipient = trade == null ? null
+                    : (trade.buyerUserId == msg.senderUserId ? trade.sellerUserId : trade.buyerUserId)
+                String preview = oldBody.length() > 80 ? oldBody.substring(0, 77) + '…' : oldBody
+                notificationService?.replaceBodyForRef(recipient, 'TRADE_MESSAGE', msg.tradeId,
+                    preview, 'Message removed by moderators')
+            } catch (Exception e) {
+                log.warn("Redaction bell scrub failed for message ${messageId}: ${e.message}")
+            }
         }
         auditService?.log(AuditService.TRADE_MESSAGE_DELETED, adminUserId, msg.senderUserId, msg.id,
             "Redacted message in trade ${msg.tradeId}")
@@ -508,7 +529,8 @@ class TradeService {
         // body so a notification + the inline preview read identically.
         Map preview = null
         if (lastMessage != null) {
-            def body = lastMessage.body ?: ''
+            // A redacted message has an empty body; say so rather than show "them: ".
+            def body = lastMessage.redactedAt != null ? 'Message removed by moderators' : (lastMessage.body ?: '')
             // `fromMe` reflects "was this message sent by the viewer of
             // the list?". The old expression collapsed to a tautology
             // (`senderUserId == (buyerUserId == senderUserId ? buyerUserId

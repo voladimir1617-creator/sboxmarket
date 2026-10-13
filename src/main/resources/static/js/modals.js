@@ -11,7 +11,7 @@ import { TradeProtectionPanel } from './trade-protection.js';
 import { SellerPayoutsCard } from './seller-payouts.js';
 import {
   fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyPendingEscrow, fetchMyBotCustody, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
-  fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
+  fetchIncomingOffers, fetchOutgoingOffers, markLapsedOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, fetchConnectStatus, connectOnboard, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
@@ -583,9 +583,20 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
       setBuyOrderInfo(info => {
         const count = Math.max(0, (info?.count || 0) - 1);
         if (count === 0) return { count: 0, bestBid: null };
+        // Another order may sit at the same price, so the best bid is only
+        // known to be gone when the cancelled row was the only one at it.
         const best = parseFloat(info?.bestBid);
-        return { count, bestBid: best === cancelledPrice ? null : info.bestBid };
+        const others = Array.isArray(buyOrderRows)
+          ? buyOrderRows.filter(r => r.id !== myBuyOrder.id)
+          : null;
+        if (best !== cancelledPrice) return { count, bestBid: info.bestBid };
+        // Without the table loaded we cannot tell, so hide rather than guess.
+        if (!others) return { count, bestBid: null };
+        const next = others.reduce((m, r) => Math.max(m, parseFloat(r.maxPrice) || 0), 0);
+        return { count, bestBid: next > 0 ? next : null };
       });
+      // The expanded table must not keep listing the cancelled order.
+      setBuyOrderRows(rows => Array.isArray(rows) ? rows.filter(r => r.id !== myBuyOrder.id) : rows);
       // Batch 910 — personalised toast. Naming the item + the max price +
       // the fact that locked wallet funds are freed gives the user the
       // three things they might want to verify after a cancel, without
@@ -1181,7 +1192,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       : null,
                     h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, letterSpacing: 0.3 } }, '↗ View on Steam')
                   )
-                : h('div', { className: 'modal-stat-val' }, '—')
+                // No Steam reference until the live price sync fills it (seed
+                // data never invents one), so say why instead of a bare dash.
+                : h('div', { className: 'modal-stat-val', style: { color: 'var(--text-muted)', fontSize: 14 } }, 'No Steam price yet')
             ),
             // I3 Boss-QA: 30D delta promoted to a proper trend pill
             // (matches the home Hottest rail style). Filled badge with
@@ -3253,7 +3266,12 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
   const panelRef = useRef(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
-  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  // Escape must not close the drawer mid-submit, same as the backdrop and
+  // Cancel button: a rejected URL needs the drawer still open to fix it.
+  const stableCancel = useCallback(() => {
+    if (busyRef.current) return;
+    onCancelRef.current && onCancelRef.current();
+  }, []);
   useDialogA11y(panelRef, stableCancel);
   const [url, setUrl]   = useState('');
   const [busy, setBusy] = useState(false);
@@ -3831,6 +3849,27 @@ export function FaqModal({ onClose }) {
       onChange: e => setQ(e.target.value),
       'aria-label': 'Search FAQ'
     }),
+    // What we charge, as tiles (the home "2% Platform fee" style) instead
+    // of a search result. Shown on the plain FAQ and on any fee search,
+    // which is where the footer "Fees & Pricing" link lands. Rates are the
+    // ones the code charges: TradeService.FEE_RATE (2%, seller, on release);
+    // nothing added at checkout; card deposits and bank payouts carry the
+    // payment processor's own fee, passed on and quoted before confirming.
+    (!t || /fee|charge|pric|cost/.test(t)) && h('div', {
+      'aria-label': 'Fees',
+      'data-testid': 'faq-fee-tiles',
+      style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }
+    },
+      [
+        { num: '2%', label: 'Selling fee', sub: 'Paid by the seller, taken from the sale once delivery is confirmed.' },
+        { num: '0%', label: 'Buying fee', sub: 'Buyers pay the listed price, nothing added at checkout.' },
+        { num: 'At cost', label: 'Wallet deposits & withdrawals', sub: "Stripe's processing fee, passed on and shown before you confirm." }
+      ].map(f => h('div', { key: f.label, className: 'csfloat-home-metric' },
+        h('div', { className: 'csfloat-home-metric-num' }, f.num),
+        h('div', { className: 'csfloat-home-metric-label' }, f.label),
+        h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.45, marginTop: 4 } }, f.sub)
+      ))
+    ),
     filtered.length === 0
       ? h('div', {
           // Batch 928 — richer zero-match state with Clear + Open-ticket
@@ -3862,7 +3901,21 @@ export function FaqModal({ onClose }) {
           // the previous div: bold ink-primary, 14px, 6px bottom margin.
           h('h3', { style: { fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px', fontSize: 14 } }, highlightMatch(question, q)),
           h('div', { style: { color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 13 } }, highlightMatch(answer, q))
-        ))
+        )),
+    // A way out at the end of the list, so a reader who scrolled every
+    // answer is not left at a dead end. Same support route as the banner.
+    filtered.length > 0 && h('div', {
+      'data-testid': 'faq-still-stuck',
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap', paddingTop: 16, borderTop: '1px solid var(--border)' }
+    },
+      h('span', { style: { fontSize: 13, color: 'var(--text-secondary)' } }, 'Still stuck?'),
+      h('a', {
+        href: '/support',
+        className: 'btn btn-accent',
+        style: { padding: '8px 14px', fontSize: 12 },
+        onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate('/support'); }
+      }, 'Open a ticket →')
+    )
   );
 }
 
@@ -4121,11 +4174,10 @@ export function SettingsModal({ onClose, me }) {
         ].map(opt => h('button', {
           key: opt.id,
           className: `wallet-tx-filter-chip ${muted.has(opt.id) ? '' : 'active'}`,
-          // Batch 939 — aria-pressed exposes toggle state. Semantics
-          // here are inverted vs. the other chips (.active = "not
-          // muted" / audible) so pressed=true means the user is
-          // receiving this category.
-          'aria-pressed': !muted.has(opt.id),
+          // aria-pressed follows the row's question, "Mute notification
+          // types": pressed = muted, matching the "Muted · X" text. (The
+          // .active class is the visual "receiving" state and stays as is.)
+          'aria-pressed': muted.has(opt.id),
           onClick: () => toggleMute(opt.id),
           title: muted.has(opt.id) ? 'Muted — click to unmute' : 'Click to mute this category'
         }, muted.has(opt.id) ? `Muted · ${opt.label}` : opt.label))
@@ -7102,10 +7154,12 @@ function ProfileBuyOrdersTab() {
                   style: { width: 80, padding: '4px 6px', fontSize: 11 },
                   type: 'number', step: '0.01', min: '0.01',
                   inputMode: 'decimal',
-                  'aria-label': 'New max price per item',
+                  // Buy orders are priced in USD (like the offer forms), so
+                  // say so: the row beside it may read in another currency.
+                  'aria-label': 'New max price per item in USD',
                   value: editMax, onChange: e => setEditMax(e.target.value),
-                  placeholder: 'Max $',
-                  title: 'New max price per item'
+                  placeholder: 'Max USD',
+                  title: 'New max price per item, in USD'
                 }),
                 h('input', {
                   className: 'price-input',
@@ -9546,7 +9600,7 @@ function ProfileOffersTab() {
     ]);
     if (!ri.ok || !ro.ok) throw new Error('HTTP ' + (ri.ok ? ro.status : ri.status));
     const [i, o] = await Promise.all([ri.json(), ro.json()]);
-    return { incoming: Array.isArray(i) ? i : [], outgoing: Array.isArray(o) ? o : [] };
+    return { incoming: Array.isArray(i) ? markLapsedOffers(i) : [], outgoing: Array.isArray(o) ? markLapsedOffers(o) : [] };
   }, []);
   const load = useCallback(async () => {
     setErr(false);
@@ -9850,8 +9904,10 @@ function ProfileOffersTab() {
           className: 'price-input',
           type: 'number', step: '0.01', min: '0.01',
           inputMode: 'decimal', enterKeyHint: 'send',
-          'aria-label': isIncoming ? 'Counter price' : 'Raise offer to',
-          placeholder: isIncoming ? 'Counter price' : 'Raise to',
+          // Offers are priced in USD; chips and tips below say so too, so a
+          // viewer on another display currency doesn't type euros here.
+          'aria-label': isIncoming ? 'Counter price in USD' : 'Raise offer to, in USD',
+          placeholder: isIncoming ? 'Counter (USD)' : 'Raise to (USD)',
           value: counterAmt,
           onChange: e => setCounterAmt(e.target.value)
         }),
@@ -9861,17 +9917,20 @@ function ProfileOffersTab() {
         // the "meet me slightly above" nudge; asking is the "decline
         // politely" signal.
         isIncoming && (() => {
+          const usd = (v => '$' + (Number(v) || 0).toFixed(2));
           const offer = parseFloat(o.amount) || 0;
           const ask = parseFloat(o.askingPrice) || 0;
           if (offer <= 0 || ask <= 0 || ask <= offer) return null;
           const midway = +(((offer + ask) / 2).toFixed(2));
           const plus10 = +((offer * 1.10).toFixed(2));
           const justUnderAsk = +(ask * 0.95).toFixed(2);
+          // Only amounts the form will accept: above the offer, at most the ask.
           const chips = [
-            { label: `${fmt(midway)} (midway)`,  v: midway },
-            { label: `+10% (${fmt(plus10)})`,    v: plus10 },
-            { label: `${fmt(justUnderAsk)} (−5% off ask)`, v: justUnderAsk }
-          ];
+            { label: `${usd(midway)} (midway)`,  v: midway },
+            { label: `+10% (${usd(plus10)})`,    v: plus10 },
+            { label: `${usd(justUnderAsk)} (−5% off ask)`, v: justUnderAsk }
+          ].filter(c => c.v > offer && c.v <= ask);
+          if (!chips.length) return null;
           return h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 4 } },
             chips.map(c => h('button', {
               key: c.label,
@@ -9890,16 +9949,19 @@ function ProfileOffersTab() {
         // the buyer's offer and the seller's ask. Disabling here saves
         // a server round-trip + toast on the obvious "≥ ask" mistake.
         (() => {
+          const usd = (v => '$' + (Number(v) || 0).toFixed(2));
           const amt = parseFloat(counterAmt);
           const offer = parseFloat(o.amount) || 0;
           const ask = parseFloat(o.askingPrice) || 0;
           const empty = !counterAmt || !Number.isFinite(amt) || amt <= 0;
           const tooLow  = !empty && ask > 0 && amt <= offer;
-          const tooHigh = !empty && ask > 0 && amt >= ask;
+          // The server takes a seller counter equal to the ask, but a buyer
+          // raise must stay below it (at the ask they just buy).
+          const tooHigh = !empty && ask > 0 && (isIncoming ? amt > ask : amt >= ask);
           const bad = empty || tooLow || tooHigh;
           const tip = empty   ? 'Enter an amount above the offer and below the ask'
-                    : tooLow  ? `Must be above the current ${isIncoming ? 'offer' : 'offer'} of ${fmt(offer)}`
-                    : tooHigh ? `Must be below the asking price of ${fmt(ask)}`
+                    : tooLow  ? `Must be above the current ${isIncoming ? 'offer' : 'offer'} of ${usd(offer)}`
+                    : tooHigh ? (isIncoming ? `Can't be above the asking price of ${usd(ask)}` : `Must be below the asking price of ${usd(ask)}`)
                               : undefined;
           return isIncoming
             ? h('button', { className: 'buy-btn', style: { whiteSpace: 'nowrap', width: 'auto', padding: '0 14px' }, disabled: busy || bad, onClick: () => doCounter(o.id), title: tip }, 'Send counter')
@@ -10646,6 +10708,22 @@ function ProfileSupportTab() {
   useEffect(() => { load(); }, [load]);
   // Show a ticket only when it actually loaded; a failed fetch used to
   // set null, which silently closed the thread or ignored the click.
+  // Opening a ticket swaps the whole panel, so the row that had focus
+  // unmounts and keyboard focus fell to <body>. Move it to the thread's
+  // heading on open, and back to the ticket's row on "← Tickets".
+  const threadHeadRef = useRef(null);
+  const lastOpenedTicketRef = useRef(null);
+  const viewingId = viewing?.ticket?.id ?? null;
+  useEffect(() => {
+    if (viewingId != null) {
+      threadHeadRef.current?.focus?.();
+      return;
+    }
+    const id = lastOpenedTicketRef.current;
+    if (id == null) return;
+    const row = document.querySelector(`tr[data-ticket-id="${id}"]`);
+    if (row) row.focus();
+  }, [viewingId]);
   const showTicket = async (id) => {
     const t = await fetchSupportTicket(id);
     if (t && t.ticket) { setViewing(t); return true; }
@@ -10709,7 +10787,7 @@ function ProfileSupportTab() {
     } catch (_) { /* no URLSearchParams or no search — silent */ }
   }, []);
 
-  const openTicket = async (id) => { await showTicket(id); };
+  const openTicket = async (id) => { lastOpenedTicketRef.current = id; await showTicket(id); };
   // `/support?ticket=<id>` from a "ticket closed" bell entry: open that
   // ticket and show every status, since the default filter hides
   // resolved tickets.
@@ -10805,7 +10883,7 @@ function ProfileSupportTab() {
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
         h('button', { className: 'btn btn-ghost', onClick: () => setViewing(null) }, '← Tickets'),
         h('div', { style: { flex: 1 } },
-          h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
+          h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status)
         ),
         viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
@@ -10939,6 +11017,7 @@ function ProfileSupportTab() {
               h('tbody', null,
                 filtered.map(t => h('tr', {
                   key: t.id, className: 'db-row',
+                  'data-ticket-id': t.id,
                   onClick: () => openTicket(t.id),
                   role: 'button',
                   tabIndex: 0,
@@ -12499,6 +12578,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // the next price level), so the realisable liquid value of
           // a stack of N is bounded by the buy-order book depth, not
           // N × bestBid. Keep the conservative one-per-row sum.
+          const cataloguedRows = steamList.filter(s => s.catalogueId).length;
+          const newRows = steamList.length - cataloguedRows;
+          const listableRows = steamList.filter(s => copiesListable(s) > 0).length;
+          const steamPriced = steamList.filter(s => copiesListable(s) > 0 && parseFloat(s.steamPrice) > 0);
+          const steamPricedRows = steamPriced.length;
+          const steamWorth = steamPriced.reduce((acc, s) => acc + parseFloat(s.steamPrice) * copiesListable(s), 0);
           let liquidValue = 0;
           let liquidCount = 0;
           steamList.forEach(s => {
@@ -12526,12 +12611,23 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
               'data-testid': 'sell-summary-listed',
               title: 'Copies already on sale here. Reprice or cancel them in My Stall.'
             }, h('span', { className: 'sell-summary-num' }, listedAssets), ' already listed'),
-            h('div', { className: 'sell-summary-chip warn' },
+            // A zero here is noise ("0 locked"), so these three only show
+            // when they have something to count.
+            lockedAssets > 0 && h('div', { className: 'sell-summary-chip warn' },
               h('span', { className: 'sell-summary-num' }, lockedAssets), ' locked'),
-            h('div', { className: 'sell-summary-chip accent' },
-              h('span', { className: 'sell-summary-num' }, steamList.filter(s => s.catalogueId).length), ' already in catalogue'),
-            h('div', { className: 'sell-summary-chip' },
-              h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.catalogueId).length), ' new to sboxmarket'),
+            cataloguedRows > 0 && h('div', { className: 'sell-summary-chip accent' },
+              h('span', { className: 'sell-summary-num' }, cataloguedRows), ' already in catalogue'),
+            newRows > 0 && h('div', { className: 'sell-summary-chip' },
+              h('span', { className: 'sell-summary-num' }, newRows), ` new to ${BRAND.name}`),
+            // What the listable copies are worth on Steam. Only rows Steam
+            // has actually priced count; a missing reference is never
+            // estimated, and the chip says when it covers only some rows.
+            steamPricedRows > 0 && h('div', {
+              className: 'sell-summary-chip',
+              'data-testid': 'sell-summary-steam-worth',
+              title: 'Sum of the Steam Community Market reference price across the copies you can still list. Items Steam has not priced are left out, not guessed.'
+            }, 'Worth about ', h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(steamWorth)), ' on Steam',
+              steamPricedRows < listableRows ? ` (${steamPricedRows} of ${listableRows} priced)` : ''),
             estValue > 0 && h('div', {
               className: 'sell-summary-chip accent',
               title: 'Sum of the floor price across the catalogued copies you can still list (stacks counted by quantity; copies already on sale are in My Stall, not here). A rough "what\'s this inventory worth?" number — actual sale prices can land above or below.'

@@ -154,6 +154,46 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
         @Param("createdAt") Long createdAt
     )
 
+    /** Basket (category/rarity, no item) orders that would fill BEFORE a
+     *  given item order. `findMatching` takes `b.itemId IS NULL` orders whose
+     *  category and rarity fit the listing, under the same
+     *  `maxPrice DESC, createdAt ASC` priority, so the "#N in queue" figure
+     *  has to count them too or it promises #1 to a buyer who is not. */
+    @Query("""
+        SELECT COUNT(b) FROM BuyOrder b, SteamUser u
+        WHERE b.status = 'ACTIVE'
+          AND b.quantity > 0
+          AND b.itemId IS NULL
+          AND (b.category IS NULL OR b.category = :category)
+          AND (b.rarity   IS NULL OR b.rarity   = :rarity)
+          AND b.buyerUserId = u.id
+          AND (u.banned IS NULL OR u.banned = false)
+          AND (
+            b.maxPrice > :maxPrice
+            OR (b.maxPrice = :maxPrice AND b.createdAt < :createdAt)
+          )
+    """)
+    long countBasketAheadInQueue(
+        @Param("category")  String category,
+        @Param("rarity")    String rarity,
+        @Param("maxPrice")  BigDecimal maxPrice,
+        @Param("createdAt") Long createdAt
+    )
+
+    /** Every ACTIVE basket order (non-banned buyer) as
+     *  [category, rarity, maxPrice, createdAt], for ranking the "My Buy
+     *  Orders" tab in memory without a per-row COUNT. */
+    @Query("""
+        SELECT b.category, b.rarity, b.maxPrice, b.createdAt
+          FROM BuyOrder b, SteamUser u
+         WHERE b.status = 'ACTIVE'
+           AND b.quantity > 0
+           AND b.itemId IS NULL
+           AND b.buyerUserId = u.id
+           AND (u.banned IS NULL OR u.banned = false)
+    """)
+    List<Object[]> activeBasketQueueRows()
+
     /** Batched queue-rank source: every ACTIVE, quantity>0 buy order
      *  (non-banned buyer) on the given item ids, as [itemId, maxPrice,
      *  createdAt] rows. Lets the "My Buy Orders" tab compute every order's

@@ -980,16 +980,25 @@ export async function logoutSteam() {
 }
 
 // ── Offers ──────────────────────────────────────────────────────
+/** A PENDING offer past its expiresAt is already refused by the server;
+ *  the expiry sweep just hasn't rewritten it yet. Show it as Expired so
+ *  nobody is offered Accept / Counter on a dead row. */
+export function markLapsedOffers(list, now = Date.now()) {
+  if (!Array.isArray(list)) return list;
+  return list.map(o => (o && o.status === 'PENDING' && o.expiresAt && Number(o.expiresAt) <= now)
+    ? { ...o, status: 'EXPIRED' } : o);
+}
+
 export async function fetchIncomingOffers() {
   const data = await safeJson(`${API}/offers/incoming`);
   // null = the load failed; the inbox must not read that as no offers.
-  return Array.isArray(data) ? data : null;
+  return Array.isArray(data) ? markLapsedOffers(data) : null;
 }
 
 export async function fetchOutgoingOffers() {
   const data = await safeJson(`${API}/offers/outgoing`);
   // null = the load failed; the inbox must not read that as no offers.
-  return Array.isArray(data) ? data : null;
+  return Array.isArray(data) ? markLapsedOffers(data) : null;
 }
 
 /** { listingId: { bestAmount, count, newestAt } } for every active
@@ -1438,7 +1447,11 @@ export async function adminCheck() {
     return (data && typeof data === 'object') ? data : { admin: false };
   } catch (_) { return { admin: false }; }
 }
-export async function adminStats() { return (await safeJson(`${API}/admin/stats`)) || {}; }
+// null on failure: a failed poll must not zero every tile and badge.
+export async function adminStats() {
+  const data = await safeJson(`${API}/admin/stats`);
+  return data && typeof data === 'object' ? data : null;
+}
 export async function adminWithdrawals(status = 'PENDING') {
   const data = await safeJson(`${API}/admin/withdrawals?status=${encodeURIComponent(status)}`);
   return Array.isArray(data) ? data : [];
@@ -1542,7 +1555,8 @@ export async function adminReset2fa(id, note) {
 }
 export async function adminDeletionRequests() {
   const data = await safeJson(`${API}/admin/users/deletion-requests`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the queue must not read that as empty.
+  return Array.isArray(data) ? data : null;
 }
 export async function adminFinalizeDeletion(id) {
   return writeJson(`${API}/admin/users/${id}/finalize-deletion`, {
@@ -1609,7 +1623,8 @@ export async function adminRemoveListing(id, reason) {
 }
 export async function adminReportedListings() {
   const data = await safeJson(`${API}/admin/listings/reported`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the queue must not read that as empty.
+  return Array.isArray(data) ? data : null;
 }
 export async function adminDismissReports(id, note) {
   return writeJson(`${API}/admin/listings/${id}/dismiss-reports`, {
@@ -1676,7 +1691,8 @@ export async function adminAudit(params = {}) {
  *  last 24h of AuditLog into a prioritized triage list. */
 export async function adminFraudSignals() {
   const data = await safeJson(`${API}/admin/fraud`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the tab must not read that as "nothing suspicious".
+  return Array.isArray(data) ? data : null;
 }
 
 /** Batch 700 — admin fraud-triage helper. Paste a prefix fragment
@@ -1695,7 +1711,8 @@ export async function adminApiKeyLookup(prefix) {
  *  lookup loop. */
 export async function adminDisputes() {
   const data = await safeJson(`${API}/admin/disputes`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the queue must not read that as empty.
+  return Array.isArray(data) ? data : null;
 }
 
 /** Clear a DISPUTED deposit (batch 467) — flips it back to COMPLETED so

@@ -862,6 +862,32 @@ class SavedSearchServiceSpec extends Specification {
             'limited hats', 'Wizard Hat', _ as BigDecimal, '/item/1')
     }
 
+    def "a burst of matching listings rings the bell each time but emails once"() {
+        given: "a seller bulk-lists three matching items in a row"
+        def notifications = Mock(NotificationService)
+        def emails        = Mock(com.sboxmarket.service.EmailService)
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.notificationService = notifications
+        service.emailService        = emails
+        service.steamUserRepository = steamUserRepo
+        repository.findCandidatesForListing(_, _) >> [
+            new SavedSearch(id: 1L, userId: 11L, name: 'limited hats',
+                category: 'Hats', rarity: 'Limited')
+        ]
+        def user = new com.sboxmarket.model.SteamUser(
+            id: 11L, displayName: 'Alice', email: 'alice@x.test',
+            emailVerified: true, emailNotificationsEnabled: true)
+        steamUserRepo.findById(11L) >> Optional.of(user)
+        emails.canSendTo(user, 'MATCHES') >> true
+
+        when:
+        3.times { service.notifyMatchingForListing(listingFor()) }
+
+        then:
+        3 * notifications.push(11L, 'LISTING_MATCH', _, _, _, _)
+        1 * emails.sendSavedSearchMatch(_, _, _, _, _, _)
+    }
+
     def "notifyMatchingForListing skips email when MATCHES bucket IS muted"() {
         given:
         def notifications = Mock(NotificationService)

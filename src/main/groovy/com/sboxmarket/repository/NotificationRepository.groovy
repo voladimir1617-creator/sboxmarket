@@ -64,6 +64,20 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
     @Query("UPDATE Notification n SET n.read = true WHERE n.userId = :uid AND n.read = false")
     int markAllReadForUser(@Param("uid") Long uid)
 
+    /** Mark one user's unread notifications of one kind about one thing
+     *  (e.g. TRADE_MESSAGE for a trade) read: reading the thread itself
+     *  should clear the bell for it too. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Notification n SET n.read = true WHERE n.userId = :uid AND n.kind = :kind AND n.refId = :refId AND n.read = false")
+    int markReadForUserKindRef(@Param("uid") Long uid, @Param("kind") String kind, @Param("refId") Long refId)
+
+    /** Swap the body of a user's notifications of one kind about one thing
+     *  that carry exactly `oldBody` (used to scrub a redacted chat preview). */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Notification n SET n.body = :newBody WHERE n.userId = :uid AND n.kind = :kind AND n.refId = :refId AND n.body = :oldBody")
+    int replaceBodyForUserKindRef(@Param("uid") Long uid, @Param("kind") String kind, @Param("refId") Long refId,
+                                  @Param("oldBody") String oldBody, @Param("newBody") String newBody)
+
     /** Bulk-delete every READ notification older than the given cutoff.
      *  Drives the daily purge sweeper (batch 359) that keeps the
      *  notifications table bounded on heavy accounts. Unread rows are

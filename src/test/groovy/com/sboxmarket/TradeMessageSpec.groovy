@@ -194,6 +194,21 @@ class TradeMessageSpec extends Specification {
         })
     }
 
+    def "redacting a message also scrubs its text from the recipient's bell"() {
+        given:
+        def m = new TradeMessage(id: 77L, tradeId: 100L, senderUserId: 42L, body: 'visit evil.example to verify')
+        tradeMessageRepository.findById(77L) >> Optional.of(m)
+        tradeRepository.findById(100L) >> Optional.of(new Trade(id: 100L, buyerUserId: 42L, sellerUserId: 43L,
+            state: 'PENDING_SELLER_SEND', itemName: 'Wizard Hat'))
+
+        when:
+        service.deleteMessage(1L, 77L)
+
+        then:
+        1 * notificationService.replaceBodyForRef(43L, 'TRADE_MESSAGE', 100L,
+            'visit evil.example to verify', 'Message removed by moderators')
+    }
+
     def "deleteMessage is idempotent — re-redacting an already-redacted row doesn't re-save but still audit-logs"() {
         given:
         def m = new TradeMessage(id: 77L, tradeId: 100L, senderUserId: 42L,

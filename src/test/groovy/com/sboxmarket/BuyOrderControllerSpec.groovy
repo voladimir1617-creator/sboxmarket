@@ -104,6 +104,36 @@ class BuyOrderControllerSpec extends Specification {
         row.originalQuantity == 3
     }
 
+    def "mine() ranks an item order behind a higher basket order that fits it, and reports no floor when nothing is listed"() {
+        given:
+        def o = new BuyOrder(id: 7L, itemId: 42L, itemName: 'Hat',
+                             category: 'Hats', rarity: 'Standard',
+                             maxPrice: new BigDecimal('45.00'), quantity: 1,
+                             originalQuantity: 1, status: 'ACTIVE',
+                             createdAt: 1700L, updatedAt: 1700L)
+        // lowestPrice 0 is what the floor refresh writes when nothing is listed
+        def item = new Item(id: 42L, category: 'Hats', rarity: 'Standard', lowestPrice: BigDecimal.ZERO)
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [o]
+        1 * itemRepository.findAllById([42L]) >> [item]
+        1 * buyOrderService.activeQueueRowsForItems([42L]) >> []
+        buyOrderService.activeBasketQueueRows() >> [
+            ['Hats', null, new BigDecimal('50.00'), 1L] as Object[],      // fits, higher: ahead
+            ['Shirts', null, new BigDecimal('90.00'), 1L] as Object[],    // other category: never used here
+            [null, 'Limited', new BigDecimal('90.00'), 1L] as Object[],   // other rarity: never used here
+            ['Hats', 'Standard', new BigDecimal('40.00'), 1L] as Object[] // fits, lower: behind
+        ]
+        1 * buyOrderService.countForBuyer(100L) >> 1L
+
+        when:
+        def row = controller.mine(req).body[0]
+
+        then:
+        row.queuePosition == 2L
+        row.currentFloor == null
+        row.floorGap == null
+    }
+
     def "mine() returns queuePosition:null for a basket (category-only) order"() {
         given:
         def o = new BuyOrder(id: 2L, itemId: null, category: 'Hats',

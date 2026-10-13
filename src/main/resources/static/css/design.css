@@ -1665,6 +1665,7 @@ body:has(.modal-backdrop), body:has(.cart-confirm-backdrop), body:has(.shortcuts
 .sell-summary, .trade-summary-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .sell-summary-chip, .trade-summary-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-1); border: 1px solid var(--line); border-radius: 999px; font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); }
 .sell-summary-num, .trade-summary-num { font-weight: 600; color: var(--ink); }
+.sell-summary-chip { font-family: var(--font-sans); font-size: 12px; }
 .trade-summary-label { color: var(--ink-4); letter-spacing: 0.06em; text-transform: uppercase; font-size: 10px; }
 .trade-list > div, .trade-main { display: grid; grid-template-columns: 56px 1fr auto auto; gap: 16px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); cursor: pointer; transition: background 120ms ease; }
 .trade-list > div:hover { background: var(--bg-2); }

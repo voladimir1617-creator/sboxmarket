@@ -243,6 +243,21 @@ class NotificationService {
         }
     }
 
+    /** Mark the user's unread notifications of `kind` about `refId` read. */
+    @Transactional
+    int markReadForRef(Long userId, String kind, Long refId) {
+        if (userId == null || kind == null || refId == null) return 0
+        notificationRepository.markReadForUserKindRef(userId, kind, refId)
+    }
+
+    /** Replace the body of the user's `kind`/`refId` notifications that
+     *  read exactly `oldBody` (scrubs a redacted chat message's preview). */
+    @Transactional
+    int replaceBodyForRef(Long userId, String kind, Long refId, String oldBody, String newBody) {
+        if (userId == null || kind == null || refId == null || oldBody == null) return 0
+        notificationRepository.replaceBodyForUserKindRef(userId, kind, refId, oldBody, newBody)
+    }
+
     @Transactional
     void markAllRead(Long userId) {
         // Bulk set-based UPDATE — no cap, no row hydration. The earlier
