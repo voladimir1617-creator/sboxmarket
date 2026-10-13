@@ -14066,7 +14066,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 } },
         h('span', { style: { fontSize: 16 } }, '↩'),
         h('div', { style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' } },
-          `Coming back to your Steam · ${botCustody.returning.length}`),
+          botCustody.returning.every(r => r.state === 'BACK')
+            ? `Back in your Steam · ${botCustody.returning.length}`
+            : `Coming back to your Steam · ${botCustody.returning.length}`),
         botCustody.returning.some(r => r.state !== 'BACK') && h('a', {
           className: 'btn btn-ghost',
           href: 'https://steamcommunity.com/my/tradeoffers/',
