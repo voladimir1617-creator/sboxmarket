@@ -163,6 +163,7 @@ class UnsubscribeController {
                 : 'Preferences saved. You\'re unsubscribed from email notifications.', true)
         }
         // Flip the flag on every matched row (should be 1 in practice).
+        boolean anyFailed = false
         users.each { u ->
             try {
                 if (bucket != null) {
@@ -194,7 +195,15 @@ class UnsubscribeController {
                 }
             } catch (Exception e) {
                 log.warn("Unsubscribe: save failed for uid={}: {}", u?.id, e.message)
+                anyFailed = true
             }
+        }
+        if (anyFailed) {
+            // Never claim an unsubscribe that did not save: the user would
+            // keep getting mail, and a one-click POST would answer 200 to
+            // the mail client. A 5xx lets the client (or the user) retry.
+            def failed = page("We couldn't save your email preferences just now. Please try the link again in a few minutes.", false)
+            return ResponseEntity.status(500).headers(failed.headers).body(failed.body)
         }
         return page(bucket
             ? "Preferences saved. You're unsubscribed from ${bucket.toLowerCase()} emails. Other notifications continue."

@@ -1815,6 +1815,43 @@ class BidServiceSpec extends Specification {
         0 * walletRepository.save({ com.sboxmarket.model.Wallet w -> w.id == 500L })
     }
 
+    @spock.lang.Unroll
+    def "a no-sale settle sends the escrowed item back to the seller (#why)"() {
+        // Every branch that ends an auction with no sale tells the seller
+        // the item is back; with bot escrow on it must also leave custody,
+        // or the bot keeps it. Only the no-bids branch used to return it.
+        given:
+        def escrow = Mock(com.sboxmarket.service.SteamEscrowService)
+        service.steamEscrowService = escrow
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
+            seller: 99L, expiresAt: now - 1000L
+        )
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        bidRepository.findByListing(100L) >> [new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal("50"), status: 'WINNING')]
+        steamUserRepository.findById(10L) >> (winnerGone ? Optional.empty()
+            : Optional.of(new SteamUser(id: 10L, steamId64: 'winner', banned: false)))
+        walletRepository.findByUsername('steam_winner') >> new com.sboxmarket.model.Wallet(
+            id: 500L, username: 'steam_winner', balance: new BigDecimal(balance), frozen: frozen)
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+
+        when:
+        service.sweepExpired()
+
+        then:
+        listing.buyerUserId == 99L
+        1 * escrow.returnToSeller(100L, _)
+
+        where:
+        why                  | winnerGone | frozen | balance
+        'winner gone'        | true       | false  | '500'
+        'wallet frozen'      | false      | true   | '500'
+        'balance too low'    | false      | false  | '10'
+    }
+
     def "settle refuses to debit a winner with an active deposit dispute hold"() {
         // Companion to the frozen-wallet settle gate. A buyer with an
         // active DISPUTED deposit must not have their wallet debited

@@ -132,7 +132,9 @@ class ListingFloorRefreshService {
                         item.lowestPrice = newPrice
                         item.isListed    = newIsListed
                         item.supply      = newSupply
-                        itemRepository.save(item)
+                        // Floor columns only: a whole-entity save from this
+                        // snapshot would undo sales and views counted since.
+                        itemRepository.updateFloor(item.id, newPrice, newIsListed, newSupply)
                         changed++
                     }
                 } catch (Exception e) {
@@ -216,8 +218,7 @@ class ListingFloorRefreshService {
         def item = itemRepository.findById(itemId).orElse(null)
         if (item == null) return
         def floor = listingRepository.minPriceForItem(itemId)
-        item.lowestPrice = floor ?: BigDecimal.ZERO
-        item.isListed = (floor != null && floor > BigDecimal.ZERO)
-        itemRepository.save(item)
+        itemRepository.updateFloorPrice(itemId, floor ?: BigDecimal.ZERO,
+            floor != null && floor > BigDecimal.ZERO)
     }
 }

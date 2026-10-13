@@ -1272,6 +1272,29 @@ class ListingServiceSpec extends Specification {
         1 * steamUserRepo.save({ it.id == 7L && it.awayModeUntil == null })
     }
 
+    def "sweepExpiredAwayMode gives each user their own transaction, so one failure rolls back only that user"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        def txm = Mock(org.springframework.transaction.PlatformTransactionManager)
+        service.transactionManager = txm
+        def bad  = new com.sboxmarket.model.SteamUser(id: 7L, awayModeUntil: System.currentTimeMillis() - 60_000L)
+        def good = new com.sboxmarket.model.SteamUser(id: 8L, awayModeUntil: System.currentTimeMillis() - 60_000L)
+        steamUserRepo.findExpiredAwayMode(_) >> [bad, good]
+        listingRepository.findActiveBySeller(_) >> []
+        steamUserRepo.save({ it.id == 7L }) >> { throw new RuntimeException('optimistic lock') }
+
+        when:
+        service.sweepExpiredAwayMode()
+
+        then: 'two separate REQUIRES_NEW transactions, the bad one rolled back, the good one committed'
+        2 * txm.getTransaction({ it.propagationBehavior == org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW }) >>
+            new org.springframework.transaction.support.SimpleTransactionStatus()
+        1 * txm.rollback(_)
+        1 * txm.commit(_)
+        1 * steamUserRepo.save({ it.id == 8L && it.awayModeUntil == null })
+    }
+
     def "sweepExpiredAwayMode is a no-op when nothing is expired"() {
         given:
         def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)

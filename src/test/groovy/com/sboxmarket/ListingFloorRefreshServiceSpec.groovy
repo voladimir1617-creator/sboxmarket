@@ -49,9 +49,9 @@ class ListingFloorRefreshServiceSpec extends Specification {
         then:
         1 * itemRepository.findAll() >> [item]
         1 * listingRepository.minPriceForItem(1L) >> new BigDecimal('7.50')
-        1 * itemRepository.save({ Item it ->
-            it.lowestPrice == new BigDecimal('7.50') && it.isListed
-        })
+        1 * itemRepository.updateFloor(1L, new BigDecimal('7.50'), true, _)
+        // Whole-entity saves would write back stale totalSold / viewCount.
+        0 * itemRepository.save(_)
         service.lastRunSummary.changed == 1
         service.lastRunSummary.checked == 1
     }
@@ -67,7 +67,7 @@ class ListingFloorRefreshServiceSpec extends Specification {
         then:
         1 * itemRepository.findAll() >> [item]
         1 * listingRepository.minPriceForItem(2L) >> new BigDecimal('3.00')
-        0 * itemRepository.save(_)            // no churn on the steady-state row
+        0 * itemRepository.updateFloor(_, _, _, _)            // no churn on the steady-state row
         service.lastRunSummary.changed == 0
         service.lastRunSummary.checked == 1
     }
@@ -83,9 +83,7 @@ class ListingFloorRefreshServiceSpec extends Specification {
         then:
         1 * itemRepository.findAll() >> [item]
         1 * listingRepository.minPriceForItem(3L) >> null
-        1 * itemRepository.save({ Item it ->
-            it.lowestPrice == BigDecimal.ZERO && !it.isListed
-        })
+        1 * itemRepository.updateFloor(3L, BigDecimal.ZERO, false, _)
     }
 
     def "a zero MIN(price) is treated as not-listed"() {
@@ -100,7 +98,7 @@ class ListingFloorRefreshServiceSpec extends Specification {
         1 * itemRepository.findAll() >> [item]
         // A 0.00 floor is not a real listed price — isListed must go false.
         1 * listingRepository.minPriceForItem(4L) >> BigDecimal.ZERO
-        1 * itemRepository.save({ Item it -> !it.isListed && it.lowestPrice == BigDecimal.ZERO })
+        1 * itemRepository.updateFloor(4L, BigDecimal.ZERO, false, _)
     }
 
     def "one item throwing does NOT abort the sweep (per-item isolation)"() {
@@ -118,9 +116,9 @@ class ListingFloorRefreshServiceSpec extends Specification {
         1 * listingRepository.minPriceForItem(11L) >> { throw new RuntimeException('lock timeout') }
         1 * listingRepository.minPriceForItem(12L) >> new BigDecimal('2.50')   // moved
         // a and c still get saved — the b failure is swallowed per-item.
-        1 * itemRepository.save({ Item it -> it.id == 10L })
-        1 * itemRepository.save({ Item it -> it.id == 12L })
-        0 * itemRepository.save({ Item it -> it.id == 11L })
+        1 * itemRepository.updateFloor(10L, _, _, _)
+        1 * itemRepository.updateFloor(12L, _, _, _)
+        0 * itemRepository.updateFloor(11L, _, _, _)
 
         and: 'all three counted as checked, only the two healthy ones changed'
         service.lastRunSummary.checked == 3
@@ -139,9 +137,9 @@ class ListingFloorRefreshServiceSpec extends Specification {
         1 * itemRepository.findAll() >> [a, b]
         1 * listingRepository.minPriceForItem(20L) >> new BigDecimal('0.10')
         1 * listingRepository.minPriceForItem(21L) >> new BigDecimal('0.20')
-        1 * itemRepository.save({ Item it -> it.id == 20L }) >> { throw new RuntimeException('deadlock') }
-        // b's save still runs even though a's threw.
-        1 * itemRepository.save({ Item it -> it.id == 21L })
+        1 * itemRepository.updateFloor(20L, _, _, _) >> { throw new RuntimeException('deadlock') }
+        // b's write still runs even though a's threw.
+        1 * itemRepository.updateFloor(21L, _, _, _)
         notThrown(Exception)
     }
 
@@ -155,7 +153,7 @@ class ListingFloorRefreshServiceSpec extends Specification {
         then: 'no repository access at all when the feature flag is off'
         0 * itemRepository.findAll()
         0 * listingRepository.minPriceForItem(_)
-        0 * itemRepository.save(_)
+        0 * itemRepository.updateFloor(_, _, _, _)
     }
 
     def "an empty catalogue completes cleanly with zero counters"() {
@@ -164,7 +162,7 @@ class ListingFloorRefreshServiceSpec extends Specification {
 
         then:
         1 * itemRepository.findAll() >> []
-        0 * itemRepository.save(_)
+        0 * itemRepository.updateFloor(_, _, _, _)
         service.lastRunSummary.checked == 0
         service.lastRunSummary.changed == 0
     }
@@ -180,7 +178,7 @@ class ListingFloorRefreshServiceSpec extends Specification {
         then:
         1 * itemRepository.findAll() >> [item]
         1 * listingRepository.minPriceForItem(30L) >> null   // no change → no save
-        0 * itemRepository.save(_)
+        0 * itemRepository.updateFloor(_, _, _, _)
 
         and: 'summary carries every field the UI freshness chip expects'
         summary.startedAt > 0
@@ -219,6 +217,21 @@ class ListingFloorRefreshServiceSpec extends Specification {
         1 * itemRepository.findAll() >> [item]
         // Live floor is 5.00 → differs from the null-as-ZERO old value → save.
         1 * listingRepository.minPriceForItem(40L) >> new BigDecimal('5.00')
-        1 * itemRepository.save({ Item it -> it.lowestPrice == new BigDecimal('5.00') && it.isListed })
+        1 * itemRepository.updateFloor(40L, new BigDecimal('5.00'), true, _)
+    }
+
+    def "refreshItem writes only the floor columns, never a stale whole-item save"() {
+        given: 'a sale bumped totalSold after this snapshot was read'
+        def item = new Item(id: 50L, name: 'Sold One', lowestPrice: new BigDecimal('3.00'),
+            isListed: true, totalSold: 4)
+
+        when:
+        service.refreshItem(50L)
+
+        then:
+        1 * itemRepository.findById(50L) >> Optional.of(item)
+        1 * listingRepository.minPriceForItem(50L) >> new BigDecimal('3.50')
+        1 * itemRepository.updateFloorPrice(50L, new BigDecimal('3.50'), true)
+        0 * itemRepository.save(_)
     }
 }

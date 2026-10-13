@@ -524,10 +524,12 @@ class ListingService {
     /** Hourly sweep: any user with `away_mode_until <= now` gets every
      *  active listing flipped back to visible and the column cleared.
      *  Idempotent — the cleared column means a second sweep does
-     *  nothing for the same user. */
+     *  nothing for the same user. Each user runs in its own transaction:
+     *  one shared transaction meant a single optimistic-lock conflict
+     *  (a seller editing a listing mid-sweep) rolled back every user in
+     *  the tick, so nobody came back from away mode. */
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 15L * 60L * 1000L,
                                                           initialDelay = 60_000L)
-    @Transactional
     void sweepExpiredAwayMode() {
         if (steamUserRepository == null) return
         def now = System.currentTimeMillis()
@@ -536,6 +538,7 @@ class ListingService {
         log.info("Vacation-mode sweep: ${expired.size()} user(s) past their resume time, un-hiding")
         expired.each { user ->
             try {
+              inOwnTransaction {
                 // Only the rows away mode hid; hand-hidden ones stay hidden.
                 def listings = awayHiddenRows(listingRepository.findActiveBySeller(user.id) ?: [])
                 listings.each { it.hidden = false; it.tradeLink = null }
@@ -557,10 +560,20 @@ class ListingService {
                 touched.each { itemId ->
                     try { updateItemFloorPrice(itemId) } catch (Exception ignore) {}
                 }
+              }
             } catch (Exception e) {
                 log.warn("sweepExpiredAwayMode failed for user ${user.id}: ${e.message}")
             }
         }
+    }
+
+    /** REQUIRES_NEW when a transaction manager is wired (production), inline
+     *  otherwise (unit specs). A throw rolls back only this unit of work. */
+    private void inOwnTransaction(Closure work) {
+        if (transactionManager == null) { work(); return }
+        def tt = new TransactionTemplate(transactionManager)
+        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        tt.executeWithoutResult { work() }
     }
 
     @Transactional

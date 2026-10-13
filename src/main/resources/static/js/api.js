@@ -1749,8 +1749,9 @@ export async function fetchReviewsForUser(userId, { fresh = false } = {}) {
   // 404 = unknown user (paired with a dead stall landing); not a bug.
   // `fresh` skips the 60s browser cache, so a refetch right after posting,
   // replying to or deleting a review shows the change.
+  // null on failure so a refetch can keep the list already shown.
   const data = await safeJson(`${API}/reviews/user/${userId}`, fresh ? { cache: 'no-store' } : undefined, { expect: [404] });
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : null;
 }
 /** Reviews the signed-in user has authored (as a buyer). Auth-gated —
  *  returns [] when anonymous. Drives the Profile → Reviews → Given tab. */

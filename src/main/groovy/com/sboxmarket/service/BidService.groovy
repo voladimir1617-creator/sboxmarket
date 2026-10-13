@@ -1279,11 +1279,7 @@ class BidService {
             // custody; send it back to the seller and flip custody → RETURNED.
             // No-op when the bot is unconfigured / the item was never deposited.
             // Best-effort so a return hiccup can't fail the settle.
-            try {
-                steamEscrowService?.returnToSeller(listing.id, "Auction expired unsold")
-            } catch (Exception e) {
-                log.warn("Escrow return-to-seller failed for expired auction ${listing.id}: ${e.message}")
-            }
+            returnEscrowedItemToSeller(listing, "Auction expired unsold")
             if (listing.sellerUserId != null) {
                 try {
                     notificationService.push(listing.sellerUserId,
@@ -1316,6 +1312,7 @@ class BidService {
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
+            returnEscrowedItemToSeller(listing, "Auction winner unavailable")
             // Close out every live bid on the now-SOLD listing. Without
             // this, a banned/deleted winner leaves not just their own
             // bid but every other bidder's bid stuck in WINNING — so
@@ -1365,6 +1362,7 @@ class BidService {
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
+            returnEscrowedItemToSeller(listing, "Auction winner wallet held")
             closeOutLiveBids(listing.id)
             String winnerReason = frozen
                 ? "Auction lost — wallet frozen"
@@ -1405,6 +1403,7 @@ class BidService {
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
+            returnEscrowedItemToSeller(listing, "Auction winner short of funds")
             // Close out every live bid — the auction is over even
             // though no trade opened. Mirrors the winner-invalid branch
             // above; otherwise losing bidders' bids stay WINNING and
@@ -1621,6 +1620,20 @@ class BidService {
      *  already does its own winner→WON / loser→LOST flip inline.
      *  Best-effort and isolated: a save failure is logged, not fatal —
      *  the listing itself is already the authoritative SOLD record. */
+
+    /** An auction that ends without a sale leaves the item in bot custody
+     *  when escrow is on. Every no-sale path (no bids, winner gone, winner's
+     *  wallet held, winner short of funds) must send it back, or the seller
+     *  is told the item is home while the bot keeps it. No-op without the
+     *  bot; best-effort so a return hiccup can't fail the settle. */
+    private void returnEscrowedItemToSeller(Listing listing, String reason) {
+        try {
+            steamEscrowService?.returnToSeller(listing.id, reason)
+        } catch (Exception e) {
+            log.warn("Escrow return-to-seller failed for auction ${listing.id}: ${e.message}")
+        }
+    }
+
     private void closeOutLiveBids(Long listingId) {
         if (listingId == null) return
         try {

@@ -165,6 +165,22 @@ interface ItemRepository extends JpaRepository<Item, Long> {
         Pageable pageable
     )
 
+    /** Writes only the floor columns. The floor sweep and refreshItem used
+     *  to save the whole entity from a snapshot, which wrote back a stale
+     *  totalSold / viewCount over any atomic increment that landed between
+     *  the read and the save. */
+    @Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("UPDATE Item i SET i.lowestPrice = :price, i.isListed = :listed, i.supply = :supply WHERE i.id = :itemId")
+    int updateFloor(@Param("itemId") Long itemId, @Param("price") BigDecimal price,
+                    @Param("listed") Boolean listed, @Param("supply") Integer supply)
+
+    @Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("UPDATE Item i SET i.lowestPrice = :price, i.isListed = :listed WHERE i.id = :itemId")
+    int updateFloorPrice(@Param("itemId") Long itemId, @Param("price") BigDecimal price,
+                         @Param("listed") Boolean listed)
+
     /** Race-safe totalSold increment. Used on every real platform sale
      *  (BUY_NOW + auction settle) so the Database page's "Most Traded"
      *  sort reflects actual platform activity instead of the external
