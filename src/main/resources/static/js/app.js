@@ -1,7 +1,7 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
 import { BRAND } from './brand.js';
-import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, platformFee, sellerPayout, useCustodyCopy } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=258';
+} from './modals.js?v=259';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -9934,7 +9934,7 @@ export function App() {
             // currency is CAD/EUR/etc. — backend stores listings in USD
             // and fees are computed against that. Label shows the active
             // currencySymbol so it's not confusing.
-            h('label', { title: 'Type a USD-anchored sale amount; outputs convert to your selected currency.' }, `Sale Amount (${currencySymbol()})`),
+            h('label', { title: 'Type the sale amount in your selected currency.' }, `Sale Amount (${currencySymbol()})`),
             h('input', {
               className: 'price-input fee-calc-input',
               type: 'number', min: '1', step: '0.01',
@@ -9955,7 +9955,11 @@ export function App() {
             // code also deducted a 1.5% "withdraw fee" that didn't
             // exist server-side, so the calculator was quoting users
             // a lower take-home than they actually receive.
-            const amt = Math.max(0, parseFloat(feeInput) || 0);
+            // The box is labelled in the display currency, so read it in that
+            // currency: convert to USD (what fees are charged in) before the
+            // maths, and `fmt` converts the results back. Treating a typed
+            // €100 as $100 quoted a euro take-home of about €90 for €98.
+            const amt = Math.max(0, fxToUsd(parseFloat(feeInput) || 0) || 0);
             // Shared helper — the server rounds the FEE half-up and subtracts,
             // so deriving the take-home as `amt * 0.98` quoted a cent more than
             // the wallet actually receives on any split-cent price.
@@ -9972,7 +9976,7 @@ export function App() {
               )
             );
           })(),
-          h('div', { className: 'fee-calc-note' }, `Steam takes 12% on Workshop sales. ${BRAND.name} is a flat 2% on each sale — you keep 6× more. Deposits + withdrawals are free; payouts arrive in 1-2 business days.`)
+          h('div', { className: 'fee-calc-note' }, `Steam takes 12% on Workshop sales. ${BRAND.name} takes a flat 2% on each sale. Card deposits and payouts carry only the payment processor's fee, shown before you confirm; payouts arrive in 1-2 business days.`)
         )
       ),
     ),

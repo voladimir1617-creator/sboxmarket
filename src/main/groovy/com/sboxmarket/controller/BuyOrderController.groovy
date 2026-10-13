@@ -55,8 +55,16 @@ class BuyOrderController {
                 queueByItem[(Long) r[0]] << [mp: (BigDecimal) r[1], ts: (Long) (r[2] ?: 0L)]
             }
         }
+        // Basket (category/rarity) orders fill before an item order whenever
+        // they fit the item and rank higher, exactly as findMatching orders
+        // them, so they count toward each item order's position too.
+        def basketRows = !itemIds.isEmpty() ? (buyOrderService.activeBasketQueueRows() ?: []) : []
         def out = rows.collect { o ->
-            def floor = o.itemId != null ? byId[o.itemId]?.lowestPrice : null
+            // A zero floor means nothing is listed (the floor refresh writes 0),
+            // not a $0.00 price; reporting it made every such order read
+            // "= floor" against a free item.
+            def rawFloor = o.itemId != null ? byId[o.itemId]?.lowestPrice : null
+            def floor = (rawFloor != null && rawFloor > BigDecimal.ZERO) ? rawFloor : null
             def gap = (floor != null && o.maxPrice != null) ? (floor - o.maxPrice) : null
             // Queue position — 1 + number of ACTIVE orders on the same
             // item that would match first under the engine's
@@ -74,6 +82,16 @@ class BuyOrderController {
                 long ahead = queueByItem[o.itemId].count { row ->
                     row.mp > myMax || (row.mp == myMax && row.ts < myTs)
                 } as long
+                def ordItem = byId[o.itemId]
+                if (ordItem != null) {
+                    ahead += basketRows.count { Object[] b ->
+                        (b[0] == null || b[0] == ordItem.category) &&
+                        (b[1] == null || b[1] == ordItem.rarity) &&
+                        b[2] != null &&
+                        (((BigDecimal) b[2]) > myMax ||
+                         (((BigDecimal) b[2]) == myMax && ((Long) (b[3] ?: 0L)) < myTs))
+                    } as long
+                }
                 queuePosition = ahead + 1L
             }
             [

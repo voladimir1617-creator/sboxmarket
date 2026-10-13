@@ -574,9 +574,20 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
       setBuyOrderInfo(info => {
         const count = Math.max(0, (info?.count || 0) - 1);
         if (count === 0) return { count: 0, bestBid: null };
+        // Another order may sit at the same price, so the best bid is only
+        // known to be gone when the cancelled row was the only one at it.
         const best = parseFloat(info?.bestBid);
-        return { count, bestBid: best === cancelledPrice ? null : info.bestBid };
+        const others = Array.isArray(buyOrderRows)
+          ? buyOrderRows.filter(r => r.id !== myBuyOrder.id)
+          : null;
+        if (best !== cancelledPrice) return { count, bestBid: info.bestBid };
+        // Without the table loaded we cannot tell, so hide rather than guess.
+        if (!others) return { count, bestBid: null };
+        const next = others.reduce((m, r) => Math.max(m, parseFloat(r.maxPrice) || 0), 0);
+        return { count, bestBid: next > 0 ? next : null };
       });
+      // The expanded table must not keep listing the cancelled order.
+      setBuyOrderRows(rows => Array.isArray(rows) ? rows.filter(r => r.id !== myBuyOrder.id) : rows);
       // Batch 910 — personalised toast. Naming the item + the max price +
       // the fact that locked wallet funds are freed gives the user the
       // three things they might want to verify after a cancel, without
@@ -4126,11 +4137,10 @@ export function SettingsModal({ onClose, me }) {
         ].map(opt => h('button', {
           key: opt.id,
           className: `wallet-tx-filter-chip ${muted.has(opt.id) ? '' : 'active'}`,
-          // Batch 939 — aria-pressed exposes toggle state. Semantics
-          // here are inverted vs. the other chips (.active = "not
-          // muted" / audible) so pressed=true means the user is
-          // receiving this category.
-          'aria-pressed': !muted.has(opt.id),
+          // aria-pressed follows the row's question, "Mute notification
+          // types": pressed = muted, matching the "Muted · X" text. (The
+          // .active class is the visual "receiving" state and stays as is.)
+          'aria-pressed': muted.has(opt.id),
           onClick: () => toggleMute(opt.id),
           title: muted.has(opt.id) ? 'Muted — click to unmute' : 'Click to mute this category'
         }, muted.has(opt.id) ? `Muted · ${opt.label}` : opt.label))
@@ -7107,10 +7117,12 @@ function ProfileBuyOrdersTab() {
                   style: { width: 80, padding: '4px 6px', fontSize: 11 },
                   type: 'number', step: '0.01', min: '0.01',
                   inputMode: 'decimal',
-                  'aria-label': 'New max price per item',
+                  // Buy orders are priced in USD (like the offer forms), so
+                  // say so: the row beside it may read in another currency.
+                  'aria-label': 'New max price per item in USD',
                   value: editMax, onChange: e => setEditMax(e.target.value),
-                  placeholder: 'Max $',
-                  title: 'New max price per item'
+                  placeholder: 'Max USD',
+                  title: 'New max price per item, in USD'
                 }),
                 h('input', {
                   className: 'price-input',
@@ -10659,6 +10671,22 @@ function ProfileSupportTab() {
   useEffect(() => { load(); }, [load]);
   // Show a ticket only when it actually loaded; a failed fetch used to
   // set null, which silently closed the thread or ignored the click.
+  // Opening a ticket swaps the whole panel, so the row that had focus
+  // unmounts and keyboard focus fell to <body>. Move it to the thread's
+  // heading on open, and back to the ticket's row on "← Tickets".
+  const threadHeadRef = useRef(null);
+  const lastOpenedTicketRef = useRef(null);
+  const viewingId = viewing?.ticket?.id ?? null;
+  useEffect(() => {
+    if (viewingId != null) {
+      threadHeadRef.current?.focus?.();
+      return;
+    }
+    const id = lastOpenedTicketRef.current;
+    if (id == null) return;
+    const row = document.querySelector(`tr[data-ticket-id="${id}"]`);
+    if (row) row.focus();
+  }, [viewingId]);
   const showTicket = async (id) => {
     const t = await fetchSupportTicket(id);
     if (t && t.ticket) { setViewing(t); return true; }
@@ -10722,7 +10750,7 @@ function ProfileSupportTab() {
     } catch (_) { /* no URLSearchParams or no search — silent */ }
   }, []);
 
-  const openTicket = async (id) => { await showTicket(id); };
+  const openTicket = async (id) => { lastOpenedTicketRef.current = id; await showTicket(id); };
   // `/support?ticket=<id>` from a "ticket closed" bell entry: open that
   // ticket and show every status, since the default filter hides
   // resolved tickets.
@@ -10818,7 +10846,7 @@ function ProfileSupportTab() {
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
         h('button', { className: 'btn btn-ghost', onClick: () => setViewing(null) }, '← Tickets'),
         h('div', { style: { flex: 1 } },
-          h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
+          h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status)
         ),
         viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
@@ -10952,6 +10980,7 @@ function ProfileSupportTab() {
               h('tbody', null,
                 filtered.map(t => h('tr', {
                   key: t.id, className: 'db-row',
+                  'data-ticket-id': t.id,
                   onClick: () => openTicket(t.id),
                   role: 'button',
                   tabIndex: 0,
