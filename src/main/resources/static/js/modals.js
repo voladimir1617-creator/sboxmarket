@@ -256,7 +256,16 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
 
   let body;
   if (trust === undefined) {
-    body = h('div', { className: 'seller-trust-note' }, 'Checking trade record…');
+    // Drawn at the loaded card's size (figures row plus a note line), so
+    // the price and buttons below don't drop when the record arrives.
+    body = h(React.Fragment, null,
+      h('div', { className: 'seller-trust-stats', 'aria-hidden': 'true' },
+        [['completed', 'trades completed'], ['ship', 'median time to send']].map(([key, label]) =>
+          h('div', { key, className: 'seller-trust-stat', 'data-stat': key },
+            h('span', { className: 'seller-trust-val' }, '\u00a0'),
+            h('span', { className: 'seller-trust-label' }, label)))),
+      // Two lines: the new-seller note it most often becomes wraps to two.
+      h('div', { className: 'seller-trust-note', 'aria-busy': 'true', style: { minHeight: 36 } }, 'Checking trade record…'));
   } else if (trust === null) {
     body = h('div', { className: 'seller-trust-note', 'data-state': 'unavailable' },
       'Trade record unavailable right now. Your payment is held in escrow either way.');
