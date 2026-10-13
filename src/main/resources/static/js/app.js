@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=251';
+} from './modals.js?v=252';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -3306,7 +3306,18 @@ export function App() {
         // The endpoint returns either a bare array or `{ items, total, ... }`
         // when paginated. Accept both shapes.
         const items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : null);
-        if (items && items.length > 0) setHomeFeatured(items);
+        // One card per item: the endpoint returns one row per listing, so
+        // two copies of the same skin showed twice with clashing keys.
+        if (items && items.length > 0) {
+          const byItem = new Map();
+          for (const l of items) {
+            const id = l?.item?.id;
+            if (id == null) continue;
+            const prev = byItem.get(id);
+            if (!prev || parseFloat(l.price) < parseFloat(prev.price)) byItem.set(id, l);
+          }
+          setHomeFeatured(items.filter(l => l?.item?.id != null && byItem.get(l.item.id) === l));
+        }
         if (typeof data.total === 'number') setHomeTotalListings(data.total);
       })
       .catch(() => {});
@@ -4471,7 +4482,11 @@ export function App() {
           // so the flag gets set and we skip next time.
           const merged = await bulkMergeWatchlist(watchlist || []);
           if (!alive) return;
-          if (merged && Array.isArray(merged.ids)) setWatchlist(merged.ids);
+          // writeJson reports failure as {error}, never a throw: mark the
+          // merge done only when it landed, or the next sign-in's GET
+          // would overwrite stars that never reached the server.
+          if (!merged || !Array.isArray(merged.ids)) return;
+          setWatchlist(merged.ids);
           try { localStorage.setItem(sentKey, '1'); } catch (_) {}
         } else {
           // Returning session — server is source of truth; refresh local
@@ -4517,9 +4532,10 @@ export function App() {
           }));
           const merged = await bulkMergeSavedSearches(payload);
           if (!alive) return;
-          if (merged && Array.isArray(merged.entries)) {
-            persistSavedSearches(merged.entries);
-          }
+          // Only a merge that landed marks this browser synced (see the
+          // watchlist bridge above).
+          if (!merged || !Array.isArray(merged.entries)) return;
+          persistSavedSearches(merged.entries);
           try { localStorage.setItem(sentKey, '1'); } catch (_) {}
         } else {
           const fresh = await fetchSavedSearches();
@@ -9659,6 +9675,7 @@ export function App() {
       me,
       watchlist, allListings: listings,
       onOpen: openModal, onToggleStar: toggleStar,
+      onClearAll: () => setWatchlist([]),
       onAddToCart: me ? addToCart : null,
       cartHas: (id) => cart.some(c => c.id === id),
       initialTab: route.params?.tab

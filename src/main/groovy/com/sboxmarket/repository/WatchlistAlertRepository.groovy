@@ -30,7 +30,10 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
      *  hydrate them all on every Watchlist-Alerts tab open. ACTIVE
      *  is capped at 50 per user (WatchlistAlertService.PER_USER_LIMIT),
      *  but the terminal-state rows accumulate unbounded. */
-    @Query("SELECT a FROM WatchlistAlert a WHERE a.userId = :uid ORDER BY a.createdAt DESC")
+    // ACTIVE rows sort first so the cap only ever trims history: an old
+    // live alert must stay listed (and cancellable) however many newer
+    // FIRED / CANCELLED rows pile up above it.
+    @Query("SELECT a FROM WatchlistAlert a WHERE a.userId = :uid ORDER BY CASE WHEN a.status = 'ACTIVE' THEN 0 ELSE 1 END, a.createdAt DESC")
     List<WatchlistAlert> findByUserIdPaged(@Param("uid") Long uid,
                                             org.springframework.data.domain.Pageable pageable)
 
