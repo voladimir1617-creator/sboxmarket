@@ -315,7 +315,7 @@ class SteamEscrowService {
                 marketHashName: marketHashName,
                 custodyState: EscrowedItem.PENDING_DEPOSIT)
 
-        SteamBotResult res = steamTradeBotService.requestItems(tradeUrl, [assetId.trim()], offerMessage)
+        SteamBotResult res = steamTradeBotService.requestItems(tradeUrl, [assetId.trim()], messageFor(row))
         if (res.ok) {
             row.depositOfferId = res.offerId
             row.lastError = null
@@ -798,7 +798,7 @@ class SteamEscrowService {
             return false
         }
         String assetToSend = e.heldAssetId ?: e.assetId
-        SteamBotResult res = steamTradeBotService.sendOffer(tradeUrl, [assetToSend], offerMessage)
+        SteamBotResult res = steamTradeBotService.sendOffer(tradeUrl, [assetToSend], messageFor(e))
         if (res.ok) {
             e.returnOfferId = res.offerId
             e.custodyState = EscrowedItem.RETURNED
@@ -1013,7 +1013,7 @@ class SteamEscrowService {
                         || fresh.depositOfferId != null) continue
 
                 SteamBotResult res = steamTradeBotService.requestItems(
-                        tradeUrl, [(fresh.assetId ?: '').trim()], offerMessage)
+                        tradeUrl, [(fresh.assetId ?: '').trim()], messageFor(fresh))
                 if (res.ok) {
                     fresh.depositOfferId = res.offerId
                     fresh.lastError = null
@@ -1138,10 +1138,19 @@ class SteamEscrowService {
                 holdOverdue:     holding && e.escrowEndsAt != null && now > depositDeadlineFor(e),
                 itemLeftSeller:  e.depositAcceptedAt != null,
                 returnQueued:    e.returnRequestedAt != null,
+                offerSent:       e.depositOfferId != null,
+                securityCode:    e.securityCode,
                 message:         message
             ]
         }
         return out
+    }
+
+    /** The trade-offer message for a custody row: the configured text plus
+     *  the row's security code, which the seller sees on the site too. */
+    String messageFor(EscrowedItem e) {
+        String base = offerMessage ?: ''
+        e?.securityCode ? "${base} · code ${e.securityCode}".toString() : base
     }
 
     /** How long a confirmed return stays on the seller's view as "back in
@@ -1187,8 +1196,11 @@ class SteamEscrowService {
             } else {
                 continue
             }
+            def item = null
+            try { item = listingRepository.findById(e.listingId).orElse(null)?.item } catch (Exception ignored) { }
             returning << [listingId: e.listingId, name: e.marketHashName, state: state,
-                          returnOfferId: e.returnOfferId, message: message,
+                          returnOfferId: e.returnOfferId, securityCode: e.securityCode,
+                          item: item, message: message,
                           at: e.returnConfirmedAt ?: e.returnRequestedAt]
         }
         out.returning = returning.sort { a, b -> (b.at ?: 0L) <=> (a.at ?: 0L) }

@@ -12973,6 +12973,44 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
 // inner body defines ~30 hooks and the early-return would skip them on
 // anon. Direct-URL to /me/stall used to render a spinner indefinitely
 // because the load() only fires when `me` is set.
+// Where one bot trade offer is: done steps ticked, the current one lit,
+// the rest dimmed. `active` is the index of the step in progress; a value
+// past the last label means every step is done.
+function BotOfferSteps({ labels, active }) {
+  return h('ol', { className: 'bot-steps', 'aria-label': 'Trade progress' },
+    labels.map((label, i) => h('li', {
+      key: label,
+      className: 'bot-step ' + (i < active ? 'is-done' : i === active ? 'is-active' : 'is-todo'),
+      'aria-current': i === active ? 'step' : undefined
+    },
+      h('span', { className: 'bot-step-dot' }, i < active ? '✓' : String(i + 1)),
+      h('span', { className: 'bot-step-label' }, label))));
+}
+
+// Panel icons drawn inline: the bundled icon font is a fixed subset.
+function BotPanelIcon({ kind }) {
+  const paths = {
+    lock:   [h('rect', { key: 'b', x: 5, y: 11, width: 14, height: 10, rx: 2 }), h('path', { key: 's', d: 'M8 11V8a4 4 0 0 1 8 0v3' })],
+    return: [h('path', { key: 'a', d: 'M9 14L4 9l5-5' }), h('path', { key: 'l', d: 'M4 9h10a6 6 0 0 1 0 12h-3' })],
+    check:  [h('circle', { key: 'c', cx: 12, cy: 12, r: 9 }), h('path', { key: 't', d: 'M8 12.5l2.5 2.5L16 9.5' })]
+  };
+  return h('svg', {
+    className: 'bot-offer-icon', width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none',
+    stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true
+  }, paths[kind]);
+}
+
+// The code our bot writes on its trade offer for this item. Matching it in
+// Steam is how a seller tells our offer from an impersonator bot's.
+function BotSecurityCode({ code }) {
+  return h('div', {
+    className: 'bot-code',
+    title: "Our bot's trade offer message ends with this code. Decline any offer for this item without it."
+  },
+    h('span', { className: 'bot-code-label' }, 'Offer code'),
+    h('span', { className: 'bot-code-value' }, code));
+}
+
 export function MyStallModal(props) {
   if (!props.me) {
     return h(InfoModal, { title: 'My Stall', onClose: props.onClose },
@@ -14009,86 +14047,82 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // Each row says what is happening in the server's own words (offer out,
     // Steam trade hold until a date, or no offer sent yet) and can be
     // cancelled, which returns anything the bot already received.
+    // Waiting for your item, and coming back to your Steam: one panel style
+    // for both directions of a bot trade, the way skin sites show them — the
+    // item, where the trade offer is (sent, accept in Steam, done), and the
+    // security code our bot writes on the offer so he can tell it from an
+    // impersonator's.
     held.length > 0 && h('div', {
-      className: 'stall-held',
-      role: 'region', 'aria-label': 'Listings waiting for your item',
-      style: {
-        margin: '0 0 14px 0', padding: '10px 14px',
-        background: 'rgba(30,165,255,0.08)',
-        border: '1px solid var(--accent-border)',
-        borderRadius: 8, textAlign: 'left'
-      }
+      className: 'stall-held bot-offer-panel',
+      role: 'region', 'aria-label': 'Listings waiting for your item'
     },
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 } },
-        h('span', { style: { fontSize: 16 } }, '🔒'),
-        h('div', { style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: 'var(--accent)' } },
-          `Waiting for your item · ${held.length}`),
+      h('div', { className: 'bot-offer-head' },
+        h(BotPanelIcon, { kind: 'lock' }),
+        h('div', { className: 'bot-offer-title' }, 'Waiting for your item', h('span', { className: 'bot-offer-count' }, held.length)),
         h('a', {
-          className: 'btn btn-ghost',
+          className: 'btn btn-ghost bot-offer-link',
           href: 'https://steamcommunity.com/my/tradeoffers/',
-          target: '_blank', rel: 'noopener noreferrer',
-          style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 }
+          target: '_blank', rel: 'noopener noreferrer'
         }, 'Open Steam trade offers ↗')
       ),
+      h('div', { className: 'bot-offer-tip' },
+        'Our deposit offer asks for this one item and gives nothing back. Accept it only if its message shows the code next to the item here.'),
       held.map(row => {
         const l = row.listing || {};
         const e = row.escrow || {};
-        return h('div', {
-          key: l.id, className: 'stall-held-row',
-          style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }
-        },
-          h('div', { style: { flex: 1, minWidth: 180 } },
-            h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' } },
-              l.item?.name || 'Item', ' · ', fmt(l.price)),
-            h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 } },
+        const failed = e.custodyState === 'FAILED';
+        const step = e.custodyState === 'IN_ESCROW_HOLD' ? 2 : (e.offerSent ? 1 : 0);
+        return h('div', { key: l.id, className: 'stall-held-row bot-offer-row' },
+          h('div', { className: 'item-thumb bot-offer-thumb' }, l.item ? h(ItemImage, { item: l.item, variant: 'mini' }) : null),
+          h('div', { className: 'bot-offer-main' },
+            h('div', { className: 'bot-offer-name' }, l.item?.name || 'Item', h('span', { className: 'bot-offer-price' }, fmt(l.price))),
+            failed
+              ? null
+              : h(BotOfferSteps, { labels: ['Offer sent', 'Accept in Steam', e.inSteamHold ? 'Steam hold' : 'Live on market'], active: step }),
+            h('div', { className: 'bot-offer-msg' },
               e.message || 'Waiting for our bot to receive your item. Your listing goes live the moment it arrives.')
           ),
-          h('button', {
-            className: 'btn btn-ghost',
-            style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
-            onClick: () => doCancel(l)
-          }, 'Cancel')
+          h('div', { className: 'bot-offer-side' },
+            e.securityCode && h(BotSecurityCode, { code: e.securityCode }),
+            h('button', { className: 'btn btn-ghost bot-offer-cancel', onClick: () => doCancel(l) }, 'Cancel')
+          )
         );
       })
     ),
-    // Coming back to your Steam — withdrawn skins the bot is returning, and
-    // ones that arrived in the last day, so a withdrawal has a visible end.
-    botCustody.returning.length > 0 && h('div', {
-      className: 'stall-returning',
-      role: 'region', 'aria-label': 'Items coming back to your Steam',
-      style: {
-        margin: '0 0 14px 0', padding: '10px 14px',
-        background: 'rgba(34,197,94,0.06)',
-        border: '1px solid var(--border)',
-        borderRadius: 8, textAlign: 'left'
-      }
-    },
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 } },
-        h('span', { style: { fontSize: 16 } }, '↩'),
-        h('div', { style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' } },
-          botCustody.returning.every(r => r.state === 'BACK')
-            ? `Back in your Steam · ${botCustody.returning.length}`
-            : `Coming back to your Steam · ${botCustody.returning.length}`),
-        botCustody.returning.some(r => r.state !== 'BACK') && h('a', {
-          className: 'btn btn-ghost',
-          href: 'https://steamcommunity.com/my/tradeoffers/',
-          target: '_blank', rel: 'noopener noreferrer',
-          style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 }
-        }, 'Open Steam trade offers ↗')
-      ),
-      botCustody.returning.map(r => h('div', {
-        key: r.listingId, className: 'stall-returning-row',
-        style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }
+    botCustody.returning.length > 0 && (() => {
+      const allBack = botCustody.returning.every(r => r.state === 'BACK');
+      return h('div', {
+        className: 'stall-returning bot-offer-panel' + (allBack ? ' is-done' : ''),
+        role: 'region', 'aria-label': 'Items coming back to your Steam'
       },
-        h('div', { style: { flex: 1, minWidth: 180 } },
-          h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' } }, r.name || 'Item'),
-          h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 } }, r.message)
+        h('div', { className: 'bot-offer-head' },
+          h(BotPanelIcon, { kind: allBack ? 'check' : 'return' }),
+          h('div', { className: 'bot-offer-title' },
+            allBack ? 'Back in your Steam' : 'Coming back to your Steam',
+            h('span', { className: 'bot-offer-count' }, botCustody.returning.length)),
+          !allBack && h('a', {
+            className: 'btn btn-ghost bot-offer-link',
+            href: 'https://steamcommunity.com/my/tradeoffers/',
+            target: '_blank', rel: 'noopener noreferrer'
+          }, 'Open Steam trade offers ↗')
         ),
-        h('span', {
-          style: { fontSize: 11, fontWeight: 700, color: r.state === 'BACK' ? 'var(--green)' : 'var(--accent)', padding: '4px 0' }
-        }, r.state === 'BACK' ? '✓ Returned' : 'On its way')
-      ))
-    ),
+        !allBack && h('div', { className: 'bot-offer-tip' },
+          'A withdrawal offer only gives you your item and asks for nothing. Check its message shows the code next to the item here.'),
+        botCustody.returning.map(r => {
+          const step = r.state === 'BACK' ? 3 : r.state === 'OFFER_SENT' ? 1 : 0;
+          return h('div', { key: r.listingId, className: 'stall-returning-row bot-offer-row' },
+            h('div', { className: 'item-thumb bot-offer-thumb' }, r.item ? h(ItemImage, { item: r.item, variant: 'mini' }) : null),
+            h('div', { className: 'bot-offer-main' },
+              h('div', { className: 'bot-offer-name' }, r.name || r.item?.name || 'Item'),
+              h(BotOfferSteps, { labels: ['Offer sent', 'Accept in Steam', 'Back in Steam'], active: step }),
+              h('div', { className: 'bot-offer-msg' }, r.message)
+            ),
+            h('div', { className: 'bot-offer-side' },
+              r.state !== 'BACK' && r.securityCode && h(BotSecurityCode, { code: r.securityCode }))
+          );
+        })
+      );
+    })(),
     // Active vs Sold vs Analytics tabs. Sold tab reveals seller's own sale
     // history with gross revenue (pre-fee). Matches CSFloat's "My Sales".
     // WAI-ARIA tabs pattern + Arrow/Home/End keyboard nav, mirroring

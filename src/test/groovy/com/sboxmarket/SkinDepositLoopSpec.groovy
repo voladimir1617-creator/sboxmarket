@@ -155,6 +155,13 @@ class SkinDepositLoopSpec extends Specification {
         listing.status == SteamEscrowService.STATUS_PENDING_ESCROW
         steam.openOffers().any { it.kind == 'receive' && it.partner == sellerSteamId && it.assetIds == [assetId] }
 
+        and: "the code the site shows him is the one written on the bot's offer"
+        def shown = new JsonSlurper().parseText(mockMvc.perform(MockMvcRequestBuilders
+                .get('/api/listings/my-stall/pending-escrow').session(sellerSession))
+                .andReturn().response.contentAsString)[0].escrow.securityCode as String
+        shown ==~ /[A-Z2-9]{4}/
+        steam.openOffers().find { it.kind == 'receive' }.message.endsWith("code $shown")
+
         when: "the seller accepts the deposit offer and the poller ticks"
         steam.acceptAll()
         escrowService.pollDeposits()
@@ -232,6 +239,7 @@ class SkinDepositLoopSpec extends Specification {
         def out = steam.openOffers().find { it.kind == 'give' && it.partner == sellerSteamId }
         out != null
         escrowRepository.findByListingId(listingId).custodyState == EscrowedItem.RETURNED
+        out.message.endsWith("code ${myBotCustody().returning[0].securityCode}")
 
         and: "My Stall shows it on its way back, no longer held"
         myBotCustody().heldListingIds == []
@@ -346,7 +354,7 @@ class SkinDepositLoopSpec extends Specification {
                     return reply(502, [ok: false, error: 'INVENTORY_ERROR', message: 'item not in inventory'])
                 }
                 def id = String.valueOf(nextId++)
-                offers[id] = [id: id, kind: kind, partner: partnerId, assetIds: ids, state: 'active']
+                offers[id] = [id: id, kind: kind, partner: partnerId, assetIds: ids, state: 'active', message: json.message]
                 return reply(200, [ok: true, offerId: id, status: 'sent', steamStatus: 'sent', confirmed: true])
             }
             if (x.requestMethod == 'GET' && (m = path =~ /^\/offers\/(\d+)$/)) {
