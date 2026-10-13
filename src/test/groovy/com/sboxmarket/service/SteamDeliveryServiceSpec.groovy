@@ -119,6 +119,26 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * notificationService.safePush(2L, _, _, _, _, _)
     }
 
+    def "send: the delivery offer carries the buyer's security code, like deposit and return offers"() {
+        given:
+        def t = trade(state: SteamDeliveryService.STATE_AWAITING_SEND)
+        service.deliveryCodeSecret = 'test-secret'
+        String code = service.deliveryCodeFor(t)
+
+        when:
+        service.processTrade(7L)
+
+        then:
+        code ==~ /[A-HJKMNP-Z2-9]{4}/
+        // keyed by the secret, not guessable from the trade id alone
+        code != new SteamDeliveryService(deliveryCodeSecret: 'other-secret').deliveryCodeFor(t)
+        1 * tradeRepository.findById(7L) >> Optional.of(t)
+        1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> []
+        1 * steamUserRepository.findById(2L) >> Optional.of(buyerWithUrl())
+        1 * bot.sendOffer(_, ['555'], "sboxmarket delivery · code ${code}".toString()) >>
+                SteamBotResult.success([ok: true, offerId: '987', status: 'sent'])
+    }
+
     def "send: delivery uses the REAL bot-held custody asset (not the staging override), and does NOT yet mark it delivered"() {
         given:
         def t = trade(state: SteamDeliveryService.STATE_AWAITING_SEND)

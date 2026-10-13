@@ -8756,6 +8756,9 @@ function ProfileTradesTab({ me, privacy }) {
                 !isSeller && t.state === 'PENDING_BUYER_CONFIRM' && h('div', {
                   style: { marginTop: 6, display: 'flex', gap: 8, fontSize: 11, flexWrap: 'wrap', alignItems: 'center' }
                 },
+                  // Our bot's delivery offer ends with this code; only the
+                  // buyer sees it, so an impersonator's offer can't match it.
+                  t.deliveryCode && h(BotSecurityCode, { code: t.deliveryCode }),
                   // Batch 773 — if the seller included a direct trade-offer
                   // URL at Mark-Sent time, show a one-click deep link to
                   // that exact offer. Still render the generic inbox
