@@ -337,7 +337,7 @@ class SeedServiceSpec extends Specification {
         withoutImage.every { it.iconEmoji != null && !it.iconEmoji.isEmpty() }
     }
 
-    def "seeded catalogue steamPrice stays a positive BigDecimal above lowestPrice"() {
+    def "seeding never invents a Steam reference price; it stays empty until the live sync"() {
         given:
         walletRepository.count() >> 1L
         itemRepository.count() >> 0L
@@ -358,7 +358,9 @@ class SeedServiceSpec extends Specification {
         service.seed()
 
         then:
-        saved.every { it.steamPrice != null && it.steamPrice > it.lowestPrice }
+        !saved.isEmpty()
+        saved.every { it.steamPrice == null }
+        saved.every { it.lowestPrice != null && it.lowestPrice > BigDecimal.ZERO }
     }
 
     // ── seeded marketplace-listing sanity ────────────────────────────

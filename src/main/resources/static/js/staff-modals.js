@@ -21,6 +21,13 @@ import {
 } from './api.js';
 
 // ── ADMIN PANEL ─────────────────────────────────────────────────
+// Staff money prompts take USD, so the confirm and toast show USD too:
+// fmt() converts to the viewer's display currency, which made "5" read
+// as "CREDIT ¥745" for a staff member browsing in yen.
+function usdAmount(v) {
+  return '$' + (Number(v) || 0).toFixed(2) + ' USD';
+}
+
 export function AdminModal({ onClose, me }) {
   // Deep-link via `?tab=<id>` (batch 463) — lets a notification like
   // CHARGEBACK_OPENED route the admin straight to /admin?tab=disputes
@@ -481,7 +488,8 @@ function SmtpTestRow() {
 function AdminDeletionsTab() {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(async () => { setRows(null); setRows(await adminDeletionRequests()); }, []);
+  // false = the load failed (shown as an error, never as an empty queue).
+  const load = useCallback(async () => { setRows(null); const r = await adminDeletionRequests(); setRows(Array.isArray(r) ? r : false); }, []);
   useEffect(() => { load(); }, [load]);
   const finalise = async (r) => {
     const ok = confirm(
@@ -507,6 +515,9 @@ function AdminDeletionsTab() {
     } finally { setBusy(false); }
   };
   if (rows === null) return h('div', { className: 'spinner' });
+  if (rows === false) return h('div', { className: 'profile-panel' },
+    h('div', { className: 'wallet-error', role: 'alert' }, 'Deletion requests failed to load, so this is not an empty queue. ',
+      h('button', { className: 'btn btn-sm', onClick: load }, 'Retry')));
   if (rows.length === 0) return h('div', { className: 'profile-panel' },
     h('div', { className: 'empty-inline' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'delete', size: 26 })),
@@ -560,7 +571,8 @@ function AdminReportedTab() {
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState({});  // listingId → bool
   const [actionDraft, setActionDraft] = useState(null);  // { kind: 'remove'|'dismiss', row }
-  const load = useCallback(async () => { setRows(null); setRows(await adminReportedListings()); }, []);
+  // false = the load failed (shown as an error, never as "the marketplace is clean").
+  const load = useCallback(async () => { setRows(null); const r = await adminReportedListings(); setRows(Array.isArray(r) ? r : false); }, []);
   useEffect(() => { load(); }, [load]);
 
   const submitReportAction = async (text) => {
@@ -582,6 +594,9 @@ function AdminReportedTab() {
     } finally { setBusy(false); }
   };
   if (rows === null) return h('div', { className: 'spinner' });
+  if (rows === false) return h('div', { className: 'profile-panel' },
+    h('div', { className: 'wallet-error', role: 'alert' }, 'Reported listings failed to load, so this is not an empty queue. ',
+      h('button', { className: 'btn btn-sm', onClick: load }, 'Retry')));
   if (rows.length === 0) {
     return h('div', { className: 'profile-panel' },
       h('div', { className: 'empty-inline' },
@@ -1093,7 +1108,8 @@ function AdminFraudTab() {
     setLoading(true); setError('');
     try {
       const r = await adminFraudSignals();
-      setRows(Array.isArray(r) ? r : []);
+      if (!Array.isArray(r)) throw new Error('Fraud signals failed to load; this is not an all-clear.');
+      setRows(r);
     } catch (e) { setError(e?.message || 'Failed to load'); }
     finally { setLoading(false); }
   }, []);
@@ -1107,7 +1123,8 @@ function AdminFraudTab() {
       setLoading(true); setError('');
       try {
         const r = await adminFraudSignals();
-        if (alive) setRows(Array.isArray(r) ? r : []);
+        if (!Array.isArray(r)) throw new Error('Fraud signals failed to load; this is not an all-clear.');
+        if (alive) setRows(r);
       } catch (e) { if (alive) setError(e?.message || 'Failed to load'); }
       finally { if (alive) setLoading(false); }
     })();
@@ -1123,7 +1140,8 @@ function AdminFraudTab() {
       if (document.visibilityState !== 'visible') return;
       try {
         const r = await adminFraudSignals();
-        if (alive) setRows(Array.isArray(r) ? r : []);
+        // A failed background tick keeps the rows already shown.
+        if (alive && Array.isArray(r)) setRows(r);
       } catch (_) {}
     };
     const id = setInterval(tick, 60_000);
@@ -1181,7 +1199,7 @@ function AdminFraudTab() {
         }, showReviewed ? 'Hide reviewed' : `Show ${hiddenCount} reviewed`)
       ),
       error && h('div', { className: 'admin-error' }, error),
-      !loading && rows.length === 0 && h('div', { className: 'empty-inline' },
+      !loading && !error && rows.length === 0 && h('div', { className: 'empty-inline' },
         '✨ No suspicious patterns detected in the last 24 hours.'),
       !loading && rows.length > 0 && visible.length === 0 && h('div', { className: 'empty-inline' },
         '✓ You\'ve reviewed every signal in the current window.'),
@@ -1245,7 +1263,8 @@ function AdminDisputesTab() {
     try {
       const { adminDisputes } = await import('./api.js');
       const r = await adminDisputes();
-      setRows(Array.isArray(r) ? r : []);
+      if (!Array.isArray(r)) throw new Error('Disputes failed to load; this is not an empty queue.');
+      setRows(r);
     } catch (e) { setErr(e?.message || 'Failed to load'); }
     finally { setLoading(false); }
   }, []);
@@ -1299,7 +1318,7 @@ function AdminDisputesTab() {
         }, '⇣ CSV')
       ),
       err && h('div', { className: 'admin-error' }, err),
-      !loading && rows.length === 0 && h('div', { className: 'empty-inline' },
+      !loading && !err && rows.length === 0 && h('div', { className: 'empty-inline' },
         '✓ No active chargebacks. The webhook will populate this list when one fires.'),
       rows.length > 0 && h('table', { className: 'db-table', style: { marginTop: 14 } },
         h('thead', null, h('tr', null,
@@ -1991,7 +2010,8 @@ function AdminDashboardTab({ onNavTab }) {
     const load = async () => {
       try {
         const s = await adminStats();
-        if (alive) setStats(s);
+        // A failed poll keeps the last good numbers instead of zeroing them.
+        if (alive && s) setStats(s);
       } catch (_) {}
     };
     load();
@@ -2726,7 +2746,7 @@ function AdminUsersTab({ me }) {
     // instantly otherwise. Spell out direction + amount + target so the
     // admin can catch a mistyped value before it lands in the ledger.
     const verb = amt >= 0 ? 'CREDIT' : 'DEBIT';
-    if (!confirm(`${verb} ${fmt(Math.abs(amt))} ${amt >= 0 ? 'to' : 'from'} ${label}'s wallet?\n\nThis adjusts the balance immediately and is logged in the audit trail.`)) return;
+    if (!confirm(`${verb} ${usdAmount(Math.abs(amt))} ${amt >= 0 ? 'to' : 'from'} ${label}'s wallet?\n\nThis adjusts the balance immediately and is logged in the audit trail.`)) return;
     setBusy(true);
     try {
       const res = await adminCreditWallet(u.id, amt, note);
@@ -2737,7 +2757,7 @@ function AdminUsersTab({ me }) {
       // the row contradicted it. Refresh keeps both surfaces in sync.
       await load();
       const direction = amt >= 0 ? 'credited' : 'debited';
-      toast(`${label} ${direction} ${fmt(Math.abs(amt))} — new balance ${fmt(res.newBalance)}.`, 'ok');
+      toast(`${label} ${direction} ${usdAmount(Math.abs(amt))} — new balance ${usdAmount(res.newBalance)}.`, 'ok');
     } finally { setBusy(false); }
   };
 
@@ -3855,7 +3875,7 @@ function CsrLookupTab() {
     // confirm gate. CSR goodwill is real money out the door, irreversible
     // without an admin debit; a fat-fingered amount must be catchable
     // before it lands in the ledger.
-    if (!confirm(`CREDIT ${fmt(value)} to ${label}'s wallet?\n\nThis adjusts the balance immediately and is logged in the audit trail.`)) return;
+    if (!confirm(`CREDIT ${usdAmount(value)} to ${label}'s wallet?\n\nThis adjusts the balance immediately and is logged in the audit trail.`)) return;
     // Guard against double-submit — without busy, a double-clicked
     // "+ Goodwill" button fires two csrGoodwill POSTs and double-credits
     // the wallet (the confirm() already cleared on the first click).

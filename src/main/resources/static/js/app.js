@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=256';
+} from './modals.js?v=257';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -3616,7 +3616,10 @@ export function App() {
   };
   useEffect(() => {
     const q = (searchInput || '').trim();
-    if (q.length < 2) { setSuggest([]); return; }
+    // Drop the previous query's items at once: until the new lookup lands,
+    // ArrowDown + Enter would otherwise open an item for the old text.
+    setSuggest([]);
+    if (q.length < 2) return;
     let alive = true;
     const t = setTimeout(async () => {
       try {

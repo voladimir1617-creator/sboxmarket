@@ -93,6 +93,11 @@ interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     """)
     long countDistinctSignInIpsSince(@Param("uid") Long uid, @Param("since") Long since)
 
+    /** Rows of one event type written since `since` (e.g. CHARGEBACK_OPENED,
+     *  logged once per Stripe dispute, so cleared disputes still count). */
+    @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.eventType = :eventType AND a.createdAt >= :since")
+    long countByEventTypeSince(@Param("eventType") String eventType, @Param("since") Long since)
+
     /** Has this user signed in from the given IP inside the window?
      *  Drives the "new sign-in location" security email (batch 606).
      *  Returns COUNT so the caller can treat 0 as "new IP, send the
