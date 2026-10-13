@@ -1980,6 +1980,9 @@ export async function fetchRecentSales(itemId, limit) {
 export async function fetchBuyOrderCountForItem(itemId) {
   const data = await safeJson(`${API}/buy-orders/count/item/${itemId}`);
   return {
+    // false when the lookup failed: a count of 0 then means "unknown", and
+    // the item page must not tell anyone there are no buy orders.
+    loaded:  data != null && typeof data === 'object',
     count:   Number(data?.count || 0),
     bestBid: data?.bestBid != null ? Number(data.bestBid) : null
   };

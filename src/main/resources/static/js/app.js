@@ -11,13 +11,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow } from './cards.js?v=11';
+import { GridCard, ListingRow } from './cards.js?v=12';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=255';
+} from './modals.js?v=256';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -6435,7 +6435,8 @@ export function App() {
                       const isVerified = (l.sellerReviewCount || 0) >= 5 && (l.sellerRating || 0) >= 4;
                       return h('div', { className: 'csfloat-hero-stack-online' },
                         isOnline && h('span', { className: 'csfloat-hero-stack-online-dot' }),
-                        h('span', { className: 'csfloat-hero-stack-online-text' }, isOnline ? 'Online' : 'Offline'),
+                        // Presence is the signal; an offline seller shows nothing.
+                        isOnline && h('span', { className: 'csfloat-hero-stack-online-text' }, 'Online'),
                         isVerified && h('span', { className: 'csfloat-hero-stack-verified', 'aria-label': 'Verified seller' },
                           h(MaterialIcon, { name: 'verified', size: 13 })
                         )
@@ -6616,7 +6617,7 @@ export function App() {
     routeName === 'home' && h('section', { id: 'main', role: 'main', className: 'csfloat-home-hero', 'aria-label': `${BRAND.name} marketplace landing` },
       h('div', { className: 'csfloat-home-hero-inner' },
         h('div', { className: 'csfloat-home-hero-copy' },
-          h('h1', { className: 'csfloat-home-hero-title' }, 'Buy & Sell s&box Skins on the Most Trusted Marketplace'),
+          h('h1', { className: 'csfloat-home-hero-title' }, 'Buy & Sell s&box Skins'),
           // Custody is a runtime fact (STEAM_BOT_BASE_URL), not a constant —
           // custodyCopy resolves it so this line can't outlive the config.
           h('p', { className: 'csfloat-home-hero-sub' }, custody.heroSub),
@@ -6703,8 +6704,9 @@ export function App() {
                     // Five 1★ reviews must not earn a check mark.
                     const isVerified = (top.sellerReviewCount || 0) >= 5 && (top.sellerRating || 0) >= 4;
                     return h('div', { className: 'csfloat-home-hero-feature-statusrow' },
-                      h('span', { className: `csfloat-home-hero-feature-dot${isOnline ? ' online' : ''}` }),
-                      isOnline ? 'Online' : 'Offline',
+                      // Presence is the signal; an offline seller shows nothing.
+                      isOnline && h('span', { className: 'csfloat-home-hero-feature-dot online' }),
+                      isOnline && 'Online',
                       isVerified && h('span', { className: 'csfloat-home-hero-feature-verified', title: 'Verified seller (5+ reviews, rated 4★+)' },
                         h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
                           h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
@@ -6764,6 +6766,33 @@ export function App() {
        associated panel. Switched to role="navigation" + plain links so
        the announced semantics match the actual behavior (page-level nav
        to filtered marketplace views). */
+    /* Home marketing — trust metrics band, directly under the hero the way
+       White.market, CS.Deals and CS.Trade put theirs. 3 tiles: one live
+       number (listings); the rest are static PRODUCT-FACT claims (fee %,
+       auth method) — never invented measurements. The old "Instant /
+       Wallet payout" tile was dropped: it was not a counted figure. If a tile ever needs a
+       quantity (volume, payout time), compute it from real records
+       server-side first. */
+    routeName === 'home' && h('section', { className: 'csfloat-home-metrics', 'aria-label': 'Marketplace trust metrics' },
+      h('div', { className: 'csfloat-home-metrics-inner' },
+        h('div', { className: 'csfloat-home-metrics-eyebrow' }, 'Trusted by s&box traders'),
+        h('div', { className: 'csfloat-home-metrics-row' },
+          h('div', { className: 'csfloat-home-metric' },
+            h('div', { className: 'csfloat-home-metric-num' },
+              homeTotalListings != null ? homeTotalListings.toLocaleString() : '—'),
+            h('div', { className: 'csfloat-home-metric-label' }, 'Live listings')
+          ),
+          h('div', { className: 'csfloat-home-metric' },
+            h('div', { className: 'csfloat-home-metric-num' }, '2%'),
+            h('div', { className: 'csfloat-home-metric-label' }, 'Platform fee')
+          ),
+          h('div', { className: 'csfloat-home-metric' },
+            h('div', { className: 'csfloat-home-metric-num' }, 'Steam'),
+            h('div', { className: 'csfloat-home-metric-label' }, 'OpenID auth')
+          )
+        )
+      )
+    ),
     routeName === 'home' && h('section', { className: 'csfloat-home-rail', 'aria-label': 'Featured tabs' },
       h('h2', { className: 'visually-hidden' }, 'Featured tabs'),
       h('div', { className: 'csfloat-home-rail-inner' },
@@ -6887,43 +6916,6 @@ export function App() {
           ),
           h('div', { className: 'csfloat-home-tile-title' }, custody.tileTitle),
           h('div', { className: 'csfloat-home-tile-blurb' }, custody.tileBlurb)
-        )
-      )
-    ),
-    /* Home marketing — trust metrics band. 4 tiles that read fast and
-       reinforce "this marketplace is real". One live number (listings);
-       the rest are static PRODUCT-FACT claims (fee %, payout mechanism,
-       auth method) — never invented measurements. If a tile ever needs a
-       quantity (volume, payout time), compute it from real records
-       server-side first. */
-    routeName === 'home' && h('section', { className: 'csfloat-home-metrics', 'aria-label': 'Marketplace trust metrics' },
-      h('div', { className: 'csfloat-home-metrics-inner' },
-        h('div', { className: 'csfloat-home-metrics-eyebrow' }, 'Trusted by s&box traders'),
-        h('div', { className: 'csfloat-home-metrics-row' },
-          h('div', { className: 'csfloat-home-metric' },
-            h('div', { className: 'csfloat-home-metric-num' },
-              homeTotalListings != null ? homeTotalListings.toLocaleString() : '—'),
-            h('div', { className: 'csfloat-home-metric-label' }, 'Live listings')
-          ),
-          h('div', { className: 'csfloat-home-metric' },
-            h('div', { className: 'csfloat-home-metric-num' }, '2%'),
-            h('div', { className: 'csfloat-home-metric-label' }, 'Platform fee')
-          ),
-          /* Data-honesty fix (fabricated-stats audit): was "< 60s Median
-             payout" — a fake MEASUREMENT (nothing tracks payout medians).
-             "Instant wallet payout" is a mechanism fact instead: escrow
-             credits the seller wallet in the same transaction that
-             confirms delivery (see PurchaseService / the FAQ below) —
-             a static product claim like the "2%" fee tile, not an
-             invented telemetry number. */
-          h('div', { className: 'csfloat-home-metric' },
-            h('div', { className: 'csfloat-home-metric-num' }, 'Instant'),
-            h('div', { className: 'csfloat-home-metric-label' }, 'Wallet payout')
-          ),
-          h('div', { className: 'csfloat-home-metric' },
-            h('div', { className: 'csfloat-home-metric-num' }, 'Steam'),
-            h('div', { className: 'csfloat-home-metric-label' }, 'OpenID auth')
-          )
         )
       )
     ),

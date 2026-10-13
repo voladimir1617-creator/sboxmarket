@@ -185,9 +185,14 @@ class CustodyClaimHonestySpec extends Specification {
         given:
         def utils = text('src/main/resources/static/js/utils.js')
 
-        expect: "the non-custodial wording still exists, behind the mode gate"
-        utils.contains("tileTitle: 'Non-Custodial'")
+        expect: "the bot-off wording still exists, behind the mode gate"
         utils.contains("mode === 'NON_CUSTODIAL'")
+
+        and: "and even with the bot off it never says SkinBox holds nothing:" +
+             " the platform sells its own stock (listings with no seller), so" +
+             " 'never holds custody' is false in every mode"
+        !utils.contains('never holds custody')
+        utils.contains("tileTitle: 'Escrowed Trades'")
 
         and: "so does the custodial wording"
         utils.contains("mode === 'BOT_CUSTODY'")

@@ -30548,3 +30548,22 @@ html body .site-root a.grid-card .grid-body > .grid-name { margin-top: 0 !import
 @media (min-width: 1101px) {
   html body .site-root main.modal.item-page.item-page > .modal-header > div:nth-child(2) > .modal-demand-chip { display: inline-flex !important; vertical-align: top !important; box-sizing: border-box !important; width: calc(50% - 4px) !important; }
 }
+
+/* Look pass 2026-10-13 (spec round). The trust strip now sits directly
+   under the hero, the way White.market, CS.Deals and CS.Trade carry theirs:
+   a compact row of three counted or rule-based figures, not a titled
+   section further down the page. */
+html body .site-root section.csfloat-home-metrics { padding: 20px 0 4px !important; border-top: 0 !important; }
+html body .site-root section.csfloat-home-metrics .csfloat-home-metrics-eyebrow { display: none !important; }
+html body .site-root section.csfloat-home-metrics .csfloat-home-metrics-row { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; max-width: none !important; gap: 12px !important; }
+html body .site-root section.csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric { min-height: 0 !important; padding: 14px 12px !important; gap: 2px !important; }
+@media (max-width: 720px) {
+  html body .site-root section.csfloat-home-metrics { padding: 12px 0 12px !important; }
+  html body .site-root section.csfloat-home-metrics .csfloat-home-metrics-row { gap: 8px !important; }
+  html body .site-root section.csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric { padding: 10px 6px !important; }
+  html body .site-root section.csfloat-home-metrics .csfloat-home-metric-num { font-size: 20px !important; }
+  html body .site-root section.csfloat-home-metrics .csfloat-home-metric-label { font-size: 11px !important; }
+}
+/* Cards: SkinBox's own stock carries the item page's lightning mark in the
+   slot where an online seller shows the green dot. */
+html body .site-root a.grid-card .gc-online-row.gc-house-row { display: inline-flex !important; align-items: center !important; gap: 3px !important; color: var(--accent, #3b82f6) !important; }
