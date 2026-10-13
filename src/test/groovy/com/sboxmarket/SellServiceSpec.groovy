@@ -20,6 +20,7 @@ import com.sboxmarket.service.SellService
 import com.sboxmarket.service.TradeService
 import com.sboxmarket.service.TextSanitizer
 import com.sboxmarket.service.security.BanGuard
+import com.sboxmarket.service.SteamEscrowService
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -380,6 +381,27 @@ class SellServiceSpec extends Specification {
         then:
         listing.status == 'SOLD'
         listing.buyerUserId == 10L
+    }
+
+    def "cancelling a bot-custody listing closes it, never leaving a phantom inventory copy"() {
+        given: "the seller's real item went through bot custody, so it goes back to Steam"
+        def escrow = Mock(SteamEscrowService) { escrowEnabled >> true }
+        service.steamEscrowService = escrow
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            item: new Item(id: 1L, name: 'x')
+        )
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        1 * escrow.hasCustodyRow(100L) >> true
+        1 * escrow.returnToSeller(100L, _) >> true
+        listing.status == 'CANCELLED'
+        listing.buyerUserId == null
     }
 
     def "cancelListing forbids non-seller"() {

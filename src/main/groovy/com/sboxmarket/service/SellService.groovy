@@ -701,7 +701,13 @@ class SellService {
         // no-op in runInIsolatedTx would still spin (and commit) an empty
         // transaction on the cancel path — pointless work, and it perturbs
         // the cancel-tx-isolation contract the existing specs pin.
+        boolean steamCustody = false
         if (steamEscrowService?.escrowEnabled) {
+            try {
+                steamCustody = steamEscrowService.hasCustodyRow(listingId)
+            } catch (Exception e) {
+                log.warn("Escrow custody lookup failed for listing ${listingId}: ${e.message}")
+            }
             try {
                 runInIsolatedTx {
                     steamEscrowService.returnToSeller(listingId, "Seller cancelled listing")
@@ -709,6 +715,20 @@ class SellService {
             } catch (Exception e) {
                 log.warn("Escrow return-to-seller failed for listing ${listingId}: ${e.message}")
             }
+        }
+
+        // A bot-custody item goes back to the seller's Steam inventory (or never
+        // left it), so it must not ALSO appear as a platform-inventory item:
+        // that phantom row counted in their owned value and offered a
+        // Quick-Sell that could only fail. Close the listing instead.
+        if (steamCustody) {
+            listing.status = SteamEscrowService.STATUS_CANCELLED
+            listingRepository.save(listing)
+            final Long _cancelledItemId = listing.item?.id
+            if (_cancelledItemId != null && listingFloorRefreshService != null) {
+                deferOrRun { listingFloorRefreshService.refreshItem(_cancelledItemId) }
+            }
+            return
         }
 
         // Return the item to inventory. The ListingRepository.findOwnedBy
