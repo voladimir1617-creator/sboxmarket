@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=265';
+} from './modals.js?v=266';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -2974,7 +2974,10 @@ export function SiteFooter() {
                 `Prices shown in ${code} · stored as USD`);
         })(),
         h('span', { className: 'dot' }, '·'),
-        h('span', null, 'Stripe-secured payments'),
+        // No processor is wired until go-live: deposits, purchases and
+        // payouts are test-mode simulations, so the footer says so instead
+        // of naming a payment processor that is not connected.
+        h('span', null, 'Test mode: no real money moves'),
         h('span', { className: 'dot' }, '·'),
         h('span', null, 'Steam OpenID auth'),
         lastSync > 0 && h('span', { className: 'dot' }, '·'),

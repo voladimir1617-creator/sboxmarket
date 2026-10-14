@@ -30597,3 +30597,11 @@ html body .site-root.full-page-mode > .modal-backdrop { min-height: 100vh !impor
   html body .seller-payouts [data-testid="seller-payouts-next"] { min-height: 47px !important; }
   html body [data-testid="account-standing"][aria-busy="true"] > div:first-child { min-height: 44px !important; }
 }
+/* Notifications loading skeleton: on a phone the loaded page's "Mark all
+   read" / "Clear read" buttons wrap onto a second line of the tab row, so
+   the skeleton holds that line too and the rows land where it drew them.
+   Loaded rows wrap to about 103px there, so the stand-in rows match. */
+@media (max-width: 600px) {
+  html body [data-testid="notifications-skeleton"]::before { content: ''; display: block; height: 46px; }
+  html body [data-testid="notifications-skeleton"] .notif-feed-row { min-height: 103px !important; }
+}
