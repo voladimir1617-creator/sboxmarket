@@ -30608,3 +30608,14 @@ html body .site-root.full-page-mode > .modal-backdrop { min-height: 100vh !impor
 
 /* Sidebar "Clear Filters" with nothing to clear: greyed, no hover. */
 html body .sidebar button.btn-clear:disabled { opacity: 0.4 !important; cursor: default !important; background: transparent !important; }
+
+/* Footer, test mode. The "POWERED BY" eyebrow headed "Stripe-secured
+   payments · Steam OpenID auth"; with no processor wired it read
+   "POWERED BY All prices in USD". It comes back with the Stripe line at
+   go-live (revert list). On a phone the back-to-top button (42px, 72px up)
+   sat over the end of that last line at the bottom of every page, so the
+   footer leaves room for it. */
+html body .site-footer-bottom > .site-footer-meta::before { content: none !important; }
+@media (max-width: 720px) {
+  html body footer.site-footer { padding-bottom: 56px !important; }
+}
