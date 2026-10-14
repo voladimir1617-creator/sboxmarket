@@ -436,9 +436,10 @@ export async function fetchSimilar(itemId) {
  *  nullable fields null) so the ItemModal velocity consumer never sees
  *  `undefined` for soldLast24h / volumeLast30d / lastSoldPrice /
  *  lastSoldAt on a failed fetch. */
+/** Null when the call fails, so the item page can tell "no sales" from
+ *  "could not ask"; the page supplies its own zeros for display. */
 export async function fetchItemVelocity(itemId) {
-  return (await safeJson(`${API}/items/${itemId}/velocity`))
-    || { soldLast24h: 0, soldLast7d: 0, soldLast30d: 0, volumeLast30d: 0, lastSoldPrice: null, lastSoldAt: null };
+  return safeJson(`${API}/items/${itemId}/velocity`);
 }
 
 /** Buy a listing by id. Optional `expectedPrice` pins what the user

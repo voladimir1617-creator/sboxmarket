@@ -660,10 +660,17 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // most recent SOLD listing's price + timestamp for the "last sold"
   // chip — different data point from current floor.
   const [velocity, setVelocity] = useState({ soldLast24h: 0, soldLast7d: 0, soldLast30d: 0, volumeLast30d: 0, lastSoldPrice: null, lastSoldAt: null });
+  const [velocityLoaded, setVelocityLoaded] = useState(false);
   useEffect(() => {
     if (!item?.id) return;
     let alive = true;
-    fetchItemVelocity(item.id).then(v => { if (alive) setVelocity(v || { soldLast24h: 0, soldLast7d: 0, soldLast30d: 0, volumeLast30d: 0, lastSoldPrice: null, lastSoldAt: null }); });
+    setVelocityLoaded(false);
+    fetchItemVelocity(item.id).then(v => {
+      if (!alive) return;
+      setVelocity(v || { soldLast24h: 0, soldLast7d: 0, soldLast30d: 0, volumeLast30d: 0, lastSoldPrice: null, lastSoldAt: null });
+      // A failed call also ends in zeros; only a real answer may say "no sales".
+      setVelocityLoaded(v != null);
+    });
     return () => { alive = false; };
   }, [item?.id]);
   useEffect(() => {
@@ -1665,6 +1672,12 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 : velocity.soldLast7d > 0 ? ' sold this week'
                 : ' sold this month'
             ),
+          // A quiet item says so, instead of looking like a page that has
+          // not loaded yet. Only on a real answer from /velocity.
+          velocityLoaded && Number(velocity.soldLast30d) === 0 &&
+            h('div', { className: 'modal-demand-chip', style: { background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--text-secondary)' } },
+              'No sales on SkinBox in 30 days'
+            ),
           // Last-sold chip — price at the most recent settlement. A
           // useful complement to floor because a listing can drop the
           // floor below any historic sale without any trades at that
@@ -1882,6 +1895,12 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 historyFailed ? 'Price history could not be loaded. Reload the page to try again.'
                   : 'Not enough sales in this range to chart yet.')
         ),
+        // The series is SkinBox sale prices, but while nobody lists the item
+        // the Steam price sync stamps Steam's price into it
+        // (SteamMarketPriceService, !item.isListed). steamPrice is only ever
+        // set by that sync, so say where the points come from once it has run.
+        item.steamPrice != null && h('div', { className: 'chart-source', style: { marginTop: 6, fontSize: 12, color: 'var(--text-muted)' } },
+          'Prices: sales on SkinBox, and the Steam Market price on days nobody listed this item here.'),
 
         // Recent sales strip — buyers anchor fairness on the actual sale
         // ladder (floor price alone tells them what sellers ASK for, not
@@ -1890,7 +1909,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         recentSales && recentSales.length > 0 && h('div', null,
           h('h2', { className: 'modal-section-title' },
             h('div', { className: 'section-title-dot' }),
-            `Recent sales (${recentSales.length})`
+            `Recent sales on SkinBox (${recentSales.length})`
           ),
           // Median summary chip — buyers want an at-a-glance "what is this
           // item actually clearing at?" number without squinting at the row
