@@ -1079,7 +1079,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
 // features we don't port over.
 
 // ── Loadout Lab ─────────────────────────────────────────────────
-export function LoadoutLabModal({ onClose, me, loadoutId }) {
+export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   const [tab, setTab]         = useState('discover'); // discover | mine | view
   const [list, setList]       = useState(null);
   // Audit fix — `load()` did `setList(null)` then awaited
@@ -1778,6 +1778,10 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     );
   }
 
+  // Until the sign-in check answers, draw only the frame: the signed-out
+  // tab row redrew as the signed-in one (wrapping to two lines on a phone)
+  // and pushed the search box and list down.
+  if (!meLoaded) return h(InfoModal, { title: 'Loadout Lab', onClose });
   return h(InfoModal, { title: 'Loadout Lab', onClose },
     // CSFloat-1:1 + WAI-ARIA tabs pattern: role=tablist on the container,
     // role=tab + aria-selected + roving tabindex on each tab. Arrow / Home /

@@ -256,7 +256,16 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
 
   let body;
   if (trust === undefined) {
-    body = h('div', { className: 'seller-trust-note' }, 'Checking trade record…');
+    // Drawn at the loaded card's size (figures row plus a note line), so
+    // the price and buttons below don't drop when the record arrives.
+    body = h(React.Fragment, null,
+      h('div', { className: 'seller-trust-stats', 'aria-hidden': 'true' },
+        [['completed', 'trades completed'], ['ship', 'median time to send']].map(([key, label]) =>
+          h('div', { key, className: 'seller-trust-stat', 'data-stat': key },
+            h('span', { className: 'seller-trust-val' }, '\u00a0'),
+            h('span', { className: 'seller-trust-label' }, label)))),
+      // Two lines: the new-seller note it most often becomes wraps to two.
+      h('div', { className: 'seller-trust-note', 'aria-busy': 'true', style: { minHeight: 36 } }, 'Checking trade record…'));
   } else if (trust === null) {
     body = h('div', { className: 'seller-trust-note', 'data-state': 'unavailable' },
       'Trade record unavailable right now. Your payment is held in escrow either way.');
@@ -3927,7 +3936,7 @@ export function FaqModal({ onClose }) {
 }
 
 // ── Settings ────────────────────────────────────────────────────
-export function SettingsModal({ onClose, me }) {
+export function SettingsModal({ onClose, me, meLoaded = true }) {
   const [currency, setCurrency] = useState(localStorage.getItem('sb_currency') || 'USD');
   const [notifs, setNotifs]     = useState(localStorage.getItem('sb_notifs') !== 'false');
   const [sounds, setSounds]     = useState(localStorage.getItem('sb_sounds') !== 'false');
@@ -4078,6 +4087,10 @@ export function SettingsModal({ onClose, me }) {
   // signed-in account. Show a clearly-labelled sign-in nudge in place
   // of the notification panel so anon users aren't toggling an opt-out
   // for events they can't receive yet.
+  // Until the sign-in check answers, draw only the frame: drawing the
+  // signed-out version first flashed the sign-in banner at a signed-in
+  // visitor, then slid every row 140px when Notifications & sound arrived.
+  if (!meLoaded) return h(InfoModal, { title: 'Settings', onClose });
   return h(InfoModal, { title: 'Settings', onClose },
     !me && h('div', {
       style: {

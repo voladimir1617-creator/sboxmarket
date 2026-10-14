@@ -68,3 +68,44 @@ test('Profile keeps the Account Standing card in place while it loads', async ({
   }));
   for (const t of tops) expect(Math.abs(t - before)).toBeLessThan(2);
 });
+
+// Until the sign-in check answers, every visitor looks signed out. Signed-in
+// pages used to flash "Sign in required" (and Settings its sign-in banner,
+// then slide every row down 140px) before drawing the real page.
+test.describe('while the sign-in check is still answering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(/\/api\/auth\/steam\/me$/, async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+  });
+
+  for (const path of ['/wallet', '/offers', '/notifications']) {
+    test(`${path} never flashes "Sign in required" at a signed-in visitor`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.locator('.site-root.full-page-mode > .modal-backdrop')).toBeVisible({ timeout: 15_000 });
+      // A one-shot look, not a retrying expect: the flash is what we're after.
+      await page.waitForTimeout(500);
+      expect(await page.getByText('Sign in required').isVisible()).toBe(false);
+    });
+  }
+
+  test('Loadout Lab draws its signed-in tab row once', async ({ page }) => {
+    await page.goto('/loadout');
+    const search = page.getByRole('textbox', { name: 'Search public loadouts' });
+    await expect(search).toBeVisible({ timeout: 15_000 });
+    const before = await search.evaluate((e) => e.getBoundingClientRect().top);
+    await expect(page.getByRole('tab', { name: 'My Loadouts' })).toBeVisible({ timeout: 10_000 });
+    const after = await search.evaluate((e) => e.getBoundingClientRect().top);
+    expect(Math.abs(after - before)).toBeLessThan(2);
+  });
+
+  test('Settings draws once, in its signed-in layout', async ({ page }) => {
+    await page.goto('/settings');
+    await expect(page.locator('.site-root.full-page-mode > .modal-backdrop')).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(500);
+    expect(await page.getByText('Display & Accessibility only').isVisible()).toBe(false);
+    await expect(page.getByText('Notifications & sound')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Display & Accessibility only')).toHaveCount(0);
+  });
+});
