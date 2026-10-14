@@ -30619,3 +30619,6 @@ html body .site-footer-bottom > .site-footer-meta::before { content: none !impor
 @media (max-width: 720px) {
   html body footer.site-footer { padding-bottom: 56px !important; }
 }
+/* Settings → Reduce motion: the same rule the OS-level prefers-reduced-motion
+   query applies above, for viewers who switch it on in SkinBox instead. */
+html.reduce-motion, html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }

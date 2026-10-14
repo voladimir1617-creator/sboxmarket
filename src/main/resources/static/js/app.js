@@ -11,13 +11,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=14';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=15';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=270';
+} from './modals.js?v=271';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -844,9 +844,12 @@ function NavOffersBadge() {
     const id = setInterval(() => { if (!document.hidden) load(); }, 45_000);
     const onVis = () => { if (!document.hidden) load(); };
     document.addEventListener('visibilitychange', onVis);
+    // The /offers inbox fires this after each accept/reject/counter.
+    window.addEventListener('sb:offers-changed', load);
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('sb:offers-changed', load);
     };
   }, []);
   return h('a', {
@@ -6333,7 +6336,7 @@ export function App() {
               h('p', { className: 'px-lede' },
                 me
                   ? 'Your wallet, your stall, your watchlist — picked up right where you left off.'
-                  : `${BRAND.name} provides the most advanced marketplace and trading tools for s&box cosmetics. Real-time price history, verified sellers, escrowed trades. Zero Steam hold.`
+                  : `${BRAND.name} is a marketplace for s&box cosmetics. Price history, verified sellers, escrowed trades.`
               ),
               h('div', { className: 'hero-actions px-hero-actions csfloat-hero-actions' },
                 h('a', {

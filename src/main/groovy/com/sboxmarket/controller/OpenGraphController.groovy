@@ -382,7 +382,7 @@ class OpenGraphController {
         def url = base + '/stall/' + userId
         def name = escape(user.displayName ?: 'Seller')
         def title = "${name}'s Stall · SkinBox"
-        def desc = "Browse ${name}'s active listings on SkinBox. Secure escrow, 2% fees, Stripe payouts."
+        def desc = "Browse ${name}'s active listings on SkinBox. Secure escrow, 2% fees."
         def image = user.avatarUrl ?: (base + '/img/favicon-512.png')
 
         def Q = java.util.regex.Matcher.&quoteReplacement
@@ -547,7 +547,7 @@ class OpenGraphController {
         if (template == null) return ResponseEntity.status(404).body('')
         def base = resolveBaseUrl(req)
         def title = 'Marketplace · SkinBox'
-        def desc = 'Browse every active s&box skin listing — filter by category, rarity, and price. Live auctions, instant Buy Now, escrowed Stripe checkout, 2% fees.'
+        def desc = 'Browse every active s&box skin listing — filter by category, rarity, and price. Live auctions, instant Buy Now, escrowed trades, 2% fees.'
         def url = base + '/market'
 
         def Q = java.util.regex.Matcher.&quoteReplacement
