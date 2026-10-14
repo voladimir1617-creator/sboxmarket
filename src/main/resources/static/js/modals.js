@@ -3804,9 +3804,9 @@ export function FaqModal({ onClose }) {
     ['How do I buy something?',
       `Top up your wallet, open an item and hit Buy now. Your balance is charged straight away and held in escrow. When you buy from another player, they send you a Steam trade offer; accept it on Steam, then press Confirm on the trade (Profile → Trades) and the seller is paid. If they do not send it within the seller's response window, the purchase cancels and you are refunded in full. Items sold by ${BRAND.name} itself are delivered to your Platform Inventory at once.`],
     ['How does depositing work?',
-      "Open your Wallet, pick Deposit, enter an amount (anything from $1 to $10,000), and you'll be handed to Stripe's checkout page. Once the payment clears, our webhook credits your balance automatically."],
+      "Open your Wallet, pick Deposit, enter an amount (anything from $1 to $10,000), and you'll be handed to Stripe's checkout page. Once the payment clears, our webhook credits your balance automatically. Test mode: no real money moves yet."],
     ['How do withdrawals work?',
-      "From your Wallet, pick Withdraw and the amount. The first time, Set up cash-out links your bank or debit card through Stripe; after that every payout goes there. Your balance is debited and the payout is sent to that account right away; Stripe then pays your bank, usually within 1–2 business days. Any payout processing fee is shown as \"You receive\" before you confirm."],
+      "From your Wallet, pick Withdraw and the amount. The first time, Set up cash-out links your bank or debit card through Stripe; after that every payout goes there. Your balance is debited and the payout is sent to that account right away; Stripe then pays your bank, usually within 1–2 business days. Any payout processing fee is shown as \"You receive\" before you confirm. Test mode: no real money moves yet."],
     [`Why is ${BRAND.name} cheaper than Steam?`,
       `Steam charges 12% in platform fees on Workshop sales and forces sellers into their pricing ladder. On ${BRAND.name}, sellers set whatever price they like — usually 10-30% below what the Steam store asks. The green '−%' chip on each card shows exactly how much you save versus Steam.`],
     ['Do s&box items have wear levels?',
@@ -3820,9 +3820,9 @@ export function FaqModal({ onClose }) {
     ['Are there bulk actions for cleaning up my account?',
       "Yes — heavy users can reset each list in one click: Profile → Buy Orders has Cancel all active, Profile → Offers → Outgoing has Cancel all pending, Profile → Active Bids has Stop all auto-raises, Profile → Personal → Following has ✕ all and 🔔/🔕 all, and the Watchlist page has Clear all. Each asks to confirm first."],
     ['Is my money safe?',
-      "Deposits go through Stripe, the same processor used by millions of websites. We never store card details — only the amount and a Stripe reference. When you buy from another player your payment is held in escrow until you confirm the item arrived, and a trade the seller does not send in time is refunded automatically. Every withdrawal is logged and paid to the Stripe cash-out account you set up. All balances are held in USD."],
+      "Deposits go through Stripe, the same processor used by millions of websites. We never store card details — only the amount and a Stripe reference. When you buy from another player your payment is held in escrow until you confirm the item arrived, and a trade the seller does not send in time is refunded automatically. Every withdrawal is logged and paid to the Stripe cash-out account you set up. All balances are held in USD. Test mode: no real money moves yet."],
     ['What happens if I dispute a deposit with my bank?',
-      "Stripe notifies us within seconds. We freeze the disputed amount, pause your withdrawals while the dispute is open, and review the case. If your bank rules in your favour we lose the deposit and you keep the items / balance. If we win the dispute we credit you again and lift the hold. Filing a chargeback for a deposit you actually received counts as friendly fraud and can get your account banned permanently."],
+      "Stripe notifies us within seconds. We freeze the disputed amount, pause your withdrawals while the dispute is open, and review the case. If your bank rules in your favour we lose the deposit and you keep the items / balance. If we win the dispute we credit you again and lift the hold. Filing a chargeback for a deposit you actually received counts as friendly fraud and can get your account banned permanently. Test mode: no real money moves yet."],
     ['What are Auctions and how do they work?',
       "Some listings are auctions instead of Buy Now — they carry a countdown clock and a current bid. Place a bid (the minimum is one increment above the current top — the increment scales with price, from $0.05 on cheap items up to $100 on four-figure ones), and if you're winning when the clock hits zero you pay your winning bid from your wallet. Anti-snipe: bids placed in the last 30 seconds extend the close by 30 seconds so sniping is blunted. You can set an auto-raise cap (we'll outbid rivals up to your max) and cancel the cap any time — your current bid stays live, we just stop auto-raising. Use the \"Ending soonest\" marketplace sort to find last-call auctions."],
     ['What are Buy Orders?',
@@ -15669,7 +15669,21 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
             h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry')))
       : list === null
-      ? h('div', { className: 'spinner' })
+      /* Loading: three offer rows in the existing skeleton classes, laid out
+         like the loaded rows (thumb, name and sub, price column, status),
+         in place of a lone spinner over a blank page. */
+      ? h('div', { className: 'offer-list', role: 'status', 'aria-label': 'Loading offers', 'data-testid': 'offers-skeleton' },
+          Array.from({ length: 3 }).map((_, i) => h('div', { key: 'skl-' + i, className: 'offer-row' },
+            h('div', { className: 'skeleton-thumb', style: { width: 56, height: 56, flexShrink: 0 } }),
+            // Column heights match a loaded row (name, sub, counterparty
+            // chips; offer, asking, % off).
+            h('div', { style: { flex: 1, minWidth: 0, minHeight: 75 } },
+              h('div', { className: 'skeleton-line skeleton-line-md', style: { maxWidth: 260 } }),
+              h('div', { className: 'skeleton-line', style: { maxWidth: 180 } })),
+            h('div', { style: { width: 78, minHeight: 57, marginRight: 14 } },
+              h('div', { className: 'skeleton-line skeleton-line-md' }),
+              h('div', { className: 'skeleton-line' })),
+            h('div', { className: 'skeleton-thumb', style: { width: 70, height: 22, aspectRatio: 'auto' } }))))
       : list.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),

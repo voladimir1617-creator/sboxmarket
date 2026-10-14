@@ -109,3 +109,33 @@ test.describe('while the sign-in check is still answering', () => {
     await expect(page.getByText('Display & Accessibility only')).toHaveCount(0);
   });
 });
+
+// Offers and notifications used to show a lone spinner while their data
+// loaded, then the rows dropped in. They now draw placeholder rows in the
+// same row classes, so the list starts where the loaded rows will sit.
+for (const [path, api, testId] of [
+  ['/offers', /\/api\/offers/, 'offers-skeleton'],
+  ['/notifications', /\/api\/notifications/, 'notifications-skeleton'],
+]) {
+  test(`${path} draws placeholder rows while it loads`, async ({ page }) => {
+    await page.route(api, async (route) => {
+      await new Promise((r) => setTimeout(r, 2000));
+      try { await route.continue(); } catch (_) { /* page moved on */ }
+    });
+    await page.goto(path);
+    const skeleton = page.getByTestId(testId);
+    await expect(skeleton).toBeVisible({ timeout: 15_000 });
+    // One-shot check: a spinner beside the skeleton would mean the old state.
+    expect(await page.locator('.modal-backdrop .spinner').first().isVisible()).toBe(false);
+    await expect(skeleton).toHaveCount(0, { timeout: 15_000 });
+  });
+}
+
+// Until go-live no payment processor is connected, so the footer says test
+// mode rather than naming one.
+test('footer says test mode instead of naming a payment processor', async ({ page }) => {
+  await page.goto('/');
+  const footer = page.locator('footer.site-footer');
+  await expect(footer).toContainText('Test mode: no real money moves', { timeout: 15_000 });
+  await expect(footer).not.toContainText('Stripe-secured');
+});

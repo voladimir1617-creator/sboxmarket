@@ -2417,9 +2417,26 @@ export function NotificationsModal({ onClose, me }) {
             'Your notification feed failed to load. Check your connection and try again.'),
           h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry'))
       : (loading && count === 0)
-      /* First load still in flight — show a spinner instead of briefly
-         flashing the "Quiet so far" empty state before data lands. */
-      ? h('div', { className: 'spinner' })
+      /* First load still in flight: skeleton feed rows in the existing
+         skeleton classes, laid out like the loaded rows (icon, title, body,
+         time), instead of a lone spinner or a flash of "Quiet so far". */
+      ? h('div', { role: 'status', 'aria-label': 'Loading notifications', 'data-testid': 'notifications-skeleton' },
+          // Stand-ins for the search box and type chips, which show once
+          // there are more than a handful of notifications, so the rows
+          // land where the skeleton rows were.
+          h('div', { style: { marginBottom: 12 } },
+            h('div', { className: 'skeleton-thumb', style: { width: '100%', height: 36, aspectRatio: 'auto' } })),
+          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
+            [66, 90, 95, 80, 93, 80, 76].map((w, i) =>
+              h('div', { key: 'chip-' + i, className: 'skeleton-thumb', style: { width: w, height: 32, aspectRatio: 'auto' } }))),
+          h('div', { className: 'notif-feed' },
+            h('div', { className: 'notif-feed-day' }, h('div', { className: 'skeleton-thumb', style: { width: 60, height: 11, aspectRatio: 'auto' } })),
+            Array.from({ length: 4 }).map((_, i) => h('div', { key: 'skl-' + i, className: 'notif-feed-row' },
+              h('div', { className: 'notif-feed-icon' }, h('div', { className: 'skeleton-thumb', style: { width: '100%', height: '100%', aspectRatio: 'auto' } })),
+              h('div', { style: { flex: 1, minWidth: 0, minHeight: 58 } },
+                h('div', { className: 'skeleton-line skeleton-line-md' }),
+                h('div', { className: 'skeleton-line' }),
+                h('div', { className: 'skeleton-line skeleton-line-sm' }))))))
       : count === 0
       ? (() => {
           // Batch 916 — distinguish "never had a notification" from

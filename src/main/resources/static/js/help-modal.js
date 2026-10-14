@@ -10,7 +10,7 @@ const FAQ = [
   {
     s: 'start',
     q: 'What is SkinBox?',
-    a: "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. Sellers set their own price, and every listing is backed by a real Steam account. The platform is cheaper than going through the Steam store — a flat 2% on each sale vs Steam's 12%. Moving money in and out is separate and is not free: card deposits and bank payouts carry the payment processor's own charge, passed through at cost with no markup, and the wallet screen shows you the exact figure before you confirm."
+    a: "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. Sellers set their own price, and every listing is backed by a real Steam account. The platform is cheaper than going through the Steam store — a flat 2% on each sale vs Steam's 12%. Moving money in and out is separate and is not free: card deposits and bank payouts carry the payment processor's own charge, passed through at cost with no markup, and the wallet screen shows you the exact figure before you confirm. Test mode: no real money moves yet."
   },
   {
     s: 'start',
@@ -30,12 +30,12 @@ const FAQ = [
   {
     s: 'money',
     q: 'How does depositing money work?',
-    a: "Open Wallet → Deposit, enter any amount between $1 and $10,000, and you'll be handed off to Stripe Checkout. Once the payment clears, the webhook credits your balance automatically. There's a rolling $5,000 cap on how much you can deposit in any 24-hour window — the Deposit form shows how much you have left for the day before you submit."
+    a: "Open Wallet → Deposit, enter any amount between $1 and $10,000, and you'll be handed off to Stripe Checkout. Once the payment clears, the webhook credits your balance automatically. There's a rolling $5,000 cap on how much you can deposit in any 24-hour window — the Deposit form shows how much you have left for the day before you submit. Test mode: no real money moves yet."
   },
   {
     s: 'money',
     q: 'How do withdrawals work?',
-    a: "Wallet → Withdraw. You'll need a verified email address first (verify it from Profile → Personal). The first time, Set up cash-out links your bank account or debit card through Stripe (this is also the identity check). Then enter an amount; if you have 2FA enabled you'll also enter a fresh 6-digit code. Your balance is debited and the payout is sent to your Stripe cash-out account straight away; Stripe pays it on to your bank, usually within 1–2 business days. A rolling $5,000 cap applies per 24-hour window, and withdrawals are paused while any deposit on your account is under a chargeback dispute."
+    a: "Wallet → Withdraw. You'll need a verified email address first (verify it from Profile → Personal). The first time, Set up cash-out links your bank account or debit card through Stripe (this is also the identity check). Then enter an amount; if you have 2FA enabled you'll also enter a fresh 6-digit code. Your balance is debited and the payout is sent to your Stripe cash-out account straight away; Stripe pays it on to your bank, usually within 1–2 business days. A rolling $5,000 cap applies per 24-hour window, and withdrawals are paused while any deposit on your account is under a chargeback dispute. Test mode: no real money moves yet."
   },
   {
     s: 'trade',
@@ -60,12 +60,12 @@ const FAQ = [
   {
     s: 'money',
     q: 'Is my money safe?',
-    a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. When you buy an item the payment is held in escrow — not paid to the seller — until you confirm receipt or the 8-day trade-hold window passes, so a seller can't take your money and ghost you. Withdrawals are queued for manual admin approval before payout and require a verified email (plus a 2FA code if you've enabled it). Session cookies are HttpOnly and SameSite-strict in production, and every wallet write is logged with a correlation id for audit."
+    a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. When you buy an item the payment is held in escrow — not paid to the seller — until you confirm receipt or the 8-day trade-hold window passes, so a seller can't take your money and ghost you. Withdrawals are queued for manual admin approval before payout and require a verified email (plus a 2FA code if you've enabled it). Session cookies are HttpOnly and SameSite-strict in production, and every wallet write is logged with a correlation id for audit. Test mode: no real money moves yet."
   },
   {
     s: 'money',
     q: 'Why is SkinBox cheaper than Steam?',
-    a: "Steam charges 12% on Workshop sales. SkinBox charges a flat 2% to the seller at sale time — that is the only fee SkinBox keeps, and it is the only one that funds the site. Moving money is a separate cost and is not free: card deposits and bank payouts carry Stripe's own charge, which is passed through at cost with no markup added. The wallet screen shows the exact deduction and the exact amount you will receive before you confirm anything. The green '−X%' chip on each card shows how much you save versus the Steam store price."
+    a: "Steam charges 12% on Workshop sales. SkinBox charges a flat 2% to the seller at sale time — that is the only fee SkinBox keeps, and it is the only one that funds the site. Moving money is a separate cost and is not free: card deposits and bank payouts carry Stripe's own charge, which is passed through at cost with no markup added. The wallet screen shows the exact deduction and the exact amount you will receive before you confirm anything. The green '−X%' chip on each card shows how much you save versus the Steam store price. Test mode: no real money moves yet."
   },
   {
     s: 'problems',
@@ -179,7 +179,7 @@ const SHORTCUTS = [
 
 const STEPS = [
   { icon: 'login',        title: 'Sign in with Steam',  body: 'No password — OpenID handshake via steamcommunity.com.' },
-  { icon: 'account_balance_wallet', title: 'Top up your wallet', body: 'Pay by card through Stripe Checkout. The balance is credited as soon as Stripe confirms the payment.' },
+  { icon: 'account_balance_wallet', title: 'Top up your wallet', body: 'Pay by card through Stripe Checkout. The balance is credited as soon as Stripe confirms the payment. Test mode: no real money moves yet.' },
   { icon: 'search',       title: 'Browse the marketplace', body: 'Filter by category, rarity, price. Press / to jump straight into search.' },
   { icon: 'shopping_cart', title: 'Buy Now or Place a Buy Order', body: 'Buy a listing instantly, or set a standing max price and walk away.' },
   { icon: 'checkroom',    title: 'Receive the item', body: 'From another player: they send you a Steam trade offer. Accept it on Steam, then press Confirm on the trade to release payment. From SkinBox itself: it lands in your Platform Inventory at once.' },
