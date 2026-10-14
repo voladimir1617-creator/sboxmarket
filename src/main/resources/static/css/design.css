@@ -30656,3 +30656,11 @@ html body .info-modal .info-modal-body .profile-row-value > div > button.btn.btn
 /* Sell grid: the bulk-select box is a real (visually hidden) checkbox now;
    show where keyboard focus is. */
 .sell-bulk-check:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* From 721 to 900px the header packs the bell into the left-hand cluster
+   (about 230px in at 768), and the notifications panel, right-aligned to the
+   bell, opened 13 to 15px past the left edge of the screen, cutting off
+   "Notifications" and the empty-state line. In that band it opens rightward
+   from the bell instead; there is room for it at every width in the band. */
+@media (min-width: 721px) and (max-width: 900px) {
+  html body .notif-dropdown { left: 0 !important; right: auto !important; }
+}
