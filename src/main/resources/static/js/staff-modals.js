@@ -3499,6 +3499,7 @@ function AdminTicketsTab() {
         className: 'price-input',
         style: { flex: 1, minWidth: 160 },
         placeholder: '🔎 Search subject / username / category…',
+        'aria-label': 'Search tickets',
         value: search,
         onChange: e => setSearch(e.target.value),
         maxLength: 100
@@ -3745,6 +3746,9 @@ export function CsrModal({ onClose, me }) {
 function CsrFlagTab() {
   const [id, setId]        = useState('');
   const [reason, setReason]= useState('');
+  // The note is its own field: it used to share `reason`, so typing a note
+  // wiped the picked reason and only the note reached the admins.
+  const [note, setNote]    = useState('');
   const [busy, setBusy]    = useState(false);
   const [result, setResult]= useState(null);
   const REASONS = [
@@ -3757,15 +3761,16 @@ function CsrFlagTab() {
   const submit = async () => {
     const listingId = parseInt(id, 10);
     if (!listingId) { toast('Enter a numeric listing ID.', 'err'); return; }
-    if (!reason.trim()) { toast('Pick or type a reason.', 'err'); return; }
+    const text = [reason.trim(), note.trim()].filter(Boolean).join(' — ').slice(0, 80);
+    if (!text) { toast('Pick or type a reason.', 'err'); return; }
     setBusy(true);
     try {
-      const res = await csrFlagListing(listingId, reason.trim());
+      const res = await csrFlagListing(listingId, text);
       if (res.error || res.code) {
         setResult({ ok: false, msg: res.message || res.error });
       } else {
         setResult({ ok: true, msg: 'Listing #' + res.id + ' added to the admin review queue' });
-        setId(''); setReason('');
+        setId(''); setReason(''); setNote('');
       }
     } finally { setBusy(false); }
   };
@@ -3785,9 +3790,9 @@ function CsrFlagTab() {
       }),
       h('select', {
         className: 'price-input',
-        'aria-label': 'Penalty reason',
+        'aria-label': 'Flag reason',
         style: { flex: 1 },
-        value: REASONS.includes(reason) ? reason : '',
+        value: reason,
         onChange: e => setReason(e.target.value)
       },
         h('option', { value: '' }, 'Pick a reason…'),
@@ -3798,13 +3803,15 @@ function CsrFlagTab() {
       className: 'price-input',
       style: { width: '100%', minHeight: 70, marginBottom: 10, resize: 'vertical' },
       placeholder: 'Additional note (optional, 80 char max)',
-      maxLength: 80,
-      value: REASONS.includes(reason) ? '' : reason,
-      onChange: e => setReason(e.target.value)
+      'aria-label': 'Additional note',
+      // Reason and note go out as one 80-character line.
+      maxLength: Math.max(0, 80 - (reason ? reason.length + 3 : 0)),
+      value: note,
+      onChange: e => setNote(e.target.value)
     }),
     h('button', {
       className: 'btn btn-accent',
-      disabled: busy || !id || !reason.trim(),
+      disabled: busy || !id || !(reason.trim() || note.trim()),
       onClick: submit
     }, busy ? 'Flagging…' : '🚩 Flag listing'),
     result && h('div', {
@@ -3891,7 +3898,7 @@ function CsrLookupTab() {
   };
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
-      h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Steam ID / display name / user #id', value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') search(); } }),
+      h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Steam ID / display name / user #id', 'aria-label': 'Look up a user by Steam ID, display name or user id', value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') search(); } }),
       h('button', { className: 'btn btn-accent', disabled: busy, onClick: search }, busy ? '…' : 'Search')
     ),
     data && (data.error
@@ -4058,7 +4065,7 @@ function CsrTicketsTab() {
         }, tpl.label))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply as CSR…', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
+        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply as CSR…', 'aria-label': 'Reply as CSR', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
         h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: sendReply }, 'Send')
       )
     );
@@ -4074,6 +4081,7 @@ function CsrTicketsTab() {
         className: 'price-input',
         style: { flex: 1, minWidth: 160 },
         placeholder: '🔎 Search subject / username / category…',
+        'aria-label': 'Search tickets',
         value: search,
         onChange: e => setSearch(e.target.value),
         maxLength: 100
