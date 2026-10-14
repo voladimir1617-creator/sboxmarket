@@ -101,3 +101,38 @@ for (const [width, mobile] of [[390, true], [768, false]]) {
     });
   });
 }
+
+// Below 900px an item page keeps a Buy bar fixed at the bottom. From 721 to
+// 900px it covered the footer's last line, and at every width up to 900 it
+// hid the back-to-top button behind it.
+for (const [width, mobile] of [[390, true], [768, false]]) {
+  test.describe(`item page at ${width}`, () => {
+    test.use({ viewport: { width, height: 844 }, isMobile: mobile, hasTouch: mobile });
+
+    test('the Buy bar and back-to-top leave the footer text and each other clear', async ({ page }) => {
+      await page.addInitScript(() => { try { localStorage.setItem('sb_cookie_consent', 'accepted'); } catch (_) {} });
+      await page.goto('/item/12');
+      // The Buy bar appears once the page's own Buy button scrolls away.
+      await expect(page.locator('h1')).toContainText('Vintage Design Crop Top', { timeout: 15_000 });
+      await expect.poll(async () => page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        const btt = document.querySelector('.app-back-to-top');
+        const atBottom = Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1;
+        const barEl = document.querySelector('.item-buy-bar');
+        if (!btt || !barEl || !atBottom) return 'scrolling';
+        const bar = barEl.getBoundingClientRect();
+        const b = btt.getBoundingClientRect();
+        if (b.bottom > bar.top) return `back-to-top under the Buy bar ${b.bottom} > ${bar.top}`;
+        const texts = [...document.querySelectorAll('footer.site-footer *')]
+          .filter((t) => [...t.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 1));
+        for (const t of texts) {
+          const r = t.getBoundingClientRect();
+          for (const c of [bar, b]) {
+            if (r.width && r.left < c.right && r.right > c.left && r.top < c.bottom && r.bottom > c.top) return `covers "${t.innerText.slice(0, 30)}"`;
+          }
+        }
+        return 'clear';
+      }), { timeout: 15_000, intervals: [500] }).toBe('clear');
+    });
+  });
+}
