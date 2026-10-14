@@ -8884,6 +8884,7 @@ function ProfileTradesTab({ me, privacy }) {
                   // Our bot's delivery offer ends with this code; only the
                   // buyer sees it, so an impersonator's offer can't match it.
                   t.deliveryCode && h(BotSecurityCode, { code: t.deliveryCode }),
+                  t.deliveryCode && h('span', { 'data-testid': 'bot-code-note', style: { color: 'var(--text-muted)', flexBasis: '100%', order: 99 } }, BOT_CODE_NOTE),
                   // Batch 773 — if the seller included a direct trade-offer
                   // URL at Mark-Sent time, show a one-click deep link to
                   // that exact offer. Still render the generic inbox
@@ -13185,10 +13186,14 @@ function BotPanelIcon({ kind }) {
 
 // The code our bot writes on its trade offer for this item. Matching it in
 // Steam is how a seller tells our offer from an impersonator bot's.
+// The stall panels explain the code in their tip line; the buyer's trade row
+// has no tip, so it shows this sentence as text too (a phone never shows the
+// tooltip).
+const BOT_CODE_NOTE = "Our bot's trade offer message ends with this code. Decline any offer for this item without it.";
 function BotSecurityCode({ code }) {
   return h('div', {
     className: 'bot-code',
-    title: "Our bot's trade offer message ends with this code. Decline any offer for this item without it."
+    title: BOT_CODE_NOTE
   },
     h('span', { className: 'bot-code-label' }, 'Offer code'),
     h('span', { className: 'bot-code-value' }, code));
