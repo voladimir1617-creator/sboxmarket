@@ -30592,6 +30592,9 @@ html body .site-root.full-page-mode > .modal-backdrop { min-height: 100vh !impor
    so the stall listings and profile tabs below stay put. */
 @media (max-width: 600px) {
   html body .seller-payouts[aria-busy="true"] .wallet-activity-tile .wallet-activity-sub { min-height: 29px !important; }
-  html body .seller-payouts[aria-busy="true"] [data-testid="seller-payouts-next"] { min-height: 47px !important; }
+  /* Held loaded or not: the line's length depends on the seller's balance
+     (two lines with money to cash out, three without), so a loading-only
+     reservation made the stall jump up 16px for any seller with a balance. */
+  html body .seller-payouts [data-testid="seller-payouts-next"] { min-height: 47px !important; }
   html body [data-testid="account-standing"][aria-busy="true"] > div:first-child { min-height: 44px !important; }
 }
