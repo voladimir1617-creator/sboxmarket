@@ -30633,3 +30633,16 @@ html.reduce-motion, html.reduce-motion *, html.reduce-motion *::before, html.red
 @media (min-width: 721px) and (max-width: 1099px) {
   body:has(.mobile-filters-fab) footer.site-footer { padding-bottom: 176px !important; }
 }
+/* Item pages below 900px keep a Buy bar (64px) fixed at the bottom. It hid
+   the back-to-top button behind it at every width up to 900, and from 721
+   to 900px, where the footer has no bottom room, it covered the footer's
+   last line. Back-to-top now sits above the bar, and the footer leaves room
+   for both. The cookie-pill rule above is more specific and still wins. */
+@media (max-width: 900px) {
+  body:has(.item-buy-bar) .app-back-to-top { bottom: calc(64px + 14px + env(safe-area-inset-bottom, 0px)) !important; }
+  body:has(.item-buy-bar) footer.site-footer { padding-bottom: 136px !important; }
+}
+@media (max-width: 720px) {
+  body:has(.item-buy-bar) .app-back-to-top { bottom: calc(57px + 64px + 14px + env(safe-area-inset-bottom, 0px)) !important; }
+  body:has(.item-buy-bar) footer.site-footer { padding-bottom: 104px !important; }
+}
