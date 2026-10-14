@@ -243,11 +243,11 @@ class DesignTokenContractSpec extends Specification {
     // the block the failure message prints. Do not paste the hashes without
     // bumping the tokens — that records the breakage instead of fixing it.
     private static final Map<String, List<String>> RECORDED_TOKENISED_ASSETS = [
-            '/static/css/design.css': ['bfc092c1378e', '353'],
-            '/static/js/app.js': ['d3a8b5e24c93', '307'],
+            '/static/css/design.css': ['60b8ea5fb89c', '354'],
+            '/static/js/app.js': ['0430f3e45be2', '308'],
             '/static/js/cards.js': ['7c415c46e8c5', '15'],
-            '/static/js/main.js': ['6bb8f970af22', '276'],
-            '/static/js/modals.js': ['2f15ca1666fe', '271'],
+            '/static/js/main.js': ['2553a3e0a42d', '277'],
+            '/static/js/modals.js': ['f3c5769ef411', '272'],
     ].asImmutable()
 
     /**

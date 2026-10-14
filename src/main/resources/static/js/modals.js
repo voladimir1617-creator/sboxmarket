@@ -3870,13 +3870,13 @@ export function FaqModal({ onClose }) {
     ['What happens if I dispute a deposit with my bank?',
       "Stripe notifies us within seconds. We freeze the disputed amount, pause your withdrawals while the dispute is open, and review the case. If your bank rules in your favour we lose the deposit and you keep the items / balance. If we win the dispute we credit you again and lift the hold. Filing a chargeback for a deposit you actually received counts as friendly fraud and can get your account banned permanently. Test mode: no real money moves yet."],
     ['What are Auctions and how do they work?',
-      "Some listings are auctions instead of Buy Now — they carry a countdown clock and a current bid. Place a bid (the minimum is one increment above the current top — the increment scales with price, from $0.05 on cheap items up to $100 on four-figure ones), and if you're winning when the clock hits zero you pay your winning bid from your wallet. Anti-snipe: bids placed in the last 30 seconds extend the close by 30 seconds so sniping is blunted. You can set an auto-raise cap (we'll outbid rivals up to your max) and cancel the cap any time — your current bid stays live, we just stop auto-raising. Use the \"Ending soonest\" marketplace sort to find last-call auctions."],
+      "Some listings are auctions instead of Buy Now — they carry a countdown clock and a current bid. Place a bid (the minimum is one increment above the current top — the increment scales with price, from $0.05 on cheap items up to $100 on four-figure ones), and if you're winning when the clock hits zero you pay your winning bid from your wallet. Anti-snipe: a bid placed in the last 30 seconds moves the close to 30 seconds after that bid, up to 20 times per auction, so sniping is blunted. You can set an auto-raise cap (we'll outbid rivals up to your max) and cancel the cap any time — your current bid stays live, we just stop auto-raising. Use the \"Ending soonest\" marketplace sort to find last-call auctions."],
     ['What are Buy Orders?',
       "A standing \"I'll pay up to $X for this item\" request. When a seller lists (or drops their price to) at-or-below your max, our matcher auto-buys and opens an escrowed trade — no action needed on your side. Great for items you keep missing on drops. Cap: 200 active orders per account. Projected queue position shows up in the form so you know if you'd be #1 or stuck at #8 under current demand."],
     ['What is the Watchlist and what are Price Alerts?',
       "Click the ★ on any item card to add it to your Watchlist — a saved browsing shortcut. Separately, open an item and click \"Set Price Alert\" with a target price: you'll get a notification (and optionally an email) the instant an ACTIVE listing dips to or below your target. Alerts stay ACTIVE until they fire once (then flip to FIRED) or until you cancel. Max 50 active alerts per user."],
     ['What is the Loadout Lab?',
-      "Curate up to 8 slots of s&box cosmetics (Hat / Shirt / Pants / Gloves / Boots / Accessories / etc.) into a named look. Publish publicly for discovery + favorites, or keep private while you tweak. \"Auto-generate from budget\" fills empty unlocked slots with the cheapest active listings that fit your total budget. Lock slots you've curated, let Auto-gen handle the rest. Cap: 50 loadouts per account."],
+      "Curate up to 8 slots of s&box cosmetics (Hat / Shirt / Pants / Gloves / Boots / Accessories / etc.) into a named look. Publish publicly for discovery + favorites, or keep private while you tweak. \"Auto-generate from budget\" re-picks every unlocked slot (replacing what is there, or emptying it if nothing fits) with the cheapest active listings that fit your total budget. Lock the slots you've curated so Auto-gen keeps them. Cap: 50 loadouts per account."],
     ['Can I hide my wallet balance while streaming or on camera?',
       "Yes — the nav wallet chip shows \"$•••••\" in privacy mode. Toggle via Ctrl+click on the wallet button in the nav, or from Settings → Privacy. Privacy state syncs across open tabs and applies to the full Wallet modal, pending-withdraw chips, spend strip, Profile recent-purchases, MyStall earnings, and the cart total — every user-visible dollar amount in the product."],
     ['I found a bug / my purchase is stuck',
@@ -12147,7 +12147,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           }, opt.l))
         ),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 6 } },
-          'Bids are locked in when the auction ends. Anti-snipe: any bid placed in the final 30 seconds extends the auction by another 30 seconds so nobody wins purely on timing.'),
+          'Bids are locked in when the auction ends. Anti-snipe: a bid placed in the final 30 seconds moves the close to 30 seconds after that bid, up to 20 times per auction.'),
         // Buy-Now ceiling input (batch 371). Optional. When set, a
         // buyer can skip the auction and instantly settle at this price.
         // Must be > starting bid — server validates.
@@ -12890,6 +12890,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // failure would arrive as one line in a "Listed 4 · 1 failed"
           // toast with a code in it.
           !steamRowBlock(si) && h('label', {
+            className: 'sell-bulk-check',
             style: {
               position: 'absolute', top: 4, left: 4,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -12899,14 +12900,19 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
               cursor: 'pointer', zIndex: 2
             },
             title: 'Select for bulk-list',
-            onClick: e => { e.stopPropagation(); toggleBulk(si.assetId); }
+            // The label forwards its click to the checkbox, whose change
+            // does the toggle; the box used to be display:none, so the
+            // keyboard could not reach bulk select at all.
+            onClick: e => e.stopPropagation()
           },
             h('input', {
               type: 'checkbox',
               checked: bulkSelected.has(si.assetId),
-              onChange: () => {},
+              onChange: () => toggleBulk(si.assetId),
               onClick: e => e.stopPropagation(),
-              style: { display: 'none' }
+              'aria-label': `Select ${si.name} for bulk listing`,
+              // Visually hidden, still focusable.
+              style: { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', clipPath: 'inset(50%)', border: 0, whiteSpace: 'nowrap' }
             }),
             bulkSelected.has(si.assetId) && h('span', {
               style: { color: '#0b0f1a', fontSize: 14, fontWeight: 900, lineHeight: 1 }
@@ -16025,6 +16031,10 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   // the nav badge and the page disagree — a real bug.
   const [pool, setPool] = useState(() => allListings || []);
   const [fallbackItems, setFallbackItems] = useState({}); // id → item
+  // Watched ids the item lookup came back without. The server already drops
+  // deleted items from the watchlist, so a missing one means the lookup
+  // failed; those rows get a Retry instead of silently vanishing.
+  const [unresolved, setUnresolved] = useState([]);
   // What a buyer pays now: an auction with bids is at its current bid,
   // not its starting price, so it must not pose as the cheapest copy.
   const wlShownPrice = (l) => parseFloat(
@@ -16061,7 +16071,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   useEffect(() => {
     let alive = true;
     const present = new Set((pool || []).map(l => l?.item?.id).filter(Boolean));
-    const missing = watchlist.filter(id => !present.has(id) && fallbackItems[id] == null);
+    const failed = new Set(unresolved);
+    const missing = watchlist.filter(id => !present.has(id) && fallbackItems[id] == null && !failed.has(id));
     if (missing.length === 0) return;
     // One batched /api/items/batch call per 50 ids (server caps at 50) instead
     // of one GET per missing id — kills the watchlist N+1 on modal open.
@@ -16072,9 +16083,11 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       const next = { ...fallbackItems };
       chunkResults.flat().forEach(item => { if (item && item.id != null) next[item.id] = item; });
       setFallbackItems(next);
+      const lost = missing.filter(id => next[id] == null);
+      if (lost.length) setUnresolved(u => Array.from(new Set([...u, ...lost])));
     });
     return () => { alive = false; };
-  }, [watchlist, pool]);
+  }, [watchlist, pool, unresolved]);
 
   // Walk the unfiltered pool → one row per starred item (cheapest listing).
   // Any starred ID without a listing becomes a synthetic "stub" listing
@@ -16107,6 +16120,20 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     });
     return Object.values(byItem);
   }, [watchlist, pool, fallbackItems]);
+  // Watched items still being looked up, and ones whose lookup failed.
+  // Without these the page said "Nothing on your watchlist" while it
+  // loaded, or when a lookup failed, with the nav badge showing N.
+  const starredIdSet = new Set(starred.map(l => l.item.id));
+  const failedIds = watchlist.filter(id => !starredIdSet.has(id) && unresolved.includes(id));
+  const waitingIds = watchlist.filter(id => !starredIdSet.has(id) && !unresolved.includes(id));
+  const retryLookup = () => setUnresolved([]);
+  const lookupNote = failedIds.length > 0 && h('div', {
+    role: 'alert',
+    'data-testid': 'watchlist-lookup-failed',
+    style: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 8 }
+  },
+    `Could not load ${failedIds.length} watched item${failedIds.length === 1 ? '' : 's'}.`,
+    h('button', { type: 'button', className: 'btn btn-ghost', style: { padding: '2px 8px', fontSize: 12 }, onClick: retryLookup }, 'Retry'));
 
   useEffect(() => {
     const next = { ...snapshots };
@@ -16203,7 +16230,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     return order;
   })();
 
-  return h(InfoModal, { title: `Watchlist · ${starred.length} item${starred.length === 1 ? '' : 's'}`, onClose, wide: true },
+  return h(InfoModal, { title: `Watchlist · ${watchlist.length} item${watchlist.length === 1 ? '' : 's'}`, onClose, wide: true },
     // Batch 695 — CSV export pill. Only rendered once the user has
     // actually starred something — otherwise it's noise on the empty
     // state. Placed at the top-right via margin-left: auto so it sits
@@ -16401,7 +16428,12 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
         )
       );
     })(),
-    starred.length === 0
+    starred.length === 0 && waitingIds.length > 0
+      ? h('div', { className: 'empty-inline', 'aria-busy': 'true', 'data-testid': 'watchlist-loading', style: { fontSize: 13, color: 'var(--text-secondary)' } },
+          'Loading your watchlist\u2026')
+    : starred.length === 0 && failedIds.length > 0
+      ? lookupNote
+    : starred.length === 0
       ? h('div', null,
           // Boss QA G10 — empty-state icon bumped to 48px in a 72px
           // accent-tinted chip; inline SVG inbox so the glyph survives
@@ -16498,6 +16530,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
           })()
         )
       : h('div', null,
+          lookupNote,
           // Server-side alerts summary — appears above the filter row when
           // the user has any persistent alerts. ACTIVE + FIRED counts plus
           // an inline list (first 5) with per-row cancel buttons. When
@@ -16644,7 +16677,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
               className: 'btn-danger-ghost',
               style: { padding: '6px 12px', fontSize: 11 },
               onClick: async () => {
-                if (!confirm(`Clear all ${rows.length} watchlisted items and cancel their price alerts?`)) return;
+                if (!confirm(`Clear all ${watchlist.length} watchlisted items and cancel their price alerts?`)) return;
                 if (me?.id) {
                   // One bulk DELETE. Its result is checked: per-item
                   // unstar calls after it used to trip the rate limit and
@@ -16669,7 +16702,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                 setAlerts({});
                 // The server cancelled the price alerts on those items too.
                 try { loadServerAlerts(); } catch (_) {}
-                toast(`Cleared ${rows.length} watched item${rows.length === 1 ? '' : 's'}.`, 'ok');
+                toast(`Cleared ${watchlist.length} watched item${watchlist.length === 1 ? '' : 's'}.`, 'ok');
               }
             }, '✕ Clear all')
           ),

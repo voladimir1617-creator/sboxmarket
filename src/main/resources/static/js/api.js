@@ -1322,7 +1322,9 @@ export async function fetchDatabase(params = {}) {
 
 // ── Loadouts ────────────────────────────────────────────────────
 export async function fetchPublicLoadouts(search) {
-  const data = await safeJson(`${API}/loadouts/discover${search ? '?search=' + encodeURIComponent(search) : ''}`);
+  // The endpoint sends max-age=60; revalidate so a loadout just deleted,
+  // made private or favourited doesn't linger on Discover for a minute.
+  const data = await safeJson(`${API}/loadouts/discover${search ? '?search=' + encodeURIComponent(search) : ''}`, { cache: 'no-cache' });
   return Array.isArray(data) ? data : [];
 }
 
@@ -1998,7 +2000,8 @@ export async function fetchRecentSales(itemId, limit) {
  *  this" + "Best bid $X" chips on item detail. Aggregate only — no
  *  counterparty identities leaked. */
 export async function fetchBuyOrderCountForItem(itemId) {
-  const data = await safeJson(`${API}/buy-orders/count/item/${itemId}`);
+  // no-cache: the endpoint's max-age=60 hid a buyer's own new order here.
+  const data = await safeJson(`${API}/buy-orders/count/item/${itemId}`, { cache: 'no-cache' });
   return {
     // false when the lookup failed: a count of 0 then means "unknown", and
     // the item page must not tell anyone there are no buy orders.
@@ -2014,7 +2017,7 @@ export async function fetchBuyOrderCountForItem(itemId) {
  *  `{id, maxPrice, quantity, createdAt}`. */
 export async function fetchBuyOrdersForItem(itemId, limit = 10) {
   if (!itemId) return [];
-  const data = await safeJson(`${API}/buy-orders/for-item/${itemId}?limit=${limit}`);
+  const data = await safeJson(`${API}/buy-orders/for-item/${itemId}?limit=${limit}`, { cache: 'no-cache' });
   return Array.isArray(data) ? data : [];
 }
 
