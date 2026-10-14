@@ -1817,7 +1817,10 @@ export async function fetchPendingReviews() {
  *  { count: 0, items: [] } for anonymous callers. Drives Profile →
  *  Personal → Blocked list. */
 export async function fetchBlockedUsers() {
-  const data = await safeJson(`${API}/profile/blocks`);
+  // The server caps blocks at 100 but lists 50 unless asked; without the
+  // limit, Profile undercounted and a stall's Block button read "Block"
+  // for a seller already blocked past the 50th.
+  const data = await safeJson(`${API}/profile/blocks?limit=200`);
   return (data && typeof data === 'object') ? data : { count: 0, items: [] };
 }
 /** Block another user — non-destructive, silent to the blocked user. */
