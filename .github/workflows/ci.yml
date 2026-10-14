@@ -100,12 +100,17 @@ jobs:
         # network listener, and H2CredentialGuard refuses to boot it with a
         # blank password. The demo catalogue is opt-in now, and the smoke
         # walks /api/listings/stall/1 and /api/items/1..80, so ask for it.
+        #
+        # The Steam price sync is switched off: it defaults to on and runs
+        # 90s after boot, which would have this CI server calling
+        # steamcommunity.com/market/priceoverview by itself.
         run: |
           java -Xms256m -Xmx512m -jar build/libs/sboxmarket-*.jar \
             --server.port=8082 \
             --logging.level.root=WARN \
             "--spring.datasource.url=jdbc:h2:mem:k6smoke;DB_CLOSE_DELAY=-1;MODE=PostgreSQL" \
             --sbox.seed.demo-data=true \
+            --app.steam-price-sync.enabled=false \
             > app.log 2>&1 &
           echo $! > app.pid
 
@@ -171,7 +176,8 @@ jobs:
         # test users, and the dev-mode deposit the money flows are paid with.
         # Stripe has no keys, so nothing can move real money. Every outbound
         # HTTP(S) call from the JVM goes to a dead proxy: the tests never
-        # reach Steam or any other outside site.
+        # reach Steam or any other outside site, and the Steam price sync
+        # (on by default, 90s after boot) is switched off so it does not try.
         env:
           SBOX_DEV_LOGIN_ENABLED: 'true'
           SBOX_DEV_CREDIT_ENABLED: 'true'
@@ -185,6 +191,7 @@ jobs:
             --logging.level.root=WARN \
             "--spring.datasource.url=jdbc:h2:mem:e2e;DB_CLOSE_DELAY=-1;MODE=PostgreSQL" \
             --sbox.seed.demo-data=true \
+            --app.steam-price-sync.enabled=false \
             > app.log 2>&1 &
           echo $! > app.pid
 
