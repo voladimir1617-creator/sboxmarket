@@ -21,6 +21,7 @@ class BuyOrderController {
     @Autowired BuyOrderService buyOrderService
     @Autowired SteamUserRepository steamUserRepository
     @Autowired com.sboxmarket.repository.ItemRepository itemRepository
+    @Autowired com.sboxmarket.repository.ListingRepository listingRepository
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -43,6 +44,15 @@ class BuyOrderController {
         if (!itemIds.isEmpty()) {
             itemRepository.findAllById(itemIds).each { byId[it.id] = it }
         }
+        // The floor an order can actually fill against: Buy Now listings
+        // only. The item's lowestPrice also counts auctions, which made an
+        // auction-only item read "= floor" for an order that can never fill.
+        def buyNowFloor = [:]
+        if (!itemIds.isEmpty()) {
+            (listingRepository.buyNowFloorsForItems(itemIds) ?: []).each { Object[] r ->
+                buyNowFloor[(Long) r[0]] = (BigDecimal) r[1]
+            }
+        }
         // Batched queue positions (was an N+1: one countAheadInQueue COUNT per
         // ACTIVE row, ~200 join-COUNTs for a buyer at the active-order cap).
         // Pull every ACTIVE non-banned order on the buyer's item set in ONE
@@ -60,10 +70,10 @@ class BuyOrderController {
         // them, so they count toward each item order's position too.
         def basketRows = !itemIds.isEmpty() ? (buyOrderService.activeBasketQueueRows() ?: []) : []
         def out = rows.collect { o ->
-            // A zero floor means nothing is listed (the floor refresh writes 0),
-            // not a $0.00 price; reporting it made every such order read
-            // "= floor" against a free item.
-            def rawFloor = o.itemId != null ? byId[o.itemId]?.lowestPrice : null
+            // A zero floor means nothing is listed, not a $0.00 price;
+            // reporting it made every such order read "= floor" against a
+            // free item.
+            def rawFloor = o.itemId != null ? buyNowFloor[o.itemId] : null
             def floor = (rawFloor != null && rawFloor > BigDecimal.ZERO) ? rawFloor : null
             def gap = (floor != null && o.maxPrice != null) ? (floor - o.maxPrice) : null
             // Queue position — 1 + number of ACTIVE orders on the same
