@@ -1057,7 +1057,8 @@ class ListingController {
         // "away", and a bid-on auction away mode left up doesn't hide it.
         long awayHidden = listingService.countAwayHiddenActive(userId)
         boolean legacyAllHidden = awayHidden == 0L && totalActive > 0 && hiddenActive == totalActive &&
-            (user.awayModeUntil == null || user.awayModeUntil <= System.currentTimeMillis())
+            (user.awayModeUntil == null || user.awayModeUntil <= System.currentTimeMillis()) &&
+            listingService.isLegacyAwayStallFor(userId)
         def away = awayHidden > 0L ||
             (user.awayModeUntil != null && user.awayModeUntil > System.currentTimeMillis()) ||
             legacyAllHidden
@@ -1799,8 +1800,8 @@ class ListingController {
         boolean away = listingService.countAwayHiddenActive(userId) > 0 ||
             (until != null && until > System.currentTimeMillis())
         if (!away) {
-            long hiddenCount = listingService.countHiddenActive(userId)
-            away = hiddenCount > 0 && hiddenCount == listingService.countActiveBySeller(userId)
+            // Pre-marker away stalls only; hand-hidden rows are not away.
+            away = listingService.isLegacyAwayStallFor(userId)
         }
         ResponseEntity.ok([
             hidden: away,

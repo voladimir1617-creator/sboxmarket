@@ -489,8 +489,30 @@ class ListingService {
     private static List<Listing> awayHiddenRows(List<Listing> active) {
         def marked = active.findAll { Boolean.TRUE.equals(it.hidden) && it.tradeLink == AWAY_MARKER }
         if (!marked.isEmpty()) return marked
-        if (!active.isEmpty() && active.every { Boolean.TRUE.equals(it.hidden) }) return active
+        if (isLegacyAwayStall(active)) return active
         []
+    }
+
+    /** When the away marker started being written (2026-10-09 00:00 UTC).
+     *  Away mode has marked every row it hid since then. */
+    static final long AWAY_MARKER_SINCE = 1791504000000L
+
+    /** The pre-marker whole-stall away state: every active row hidden and
+     *  every one listed before the marker existed. A stall whose rows the
+     *  seller hid by hand after that date is not "away"; reading it as away
+     *  showed Away ON and coming back un-hid listings hidden on purpose. */
+    static boolean isLegacyAwayStall(List<Listing> active) {
+        !active.isEmpty() &&
+            active.every { Boolean.TRUE.equals(it.hidden) } &&
+            active.every { it.listedAt != null && it.listedAt < AWAY_MARKER_SINCE }
+    }
+
+    /** Legacy whole-stall away state for a seller (see isLegacyAwayStall). */
+    boolean isLegacyAwayStallFor(Long sellerUserId) {
+        if (sellerUserId == null) return false
+        def active = listingRepository.findActiveBySeller(sellerUserId) ?: []
+        active.every { !(Boolean.TRUE.equals(it.hidden) && it.tradeLink == AWAY_MARKER) } &&
+            isLegacyAwayStall(active)
     }
 
     /** Listings that become visible again can now fill a standing buy

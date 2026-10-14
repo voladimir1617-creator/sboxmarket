@@ -275,6 +275,17 @@ class OfferService {
         // treat that as "no existing offers" so existing service specs
         // don't need to stub this call explicitly.
         def existingLive = offerRepository.findLiveByBuyerAndListing(buyerUserId, listingId) ?: []
+        // A PENDING offer past its auto-decline time is already over; the
+        // sweeper just hasn't run yet (it runs every 6h). Close it now with
+        // the sweeper's own guarded UPDATE instead of telling the buyer to
+        // raise an offer that buyerRaise would then refuse as expired.
+        long nowMs = System.currentTimeMillis()
+        existingLive = existingLive.findAll { o ->
+            Long exp = autoDeclineDays > 0 ? computeExpiresAt(o) : null
+            if (exp == null || exp > nowMs || o.id == null) return true
+            offerRepository.claimAutoExpire(o.id, nowMs)
+            false
+        }
         if (!existingLive.isEmpty()) {
             throw new BadRequestException("OFFER_ALREADY_PENDING",
                 "You already have an offer on this listing — raise your existing offer instead of creating a new one.")
@@ -1506,8 +1517,12 @@ class OfferService {
             // the price drop actually matters to them ("you could buy at
             // ≤ what you already offered"). A buyer who offered $20 on a
             // $50 listing that dropped to $40 is NOT in the target set.
+            // A seller's counter is PENDING with the buyer's id on it too, but
+            // its amount is the seller's price, not something the buyer
+            // offered, so it never earns a "your $X offer" ping.
             def winners = pending.findAll { o ->
-                o.buyerUserId != null && o.amount != null && o.amount.compareTo(newPrice) >= 0
+                o.buyerUserId != null && o.author != 'SELLER' &&
+                    o.amount != null && o.amount.compareTo(newPrice) >= 0
             }.unique { it.buyerUserId }.take(50)
             def name = itemName ?: 'an item you offered on'
             // Drop banned recipients (batch 316/317) — banned offer-holders
