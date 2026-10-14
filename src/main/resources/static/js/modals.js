@@ -891,6 +891,241 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
      if (document.querySelector('.site-root.full-page-mode')) return;
      onClose && onClose();
   };
+  // Price-alert button. The item page hides the bottom action bar, so it
+  // also renders (compact) next to Share there; otherwise it was unreachable.
+  const renderAlertButton = (compact) => {
+    // When the item has zero active listings, the floor price is 0
+    // and "drop to target" is meaningless. Swap to a restock-style
+    // alert — uses the $100k cap as the target so any future
+    // listing at any price trips the sweeper.
+    const outOfStock = !listings || listings.length === 0;
+    // Restock-mode alerts are encoded as targetPrice ≥ 99999 (the
+    // $100k cap). Detect it so the label/tooltip don't read
+    // "Alert at $100,000.00" — that would confuse the user into
+    // thinking they'd set a real threshold near the cap.
+    const isRestock = myAlert && parseFloat(myAlert.targetPrice) >= 99999;
+    // A price-target alert stays a price-target alert while the item
+    // is sold out: the restock button used to read "Restock Alert · On"
+    // over it and, when clicked, replaced the target with $100,000.
+    const restockMode = outOfStock && (!myAlert || isRestock);
+    const alertLabel = restockMode
+      ? (myAlert ? ' Restock Alert · On' : ' Notify When Listed')
+      : myAlert
+        ? (isRestock ? ' Restock Alert · Edit' : ` Alert at ${fmt(myAlert.targetPrice)} · Edit`)
+        : ' Set Price Alert';
+    return h('button', {
+      className: 'btn btn-ghost',
+      style: {
+        border: '1px solid var(--border)',
+        // Compact: the item page's header copy, sized like Share.
+        ...(compact ? { padding: '5px 10px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 5 } : {}),
+        // Subtle accent border when an alert is already active so the
+        // button visually reads as "done" rather than "todo".
+        ...(myAlert ? { borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' } : {})
+      },
+      title: restockMode
+        ? (myAlert ? 'Restock alert active — fires the moment any listing appears.' : 'Get notified when this item is listed again')
+        : myAlert
+          ? (isRestock
+              ? 'Restock-style alert active — fires on any future listing regardless of price. Click to switch to a price target.'
+              : `Active alert · fires when any listing drops to ${fmt(myAlert.targetPrice)}. Click to edit.`)
+          : 'Get notified when the floor price drops to your target',
+      onClick: async () => {
+        if (restockMode) {
+          // Restock alerts stay one-tap — there's no amount to adjust,
+          // the sweeper just needs any future listing to exist.
+          if (!confirm(`Notify me when ${item.name} is listed again?`)) return;
+          const { createWatchlistAlert } = await import('./api.js');
+          const res = await createWatchlistAlert(item.id, 100000);
+          if (res && (res.error || res.code)) {
+            toast(res.message || res.error || 'Could not save alert', 'err');
+          } else {
+            toast(`Restock alert set — you'll be notified when ${item.name} is listed again.`, 'ok');
+            // Flip the button to "on" now, like the price-alert save
+            // does; it used to keep offering the same alert again.
+            setMyAlert({ itemId: item.id, targetPrice: 100000, status: 'ACTIVE' });
+          }
+          return;
+        }
+        // In-stock: open the inline price-alert drawer. If the user
+        // already has an active *threshold* alert, seed the current
+        // target so "Edit" actually reflects what they set.
+        // Restock-mode alerts (targetPrice ≥ 99999) used to seed
+        // the input with $100,000 — meaningless once the item is
+        // back in stock. Treat those like a fresh alert and default
+        // to 15% below the current floor instead, so the user
+        // gets a sensible starting point either way.
+        const existingTarget = myAlert ? parseFloat(myAlert.targetPrice) : null;
+        const isRestockSeed = existingTarget != null && existingTarget >= 99999;
+        const seed = (existingTarget != null && !isRestockSeed)
+          ? existingTarget.toFixed(2)
+          : ((parseFloat(item.lowestPrice) || 0) * 0.85).toFixed(2);
+        setAlertTarget(seed);
+        setAlertErr('');
+        setAlertOpen(o => !o);
+      }
+    },
+      h(MaterialIcon, {
+        // The bundled icon subset has "notifications" but not
+        // "notifications_active", which drew as raw text.
+        name: 'notifications',
+        fill: !!myAlert,
+        size: compact ? 12 : 16
+      }),
+      alertLabel
+    );
+  };
+  // Price-alert drawer: under the header on the item page, at the bottom
+  // of the modal otherwise.
+  const renderAlertPanel = () => {
+    // Inline price-alert drawer (batch 385). Replaces the legacy
+    // window.prompt with a proper dialog — ± quick-adjust chips,
+    // $ currency affordance, and a live preview sentence so the
+    // buyer knows exactly what they're signing up for.
+    const floor = parseFloat(item.lowestPrice) || 0;
+    const typed = parseFloat(alertTarget);
+    const valid = Number.isFinite(typed) && typed > 0 && typed <= 100000;
+    // The sweep fires when floor <= target, so a target equal to the
+    // floor fires right away too.
+    const aboveFloor = valid && floor > 0 && typed >= floor;
+    const bump = (deltaPct) => {
+      const base = Number.isFinite(typed) && typed > 0 ? typed : floor;
+      if (!base) return;
+      const next = Math.max(0.01, base * (1 + deltaPct / 100));
+      setAlertTarget(next.toFixed(2));
+    };
+    return h('div', {
+      className: 'item-alert-panel',
+      // Escape closes the panel, not the page (app.js skips its
+      // Escape-to-market while this panel is open).
+      onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); setAlertOpen(false); } },
+      style: {
+        padding: isPageMode ? 14 : '14px 30px', background: 'var(--bg-secondary)',
+        borderRadius: 8, margin: isPageMode ? '0 0 14px' : '10px 30px'
+      }
+    },
+      h('div', {
+        className: 'wallet-input-label',
+        style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' }
+      }, 'Notify me when the floor drops to…'),
+      // Percent-off preset chips — csfloat-parity quick-set for "10%
+      // drop / 20% drop / etc." patterns. Computes
+      //   target = floor × (1 - pct/100)
+      // and seeds the input. Only renders when there's a real floor
+      // to discount from; out-of-stock items use the restock flow
+      // instead (handled at the Notify-When-Listed branch above).
+      floor > 0 && h('div', {
+        style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }
+      },
+        h('span', {
+          style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center', marginRight: 4 }
+        }, 'Quick:'),
+        [5, 10, 20, 30, 50].map(pct => {
+          const next = Math.max(0.01, floor * (1 - pct / 100));
+          const isActive = Number.isFinite(typed) && Math.abs(typed - next) < 0.005;
+          return h('button', {
+            key: 'pct-' + pct,
+            type: 'button',
+            className: 'btn btn-ghost',
+            style: {
+              padding: '4px 10px', fontSize: 11,
+              border: '1px solid ' + (isActive ? 'var(--accent)' : 'var(--border)'),
+              color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+              fontWeight: isActive ? 700 : 500
+            },
+            onClick: () => setAlertTarget(next.toFixed(2)),
+            title: `Notify me when the floor drops ${pct}% from current — that's ${fmt(next)}`
+          }, '−', pct, '%');
+        })
+      ),
+      h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+        h('div', {
+          style: {
+            display: 'flex', alignItems: 'center', flex: 1,
+            background: 'var(--bg-page-2, #0d1320)',
+            border: '1px solid var(--border)', borderRadius: 6,
+            padding: '0 10px'
+          }
+        },
+          h('span', {
+            style: { color: 'var(--text-muted)', fontSize: 14, marginRight: 6 }
+          }, '$'),
+          h('input', {
+            className: 'wallet-amount-input',
+            style: {
+              flex: 1, background: 'transparent', border: 'none',
+              padding: '8px 0', fontSize: 14, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace"
+            },
+            type: 'number', step: '0.01', min: '0.01', max: '100000',
+            inputMode: 'decimal',
+            enterKeyHint: 'done',
+            'aria-label': 'Price alert target (USD)',
+            value: alertTarget,
+            onChange: e => setAlertTarget(e.target.value),
+            autoFocus: true
+          })
+        ),
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { padding: '8px 10px', fontSize: 11, border: '1px solid var(--border)' },
+          onClick: () => bump(-10),
+          title: '-10%'
+        }, '−10%'),
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { padding: '8px 10px', fontSize: 11, border: '1px solid var(--border)' },
+          onClick: () => bump(10),
+          title: '+10%'
+        }, '+10%'),
+        h('button', {
+          className: 'btn btn-accent',
+          style: { padding: '8px 18px', fontSize: 13 },
+          disabled: alertBusy || !valid,
+          onClick: async () => {
+            setAlertErr('');
+            if (!valid) { setAlertErr('Enter a positive dollar amount (≤ $100,000)'); return; }
+            setAlertBusy(true);
+            try {
+              const { createWatchlistAlert } = await import('./api.js');
+              const res = await createWatchlistAlert(item.id, typed);
+              if (res && (res.error || res.code)) {
+                setAlertErr(res.message || res.error || 'Could not save alert');
+                return;
+              }
+              toast(`Price alert set — you'll be notified when ${item.name} drops to ${fmt(typed)}.`, 'ok');
+              // Sync the "Alert at $X" chip immediately — refetch would
+              // also work but we already know the target we just saved.
+              setMyAlert({ itemId: item.id, targetPrice: typed, status: 'ACTIVE' });
+              setAlertOpen(false);
+            } finally { setAlertBusy(false); }
+          }
+        }, alertBusy ? '…' : 'Save'),
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { padding: '8px 10px', fontSize: 11 },
+          onClick: () => setAlertOpen(false),
+          'aria-label': 'Close alert editor'
+        }, '✕')
+      ),
+      h('div', {
+        style: {
+          fontSize: 11, marginTop: 8,
+          color: aboveFloor ? 'var(--amber, #fbbf24)' : 'var(--text-muted)',
+          lineHeight: 1.5
+        }
+      },
+        floor > 0 && h('span', null, 'Current floor ', h('strong', null, fmt(floor)), ' · '),
+        valid
+          ? (aboveFloor
+              ? 'This target is already at or above the current floor — the alert will fire immediately.'
+              : `We'll ping you when any listing on this item drops to ${fmt(typed)} or lower.`)
+          : 'Enter a positive dollar amount.'
+      ),
+      alertErr && h('div', {
+        style: { color: 'var(--red)', fontSize: 12, marginTop: 6 }
+      }, alertErr)
+    );
+  };
   return h('div', { className: 'modal-backdrop' + (isPageMode ? ' page-mode' : ''), onClick: handleBackdropClick },
     h(isPageMode ? 'main' : 'div', {
       ref: isPageMode ? undefined : panelRef,
@@ -1029,8 +1264,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   window.prompt('Copy this link:', url);
                 }
               }
-            }, h(MaterialIcon, { name: 'share', size: 12 }), 'Share')
+            }, h(MaterialIcon, { name: 'share', size: 12 }), 'Share'),
+            isPageMode && me && renderAlertButton(true)
           ),
+          isPageMode && alertOpen && renderAlertPanel(),
           /* CSFloat-1:1: inline Buy Now action group at the TOP of the right
              rail — csfloat's most prominent action sits next to the price.
              Renders only when there is at least one BUY_NOW listing AND the
@@ -2243,79 +2480,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           onClick: () => onCreateBuyOrder(item),
           title: 'Create a standing buy order for this item'
         }, h(MaterialIcon, { name: 'bolt', size: 16 }), ' Place Buy Order'),
-        me && (() => {
-          // When the item has zero active listings, the floor price is 0
-          // and "drop to target" is meaningless. Swap to a restock-style
-          // alert — uses the $100k cap as the target so any future
-          // listing at any price trips the sweeper.
-          const outOfStock = !listings || listings.length === 0;
-          // Restock-mode alerts are encoded as targetPrice ≥ 99999 (the
-          // $100k cap). Detect it so the label/tooltip don't read
-          // "Alert at $100,000.00" — that would confuse the user into
-          // thinking they'd set a real threshold near the cap.
-          const isRestock = myAlert && parseFloat(myAlert.targetPrice) >= 99999;
-          const alertLabel = outOfStock
-            ? (myAlert ? ' Restock Alert · On' : ' Notify When Listed')
-            : myAlert
-              ? (isRestock ? ' Restock Alert · Edit' : ` Alert at ${fmt(myAlert.targetPrice)} · Edit`)
-              : ' Set Price Alert';
-          return h('button', {
-            className: 'btn btn-ghost',
-            style: {
-              border: '1px solid var(--border)',
-              // Subtle accent border when an alert is already active so the
-              // button visually reads as "done" rather than "todo".
-              ...(myAlert ? { borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' } : {})
-            },
-            title: outOfStock
-              ? (myAlert ? 'Restock alert active — fires the moment any listing appears.' : 'Get notified when this item is listed again')
-              : myAlert
-                ? (isRestock
-                    ? 'Restock-style alert active — fires on any future listing regardless of price. Click to switch to a price target.'
-                    : `Active alert · fires when any listing drops to ${fmt(myAlert.targetPrice)}. Click to edit.`)
-                : 'Get notified when the floor price drops to your target',
-            onClick: async () => {
-              if (outOfStock) {
-                // Restock alerts stay one-tap — there's no amount to adjust,
-                // the sweeper just needs any future listing to exist.
-                if (!confirm(`Notify me when ${item.name} is listed again?`)) return;
-                const { createWatchlistAlert } = await import('./api.js');
-                const res = await createWatchlistAlert(item.id, 100000);
-                if (res && (res.error || res.code)) {
-                  toast(res.message || res.error || 'Could not save alert', 'err');
-                } else {
-                  toast(`Restock alert set — you'll be notified when ${item.name} is listed again.`, 'ok');
-                  // Flip the button to "on" now, like the price-alert save
-                  // does; it used to keep offering the same alert again.
-                  setMyAlert({ itemId: item.id, targetPrice: 100000, status: 'ACTIVE' });
-                }
-                return;
-              }
-              // In-stock: open the inline price-alert drawer. If the user
-              // already has an active *threshold* alert, seed the current
-              // target so "Edit" actually reflects what they set.
-              // Restock-mode alerts (targetPrice ≥ 99999) used to seed
-              // the input with $100,000 — meaningless once the item is
-              // back in stock. Treat those like a fresh alert and default
-              // to 15% below the current floor instead, so the user
-              // gets a sensible starting point either way.
-              const existingTarget = myAlert ? parseFloat(myAlert.targetPrice) : null;
-              const isRestockSeed = existingTarget != null && existingTarget >= 99999;
-              const seed = (existingTarget != null && !isRestockSeed)
-                ? existingTarget.toFixed(2)
-                : ((parseFloat(item.lowestPrice) || 0) * 0.85).toFixed(2);
-              setAlertTarget(seed);
-              setAlertErr('');
-              setAlertOpen(o => !o);
-            }
-          },
-            h(MaterialIcon, {
-              name: myAlert ? 'notifications_active' : 'notifications_active',
-              size: 16
-            }),
-            alertLabel
-          );
-        })(),
+        me && renderAlertButton(false),
         onAddToCart && cheapestBuyNow && h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)' },
@@ -2361,155 +2526,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         })()
       ),
 
-      alertOpen && (() => {
-        // Inline price-alert drawer (batch 385). Replaces the legacy
-        // window.prompt with a proper dialog — ± quick-adjust chips,
-        // $ currency affordance, and a live preview sentence so the
-        // buyer knows exactly what they're signing up for.
-        const floor = parseFloat(item.lowestPrice) || 0;
-        const typed = parseFloat(alertTarget);
-        const valid = Number.isFinite(typed) && typed > 0 && typed <= 100000;
-        // The sweep fires when floor <= target, so a target equal to the
-        // floor fires right away too.
-        const aboveFloor = valid && floor > 0 && typed >= floor;
-        const bump = (deltaPct) => {
-          const base = Number.isFinite(typed) && typed > 0 ? typed : floor;
-          if (!base) return;
-          const next = Math.max(0.01, base * (1 + deltaPct / 100));
-          setAlertTarget(next.toFixed(2));
-        };
-        return h('div', {
-          className: 'item-alert-panel',
-          // Escape closes the panel, not the page (app.js skips its
-          // Escape-to-market while this panel is open).
-          onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); setAlertOpen(false); } },
-          style: {
-            padding: '14px 30px', background: 'var(--bg-secondary)',
-            borderRadius: 8, margin: '10px 30px'
-          }
-        },
-          h('div', {
-            className: 'wallet-input-label',
-            style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' }
-          }, 'Notify me when the floor drops to…'),
-          // Percent-off preset chips — csfloat-parity quick-set for "10%
-          // drop / 20% drop / etc." patterns. Computes
-          //   target = floor × (1 - pct/100)
-          // and seeds the input. Only renders when there's a real floor
-          // to discount from; out-of-stock items use the restock flow
-          // instead (handled at the Notify-When-Listed branch above).
-          floor > 0 && h('div', {
-            style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }
-          },
-            h('span', {
-              style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center', marginRight: 4 }
-            }, 'Quick:'),
-            [5, 10, 20, 30, 50].map(pct => {
-              const next = Math.max(0.01, floor * (1 - pct / 100));
-              const isActive = Number.isFinite(typed) && Math.abs(typed - next) < 0.005;
-              return h('button', {
-                key: 'pct-' + pct,
-                type: 'button',
-                className: 'btn btn-ghost',
-                style: {
-                  padding: '4px 10px', fontSize: 11,
-                  border: '1px solid ' + (isActive ? 'var(--accent)' : 'var(--border)'),
-                  color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                  fontWeight: isActive ? 700 : 500
-                },
-                onClick: () => setAlertTarget(next.toFixed(2)),
-                title: `Notify me when the floor drops ${pct}% from current — that's ${fmt(next)}`
-              }, '−', pct, '%');
-            })
-          ),
-          h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-            h('div', {
-              style: {
-                display: 'flex', alignItems: 'center', flex: 1,
-                background: 'var(--bg-page-2, #0d1320)',
-                border: '1px solid var(--border)', borderRadius: 6,
-                padding: '0 10px'
-              }
-            },
-              h('span', {
-                style: { color: 'var(--text-muted)', fontSize: 14, marginRight: 6 }
-              }, '$'),
-              h('input', {
-                className: 'wallet-amount-input',
-                style: {
-                  flex: 1, background: 'transparent', border: 'none',
-                  padding: '8px 0', fontSize: 14, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace"
-                },
-                type: 'number', step: '0.01', min: '0.01', max: '100000',
-                inputMode: 'decimal',
-                enterKeyHint: 'done',
-                'aria-label': 'Price alert target (USD)',
-                value: alertTarget,
-                onChange: e => setAlertTarget(e.target.value),
-                autoFocus: true
-              })
-            ),
-            h('button', {
-              className: 'btn btn-ghost',
-              style: { padding: '8px 10px', fontSize: 11, border: '1px solid var(--border)' },
-              onClick: () => bump(-10),
-              title: '-10%'
-            }, '−10%'),
-            h('button', {
-              className: 'btn btn-ghost',
-              style: { padding: '8px 10px', fontSize: 11, border: '1px solid var(--border)' },
-              onClick: () => bump(10),
-              title: '+10%'
-            }, '+10%'),
-            h('button', {
-              className: 'btn btn-accent',
-              style: { padding: '8px 18px', fontSize: 13 },
-              disabled: alertBusy || !valid,
-              onClick: async () => {
-                setAlertErr('');
-                if (!valid) { setAlertErr('Enter a positive dollar amount (≤ $100,000)'); return; }
-                setAlertBusy(true);
-                try {
-                  const { createWatchlistAlert } = await import('./api.js');
-                  const res = await createWatchlistAlert(item.id, typed);
-                  if (res && (res.error || res.code)) {
-                    setAlertErr(res.message || res.error || 'Could not save alert');
-                    return;
-                  }
-                  toast(`Price alert set — you'll be notified when ${item.name} drops to ${fmt(typed)}.`, 'ok');
-                  // Sync the "Alert at $X" chip immediately — refetch would
-                  // also work but we already know the target we just saved.
-                  setMyAlert({ itemId: item.id, targetPrice: typed, status: 'ACTIVE' });
-                  setAlertOpen(false);
-                } finally { setAlertBusy(false); }
-              }
-            }, alertBusy ? '…' : 'Save'),
-            h('button', {
-              className: 'btn btn-ghost',
-              style: { padding: '8px 10px', fontSize: 11 },
-              onClick: () => setAlertOpen(false),
-              'aria-label': 'Close alert editor'
-            }, '✕')
-          ),
-          h('div', {
-            style: {
-              fontSize: 11, marginTop: 8,
-              color: aboveFloor ? 'var(--amber, #fbbf24)' : 'var(--text-muted)',
-              lineHeight: 1.5
-            }
-          },
-            floor > 0 && h('span', null, 'Current floor ', h('strong', null, fmt(floor)), ' · '),
-            valid
-              ? (aboveFloor
-                  ? 'This target is already at or above the current floor — the alert will fire immediately.'
-                  : `We'll ping you when any listing on this item drops to ${fmt(typed)} or lower.`)
-              : 'Enter a positive dollar amount.'
-          ),
-          alertErr && h('div', {
-            style: { color: 'var(--red)', fontSize: 12, marginTop: 6 }
-          }, alertErr)
-        );
-      })(),
+      !isPageMode && alertOpen && renderAlertPanel(),
       offerOpen && (() => {
         // Live preview math (batch 407). Updates as the buyer types so
         // they see the % below ask, the $ they're saving, and an
@@ -5204,6 +5221,7 @@ function FollowingListRow() {
 // nobody so it doesn't clutter the Personal tab for the common case.
 function BlockedListRow() {
   const [rows, setRows] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const loadRows = useCallback(async () => {
     try {
       const { fetchBlockedUsers } = await import('./api.js');
@@ -5253,7 +5271,7 @@ function BlockedListRow() {
       }, '✕ all')
     ),
     h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
-      rows.slice(0, 10).map(r => h('div', {
+      (showAll ? rows : rows.slice(0, 10)).map(r => h('div', {
         key: r.blockedUserId,
         style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }
       },
@@ -5269,8 +5287,15 @@ function BlockedListRow() {
           title: 'Remove this block'
         }, 'Unblock')
       )),
-      rows.length > 10 && h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
-        `+ ${rows.length - 10} more`)
+      // A button, like the Following row's: the "+N more" text could not
+      // be opened, so blocks past the first ten could not be undone here.
+      rows.length > 10 && h('button', {
+        className: 'btn btn-ghost',
+        style: { padding: '2px 8px', fontSize: 11, color: 'var(--text-muted)' },
+        'aria-expanded': showAll,
+        'data-testid': 'blocked-more',
+        onClick: () => setShowAll(v => !v)
+      }, showAll ? 'Show fewer' : `+ ${rows.length - 10} more`)
     )
   );
 }
@@ -7863,6 +7888,21 @@ function ProfileTradesTab({ me, privacy }) {
   const [reviewBusy,  setReviewBusy]  = useState(false);
   const [reviewErr,   setReviewErr]   = useState('');
   const [reviewDone,  setReviewDone]  = useState(false);
+  // Reviews this buyer already wrote, by trade id. The trades list carries
+  // no "reviewed" flag, so "Leave Review" used to open a blank 5-star form
+  // on a reviewed trade and Submit silently replaced the old review.
+  const [myReviews, setMyReviews] = useState({});
+  useEffect(() => {
+    if (!me?.id) { setMyReviews({}); return; }
+    let alive = true;
+    fetchMyAuthoredReviews().then(rows => {
+      if (!alive || !Array.isArray(rows)) return;
+      const byTrade = {};
+      rows.forEach(r => { if (r && r.tradeId != null) byTrade[r.tradeId] = { rating: r.rating, comment: r.comment || '' }; });
+      setMyReviews(byTrade);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [me?.id]);
 
   // Refund-request helper — fires a support ticket with the trade details
   // baked into the subject + body so the CSR queue has full context on the
@@ -7926,9 +7966,10 @@ function ProfileTradesTab({ me, privacy }) {
   };
 
   const openReview = (trade) => {
+    const prev = myReviews[trade.id];
     setReviewTrade(trade);
-    setReviewStars(5);
-    setReviewText('');
+    setReviewStars(prev && prev.rating ? prev.rating : 5);
+    setReviewText(prev ? prev.comment : '');
     setReviewErr('');
     setReviewDone(false);
   };
@@ -7993,6 +8034,8 @@ function ProfileTradesTab({ me, privacy }) {
         return;
       }
       setReviewDone(true);
+      const wasEdit = !!myReviews[reviewTrade.id];
+      setMyReviews(m => ({ ...m, [reviewTrade.id]: { rating: reviewStars, comment: reviewText } }));
       // Batch 890 — toast the star count + counterparty so the reviewer
       // sees explicit confirmation, not just a 900ms "done" flash. The
       // inline "done" banner still fires for the user's direct focus;
@@ -8000,9 +8043,10 @@ function ProfileTradesTab({ me, privacy }) {
       // the time the save lands.
       const stars = '★'.repeat(reviewStars) + '☆'.repeat(5 - reviewStars);
       const sellerName = reviewTrade.counterpartyName;
+      const verb = wasEdit ? 'updated' : 'posted';
       toast(sellerName
-        ? `${stars} review posted for @${sellerName}.`
-        : `${stars} review posted.`,
+        ? `${stars} review ${verb} for @${sellerName}.`
+        : `${stars} review ${verb}.`,
         'ok');
       if (reviewCloseTimerRef.current) clearTimeout(reviewCloseTimerRef.current);
       reviewCloseTimerRef.current = setTimeout(() => {
@@ -8095,7 +8139,9 @@ function ProfileTradesTab({ me, privacy }) {
     let rows = filter === 'ALL'
       ? trades
       : filter === 'OPEN'
-        ? trades.filter(t => ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state))
+        // Open = not settled yet: pending or disputed. Same rule as the
+        // CSV export's ?state=OPEN, so the download matches the screen.
+        ? trades.filter(t => ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','DISPUTED'].includes(t.state))
         : trades.filter(t => t.state === filter);
     // Collapse active — drop every PENDING_* row, leaving only the
     // settled states. Only applies when the state filter isn't already
@@ -8414,6 +8460,7 @@ function ProfileTradesTab({ me, privacy }) {
         className: 'price-input',
         style: { marginLeft: 8, minWidth: 140, maxWidth: 220, fontSize: 12, padding: '4px 8px' },
         placeholder: 'Search trades…',
+        'aria-label': 'Search trades',
         value: tradeSearch,
         onChange: e => setTradeSearch(e.target.value)
       }),
@@ -8978,7 +9025,7 @@ function ProfileTradesTab({ me, privacy }) {
                     style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11 },
                     disabled: busy,
                     onClick: () => openReview(t)
-                  }, 'Leave Review'),
+                  }, myReviews[t.id] ? 'Edit Review' : 'Leave Review'),
                 // Request refund — opens a support ticket pre-filled with
                 // the trade metadata (id, item, price, date). Buyer-only on
                 // VERIFIED trades; sellers have a separate dispute channel.

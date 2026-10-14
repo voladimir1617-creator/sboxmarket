@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=268';
+} from './modals.js?v=269';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -1958,10 +1958,14 @@ function FollowingRail({ me, watchlist, onToggleStar, onOpen, onAddToCart, cartH
 // Fetches the current block state ad-hoc on mount via the block-list
 // endpoint; there's no dedicated /status endpoint — reads the set once
 // per stall visit, which is fine for the human cadence of a stall page.
-function BlockSellerButton({ sellerId, sellerName, showToast }) {
+function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, onChanged }) {
   const [blocked, setBlocked] = useState(null); // null = loading
   const [busy, setBusy]       = useState(false);
   useEffect(() => {
+    // The stall payload already says whether the viewer blocked this
+    // seller; following it keeps this button and the "You've blocked this
+    // seller" banner in step (they used to disagree after either changed).
+    if (typeof blockedByViewer === 'boolean') { setBlocked(blockedByViewer); return; }
     let alive = true;
     import('./api.js').then(({ fetchBlockedUsers }) => fetchBlockedUsers())
       .then(data => {
@@ -1971,7 +1975,7 @@ function BlockSellerButton({ sellerId, sellerName, showToast }) {
       })
       .catch(() => { if (alive) setBlocked(false); });
     return () => { alive = false; };
-  }, [sellerId]);
+  }, [sellerId, blockedByViewer]);
   const toggle = async () => {
     if (blocked === null || busy) return;
     if (!blocked) {
@@ -1994,6 +1998,7 @@ function BlockSellerButton({ sellerId, sellerName, showToast }) {
         return;
       }
       setBlocked(!blocked);
+      onChanged && onChanged();
       // Batch 918 — name the seller in the toast so a user bouncing
       // between stalls sees exactly which one they just flipped.
       const who = sellerName ? `@${sellerName}` : 'Seller';
@@ -8415,7 +8420,14 @@ export function App() {
               // yourself). Silent for the blocked user; reversible at any
               // time from Profile → Personal → Blocked. Batch 344.
               me && me.id !== stallData.seller.id &&
-                h(BlockSellerButton, { sellerId: stallData.seller.id, sellerName: stallData.seller.displayName || stallData.seller.name, showToast }),
+                h(BlockSellerButton, {
+                  sellerId: stallData.seller.id, sellerName: stallData.seller.displayName || stallData.seller.name, showToast,
+                  blockedByViewer: stallData.blockedByViewer,
+                  onChanged: async () => {
+                    const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
+                    if (fresh && !fresh.__error) setStallData(fresh);
+                  }
+                }),
               // Report button opens a FRAUD-category support ticket with the
               // seller's id pre-populated. Only shown on someone else's stall
               // (can't report yourself). Opens quietly via prompt so we don't
@@ -8522,11 +8534,13 @@ export function App() {
                       h('div', { className: 'stall-filter-chips' },
                         h('button', {
                           className: `wallet-tx-filter-chip ${stallRarity === 'All' ? 'active' : ''}`,
+                          'aria-pressed': stallRarity === 'All',
                           onClick: () => setStallRarity('All')
                         }, `All · ${stallData.listings.length}`),
                         rarities.map(r => h('button', {
                           key: r,
                           className: `wallet-tx-filter-chip ${stallRarity === r ? 'active' : ''}`,
+                          'aria-pressed': stallRarity === r,
                           onClick: () => setStallRarity(r)
                         }, `${r} · ${stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === r).length}`))
                       ),
@@ -8723,7 +8737,8 @@ export function App() {
                     type: 'button',
                     className: `star-btn ${reviewStars >= n ? 'on' : ''}`,
                     onClick: () => setReviewStars(n),
-                    'aria-label': `${n} star${n === 1 ? '' : 's'}`
+                    'aria-label': `${n} star${n === 1 ? '' : 's'}`,
+                    'aria-pressed': reviewStars === n
                   }, reviewStars >= n ? '★' : '☆'))
                 ),
                 h('textarea', {
@@ -8793,6 +8808,7 @@ export function App() {
                     [0, 5, 4, 3, 2, 1].map(n => h('button', {
                       key: n,
                       className: `wallet-tx-filter-chip ${stallStarFilter === n ? 'active' : ''}`,
+                      'aria-pressed': stallStarFilter === n,
                       onClick: () => setStallStarFilter(n)
                     }, n === 0 ? 'All' : `${n}★`))
                   ),
@@ -8826,9 +8842,17 @@ export function App() {
                           // viewer's own review" flag — the API no longer
                           // ships the reviewer's raw fromUserId (2026-05-21).
                           isAuthor: !!r.mine,
+                          // A deleted or removed review also changes the rating
+                          // header and frees the buyer's trade for a new review.
                           onSaved: async () => {
-                            const fresh = await fetchReviewsForUser(stallData.seller.id, { fresh: true });
+                            const [fresh, eligible, stall] = await Promise.all([
+                              fetchReviewsForUser(stallData.seller.id, { fresh: true }),
+                              me ? fetchEligibleReviews(stallData.seller.id) : Promise.resolve(null),
+                              fetchPublicStall(stallData.seller.id, { fresh: true })
+                            ]);
                             if (Array.isArray(fresh)) setStallReviews(fresh);
+                            if (Array.isArray(eligible)) setEligibleTrades(eligible);
+                            if (stall && !stall.__error) setStallData(stall);
                           }
                         }))
                 ),
@@ -8898,7 +8922,9 @@ export function App() {
               ),
               // Reviews teaser — shown only when there are no reviews
               // yet, so the page doesn't bottom out at "no content."
-              (!stallReviews || stallReviews.length === 0) && h('div', { className: 'stall-trust-card' },
+              // Only for a list that loaded empty: a failed fetch (null)
+              // used to read "No reviews yet" beside "4.8 · 12 reviews".
+              Array.isArray(stallReviews) && stallReviews.length === 0 && h('div', { className: 'stall-trust-card' },
                 h('div', { className: 'stall-trust-card-head' },
                   h('span', { className: 'section-title-dot' }),
                   'Reviews'),
