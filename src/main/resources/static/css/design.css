@@ -30646,3 +30646,10 @@ html.reduce-motion, html.reduce-motion *, html.reduce-motion *::before, html.red
   body:has(.item-buy-bar) .app-back-to-top { bottom: calc(57px + 64px + 14px + env(safe-area-inset-bottom, 0px)) !important; }
   body:has(.item-buy-bar) footer.site-footer { padding-bottom: 104px !important; }
 }
+/* The profile page renders inside the info-modal shell, so the shell's
+   empty-state call-to-action rule (full width up to 320px, 44px, 15px bold,
+   18px top margin) also caught the "Enable 2FA" button in the Two-Factor
+   Auth row: 320px wide beside "Disabled", and on a phone it ran past the
+   card's edge. Give row buttons back the 32px row-button size they are
+   styled with everywhere else in the profile. */
+html body .info-modal .info-modal-body .profile-row-value > div > button.btn.btn-accent { width: auto !important; max-width: 100% !important; margin: 0 !important; height: 32px !important; padding: 0 14px !important; border-radius: 6px !important; font-size: 12px !important; font-weight: 500 !important; letter-spacing: 0.0892857143em !important; display: inline-flex !important; box-shadow: none !important; }
