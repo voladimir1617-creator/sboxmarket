@@ -40,7 +40,45 @@ export function AuctionCountdown({ expiresAt, className }) {
   );
 }
 
+// Auctions the signed-in viewer is currently winning, by listing id. The
+// listing payload never carries the top bidder's id (redacted server-side),
+// so the card chip reads the viewer's own live bids instead: one shared
+// fetch of /api/bids/my-active per viewer per minute, for every card.
+const winning = { meId: null, at: 0, ids: null, pending: null, subs: new Set() };
+function loadWinning(meId) {
+  const now = Date.now();
+  if (winning.meId === meId && (winning.pending || now - winning.at < 60_000)) return;
+  if (winning.meId !== meId) winning.ids = null;
+  winning.meId = meId;
+  winning.at = now;
+  winning.pending = import('./api.js')
+    .then(m => m.fetchActiveBids())
+    .then(rows => {
+      if (winning.meId !== meId) return;
+      winning.ids = new Set((Array.isArray(rows) ? rows : [])
+        .filter(b => b && b.status === 'WINNING' && b.listingId != null)
+        .map(b => b.listingId));
+      winning.subs.forEach(fn => fn());
+    })
+    .catch(() => {})
+    .finally(() => { if (winning.meId === meId) winning.pending = null; });
+}
+function useWinningIds(meId, wanted) {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!meId || !wanted) return;
+    const fn = () => bump(n => n + 1);
+    winning.subs.add(fn);
+    loadWinning(meId);
+    return () => { winning.subs.delete(fn); };
+  }, [meId, wanted]);
+  return winning.meId === meId ? winning.ids : null;
+}
+
 export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas, meId, watcherCount, salesVelocity, searchQuery }) {
+  // Before the early return below: hooks must run on every render.
+  const winningIds = useWinningIds(meId,
+    !!(listing && listing.listingType === 'AUCTION' && listing.bidCount > 0));
   const item = listing?.item;
   if (!item) return null;
   const isAuction = listing.listingType === 'AUCTION' && listing.expiresAt;
@@ -62,16 +100,15 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
   const hasPrice = (isAuction && listing.currentBid) || (parseFloat(listing.price) > 0);
   const inCart = cartHas ? cartHas(listing.id) : false;
   // Auction participation chip — only shown when the viewer is signed in
-  // AND is the current top bidder on this auction. Green "You're winning"
-  // when `currentBidderId` matches the viewer. Computed per render;
-  // `currentBidderId`+`bidCount` already come down in the listing payload
-  // so no extra fetch is needed.
+  // AND is the current top bidder on this auction. It used to compare
+  // `currentBidderId`, which the payload never carries, so it never showed;
+  // it now reads the viewer's own WINNING bids (useWinningIds above).
   // NOTE: an "Outbid" variant was removed — it depended on `listing.yourMaxBid`,
   // a field the Listing payload never carries (per-viewer bid status lives
   // only on the Bid entity / /profile/bids). The branch could never fire, so
   // it rendered nothing silently; the My Bids panel already surfaces "Outbid".
   let auctionBadge = null;
-  if (isAuction && meId && listing.bidCount > 0 && listing.currentBidderId === meId) {
+  if (isAuction && meId && listing.bidCount > 0 && winningIds && winningIds.has(listing.id)) {
     auctionBadge = { label: "✓ You're winning", cls: 'win' };
   }
   // Anchor-based card (batch 422). Left click runs the SPA onClick

@@ -6,7 +6,7 @@
 // full-width page region instead of an overlay. CSS handles the difference.
 // This is how we make /profile, /wallet, /help, /admin, etc. look like real
 // pages in CSFloat's shape without rewriting every modal body.
-import { h, useEffect, useRef, signInWithSteam } from './utils.js';
+import { React, h, useState, useEffect, useRef, signInWithSteam } from './utils.js';
 
 export function InfoModal({ title, onClose, children, wide }) {
   // Batch 821 — a11y: proper focus management + Escape-to-close.
@@ -33,6 +33,14 @@ export function InfoModal({ title, onClose, children, wide }) {
   // Read the latest handler through a ref and run the effect once.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // On a full-page route (/settings, /offers, /watchlist, …) the panel is
+  // the page, not a popup: role=dialog + aria-modal there told screen
+  // readers the header nav and footer were inert. Read after commit, when
+  // App has set .full-page-mode for this route (same test as below).
+  const [asPage, setAsPage] = useState(false);
+  React.useLayoutEffect(() => {
+    setAsPage(!!document.querySelector('.site-root.full-page-mode'));
+  }, []);
   useEffect(() => {
     const prev = document.activeElement;
     // Defer one tick so React has committed the DOM.
@@ -148,8 +156,8 @@ export function InfoModal({ title, onClose, children, wide }) {
       id: 'main',
       className: 'modal info-modal' + (wide ? ' wide' : ''),
       onClick: e => e.stopPropagation(),
-      role: 'dialog',
-      'aria-modal': 'true',
+      role: asPage ? 'main' : 'dialog',
+      'aria-modal': asPage ? undefined : 'true',
       'aria-labelledby': headerId || undefined
     },
       h('button', {

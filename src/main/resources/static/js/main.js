@@ -4,11 +4,17 @@ import { h, createRoot } from './utils.js';
 import { applyBrand } from './brand.js';
 
 applyBrand();
+// Settings → Reduce motion / High contrast are stored per browser; the
+// classes used to be set only while /settings was open, so a reload lost them.
+try {
+  document.documentElement.classList.toggle('reduce-motion', localStorage.getItem('sb_reduce_motion') === '1');
+  document.documentElement.classList.toggle('high-contrast', localStorage.getItem('sb_contrast') === '1');
+} catch (_) { /* storage blocked: leave the defaults */ }
 // ?v= cache-buster bumped with each app.js change so browsers re-fetch the
 // bundle instead of reusing a stale ES-module cache entry (a bare './app.js'
 // specifier is cached indefinitely; the live /market kept rendering an old
 // build — e.g. the removed market-stats band — until this query changed).
-import { ErrorBoundary, App } from './app.js?v=306';
+import { ErrorBoundary, App } from './app.js?v=307';
 
 // Global safety nets — log to console AND forward to the server so ops
 // can see production crashes that never trip React's ErrorBoundary
