@@ -4,6 +4,10 @@ import { h, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, hig
 // in GridCard was removed (s&box has no float/wear; FloatBar is a no-op).
 import { ItemImage, RarityBadge, SteamMarketLink, Avatar, Money, MaterialIcon } from './primitives.js';
 
+// The ✓ rule the server applies (ListingController.decorateWithSellerVerified,
+// the stall and the Help Center say the same), shown wherever the mark is.
+export const VERIFIED_SELLER_RULE = 'Verified seller: 10+ completed sales, rated 4★ or higher (or no reviews yet)';
+
 // ── Countdown — shared 1s ticker so cards + item modal stay in sync ──
 function formatRemaining(ms) {
   if (ms <= 0) return 'Ended';
@@ -364,7 +368,7 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           // holds itself (sellerUserId === null) has no seller to wait on,
           // so it carries the item page's lightning mark instead.
           const isHouse = listing.sellerUserId === null;
-          const verifiedMark = isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews, rated 4★+)' },
+          const verifiedMark = isVerified && h('span', { className: 'grid-status-verified', title: VERIFIED_SELLER_RULE },
             h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
               h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
             )
