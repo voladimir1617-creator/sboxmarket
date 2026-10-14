@@ -1190,6 +1190,43 @@ class OfferServiceSpec extends Specification {
         e.code == 'OFFER_ALREADY_PENDING'
     }
 
+    def "makeOffer closes a lapsed PENDING offer the sweeper has not reached yet, instead of blocking the buyer"() {
+        // The sweeper runs every 6h; until then a lapsed offer made
+        // makeOffer say "raise your existing offer", and buyerRaise then
+        // refused it as EXPIRED, so the buyer could do nothing.
+        given:
+        service.autoDeclineDays = 7L
+        def lapsed = pendingOffer(id: 5L)
+        lapsed.updatedAt = System.currentTimeMillis() - 8L * 24L * 60L * 60L * 1000L
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        offerRepository.findLiveByBuyerAndListing(10L, 100L) >> [lapsed]
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        def fresh = service.makeOffer(10L, 'Alice', 100L, new BigDecimal("35"))
+
+        then:
+        1 * offerRepository.claimAutoExpire(5L, _) >> 1
+        fresh.status == 'PENDING'
+    }
+
+    def "makeOffer still blocks a duplicate while the existing PENDING offer is inside its window"() {
+        given:
+        service.autoDeclineDays = 7L
+        def live = pendingOffer(id: 6L)
+        live.updatedAt = System.currentTimeMillis() - 60_000L
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        offerRepository.findLiveByBuyerAndListing(10L, 100L) >> [live]
+
+        when:
+        service.makeOffer(10L, 'Alice', 100L, new BigDecimal("35"))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'OFFER_ALREADY_PENDING'
+        0 * offerRepository.claimAutoExpire(_, _)
+    }
+
     def "cancelOffer lets the buyer withdraw a COUNTERED offer"() {
         // P2 — the buyer whose offer the seller countered must be able to
         // walk away. The old PENDING-only guard threw OFFER_NOT_PENDING.
@@ -2016,5 +2053,24 @@ class OfferServiceSpec extends Specification {
 
         then:
         1 * notificationService.push(100L, 'PRICE_DROPPED', _, _, 555L, '/item/1')
+    }
+
+    def "notifyOfferHoldersOfPriceDrop never pings a buyer about the seller's own counter price"() {
+        // $100 listing, buyer offered $60, seller countered at $80. The
+        // counter row is PENDING and carries the buyer's id, but $80 is the
+        // seller's number; a reprice to $75 must not tell the buyer "your
+        // $80.00 offer could buy outright now".
+        given:
+        def offers = [
+            new Offer(id: 9L, buyerUserId: 100L, amount: new BigDecimal('80'), status: 'PENDING', author: 'SELLER'),
+        ]
+        offerRepository.findPendingForListing(555L) >> offers
+        notificationService.filterActiveRecipients(_) >> { args -> args[0] }
+
+        when:
+        service.notifyOfferHoldersOfPriceDrop(555L, new BigDecimal('100'), new BigDecimal('75'), 'Hat', 7L)
+
+        then:
+        0 * notificationService.push(_, _, _, _, _, _)
     }
 }

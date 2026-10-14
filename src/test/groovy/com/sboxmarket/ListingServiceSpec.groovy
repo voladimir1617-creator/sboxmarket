@@ -1236,6 +1236,38 @@ class ListingServiceSpec extends Specification {
         thrown(com.sboxmarket.exception.BadRequestException)
     }
 
+    def "coming back from away leaves a listing the seller hid by hand hidden"() {
+        // One active listing, hidden by hand (no away marker), listed after
+        // the marker existed. It used to read as a whole-stall away state,
+        // so turning away off un-hid a listing the seller hid on purpose.
+        given:
+        def handHidden = listingFor(id: 1L, hidden: true)
+        handHidden.listedAt = System.currentTimeMillis()
+        listingRepository.findActiveBySeller(10L) >> [handHidden]
+
+        when:
+        def count = service.setAwayMode(10L, false)
+
+        then:
+        count == 0
+        handHidden.hidden == true
+        !service.isLegacyAwayStallFor(10L)
+    }
+
+    def "a stall hidden before the away marker existed still comes back as a whole"() {
+        given:
+        def old = listingFor(id: 1L, hidden: true)
+        old.listedAt = ListingService.AWAY_MARKER_SINCE - 86_400_000L
+        listingRepository.findActiveBySeller(10L) >> [old]
+
+        when:
+        def count = service.setAwayMode(10L, false)
+
+        then:
+        count == 1
+        old.hidden == false
+    }
+
     def "setAwayMode hidden=false clears any pending awayModeUntil"() {
         given:
         def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
