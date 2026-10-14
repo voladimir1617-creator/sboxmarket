@@ -6861,7 +6861,7 @@ export function App() {
            screen readers still announce the region; the cards stay links. */
         h('div', { className: 'csfloat-home-preview-row', style: (homeFeatured.length === 0 && listings.length === 0) ? { minHeight: 410 } : undefined },
           /* Boss QA — home featured rail now reuses the canonical /market
-             GridCard component (same as the cart "Trending right now" rail,
+             GridCard component (same as the cart "On the market now" rail,
              cards.js GridCard) so the featured tiles inherit every grid-card
              affordance — rarity stripes (top+bottom), the float bar, the
              magnifier zoom, the USD chip, seller online row, view-count chip,
@@ -7408,7 +7408,7 @@ export function App() {
               { value: 'popularity',  label: 'Most traded',            icon: 'local_fire_department' },
               { value: 'views',       label: 'Most viewed',            icon: 'visibility' },
               { value: 'rarity',      label: 'Lowest supply',          icon: 'diamond' },
-              { value: 'discount',    label: 'Biggest discount',       icon: 'sell' },
+              { value: 'discount',    label: 'Biggest discount vs Steam', icon: 'sell' },
               { value: 'ending_soon', label: 'Auctions ending soonest', icon: 'gavel' }
             ],
             onChange: (v) => {
@@ -7642,7 +7642,7 @@ export function App() {
         // grid rises to the top like a normal marketplace. (MarketStatsStrip stays
         // defined for potential reuse as compact inline text later; the freshness
         // chip now rides inside the results-meta row below instead of its own band.)
-        routeName === 'market' && h('h1', { className: 'visually-hidden' }, 'Marketplace'),
+        routeName === 'market' && h('h1', { className: 'visually-hidden' }, category && category !== 'All' ? `Marketplace: ${category}` : 'Marketplace'),
         h('div', {
           className: 'results-meta',
           // Batch 841 — a11y: announce result-count changes to screen
@@ -9105,10 +9105,11 @@ export function App() {
                that drifted from the marketplace look. */
             listings && listings.length > 0 && h('section', {
               className: 'csfloat-empty-cart-rail',
-              'aria-label': 'Browse trending listings'
+              'aria-label': 'Listings on the market now'
             },
               h('div', { className: 'csfloat-empty-cart-rail-head' },
-                h('h2', { className: 'csfloat-empty-cart-rail-title' }, 'Trending right now'),
+                // The first six of the market list, not a trend measure.
+                h('h2', { className: 'csfloat-empty-cart-rail-title' }, 'On the market now'),
                 h('a', {
                   className: 'csfloat-empty-cart-rail-link',
                   href: '/market',
