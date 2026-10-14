@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=14';
+import { GridCard } from './cards.js?v=15';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -28,6 +28,15 @@ import {
 } from './api.js';
 
 export { InfoModal };
+
+// Amounts shown next to a field that takes US dollars (sell price, offer,
+// stall price edit) stay in dollars: fmt() converts to the display
+// currency, so a "Floor €9.20" chip used to fill 10.00 into a USD field.
+// Negative values keep the sign outside the symbol, like fmt().
+const fmtUsd = (v) => {
+  const n = Math.round((Number(v) || 0) * 100) / 100;
+  return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
 /**
  * WHAT THE BUYER ACTUALLY RECEIVES, AND WHEN — stated on the page where the
@@ -58,6 +67,7 @@ export { InfoModal };
  * `data-delivery-deadline`, so "we did not ask" and "3 days" are different
  * states on the page and in the tests, not the same sentence.
  */
+
 export function DeliveryExpectation({ sellerUserId, days, compact }) {
   // THREE states, not two. `null` is the platform's own inventory — a real
   // answer. `undefined` means we never resolved the listing row, and
@@ -557,6 +567,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // Anon viewers skip the fetch. Refreshed on pick-change so a just-made
   // offer surfaces without a modal reload.
   const [myOffersByListing, setMyOffersByListing] = useState({});
+  const [offersReload, setOffersReload] = useState(0);
   useEffect(() => {
     if (!me?.id) { setMyOffersByListing({}); return; }
     let alive = true;
@@ -574,7 +585,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
       } catch (_) { if (alive) setMyOffersByListing({}); }
     })();
     return () => { alive = false; };
-  }, [me?.id, item?.id]);
+  }, [me?.id, item?.id, offersReload]);
   const cancelMyBuyOrder = async () => {
     if (!myBuyOrder) return;
     if (!window.confirm(`Cancel your buy order at ${fmt(myBuyOrder.maxPrice)}?`)) return;
@@ -893,6 +904,35 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   };
   // Price-alert button. The item page hides the bottom action bar, so it
   // also renders (compact) next to Share there; otherwise it was unreachable.
+  // The item page hides the bottom action bar (design.css), so the
+  // watchlist heart and "List one of these" are also drawn in the header
+  // next to Share, like the alert button; `compact` sizes them to match.
+  const compactBtn = { padding: '5px 10px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 5 };
+  const renderListOneLink = (compact) => {
+    // Hidden when the viewer is the only seller of every active listing
+    // (no point telling them to compete with themselves).
+    const allMine = listings && listings.length > 0 &&
+      listings.every(l => l.sellerUserId === me.id);
+    if (allMine) return null;
+    return h('a', {
+      className: 'btn btn-ghost',
+      style: { border: '1px solid var(--border)', textDecoration: 'none', ...(compact ? compactBtn : {}) },
+      href: '/sell?q=' + encodeURIComponent(item.name || ''),
+      title: 'Jump to Sell with this item pre-filtered in your inventory'
+    },
+      h(MaterialIcon, { name: 'sell', size: compact ? 12 : 16 }), ' List one of these');
+  };
+  const renderWatchButton = (compact) => {
+    const starred = Array.isArray(watchlist) && item?.id != null && watchlist.includes(item.id);
+    return h('button', {
+      className: 'btn btn-ghost btn-wishlist' + (starred ? ' on' : ''),
+      style: { border: '1px solid var(--border)', ...(compact ? compactBtn : {}) },
+      onClick: () => onToggleStar && item?.id != null && onToggleStar(item.id),
+      title: starred ? 'Remove from watchlist' : 'Add to watchlist',
+      'aria-label': starred ? `Remove ${item.name} from watchlist` : `Add ${item.name} to watchlist`,
+      'aria-pressed': starred
+    }, starred ? '♥' : '♡', compact ? (starred ? ' Watching' : ' Watch') : null);
+  };
   const renderAlertButton = (compact) => {
     // When the item has zero active listings, the floor price is 0
     // and "drop to target" is meaningless. Swap to a restock-style
@@ -1265,7 +1305,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 }
               }
             }, h(MaterialIcon, { name: 'share', size: 12 }), 'Share'),
-            isPageMode && me && renderAlertButton(true)
+            isPageMode && me && renderAlertButton(true),
+            isPageMode && renderWatchButton(true),
+            isPageMode && me && renderListOneLink(true)
           ),
           isPageMode && alertOpen && renderAlertPanel(),
           /* CSFloat-1:1: inline Buy Now action group at the TOP of the right
@@ -2495,35 +2537,14 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // anonymous viewers can't list anyway. Hidden when the viewer
         // is the only seller of every active listing (no point telling
         // them to compete with themselves).
-        me && (() => {
-          const allMine = listings && listings.length > 0 &&
-            listings.every(l => l.sellerUserId === me.id);
-          if (allMine) return null;
-          return h('a', {
-            className: 'btn btn-ghost',
-            style: { border: '1px solid var(--border)', textDecoration: 'none' },
-            href: '/sell?q=' + encodeURIComponent(item.name || ''),
-            title: 'Jump to Sell with this item pre-filtered in your inventory'
-          },
-            h(MaterialIcon, { name: 'sell', size: 16 }), ' List one of these');
-        })(),
+        me && renderListOneLink(false),
         h(SteamMarketLink, { item }),
         // Wishlist toggle - reads watchlist + toggleStar from props (passed
         // through from App). Was previously a placeholder button with no
         // onClick, so anon visitors saw a heart that did nothing. Now the
         // heart fills + the localStorage watchlist updates + the nav badge
         // re-counts, matching the GridCard star behavior.
-        (() => {
-          const starred = Array.isArray(watchlist) && item?.id != null && watchlist.includes(item.id);
-          return h('button', {
-            className: 'btn btn-ghost btn-wishlist' + (starred ? ' on' : ''),
-            style: { border: '1px solid var(--border)' },
-            onClick: () => onToggleStar && item?.id != null && onToggleStar(item.id),
-            title: starred ? 'Remove from watchlist' : 'Add to watchlist',
-            'aria-label': starred ? `Remove ${item.name} from watchlist` : `Add ${item.name} to watchlist`,
-            'aria-pressed': starred
-          }, starred ? '♥' : '♡');
-        })()
+        renderWatchButton(false)
       ),
 
       !isPageMode && alertOpen && renderAlertPanel(),
@@ -2648,11 +2669,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               key: i,
               type: 'button',
               className: 'price-suggest-chip' + (c.accept ? ' accept' : ''),
-              title: c.hint || `Fill in ${c.label} below ask (${fmt(c.v)})`,
+              title: c.hint || `Fill in ${c.label} below ask (${fmtUsd(c.v)})`,
               onClick: () => setOfferAmt(c.v.toFixed(2))
             },
               h('span', { className: 'price-suggest-chip-label' }, c.label),
-              h('span', { className: 'price-suggest-chip-amt' }, fmt(c.v))
+              h('span', { className: 'price-suggest-chip-amt' }, fmtUsd(c.v))
             ))
           );
         })(),
@@ -2700,7 +2721,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               : myLive
                 ? 'You already have an active offer on this listing.'
                 : !offerAmt
-                  ? 'Enter an amount below ' + fmt(ask) + '.'
+                  ? 'Enter an amount below ' + fmtUsd(ask) + '.'
                   : atOrAboveAsk
                     ? 'Offers must be below the asking price.'
                     : undefined;
@@ -2726,7 +2747,15 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   setOfferOpen(false);
                   setOfferAmt('');
                   setOfferMsg('');
-                  onClose();
+                  // On the item page, stay put and show the "You offered"
+                  // state (and, for an offer accepted on the spot, the
+                  // updated listings); closing here used to navigate away.
+                  if (isPageMode) {
+                    setOffersReload(n => n + 1);
+                    onRefresh && onRefresh();
+                  } else {
+                    onClose();
+                  }
                 } finally { offerBusyRef.current = false; setOfferBusy(false); }
               }
             }, offerBusy ? '...' : 'Send Offer'),
@@ -12056,7 +12085,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           : anchor.basis
             ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 12 } },
                 'Suggested price: ',
-                h('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, fmt(anchor.value)),
+                h('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, fmtUsd(anchor.value)),
                 h('span', { style: { display: 'block', fontSize: 11, marginTop: 2 } }, 'Based on the ', anchorLabel, '.'))
             : h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 12 } },
                 h('span', { style: { fontWeight: 700, color: 'var(--text-primary)' } }, 'No price reference for this item yet.'),
@@ -12195,7 +12224,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             chips.push({
               label: `Top buy order (${d.count})`,
               v: +best.toFixed(2),
-              hint: `${d.count} active buy order${d.count === 1 ? '' : 's'} on this item — list at exactly ${fmt(best)} and it auto-fills on the next matching sweep.`
+              hint: `${d.count} active buy order${d.count === 1 ? '' : 's'} on this item — list at exactly ${fmtUsd(best)} and it auto-fills on the next matching sweep.`
             });
           })();
           return chips.map((c, i) => h('button', {
@@ -12206,7 +12235,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             onClick: () => setPrice(c.v.toFixed(2))
           },
             h('span', { className: 'price-suggest-chip-label' }, c.label),
-            h('span', { className: 'price-suggest-chip-amt' }, fmt(c.v))
+            h('span', { className: 'price-suggest-chip-amt' }, fmtUsd(c.v))
           ));
         })()
       ),
@@ -12326,7 +12355,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             style: {
               fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700
             }
-          }, `✓ Offers of ${fmt(threshold)} or higher will auto-accept (${pct}% off ask).`);
+          }, `✓ Offers of ${fmtUsd(threshold)} or higher will auto-accept (${pct}% off ask).`);
         })()
       ),
       // Optional seller note — helps move items faster by letting the
@@ -12394,7 +12423,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       }
       opts.maxDiscount = pct / 100;
     }
-    if (!confirm(`List ${ids.length} item${ids.length === 1 ? '' : 's'} at ${fmt(p)} each (Buy Now)${opts.maxDiscount != null ? ` with ${(opts.maxDiscount*100)|0}% auto-accept` : ''}? This cannot be undone in one click — you'd have to cancel each listing individually.`)) return;
+    if (!confirm(`List ${ids.length} item${ids.length === 1 ? '' : 's'} at ${fmtUsd(p)} each (Buy Now)${opts.maxDiscount != null ? ` with ${(opts.maxDiscount*100)|0}% auto-accept` : ''}? This cannot be undone in one click — you'd have to cancel each listing individually.`)) return;
     setBulkBusy(true);
     try {
       const { bulkListFromSteam } = await import('./api.js');
@@ -14880,7 +14909,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       const threshold = Math.round(Math.round(newP * 100) * (100 - pct) / 100) / 100;
                       return h('div', {
                         style: { fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700 }
-                      }, `✓ Offers of ${fmt(threshold)} or higher will auto-accept (${pct}% off ${fmt(newP)}).`);
+                      }, `✓ Offers of ${fmtUsd(threshold)} or higher will auto-accept (${pct}% off ${fmtUsd(newP)}).`);
                     })(),
                     // Batch 894 — live "payout after fees" preview when
                     // the seller types a new price. Shows what lands in
@@ -14894,7 +14923,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       const netNew = sellerPayout(newP);
                       const netOld = sellerPayout(oldP);
                       const delta = netNew - netOld;
-                      const deltaStr = (delta >= 0 ? '+' : '') + fmt(delta);
+                      const deltaStr = (delta >= 0 ? '+' : '') + fmtUsd(delta);
                       const color = delta > 0 ? 'var(--green)'
                                   : delta < 0 ? 'var(--red)'
                                   : 'var(--text-muted)';
@@ -14903,9 +14932,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         title: 'Your wallet receives 98% of the sale price (2% platform fee)'
                       },
                         'Payout: ',
-                        h('strong', { style: { color: 'var(--text)' } }, fmt(netNew)),
+                        h('strong', { style: { color: 'var(--text)' } }, fmtUsd(netNew)),
                         ' ',
-                        h('span', { style: { color } }, `(${deltaStr} vs. current ${fmt(netOld)})`)
+                        h('span', { style: { color } }, `(${deltaStr} vs. current ${fmtUsd(netOld)})`)
                       );
                     })()
                   )
@@ -15155,6 +15184,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       if (!Array.isArray(i) || !Array.isArray(o)) { setLoadErr(true); return; }
       setIn(i);
       setOut(o);
+      // Every accept/reject/counter/cancel reloads through here; tell the
+      // nav Offers badge so it does not show the old count until its poll.
+      window.dispatchEvent(new Event('sb:offers-changed'));
     } catch (_) {
       setLoadErr(true);
     }

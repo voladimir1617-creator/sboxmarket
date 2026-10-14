@@ -346,6 +346,21 @@ class OpenGraphControllerSpec extends Specification {
 
     // ── /stall/{id} ──────────────────────────────────────────────
 
+    def "stall and market link previews promise no Stripe payouts or Stripe checkout (pass 35)"() {
+        given:
+        steamUserRepository.findById(42L) >> Optional.of(new SteamUser(id: 42L, displayName: 'AliceBob', steamId64: '76561001'))
+
+        when:
+        def stall = controller.stallPage('42', req()).body as String
+        def market = controller.marketPage(req()).body as String
+
+        then:
+        stall.contains("Browse AliceBob&#39;s active listings on SkinBox. Secure escrow, 2% fees.")
+        !stall.contains('Stripe payouts')
+        market.contains('escrowed trades, 2% fees')
+        !market.contains('Stripe checkout')
+    }
+
     def "stallPage rewrites OG tags with the seller's display name + avatar"() {
         given:
         def user = new SteamUser(id: 42L, displayName: 'AliceBob',
