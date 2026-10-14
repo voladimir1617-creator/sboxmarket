@@ -70,3 +70,34 @@ test.describe('phone', () => {
     }), { timeout: 15_000, intervals: [500] }).toBe('clear');
   });
 });
+
+// On the market the back-to-top button stacks above the Filters button,
+// higher than on other pages: it covered the footer's last line on a phone
+// and the copyright line on a tablet.
+for (const [width, mobile] of [[390, true], [768, false]]) {
+  test.describe(`market at ${width}`, () => {
+    test.use({ viewport: { width, height: 844 }, isMobile: mobile, hasTouch: mobile });
+
+    test('the floating buttons clear the footer text at the bottom of the page', async ({ page }) => {
+      await page.addInitScript(() => { try { localStorage.setItem('sb_cookie_consent', 'accepted'); } catch (_) {} });
+      await page.goto('/market');
+      await expect(page.locator('.mobile-filters-fab')).toBeVisible({ timeout: 15_000 });
+      await expect.poll(async () => page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        const btt = document.querySelector('.app-back-to-top');
+        const atBottom = Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1;
+        if (!btt || !atBottom) return 'scrolling';
+        const buttons = [btt, document.querySelector('.mobile-filters-fab')].map((b) => b.getBoundingClientRect());
+        const texts = [...document.querySelectorAll('footer.site-footer *')]
+          .filter((t) => [...t.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 1));
+        for (const t of texts) {
+          const r = t.getBoundingClientRect();
+          for (const b of buttons) {
+            if (r.width && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top) return `covers "${t.innerText.slice(0, 30)}"`;
+          }
+        }
+        return 'clear';
+      }), { timeout: 15_000, intervals: [500] }).toBe('clear');
+    });
+  });
+}
