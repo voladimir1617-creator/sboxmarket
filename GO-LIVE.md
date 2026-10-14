@@ -112,6 +112,22 @@ OpenID realm/return-url) in prod env.
       Agreement on third-party real-money trading (the P2P/bot model rides Steam
       trade offers — Valve can throttle; plan for it).
 
+## 6. Labels that stay true only while two switches stay off
+
+- [ ] **"Most traded" sort (market and Database page).** It sorts by
+      `Item.totalSold`, which today counts sales on SkinBox: `PurchaseService`
+      and `BidService` bump it, and the seed reconciles it to SOLD rows. The
+      s&box catalogue sync (`SboxApiService`) overwrites it with the s&box
+      **subscriptions** count. That sync has no schedule today and runs only
+      from the manual admin endpoint `/api/admin/sync-scmm`. If the sync is
+      scheduled again, or that import is run, the label is no longer true:
+      either relabel the sort or stop the sync writing `totalSold`.
+- [ ] **"Hot right now" home rail (`HottestRail`, off behind `false &&`).**
+      Its head says "N trending · last 7d", but `ListingService.findHottest`
+      tops the rail up with most-watched, then most-viewed items when the week
+      has too few sales, and does not say which. Before switching it on, drop
+      that count line or have the endpoint report what filled it.
+
 ---
 
 ## What is NOT done (honest)

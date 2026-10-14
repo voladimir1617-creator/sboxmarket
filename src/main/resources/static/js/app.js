@@ -8024,6 +8024,8 @@ export function App() {
     false && routeName === 'home' && h(TopSellersRail),
     false && routeName === 'home' && h(AuctionsEndingSoonRail),
     false && routeName === 'home' && h(JustListedRail),
+    // Before turning this back on, see GO-LIVE.md section 6: the rail's
+    // "trending · last 7d" count is untrue when findHottest falls back.
     false && routeName === 'home' && h(HottestRail),
 
     /* ROUTE-DRIVEN PAGES — each one has a real URL. Closing any of them

@@ -292,7 +292,9 @@ class SboxApiService {
      * from the existing catalogue. The manual admin endpoint
      * /api/admin/sync-scmm still works for one-off imports if needed.
      */
-    // @Scheduled — intentionally removed
+    // @Scheduled — intentionally removed. Re-enabling it makes the sync
+    // overwrite Item.totalSold with s&box subscriptions, which the "Most
+    // traded" sort reads as sales on SkinBox (GO-LIVE.md section 6).
     void scheduledSync() {
         log.info("SCMM scheduled sync is disabled — items are discovered via Steam inventory")
     }
