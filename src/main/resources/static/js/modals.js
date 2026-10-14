@@ -4761,7 +4761,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         h('div', { className: 'profile-stat-val accent' }, maskAmount(wallet?.balance || 0))
       ),
       h('div', { className: 'profile-stat' },
-        h('div', { className: 'profile-stat-label', title: 'Value of items you own plus everything you have listed for sale, priced at the current market floor.' }, 'Portfolio'),
+        h('div', { className: 'profile-stat-label', title: 'Items you own at their current market floor, plus your active listings at your asking price.' }, 'Portfolio'),
         h('div', { className: 'profile-stat-val' }, privacy ? '$•••••' : fmt(profile?.portfolio?.totalValue || 0))
       ),
       h('div', { className: 'profile-stat' },
@@ -4922,6 +4922,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
             // switching must also sync the URL + document.title via the
             // SPA router, otherwise arrow-keying leaves them stale.
             navigate('/profile/' + TABS[next].id);
+            // Focus follows the selection; the old tab is now tabIndex -1.
+            document.getElementById('profile-tab-' + TABS[next].id)?.focus();
           }
         }
       },
@@ -6803,7 +6805,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
     // a user hunting "why was I charged $X" can grep by listing id / words
     // from the description. All client-side — the list is already in memory.
     return rows.filter(t => {
-      const s = [t.description, t.type, t.stripeReference, t.listingId != null ? String(t.listingId) : '']
+      const s = [t.description, t.type, customerFacingRef(t.stripeReference), t.listingId != null ? String(t.listingId) : '']
         .filter(Boolean).join(' ').toLowerCase();
       return s.includes(q);
     });
@@ -6916,7 +6918,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
         visibleTx.map(tx => h('tr', { key: tx.id, className: 'db-row' },
           h('td', { className: 'db-rank' }, '#' + tx.id),
           h('td', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' } }, tx.type),
-          h('td', { style: { fontSize: 11, color: 'var(--text-muted)', width: '100%' } }, tx.description || tx.stripeReference),
+          h('td', { style: { fontSize: 11, color: 'var(--text-muted)', width: '100%' } }, tx.description || customerFacingRef(tx.stripeReference)),
           (() => {
             // Signed + coloured amount so a credit and a debit of the
             // same value are visually distinct — parity with the
@@ -7095,7 +7097,9 @@ function ProfileBuyOrdersTab() {
     }, 0);
   const filtered = filter === 'ALL' ? orders : orders.filter(o => o.status === filter);
   return h('div', null,
-    counts.ACTIVE > 0 && h('div', {
+    // Filled-only users still get the Lifetime figure; the outlay half
+    // only renders while something is active.
+    (counts.ACTIVE > 0 || counts.FILLED > 0) && h('div', {
       role: 'region',
       'aria-label': 'Buy orders capital summary',
       style: {
@@ -7106,7 +7110,7 @@ function ProfileBuyOrdersTab() {
         fontSize: 12
       }
     },
-      h('span', {
+      counts.ACTIVE > 0 && h('span', {
         style: { color: 'var(--text-muted)' },
         title: `Sum of max price × remaining quantity across ${counts.ACTIVE} active order${counts.ACTIVE === 1 ? '' : 's'}. This is the potential outlay if every active order fills at its ceiling — buy orders don't pre-lock funds.`
       },
@@ -7190,7 +7194,10 @@ function ProfileBuyOrdersTab() {
                 const pct = floor > 0 ? Math.round((gap / floor) * 100) : 0;
                 let color = 'var(--text-muted)';
                 let label;
-                if (gap <= 0) {
+                if (gap < 0) {
+                  color = 'var(--green)';
+                  label = 'above floor';
+                } else if (gap === 0) {
                   color = 'var(--green)';
                   label = '= floor';
                 } else if (pct <= 10) {
@@ -10500,7 +10507,9 @@ function ProfileReviewsTab({ me }) {
     try {
       const res = await deleteReview(reviewId);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Delete failed', 'err'); return; }
-      await loadGiven();
+      // The deleted review's trade is reviewable again, so Pending (and its
+      // count chip) has to refresh too, not just the Given list.
+      await Promise.all([loadGiven(), loadPending()]);
       const who = r?.toUserName || r?.sellerName || null;
       toast(who ? `Review for @${who} deleted.` : 'Review deleted.', 'ok');
     } finally { setBusy(false); }
@@ -10579,6 +10588,8 @@ function ProfileReviewsTab({ me }) {
         else if (e.key === 'Home') n = 0;
         else if (e.key === 'End') n = TABS.length - 1;
         setMode(TABS[n]);
+        // Focus follows the selection; the old tab drops to tabIndex -1.
+        e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
       };
       const sharedProps = (id) => ({
         role: 'tab',
@@ -16827,6 +16838,20 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
 }
 
 // ── Wallet (deposit/withdraw/history) ───────────────────────────
+// 5941d57 changed the admin credit stamp from 'admin' to 'admin_<adminUserId>'
+// so the rolling 24h cap could be keyed per actor -- that is load-bearing and
+// stays in the database. But this string is rendered in the user's OWN wallet
+// history and in the copy-for-support text, so it was showing customers the
+// internal id of the staff member who touched their account.
+//
+// Collapse it back for display only. Module scope so Profile ->
+// Transactions uses it as well as the wallet history. Also covers 'admin_null', which would
+// otherwise render literally if adminUserId were ever absent.
+function customerFacingRef(ref) {
+  if (!ref) return ref;
+  return /^admin(_.*)?$/.test(ref) ? 'admin' : ref;
+}
+
 export function WalletModal({ wallet, transactions, me, onClose, onRefresh, initialTab, prefillAmount }) {
   const [tab, setTab]       = useState(initialTab || 'deposit');
   const [amount, setAmount] = useState(prefillAmount != null ? String(prefillAmount) : '');
@@ -16947,18 +16972,6 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   const [txTypeFilter, setTxTypeFilter] = useState('ALL');
   // A transaction reference as a CUSTOMER may see it.
   //
-  // 5941d57 changed the admin credit stamp from 'admin' to 'admin_<adminUserId>'
-  // so the rolling 24h cap could be keyed per actor -- that is load-bearing and
-  // stays in the database. But this string is rendered in the user's OWN wallet
-  // history and in the copy-for-support text, so it was showing customers the
-  // internal id of the staff member who touched their account.
-  //
-  // Collapse it back for display only. Also covers 'admin_null', which would
-  // otherwise render literally if adminUserId were ever absent.
-  function customerFacingRef(ref) {
-    if (!ref) return ref;
-    return /^admin(_.*)?$/.test(ref) ? 'admin' : ref;
-  }
 
   // Free-text search over description + stripeReference. Great for
   // finding "that listing I bought" or "where did this withdrawal go"
@@ -17433,7 +17446,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
               const q = txSearch.trim().toLowerCase();
               if (q) {
                 filtered = filtered.filter(tx =>
-                  ((tx.description || '') + ' ' + (tx.stripeReference || '')).toLowerCase().includes(q));
+                  ((tx.description || '') + ' ' + (customerFacingRef(tx.stripeReference) || '')).toLowerCase().includes(q));
               }
               return h('div', null,
                 last7.length > 0 && h('div', { className: 'wallet-7d-summary' },
@@ -17571,7 +17584,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                                   }
                                 } catch (_) { window.prompt('Copy this reference:', ref); }
                               }
-                            }, '#' + tx.id + (tx.stripeReference ? ' · ' + tx.stripeReference.slice(0, 14) + (tx.stripeReference.length > 14 ? '…' : '') : ''))
+                            }, '#' + tx.id + (tx.stripeReference ? (r => ' · ' + r.slice(0, 14) + (r.length > 14 ? '…' : ''))(customerFacingRef(tx.stripeReference)) : ''))
                           ),
                           h('div', { className: 'wallet-tx-right' },
                             // Honour privacy mode here too — the hero, pending

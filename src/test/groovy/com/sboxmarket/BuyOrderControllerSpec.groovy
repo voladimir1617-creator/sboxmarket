@@ -9,6 +9,7 @@ import com.sboxmarket.model.BuyOrder
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.ItemRepository
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.BuyOrderService
 import jakarta.servlet.http.HttpServletRequest
@@ -43,12 +44,14 @@ class BuyOrderControllerSpec extends Specification {
     BuyOrderService     buyOrderService     = Mock()
     SteamUserRepository steamUserRepository = Mock()
     ItemRepository      itemRepository      = Mock()
+    ListingRepository   listingRepository   = Mock()
 
     @Subject
     BuyOrderController controller = new BuyOrderController(
         buyOrderService    : buyOrderService,
         steamUserRepository: steamUserRepository,
-        itemRepository     : itemRepository
+        itemRepository     : itemRepository,
+        listingRepository  : listingRepository
     )
 
     HttpServletRequest req = Mock()
@@ -83,6 +86,7 @@ class BuyOrderControllerSpec extends Specification {
         authedSession(100L)
         1 * buyOrderService.listForBuyer(100L) >> [o]
         1 * itemRepository.findAllById([42L]) >> [item]
+        1 * listingRepository.buyNowFloorsForItems([42L]) >> [[42L, new BigDecimal('50.00')] as Object[]]
         // Batched queue rank: 2 orders ahead of mine (45.00 @ 1700) — one
         // priced higher (50.00) + one same-price-but-earlier (45.00 @ 1600).
         1 * buyOrderService.activeQueueRowsForItems([42L]) >> [
@@ -116,6 +120,7 @@ class BuyOrderControllerSpec extends Specification {
         authedSession(100L)
         1 * buyOrderService.listForBuyer(100L) >> [o]
         1 * itemRepository.findAllById([42L]) >> [item]
+        1 * listingRepository.buyNowFloorsForItems([42L]) >> []
         1 * buyOrderService.activeQueueRowsForItems([42L]) >> []
         buyOrderService.activeBasketQueueRows() >> [
             ['Hats', null, new BigDecimal('50.00'), 1L] as Object[],      // fits, higher: ahead
@@ -144,6 +149,7 @@ class BuyOrderControllerSpec extends Specification {
         1 * buyOrderService.listForBuyer(100L) >> [o]
         // no itemRepository.findAllById call — itemIds is empty
         0 * itemRepository.findAllById(_)
+        0 * listingRepository.buyNowFloorsForItems(_)
         0 * buyOrderService.activeQueueRowsForItems(_)   // empty itemIds → not called
         1 * buyOrderService.countForBuyer(100L) >> 1L
 
@@ -164,6 +170,7 @@ class BuyOrderControllerSpec extends Specification {
         authedSession(100L)
         1 * buyOrderService.listForBuyer(100L) >> [o]
         1 * itemRepository.findAllById([42L]) >> [item]
+        1 * listingRepository.buyNowFloorsForItems([42L]) >> [[42L, new BigDecimal('9')] as Object[]]
         1 * buyOrderService.activeQueueRowsForItems([42L]) >> []  // fetched once; per-row status gate skips ranking
         1 * buyOrderService.countForBuyer(100L) >> 1L
 
@@ -183,6 +190,7 @@ class BuyOrderControllerSpec extends Specification {
         authedSession(100L)
         1 * buyOrderService.listForBuyer(100L) >> [o]
         1 * itemRepository.findAllById([42L]) >> [item]
+        1 * listingRepository.buyNowFloorsForItems([42L]) >> [[42L, new BigDecimal('50')] as Object[]]
         1 * buyOrderService.activeQueueRowsForItems([42L]) >> []  // 0 ahead → queuePosition 1
         1 * buyOrderService.countForBuyer(100L) >> 1L
 

@@ -219,6 +219,21 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     BigDecimal minPriceForItem(@Param("itemId") Long itemId)
 
+    /** Cheapest visible Buy Now price per item, as [itemId, price] rows.
+     *  Buy orders only ever fill against BUY_NOW listings, so Profile ->
+     *  Buy Orders measures its floor gap here rather than against the
+     *  item floor above, which also counts auctions. Items with no Buy
+     *  Now listing return no row. */
+    @Query("""
+        SELECT l.item.id, MIN(l.price) FROM Listing l
+        WHERE l.item.id IN :itemIds
+          AND l.status = 'ACTIVE'
+          AND l.listingType = 'BUY_NOW'
+          AND (l.hidden IS NULL OR l.hidden = false)
+        GROUP BY l.item.id
+    """)
+    List<Object[]> buyNowFloorsForItems(@Param("itemIds") Collection<Long> itemIds)
+
     /** Same floor, split by seller: the price alert check needs to know
      *  whether the floor that reached a target is the alert owner's own
      *  listing. */

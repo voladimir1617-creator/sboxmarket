@@ -120,7 +120,17 @@ export function AdminModal({ onClose, me }) {
           else if (e.key === 'ArrowLeft') n = (idx - 1 + TABS.length) % TABS.length;
           else if (e.key === 'Home') n = 0;
           else if (e.key === 'End') n = TABS.length - 1;
-          setTab(TABS[n].id);
+          const nextId = TABS[n].id;
+          setTab(nextId);
+          // Focus follows the selection (the old tab drops to tabIndex -1),
+          // and the URL updates the same way a click does.
+          document.getElementById('admin-tab-' + nextId)?.focus();
+          try {
+            const next = nextId === 'dashboard' ? '/admin' : '/admin?tab=' + nextId;
+            if (window.location.pathname + window.location.search !== next) {
+              window.history.replaceState({}, '', next);
+            }
+          } catch (_) {}
         },
         onClick: () => {
           setTab(t.id);
@@ -1587,7 +1597,7 @@ function AdminTradesTab() {
     setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
   };
   const redactMessage = async (tradeId, msgId) => {
-    if (!confirm(`Redact message ${msgId}? The row is hard-deleted and can't be recovered.`)) return;
+    if (!confirm(`Redact message ${msgId}? Its text is removed and both parties see "Message removed by moderators" in its place. The text can't be recovered.`)) return;
     const res = await adminDeleteTradeMessage(msgId);
     if (res && (res.error || res.code)) { toast(res.message || res.error, 'err'); return; }
     const msgs = await fetchTradeMessages(tradeId);
@@ -3721,7 +3731,17 @@ export function CsrModal({ onClose, me }) {
           else if (e.key === 'ArrowLeft') n = (idx - 1 + TABS.length) % TABS.length;
           else if (e.key === 'Home') n = 0;
           else if (e.key === 'End') n = TABS.length - 1;
-          setTab(TABS[n].id);
+          const nextId = TABS[n].id;
+          setTab(nextId);
+          // Focus follows the selection (the old tab drops to tabIndex -1),
+          // and the URL updates the same way a click does.
+          document.getElementById('csr-tab-' + nextId)?.focus();
+          try {
+            const next = nextId === 'dashboard' ? '/csr' : '/csr?tab=' + nextId;
+            if (window.location.pathname + window.location.search !== next) {
+              window.history.replaceState({}, '', next);
+            }
+          } catch (_) {}
         },
         onClick: () => {
           setTab(t.id);
@@ -3841,7 +3861,13 @@ function CsrDashboardTab() {
   }, []);
   if (err) return h('div', { className: 'profile-panel' }, h('div', { className: 'wallet-error' }, err));
   if (!stats) return h('div', { className: 'spinner' });
-  const waitingHours = stats.oldestWaitingAgeMs ? Math.floor(stats.oldestWaitingAgeMs / 3_600_000) : 0;
+  const waitMs = stats.oldestWaitingAgeMs || 0;
+  const waitingHours = Math.floor(waitMs / 3_600_000);
+  // Under an hour used to floor to 0 and render a green "—", as if nobody
+  // were waiting. Show minutes instead; "—" only when the queue is empty.
+  const waitLabel = waitMs <= 0 ? '—'
+    : waitingHours > 0 ? waitingHours + 'h'
+    : Math.max(1, Math.floor(waitMs / 60_000)) + 'm';
   const Stat = (label, val, cls) =>
     h('div', { className: 'admin-stat' },
       h('div', { className: 'admin-stat-label' }, label),
@@ -3852,9 +3878,11 @@ function CsrDashboardTab() {
       Stat('Open Tickets',         stats.openTickets || 0),
       Stat('Waiting on Staff',     stats.waitingStaff || 0, stats.waitingStaff > 0 ? 'yellow' : ''),
       Stat('Waiting on User',      stats.waitingUser || 0),
-      Stat('Oldest wait',          waitingHours > 0 ? waitingHours + 'h' : '—',
+      Stat('Oldest wait',          waitLabel,
                                    waitingHours > 24 ? 'red' : waitingHours > 6 ? 'yellow' : 'green'),
-      Stat('Goodwill credit cap',  fmt(stats.creditCap || 0), 'accent')
+      // USD, like the credit prompt and its confirm: fmt() converts to the
+      // viewer's display currency and quoted a €46 cap against a $50 limit.
+      Stat('Goodwill credit cap',  usdAmount(stats.creditCap || 0), 'accent')
     )
   );
 }
@@ -3923,7 +3951,7 @@ function CsrLookupTab() {
             ),
             h('div', { style: { textAlign: 'right' } },
               h('div', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Balance'),
-              h('div', { style: { fontSize: 16, fontWeight: 800, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(u.balance || 0))
+              h('div', { style: { fontSize: 16, fontWeight: 800, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, usdAmount(u.balance || 0))
             ),
             h('button', { className: 'btn btn-accent', style: { marginLeft: 10, padding: '8px 14px' }, disabled: busy, onClick: () => giveCredit(u) }, '+ Goodwill')
           ),
