@@ -48,3 +48,10 @@ test('a delivery code on a trade row comes with its meaning as visible text', as
   await expect(page.getByTestId('bot-code-note'))
     .toHaveText("Our bot's trade offer message ends with this code. Decline any offer for this item without it.");
 });
+
+// No payment processor is connected in test mode, so the footer names none.
+test('the footer carries no "Powered by stripe" badge', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('footer.site-footer .trust-badge')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('footer.site-footer .stripe-badge')).toHaveCount(0);
+});

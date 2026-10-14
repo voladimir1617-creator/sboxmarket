@@ -12,8 +12,9 @@ test.describe('public smoke (signed out)', () => {
     await expect(page.locator('text=/Buy & Sell s&box Skins/i')).toBeVisible();
     // A primary CTA into the market
     await expect(page.getByRole('link', { name: /Marketplace/i }).first()).toBeVisible();
-    // Footer trust chrome
-    await expect(page.locator('text=/Powered by/i').first()).toBeVisible();
+    // Footer trust chrome. No processor badge in test mode (no Stripe keys),
+    // so the footer says what is true instead.
+    await expect(page.locator('footer.site-footer').getByText('Test mode: no real money moves')).toBeVisible();
     // Signed-out nav shows the Steam sign-in CTA
     await expect(page.locator('text=/Sign in through Steam/i').first()).toBeVisible();
   });

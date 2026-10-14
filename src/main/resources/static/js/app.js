@@ -2883,16 +2883,8 @@ export function SiteFooter() {
         h('p', { className: 'site-footer-tag' },
           'The s&box skin marketplace. Real-time prices, verified sellers, and escrowed trades — built for the Workshop community.'),
         h('div', { className: 'site-footer-badges' },
-          h('a', {
-            className: 'stripe-badge',
-            href: 'https://stripe.com',
-            target: '_blank',
-            rel: 'noopener noreferrer',
-            title: 'Payments processed by Stripe'
-          },
-            h('span', { className: 'stripe-badge-label' }, 'Powered by'),
-            h('span', { className: 'stripe-badge-mark' }, 'stripe')
-          ),
+          // No "Powered by stripe" badge until real Stripe keys are in: the
+          // site processes no payments in test mode (revert-at-go-live list).
           h('span', { className: 'trust-badge' },
             h(MaterialIcon, { name: 'lock', size: 12 }),
             // No TLS version here: that is set by whichever host serves the site,
