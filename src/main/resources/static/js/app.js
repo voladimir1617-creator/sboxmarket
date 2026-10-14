@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=265';
+} from './modals.js?v=266';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -64,7 +64,7 @@ function LazyStaffPanel({ which, me, onClose }) {
   return h(Mod, { onClose, me });
 }
 import { HelpModal } from './help-modal.js';
-import { InfoModal } from './info-modal.js';
+import { InfoModal, markAuthKnown } from './info-modal.js';
 import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious } from './router.js';
 
 // ── Pending trade reminder — surfaces a slim banner whenever the signed-in
@@ -1804,17 +1804,19 @@ function Icon({ name, size }) {
 // anonymous-friendly. Silent when there are no recent sales (fresh
 // install) so we don't show an empty tape. Polls every 45s.
 function MarketPulse() {
-  const [rows, setRows] = useState([]);
+  // null until the first answer: the bar's frame holds its 32px meanwhile,
+  // so the market below doesn't drop when the tape arrives.
+  const [rows, setRows] = useState(null);
   const trackRef = React.useRef(null);
   useEffect(() => {
     let alive = true;
     const load = async () => {
       try {
         const r = await fetch('/api/listings/recent-sales?limit=14');
-        if (!r.ok) return;
+        if (!r.ok) { if (alive) setRows(prev => prev ?? []); return; }
         const data = await r.json();
         if (alive) setRows(Array.isArray(data) ? data : []);
-      } catch (_) { /* silent */ }
+      } catch (_) { if (alive) setRows(prev => prev ?? []); }
     };
     load();
     const id = setInterval(() => { if (!document.hidden) load(); }, 45000);
@@ -1854,7 +1856,10 @@ function MarketPulse() {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [rows]);
-  if (!rows || rows.length === 0) return null;
+  if (rows === null) return h('div', { className: 'pulse', 'aria-busy': 'true', style: { height: 32 } },
+    h('span', { className: 'pulse-led' }),
+    h('span', { style: { fontWeight: 500, color: 'var(--ink-2)' } }, 'LIVE TAPE'));
+  if (rows.length === 0) return null;
   // Duplicate the row list so the css keyframe (`pulse-scroll`) can
   // loop seamlessly — by the time the first copy scrolls past, the
   // second copy is positioned to pick up without a visible seam.
@@ -4666,6 +4671,7 @@ export function App() {
       }
       return m;
     } finally {
+      markAuthKnown();
       setMeLoaded(true);
     }
   }, []);
@@ -6832,7 +6838,10 @@ export function App() {
        from the active tab, each card a click-through to the listing,
        with a "View all →" tail card. The full layout still renders
        below for users who want to keep browsing without navigating. */
-    routeName === 'home' && (homeFeatured.length > 0 || listings.length > 0) && h('section', { className: 'csfloat-home-preview', 'aria-label': 'Featured listings preview' },
+    /* While the first listings load, the strip keeps its place with an
+       empty row one card tall, so the tiles below don't jump down 460px
+       when the cards arrive. */
+    routeName === 'home' && (homeFeatured.length > 0 || listings.length > 0 || loading) && h('section', { className: 'csfloat-home-preview', 'aria-label': 'Featured listings preview', 'aria-busy': (homeFeatured.length === 0 && listings.length === 0) ? 'true' : undefined },
       h('h2', { className: 'visually-hidden' }, 'Featured listings preview'),
       h('div', { className: 'csfloat-home-preview-inner' },
         /* Boss QA cycle 12 A1 — dropped role="list" from parent + role="listitem"
@@ -6841,7 +6850,7 @@ export function App() {
            ARIA's allowed-role mapping for <a href>, so the parent failed
            aria-required-children. The section already carries an aria-label, so
            screen readers still announce the region; the cards stay links. */
-        h('div', { className: 'csfloat-home-preview-row' },
+        h('div', { className: 'csfloat-home-preview-row', style: (homeFeatured.length === 0 && listings.length === 0) ? { minHeight: 410 } : undefined },
           /* Boss QA — home featured rail now reuses the canonical /market
              GridCard component (same as the cart "Trending right now" rail,
              cards.js GridCard) so the featured tiles inherit every grid-card
@@ -6868,7 +6877,7 @@ export function App() {
               cartHas: (id) => cart.some(c => c.id === id)
             });
           }),
-          h('a', {
+          (homeFeatured.length > 0 || listings.length > 0) && h('a', {
             className: 'csfloat-home-preview-tail',
             href: paths.market(),
             onClick: (e) => { e.preventDefault(); navigate(paths.market()); }
@@ -9671,7 +9680,7 @@ export function App() {
       )
     ),
     routeName === 'faq'           && h(FaqModal,        { onClose: () => navigate(paths.market()) }),
-    routeName === 'settings'      && h(SettingsModal,   { onClose: () => navigate(paths.market()), me }),
+    routeName === 'settings'      && h(SettingsModal,   { onClose: () => navigate(paths.market()), me, meLoaded }),
     routeName === 'affiliate'     && h(AffiliateModal,  { onClose: () => navigate(paths.market()) }),
     // Deep-link handling — notifications like TRADE_MESSAGE land us on
     // `/profile/trades`. The router's :tab pattern feeds initialTab so
@@ -9711,8 +9720,8 @@ export function App() {
     }),
     routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); }, me }),
     routeName === 'buyorders'     && h(BuyOrdersModal,     { onClose: () => { setPreselectedBuyItem(null); navigate(paths.market()); }, me, wallet, preselectedItem: preselectedBuyItem }),
-    routeName === 'loadouts'      && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me }),
-    routeName === 'loadout'       && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, loadoutId: route.params?.id }),
+    routeName === 'loadouts'      && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, meLoaded }),
+    routeName === 'loadout'       && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, meLoaded, loadoutId: route.params?.id }),
     routeName === 'notifications' && h(NotificationsModal, { onClose: () => navigate(paths.market()), me }),
     routeName === 'support'       && h(ProfileModal,        { onClose: () => navigate(paths.market()), me, wallet, transactions, onRefresh: loadWallet, initialTab: 'support' }),
     // Staff panels — role-gated. Non-staff users who type the URL hit a
