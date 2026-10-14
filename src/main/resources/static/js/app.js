@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=268';
+} from './modals.js?v=269';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -2888,19 +2888,13 @@ export function SiteFooter() {
         h('p', { className: 'site-footer-tag' },
           'The s&box skin marketplace. Real-time prices, verified sellers, and escrowed trades — built for the Workshop community.'),
         h('div', { className: 'site-footer-badges' },
-          h('a', {
-            className: 'stripe-badge',
-            href: 'https://stripe.com',
-            target: '_blank',
-            rel: 'noopener noreferrer',
-            title: 'Payments processed by Stripe'
-          },
-            h('span', { className: 'stripe-badge-label' }, 'Powered by'),
-            h('span', { className: 'stripe-badge-mark' }, 'stripe')
-          ),
+          // No "Powered by stripe" badge until real Stripe keys are in: the
+          // site processes no payments in test mode (revert-at-go-live list).
           h('span', { className: 'trust-badge' },
             h(MaterialIcon, { name: 'lock', size: 12 }),
-            ' TLS 1.3 · Webhook-signed'
+            // No TLS version here: that is set by whichever host serves the site,
+            // and nothing is deployed yet.
+            ' Webhook-signed'
           )
         )
       ),
@@ -6797,7 +6791,9 @@ export function App() {
        server-side first. */
     routeName === 'home' && h('section', { className: 'csfloat-home-metrics', 'aria-label': 'Marketplace trust metrics' },
       h('div', { className: 'csfloat-home-metrics-inner' },
-        h('div', { className: 'csfloat-home-metrics-eyebrow' }, 'Trusted by s&box traders'),
+        // The tiles count listings and fees, not traders, and no real money has
+        // moved yet, so the heading names what they are.
+        h('div', { className: 'csfloat-home-metrics-eyebrow' }, 'SkinBox in numbers'),
         h('div', { className: 'csfloat-home-metrics-row' },
           h('div', { className: 'csfloat-home-metric' },
             h('div', { className: 'csfloat-home-metric-num' },

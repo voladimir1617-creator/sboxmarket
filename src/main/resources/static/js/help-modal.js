@@ -119,6 +119,11 @@ const FAQ = [
   },
   {
     s: 'problems',
+    q: 'How do I avoid scams?',
+    a: "SkinBox signs you in only through Steam's own page at steamcommunity.com, and it never asks for your Steam password, your Steam Guard code or a Steam Web API key. Check the address bar before you sign in. Accept a SkinBox trade offer only if its message ends with the offer code shown on your trade. If anyone contacts you claiming to be SkinBox staff, report it with a ticket from Profile → Support. (The SkinBox API keys under Profile → Developers are a different thing: they are keys you mint for your own scripts, not something anyone should ask you for.)"
+  },
+  {
+    s: 'problems',
     q: 'What happens if I get banned? Can I appeal?',
     a: "Banned accounts can no longer list, bid, buy, offer, trade, or withdraw. Your Steam session is revoked immediately and future sign-ins land on a read-only state. To appeal, email appeals@skinbox.market from the Steam-verified address on your account with your Steam ID and a description of the incident — or simply reply to the suspension email. Appeals are reviewed by a senior admin (not the reviewer who banned you) within 1-2 business days. If the ban is lifted, your listings are NOT auto-restored — you'll need to re-list anything you want back on the market."
   },
@@ -183,7 +188,7 @@ const STEPS = [
   { icon: 'search',       title: 'Browse the marketplace', body: 'Filter by category, rarity, price. Press / to jump straight into search.' },
   { icon: 'shopping_cart', title: 'Buy Now or Place a Buy Order', body: 'Buy a listing instantly, or set a standing max price and walk away.' },
   { icon: 'checkroom',    title: 'Receive the item', body: 'From another player: they send you a Steam trade offer. Accept it on Steam, then press Confirm on the trade to release payment. From SkinBox itself: it lands in your Platform Inventory at once.' },
-  { icon: 'verified',     title: 'Trade safely', body: 'Every write is signed, rate-limited, and audited. Support is one click away.' },
+  { icon: 'verified',     title: 'Trade safely', body: 'Every change you make on the website carries an anti-forgery token, trading and wallet actions are rate-limited, and purchases, trades and wallet changes are logged. Support is one click away.' },
 ];
 
 export function HelpModal({ onClose }) {
