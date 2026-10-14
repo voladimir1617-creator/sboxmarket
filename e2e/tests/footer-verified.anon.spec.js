@@ -53,16 +53,20 @@ test.describe('phone', () => {
   // The back-to-top button sat over the end of the footer's last line at
   // the bottom of every page.
   test('at the bottom of the page the back-to-top button clears the footer text', async ({ page }) => {
+    // A visitor who has answered the cookie banner: its pill, and the extra
+    // footer room kept for it, are gone.
+    await page.addInitScript(() => { try { localStorage.setItem('sb_cookie_consent', 'accepted'); } catch (_) {} });
     await page.goto('/');
     await expect(page.locator('footer.site-footer .site-footer-meta')).toBeVisible({ timeout: 15_000 });
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const fab = page.locator('.app-back-to-top');
-    await expect(fab).toBeVisible();
-    await page.waitForTimeout(400);
-    const { metaBottom, fabTop } = await page.evaluate(() => ({
-      metaBottom: document.querySelector('footer.site-footer .site-footer-meta').getBoundingClientRect().bottom,
-      fabTop: document.querySelector('.app-back-to-top').getBoundingClientRect().top,
-    }));
-    expect(metaBottom).toBeLessThanOrEqual(fabTop);
+    // The home page keeps growing as its rails load, so keep scrolling to
+    // the true bottom and measure only once the page has stopped growing.
+    await expect.poll(async () => page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      const fab = document.querySelector('.app-back-to-top');
+      const atBottom = Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1;
+      if (!fab || !atBottom) return 'scrolling';
+      const metaBottom = document.querySelector('footer.site-footer .site-footer-meta').getBoundingClientRect().bottom;
+      return metaBottom <= fab.getBoundingClientRect().top ? 'clear' : `overlap ${metaBottom} > ${fab.getBoundingClientRect().top}`;
+    }), { timeout: 15_000, intervals: [500] }).toBe('clear');
   });
 });
