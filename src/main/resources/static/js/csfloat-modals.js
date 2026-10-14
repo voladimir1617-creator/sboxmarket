@@ -2497,25 +2497,24 @@ export function NotificationsModal({ onClose, me }) {
             g.items.map(n => h('div', {
               key: n.id,
               className: `notif-feed-row ${n.read ? '' : 'unread'}`,
-              onClick: () => open(n),
-              // Keyboard a11y (matches buyorder-picker-row / loadout-card in
-              // this file): the row body opens the notification on click, so it
-              // must be focusable and Enter/Space-activatable or SR/keyboard
-              // users can't open any notification on the /notifications page.
-              role: 'button',
-              tabIndex: 0,
-              'aria-label': `${n.read ? '' : 'Unread. '}Open notification: ${n.title || n.kind || ''} — ${timeAgo(n.createdAt)}`,
-              onKeyDown: (e) => {
-                // Keys on the row's own buttons (mark unread, delete) are theirs.
-                if (e.target !== e.currentTarget) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  open(n);
-                }
-              }
+              onClick: () => open(n)
             },
               h('div', { className: 'notif-feed-icon' }, kindIcon(n.kind)),
-              h('div', { style: { flex: 1, minWidth: 0 } },
+              // Keyboard a11y: the text block is the "open" control. It used
+              // to be the whole row, so the Mark-unread and Delete buttons sat
+              // inside a role=button, where screen readers drop them.
+              h('div', {
+                style: { flex: 1, minWidth: 0 },
+                role: 'button',
+                tabIndex: 0,
+                'aria-label': `${n.read ? '' : 'Unread. '}Open notification: ${n.title || n.kind || ''} — ${timeAgo(n.createdAt)}`,
+                onKeyDown: (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    open(n);
+                  }
+                }
+              },
                 h('div', { className: 'notif-feed-title' }, highlightMatch(n.title || '', search)),
                 n.body && h('div', { className: 'notif-feed-body' }, highlightMatch(n.body, search)),
                 h('div', { className: 'notif-feed-time' }, timeAgo(n.createdAt))
