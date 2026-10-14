@@ -5579,6 +5579,11 @@ export function App() {
     // must be clearable from here too.
     setHideMineP(false);
   };
+  // Anything the button above would reset. With nothing set, the sidebar's
+  // Clear Filters greys out (White.market's "Reset all" does the same), so
+  // it reads as a state rather than an action that does nothing.
+  const filtersActive = !!(search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice ||
+    minDiscountPct > 0 || listingTypeFilter !== 'ALL' || dealsOnly || newOnly || affordableOnly || hideMine);
 
   // derived data
   const catCounts = useMemo(() => {
@@ -7148,7 +7153,7 @@ export function App() {
             })
           )
         ),
-        h('button', { className: 'btn-clear', onClick: clearFilters }, 'Clear Filters'),
+        h('button', { className: 'btn-clear', onClick: clearFilters, disabled: !filtersActive, 'data-testid': 'sidebar-clear-filters' }, 'Clear Filters'),
         // Batch 766 — "Copy filtered URL" lets a user share the current
         // filter/sort/price-range snapshot (e.g. "hats under $10, sorted
         // by newest"). The URL already reflects active filters via

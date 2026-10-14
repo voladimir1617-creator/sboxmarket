@@ -30605,3 +30605,6 @@ html body .site-root.full-page-mode > .modal-backdrop { min-height: 100vh !impor
   html body [data-testid="notifications-skeleton"]::before { content: ''; display: block; height: 46px; }
   html body [data-testid="notifications-skeleton"] .notif-feed-row { min-height: 103px !important; }
 }
+
+/* Sidebar "Clear Filters" with nothing to clear: greyed, no hover. */
+html body .sidebar button.btn-clear:disabled { opacity: 0.4 !important; cursor: default !important; background: transparent !important; }
