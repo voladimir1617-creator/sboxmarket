@@ -484,6 +484,16 @@ class OpenGraphControllerSpec extends Specification {
         body.contains('How do I buy something?')
     }
 
+    def "faqPage describes anti-snipe as the server applies it: 30s from the bid, capped at 20 (pass 36)"() {
+        when:
+        def body = controller.faqPage(req()).body as String
+
+        then:
+        body.contains('moves the close to 30 seconds after that bid, up to 20 times per auction')
+        !body.contains('extends the auction by 30 seconds')
+        !body.contains('extends the close by 30 seconds')
+    }
+
     // ── /loadout/{id} ────────────────────────────────────────────
 
     def "loadoutPage rewrites OG tags with the loadout's name, owner, and total value"() {

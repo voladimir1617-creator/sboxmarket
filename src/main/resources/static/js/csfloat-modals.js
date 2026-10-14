@@ -12,7 +12,7 @@ import {
   fetchDatabase, fetchBuyOrders, fetchBuyOrdersWithTotal, createBuyOrder, deleteBuyOrder, fetchBuyOrderProjectedPosition,
   fetchPublicLoadouts, fetchMyLoadouts, fetchLoadout, createLoadout,
   setLoadoutSlot, lockLoadoutSlot, generateLoadout, deleteLoadout, favoriteLoadout, cloneLoadout, updateLoadout,
-  fetchListings,
+  fetchListingsForItem,
   fetchNotifications, markAllNotificationsRead, markNotificationsReadBatch, markNotificationRead, clearReadNotifications, deleteNotificationsBatch,
   deleteNotification,
   fetchBidHistory, placeBid,
@@ -662,7 +662,20 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     // through into `max >= 0`, which is always true and wrongly blocked
     // every buy order with a bogus "at or above floor ($0.00)" error.
     // A standing buy order on a not-yet-listed item is perfectly valid.
-    const floor = parseFloat(picked.lowestPrice);
+    // Buy orders only ever fill Buy Now listings, but `lowestPrice` also
+    // counts auction start prices and bids, so an auction-only item could
+    // not get an order above its auction price ("just buy now" with
+    // nothing to buy now). Read the item's live Buy Now floor instead,
+    // falling back to the catalogue floor when that lookup fails.
+    let floor = parseFloat(picked.lowestPrice);
+    try {
+      const rows = await fetchListingsForItem(picked.id);
+      const asks = rows
+        .filter(l => l && l.listingType !== 'AUCTION' && l.sellerUserId !== me.id)
+        .map(l => parseFloat(l.price))
+        .filter(n => Number.isFinite(n) && n > 0);
+      floor = asks.length ? Math.min(...asks) : NaN;
+    } catch (_) { /* keep the catalogue floor */ }
     if (Number.isFinite(floor) && floor > 0 && max >= floor) {
       setErr(`Your max (${fmt(max)}) is at or above the current floor (${fmt(floor)}) — just buy now instead.`);
       return;
@@ -1225,16 +1238,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     // setAllItems / setPoolErr on the unmounted component logs a React
     // warning and wastes a render. Alive flag short-circuits both.
     let alive = true;
-    fetchListings({}).then(listings => {
+    // The whole catalogue, like the buy-order picker. It used to be one
+    // page of live listings in price order, so only the ~40 cheapest items
+    // ever showed and a search for a pricier hat said "No items match."
+    fetchDatabase({ limit: 500, sort: 'most_traded' }).then(res => {
       if (!alive) return;
-      const seen = new Set();
-      const items = [];
-      listings.forEach(l => {
-        if (!l?.item || seen.has(l.item.id)) return;
-        seen.add(l.item.id);
-        items.push(l.item);
-      });
-      setAllItems(items);
+      if (!res || res.error) { setPoolErr(true); return; }
+      setAllItems((res.items || []).filter(it => it && it.id != null && it.name));
     }).catch(() => {
       // Audit fix — without a .catch() a rejected listings fetch left
       // the slot picker's item pool permanently empty with no feedback.

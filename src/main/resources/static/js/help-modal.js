@@ -25,7 +25,7 @@ const FAQ = [
   {
     s: 'trade',
     q: 'How do I run an auction (as a seller)?',
-    a: "In the Sell Items flow, toggle Listing type to Auction instead of Buy Now. Pick a duration (6h / 12h / 1d / 2d / 3d / 7d), set a starting bid, and hit List for Sale. Bidders push the price up from there until the timer runs out; the top bidder's wallet is charged automatically. Anti-snipe: any bid placed in the final 30 seconds extends the auction by another 30 seconds so nobody can win purely on timing. You can cancel or re-price an auction until the first bid lands; after that it's locked and settles when the timer runs out. When the auction ends with no bids, the item returns to your inventory automatically."
+    a: "In the Sell Items flow, toggle Listing type to Auction instead of Buy Now. Pick a duration (6h / 12h / 1d / 2d / 3d / 7d), set a starting bid, and hit List for Sale. Bidders push the price up from there until the timer runs out; the top bidder's wallet is charged automatically. Anti-snipe: a bid placed in the final 30 seconds moves the close to 30 seconds after that bid, up to 20 times per auction. You can cancel or re-price an auction until the first bid lands; after that it's locked and settles when the timer runs out. When the auction ends with no bids, the item returns to your inventory automatically."
   },
   {
     s: 'money',
@@ -95,7 +95,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'Why did my buy order auto-expire?',
-    a: "Standing buy orders auto-expire after 30 days of inactivity. This prevents a long-forgotten order from surprise-firing months after you stopped wanting the item. If you're still interested, re-create it from Profile → Buy Orders — the wallet hold is released automatically so nothing is lost."
+    a: "Standing buy orders auto-expire after 30 days of inactivity. This prevents a long-forgotten order from surprise-firing months after you stopped wanting the item. If you're still interested, re-create it from Profile → Buy Orders. No money is held while an order waits: your wallet is charged only when a listing matches, and an order you can't afford at that moment is skipped."
   },
   {
     s: 'trade',

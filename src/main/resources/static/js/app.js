@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=271';
+} from './modals.js?v=272';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -5762,9 +5762,15 @@ export function App() {
     // sort by re-ordering deduped rows by item.id instead of by API order.
     const withItem = pool.filter(l => l?.item);
     const byItem = new Map();
+    // Under "Auctions ending soonest" and "Newest first" the card is the
+    // item's FIRST listing in the API order (its soonest-ending auction, its
+    // newest listing). Keeping the cheapest there put the card at the cheap
+    // listing's slot, so an auction ending in 2 minutes with a cheaper Buy
+    // Now copy sank to the bottom with no countdown on its card.
+    const firstWins = sort === 'ending_soon' || sort === 'newest';
     withItem.forEach((l, idx) => {
       const current = byItem.get(l.item.id);
-      if (!current || effPrice(l) < effPrice(current.listing)) {
+      if (!current || (!firstWins && effPrice(l) < effPrice(current.listing))) {
         // Representative = the CHEAPEST listing of the item (its price / date /
         // discount is exactly what the card renders). Capture ITS index in the
         // API-sorted pool too — see the re-sort below.
@@ -7140,10 +7146,13 @@ export function App() {
              the operator's selected currency (e.g. "<CA$2.74" when CAD). */
           h('div', { className: 'price-chips' },
             [
-              { min: '',   max: '2',  fmt: (lo, hi) => '<' + fmt(2) },
-              { min: '2',  max: '5',  fmt: (lo, hi) => fmt(2) + '–' + fmt(5) },
-              { min: '5',  max: '10', fmt: (lo, hi) => fmt(5) + '–' + fmt(10) },
-              { min: '10', max: '',   fmt: (lo, hi) => '>' + fmt(10) }
+              // The server filter is inclusive (>= min, <= max), so the
+              // strict "<" and ">" chips stop a cent short: max=2 put a
+              // $2.00 item under "<$2" as well as "$2–$5".
+              { min: '',      max: '1.99', fmt: (lo, hi) => '<' + fmt(2) },
+              { min: '2',     max: '5',    fmt: (lo, hi) => fmt(2) + '–' + fmt(5) },
+              { min: '5',     max: '10',   fmt: (lo, hi) => fmt(5) + '–' + fmt(10) },
+              { min: '10.01', max: '',     fmt: (lo, hi) => '>' + fmt(10) }
             ].map(chip => {
               const label = chip.fmt();
               const isActive = String(minPrice || '') === chip.min && String(maxPrice || '') === chip.max;
