@@ -257,6 +257,19 @@ before the message text does.
 - Rotate `BOT_API_TOKEN` and the Steam secrets if you suspect compromise (rotating the
   mobile authenticator re-triggers the trade-hold period).
 
+### npm advisories (checked 2026-10-15)
+`package.json` pins patched versions of the Steam libraries' sub-dependencies through
+`overrides` (protobufjs, adm-zip, form-data, tough-cookie, qs, proxy-addr, ip-address), which
+clears every critical advisory. `npm audit` still lists these, all inside `steamcommunity`
+and with no patched version that keeps its API:
+- `request` (deprecated; redirect SSRF) and its `uuid` 3: the bot only calls Steam's own
+  hosts, and `request` uses `uuid/v4` without a buffer, which the advisory does not cover.
+- `cheerio` 0.22 -> `css-select` -> `nth-check`, `lodash.pick`: used only with the
+  library's fixed selectors on Steam's own pages.
+- `image-size`: used only by `uploadAvatar`, which the bot never calls.
+
+Re-run `npm audit` before going live and whenever a Steam library releases.
+
 ---
 
 ## Files
