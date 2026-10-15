@@ -2428,8 +2428,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             },
               h('div', { className: 'similar-thumb' }, h(ItemImage, { item: it, variant: 'thumb' })),
               h('div', { className: 'similar-name' }, it.name),
-              // Unlisted items have lowestPrice 0 → "$0.00" read as free; show "—".
-              h('div', { className: 'similar-price' }, parseFloat(it.lowestPrice) > 0 ? h(Money, { value: it.lowestPrice }) : '—')
+              // Only a listed item has a SkinBox price: unlisted ones carry 0, or
+              // the Steam price the price sync writes there. Show "—" for both.
+              h('div', { className: 'similar-price' }, (it.isListed && parseFloat(it.lowestPrice) > 0) ? h(Money, { value: it.lowestPrice }) : '—')
             ))
           )
         )
@@ -3893,7 +3894,7 @@ export function FaqModal({ onClose }) {
     ['What are Buy Orders?',
       "A standing \"I'll pay up to $X for this item\" request. When a seller lists (or drops their price to) at-or-below your max, our matcher auto-buys and opens an escrowed trade — no action needed on your side. Great for items you keep missing on drops. Cap: 200 active orders per account. Projected queue position shows up in the form so you know if you'd be #1 or stuck at #8 under current demand."],
     ['What is the Watchlist and what are Price Alerts?',
-      "Click the ★ on any item card to add it to your Watchlist — a saved browsing shortcut. Separately, open an item and click \"Set Price Alert\" with a target price: you'll get a notification (and optionally an email) the instant an ACTIVE listing dips to or below your target. Alerts stay ACTIVE until they fire once (then flip to FIRED) or until you cancel. Max 50 active alerts per user."],
+      "Click the ♡ heart on any item card to add it to your Watchlist — a saved browsing shortcut. Separately, open an item and click \"Set Price Alert\" with a target price: you'll get a notification (and optionally an email) the instant an ACTIVE listing dips to or below your target. Alerts stay ACTIVE until they fire once (then flip to FIRED) or until you cancel. Max 50 active alerts per user."],
     ['What is the Loadout Lab?',
       "Curate up to 8 slots of s&box cosmetics (Hat / Shirt / Pants / Gloves / Boots / Accessories / etc.) into a named look. Publish publicly for discovery + favorites, or keep private while you tweak. \"Auto-generate from budget\" re-picks every unlocked slot (replacing what is there, or emptying it if nothing fits) with the cheapest active listings that fit your total budget. Lock the slots you've curated so Auto-gen keeps them. Cap: 50 loadouts per account."],
     ['Can I hide my wallet balance while streaming or on camera?',

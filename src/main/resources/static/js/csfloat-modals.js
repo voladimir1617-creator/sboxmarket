@@ -1945,20 +1945,23 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         : h('div', { className: 'loadout-list' },
             list.map(l => h('div', {
               key: l.id, className: 'loadout-card',
-              onClick: () => openLoadout(l.id),
-              role: 'button',
-              tabIndex: 0,
-              'aria-label': `Open loadout ${l.name}${l.ownerName ? ' by ' + l.ownerName : ''} (${l.favorites} favorites, ${fmt(l.totalValue)})`,
-              onKeyDown: (e) => {
-                const tag = (e.target?.tagName || '').toLowerCase();
-                if (tag === 'button' || tag === 'a') return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  openLoadout(l.id);
-                }
-              }
+              // Mouse convenience only. Keyboard and screen readers open the
+              // card through the name link below; a role=button card could
+              // not contain the Copy link button as a separate control.
+              onClick: () => openLoadout(l.id)
             },
-              h('div', { className: 'loadout-card-name' }, highlightMatch(l.name || '', search)),
+              h('div', { className: 'loadout-card-name' },
+                h('a', {
+                  href: '/loadout/' + l.id,
+                  style: { color: 'inherit', textDecoration: 'none' },
+                  'aria-label': `Open loadout ${l.name}${l.ownerName ? ' by ' + l.ownerName : ''} (${l.favorites} favorites, ${fmt(l.totalValue)})`,
+                  onClick: (e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) { e.stopPropagation(); return; }
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openLoadout(l.id);
+                  }
+                }, highlightMatch(l.name || '', search))),
               h('div', { className: 'loadout-card-meta' },
                 h('span', null, '❤ ', l.favorites),
                 h('span', null, fmt(l.totalValue)),
