@@ -152,6 +152,27 @@ class SteamEscrowService {
     @Value('${steam.escrow.deposit-retry-backoff-ms:300000}')
     long depositRetryBackoffMs = 300000L
 
+    /** Hours a deposited skin is held before its listing goes live, counted
+     *  from when the deposit trade completed (after any Steam trade hold).
+     *
+     *  Steam's Trade Protection lets the sender reverse a trade for 7 days and
+     *  stops the receiver moving the item on. Skin.Club holds skin deposits for
+     *  8 days before crediting them for that reason, and 192 (8 days) copies
+     *  that: 7 days of protection plus a day of slack. Steam's protection is
+     *  confirmed for CS2 and not confirmed for s&box (590830); set this to 0
+     *  once the first real deposit shows s&box skins arriving tradable, and the
+     *  hold then follows Steam's own tradable flag alone. Whatever this says,
+     *  a skin Steam reports non-tradable is never put on sale. */
+    @Value('${steam.escrow.trade-protection-hours:192}')
+    int tradeProtectionHours = 192
+
+    /** How long a skin may be missing from the bot's inventory, across two
+     *  successful reads, before the protection release sweep calls the
+     *  deposit reversed. One read alone is never trusted: Steam's inventory
+     *  can lag a trade by minutes. */
+    @Value('${steam.escrow.missing-confirm-ms:1800000}')
+    long missingConfirmMs = 1800000L
+
     /**
      * True only when the bot sidecar is configured. The whole escrow leg is
      * inert when this is false — listings are created ACTIVE the legacy way
@@ -474,6 +495,16 @@ class SteamEscrowService {
         }
 
         e.heldAssetId = held
+
+        // The skin is in the bot. Before it can be sold, Steam's Trade
+        // Protection has to be over: until then the seller can reverse the
+        // deposit and the bot cannot send the skin to a buyer.
+        Long protectedUntil = protectionEndFor(e)
+        if (isProtected(e, protectedUntil, index)) {
+            enterTradeProtection(e, protectedUntil)
+            return
+        }
+
         e.custodyState = EscrowedItem.IN_CUSTODY
         e.lastError = null
         touch(e)
@@ -712,6 +743,134 @@ class SteamEscrowService {
     }
 
     // -----------------------------------------------------------------------
+    // 3b. TRADE PROTECTION — the skin is in the bot but cannot be sold yet
+    // -----------------------------------------------------------------------
+
+    /** When Trade Protection on this deposit can have ended at the earliest:
+     *  the moment the trade completed (the later of acceptance and any Steam
+     *  trade hold's release) plus {@link #tradeProtectionHours}. Null when no
+     *  window is configured. */
+    Long protectionEndFor(EscrowedItem e) {
+        if (e == null || tradeProtectionHours <= 0) return null
+        long now = System.currentTimeMillis()
+        long completed = Math.max(e.depositAcceptedAt ?: now, e.escrowEndsAt ?: 0L)
+        return completed + (long) tradeProtectionHours * 60L * 60L * 1000L
+    }
+
+    /** True while a held skin must not go on sale: the configured window has
+     *  not passed, or Steam itself still reports the skin non-tradable. */
+    boolean isProtected(EscrowedItem e, Long protectedUntil, Map index, long now = System.currentTimeMillis()) {
+        if (protectedUntil != null && now < protectedUntil) return true
+        Set nonTradable = (index?.get('nonTradable') ?: [] as Set) as Set
+        String held = e?.heldAssetId ?: e?.assetId
+        return held != null && nonTradable.contains(held)
+    }
+
+    private void enterTradeProtection(EscrowedItem e, Long protectedUntil) {
+        boolean firstEntry = e.custodyState != EscrowedItem.IN_TRADE_PROTECTION
+        e.custodyState = EscrowedItem.IN_TRADE_PROTECTION
+        e.protectedUntil = protectedUntil
+        String until = formatHoldRelease(protectedUntil)
+        e.lastError = until != null
+                ? "in Steam Trade Protection; goes on sale ${until}".toString()
+                : 'in Steam Trade Protection; goes on sale when Steam marks it tradable'
+        touch(e)
+        if (!firstEntry) return
+        log.info("SteamEscrow: listing ${e.listingId} skin received, IN_TRADE_PROTECTION " +
+                "(escrow=${e.id} held=${e.heldAssetId} until=${until ?: 'tradable'})")
+        safeNotifySeller(e.sellerUserId, e.listingId, until != null
+                ? "We've received your item. Steam lets any trade be reversed for a week, so your listing goes live " +
+                  "on ${until}, automatically."
+                : "We've received your item. Steam still marks it as trade-protected, so your listing goes live " +
+                  "automatically as soon as Steam lets it move.")
+    }
+
+    /**
+     * Ends Trade Protection for deposits whose window has passed.
+     *
+     * For each due row it reads the bot's inventory once:
+     *   - skin there and tradable: custody becomes IN_CUSTODY and the listing
+     *     goes live, or, if the seller cancelled meanwhile, the return sweep
+     *     sends it back;
+     *   - skin there but Steam still says non-tradable: wait;
+     *   - skin absent on two successful reads {@link #missingConfirmMs} apart:
+     *     the seller reversed the deposit in Steam, so the skin is theirs
+     *     again. Custody becomes REVERSED and the listing is cancelled.
+     * A failed inventory read changes nothing.
+     *
+     * NOT @Transactional, per-row try/catch, same posture as the other sweeps.
+     * Two pods racing are harmless: the state write is guarded by re-reading
+     * the row, and activateListing only touches PENDING_ESCROW listings.
+     */
+    @Scheduled(initialDelayString = '${steam.escrow.protection-initial-delay-ms:110000}',
+               fixedDelayString = '${steam.escrow.protection-interval-ms:600000}')
+    void releaseTradeProtection() {
+        if (!escrowSweepEnabled) return
+        if (!escrowEnabled) return
+        long now = System.currentTimeMillis()
+        List<EscrowedItem> due
+        try {
+            due = escrowRepository.findTradeProtectionDue(now, PageRequest.of(0, Math.max(1, batchSize))) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: failed to load trade-protection rows: ${ex.message}")
+            return
+        }
+        if (due.isEmpty()) return
+        Map index = fetchBotInventoryIndex()
+        if (!index.ok) {
+            log.warn("SteamEscrow: bot inventory unreadable; ${due.size()} trade-protection release(s) wait for the next tick")
+            return
+        }
+        for (EscrowedItem row : due) {
+            try {
+                EscrowedItem e = escrowRepository.findById(row.id).orElse(null)
+                if (e == null || e.custodyState != EscrowedItem.IN_TRADE_PROTECTION) continue
+                releaseOne(e, index, now)
+            } catch (Exception ex) {
+                log.warn("SteamEscrow: trade-protection release failed on escrow=${row?.id}: ${ex.message}")
+            }
+        }
+    }
+
+    private void releaseOne(EscrowedItem e, Map index, long now) {
+        String held = e.heldAssetId ?: e.assetId
+        boolean present = held != null && ((index.byAsset ?: [:]) as Map).containsKey(held)
+        if (!present) {
+            if (e.missingSince == null) {
+                e.missingSince = now
+                touchError(e, 'skin not in bot inventory at protection end; re-checking')
+                log.warn("SteamEscrow: escrow=${e.id} listing=${e.listingId} skin ${held} missing from bot " +
+                        "at Trade Protection end; confirming on a later read")
+                return
+            }
+            if (now - e.missingSince < missingConfirmMs) return
+            e.custodyState = EscrowedItem.REVERSED
+            touchError(e, 'deposit reversed in Steam during Trade Protection; skin back with seller')
+            cancelHeldListing(e.listingId)
+            log.error("SteamEscrow: deposit REVERSED — escrow=${e.id} listing=${e.listingId} seller=${e.sellerUserId} " +
+                    "asset=${held}: skin left the bot during Trade Protection. Listing cancelled; nothing was sold.")
+            safeNotifySeller(e.sellerUserId, e.listingId,
+                    'Your deposit trade was reversed in Steam, so the item is back with you and this listing was cancelled.')
+            return
+        }
+        if (e.missingSince != null) e.missingSince = null
+        if (isProtected(e, e.protectedUntil, index, now)) {
+            touchError(e, 'Steam still marks the skin trade-protected; waiting')
+            return
+        }
+        e.custodyState = EscrowedItem.IN_CUSTODY
+        e.lastError = null
+        touch(e)
+        if (e.returnRequestedAt != null) {
+            log.info("SteamEscrow: listing ${e.listingId} Trade Protection over; seller cancelled meanwhile, return sweep sends it back")
+            return
+        }
+        activateListing(e.listingId)
+        log.info("SteamEscrow: listing ${e.listingId} Trade Protection over; IN_CUSTODY (held ${held}), listing activated")
+        safeNotifySeller(e.sellerUserId, e.listingId, 'Your item is out of Steam Trade Protection, and your listing is now live.')
+    }
+
+    // -----------------------------------------------------------------------
     // 4. RETURN — send the held asset back to the seller
     // -----------------------------------------------------------------------
 
@@ -762,6 +921,27 @@ class SteamEscrowService {
                       "straight back to you as soon as the hold ends — you don't need to do anything."
                     : "Your listing is cancelled. Steam is still holding the item; we'll send it straight back to " +
                       "you as soon as the hold ends — you don't need to do anything.")
+            return false
+        }
+
+        // Trade Protection: the bot holds the skin but Steam will not let it
+        // send it anywhere yet. Same answer as a trade hold: record the ask,
+        // and the release sweep promotes the row to IN_CUSTODY when the window
+        // ends, where sweepPendingReturns sends it back. If the seller reverses
+        // the deposit in Steam instead, the skin is already theirs.
+        if (e.custodyState == EscrowedItem.IN_TRADE_PROTECTION) {
+            if (e.returnRequestedAt == null) {
+                e.returnRequestedAt = System.currentTimeMillis()
+                touch(e)
+            }
+            String until = formatHoldRelease(e.protectedUntil)
+            log.info("SteamEscrow: return requested for listing ${listingId} during Trade Protection " +
+                    "(escrow=${e.id} until=${until ?: 'Steam says tradable'}) — queued (${reason})")
+            safeNotifySeller(e.sellerUserId, listingId, until != null
+                    ? "Your listing is cancelled. Steam's Trade Protection stops our bot sending the item until ${until}; " +
+                      "it comes straight back to you then, and you don't need to do anything."
+                    : "Your listing is cancelled. Steam's Trade Protection stops our bot sending the item for now; " +
+                      "it comes straight back to you as soon as Steam allows, and you don't need to do anything.")
             return false
         }
 
@@ -1112,6 +1292,8 @@ class SteamEscrowService {
             if (e?.listingId == null) continue
             String release = formatHoldRelease(e.escrowEndsAt)
             boolean holding = e.custodyState == EscrowedItem.IN_ESCROW_HOLD
+            boolean protecting = e.custodyState == EscrowedItem.IN_TRADE_PROTECTION
+            String protectedOn = formatHoldRelease(e.protectedUntil)
             String message
             switch (e.custodyState) {
                 case EscrowedItem.IN_ESCROW_HOLD:
@@ -1126,11 +1308,23 @@ class SteamEscrowService {
                         ? 'Waiting for you to accept our bot\'s Steam trade offer — your listing goes live the moment we receive the item.'
                         : 'We haven\'t been able to send you a trade offer yet. Check that your Steam trade URL is set in Profile.'
                     break
+                case EscrowedItem.IN_TRADE_PROTECTION:
+                    message = protectedOn != null
+                        ? "We have your item. Steam's Trade Protection lets a trade be reversed for a week, so your " +
+                          "listing goes live on ${protectedOn}, automatically."
+                        : "We have your item. Steam still marks it as trade-protected, so your listing goes live " +
+                          "automatically as soon as Steam lets it move."
+                    break
                 case EscrowedItem.FAILED:
                     message = 'This deposit didn\'t complete, so the listing never went live. You still have the item — re-list to try again.'
                     break
+                case EscrowedItem.REVERSED:
+                    message = 'The deposit trade was reversed in Steam, so the item went back to you and this listing was cancelled.'
+                    break
                 case EscrowedItem.IN_CUSTODY:
-                    message = 'We have your item; this listing should be live.'
+                    message = e.missingSince != null
+                        ? 'We paused this listing while we check our bot still holds your item. Nothing is lost; it goes back on sale once confirmed.'
+                        : 'We have your item; this listing should be live.'
                     break
                 default:
                     message = "Custody state: ${e.custodyState}".toString()
@@ -1138,6 +1332,9 @@ class SteamEscrowService {
             out[e.listingId] = [
                 custodyState:    e.custodyState,
                 inSteamHold:     holding,
+                inTradeProtection: protecting,
+                protectedUntil:  e.protectedUntil,
+                protectedUntilOn: protectedOn,
                 // Machine-readable release instant alongside the sentence, so a
                 // client can render a live countdown rather than re-parsing prose.
                 holdReleasesAt:  e.escrowEndsAt,
@@ -1231,29 +1428,37 @@ class SteamEscrowService {
     /** Build an index of the bot's inventory keyed by both assetId and
      *  marketHashName → held assetId, so custody-confirm can match an asset
      *  even when Steam reassigns the asset id on receipt. Empty on failure. */
-    private Map fetchBotInventoryIndex() {
+    Map fetchBotInventoryIndex() {
         def byAsset = [:]
         def byName = [:]
+        Set<String> nonTradable = [] as Set
+        List<Map> items = []
+        boolean ok = false
         try {
             SteamBotResult inv = steamTradeBotService.fetchBotInventory()
-            if (inv.ok && inv.raw != null) {
-                def items = inv.raw['items']
-                if (items instanceof List) {
-                    items.each { it ->
-                        if (!(it instanceof Map)) return
-                        def aid = it['assetId'] != null ? String.valueOf(it['assetId']) : null
-                        def name = it['marketHashName'] != null ? String.valueOf(it['marketHashName']) : null
-                        if (aid != null) {
-                            byAsset[aid] = aid
-                            if (name != null && !byName.containsKey(name)) byName[name] = aid
-                        }
+            if (inv.ok && inv.raw != null && inv.raw['items'] instanceof List) {
+                ok = true
+                (inv.raw['items'] as List).each { it ->
+                    if (!(it instanceof Map)) return
+                    def aid = it['assetId'] != null ? String.valueOf(it['assetId']) : null
+                    def name = it['marketHashName'] != null ? String.valueOf(it['marketHashName']) : null
+                    if (aid != null) {
+                        byAsset[aid] = aid
+                        if (name != null && !byName.containsKey(name)) byName[name] = aid
+                        // Only an explicit false counts: an older sidecar that
+                        // sends no flag listed tradable items only.
+                        boolean tradable = it['tradable'] != Boolean.FALSE && String.valueOf(it['tradable']) != 'false'
+                        if (!tradable) nonTradable << aid
+                        items << [assetId: aid, marketHashName: name, tradable: tradable]
                     }
                 }
             }
         } catch (Exception e) {
             log.debug("SteamEscrow: bot inventory fetch failed: ${e.message}")
         }
-        return [byAsset: byAsset, byName: byName]
+        // `ok` separates "the bot holds nothing" from "we could not ask": only
+        // the first may ever be read as a skin having left the bot.
+        return [ok: ok, byAsset: byAsset, byName: byName, nonTradable: nonTradable, items: items]
     }
 
     /** Find the held asset id for a deposit using the inventory index: prefer

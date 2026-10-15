@@ -14394,14 +14394,14 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         const l = row.listing || {};
         const e = row.escrow || {};
         const failed = e.custodyState === 'FAILED';
-        const step = e.custodyState === 'IN_ESCROW_HOLD' ? 2 : (e.offerSent ? 1 : 0);
+        const step = (e.custodyState === 'IN_ESCROW_HOLD' || e.custodyState === 'IN_TRADE_PROTECTION') ? 2 : (e.offerSent ? 1 : 0);
         return h('div', { key: l.id, className: 'stall-held-row bot-offer-row' },
           h('div', { className: 'item-thumb bot-offer-thumb' }, l.item ? h(ItemImage, { item: l.item, variant: 'mini' }) : null),
           h('div', { className: 'bot-offer-main' },
             h('div', { className: 'bot-offer-name' }, l.item?.name || 'Item', h('span', { className: 'bot-offer-price' }, fmt(l.price))),
             failed
               ? null
-              : h(BotOfferSteps, { labels: ['Offer sent', 'Accept in Steam', e.inSteamHold ? 'Steam hold' : 'Live on market'], active: step }),
+              : h(BotOfferSteps, { labels: ['Offer sent', 'Accept in Steam', e.inSteamHold ? 'Steam hold' : (e.inTradeProtection ? 'On hold' : 'Live on market')], active: step }),
             h('div', { className: 'bot-offer-msg' },
               e.message || 'Waiting for our bot to receive your item. Your listing goes live the moment it arrives.')
           ),

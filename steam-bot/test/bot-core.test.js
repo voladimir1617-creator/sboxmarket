@@ -232,6 +232,17 @@ test('offer status, unknown offers and the bot inventory keep the backend\'s sha
     marketHashName: 'Test Hat', name: 'Test Hat', tradable: true });
 });
 
+test('the inventory includes trade-protected skins, flagged not tradable', async () => {
+  // A deposit under Steam's 7-day Trade Protection reads non-tradable. Asking
+  // Steam for tradable items only hid it, so the backend never saw it land.
+  const { steam, core } = setup();
+  const [st, inv] = await core.inventory();
+  assert.strictEqual(st, 200);
+  assert.strictEqual(steam.calls.inventoryTradableOnly, false);
+  assert.strictEqual(inv.count, 2);
+  assert.deepStrictEqual(inv.items.map((it) => [it.assetId, it.tradable]), [['111', true], ['112', false]]);
+});
+
 test('index.js never hands the identity secret to the confirm-everything poller', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8')
     .replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');

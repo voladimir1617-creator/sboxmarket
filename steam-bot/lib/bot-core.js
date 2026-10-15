@@ -312,7 +312,12 @@ function createBotCore(opts) {
   async function inventory() {
     if (!isReady()) return notReady();
     try {
-      const [items] = await p((cb) => getManager().getInventoryContents(Number(appId), contextId, true, cb));
+      // tradableOnly=false: a skin a seller just deposited sits in the bot
+      // under Steam's 7-day Trade Protection and reads non-tradable. Asking
+      // for tradable items only hid it, so the backend could never see a
+      // protected deposit land and treated it as missing. Every item comes
+      // back now, with Steam's own tradable flag, and the backend decides.
+      const [items] = await p((cb) => getManager().getInventoryContents(Number(appId), contextId, false, cb));
       return [200, {
         ok: true,
         appId: Number(appId),
@@ -323,7 +328,7 @@ function createBotCore(opts) {
           instanceId: it.instanceid,
           marketHashName: it.market_hash_name,
           name: it.name,
-          tradable: it.tradable,
+          tradable: it.tradable !== false,
         })),
       }];
     } catch (err) {

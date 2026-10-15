@@ -25,6 +25,12 @@
  * /fake/offers/:id/decline settle one by hand, and POST /fake/inventory/:steamId64
  * { "items": ["Name", ...] } gives a user skins to sell.
  *
+ * Steam's 7-day Trade Protection: with FAKE_PROTECT_MS (default 0) set, a skin
+ * that lands in the bot reads tradable:false on GET /inventory for that long,
+ * and the bot cannot send it. POST /fake/bot-items/:assetId/unlock ends the
+ * protection early; POST /fake/bot-items/:assetId/reverse plays the sender
+ * pressing Steam's "Reverse trade": the skin leaves the bot and goes back.
+ *
  * Run: npm run fake   (BOT_API_TOKEN must match the backend's)
  */
 
@@ -47,6 +53,7 @@ function createFakeBot(opts = {}) {
   const acceptAfterMs = opts.acceptAfterMs == null ? 2000 : Number(opts.acceptAfterMs);
   const seedItems = opts.seedItems || DEFAULT_ITEMS;
   const now = opts.now || (() => Date.now());
+  const protectMs = opts.protectMs == null ? 0 : Math.max(0, Number(opts.protectMs) || 0);
   if (!apiToken) throw new Error('BOT_API_TOKEN is required, even for the fake bot');
 
   let nextAsset = 1000000001;
@@ -83,7 +90,11 @@ function createFakeBot(opts = {}) {
     const [from, to] = offer.kind === 'give' ? [BOT_STEAM_ID, offer.partner] : [offer.partner, BOT_STEAM_ID];
     const moved = take(from, offer.assetIds);
     if (!moved) { offer.state = 'invalid_items'; return; }
-    moved.forEach((it) => inventoryOf(to).push(makeItem(it.marketHashName)));
+    moved.forEach((it) => {
+      const landed = makeItem(it.marketHashName);
+      if (to === BOT_STEAM_ID) { landed.cameFrom = from; landed.tradableAt = now() + protectMs; }
+      inventoryOf(to).push(landed);
+    });
     offer.state = 'accepted';
   }
 
@@ -111,6 +122,10 @@ function createFakeBot(opts = {}) {
       return [502, { ok: false, error: 'INVENTORY_ERROR',
         message: 'an item in this offer is not in the inventory it should come from' }];
     }
+    if (kind === 'give' && ids.some((id) => !isTradable(inv.find((it) => it.assetId === id)))) {
+      return [502, { ok: false, error: 'ITEM_NOT_TRADABLE', retryable: true,
+        message: 'an item in this offer is under Steam Trade Protection and cannot be sent yet' }];
+    }
     const offer = { id: String(nextOffer++), kind, partner, assetIds: ids, message, state: 'active', createdAt: now() };
     offers.set(offer.id, offer);
     return [200, { ok: true, offerId: offer.id, status: 'sent', steamStatus: 'sent',
@@ -126,6 +141,8 @@ function createFakeBot(opts = {}) {
     return [200, { ok: true, offerId: offer.id, status: offer.state, isOurOffer: true,
       partner: offer.partner, message: offer.message || null, escrowEndsUnix: null, tradeId: offer.state === 'accepted' ? `T${offer.id}` : null }];
   }
+
+  function isTradable(it) { return !it || !it.tradableAt || now() >= it.tradableAt; }
 
   /** Steam Community's public inventory JSON for one user. */
   function steamInventoryJson(steamId) {
@@ -171,13 +188,22 @@ function createFakeBot(opts = {}) {
       const inv = inventoryOf(BOT_STEAM_ID);
       return [200, { ok: true, appId: Number(appId), count: inv.length,
         items: inv.map((it) => ({ assetId: it.assetId, classId: it.classId, instanceId: '0',
-          marketHashName: it.marketHashName, name: it.marketHashName, tradable: true })) }];
+          marketHashName: it.marketHashName, name: it.marketHashName, tradable: isTradable(it) })) }];
     }
     if (method === 'POST' && (m = path.match(/^\/fake\/offers\/(\d+)\/(accept|decline)$/))) {
       const offer = offers.get(m[1]);
       if (!offer) return [404, { ok: false, error: 'not_found' }];
       settle(offer, m[2] === 'accept' ? 'accepted' : 'declined');
       return [200, { ok: true, offerId: offer.id, status: offer.state }];
+    }
+    if (method === 'POST' && (m = path.match(/^\/fake\/bot-items\/(\d+)\/(unlock|reverse)$/))) {
+      const inv = inventoryOf(BOT_STEAM_ID);
+      const i = inv.findIndex((it) => it.assetId === m[1]);
+      if (i < 0) return [404, { ok: false, error: 'not_found' }];
+      if (m[2] === 'unlock') { inv[i].tradableAt = 0; return [200, { ok: true, assetId: m[1], tradable: true }]; }
+      const [it] = inv.splice(i, 1);
+      if (it.cameFrom) inventoryOf(it.cameFrom).push(makeItem(it.marketHashName));
+      return [200, { ok: true, assetId: m[1], reversedTo: it.cameFrom || null }];
     }
     if (method === 'POST' && (m = path.match(/^\/fake\/inventory\/(\d{17})$/))) {
       const names = body && Array.isArray(body.items) ? body.items.map(String) : [];
@@ -223,6 +249,7 @@ if (require.main === module) {
     bot = createFakeBot({
       apiToken: process.env.BOT_API_TOKEN,
       acceptAfterMs: process.env.FAKE_ACCEPT_AFTER_MS,
+      protectMs: process.env.FAKE_PROTECT_MS,
     });
   } catch (e) {
     console.error('[fake-bot] %s', e.message);

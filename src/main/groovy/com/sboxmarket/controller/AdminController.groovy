@@ -35,6 +35,7 @@ class AdminController {
     @Autowired(required = false) com.sboxmarket.repository.ApiKeyRepository apiKeyRepository
     @Autowired(required = false) com.sboxmarket.config.UnconfiguredAdminReporter unconfiguredAdminReporter
     @Autowired(required = false) com.sboxmarket.config.BackupFreshnessReporter backupFreshnessReporter
+    @Autowired(required = false) com.sboxmarket.service.SteamBotReconcileService steamBotReconcileService
 
     private Long requireAdmin(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -84,6 +85,31 @@ class AdminController {
     ResponseEntity<Map> systemHealth(HttpServletRequest req) {
         requireAdmin(req)
         ResponseEntity.ok(adminService.systemHealth())
+    }
+
+    /** The last check of the Steam bot's real inventory against custody:
+     *  live listings whose skin is missing from the bot (already taken off
+     *  sale), and skins in the bot nothing expects. Runs hourly on its own;
+     *  {@code enabled:false} when no bot is configured. */
+    @GetMapping("/steam-bot/inventory-check")
+    ResponseEntity<Map> steamBotInventoryCheck(HttpServletRequest req) {
+        requireAdmin(req)
+        def svc = steamBotReconcileService
+        ResponseEntity.ok(svc?.lastReport ?: [ok: false, checkedAt: null, reason: 'not run yet'])
+    }
+
+    /** Run the bot inventory check now. Reads the bot inventory and may take
+     *  a listing off sale whose skin the bot no longer holds; it never sends
+     *  or moves a skin. */
+    @PostMapping("/steam-bot/inventory-check")
+    ResponseEntity<Map> runSteamBotInventoryCheck(HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        def svc = steamBotReconcileService
+        if (svc == null) return ResponseEntity.ok([ok: false, reason: 'not available'])
+        Map report = svc.reconcile()
+        try { auditService?.log('STEAM_BOT_INVENTORY_CHECK', uid, null, null, "missing=${report.missing?.size() ?: 0} orphans=${report.orphans?.size() ?: 0}".toString()) }
+        catch (Exception ignored) { }
+        ResponseEntity.ok(report)
     }
 
     /** Lightweight probe the frontend uses to decide whether to show the

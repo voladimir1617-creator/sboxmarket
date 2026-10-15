@@ -66,6 +66,36 @@ test('deposit then delivery moves the skin seller -> bot -> buyer with fresh ass
   assert.ok(buyerInv.descriptions.some((d) => d.market_hash_name === name));
 }));
 
+test('a protected deposit reads not tradable, cannot be sent, and can be reversed', () => withBot({ protectMs: 60000 }, async (call) => {
+  const asset = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.assets[0];
+  const dep = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [asset.assetid] });
+  await call('POST', `/fake/offers/${dep.body.offerId}/accept`);
+
+  const [held] = (await call('GET', '/inventory')).body.items;
+  assert.strictEqual(held.tradable, false, 'Trade Protection makes a fresh deposit non-tradable');
+  const send = await call('POST', '/offers/send', { partnerTradeUrl: BUYER_URL, assetIds: [held.assetId] });
+  assert.strictEqual(send.status, 502);
+  assert.strictEqual(send.body.error, 'ITEM_NOT_TRADABLE');
+
+  const before = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.total_inventory_count;
+  const rev = await call('POST', `/fake/bot-items/${held.assetId}/reverse`);
+  assert.strictEqual(rev.body.reversedTo, SELLER);
+  assert.strictEqual((await call('GET', '/inventory')).body.count, 0, 'a reversed deposit leaves the bot');
+  assert.strictEqual((await call('GET', `/inventory/${SELLER}/590830/2`)).body.total_inventory_count, before + 1);
+}));
+
+test('unlocking ends the protection early so the bot can deliver', () => withBot({ protectMs: 60000 }, async (call) => {
+  const asset = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.assets[0];
+  const dep = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [asset.assetid] });
+  await call('POST', `/fake/offers/${dep.body.offerId}/accept`);
+  const [held] = (await call('GET', '/inventory')).body.items;
+  assert.strictEqual((await call('POST', `/fake/bot-items/${held.assetId}/unlock`)).body.tradable, true);
+  assert.strictEqual((await call('GET', '/inventory')).body.items[0].tradable, true);
+  const send = await call('POST', '/offers/send', { partnerTradeUrl: BUYER_URL, assetIds: [held.assetId] });
+  assert.strictEqual(send.status, 200);
+  assert.strictEqual((await call('POST', '/fake/bot-items/1/unlock', null, null)).status, 401);
+}));
+
 test('the bot cannot send what it does not hold, nor request what the seller lacks', () => withBot({}, async (call) => {
   const send = await call('POST', '/offers/send', { partnerTradeUrl: BUYER_URL, assetIds: ['123'] });
   assert.strictEqual(send.status, 502);

@@ -56,10 +56,22 @@ class EscrowedItem {
      *  genuinely cannot send the item to anyone. A held listing therefore stays
      *  PENDING_ESCROW (not buyable), which is the truthful answer. */
     static final String IN_ESCROW_HOLD  = 'IN_ESCROW_HOLD'
+    /** The skin is in the bot's inventory, but Steam's Trade Protection
+     *  still lets the seller reverse the deposit and still stops the bot
+     *  sending it on. Skin.Club holds skin deposits for 8 days for exactly
+     *  this reason. The listing stays PENDING_ESCROW (not buyable) until
+     *  {@link #protectedUntil} passes AND Steam reports the skin tradable;
+     *  then the row becomes IN_CUSTODY and the listing goes live. Like
+     *  IN_ESCROW_HOLD this is deliberately not IN_CUSTODY, because
+     *  custodyState is the delivery leg's authorisation gate. */
+    static final String IN_TRADE_PROTECTION = 'IN_TRADE_PROTECTION'
     static final String IN_CUSTODY      = 'IN_CUSTODY'
     static final String DELIVERED       = 'DELIVERED'
     static final String RETURNED        = 'RETURNED'
     static final String FAILED          = 'FAILED'
+    /** The seller pressed Steam's "Reverse trade" during Trade Protection, so
+     *  the skin went back to them and the listing was cancelled. Terminal. */
+    static final String REVERSED        = 'REVERSED'
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -186,7 +198,24 @@ class EscrowedItem {
         sb.toString()
     }
 
-    /** PENDING_DEPOSIT, IN_ESCROW_HOLD, IN_CUSTODY, DELIVERED, RETURNED, FAILED. */
+    /** Earliest time Steam's Trade Protection on the deposit can have ended,
+     *  epoch millis: when the deposit completed plus
+     *  steam.escrow.trade-protection-hours. NULL when no window is configured
+     *  (the row then waits on Steam's tradable flag alone) or the row never
+     *  entered protection. */
+    @Column(name = "protected_until")
+    Long protectedUntil
+
+    /** First time the bot inventory was read successfully WITHOUT this row's
+     *  skin in it, epoch millis; NULL while the skin is where we think it is.
+     *  Written by the protection release sweep and the inventory reconciler.
+     *  One missing read is never acted on alone, because an inventory page can
+     *  lag a trade; a second one past the confirm window is. */
+    @Column(name = "missing_since")
+    Long missingSince
+
+    /** PENDING_DEPOSIT, IN_ESCROW_HOLD, IN_TRADE_PROTECTION, IN_CUSTODY,
+     *  DELIVERED, RETURNED, FAILED, REVERSED. */
     @Column(name = "custody_state", length = 24, nullable = false)
     String custodyState = PENDING_DEPOSIT
 
