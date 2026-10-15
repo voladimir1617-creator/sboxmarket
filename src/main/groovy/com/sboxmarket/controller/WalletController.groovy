@@ -50,6 +50,7 @@ class WalletController {
     // mirroring the SteamInventoryController posture.
     @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
     @Autowired(required = false) com.sboxmarket.service.SellerPayoutService sellerPayoutService
+    @Autowired(required = false) com.sboxmarket.repository.TradeProtectionRepository tradeProtectionRepository
 
     /** Rolling 24-hour withdrawal cap. Sum of PENDING + COMPLETED
      *  withdrawals in any 24h window — protects against compromised
@@ -603,6 +604,19 @@ class WalletController {
             throw new com.sboxmarket.exception.BadRequestException("WITHDRAW_DISPUTE_HOLD",
                 "Withdrawals are paused while you have ${disputed} unresolved deposit dispute${disputed == 1 ? '' : 's'} on file. " +
                 "Open a support ticket if you believe this is a mistake.")
+        }
+        // Trade Protection claim hold. A dispute on a protected trade pays
+        // the buyer's cover immediately (TradeProtectionService.autoClaim),
+        // before staff review it. Without this gate that credit could be
+        // withdrawn at once, and if staff later release the trade to the
+        // seller, reverseClaim can only claw back what is still in the
+        // wallet. Two colluding accounts could farm the cover that way.
+        // The hold lifts as soon as staff move the trade out of DISPUTED.
+        long claimHolds = tradeProtectionRepository?.countClaimedOnDisputedTrades(user.id) ?: 0L
+        if (claimHolds > 0) {
+            throw new com.sboxmarket.exception.BadRequestException("WITHDRAW_CLAIM_HOLD",
+                "Withdrawals are paused while ${claimHolds} protected trade${claimHolds == 1 ? ' is' : 's are'} in dispute. " +
+                "They resume once support resolves the dispute.")
         }
         // Rolling 24-hour withdrawal cap (batch 357). Sum existing
         // PENDING + COMPLETED withdrawals from the last 24h and reject

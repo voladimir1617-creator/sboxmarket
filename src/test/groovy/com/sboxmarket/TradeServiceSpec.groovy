@@ -230,6 +230,42 @@ class TradeServiceSpec extends Specification {
         1 * notificationService.safePush(10L, 'TRADE_SENT', _, _, _, _)
     }
 
+    def "a seller's own Mark-Sent is refused while the bot holds the item"() {
+        given:
+        // The bot sends the offer itself; a seller click first would leave
+        // the trade in PENDING_BUYER_CONFIRM with no offer behind it, and the
+        // day-8 sweep would pay the seller for an item still in the bot.
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        def escrow = Mock(com.sboxmarket.service.SteamEscrowService)
+        escrow.heldAssetIdForListing(t.listingId) >> 'asset-1'
+        service.steamEscrowService = escrow
+
+        when:
+        service.sellerMarkSentByHand(20L, 1L, null)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'TRADE_BOT_DELIVERS'
+        t.state == 'PENDING_SELLER_SEND'
+
+        cleanup:
+        service.steamEscrowService = null
+    }
+
+    def "a seller's own Mark-Sent still works when the bot does not hold the item"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+
+        when:
+        service.sellerMarkSentByHand(20L, 1L, null)
+
+        then:
+        t.state == 'PENDING_BUYER_CONFIRM'
+    }
+
     def "sellerMarkSent sends a TRADE_SENT email to the buyer (batch 565)"() {
         given:
         def t = tradeIn('PENDING_SELLER_SEND', [id: 7L, buyer: 10L, seller: 20L])

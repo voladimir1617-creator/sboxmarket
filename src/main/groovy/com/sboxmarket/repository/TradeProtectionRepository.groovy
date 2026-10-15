@@ -59,4 +59,16 @@ interface TradeProtectionRepository extends JpaRepository<TradeProtection, Long>
         WHERE p.createdAt >= :since
     """)
     BigDecimal sumFeesSince(@Param("since") Long since)
+
+    /** Paid-out protection claims whose trade is still DISPUTED for this
+     *  buyer. autoClaim credits the cover the moment the buyer disputes,
+     *  before staff rule; WalletController.withdraw refuses while this is
+     *  non-zero so that money cannot leave the platform until the dispute
+     *  is resolved (and reverseClaim can still claw it back in full). */
+    @Query("""
+        SELECT COUNT(p) FROM TradeProtection p, Trade t
+        WHERE t.id = p.tradeId AND p.buyerUserId = :uid
+          AND p.status = 'CLAIMED' AND t.state = 'DISPUTED'
+    """)
+    long countClaimedOnDisputedTrades(@Param("uid") Long buyerUserId)
 }

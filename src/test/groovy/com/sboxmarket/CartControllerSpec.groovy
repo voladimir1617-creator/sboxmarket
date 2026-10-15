@@ -467,10 +467,13 @@ class CartControllerSpec extends Specification {
         then:
         // Interaction + return-value combined so the mock actually produces
         // a result when the buy runs.
-        1 * purchaseService.buy(500L, 10L, 1L) >> [
+        // The client's expected price rides along as the authoritative
+        // ceiling, so a raise that lands after the early read still fails.
+        1 * purchaseService.buy(500L, 10L, 1L, new BigDecimal("10.00")) >> [
             newBalance: new BigDecimal("490"),
             listing:    listing
         ]
+        0 * purchaseService.buy(_, _, _)
         resp.body.successful == 1
     }
 
@@ -491,7 +494,7 @@ class CartControllerSpec extends Specification {
         ], req)
 
         then:
-        1 * purchaseService.buy(500L, 10L, 1L) >> [newBalance: new BigDecimal('490'), listing: listing]
+        1 * purchaseService.buy(500L, 10L, 1L, new BigDecimal('10')) >> [newBalance: new BigDecimal('490'), listing: listing]
         resp.body.results[0].status == 'OK'
     }
 
@@ -503,7 +506,7 @@ class CartControllerSpec extends Specification {
         // Price-check probe finds nothing — the guard is skipped and the
         // service-layer NotFound surfaces from buy() instead.
         listingRepository.findById(1L) >> Optional.empty()
-        purchaseService.buy(500L, 10L, 1L) >> { throw new NotFoundException('Listing', 1L) }
+        purchaseService.buy(500L, 10L, 1L, _) >> { throw new NotFoundException('Listing', 1L) }
 
         when:
         def resp = controller.checkout([

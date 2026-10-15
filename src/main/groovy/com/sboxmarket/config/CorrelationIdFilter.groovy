@@ -47,7 +47,10 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         // and the Network tab shows a red-X entry on every page load, which a
         // tester flagged as broken. It also beacons back to cloudflareinsights.com
         // so the host needs to be in connect-src too.
-        "script-src 'self' https://unpkg.com https://static.cloudflareinsights.com",
+        // unpkg.com is NOT allowed: React is self-hosted under /js/vendor/,
+        // and unpkg serves any npm package anyone publishes, so allowing it
+        // would let a single HTML-injection bug load attacker script.
+        "script-src 'self' https://static.cloudflareinsights.com",
         // All fonts (Roboto, Roboto Mono, Material Symbols) are self-hosted
         // same-origin under /fonts via /css/fonts.css — the Google Fonts CDN
         // was dropped (reliability + privacy). So style-src/font-src no longer
@@ -57,10 +60,10 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         "style-src 'self' 'unsafe-inline'",
         "font-src 'self'",
         // img-src includes every Steam CDN variant we have seen serving
-        // avatar + item art, plus api.qrserver.com for the 2FA enrollment
-        // QR code. Without api.qrserver.com the browser's CSP blocks the
-        // QR image and the enrollment flow shows a broken image icon.
-        "img-src 'self' data: https://community.cloudflare.steamstatic.com https://steamcommunity-a.akamaihd.net https://avatars.steamstatic.com https://avatars.akamai.steamstatic.com https://avatars.fastly.steamstatic.com https://api.qrserver.com",
+        // avatar + item art. api.qrserver.com is gone: the 2FA enrollment
+        // stopped sending the TOTP seed to it (js/modals.js twofa-enroll),
+        // and keeping it allowed would only invite that leak back.
+        "img-src 'self' data: https://community.cloudflare.steamstatic.com https://steamcommunity-a.akamaihd.net https://avatars.steamstatic.com https://avatars.akamai.steamstatic.com https://avatars.fastly.steamstatic.com",
         "connect-src 'self' https://api.stripe.com https://cloudflareinsights.com https://static.cloudflareinsights.com",
         "frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
         "object-src 'none'",

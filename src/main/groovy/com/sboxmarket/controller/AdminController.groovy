@@ -158,7 +158,7 @@ class AdminController {
         }
         ResponseEntity.ok()
             .header('Content-Disposition',
-                "attachment; filename=\"skinbox-withdrawals-${status}-${df.format(new Date()).replace(':','-')}.csv\"")
+                "attachment; filename=\"skinbox-withdrawals-${filenamePart(status)}-${df.format(new Date()).replace(':','-')}.csv\"")
             .header('Content-Type', 'text/csv; charset=utf-8')
             .header('Cache-Control', 'no-store')
             .body(sb.toString())
@@ -795,7 +795,7 @@ class AdminController {
         def filter = status ?: 'all'
         ResponseEntity.ok()
             .header('Content-Disposition',
-                "attachment; filename=\"skinbox-tickets-${filter}-${df.format(new Date()).replace(':','-')}.csv\"")
+                "attachment; filename=\"skinbox-tickets-${filenamePart(filter)}-${df.format(new Date()).replace(':','-')}.csv\"")
             .header('Content-Type', 'text/csv; charset=utf-8')
             .header('Cache-Control', 'no-store')
             .body(sb.toString())
@@ -1127,7 +1127,7 @@ class AdminController {
         }
         ResponseEntity.ok()
             .header('Content-Disposition',
-                "attachment; filename=\"skinbox-trades-${state}-${df.format(new Date()).replace(':','-')}.csv\"")
+                "attachment; filename=\"skinbox-trades-${filenamePart(state)}-${df.format(new Date()).replace(':','-')}.csv\"")
             .header('Content-Type', 'text/csv; charset=utf-8')
             .header('Cache-Control', 'no-store')
             .body(sb.toString())
@@ -1287,5 +1287,13 @@ class AdminController {
             log.error("Failed to launch manual price sync", e)
             ResponseEntity.status(500).body([error: 'Could not launch sync — check server logs'])
         }
+    }
+
+    /** A query value going into a Content-Disposition filename. Only plain
+     *  status words pass; anything else (quotes, `;`, `filename*=`) would let
+     *  a crafted link choose the saved file's name and extension. */
+    private static String filenamePart(Object raw) {
+        def v = raw?.toString()
+        (v != null && v ==~ /[A-Za-z_]{1,32}/) ? v : 'all'
     }
 }

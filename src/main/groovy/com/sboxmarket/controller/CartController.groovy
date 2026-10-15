@@ -124,7 +124,14 @@ class CartController {
                         }
                     }
                 }
-                def res = purchaseService.buy(wallet.id, userId, id)
+                // The read above is outside the purchase transaction, so a
+                // price raise can still land between it and the debit. Pass
+                // the expected price as the authoritative ceiling, checked
+                // against the row buy() actually charges (same as
+                // ListingController's single buy).
+                def res = expected != null
+                    ? purchaseService.buy(wallet.id, userId, id, expected)
+                    : purchaseService.buy(wallet.id, userId, id)
                 results << [listingId: id, status: 'OK', newBalance: res.newBalance]
                 successCount++
                 def price = res.listing?.price

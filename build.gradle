@@ -17,6 +17,13 @@ repositories {
 // 2025-48988, 2025-52520). Same 10.1 line, so no API change.
 ext['tomcat.version'] = '10.1.60'
 
+// Bumps for known advisories (checked on OSV 2026-10-15):
+// pgjdbc 42.6.2 -> 42.7.11 (CVE-2026-42198, SCRAM auth CPU DoS from a hostile
+// server) and commons-lang3 3.13.0 -> 3.18.0 (CVE-2025-48924, unbounded
+// recursion). Neither library is called directly by app code.
+ext['postgresql.version'] = '42.7.11'
+ext['commons-lang3.version'] = '3.18.0'
+
 dependencies {
     // Groovy
     implementation 'org.apache.groovy:groovy:4.0.18'

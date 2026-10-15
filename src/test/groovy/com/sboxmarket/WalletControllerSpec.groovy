@@ -853,6 +853,31 @@ class WalletControllerSpec extends Specification {
         0 * stripeService.requestWithdrawal(*_)
     }
 
+    def "withdraw() refused while a paid-out protection claim is still in dispute: WITHDRAW_CLAIM_HOLD"() {
+        given:
+        // autoClaim credits the cover the moment the buyer disputes, before
+        // staff rule. That credit must not leave the platform until they do.
+        def protections = Mock(com.sboxmarket.repository.TradeProtectionRepository)
+        controller.tradeProtectionRepository = protections
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('500'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        1 * protections.countClaimedOnDisputedTrades(10L) >> 1L
+
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WITHDRAW_CLAIM_HOLD'
+        0 * stripeService.requestWithdrawal(*_)
+
+        cleanup:
+        controller.tradeProtectionRepository = null
+    }
+
     def "withdraw() null destination forwarded as empty-string to service"() {
         given:
         controller.dailyWithdrawalCap = null

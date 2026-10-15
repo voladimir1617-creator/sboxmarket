@@ -81,6 +81,23 @@ class SessionEpochFilterSpec extends Specification {
         ]
     }
 
+    def "logout-all is NOT skipped: a revoked cookie cannot bump the epoch again"() {
+        given:
+        // Only plain /logout is exempt. As a prefix it used to match
+        // /logout-all too, so a cookie already revoked by logout-all could
+        // call it once more and sign the owner out of their new sessions.
+        def req = apiReq('/api/auth/steam/logout-all', 42L, 1000L)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * steamUserRepository.findById(42L) >> Optional.of(new SteamUser(id: 42L, sessionEpoch: 9000L))
+        0 * chain.doFilter(_, _)
+        resp.status == 401
+    }
+
     def "request with no session falls through without a DB lookup"() {
         given:
         def req = new MockHttpServletRequest('POST', '/api/offers')
