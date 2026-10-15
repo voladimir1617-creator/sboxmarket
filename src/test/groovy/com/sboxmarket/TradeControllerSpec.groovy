@@ -295,7 +295,7 @@ class TradeControllerSpec extends Specification {
         given:
         def t = new Trade(id: 9L)
         authedSession(200L)
-        1 * tradeService.sellerMarkSent(200L, 9L, 'https://steamcommunity.com/tradeoffer/1234') >> t
+        1 * tradeService.sellerMarkSentByHand(200L, 9L, 'https://steamcommunity.com/tradeoffer/1234') >> t
 
         when:
         controller.markSent(9L, [tradeOfferUrl: 'https://steamcommunity.com/tradeoffer/1234'], req)
@@ -308,7 +308,7 @@ class TradeControllerSpec extends Specification {
         given:
         def t = new Trade(id: 9L)
         authedSession(200L)
-        1 * tradeService.sellerMarkSent(200L, 9L, null) >> t
+        1 * tradeService.sellerMarkSentByHand(200L, 9L, null) >> t
 
         when:
         controller.markSent(9L, null, req)
@@ -321,7 +321,7 @@ class TradeControllerSpec extends Specification {
         given:
         def t = new Trade(id: 9L)
         authedSession(200L)
-        1 * tradeService.sellerMarkSent(200L, 9L, null) >> t
+        1 * tradeService.sellerMarkSentByHand(200L, 9L, null) >> t
 
         when:
         controller.markSent(9L, [:], req)
@@ -338,7 +338,7 @@ class TradeControllerSpec extends Specification {
         given:
         def t = new Trade(id: 9L)
         authedSession(200L)
-        1 * tradeService.sellerMarkSent(200L, 9L, '') >> t
+        1 * tradeService.sellerMarkSentByHand(200L, 9L, '') >> t
 
         when:
         controller.markSent(9L, [tradeOfferUrl: ''], req)
@@ -353,7 +353,7 @@ class TradeControllerSpec extends Specification {
         // structured 400 propagate rather than catching it.
         given:
         authedSession(200L)
-        1 * tradeService.sellerMarkSent(200L, 9L, 'http://evil.example/tradeoffer/1') >> {
+        1 * tradeService.sellerMarkSentByHand(200L, 9L, 'http://evil.example/tradeoffer/1') >> {
             throw new BadRequestException('TRADE_OFFER_URL_INVALID', 'bad url')
         }
 

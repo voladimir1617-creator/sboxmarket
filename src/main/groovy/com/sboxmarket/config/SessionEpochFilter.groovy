@@ -54,14 +54,17 @@ class SessionEpochFilter extends OncePerRequestFilter {
         '/api/auth/steam/login',
         '/api/auth/steam/return',
         '/api/auth/steam/me',
-        '/api/auth/steam/logout',
         '/api/stripe/webhook'
     ]
+    /** Exact, not a prefix: as a prefix it also matched /logout-all, which
+     *  let an already-revoked cookie bump the epoch once more and sign the
+     *  owner out of the sessions they had just re-established. */
+    private static final Set<String> SKIP_EXACT = ['/api/auth/steam/logout'] as Set
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse resp, FilterChain chain) {
         def path = req.requestURI ?: ''
-        if (!path.startsWith('/api/') || SKIP_PREFIXES.any { path.startsWith(it) }) {
+        if (!path.startsWith('/api/') || SKIP_PREFIXES.any { path.startsWith(it) } || SKIP_EXACT.contains(path)) {
             chain.doFilter(req, resp)
             return
         }

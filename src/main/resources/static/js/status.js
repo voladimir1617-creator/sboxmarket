@@ -3,7 +3,7 @@
 // every probe is a vanilla fetch from the client.
 //
 // Extracted from status.html <script> block so the page complies with the
-// site-wide CSP (script-src 'self' https://unpkg.com …). Inline scripts
+// site-wide CSP (script-src 'self' https://static.cloudflareinsights.com). Inline scripts
 // were blocked; loading this file via <script src=> keeps the strict CSP.
 const CHECKS = [
   { id: 'api',       name: 'API',             endpoint: '/api/health',

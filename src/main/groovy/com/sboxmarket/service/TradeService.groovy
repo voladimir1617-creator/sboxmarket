@@ -751,6 +751,24 @@ class TradeService {
         t
     }
 
+    /** The seller's own "I sent it" click (POST /api/trades/{id}/sent).
+     *  Refused while the bot holds the item: on those trades the bot sends
+     *  the offer itself (SteamDeliveryService calls sellerMarkSent directly).
+     *  A seller who clicked first would move the trade to
+     *  PENDING_BUYER_CONFIRM with no bot offer behind it, the delivery poll
+     *  would skip it, and the auto-release sweep would pay the seller at
+     *  day 8 while the item sat undelivered in the bot. */
+    @Transactional
+    Trade sellerMarkSentByHand(Long sellerUserId, Long tradeId, String tradeOfferUrl = null) {
+        def t = get(tradeId)
+        requireParticipant(t, sellerUserId, 'seller')
+        if (t.listingId != null && steamEscrowService?.heldAssetIdForListing(t.listingId) != null) {
+            throw new BadRequestException("TRADE_BOT_DELIVERS",
+                "SkinBox's trade bot is holding this item and will send the Steam offer itself. Nothing to send by hand.")
+        }
+        sellerMarkSent(sellerUserId, tradeId, tradeOfferUrl)
+    }
+
     @Transactional
     Trade sellerMarkSent(Long sellerUserId, Long tradeId, String tradeOfferUrl = null) {
         banGuard.assertNotBanned(sellerUserId)

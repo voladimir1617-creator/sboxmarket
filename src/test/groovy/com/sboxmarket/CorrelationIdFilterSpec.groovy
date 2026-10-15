@@ -78,9 +78,11 @@ class CorrelationIdFilterSpec extends Specification {
         resp.getHeader('Cross-Origin-Resource-Policy') == 'same-origin'
         def csp = resp.getHeader('Content-Security-Policy')
         csp?.contains("default-src 'self'")
-        // img-src must include api.qrserver.com so the 2FA enrollment QR
-        // image loads — regression caught once, pinned here.
-        csp?.contains('api.qrserver.com')
+        // Neither third-party origin may come back: unpkg serves any npm
+        // package (script injection), and qrserver was where the 2FA seed
+        // used to leak.
+        !csp?.contains('unpkg.com')
+        !csp?.contains('api.qrserver.com')
         // Every Steam CDN variant we have seen for item/avatar art:
         csp?.contains('steamcommunity-a.akamaihd.net')
         csp?.contains('avatars.steamstatic.com')

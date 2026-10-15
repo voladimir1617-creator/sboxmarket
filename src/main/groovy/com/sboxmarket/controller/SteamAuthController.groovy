@@ -62,6 +62,7 @@ class SteamAuthController {
     @Autowired SteamUserRepository steamUserRepository
     @Autowired(required = false) com.sboxmarket.service.AuditService auditService
     @Autowired(required = false) com.sboxmarket.service.EmailService emailService
+    @Autowired(required = false) com.sboxmarket.service.ApiKeyService apiKeyService
     @Autowired(required = false) com.sboxmarket.repository.AuditLogRepository auditLogRepository
     @Autowired org.springframework.core.env.Environment env
 
@@ -427,6 +428,12 @@ class SteamAuthController {
         }
         user.sessionEpoch = System.currentTimeMillis()
         steamUserRepository.save(user)
+        // A session thief can mint an API key before the owner notices, and
+        // keys skip the session-epoch check by design. Revoke them too, or
+        // "sign out everywhere" leaves the thief's Bearer key working.
+        try { apiKeyService?.revokeAll(user.id) } catch (Exception e) {
+            log.warn("API key revoke on logout-all failed for user ${user.id}: ${e.message}")
+        }
         try {
             auditService?.log(com.sboxmarket.service.AuditService.SESSION_LOGOUT_ALL, user.id, user.id, null,
                 "User invalidated every active session")

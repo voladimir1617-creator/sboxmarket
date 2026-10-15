@@ -139,6 +139,7 @@ class ProfileController {
     @Autowired TotpService totpService
     @Autowired TextSanitizer textSanitizer
     @Autowired EmailService emailService
+    @Autowired(required = false) com.sboxmarket.service.ApiKeyService apiKeyService
     @Autowired(required = false) com.sboxmarket.config.LiveMoneyGuard liveMoneyGuard
 
     /** The verification token is echoed in the JSON only when no mail can be
@@ -1323,6 +1324,12 @@ class ProfileController {
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException('Unknown user') }
         user.sessionEpoch = System.currentTimeMillis()
         steamUserRepository.save(user)
+        // A session thief can mint an API key before the owner notices, and
+        // keys skip the session-epoch check by design. Revoke them too, or
+        // "sign out everywhere" leaves the thief's Bearer key working.
+        try { apiKeyService?.revokeAll(uid) } catch (Exception e) {
+            log.warn("API key revoke on sign-out-everywhere failed for user ${uid}: ${e.message}")
+        }
         log.info("User ${uid} force-signed out everywhere")
         // Audit the action so staff can see when a user triggered a
         // self-logout. Especially important when triaging "did the user
@@ -1625,6 +1632,12 @@ class ProfileController {
         // 2FA, kicking every session including theirs is the goal.
         user.sessionEpoch = System.currentTimeMillis()
         steamUserRepository.save(user)
+        // A session thief can mint an API key before the owner notices, and
+        // keys skip the session-epoch check by design. Revoke them too, or
+        // "sign out everywhere" leaves the thief's Bearer key working.
+        try { apiKeyService?.revokeAll(user.id) } catch (Exception e) {
+            log.warn("API key revoke on 2FA disable failed for user ${user.id}: ${e.message}")
+        }
         // Security alert (batch 512). Disabling 2FA is a significant
         // account-security downgrade — notify the verified email so an
         // attacker who stole a session cookie can't silently weaken the

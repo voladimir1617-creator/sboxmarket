@@ -131,7 +131,7 @@ class TradeController {
         // clients posting no body still work (url falls through to null
         // and the service just skips the update).
         def url = body?.tradeOfferUrl as String
-        ResponseEntity.ok(tradeService.sellerMarkSent(requireUser(req), id, url))
+        ResponseEntity.ok(tradeService.sellerMarkSentByHand(requireUser(req), id, url))
     }
 
     @PostMapping("/{id}/confirm")
