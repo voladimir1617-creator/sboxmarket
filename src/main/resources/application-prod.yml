@@ -180,9 +180,9 @@ spring:
 
 # Actuator: exposed on a PRIVATE management port for internal scraping
 # (health checks + metrics) only — NEVER the public 8082. The management
-# port defaults to 9092 here; bind it to a loopback / private-subnet
-# interface and gate it with a firewall rule so only the monitoring stack
-# and the container/orchestrator liveness+readiness probes can reach it.
+# port defaults to 9092 here and binds to 127.0.0.1 (ACTUATOR_ADDRESS); if
+# you point it at a private-subnet interface, gate it with a firewall rule so
+# only the monitoring stack and the liveness+readiness probes can reach it.
 # Endpoints are kept to a deliberately tight allowlist (health, info,
 # metrics) so nothing sensitive (env, beans, heapdump, configprops, …) is
 # reachable even on the private port.
@@ -200,15 +200,24 @@ management:
     # Private management port. Default 9092; an operator who wants actuator
     # fully off can still set ACTUATOR_PORT=-1 to unregister the servlet.
     port: ${ACTUATOR_PORT:9092}
+    # Loopback only, so a bare-host install never serves the port to the
+    # network. A probe or scraper on another host needs ACTUATOR_ADDRESS
+    # set to a private interface (and a firewall rule).
+    address: ${ACTUATOR_ADDRESS:127.0.0.1}
   endpoints:
-    # Re-enable endpoints (the default profile disables them) but keep the
-    # web exposure allowlist tight — only what's in `include` is reachable.
-    enabled-by-default: true
+    # Every endpoint stays off unless switched on by name below, and the
+    # web exposure allowlist only publishes what is in `include`.
+    enabled-by-default: false
     web:
       exposure:
         include: health,info,metrics
   endpoint:
+    info:
+      enabled: true
+    metrics:
+      enabled: true
     health:
+      enabled: true
       # Show component details (db, diskSpace, …) only to callers that hit
       # the private port — safe here because the port is firewalled, and
       # ops needs the breakdown to triage a failing readiness probe.
