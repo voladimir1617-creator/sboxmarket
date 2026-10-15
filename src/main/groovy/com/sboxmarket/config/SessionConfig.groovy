@@ -60,6 +60,6 @@ import org.springframework.session.jdbc.config.annotation.web.http.EnableJdbcHtt
 // header is what Spring Session sees.
 //@Configuration
 //@Profile('prod')
-//@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 365 * 24 * 60 * 60)
+//@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 30 * 24 * 60 * 60)  // 30 days, see application.yml
 //class SessionConfig {
 //}
