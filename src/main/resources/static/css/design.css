@@ -2219,6 +2219,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cta); }
 .recently-viewed-card:hover { border-color: color-mix(in oklab, var(--cta) 35%, var(--line-2)); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px color-mix(in oklab, var(--cta) 18%, transparent) inset; }
 .modal-listing-row { position: relative; padding: 12px 4px; transition: background 160ms ease, padding-left 160ms ease; border-radius: var(--r-sm); }
 .modal-listing-row:hover { background: color-mix(in oklab, var(--cta) 6%, var(--bg-2)); padding-left: 12px; }
+.modal-listing-row.is-deeplinked { outline: 2px solid var(--cta); outline-offset: -2px; }
 .modal-listing-row:hover::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--cta); box-shadow: 0 0 8px color-mix(in oklab, var(--cta) 50%, transparent); }
 .modal-listing-row:active { background: color-mix(in oklab, var(--cta) 12%, var(--bg-2)); transition: background 80ms ease-out; }
 .modal-listing-rarity-bar { height: 4px; border: 1px solid var(--line); }

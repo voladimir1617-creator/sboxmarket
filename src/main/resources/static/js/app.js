@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=275';
+} from './modals.js?v=276';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -4250,10 +4250,23 @@ export function App() {
     () => cart.some(it => cartFreshness[it.id] && !cartFreshness[it.id].active),
     [cart, cartFreshness]
   );
-  const removeStaleCartRows = () => setCart(c => c.filter(it => {
-    const fresh = cartFreshness[it.id];
-    return !fresh || fresh.active;
-  }));
+  const removeStaleCartRows = () => {
+    const stale = cart.filter(it => cartFreshness[it.id] && !cartFreshness[it.id].active).map(it => it.id);
+    setCart(c => c.filter(it => {
+      const fresh = cartFreshness[it.id];
+      return !fresh || fresh.active;
+    }));
+    // A signed-in cart lives on the server too, and the sync on the next
+    // load put the rows straight back. Drop them there as removeFromCart does.
+    if (me && stale.length) {
+      (async () => {
+        try {
+          const { removeCartItem } = await import('./api.js');
+          for (const id of stale) await removeCartItem(id);
+        } catch (_) {}
+      })();
+    }
+  };
   const addToCart = (listing) => {
     let alreadyHad = false;
     let atCap = false;
@@ -8600,7 +8613,8 @@ export function App() {
                           rows.map(l => h(GridCard, {
                             key: l.id,
                             listing: l,
-                            onClick: () => navigate(paths.item(l.item.id)),
+                            // ?listing= outlines this seller's listing on the item page.
+                            onClick: () => navigate(paths.item(l.item.id) + '?listing=' + l.id),
                             starred: watchlist.includes(l.item.id),
                             onToggleStar: toggleStar,
                             onAddToCart: addToCart,
@@ -9230,8 +9244,8 @@ export function App() {
                       }, 'NO LONGER AVAILABLE'),
                       priceMoved && h('span', {
                         style: { marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', padding: '2px 6px', borderRadius: 4 },
-                        title: `Seller changed the price from ${fmt(it.price)} to ${fmt(newPrice)}`
-                      }, `PRICE NOW ${fmt(newPrice)}`)
+                        title: `Seller changed the price from ${privacy ? '$•••••' : fmt(it.price)} to ${privacy ? '$•••••' : fmt(newPrice)}`
+                      }, `PRICE NOW ${privacy ? '$•••••' : fmt(newPrice)}`)
                     ),
                     // Batch 804 — seller attribution on cart rows. Before
                     // this the row just said "Listing #N" with no hint of
@@ -9258,7 +9272,7 @@ export function App() {
                     ),
                   ),
                   h('div', { className: 'cart-price' },
-                    fmt(newPrice != null ? newPrice : it.price)
+                    privacy ? '$•••••' : fmt(newPrice != null ? newPrice : it.price)
                   ),
                   // Batch 755 — per-row "Save for later" (move this one
                   // cart row to the watchlist + drop from cart). Silent
@@ -9393,13 +9407,13 @@ export function App() {
                         className: 'btn btn-accent',
                         onClick: () => { signInWithSteam(); },
                         title: 'Sign in with Steam before checking out'
-                      }, 'Sign in to checkout · ' + fmt(grand))
+                      }, 'Sign in to checkout · ' + (privacy ? '$•••••' : fmt(grand)))
                     : h('button', {
                         className: 'btn btn-accent',
                         disabled: cartHasStale,
                         onClick: () => setCartConfirmOpen(true),
                         title: cartHasStale ? 'Remove unavailable rows before checkout' : undefined
-                      }, 'Checkout · ' + fmt(grand));
+                      }, 'Checkout · ' + (privacy ? '$•••••' : fmt(grand)));
                 })()
               )
             )
