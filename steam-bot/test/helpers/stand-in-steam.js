@@ -80,9 +80,13 @@ function createStandInSteam(opts = {}) {
         cb(null, all.filter((o) => o.isOurOffer && live.has(o.state)), all.filter((o) => !o.isOurOffer && live.has(o.state)));
       });
     },
-    getInventoryContents(appid, ctx, tradable, cb) {
-      setImmediate(() => cb(null, [{ assetid: '111', classid: '9', instanceid: '0',
-        market_hash_name: 'Test Hat', name: 'Test Hat', tradable: true }]));
+    getInventoryContents(appid, ctx, tradableOnly, cb) {
+      calls.inventoryTradableOnly = tradableOnly;
+      const items = [{ assetid: '111', classid: '9', instanceid: '0',
+        market_hash_name: 'Test Hat', name: 'Test Hat', tradable: true },
+      { assetid: '112', classid: '9', instanceid: '0',
+        market_hash_name: 'Test Hat', name: 'Test Hat', tradable: false }];
+      setImmediate(() => cb(null, tradableOnly ? items.filter((it) => it.tradable) : items));
     },
   };
 

@@ -71,6 +71,19 @@ after `FAKE_ACCEPT_AFTER_MS` (default 2000; `-1` means never), and
 override only takes a loopback address, so it can never point real sellers at
 anything but Steam. `npm test` runs the sidecar's and the fake's tests.
 
+### Trade Protection on a local run
+
+SkinBox holds a deposited skin off sale for `steam.escrow.trade-protection-hours`
+(default 192, eight days, the hold Skin.Club uses) before its listing goes live.
+On a fake-bot run that means a listing waits eight days, so set
+`STEAM_ESCROW_TRADEPROTECTIONHOURS=0` (Spring's env form of
+`steam.escrow.trade-protection-hours=0`)
+to see a deposit go live straight away. To play Steam's protection itself,
+start the fake with `FAKE_PROTECT_MS=60000`: skins that reach the bot read
+`tradable: false` for a minute and the bot cannot send them.
+`POST /fake/bot-items/:assetId/unlock` ends that early, and
+`POST /fake/bot-items/:assetId/reverse` plays the seller reversing the deposit.
+
 ## The go-live gate
 
 `index.js` refuses to start unless `STEAM_BOT_LIVE=yes`. It is the one process
@@ -166,6 +179,28 @@ node --env-file=.env index.js
 ```
 
 ---
+
+## Steam Trade Protection
+
+Steam lets the sender of a trade reverse it for 7 days, and the receiver cannot
+move the item on during that window. It is confirmed for CS2; for s&box (590830)
+it is not confirmed either way. `GET /inventory` therefore returns every skin
+the bot holds, with Steam's own `tradable` flag, rather than tradable skins only
+(asking for tradable only hid every protected deposit from the backend).
+
+The backend then:
+- keeps a newly deposited skin's listing off sale (custody `IN_TRADE_PROTECTION`)
+  until both `trade-protection-hours` have passed since the trade completed and
+  Steam reports the skin tradable;
+- calls the deposit `REVERSED` and cancels the listing if the skin leaves the bot
+  during that window (two inventory reads, `missing-confirm-ms` apart);
+- once an hour compares the bot inventory with custody, takes off sale any live
+  listing whose skin the bot no longer holds, and lists skins nobody expects.
+  Staff read the result at `GET /api/admin/steam-bot/inventory-check` and can run
+  it now with `POST` to the same path. It never sends or moves a skin.
+
+After the first real deposit, if the skin arrives tradable, s&box is not under
+Trade Protection and `trade-protection-hours` can go to 0.
 
 ## Error / escrow / rate-limit handling
 

@@ -334,4 +334,26 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
     /** Every custody row a seller has in the given states — powers the
      *  seller's "your skins in our bot / coming back to you" view. */
     List<EscrowedItem> findBySellerUserIdAndCustodyStateIn(Long sellerUserId, Collection<String> states)
+
+    /** Deposits in Steam Trade Protection whose configured window has passed
+     *  (or that have none and wait on Steam's tradable flag alone). Drives
+     *  {@code SteamEscrowService.releaseTradeProtection}. Oldest first. */
+    @Query("""
+        SELECT e FROM EscrowedItem e
+        WHERE e.custodyState = 'IN_TRADE_PROTECTION'
+          AND (e.protectedUntil IS NULL OR e.protectedUntil <= :now)
+        ORDER BY e.updatedAt ASC
+    """)
+    List<EscrowedItem> findTradeProtectionDue(@Param('now') Long now, Pageable page)
+
+    /** Rows whose skin should be in the bot's inventory right now: in Trade
+     *  Protection, in custody, or returned with the return offer not yet
+     *  accepted (the skin stays in the bot until the seller takes it). The
+     *  inventory reconciler checks these against what the bot really holds. */
+    @Query("""
+        SELECT e FROM EscrowedItem e
+        WHERE e.custodyState IN ('IN_TRADE_PROTECTION', 'IN_CUSTODY')
+           OR (e.custodyState = 'RETURNED' AND e.returnConfirmedAt IS NULL)
+    """)
+    List<EscrowedItem> findExpectedInBot()
 }

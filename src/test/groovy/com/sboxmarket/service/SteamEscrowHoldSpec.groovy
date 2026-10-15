@@ -54,6 +54,8 @@ class SteamEscrowHoldSpec extends Specification {
         service.notificationService = notificationService
         service.escrowSweepEnabled = true
         service.offerMessage = 'sboxmarket escrow'
+        // Trade Protection has its own spec; these pin the go-live path.
+        service.tradeProtectionHours = 0
         service.batchSize = 50
         service.depositTimeoutHours = 24
         service.holdGraceHours = 48

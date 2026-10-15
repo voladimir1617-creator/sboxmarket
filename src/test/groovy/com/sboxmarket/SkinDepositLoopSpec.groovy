@@ -61,6 +61,10 @@ class SkinDepositLoopSpec extends Specification {
          'steam.escrow.deposit-retry-initial-delay-ms', 'steam.escrow.return-confirm-initial-delay-ms',
          'steam.delivery.initial-delay-ms'].each { k -> r.add(k) { '3600000' } }
         r.add('steam.escrow.return-retry-backoff-ms') { '0' }
+        r.add('steam.escrow.protection-initial-delay-ms') { '3600000' }
+        // The Trade Protection window is off for the loop tests and turned on
+        // by the one test that exercises it.
+        r.add('steam.escrow.trade-protection-hours') { '0' }
     }
 
     def cleanupSpec() { steam.stop() }
@@ -222,6 +226,86 @@ class SkinDepositLoopSpec extends Specification {
         walletRepository.findById(sellerWallet.id).get().balance == 40.00G - done.feeAmount
     }
 
+    def "a deposit under Steam Trade Protection goes on sale only once the protection is over"() {
+        given: "Steam protects fresh deposits, and the site holds them for 8 days like Skin.Club"
+        steam.protectNew = true
+        int savedHours = escrowService.tradeProtectionHours
+        escrowService.tradeProtectionHours = 192
+        post('/api/steam/list', sellerSession, """{"assetId":"$assetId","price":"40.00"}""")
+        def listing = listingRepository.findAll().find { it.assetId == assetId }
+
+        when: "the seller accepts and the skin lands in the bot, marked not tradable"
+        steam.acceptAll()
+        escrowService.pollDeposits()
+        def row = escrowRepository.findByListingId(listing.id)
+
+        then: "the bot holds it, but the listing is not for sale and the seller is told when it will be"
+        steam.holds(FakeSteam.BOT, skin)
+        row.custodyState == EscrowedItem.IN_TRADE_PROTECTION
+        row.protectedUntil > System.currentTimeMillis() + 7L * 24 * 3600 * 1000
+        listingRepository.findById(listing.id).get().status == SteamEscrowService.STATUS_PENDING_ESCROW
+        escrowService.heldAssetIdForListing(listing.id) == null
+        def view = new JsonSlurper().parseText(mockMvc.perform(MockMvcRequestBuilders
+                .get('/api/listings/my-stall/pending-escrow').session(sellerSession))
+                .andReturn().response.contentAsString)[0].escrow
+        view.inTradeProtection == true
+        view.protectedUntilOn != null
+
+        when: "the window passes but Steam still says the skin is protected"
+        row.protectedUntil = System.currentTimeMillis() - 1000
+        escrowRepository.save(row)
+        escrowService.releaseTradeProtection()
+
+        then: "it keeps waiting"
+        escrowRepository.findByListingId(listing.id).custodyState == EscrowedItem.IN_TRADE_PROTECTION
+
+        when: "Steam lifts the protection"
+        steam.unlock(skin)
+        escrowService.releaseTradeProtection()
+
+        then: "custody is confirmed and the listing goes live"
+        escrowRepository.findByListingId(listing.id).custodyState == EscrowedItem.IN_CUSTODY
+        listingRepository.findById(listing.id).get().status == 'ACTIVE'
+
+        cleanup:
+        steam.protectNew = false
+        escrowService.tradeProtectionHours = savedHours
+    }
+
+    def "a seller who reverses the deposit in Steam gets the skin back and the listing is cancelled, nothing sold"() {
+        given:
+        steam.protectNew = true
+        long savedConfirm = escrowService.missingConfirmMs
+        escrowService.missingConfirmMs = 0L
+        post('/api/steam/list', sellerSession, """{"assetId":"$assetId","price":"40.00"}""")
+        def listing = listingRepository.findAll().find { it.assetId == assetId }
+        steam.acceptAll()
+        escrowService.pollDeposits()
+        assert escrowRepository.findByListingId(listing.id).custodyState == EscrowedItem.IN_TRADE_PROTECTION
+
+        when: "the seller presses Reverse trade in Steam"
+        steam.reverse(skin)
+        escrowService.releaseTradeProtection()
+
+        then: "one missing read is only noted"
+        escrowRepository.findByListingId(listing.id).custodyState == EscrowedItem.IN_TRADE_PROTECTION
+        escrowRepository.findByListingId(listing.id).missingSince != null
+
+        when: "the next read still has no skin"
+        escrowService.releaseTradeProtection()
+        def row = escrowRepository.findByListingId(listing.id)
+
+        then:
+        steam.holds(sellerSteamId, skin)
+        row.custodyState == EscrowedItem.REVERSED
+        listingRepository.findById(listing.id).get().status == SteamEscrowService.STATUS_CANCELLED
+        walletRepository.findById(sellerWallet.id).get().balance == 0.00G
+
+        cleanup:
+        steam.protectNew = false
+        escrowService.missingConfirmMs = savedConfirm
+    }
+
     def "an unsold skin goes back to the seller, and a declined return is sent again"() {
         given:
         Long listingId = listAndDeposit()
@@ -288,6 +372,9 @@ class SkinDepositLoopSpec extends Specification {
         long nextId = 5_000_000_001L
         Map<String, List<Map>> inv = [:].withDefault { [] }
         Map<String, Map> offers = [:]
+        /** Play Steam's Trade Protection: skins that land in the bot read
+         *  tradable:false until {@link #unlock}, and can be {@link #reverse}d. */
+        boolean protectNew = false
 
         static FakeSteam start() {
             def f = new FakeSteam()
@@ -318,8 +405,19 @@ class SkinDepositLoopSpec extends Specification {
             def moving = inv[from].findAll { it.assetId in o.assetIds }
             if (moving.size() != o.assetIds.size()) { o.state = 'invalid_items'; return }
             inv[from].removeAll(moving)
-            moving.each { give(to as String, it.name as String) }
+            moving.each {
+                def id = give(to as String, it.name as String)
+                if (to == BOT && protectNew) inv[BOT].find { a -> a.assetId == id }.putAll([locked: true, cameFrom: from])
+            }
             o.state = 'accepted'
+        }
+
+        synchronized void unlock(String name) { inv[BOT].findAll { it.name == name }*.locked = false }
+        /** The sender presses Steam's "Reverse trade": the skin goes back. */
+        synchronized void reverse(String name) {
+            def it = inv[BOT].find { a -> a.name == name }
+            inv[BOT].remove(it)
+            give(it.cameFrom as String, name)
         }
 
         private synchronized Object handle(HttpExchange x) {
@@ -365,7 +463,7 @@ class SkinDepositLoopSpec extends Specification {
             if (x.requestMethod == 'GET' && path == '/inventory') {
                 def items = inv[BOT]
                 return reply(200, [ok: true, appId: 590830, count: items.size(),
-                    items: items.collect { [assetId: it.assetId, marketHashName: it.name, name: it.name, tradable: true] }])
+                    items: items.collect { [assetId: it.assetId, marketHashName: it.name, name: it.name, tradable: !it.locked] }])
             }
             reply(404, [ok: false, error: 'not_found'])
         }
