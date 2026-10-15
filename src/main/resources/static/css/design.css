@@ -29557,7 +29557,7 @@ html body .listing-grid > .grid-card .gc-online-row {
   font: 500 11px/1.3 var(--ui) !important; color: var(--ink-3) !important;
 }
 html body .listing-grid > .grid-card .gc-online-row.is-online { color: var(--up) !important; }
-html body .listing-grid > .grid-card .gc-card-age { white-space: nowrap; }
+html body .listing-grid > .grid-card .gc-card-age { white-space: nowrap; color: var(--ink-3) !important; }
 html body .listing-grid > .grid-card .grid-status-verified { display: inline-flex; color: var(--accent); }
 
 /* Item page: the buy box. Buy is the one wide primary button, cart sits
