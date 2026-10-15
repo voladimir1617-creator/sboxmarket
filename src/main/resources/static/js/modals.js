@@ -87,7 +87,7 @@ export function DeliveryExpectation({ sellerUserId, days, compact }) {
         margin: compact ? '2px 0 12px' : '10px 0 4px',
         padding: '9px 12px', borderRadius: 8,
         background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-        fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)'
+        fontSize: 12, lineHeight: 1.5, color: 'var(--text-secondary)'
       }
     },
       h(MaterialIcon, { name: 'help', size: 16 }),
@@ -106,7 +106,7 @@ export function DeliveryExpectation({ sellerUserId, days, compact }) {
       margin: compact ? '2px 0 12px' : '10px 0 4px',
       padding: '9px 12px', borderRadius: 8,
       background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-      fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)'
+      fontSize: 12, lineHeight: 1.5, color: 'var(--text-secondary)'
     }
   },
     h(MaterialIcon, { name: fromSeller ? 'schedule' : 'bolt', size: 16 }),
