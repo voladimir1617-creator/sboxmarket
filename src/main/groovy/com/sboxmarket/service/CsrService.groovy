@@ -451,8 +451,10 @@ class CsrService {
         // claims is already impossible. Sum this CSR's COMPLETED goodwill credits
         // (keyed on the 'csr_<id>' stripeReference stamped on the row below) over
         // the last 24h and reject once the day's total would exceed the cap.
-        // Best-effort vs. a concurrent burst (no per-CSR lock; the rate limiter
-        // bounds the burst) — it closes the sequential unbounded-loop drain.
+        // Lock this CSR's own user row first, so parallel credits from the same
+        // CSR take turns: each one sums only after the previous one committed,
+        // and a burst can no longer slip past the cap together.
+        steamUserRepository.findByIdForUpdate(csrUserId)
         def dailyCap = new BigDecimal(dailyCapStr)
         def since = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
         def used24h = transactionRepository.sumByTypeReferenceSince(
