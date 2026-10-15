@@ -563,6 +563,12 @@ app:
   # the happy case — this sweep covers off-path drift.
   price-refresh:
     enabled: ${APP_PRICE_REFRESH_ENABLED:true}
+  # Steam Community Market price sync (SteamMarketPriceService). OFF by
+  # default: seed prices are settled, and the sync rewrites unlisted
+  # items' prices and price_history from Steam. Opt in with
+  # STEAM_PRICE_SYNC_ENABLED=true.
+  steam-price-sync:
+    enabled: ${STEAM_PRICE_SYNC_ENABLED:false}
 
 # Sentry — error tracking + performance. Set SENTRY_DSN in the environment
 # to enable. When unset the SDK is a silent no-op.

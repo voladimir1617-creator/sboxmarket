@@ -30,7 +30,8 @@ class SteamMarketPriceSingleFlightSpec extends Specification {
     SteamMarketPriceService newService() {
         new SteamMarketPriceService(
             itemRepository:      itemRepository,
-            priceHistoryService: priceHistoryService
+            priceHistoryService: priceHistoryService,
+            steamSyncEnabled:    true
         )
     }
 
