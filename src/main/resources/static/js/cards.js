@@ -3,6 +3,7 @@ import { h, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, hig
 // (2026-05-20) Dropped `FloatBar` from this import — its only call site
 // in GridCard was removed (s&box has no float/wear; FloatBar is a no-op).
 import { ItemImage, RarityBadge, SteamMarketLink, Avatar, Money, MaterialIcon } from './primitives.js';
+import { navigate } from './router.js';
 
 // The ✓ rule the server applies (ListingController.decorateWithSellerVerified,
 // the stall and the Help Center say the same), shown wherever the mark is.
@@ -160,11 +161,13 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
     if (disc > 0) segs.push(disc + '% off Steam');
     return segs.join(', ');
   })();
-  return h('a', {
+  // The card is a plain box; its link is the item name, stretched over the
+  // whole card by `.grid-card-link::after`. A card that was itself an <a>
+  // held the cart, heart and magnifier buttons and the Steam link inside a
+  // link, which is invalid and confuses keyboards and screen readers.
+  return h('div', {
     className: `grid-card${isAuction ? ' is-auction' : ''}`,
-    href, onClick: handleClick,
     title: hoverTip,
-    'aria-label': ariaLabel,
     style: {
       color: 'inherit', textDecoration: 'none', display: 'block',
       // FLIP-style animated reorder on sort change. Each card gets a
@@ -271,16 +274,19 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       // CSFloat-1:1 — functional magnifier overlay, bottom-right of the
       // image (zoom cue). Unlike the decorative `grid-zoom` glyph above,
       // this is a real button: clicking it navigates to the item page via
-      // the SAME target as the card body (the existing `handleClick`, which
-      // runs the SPA onClick / falls through to the /item/:id anchor). We
-      // stopPropagation so the click isn't double-handled by the parent
-      // anchor, then invoke handleClick ourselves to keep one code path.
+      // the SAME target as the card link (the existing `handleClick`, which
+      // runs the SPA onClick). A button has no default to fall back on, so
+      // with no onClick it follows `href` itself.
       item?.id && h('button', {
         className: 'gc-magnifier',
         type: 'button',
         title: 'View item',
         'aria-label': `View ${item?.name || 'item'}`,
-        onClick: e => { e.stopPropagation(); handleClick(e); }
+        onClick: e => {
+          e.stopPropagation();
+          if (onClick) handleClick(e);
+          else if (href !== '#') navigate(href);
+        }
       },
         h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
           h('circle', { cx: 11, cy: 11, r: 7 }),
@@ -296,8 +302,10 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
     ),
     h('div', { className: 'grid-body' },
       h('div', { className: 'grid-name' },
-        item.rarity === 'Limited' && h('span', { className: 'grid-name-star' }, '★ '),
-        highlightMatch(item.name || '', searchQuery)
+        h('a', { className: 'grid-card-link', href, onClick: handleClick, 'aria-label': ariaLabel },
+          item.rarity === 'Limited' && h('span', { className: 'grid-name-star' }, '★ '),
+          highlightMatch(item.name || '', searchQuery)
+        )
       ),
       h('div', { className: 'grid-cat' },
         isAuction && h('span', { className: 'grid-auction-tag' }, 'AUCTION '),
