@@ -1,12 +1,12 @@
 package com.sboxmarket.config
 
 import groovy.util.logging.Slf4j
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.context.annotation.Profile
-import org.springframework.context.event.EventListener
-import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.boot.SpringApplication
+import org.springframework.boot.env.EnvironmentPostProcessor
+import org.springframework.core.Ordered
+import org.springframework.core.env.ConfigurableEnvironment
 import org.springframework.core.env.Environment
-import org.springframework.stereotype.Component
+import org.springframework.core.env.Profiles
 
 /**
  * Fail-fast guard for the `prod` profile.
@@ -18,12 +18,17 @@ import org.springframework.stereotype.Component
  * a 60-line autoconfig stack trace. An operator who fat-fingered one env
  * var on a deploy gets an opaque crash instead of a clear "you forgot X".
  *
- * This bean (prod-only) reads each mandatory secret straight off the
- * {@link Environment} on {@link ApplicationReadyEvent}, aggregates EVERY
- * problem into one list, logs a single FATAL line naming exactly which
- * vars are missing / still set to a known dev placeholder, and aborts the
- * JVM with {@code System.exit(1)}. One readable failure, not a stack trace
- * treasure hunt.
+ * This guard (prod profile only) reads each mandatory secret straight off
+ * the {@link Environment}, aggregates EVERY problem into one list, logs a
+ * single FATAL line naming exactly which vars are missing / still set to a
+ * known dev placeholder, and refuses to start. One readable failure, not a
+ * stack trace treasure hunt.
+ *
+ * It runs as an {@link EnvironmentPostProcessor} (registered in
+ * META-INF/spring.factories, like {@link H2CredentialGuard}), i.e. BEFORE any
+ * bean exists, the database is opened or the web server listens. It used to
+ * run on ApplicationReadyEvent, after the server was already taking requests
+ * on the broken config (security review 2026-10-15, finding 5).
  *
  * Two classes of violation:
  *
@@ -40,17 +45,17 @@ import org.springframework.stereotype.Component
  *        - STRIPE_SECRET_KEY starting with `sk_test_` — a Stripe TEST key
  *          in prod means Checkout "succeeds" but no real money ever moves;
  *          every deposit is fake. Refuse to start.
+ *        - Hardening switched off: Swagger/OpenAPI on, a non-Secure session
+ *          cookie, CORS open to every origin (`*`), or the CSRF filter off.
  *
  * Why a separate method ({@link #findViolations}) instead of doing it all
  * in the event handler: the detection logic is a pure function of the
  * Environment and is unit-tested directly (ProdConfigValidatorSpec) with a
- * mock Environment — no real {@code System.exit} in tests. The handler is
- * the only place the process actually dies.
+ * mock Environment. {@link #postProcessEnvironment} is the only place start-up
+ * is refused.
  */
-@Component
-@Profile('prod')
 @Slf4j
-class ProdConfigValidator {
+class ProdConfigValidator implements EnvironmentPostProcessor, Ordered {
 
     /** The publicly-committed dev fallback for the unsubscribe HMAC secret.
      *  Mirrors the @Value default in EmailService.groovy:64. If this string
@@ -162,8 +167,21 @@ class ProdConfigValidator {
         'APP_PUBLIC_URL',
     ].asImmutable()
 
-    @Autowired
+    /** Spring's relaxed boolean spellings, as its String-to-Boolean converter reads them. */
+    static final Set<String> TRUE_WORDS  = ['true', 'on', 'yes', '1'] as Set
+    static final Set<String> FALSE_WORDS = ['false', 'off', 'no', '0'] as Set
+
     Environment environment
+
+    /** Read a property without letting an unresolvable `${VAR}` (a missing
+     *  required var, already reported by the presence check) throw. */
+    private String safeProperty(String name) {
+        try { return environment.getProperty(name)?.trim() } catch (Exception ignored) { return null }
+    }
+
+    private boolean anyIs(Set<String> words, List<String> names) {
+        names.any { String n -> safeProperty(n)?.toLowerCase() in words }
+    }
 
     /**
      * Pure check — returns a list of human-readable violation strings, one
@@ -285,29 +303,51 @@ class ProdConfigValidator {
                 '(email CTAs and Stripe onboarding return URLs would be unreachable localhost links)'.toString())
         }
 
+        // 3) Hardening switches. application-prod.yml defaults each of these to
+        //    the safe value; an env override can still turn one off. Each is
+        //    checked both as the env var and as the resolved property, so a
+        //    direct property override is caught too.
+        if (anyIs(TRUE_WORDS, ['SWAGGER_ENABLED', 'springdoc.api-docs.enabled', 'springdoc.swagger-ui.enabled'])) {
+            violations.add('SWAGGER_ENABLED is on — refusing to start (the OpenAPI spec lists every ' +
+                'parameter of every endpoint; keep it off in production)'.toString())
+        }
+        if (anyIs(FALSE_WORDS, ['COOKIE_SECURE', 'server.servlet.session.cookie.secure'])) {
+            violations.add('COOKIE_SECURE is false — refusing to start (the session cookie would also ' +
+                'travel over plain http, where anyone on the path can read it)'.toString())
+        }
+        def corsValues = ['CORS_ALLOWED_ORIGINS', 'security.cors-allowed-origins'].collect { safeProperty(it) }
+        if (corsValues.any { String v -> v != null && v.split(',').any { it.trim().contains('*') } }) {
+            violations.add('CORS_ALLOWED_ORIGINS allows every origin (*) — refusing to start ' +
+                '(set it to the site origin, e.g. https://skinbox.market)'.toString())
+        }
+        if (anyIs(FALSE_WORDS, ['SECURITY_CSRF', 'security.csrf-enabled'])) {
+            violations.add('SECURITY_CSRF is off — refusing to start (every signed-in write, ' +
+                'withdrawals included, would accept cross-site requests)'.toString())
+        }
+
         return violations
     }
 
+    @Override
+    int getOrder() { Ordered.LOWEST_PRECEDENCE }
+
     /**
-     * Runs once the context is fully up. Aggregates all violations into a
-     * single ERROR line and aborts the process so the operator sees one
-     * clear FATAL message instead of a downstream placeholder stack trace.
+     * Runs once the configuration is loaded and profiles are known, before the
+     * context or web server exists. Logs every violation in one FATAL block and
+     * refuses to start; outside the `prod` profile it does nothing.
      */
-    @EventListener(ApplicationReadyEvent)
-    void validateOnReady() {
+    @Override
+    void postProcessEnvironment(ConfigurableEnvironment env, SpringApplication application) {
+        if (!env.acceptsProfiles(Profiles.of('prod'))) return
+        this.environment = env
         List<String> violations = findViolations()
         if (!violations.isEmpty()) {
-            log.error('FATAL: production config validation failed — refusing to start:\n  - {}',
-                      violations.join('\n  - '))
-            // Abort. ApplicationReadyEvent fires after the web server is
-            // listening, so exit hard rather than throwing (a thrown
-            // exception here would be logged but the JVM would keep running
-            // and serve traffic on broken config). exit(1) is the
-            // unambiguous "deploy is misconfigured" signal for the
-            // orchestrator (Docker/k8s restart-loops it into view).
-            System.exit(1)
+            String message = 'FATAL: production config validation failed — refusing to start:\n  - ' +
+                violations.join('\n  - ')
+            log.error(message)
+            throw new IllegalStateException(message)
         }
-        log.info('Prod config validation passed: all {} required secrets present and no dev placeholders detected.',
+        log.info('Prod config validation passed: all {} required secrets present, no dev placeholders, hardening on.',
                  REQUIRED_VARS.size())
     }
 }
