@@ -352,12 +352,16 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // auctions from different sellers; the row's Bid button picks one,
   // otherwise the first (cheapest) auction is shown.
   const [selectedAuctionId, setSelectedAuctionId] = useState(null);
+  // The listing a stall, profile or bid link pointed at; its Active
+  // Listings row is outlined and scrolled to. The Buy row is unchanged.
+  const [deepLinkListingId, setDeepLinkListingId] = useState(null);
   // `/item/<id>?listing=<auctionId>` from an outbid or ending-soon bell
   // entry: show that auction, not the first one on the item.
   useEffect(() => {
     try {
       const lid = Number(new URLSearchParams(window.location.search).get('listing'));
-      if (Number.isFinite(lid) && lid > 0) setSelectedAuctionId(lid);
+      if (Number.isFinite(lid) && lid > 0) { setSelectedAuctionId(lid); setDeepLinkListingId(lid); }
+      else setDeepLinkListingId(null);
     } catch (_) { /* no listing in the URL */ }
   }, [item?.id, window.location.search]);
   // Phone item pages: once the Buy / Cart row scrolls off the top, a slim
@@ -426,6 +430,17 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // "Show all N" swaps in every listing when a popular item has 10+
   // sellers at different prices.
   const [showAllListings, setShowAllListings] = useState(false);
+  useEffect(() => {
+    if (deepLinkListingId == null) return;
+    const idx = listings.findIndex(l => l && l.id === deepLinkListingId);
+    if (idx < 0) return;
+    if (idx >= 6) setShowAllListings(true);
+    const t = setTimeout(() => {
+      document.querySelector('.modal-listing-row[data-listing-id="' + deepLinkListingId + '"]')
+        ?.scrollIntoView({ block: 'center' });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [deepLinkListingId, listings]);
   // Seller rating cache — { sellerUserId → { count, average } }. Populated
   // in parallel when the modal opens so every row in the Active Listings
   // section can show an inline reputation chip next to the seller name.
@@ -2105,7 +2120,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 const isMine = me && l.sellerUserId === me.id;
                 return h('div', {
                     key: l.id,
-                    className: 'modal-listing-row',
+                    'data-listing-id': l.id,
+                    className: 'modal-listing-row' + (l.id === deepLinkListingId ? ' is-deeplinked' : ''),
                     style: isMine
                       ? { background: 'rgba(30,165,255,0.06)', borderLeft: '3px solid var(--accent)' }
                       : null,
@@ -6694,7 +6710,9 @@ function ProfileListingsTab({ me }) {
         key: l.id,
         listing: l,
         meId: me?.id,
-        onClick: () => { if (l?.item?.id) navigate('/item/' + l.item.id); }
+        // ?listing= outlines this listing on the item page, which otherwise
+        // leads with the cheapest copy, often another seller's.
+        onClick: () => { if (l?.item?.id) navigate('/item/' + l.item.id + '?listing=' + l.id); }
       }))
     )
   );
@@ -7543,7 +7561,8 @@ function ProfileAutoBidsTab() {
           return h('tr', { key: b.id, className: 'db-row' },
             h('td', { className: 'db-rank' }, '#' + b.id),
             h('td', null, h('a', {
-              href: '/item/' + (b.itemId || ''),
+              // ?listing= opens the auction this bid is on, not the item's first one.
+              href: '/item/' + (b.itemId || '') + (b.itemId && b.listingId ? '?listing=' + b.listingId : ''),
               onClick: e => { if (!b.itemId) e.preventDefault(); },
               style: { color: 'var(--accent)', textDecoration: 'none' }
             }, b.itemName || ('Listing #' + b.listingId))),
@@ -7678,7 +7697,8 @@ function ProfileAutoBidsTab() {
       h('tbody', null, bids.map(b => h('tr', { key: b.id, className: 'db-row' },
         h('td', { className: 'db-rank' }, '#' + b.id),
         h('td', null, h('a', {
-          href: '/item/' + (b.itemId || ''),
+          // ?listing= opens the auction this bid is on, not the item's first one.
+              href: '/item/' + (b.itemId || '') + (b.itemId && b.listingId ? '?listing=' + b.listingId : ''),
           onClick: e => { if (!b.itemId) e.preventDefault(); },
           style: { color: 'var(--accent)', textDecoration: 'none' },
           title: 'View item detail + auction panel'
@@ -12742,7 +12762,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           let liquidValue = 0;
           let liquidCount = 0;
           steamList.forEach(s => {
-            if (!s.tradable || !s.catalogueId) return;
+            // Only rows with a copy left to sell get a Quick Sell button,
+            // so only those count toward "liquid now".
+            if (copiesListable(s) <= 0 || !s.catalogueId) return;
             const d = inventoryBuyOrderDemand[String(s.catalogueId)];
             const best = d && parseFloat(d.bestBid);
             if (Number.isFinite(best) && best > 0) {
@@ -12812,13 +12834,13 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             h('b', { style: { color: 'var(--accent)' } }, bulkSelected.size),
             ' selected for bulk list'),
           h('span', { style: { color: 'var(--text-muted)', fontSize: 11 } }, '·'),
-          h('span', { style: { color: 'var(--text-muted)', fontSize: 11 } }, 'Price'),
+          h('span', { style: { color: 'var(--text-muted)', fontSize: 11 } }, 'Price (USD)'),
           h('input', {
             className: 'wallet-amount-input',
             style: { width: 100, fontSize: 13 },
             type: 'number', min: '0', max: '100000', step: '0.01',
             inputMode: 'decimal',
-            'aria-label': 'Bulk list price',
+            'aria-label': 'Bulk list price in USD',
             placeholder: '0.00',
             value: bulkPrice,
             onChange: e => setBulkPrice(e.target.value)
@@ -12842,7 +12864,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             style: { padding: '6px 14px', fontSize: 12, fontWeight: 700 },
             disabled: bulkBusy || !bulkPrice,
             onClick: submitBulk
-          }, bulkBusy ? 'Listing…' : `List ${bulkSelected.size} @ ${fmt(parseFloat(bulkPrice || 0))}`),
+          }, bulkBusy ? 'Listing…' : `List ${bulkSelected.size} @ ${fmtUsd(parseFloat(bulkPrice || 0))}`),
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
@@ -15210,8 +15232,14 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // initialTab while the modal stays mounted; useState only reads its
   // argument once. Without this the URL and the highlighted tab drifted
   // apart on back/forward. Mirrors the WalletModal initialTab sync.
+  // A bare /offers (where seller notifications point) means Incoming; it
+  // used to leave an open page on Outgoing. A route change while mounted
+  // also re-reads the lists, since a notification click means news.
+  const tabRouteSeen = useRef(false);
   useEffect(() => {
-    if (initialTab === 'incoming' || initialTab === 'outgoing') setTab(initialTab);
+    setTab(initialTab === 'outgoing' ? 'outgoing' : 'incoming');
+    if (tabRouteSeen.current && me) load();
+    tabRouteSeen.current = true;
   }, [initialTab]);
 
   const load = useCallback(async () => {
@@ -16199,11 +16227,15 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     // edits and cancels it, and it follows the user across devices. The
     // browser copy is only for signed-out viewers.
     const live = me?.id ? (serverAlerts || []).find(x => x.itemId === l.item.id && x.status === 'ACTIVE') : null;
-    const target = (me?.id && serverAlerts != null) ? (live ? parseFloat(live.targetPrice) : undefined) : alerts[l.item.id];
+    const rawTarget = (me?.id && serverAlerts != null) ? (live ? parseFloat(live.targetPrice) : undefined) : alerts[l.item.id];
+    // A restock alert is stored as a $99,999+ sentinel, not a price: treat
+    // it as no target, or every listed item reads "Alert hit".
+    const restock = rawTarget != null && rawTarget >= 99999;
+    const target = restock ? undefined : rawTarget;
     // An auction is "at target" by its current bid, not its start price.
     const shown = wlShownPrice(l);
     const alertHit = target != null && isFinite(target) && !l.__noListing && isFinite(shown) && shown <= target;
-    return { listing: l, snap, delta, pct, target, alertHit };
+    return { listing: l, snap, delta, pct, target, restock, alertHit };
   });
   // Apply drops + category + state filters together. Category filter is
   // skipped when the user hasn't picked one; 'All' is a label-only default.
@@ -16823,7 +16855,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                           }, 'Clear')
                         )
                       : h('button', {
-                          className: 'watchlist-alert-btn ' + (r.target != null ? 'set' : ''),
+                          className: 'watchlist-alert-btn ' + (r.target != null || r.restock ? 'set' : ''),
                           onClick: (e) => {
                             e.stopPropagation();
                             setEditingAlert(r.listing.item.id);
@@ -16831,7 +16863,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                           }
                         }, r.target != null
                           ? `Alert ≤ ${fmt(r.target)}`
-                          : 'Set price alert')
+                          : r.restock ? '↻ Restock alert' : 'Set price alert')
                   )
                 )))
         )

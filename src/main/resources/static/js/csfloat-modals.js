@@ -2376,7 +2376,9 @@ export function NotificationsModal({ onClose, me }) {
           ? (visibleUnread > 0 ? `Mark visible read (${visibleUnread})` : 'Mark visible read')
           : 'Mark all read');
       })(),
-      data.items.filter(n => n.read).length > 0 && (() => {
+      // Hidden under the Unread filter: no read row is visible there, so
+      // "Clear visible read" had nothing to clear.
+      filter !== 'UNREAD' && data.items.filter(n => n.read).length > 0 && (() => {
         // Batch 636 — dynamic label mirrors the Mark-visible-read button:
         // when a filter is active, the count shows only the visible-and-
         // read rows so the user knows exactly what's about to be deleted.

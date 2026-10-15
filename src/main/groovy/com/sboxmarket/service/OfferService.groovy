@@ -1890,7 +1890,6 @@ class OfferService {
                     return
                 }
                 def itemName = listingsById[offer.listingId]?.item?.name ?: 'an item'
-                def itemId = listingsById[offer.listingId]?.item?.id
                 long msLeft = (offer.updatedAt + fullLifeMs) - now
                 // intdiv keeps the result as a primitive long. Plain `/`
                 // in Groovy promotes long/long to BigDecimal, and
@@ -1925,7 +1924,9 @@ class OfferService {
                         "Pending offer expiring in ${windowText} · ${itemName}",
                         "A \$${offer.amount?.toPlainString() ?: '0'} offer is still waiting for your response. Accept, counter, or reject before it auto-declines.",
                         offer.listingId,
-                        itemId != null ? "/item/${itemId}" : '/offers'
+                        // The offers page is where the seller can answer it;
+                        // the item page has no accept or counter controls.
+                        '/offers/incoming'
                     )
                 }
                 // No entity-save needed — claimNudge already stamped

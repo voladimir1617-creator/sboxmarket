@@ -595,6 +595,22 @@ class OfferServiceSpec extends Specification {
         noExceptionThrown()
     }
 
+    def "the seller's expiring-offer reminder opens the offers page, where the offer can be answered"() {
+        given:
+        service.autoDeclineDays = 14L
+        def a = pendingOffer(id: 1L, listing: 100L, seller: 91L, amount: new BigDecimal("20"))
+        a.updatedAt = System.currentTimeMillis() - (8L * 24L * 60L * 60L * 1000L)
+        offerRepository.findPendingDueForNudge(_, _) >> [a]
+        offerRepository.claimNudge(1L, _) >> 1
+        listingRepository.findAllById(_) >> [new Listing(id: 100L, item: new Item(id: 5L, name: 'Hat'))]
+
+        when:
+        service.sweepOffersDueForNudge()
+
+        then:
+        1 * notificationService.push(91L, 'OFFER_RECEIVED', _, _, 100L, '/offers/incoming')
+    }
+
     def "counterOffer blocks any user from countering on a system listing (bug #53)"() {
         given:
         def original = pendingOffer(seller: null)
