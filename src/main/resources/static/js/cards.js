@@ -75,7 +75,7 @@ function useWinningIds(meId, wanted) {
   return winning.meId === meId ? winning.ids : null;
 }
 
-export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas, meId, watcherCount, salesVelocity, searchQuery }) {
+export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas, meId, watcherCount, salesVelocity, searchQuery, href: hrefOverride }) {
   // Before the early return below: hooks must run on every render.
   const winningIds = useWinningIds(meId,
     !!(listing && listing.listingType === 'AUCTION' && listing.bidCount > 0));
@@ -119,7 +119,9 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
   // to intercept first (e.g. rails that also need to track the click
   // for recently-viewed). preventDefault inside onClick stops the
   // anchor's default, keeping the existing UX.
-  const href = item?.id ? '/item/' + item.id : '#';
+  // A caller that opens a specific listing passes its URL, so a new-tab
+  // or copied link lands on the same place as a plain click.
+  const href = hrefOverride || (item?.id ? '/item/' + item.id : '#');
   const handleClick = (e) => {
     // Browser default for middle / modifier clicks: open in a new tab.
     // Let them through untouched.
@@ -455,33 +457,29 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
   // anchors against whatever the buyer would actually pay right now.
   const effectivePrice = isAuction && listing.currentBid ? listing.currentBid : listing.price;
   const disc = discountPct(effectivePrice, item.steamPrice);
-  // Batch 931 — keyboard-accessible list rows. The row is clickable
-  // (opens the item detail modal) but `<tr onClick>` is pointer-only.
-  // Adding role=button + tabIndex lets screen-reader / keyboard users
-  // focus the row and press Enter/Space to open it. aria-label gives
-  // the SR a concrete "open X detail" announce instead of "row 3".
+  // The row opens the item for a mouse click anywhere on it; the keyboard
+  // and screen-reader way in is the item name, a real link. A
+  // role="button" row hid the price, seller and discount cells behind one
+  // "Open X detail" label and nested the Buy / Bid buttons inside a button.
   return h('tr', {
     onClick,
-    role: 'button',
-    tabIndex: 0,
-    className: isAuction ? 'is-auction' : undefined,
-    'aria-label': `Open ${item.name}${isAuction ? ' auction' : ''} detail`,
-    onKeyDown: (e) => {
-      // Don't intercept keys when focus is on an inline button inside
-      // the row (Buy / Sign in). Those have their own handlers.
-      const tag = (e.target?.tagName || '').toLowerCase();
-      if (tag === 'button' || tag === 'a' || tag === 'input') return;
-      if ((e.key === 'Enter' || e.key === ' ') && typeof onClick === 'function') {
-        e.preventDefault();
-        onClick(e);
-      }
-    }
+    className: isAuction ? 'is-auction' : undefined
   },
     h('td', null,
       h('div', { className: 'item-cell' },
         h('div', { className: 'item-thumb' }, h(ItemImage, { item, variant: 'thumb' })),
         h('div', { className: 'item-info' },
-          h('div', { className: 'item-name' }, highlightMatch(item.name || '', searchQuery)),
+          h('div', { className: 'item-name' },
+            h('a', {
+              href: '/item/' + item.id,
+              style: { color: 'inherit', textDecoration: 'none' },
+              onClick: (e) => {
+                e.stopPropagation();
+                // New-tab and modifier clicks keep the browser default.
+                if (e.button === 1 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                if (typeof onClick === 'function') { e.preventDefault(); onClick(e); }
+              }
+            }, highlightMatch(item.name || '', searchQuery))),
           h('div', { className: 'item-sub' },
             // Inline AUCTION tag before the category — mirrors the grid
             // card's `grid-auction-tag` so list-view rows carry the same

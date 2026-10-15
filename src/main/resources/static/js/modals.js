@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=15';
+import { GridCard } from './cards.js?v=16';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -6712,6 +6712,7 @@ function ProfileListingsTab({ me }) {
         meId: me?.id,
         // ?listing= outlines this listing on the item page, which otherwise
         // leads with the cheapest copy, often another seller's.
+        href: l?.item?.id ? '/item/' + l.item.id + '?listing=' + l.id : undefined,
         onClick: () => { if (l?.item?.id) navigate('/item/' + l.item.id + '?listing=' + l.id); }
       }))
     )
@@ -11443,6 +11444,13 @@ export function SellerObligations({ policy, custody, isAuction, net }) {
   );
 }
 
+// YYYY-MM-DD in the viewer's own time zone, the way <input type=date> and
+// scheduleAwayReturn read it. toISOString() gives the UTC date, a day off
+// for part of every day outside UTC.
+function localYmd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 // The item name doubles as the sell card's keyboard button; these undo the
 // browser's button chrome so it looks like the name it replaced.
 const INVENTORY_NAME_BUTTON_STYLE = {
@@ -14255,8 +14263,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         style: { marginLeft: 10, fontSize: 11, padding: '3px 10px', border: '1px solid var(--border)' },
         onClick: () => {
           // Pre-fill with one week from today as a friendly default.
-          const d = new Date(Date.now() + 7 * 86400_000);
-          const iso = d.toISOString().slice(0, 10);
+          const iso = localYmd(new Date(Date.now() + 7 * 86400_000));
           setAwayDraftDate(iso);
           setPickingAwayUntil(true);
         },
@@ -14269,8 +14276,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           type: 'date',
           'aria-label': 'Stall return date',
           value: awayDraftDate,
-          min: new Date().toISOString().slice(0, 10),
-          max: new Date(Date.now() + 90 * 86400_000).toISOString().slice(0, 10),
+          min: localYmd(new Date()),
+          max: localYmd(new Date(Date.now() + 90 * 86400_000)),
           onChange: e => setAwayDraftDate(e.target.value),
           style: { fontSize: 11, padding: '3px 6px' }
         }),

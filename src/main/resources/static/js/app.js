@@ -11,13 +11,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=15';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=16';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=279';
+} from './modals.js?v=280';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -8614,6 +8614,7 @@ export function App() {
                             key: l.id,
                             listing: l,
                             // ?listing= outlines this seller's listing on the item page.
+                            href: paths.item(l.item.id) + '?listing=' + l.id,
                             onClick: () => navigate(paths.item(l.item.id) + '?listing=' + l.id),
                             starred: watchlist.includes(l.item.id),
                             onToggleStar: toggleStar,

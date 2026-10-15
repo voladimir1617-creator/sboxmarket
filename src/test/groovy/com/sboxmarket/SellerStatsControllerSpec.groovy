@@ -124,6 +124,28 @@ class SellerStatsControllerSpec extends Specification {
         resp.body*.sellerUserId == [1L]
     }
 
+    def "top() still fills the rail when a top seller is banned"() {
+        given:
+        org.springframework.data.domain.Pageable seen = null
+        1 * tradeRepository.findTopSellersSince(_, _) >> { args ->
+            seen = args[1]
+            [topRow(2L, 99L, new BigDecimal('900.00')), topRow(1L, 10L, new BigDecimal('100.00')), topRow(3L, 5L, new BigDecimal('50.00'))]
+        }
+        steamUserRepository.findAllById(_) >> [
+            new com.sboxmarket.model.SteamUser(id: 2L, displayName: 'Banned', banned: true),
+            new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'A', banned: false),
+            new com.sboxmarket.model.SteamUser(id: 3L, displayName: 'C', banned: false)
+        ]
+        reviewRepository.aggregateForUsers(_) >> []
+
+        when:
+        def resp = controller.top(7, 2)
+
+        then:
+        seen.pageSize > 2
+        resp.body*.sellerUserId == [1L, 3L]
+    }
+
     def "top() emits null rating for a seller with zero reviews"() {
         given:
         1 * tradeRepository.findTopSellersSince(_, _) >> [topRow(1L, 15L, new BigDecimal('50.00'))]
@@ -155,18 +177,23 @@ class SellerStatsControllerSpec extends Specification {
     }
 
     def "top() clamps an oversized limit to 20 rows"() {
-        given:
+        given: 'more clean sellers than the cap, fetched with headroom for banned ones'
         org.springframework.data.domain.Pageable seenPage = null
         1 * tradeRepository.findTopSellersSince(_, _) >> { args ->
             seenPage = args[1]
-            []
+            (1L..25L).collect { topRow(it, 30L - it, new BigDecimal('10.00')) }
         }
+        steamUserRepository.findAllById(_) >> (1L..25L).collect {
+            new com.sboxmarket.model.SteamUser(id: it, displayName: 'S' + it, banned: false)
+        }
+        reviewRepository.aggregateForUsers(_) >> []
 
         when:
-        controller.top(7, 9999)
+        def resp = controller.top(7, 9999)
 
         then:
-        seenPage.pageSize == 20
+        seenPage.pageSize == 30
+        resp.body.size() == 20
     }
 
     def "top() serves a second identical call from the 60-second cache"() {
