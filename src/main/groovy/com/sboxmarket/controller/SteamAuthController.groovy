@@ -29,6 +29,13 @@ class SteamAuthController {
      *  session is invalidated, then carried into the redirect URL so the
      *  user lands back on the page they started the auth flow from. */
     static final String SESSION_NEXT = "steamLoginNext"
+    /** Session attribute holding the random state of the sign-in this
+     *  browser started at /login. It travels inside the signed
+     *  `openid.return_to`, and /return refuses any callback whose state does
+     *  not match it, so nobody can finish their own Steam sign-in in someone
+     *  else's browser (login CSRF). One use only. */
+    static final String SESSION_LOGIN_STATE = "steamLoginState"
+    private static final java.security.SecureRandom STATE_RANDOM = new java.security.SecureRandom()
     /** Cap on the post-login next path. Long enough for `/profile/transactions?range=2026-04` style
      *  deep links, short enough that an attacker can't smuggle anything large. */
     static final int NEXT_MAX_LEN = 200
@@ -158,7 +165,18 @@ class SteamAuthController {
             try { req.getSession(false)?.removeAttribute(SESSION_NEXT) }
             catch (Exception ignore) { /* no session → nothing to clear */ }
         }
-        resp.sendRedirect(steamAuthService.buildLoginUrl())
+        // Bind this sign-in to this browser session. No session, no sign-in:
+        // /return refuses a callback without a matching state.
+        String state = newLoginState()
+        try { req.getSession(true).setAttribute(SESSION_LOGIN_STATE, state) }
+        catch (Exception e) { log.warn("Steam login: could not store sign-in state: ${e.message}") }
+        resp.sendRedirect(steamAuthService.buildLoginUrl(state))
+    }
+
+    static String newLoginState() {
+        byte[] bytes = new byte[32]
+        STATE_RANDOM.nextBytes(bytes)
+        Base64.urlEncoder.withoutPadding().encodeToString(bytes)
     }
 
     /**
@@ -217,6 +235,21 @@ class SteamAuthController {
             if (stash) nextPath = sanitizeNext(stash)
         } catch (Exception ignore) { /* session lost → fall back to / */ }
 
+        // The state this browser was given at /login, consumed here so a
+        // callback can be finished once at most. Missing means this browser
+        // never started a sign-in: refuse without asking Steam.
+        String expectedState = null
+        try {
+            def session = req.getSession(false)
+            expectedState = session?.getAttribute(SESSION_LOGIN_STATE) as String
+            session?.removeAttribute(SESSION_LOGIN_STATE)
+        } catch (Exception ignore) { /* session lost → no state → refused below */ }
+        if (!expectedState) {
+            log.warn("Steam auth: callback without a sign-in started in this browser")
+            try { resp.sendRedirect(appendLoginParam(nextPath, 'failed')) } catch (Exception ignore) {}
+            return
+        }
+
         String steamId64 = null
         try {
             // verifyReturn extracts the SteamID from the claimed_id in the
@@ -224,7 +257,7 @@ class SteamAuthController {
             // param is passed only as a defence-in-depth cross-check —
             // verifyReturn rejects the login if the two disagree.
             def claimedId = req.getParameter('openid.claimed_id')
-            steamId64 = steamAuthService.verifyReturn(req.queryString, claimedId)
+            steamId64 = steamAuthService.verifyReturn(req.queryString, claimedId, expectedState)
         } catch (Exception e) {
             log.error("Steam verifyReturn threw", e)
         }

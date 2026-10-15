@@ -207,6 +207,53 @@ class SteamAuthServiceSpec extends Specification {
         !networkCalled
     }
 
+    // ── login CSRF: state bound into the signed return_to ─────────
+
+    def "buildLoginUrl puts the sign-in state inside return_to"() {
+        when:
+        def url = service.buildLoginUrl('abc_DEF-123')
+
+        then:
+        url.contains('openid.return_to=' + URLEncoder.encode(
+            'http://localhost:8080/api/auth/steam/return?state=abc_DEF-123', 'UTF-8'))
+    }
+
+    def "verifyReturn accepts a callback whose return_to carries this session's state, and sends Steam only openid.* fields"() {
+        given:
+        String sentBody = null
+        service.metaClass.checkAuthentication = { String body ->
+            sentBody = body
+            'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n'
+        }
+        def query = 'state=st8&' + returnQuery('nonce-with-state',
+            'http://localhost:8080/api/auth/steam/return?state=st8')
+
+        when:
+        def steamId = service.verifyReturn(query, CLAIMED_ID, 'st8')
+
+        then:
+        steamId == STEAMID
+        sentBody.startsWith('openid.ns=')
+        !sentBody.contains('state=st8&')
+        sentBody.contains('openid.mode=check_authentication')
+    }
+
+    def "verifyReturn refuses an attacker's genuine callback finished in another browser session"() {
+        given: "Steam would call the attacker's assertion valid"
+        boolean networkCalled = false
+        service.metaClass.checkAuthentication = { String body ->
+            networkCalled = true
+            'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n'
+        }
+        def attackers = 'state=attacker&' + returnQuery('nonce-csrf',
+            'http://localhost:8080/api/auth/steam/return?state=attacker')
+
+        expect: "the victim's session holds a different state, or a stateless return_to is offered"
+        service.verifyReturn(attackers, CLAIMED_ID, 'victim') == null
+        service.verifyReturn(returnQuery('nonce-csrf-2'), CLAIMED_ID, 'victim') == null
+        !networkCalled
+    }
+
     def "verifyReturn does not consume the nonce when Steam reports invalid"() {
         given: "Steam first rejects the assertion, then (hypothetically) accepts it"
         def query = returnQuery('nonce-not-burned')
