@@ -2009,10 +2009,11 @@ class AdminService {
         // close that too and is deliberately NOT taken: one rogue actor would
         // then lock every honest admin out of the refund tool, and the
         // availability of the refund path is itself a money control.
-        // Best-effort against a concurrent burst (no per-admin lock - the rate
-        // limiter bounds the burst); what it closes is the sequential
-        // unbounded loop, which is what was actually reachable.
+        // CONCURRENCY: the admin's own user row is locked before the sum, so
+        // parallel credits from one admin take turns and each sees the ones
+        // before it; a burst can no longer pass the cap together.
         if (amount.signum() > 0) {
+            steamUserRepository.findByIdForUpdate(adminUserId)
             def dailyCreditCap = new BigDecimal(dailyCreditCapStr)
             def creditWindowStart = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
             def usedToday = transactionRepository.sumByTypeReferenceSince(
