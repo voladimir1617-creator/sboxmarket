@@ -65,7 +65,7 @@ const FAQ = [
   {
     s: 'money',
     q: 'Why is SkinBox cheaper than Steam?',
-    a: "Steam charges 12% on Workshop sales. SkinBox charges a flat 2% to the seller at sale time — that is the only fee SkinBox keeps, and it is the only one that funds the site. Moving money is a separate cost and is not free: card deposits and bank payouts carry Stripe's own charge, which is passed through at cost with no markup added. The wallet screen shows the exact deduction and the exact amount you will receive before you confirm anything. The green '−X%' chip on each card shows how much you save versus the Steam store price. Test mode: no real money moves yet."
+    a: "Steam charges 12% on Workshop sales. SkinBox charges a flat 2% to the seller at sale time — that is the only fee every sale pays. The one other fee SkinBox keeps is optional: a buyer can add Trade Protection to a trade with a seller for 2% of the price ($0.25 minimum). Moving money is a separate cost and is not free: card deposits and bank payouts carry Stripe's own charge, which is passed through at cost with no markup added. The wallet screen shows the exact deduction and the exact amount you will receive before you confirm anything. The green '−X%' chip on each card shows how much you save versus the Steam store price. Test mode: no real money moves yet."
   },
   {
     s: 'problems',

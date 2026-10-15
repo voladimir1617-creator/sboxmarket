@@ -18158,8 +18158,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                                 ? 'Test mode — no payment processor is charged, so 100% of your deposit reaches your wallet.'
                                 : 'Test mode — simulated payout, no processor fee applied.')
                             : (tab === 'deposit'
-                                ? `This is the payment processor’s fee, passed through at cost. ${BRAND.name} adds nothing to it — our only fee is 2% when an item sells.`
-                                : `This is the payment processor’s payout cost, passed through at cost. Payouts arrive in 1-2 business days. ${BRAND.name} charges no withdrawal fee — our only fee is 2% when an item sells.`)
+                                ? `This is the payment processor’s fee, passed through at cost. ${BRAND.name} adds nothing to it. Our fee is 2% when an item sells, plus optional Trade Protection a buyer can choose.`
+                                : `This is the payment processor’s payout cost, passed through at cost. Payouts arrive in 1-2 business days. ${BRAND.name} charges no withdrawal fee. Our fee is 2% when an item sells, plus optional Trade Protection a buyer can choose.`)
                         )
                       )
                     ),
