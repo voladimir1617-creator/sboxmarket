@@ -235,9 +235,9 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         'aria-label': 'Search items in catalogue'
       }),
       h('select', { className: 'sort-select', value: category, onChange: e => setCat(e.target.value), 'aria-label': 'Filter catalogue by category' },
-        CATS.map(c => h('option', { key: c, value: c }, c))),
+        CATS.map(c => h('option', { key: c, value: c }, c === 'All' ? 'All categories' : c))),
       h('select', { className: 'sort-select', value: rarity, onChange: e => setRar(e.target.value), 'aria-label': 'Filter catalogue by rarity' },
-        RARS.map(r => h('option', { key: r, value: r }, r))),
+        RARS.map(r => h('option', { key: r, value: r }, r === 'All' ? 'All rarities' : r))),
       h('select', { className: 'sort-select', value: sort, onChange: e => setSort(e.target.value), 'aria-label': 'Sort catalogue by' },
         SORTS.map(s => h('option', { key: s.v, value: s.v }, s.l))),
       h('label', {
@@ -486,7 +486,9 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
               h('td', { className: 'right db-mono accent' },
                 (parseFloat(item.lowestPrice) || 0) > 0
                   ? fmt(item.lowestPrice)
-                  : h('span', { style: { color: 'var(--ink-4)' } }, '—')),
+                  : h('span', { style: { color: 'var(--ink-4)' }, title: 'No listings right now' },
+                      h('span', { 'aria-hidden': true }, '—'),
+                      h('span', { className: 'visually-hidden' }, 'No listings right now'))),
               (() => {
                 const isStarred = starred && starred.has(item.id);
                 const label = !me
@@ -648,7 +650,13 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     return pool.filter(p => p.name.toLowerCase().includes(s)).slice(0, 30);
   }, [pool, search]);
 
+  // A signed-out visitor was told only to sign in, with nothing saying
+  // what a buy order does. One line, every clause true of BuyOrderService:
+  // it fills Buy Now listings only, at the listing's price, and charges
+  // the wallet at fill time.
   if (!me) return h(InfoModal, { title: 'Buy Orders', onClose },
+    h('p', { className: 'buy-orders-explainer', style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 14px', textAlign: 'center' } },
+      'Set a standing "pay up to $X" on any item and SkinBox buys the next matching Buy Now listing from your wallet. No money is held while it waits.'),
     h(SignInNeededEmptyState, { what: 'and manage your buy orders' }));
 
   const submit = async () => {

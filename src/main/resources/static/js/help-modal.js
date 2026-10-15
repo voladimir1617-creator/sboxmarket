@@ -93,6 +93,11 @@ const FAQ = [
     a: "Yes. Wallet → Transactions has a 'Cancel' button next to every PENDING withdrawal row. The full amount is credited back immediately and the row flips to CANCELLED. You don't need to wait for an admin rejection."
   },
   {
+    s: 'trade',
+    q: 'How do buy orders work?',
+    a: "Pick an item, a max price below its current Buy Now price, and a quantity up to 100. When a Buy Now listing for that item appears at or under your max, SkinBox buys it at the listing's price. No money is held while the order waits: your wallet is charged only when a listing matches, and an order you can't afford at that moment is skipped. Buy orders never buy auctions. An order with no fills or edits for 30 days expires; editing it restarts the clock."
+  },
+  {
     s: 'problems',
     q: 'Why did my buy order auto-expire?',
     a: "Standing buy orders auto-expire after 30 days of inactivity. This prevents a long-forgotten order from surprise-firing months after you stopped wanting the item. If you're still interested, re-create it from Profile → Buy Orders. No money is held while an order waits: your wallet is charged only when a listing matches, and an order you can't afford at that moment is skipped."
