@@ -6,4 +6,8 @@
 # EnvironmentPostProcessor listed here runs for EVERY SpringApplication in this
 # jar, including @SpringBootTest, so no boot path can quietly skip it.
 org.springframework.boot.env.EnvironmentPostProcessor=\
-  com.sboxmarket.config.H2CredentialGuard
+  com.sboxmarket.config.H2CredentialGuard,\
+  com.sboxmarket.config.ProdConfigValidator
+#
+# ProdConfigValidator refuses a misconfigured `prod` start the same way, before
+# any bean or the web server exists; it does nothing under any other profile.

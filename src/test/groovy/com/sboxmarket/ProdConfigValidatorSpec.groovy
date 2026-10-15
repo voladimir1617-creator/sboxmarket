@@ -313,4 +313,92 @@ class ProdConfigValidatorSpec extends Specification {
         violations.any { it.contains('STRIPE_PUBLISHABLE_KEY') }
         violations.any { it.contains('STRIPE_WEBHOOK_SECRET') }
     }
+
+
+    // ── hardening switches (security review 2026-10-15, finding 5) ──
+
+    @spock.lang.Unroll
+    def "#name=#value in prod → refuse to start"() {
+        given:
+        Map<String, String> env = validEnv()
+        env[name] = value
+        stubEnv(env)
+
+        when:
+        List<String> violations = validator.findViolations()
+
+        then:
+        violations.size() == 1
+        violations[0].contains(reported)
+
+        where:
+        name                                  | value                     || reported
+        'SWAGGER_ENABLED'                     | 'true'                    || 'SWAGGER_ENABLED'
+        'SWAGGER_ENABLED'                     | 'yes'                     || 'SWAGGER_ENABLED'
+        'springdoc.swagger-ui.enabled'        | 'true'                    || 'SWAGGER_ENABLED'
+        'COOKIE_SECURE'                       | 'false'                   || 'COOKIE_SECURE'
+        'server.servlet.session.cookie.secure'| 'off'                     || 'COOKIE_SECURE'
+        'CORS_ALLOWED_ORIGINS'                | '*'                       || 'CORS_ALLOWED_ORIGINS'
+        'CORS_ALLOWED_ORIGINS'                | 'https://a.com, *'        || 'CORS_ALLOWED_ORIGINS'
+        'security.cors-allowed-origins'       | 'https://*.skinbox.market'|| 'CORS_ALLOWED_ORIGINS'
+        'SECURITY_CSRF'                       | 'false'                   || 'SECURITY_CSRF'
+        'security.csrf-enabled'               | 'no'                      || 'SECURITY_CSRF'
+    }
+
+    def "the safe hardening values pass"() {
+        given:
+        Map<String, String> env = validEnv()
+        env.SWAGGER_ENABLED = 'false'
+        env.COOKIE_SECURE = 'true'
+        env.SECURITY_CSRF = 'true'
+        env.CORS_ALLOWED_ORIGINS = 'https://skinbox.market,https://www.skinbox.market'
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().isEmpty()
+    }
+
+    // ── runs before start-up, as an EnvironmentPostProcessor ──
+
+    private static org.springframework.core.env.StandardEnvironment realEnv(List<String> profiles, Map<String, String> values) {
+        def env = new org.springframework.core.env.StandardEnvironment()
+        if (profiles) env.setActiveProfiles(profiles as String[])
+        env.propertySources.addFirst(new org.springframework.core.env.MapPropertySource('spec', values as Map<String, Object>))
+        env
+    }
+
+    def "a misconfigured prod start is refused before the context exists"() {
+        given:
+        Map<String, String> env = validEnv()
+        env.CORS_ALLOWED_ORIGINS = '*'
+
+        when:
+        new ProdConfigValidator().postProcessEnvironment(realEnv(['prod'], env), null)
+
+        then:
+        def e = thrown(IllegalStateException)
+        e.message.contains('CORS_ALLOWED_ORIGINS')
+    }
+
+    def "a correct prod config starts"() {
+        when:
+        new ProdConfigValidator().postProcessEnvironment(realEnv(['prod'], validEnv()), null)
+
+        then:
+        noExceptionThrown()
+    }
+
+    def "outside the prod profile the guard does nothing, even on a dev config"() {
+        when:
+        new ProdConfigValidator().postProcessEnvironment(realEnv(['dev'], [CORS_ALLOWED_ORIGINS: '*']), null)
+
+        then:
+        noExceptionThrown()
+    }
+
+    def "the guard is registered to run before start-up"() {
+        expect:
+        getClass().getResourceAsStream('/META-INF/spring.factories').text
+            .contains('com.sboxmarket.config.ProdConfigValidator')
+    }
 }
