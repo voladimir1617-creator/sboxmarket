@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=274';
+} from './modals.js?v=275';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -7150,7 +7150,7 @@ export function App() {
               // strict "<" and ">" chips stop a cent short: max=2 put a
               // $2.00 item under "<$2" as well as "$2–$5".
               { min: '',      max: '1.99', fmt: (lo, hi) => '<' + fmt(2) },
-              { min: '2',     max: '5',    fmt: (lo, hi) => fmt(2) + '–' + fmt(5) },
+              { min: '2',     max: '4.99', fmt: (lo, hi) => fmt(2) + '–' + fmt(5) },
               { min: '5',     max: '10',   fmt: (lo, hi) => fmt(5) + '–' + fmt(10) },
               { min: '10.01', max: '',     fmt: (lo, hi) => '>' + fmt(10) }
             ].map(chip => {
@@ -7687,10 +7687,14 @@ export function App() {
                   // the listing total beside it is what the rarity and category
                   // counts in the sidebar add up to. "38 listings found" over a
                   // sidebar summing to 79 read as two different answers.
-                  h('strong', null, dedupedListings.length), dedupedListings.length === 1 ? ' item found' : ' items found',
+                  // "+" while more pages remain: the count covers only the
+                  // listings loaded so far.
+                  h('strong', null, dedupedListings.length + (hasMore ? '+' : '')),
+                  (dedupedListings.length === 1 && !hasMore) ? ' item found' : ' items found',
                   (() => {
-                    const shown = new Set(dedupedListings.map(l => l?.item?.id));
-                    const n = listings.filter(l => shown.has(l?.item?.id)).length;
+                    // Sum the per-card counts, which honour the Deals, New,
+                    // Hide-mine and type filters; the raw page did not.
+                    const n = dedupedListings.reduce((sum, l) => sum + (l.__listingCount || 1), 0);
                     return n > dedupedListings.length
                       ? h('span', { className: 'results-meta-listings' }, ` · ${n} listings`)
                       : null;
@@ -7942,7 +7946,7 @@ export function App() {
                     disabled: loadingMore,
                     onClick: loadMore,
                     title: `Load the next 100 listings after the current ${listings.length}`
-                  }, loadingMore ? 'Loading…' : `↓ Load more (${listings.length} shown)`)
+                  }, loadingMore ? 'Loading…' : `↓ Load more (${listings.length} listings loaded)`)
                 )
               )
       )
@@ -9252,13 +9256,6 @@ export function App() {
                           : h('span', { style: { color: 'var(--text-secondary)', fontWeight: 600 } }, it.sellerName)
                       )
                     ),
-                    /* CSFloat-1:1: per-row float bar in the cart, mirroring
-                       the grid card affordance so the cart visually carries
-                       the same rarity/wear language. Decorative only. */
-                    h('div', { className: 'cart-floatbar', 'aria-hidden': true },
-                      h('div', { className: 'cart-floatbar-thumb',
-                                 style: { left: ((Number(it.id || 1) * 19) % 88 + 6) + '%' } })
-                    )
                   ),
                   h('div', { className: 'cart-price' },
                     fmt(newPrice != null ? newPrice : it.price)

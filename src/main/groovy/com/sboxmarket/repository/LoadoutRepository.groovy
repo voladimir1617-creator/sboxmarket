@@ -49,10 +49,15 @@ interface LoadoutRepository extends JpaRepository<Loadout, Long> {
      *  JPQL forbids `NOT IN ()`, so the caller always passes a non-empty
      *  `exclude` collection — a sentinel `[-1L]` on the first pick, since
      *  item ids are positive IDENTITY values and never collide with -1.
-     *  Caller passes `PageRequest.of(0, 1)` since we only need the cheapest. */
+     *  Caller passes `PageRequest.of(0, 1)` since we only need the cheapest.
+     *
+     *  Listed items only: the Steam price sync writes Steam's price into
+     *  `lowestPrice` for items nobody sells here, and Generate promises the
+     *  cheapest active listing. */
     @Query("""
         SELECT i FROM Item i
         WHERE (:category = '' OR i.category = :category)
+          AND i.isListed = true
           AND i.lowestPrice IS NOT NULL
           AND i.lowestPrice > 0
           AND i.lowestPrice <= :budget

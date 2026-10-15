@@ -608,8 +608,10 @@ export async function fetchListingsForItem(itemId) {
   // the item page must keep rendering. Anything else — 500, offline,
   // timeout — is unreadable, and the item page now says so instead of
   // claiming the item "has been removed or never existed".
+  // no-cache: the server sends `max-age=15`, so the re-read right after a
+  // bid otherwise came back from the browser cache with the old price.
   const data = await safeJson(`${API}/listings/item/${itemId}`,
-    undefined, { expect: [400, 404], throwOnFailure: true });
+    { cache: 'no-cache' }, { expect: [400, 404], throwOnFailure: true });
   return Array.isArray(data) ? data : [];
 }
 
