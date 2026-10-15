@@ -76,7 +76,9 @@ class SellerStatsController {
                 .body(cached.payload as List<Map>)
         }
         def since = System.currentTimeMillis() - (win * 24L * 60L * 60L * 1000L)
-        def rows  = tradeRepository.findTopSellersSince(since, PageRequest.of(0, lim))
+        // Over-fetch: banned sellers are dropped below, and the rail should
+        // still fill `lim` cards when one of the top sellers is banned.
+        def rows  = tradeRepository.findTopSellersSince(since, PageRequest.of(0, lim + 10))
         if (rows.isEmpty()) {
             topCache.set([ key: cacheKey, at: System.currentTimeMillis(), payload: [] ])
             return ResponseEntity.ok()
@@ -126,7 +128,7 @@ class SellerStatsController {
                 totalRevenue: row.totalRevenue != null ? (row.totalRevenue as BigDecimal).setScale(2, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO,
                 rating:       ratings[sellerId]
             ]
-        }.findAll { it != null }
+        }.findAll { it != null }.take(lim)
         topCache.set([ key: cacheKey, at: System.currentTimeMillis(), payload: payload ])
         // 2-minute browser cache on top of the in-memory server cache
         // (batch 740/741). The server cache protects the DB; the

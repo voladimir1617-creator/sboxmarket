@@ -304,8 +304,9 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
 
     /** Count of live AUCTION listings that haven't expired yet — feeds the
      *  homepage MarketStatsStrip's "N auctions running" chip. :now is the
-     *  current epoch-ms (caller supplies it so tests can freeze time). */
-    @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'ACTIVE' AND l.listingType = 'AUCTION' AND (l.expiresAt IS NULL OR l.expiresAt > :now)")
+     *  current epoch-ms (caller supplies it so tests can freeze time).
+     *  Hidden (stall away) listings are left out, as the grid leaves them out. */
+    @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'ACTIVE' AND l.listingType = 'AUCTION' AND (l.expiresAt IS NULL OR l.expiresAt > :now) AND (l.hidden IS NULL OR l.hidden = false)")
     Long countActiveAuctions(@Param("now") Long now)
 
     @Query("SELECT SUM(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL THEN l.currentBid ELSE l.price END) FROM Listing l WHERE l.status IN ('SOLD','RELISTED') AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId) AND l.soldAt > :since")
