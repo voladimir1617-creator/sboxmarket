@@ -30702,3 +30702,11 @@ html body .info-modal .info-modal-body .profile-row-value > div > button.btn.btn
     html body .db-table-scroll > table.db-table > tbody > tr.db-row > td:nth-child(7)::after { content: ' views'; color: var(--ink-4); }
   }
 }
+
+/* Stall hero: the Follow button kept the hero's grey button text on top of its
+   blue fill (1.6:1, unreadable). Give it the dark ink the hero's own "My stall"
+   button already uses on the same blue (about 4.9:1). Hover and focus keep the
+   shared light-blue outline style. */
+.stall-hero > .stall-share-btn[title*="Get notified"]:not(:hover):not(:focus-visible):not(:active),
+.stall-hero > .stall-share-btn[title*="Get notified"]:not(:hover):not(:focus-visible):not(:active) .stall-share-icon,
+.stall-hero > .stall-share-btn[title*="Get notified"]:not(:hover):not(:focus-visible):not(:active) span { color: rgb(5, 16, 24) !important; opacity: 1 !important; }
