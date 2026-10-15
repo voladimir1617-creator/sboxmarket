@@ -408,16 +408,14 @@ class SavedSearchService {
             if (listedAt < cutoff) return false
         }
         // Discount gate — skip listings whose `steamPrice` is missing/0
-        // (can't compute a meaningful percent). dealsOnly is the 1% gate,
+        // (can't compute a meaningful percent). dealsOnly is any price
+        // under Steam, the same rule as the market grid's Deals toggle;
         // minDiscountPct is the user-picked floor; both apply together.
         if (Boolean.TRUE.equals(preset.dealsOnly) || (preset.minDiscountPct ?: 0) > 0) {
             def steamPrice = listing.item?.steamPrice
             if (steamPrice == null || steamPrice <= BigDecimal.ZERO) return false
             if (price >= steamPrice) return false
-            def discFloor = Math.max(
-                Boolean.TRUE.equals(preset.dealsOnly) ? 1 : 0,
-                (preset.minDiscountPct ?: 0) as int
-            )
+            def discFloor = (preset.minDiscountPct ?: 0) as int
             def actual = (steamPrice - price) * 100G / steamPrice
             if (actual < discFloor) return false
         }

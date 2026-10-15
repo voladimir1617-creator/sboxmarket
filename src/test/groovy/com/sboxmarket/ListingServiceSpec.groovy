@@ -1126,6 +1126,21 @@ class ListingServiceSpec extends Specification {
         rows[0].sellerName == 'Alice'
     }
 
+    def "findRecentSales reports a settled auction at its winning bid, not its starting bid"() {
+        given:
+        def l = listingFor(id: 51L, price: new BigDecimal('1.00'))
+        l.listingType = 'AUCTION'
+        l.currentBid = new BigDecimal('50.00')
+        l.soldAt = 1_700_000_000_000L
+        listingRepository.findRecentlySold(_) >> [l]
+
+        when:
+        def rows = service.findRecentSales(5)
+
+        then:
+        rows[0].price == new BigDecimal('50.00')
+    }
+
     def "findRecentSales floors the limit at 1"() {
         given:
         org.springframework.data.domain.Pageable seen = null

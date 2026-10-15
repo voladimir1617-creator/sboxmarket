@@ -222,6 +222,13 @@ export async function playNotifyDing(opts) {
   } catch (e) { return { ok: false, reason: 'exception', error: String(e).slice(0,80) }; }
 }
 
+// Read state changed from the bell: the open /notifications page re-reads.
+// Tagged so the page can tell it from its own event and not reload itself
+// in a loop.
+function tellNotificationsPage() {
+  try { window.dispatchEvent(new CustomEvent('sb:notifications-changed', { detail: { from: 'bell' } })); } catch (_) {}
+}
+
 export function NotificationBell({ me }) {
   const [open, setOpen]     = useState(false);
   const [items, setItems]   = useState([]);
@@ -319,6 +326,7 @@ export function NotificationBell({ me }) {
         if (!r || r.error || r.code) return;
       } catch (_) { return; }
       ids.forEach(id => markedOnOpenRef.current.add(id));
+      tellNotificationsPage();
       if (cancelled) return;
       const muted = readMuted();
       if (muted.size > 0) {
@@ -518,6 +526,7 @@ export function NotificationBell({ me }) {
         return;
       }
       await load();
+      tellNotificationsPage();
       if (before > 0) {
         toast(`Marked ${before} notification${before === 1 ? '' : 's'} read.`, 'ok');
       }
@@ -539,6 +548,7 @@ export function NotificationBell({ me }) {
       setUnread(u => Math.max(0, u - 1));
       setItems(prev => prev.map(row => row.id === n.id ? { ...row, read: true } : row));
       try { await markNotificationRead(n.id); } catch (_) {}
+      tellNotificationsPage();
     }
     setOpen(false);
     let target = n.path || fallbackPath(n.kind);
