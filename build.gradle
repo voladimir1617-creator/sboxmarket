@@ -1,7 +1,7 @@
 plugins {
     id 'groovy'
-    id 'org.springframework.boot' version '3.2.12'
-    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.springframework.boot' version '3.5.16'
+    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.sboxmarket'
@@ -12,16 +12,13 @@ repositories {
     mavenCentral()
 }
 
-// Latest Tomcat 10.1 patch on top of Boot 3.2.12's 10.1.33: picks up the
-// fixes for the multipart and partial-PUT CVEs released since (2025-24813,
-// 2025-48988, 2025-52520). Same 10.1 line, so no API change.
+// Boot 3.5.16 ships Tomcat 10.1.55; keep the newer 10.1.60 patch this repo
+// already ran on (multipart and partial-PUT CVE fixes). Same 10.1 line.
 ext['tomcat.version'] = '10.1.60'
 
-// Bumps for known advisories (checked on OSV 2026-10-15):
-// pgjdbc 42.6.2 -> 42.7.11 (CVE-2026-42198, SCRAM auth CPU DoS from a hostile
-// server) and commons-lang3 3.13.0 -> 3.18.0 (CVE-2025-48924, unbounded
-// recursion). Neither library is called directly by app code.
-ext['postgresql.version'] = '42.7.11'
+// commons-lang3: Boot 3.5.16 manages 3.17.0; 3.18.0 fixes CVE-2025-48924
+// (unbounded recursion). Not called directly by app code. (pgjdbc no longer
+// needs a pin: Boot 3.5.16 already manages the patched 42.7.11.)
 ext['commons-lang3.version'] = '3.18.0'
 
 dependencies {
@@ -50,12 +47,13 @@ dependencies {
     // Postgres runtime for the prod profile (no effect in dev)
     runtimeOnly 'org.postgresql:postgresql'
     // Flyway for prod schema migrations — runs at startup BEFORE JPA validates.
-    // flyway-core 9.22.x (managed by Spring Boot 3.2) supports Postgres out
-    // of the box without needing a separate flyway-database-postgresql module.
+    // Flyway 10+ (Boot 3.5 manages 11.x) moved Postgres support into its own
+    // module; without it a prod boot fails with "Unsupported Database".
     implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
 
     // Utils
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
 
     // Stripe
@@ -69,17 +67,13 @@ dependencies {
     // Structured (JSON) logging encoder for the `prod` profile. logback-spring.xml
     // wires LogstashEncoder onto the console + rolling-file appenders so prod logs
     // are machine-parseable (level/logger/thread/MDC `cid`) for Loki/ELK/Datadog.
-    // 7.4 is the last release line targeting logback 1.4.x (SLF4J 2.x) — it drops
-    // logback 1.2 support and is built against logback 1.3.x/Jackson 2.15.x, both
-    // ABI-compatible with the logback 1.4.14 + Jackson 2.15.x that Spring Boot
-    // 3.2.3 bundles. The 8.x line raises the floor to logback 1.5, which would
-    // mismatch 3.2.x, so we pin 7.4 deliberately.
-    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+    // The 8.x line targets logback 1.5, which Spring Boot 3.5 bundles.
+    implementation 'net.logstash.logback:logstash-logback-encoder:8.1'
 
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     // Spock 2.4-M6 restores @Autowired field injection into Groovy specs
-    // with Spring Boot 3.2 — the 2.3 line was silently leaving fields null
+    // with Spring Boot 3.x — the 2.3 line was silently leaving fields null
     // under this exact JVM/Gradle/Groovy combination. The M-release is the
     // latest on maven central as of 2026-04 and has been stable in CI for
     // us through 2.3 → 2.4 upgrade testing.

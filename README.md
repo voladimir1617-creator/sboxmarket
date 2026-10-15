@@ -233,7 +233,7 @@ Services throw typed exceptions only — raw `RuntimeException` becomes a 500 an
 
 | Layer     | Technology                          |
 |-----------|-------------------------------------|
-| Backend   | Spring Boot 3.2 + Groovy 4          |
+| Backend   | Spring Boot 3.5 + Groovy 4          |
 | Database  | H2 (in-memory, swap to Postgres)    |
 | ORM       | Spring Data JPA / Hibernate         |
 | API Docs  | SpringDoc OpenAPI (Swagger)         |
