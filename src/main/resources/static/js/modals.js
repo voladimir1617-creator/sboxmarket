@@ -9325,6 +9325,7 @@ function ProfileTradesTab({ me, privacy }) {
                     className: 'chat-input',
                     style: { flex: 1 },
                     placeholder: 'Type a message…',
+                    'aria-label': 'Message to your trade partner',
                     value: chatDraft,
                     maxLength: 2000,
                     onChange: e => setChatDraft(e.target.value),
@@ -9763,7 +9764,13 @@ function ProfileOffersTab() {
   const load = useCallback(async () => {
     setErr(false);
     setData(null);
-    try { const d = await fetchBoth(); if (aliveRef.current) setData(d); }
+    try {
+      const d = await fetchBoth();
+      if (aliveRef.current) setData(d);
+      // Accept / reject / counter here reload through this; tell the nav
+      // Offers badge too, as the Offers page does.
+      window.dispatchEvent(new Event('sb:offers-changed'));
+    }
     catch (_) { if (aliveRef.current) setErr(true); }
   }, [fetchBoth]);
   // Silent refresh — same fetch pair, but doesn't flash the spinner by
@@ -10298,7 +10305,19 @@ function ProfileOffersTab() {
       const isIncoming = tab === 'incoming';
       const pending = (isIncoming ? data.incoming : data.outgoing).filter(o => o.status === 'PENDING' && !(isIncoming && o.author === 'SELLER'));
       if (pending.length === 0) return null;
-      const sum = pending.reduce((acc, o) => acc + (parseFloat(o.amount) || 0), 0);
+      // Incoming: accepting one offer cancels the rest on that listing, so
+      // only the best offer per listing can ever be collected.
+      let counted = pending;
+      if (isIncoming) {
+        const best = new Map();
+        pending.forEach(o => {
+          const k = o.listingId != null ? o.listingId : 'offer-' + o.id;
+          const cur = best.get(k);
+          if (!cur || (parseFloat(o.amount) || 0) > (parseFloat(cur.amount) || 0)) best.set(k, o);
+        });
+        counted = Array.from(best.values());
+      }
+      const sum = counted.reduce((acc, o) => acc + (parseFloat(o.amount) || 0), 0);
       return h('div', {
         role: 'region',
         'aria-label': isIncoming ? 'Incoming offers revenue summary' : 'Outgoing offers capital summary',
@@ -10312,11 +10331,11 @@ function ProfileOffersTab() {
       },
         isIncoming
           ? h('span', {
-              title: 'Sum of pending-offer amounts across your incoming list. This is the gross revenue you\'d collect (before 2% platform fee) if you accepted every pending offer right now.'
+              title: 'The best pending offer on each of your listings, added up. Accepting one offer cancels the others on that listing, so this is the most you could collect (before 2% platform fee) right now.'
             },
               h('strong', { style: { color: 'var(--accent)' } }, fmt(sum)),
-              ' in pending offers across ', pending.length, ' listing',
-              pending.length === 1 ? '' : 's'
+              ' in pending offers across ', counted.length, ' listing',
+              counted.length === 1 ? '' : 's'
             )
           : h('span', {
               title: 'Sum of your pending outgoing offers. Offers don\'t pre-lock wallet funds — the balance is debited only on seller accept, so this is the potential outlay if every seller accepts.'
@@ -11085,7 +11104,7 @@ function ProfileSupportTab() {
         ))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', value: reply, maxLength: 2000, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
+        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', 'aria-label': 'Reply to support', value: reply, maxLength: 2000, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
         h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: submitReply }, 'Send')
       )
     );
@@ -11423,6 +11442,13 @@ export function SellerObligations({ policy, custody, isAuction, net }) {
             '.'))
   );
 }
+
+// The item name doubles as the sell card's keyboard button; these undo the
+// browser's button chrome so it looks like the name it replaced.
+const INVENTORY_NAME_BUTTON_STYLE = {
+  width: '100%', margin: 0, background: 'none', border: 0,
+  textAlign: 'inherit', cursor: 'pointer'
+};
 
 export function SellItemsModal({ onClose, me, onRefresh }) {
   // What the seller commits to once it sells, quoted from the server's own
@@ -12888,6 +12914,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           h('input', {
             className: 'sell-filter-search',
             placeholder: 'Search items…',
+            'aria-label': 'Search your inventory',
             value: sellSearch,
             onChange: e => setSellSearch(e.target.value)
           }),
@@ -12917,23 +12944,16 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // could click it into a form that could only fail. Now it carries
           // no button semantics at all, and the reason plus the way out are
           // ON the card — nothing to click, nothing to find out the hard way.
+          // The card stays clickable with the mouse, but its button for
+          // keyboards and screen readers is the item name below: a card
+          // with role="button" around the bulk checkbox and Quick Sell
+          // nested buttons inside a button.
           onClick: steamRowBlock(si) ? undefined : () => startPickSteam(si),
-          role: steamRowBlock(si) ? null : 'button',
-          tabIndex: steamRowBlock(si) ? null : 0,
           'aria-label': !steamRowBlock(si)
-            ? `List ${si.name} for sale${bulkSelected.has(si.assetId) ? ' (selected for bulk)' : ''}`
+            ? null
             : steamRowBlock(si) === 'ALREADY_LISTED'
               ? `${si.name} — already listed, not available to list again`
-              : `${si.name} — not tradable on Steam right now`,
-          onKeyDown: (e) => {
-            if (steamRowBlock(si)) return;
-            const tag = (e.target?.tagName || '').toLowerCase();
-            if (tag === 'input' || tag === 'button' || tag === 'label') return;
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              startPickSteam(si);
-            }
-          }
+              : `${si.name} — not tradable on Steam right now`
         },
           // Bulk-select checkbox (batch 370) — absolute positioned in the
           // top-left. stopPropagation so clicking the checkbox doesn't
@@ -12997,7 +13017,15 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             // instead of a broken-image icon.
             h(ItemImage, { item: { imageUrl: si.imageUrl || si.iconUrl, name: si.name, category: si.category, iconEmoji: '—' }, variant: 'card' })
           ),
-          h('div', { className: 'inventory-name' }, si.name),
+          steamRowBlock(si)
+            ? h('div', { className: 'inventory-name' }, si.name)
+            : h('button', {
+                type: 'button',
+                className: 'inventory-name',
+                style: INVENTORY_NAME_BUTTON_STYLE,
+                'aria-label': `List ${si.name} for sale${bulkSelected.has(si.assetId) ? ' (selected for bulk)' : ''}`,
+                onClick: e => { e.stopPropagation(); startPickSteam(si); }
+              }, si.name),
           h('div', { className: 'inventory-floor' }, (si.catalogueId && parseFloat(si.suggestedPrice) > 0) ? 'Floor ' + fmt(si.suggestedPrice) : 'Set your price'),
           // Batch 551 — buy-order demand chip. When a standing buy order
           // exists at >= floor, highlight that price so the seller can
@@ -13192,6 +13220,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
               className: 'price-input',
               style: { width: '100%', fontSize: 12 },
               placeholder: 'Filter inventory…',
+              'aria-label': 'Filter your inventory',
               value: sellSearch,
               onChange: e => setSellSearch(e.target.value)
             })
@@ -13209,21 +13238,18 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           : h('div', { className: 'inventory-grid' },
               filtered.map(l => h('div', {
                 key: l.id, className: 'inventory-item', 'data-listing-id': l.id,
-                onClick: () => startPickInternal(l),
-                role: 'button',
-                tabIndex: 0,
-                'aria-label': (() => { const rv = rowValue(l.item); return `Relist ${l.item?.name || 'item'} (${rv.kind === 'floor' ? 'floor ' + fmt(rv.v) : rv.kind === 'est' ? 'est. ' + fmt(rv.v) : 'unpriced'})`; })(),
-                onKeyDown: (e) => {
-                  const tag = (e.target?.tagName || '').toLowerCase();
-                  if (tag === 'button' || tag === 'a' || tag === 'input') return;
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    startPickInternal(l);
-                  }
-                }
+                // Mouse clicks anywhere on the card; the keyboard button is
+                // the name, so Quick Sell is not a button inside a button.
+                onClick: () => startPickInternal(l)
               },
                 h('div', { className: 'inventory-thumb' }, h(ItemImage, { item: l.item || {}, variant: 'thumb' })),
-                h('div', { className: 'inventory-name' }, l.item?.name || 'Item'),
+                h('button', {
+                  type: 'button',
+                  className: 'inventory-name',
+                  style: INVENTORY_NAME_BUTTON_STYLE,
+                  'aria-label': (() => { const rv = rowValue(l.item); return `Relist ${l.item?.name || 'item'} (${rv.kind === 'floor' ? 'floor ' + fmt(rv.v) : rv.kind === 'est' ? 'est. ' + fmt(rv.v) : 'unpriced'})`; })(),
+                  onClick: e => { e.stopPropagation(); startPickInternal(l); }
+                }, l.item?.name || 'Item'),
                 (() => {
                   // Live floor when listed; Steam reference price otherwise
                   // (never a bare "Floor $0.00" on a $76 item with no live
@@ -14241,6 +14267,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       },
         h('input', {
           type: 'date',
+          'aria-label': 'Stall return date',
           value: awayDraftDate,
           min: new Date().toISOString().slice(0, 10),
           max: new Date(Date.now() + 90 * 86400_000).toISOString().slice(0, 10),
@@ -15572,6 +15599,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     border: '1px solid var(--border)',
                     borderRadius: 5, color: 'var(--text-primary)'
                   },
+                  'aria-label': isIncoming ? 'Optional note with your counter-offer' : 'Optional note with your raised offer',
                   placeholder: isIncoming
                     ? 'Optional note ("can\'t go lower — already 30% below median")'
                     : 'Optional note ("brand new acct, fast pay")',
@@ -15591,6 +15619,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                       borderRadius: 5, color: 'var(--text-primary)'
                     },
                     placeholder: 'Optional reason shown to the buyer ("already committed to another buyer, sorry")',
+                    'aria-label': 'Optional reason shown to the buyer',
                     maxLength: 280,
                     value: rejectReply,
                     onChange: e => setRejectReply(e.target.value),
@@ -16198,8 +16227,13 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     const next = { ...snapshots };
     let changed = false;
     starred.forEach(l => {
-      if (next[l.item.id] == null) {
-        next[l.item.id] = parseFloat(l.price);
+      // An item starred with nothing listed has no price to compare
+      // against: wait for its first listing, and replace a 0 baseline
+      // saved before this was guarded.
+      const p = parseFloat(l.price);
+      if (l.__noListing || !(p > 0)) return;
+      if (!(next[l.item.id] > 0)) {
+        next[l.item.id] = p;
         changed = true;
       }
     });
@@ -16219,7 +16253,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   }, [starred, watchlist]);
 
   const rows = starred.map(l => {
-    const snap = snapshots[l.item.id];
+    const snap = snapshots[l.item.id] > 0 ? snapshots[l.item.id] : null;
     const cur = parseFloat(l.price);
     const delta = snap != null ? cur - snap : 0;
     const pct = snap && snap > 0 ? (delta / snap) * 100 : 0;
@@ -16793,7 +16827,13 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                     listing: r.listing,
                     starred: true,
                     onToggleStar,
-                    onClick: () => { if (!r.listing.__noListing) { onClose(); onOpen(r.listing); } }
+                    onClick: () => {
+                      onClose();
+                      // Nothing listed: the card still opens the item page
+                      // (history, buy order) its link points at.
+                      if (r.listing.__noListing) navigate('/item/' + r.listing.item.id);
+                      else onOpen(r.listing);
+                    }
                   }),
                   /* Stub-listing overlay: the item is watched but there's
                      nothing active on the market right now. */

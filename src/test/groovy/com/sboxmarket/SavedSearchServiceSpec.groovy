@@ -411,6 +411,17 @@ class SavedSearchServiceSpec extends Specification {
         SavedSearchService.matches(dealsOnly, oneCentOff)
     }
 
+    def "matches dealsOnly alerts on any price under Steam, like the market grid's Deals toggle"() {
+        given:
+        def dealsOnly = new SavedSearch(name: 'd', category: 'All', rarity: 'All',
+            dealsOnly: true)
+        def halfPctOff = listingFor(price: new BigDecimal('9.95'))
+        halfPctOff.item.steamPrice = new BigDecimal('10')   // 0.5% off
+
+        expect:
+        SavedSearchService.matches(dealsOnly, halfPctOff)
+    }
+
     def "delete returns true on hit / false on miss"() {
         when:
         def hit  = service.delete(10L, 1L)

@@ -815,7 +815,9 @@ class ListingService {
                 category:     l.item?.category,
                 rarity:       l.item?.rarity,
                 imageUrl:     l.item?.imageUrl,
-                price:        l.price,
+                // A settled auction keeps its starting bid in `price`; the
+                // hammer price is `currentBid`.
+                price:        com.sboxmarket.controller.ItemController.salePrice(l),
                 steamPrice:   l.item?.steamPrice,
                 soldAt:       l.soldAt,
                 sellerName:   l.sellerName,

@@ -308,7 +308,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'ACTIVE' AND l.listingType = 'AUCTION' AND (l.expiresAt IS NULL OR l.expiresAt > :now)")
     Long countActiveAuctions(@Param("now") Long now)
 
-    @Query("SELECT SUM(l.price) FROM Listing l WHERE l.status IN ('SOLD','RELISTED') AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId) AND l.soldAt > :since")
+    @Query("SELECT SUM(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL THEN l.currentBid ELSE l.price END) FROM Listing l WHERE l.status IN ('SOLD','RELISTED') AND (l.buyerUserId IS NULL OR l.sellerUserId IS NULL OR l.buyerUserId <> l.sellerUserId) AND l.soldAt > :since")
     BigDecimal sumVolumeAfter(@Param("since") Long since)
 
     /** Count of platform-wide SOLD listings since the cutoff — feeds

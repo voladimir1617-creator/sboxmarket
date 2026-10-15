@@ -2140,6 +2140,13 @@ export function NotificationsModal({ onClose, me }) {
       setLoading(false);
     }
   }, []);
+  // Rows marked read from the nav bell (opening it, Mark all read, a
+  // click) used to stay unread here until a reload.
+  useEffect(() => {
+    const onBell = e => { if (e && e.detail && e.detail.from === 'bell') load(); };
+    window.addEventListener('sb:notifications-changed', onBell);
+    return () => window.removeEventListener('sb:notifications-changed', onBell);
+  }, [load]);
   useEffect(() => { if (me) load(); }, [me, load]);
 
   // Batch 635 — filter-aware "Mark all read". When the user has
