@@ -147,12 +147,20 @@ class SteamAuthService {
         return false
     }
 
+    /** The return URL for one sign-in attempt. The per-attempt `state` rides
+     *  inside `openid.return_to`, which Steam signs, so a callback can only be
+     *  finished in the browser session that started it (login CSRF guard). */
+    String returnUrlFor(String state) {
+        if (!state) return returnUrl
+        returnUrl + (returnUrl.contains('?') ? '&' : '?') + 'state=' + URLEncoder.encode(state, 'UTF-8')
+    }
+
     /** Build the URL we redirect the browser to so Steam can authenticate the user. */
-    String buildLoginUrl() {
+    String buildLoginUrl(String state = null) {
         def params = [
             'openid.ns'         : 'http://specs.openid.net/auth/2.0',
             'openid.mode'       : 'checkid_setup',
-            'openid.return_to'  : returnUrl,
+            'openid.return_to'  : returnUrlFor(state),
             'openid.realm'      : realm,
             'openid.identity'   : 'http://specs.openid.net/auth/2.0/identifier_select',
             'openid.claimed_id' : 'http://specs.openid.net/auth/2.0/identifier_select',
@@ -179,7 +187,7 @@ class SteamAuthService {
      * for caller convenience / logging only and is NOT trusted: when it is
      * supplied it must match the raw value or verification fails.
      */
-    String verifyReturn(String rawQueryString, String claimedIdParam = null) {
+    String verifyReturn(String rawQueryString, String claimedIdParam = null, String expectedState = null) {
         if (!rawQueryString) {
             log.warn("Steam verify: empty query string")
             return null
@@ -202,9 +210,12 @@ class SteamAuthService {
         // explicitly is a standard OpenID relying-party requirement and
         // defence-in-depth. Checking it up front also avoids a wasted
         // check_authentication call on an obviously-bad callback. Reject
-        // unless it equals our configured return URL.
+        // unless it equals our configured return URL carrying this browser
+        // session's sign-in state (compared in constant time).
         def returnTo = paramFromQuery(rawQueryString, 'openid.return_to')
-        if (returnTo != returnUrl) {
+        def expectedReturnTo = returnUrlFor(expectedState)
+        if (returnTo == null || !java.security.MessageDigest.isEqual(
+                returnTo.getBytes('UTF-8'), expectedReturnTo.getBytes('UTF-8'))) {
             log.warn("Steam OpenID return_to mismatch")
             return null
         }
@@ -215,7 +226,10 @@ class SteamAuthService {
         // rewrite the real `openid.mode` param — an unanchored pattern would
         // also match a sibling like `x_openid.mode=...`, leaving the genuine
         // `openid.mode=id_res` in place and breaking verification.
-        def body = rawQueryString.replaceFirst(/(^|&)openid\.mode=[^&]*/, '$1openid.mode=check_authentication')
+        // Only the `openid.*` pairs go to Steam, byte for byte; our own `state`
+        // parameter (echoed back on the return URL) is not part of the assertion.
+        def openIdOnly = rawQueryString.split('&').findAll { it.startsWith('openid.') }.join('&')
+        def body = openIdOnly.replaceFirst(/(^|&)openid\.mode=[^&]*/, '$1openid.mode=check_authentication')
 
         String response = checkAuthentication(body)
         if (response == null) {
