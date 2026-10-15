@@ -1138,7 +1138,7 @@ nav.nav { display: flex !important; grid-template-columns: none !important; alig
 .view-btns button.active { color: var(--ink); background: color-mix(in oklab, var(--ink) 10%, var(--bg-1)); }
 .listing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
 .grid-card { position: relative; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; text-decoration: none; color: inherit; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 200ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-.grid-card:focus-visible { outline: none; border-color: var(--cta); box-shadow: 0 0 0 3px color-mix(in oklab, var(--cta) 25%, transparent); }
+.grid-card:has(.grid-card-link:focus-visible) { outline: none; border-color: var(--cta); box-shadow: 0 0 0 3px color-mix(in oklab, var(--cta) 25%, transparent); }
 .grid-thumb { position: relative; aspect-ratio: 1/1; background: radial-gradient(ellipse at 30% 20%, color-mix(in oklab, var(--ink) 4%, transparent), transparent 60%), repeating-linear-gradient(45deg, var(--bg-2) 0 2px, transparent 2px 10px), var(--bg-1); display: grid; place-items: center; border-bottom: 1px solid var(--line); overflow: hidden; }
 .grid-thumb img { width: 80%; height: 80%; object-fit: contain; filter: drop-shadow(0 6px 20px rgba(0,0,0,0.4)); }
 .grid-body { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 3px; }
@@ -2968,7 +2968,7 @@ button, .btn, button.btn { text-decoration: none !important; }
 .toolbar-refresh { color: var(--ink-2); }
 .toolbar-refresh:hover { color: var(--cta); }
 .pulse:hover .pulse-track { animation-play-state: paused; }
-.grid-card:focus-visible { outline: 2px solid var(--cta) !important; outline-offset: 4px; }
+.grid-card:has(.grid-card-link:focus-visible) { outline: 2px solid var(--cta) !important; outline-offset: 4px; }
 .nav-icon-btn:hover { background: color-mix(in oklab, var(--cta) 8%, transparent); }
 .full-page-mode .modal-name { font-family: 'Roboto', 'Inter', system-ui, sans-serif !important; font-size: 28px !important; font-weight: 700 !important; letter-spacing: -0.025em !important; line-height: 1.1 !important; }
 .kbd-chip { padding: 4px 8px !important; font-size: 11px !important; font-family: var(--mono) !important; background: var(--bg-2) !important; border: 1px solid var(--line-2) !important; border-radius: 4px !important; }
@@ -21395,7 +21395,7 @@ body .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-back, body .
 .skip-link:focus, .skip-link:focus-visible { outline: 2px solid #40a0fe !important; outline-offset: 3px !important; box-shadow: 0 0 0 4px rgba(64, 160, 254, 0.22) !important; background: #0b1220 !important; color: #fff !important; }
 .modal :focus-visible, .sheet :focus-visible, [role="dialog"] :focus-visible, .cdk-overlay-pane :focus-visible { outline: 2px solid #40a0fe !important; outline-offset: 1px !important; box-shadow: 0 0 0 3px rgba(64, 160, 254, 0.18) !important; }
 .modal[aria-hidden="true"], [role="dialog"][aria-hidden="true"] { display: none !important; }
-.grid-card:focus-visible, .item-card:focus-visible, .market-card:focus-visible, a.grid-card:focus-visible { outline: 2px solid #40a0fe !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px rgba(64, 160, 254, 0.18) !important; border-radius: 8px !important; }
+.grid-card:has(.grid-card-link:focus-visible), .item-card:focus-visible, .market-card:focus-visible, div.grid-card:has(.grid-card-link:focus-visible) { outline: 2px solid #40a0fe !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px rgba(64, 160, 254, 0.18) !important; border-radius: 8px !important; }
 select { font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important; font-size: 16px !important; font-weight: 400 !important; letter-spacing: 0.5px !important; color: rgb(255, 255, 255) !important; line-height: 25px !important; }
 select option { font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important; font-size: 16px !important; letter-spacing: 0.5px !important; }
 .dropdown-panel, .csfloat-dropdown-panel, .custom-select-panel, .select-panel, .cdk-overlay-pane .mat-mdc-select-panel, .mat-mdc-select-panel, [class*="dropdown-options"], [class*="select-options"] { background: #2a2a2c !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: 4px !important; padding: 8px 0 !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
@@ -24582,23 +24582,23 @@ html body .wallet-modal .wallet-submit:disabled { background-color: rgba(255, 25
 html body .wallet-modal .modal-close { width: 40px !important; height: 40px !important; padding: 8px !important; border-radius: 50% !important; background-color: transparent !important; border: none !important; color: rgb(255, 255, 255) !important; font-size: 20px !important; line-height: 24px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; letter-spacing: normal !important; }
 html body .wallet-modal .modal-close:hover { background-color: rgba(255, 255, 255, 0.08) !important; }
 html body .wallet-modal .modal-close:active { background-color: rgba(255, 255, 255, 0.12) !important; }
-html body a.grid-card, html body .grid-card { border-radius: 12px !important; border-width: 2px !important; border-style: solid !important; transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), z-index 0s linear !important; box-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card:hover, html body .grid-card:hover { transform: translateY(-3px) !important; z-index: 1 !important; }
-html body a.grid-card:hover, html body .grid-card:hover { border-color: rgba(193, 206, 255, 0.14) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card:focus-visible, html body .grid-card:focus-visible { outline: 2px solid color-mix(in oklab, var(--cta) 70%, transparent) !important; outline-offset: 2px !important; transform: translateY(-3px) !important; z-index: 1 !important; border-color: rgba(193, 206, 255, 0.20) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card:active, html body .grid-card:active { transform: translateY(-1px) !important; transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card.is-sold, html body a.grid-card[data-sold="true"], html body .grid-card.is-sold, html body .grid-card[data-sold="true"] { opacity: 0.55 !important; pointer-events: auto !important; cursor: not-allowed !important; filter: grayscale(0.55) !important; }
-html body a.grid-card.is-sold:hover, html body a.grid-card[data-sold="true"]:hover, html body .grid-card.is-sold:hover, html body .grid-card[data-sold="true"]:hover { transform: none !important; z-index: auto !important; border-color: rgba(255, 255, 255, 0.06) !important; box-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card.is-sold::after, html body a.grid-card[data-sold="true"]::after, html body .grid-card.is-sold::after, html body .grid-card[data-sold="true"]::after { content: "SOLD" !important; position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) rotate(-12deg) !important; background-color: rgba(15, 17, 22, 0.85) !important; color: rgb(245, 80, 80) !important; font-size: 18px !important; font-weight: 800 !important; letter-spacing: 3px !important; padding: 6px 18px !important; border: 2px solid rgb(245, 80, 80) !important; border-radius: 4px !important; pointer-events: none !important; z-index: 4 !important; }
-html body a.grid-card:has(.grid-cart-btn.in), html body .grid-card:has(.grid-cart-btn.in) { border-color: rgba(35, 123, 255, 0.25) !important; box-shadow: 0 0 0 1px rgba(35, 123, 255, 0.18) inset, 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card:has(.grid-cart-btn.in):hover, html body .grid-card:has(.grid-cart-btn.in):hover { border-color: rgba(35, 123, 255, 0.45) !important; box-shadow: 0 0 0 1px rgba(35, 123, 255, 0.30) inset, 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card.is-auction, html body .grid-card.is-auction { border-color: rgba(251, 191, 36, 0.10) !important; }
-html body a.grid-card.is-auction:hover, html body .grid-card.is-auction:hover { border-color: rgba(251, 191, 36, 0.22) !important; box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.10) inset, 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
-html body a.grid-card .grid-cart-btn, html body a.grid-card .grid-star, html body .grid-card .grid-cart-btn, html body .grid-card .grid-star { transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1), transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important; opacity: 0 !important; transform: translateY(-4px) !important; }
-html body a.grid-card:hover .grid-cart-btn, html body a.grid-card:focus-visible .grid-cart-btn, html body a.grid-card:hover .grid-star, html body a.grid-card:focus-visible .grid-star, html body .grid-card:hover .grid-cart-btn, html body .grid-card:focus-visible .grid-cart-btn, html body .grid-card:hover .grid-star, html body .grid-card:focus-visible .grid-star { opacity: 1 !important; transform: translateY(0) !important; }
+html body div.grid-card, html body .grid-card { border-radius: 12px !important; border-width: 2px !important; border-style: solid !important; transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), z-index 0s linear !important; box-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
+html body div.grid-card:hover, html body .grid-card:hover { transform: translateY(-3px) !important; z-index: 1 !important; }
+html body div.grid-card:hover, html body .grid-card:hover { border-color: rgba(193, 206, 255, 0.14) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
+html body div.grid-card:has(.grid-card-link:focus-visible), html body .grid-card:has(.grid-card-link:focus-visible) { outline: 2px solid color-mix(in oklab, var(--cta) 70%, transparent) !important; outline-offset: 2px !important; transform: translateY(-3px) !important; z-index: 1 !important; border-color: rgba(193, 206, 255, 0.20) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
+html body div.grid-card:active, html body .grid-card:active { transform: translateY(-1px) !important; transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
+html body div.grid-card.is-sold, html body div.grid-card[data-sold="true"], html body .grid-card.is-sold, html body .grid-card[data-sold="true"] { opacity: 0.55 !important; pointer-events: auto !important; cursor: not-allowed !important; filter: grayscale(0.55) !important; }
+html body div.grid-card.is-sold:hover, html body div.grid-card[data-sold="true"]:hover, html body .grid-card.is-sold:hover, html body .grid-card[data-sold="true"]:hover { transform: none !important; z-index: auto !important; border-color: rgba(255, 255, 255, 0.06) !important; box-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
+html body div.grid-card.is-sold::after, html body div.grid-card[data-sold="true"]::after, html body .grid-card.is-sold::after, html body .grid-card[data-sold="true"]::after { content: "SOLD" !important; position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) rotate(-12deg) !important; background-color: rgba(15, 17, 22, 0.85) !important; color: rgb(245, 80, 80) !important; font-size: 18px !important; font-weight: 800 !important; letter-spacing: 3px !important; padding: 6px 18px !important; border: 2px solid rgb(245, 80, 80) !important; border-radius: 4px !important; pointer-events: none !important; z-index: 4 !important; }
+html body div.grid-card:has(.grid-cart-btn.in), html body .grid-card:has(.grid-cart-btn.in) { border-color: rgba(35, 123, 255, 0.25) !important; box-shadow: 0 0 0 1px rgba(35, 123, 255, 0.18) inset, 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12) !important; }
+html body div.grid-card:has(.grid-cart-btn.in):hover, html body .grid-card:has(.grid-cart-btn.in):hover { border-color: rgba(35, 123, 255, 0.45) !important; box-shadow: 0 0 0 1px rgba(35, 123, 255, 0.30) inset, 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
+html body div.grid-card.is-auction, html body .grid-card.is-auction { border-color: rgba(251, 191, 36, 0.10) !important; }
+html body div.grid-card.is-auction:hover, html body .grid-card.is-auction:hover { border-color: rgba(251, 191, 36, 0.22) !important; box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.10) inset, 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
+html body div.grid-card .grid-cart-btn, html body div.grid-card .grid-star, html body .grid-card .grid-cart-btn, html body .grid-card .grid-star { transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1), transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important; opacity: 0 !important; transform: translateY(-4px) !important; }
+html body div.grid-card:hover .grid-cart-btn, html body div.grid-card:has(.grid-card-link:focus-visible) .grid-cart-btn, html body div.grid-card:hover .grid-star, html body div.grid-card:has(.grid-card-link:focus-visible) .grid-star, html body .grid-card:hover .grid-cart-btn, html body .grid-card:has(.grid-card-link:focus-visible) .grid-cart-btn, html body .grid-card:hover .grid-star, html body .grid-card:has(.grid-card-link:focus-visible) .grid-star { opacity: 1 !important; transform: translateY(0) !important; }
 /* A cart or heart button with keyboard focus stays visible: Tab off the card link drops the card's own :focus-visible. */
-html body .grid-card .grid-cart-btn:focus-visible, html body .grid-card .grid-star:focus-visible { opacity: 1 !important; transform: translateY(0) !important; }
-html body a.grid-card .grid-cart-btn.in, html body a.grid-card .grid-star.on, html body .grid-card .grid-cart-btn.in, html body .grid-card .grid-star.on { opacity: 1 !important; transform: translateY(0) !important; }
+html body .grid-card .grid-cart-btn:focus-visible, html body .grid-card .grid-star:focus-visible, html body .grid-card .gc-magnifier:focus-visible { opacity: 1 !important; transform: translateY(0) !important; }
+html body div.grid-card .grid-cart-btn.in, html body div.grid-card .grid-star.on, html body .grid-card .grid-cart-btn.in, html body .grid-card .grid-star.on { opacity: 1 !important; transform: translateY(0) !important; }
 html body .user-menu, html body .user-menu-dropdown, html body .user-dropdown, html body .profile-menu, html body .menu-popover, html body .popover.user-menu { min-width: 112px !important; max-width: 280px !important; width: auto !important; border-radius: 15px !important; background-color: rgba(21, 23, 28, 0.8) !important; border: 2px solid rgba(193, 206, 255, 0.07) !important; color: rgb(255, 255, 255) !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 16px !important; }
 html body .user-menu, html body .user-menu-dropdown, html body .user-dropdown, html body .profile-menu, html body .menu-popover, html body .popover.user-menu { box-shadow: rgba(0, 0, 0, 0.2) 0 5px 5px -3px, rgba(0, 0, 0, 0.14) 0 8px 10px 1px, rgba(0, 0, 0, 0.12) 0 3px 14px 2px !important; padding: 8px 0 !important; }
 html body .user-menu > .mat-mdc-menu-content, html body .user-menu-dropdown > .mat-mdc-menu-content, html body .user-menu .menu-content, html body .user-menu-dropdown .menu-content { padding: 8px 0 !important; background-color: transparent !important; }
@@ -27244,8 +27244,8 @@ html body .csfloat-home-hero-art .csfloat-home-hero-stack { width: 240px !import
 }
 @media (max-width: 600px) { body .mat-mdc-snack-bar-container .mdc-snackbar__surface, body .mat-mdc-snackbar-surface { min-width: 0 !important; max-width: 100% !important; width: 100% !important; }
 }
-html body a.grid-card, html body .grid-card { border-width: 2px !important; border-style: solid !important; border-color: rgba(0, 0, 0, 0) !important; }
-html body a.grid-card:hover, html body .grid-card:hover, html body a.grid-card:focus-visible, html body .grid-card:focus-visible { border-width: 2px !important; border-style: solid !important; border-color: rgba(193, 206, 255, 0.07) !important; }
+html body div.grid-card, html body .grid-card { border-width: 2px !important; border-style: solid !important; border-color: rgba(0, 0, 0, 0) !important; }
+html body div.grid-card:hover, html body .grid-card:hover, html body div.grid-card:has(.grid-card-link:focus-visible), html body .grid-card:has(.grid-card-link:focus-visible) { border-width: 2px !important; border-style: solid !important; border-color: rgba(193, 206, 255, 0.07) !important; }
 html body .grid-card .grid-footer .grid-price { font-size: 22px !important; font-weight: 500 !important; line-height: normal !important; }
 html body .modal.item-page > .modal-actions { position: static !important; bottom: auto !important; z-index: auto !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 html body .item-rail-actions-buy, html body button.item-rail-actions-buy, html body .modal.item-page .item-rail-actions-buy, html body .item-rail-actions-cart, html body button.item-rail-actions-cart, html body .modal.item-page .item-rail-actions-cart, html body .item-rail-actions-bargain, html body button.item-rail-actions-bargain, html body .modal.item-page .item-rail-actions-bargain { height: 40px !important; min-height: 40px !important; border-radius: 8px !important; }
@@ -28424,7 +28424,7 @@ html body [role="button"]:focus-visible,
 html body [role="tab"]:focus-visible,
 html body .chip:focus-visible, html body .filter-chip:focus-visible,
 html body .csfloat-chip:focus-visible, html body .csfloat-tab:focus-visible,
-html body .card:focus-visible, html body .grid-card:focus-visible,
+html body .card:focus-visible, html body .grid-card:has(.grid-card-link:focus-visible),
 html body .db-row:focus-visible, html body .nav-icon-btn:focus-visible,
 html body .nav-picker-chip:focus-visible, html body .csfloat-mkt-card:focus-visible {
   outline: 2px solid color-mix(in oklab, var(--cta) 70%, white 0%) !important;
@@ -29759,7 +29759,7 @@ html body select:focus-visible, html body textarea:focus-visible, html body [tab
   outline: 2px solid var(--accent, #237bff) !important;
   outline-offset: 2px !important;
 }
-html body .listing-grid > .grid-card:focus-visible { outline-offset: 3px !important; }
+html body .listing-grid > .grid-card:has(.grid-card-link:focus-visible) { outline-offset: 3px !important; }
 
 /* 4. Item page: the preview area gets the same rarity wash as the card so a
       missing or loading render is a lit stage, not a black hole; and the
@@ -29932,11 +29932,11 @@ html body .recent-sales-list .recent-sales-time { color: var(--ink-3) !important
    rule made them position: relative, so they sat in the image's flow, the +
    off-centre on the left and the ♡ over the item itself. Pinned top-right
    together, the way the reference markets place their card actions. */
-html body a.grid-card .grid-cart-btn.grid-cart-btn, html body a.grid-card .grid-star.grid-star { position: absolute !important; z-index: 4 !important; left: auto !important; bottom: auto !important; margin: 0 !important; }
-html body a.grid-card .grid-star.grid-star { top: 8px !important; right: 8px !important; }
-html body a.grid-card .grid-cart-btn.grid-cart-btn { top: 8px !important; right: 44px !important; }
+html body div.grid-card .grid-cart-btn.grid-cart-btn, html body div.grid-card .grid-star.grid-star { position: absolute !important; z-index: 4 !important; left: auto !important; bottom: auto !important; margin: 0 !important; }
+html body div.grid-card .grid-star.grid-star { top: 8px !important; right: 8px !important; }
+html body div.grid-card .grid-cart-btn.grid-cart-btn { top: 8px !important; right: 44px !important; }
 @media (max-width: 760px) {
-  html body a.grid-card .grid-cart-btn.grid-cart-btn { right: 46px !important; }
+  html body div.grid-card .grid-cart-btn.grid-cart-btn { right: 46px !important; }
 }
 
 /* Touch screens: those buttons only faded in on :hover, which a phone never
@@ -29944,7 +29944,7 @@ html body a.grid-card .grid-cart-btn.grid-cart-btn { top: 8px !important; right:
    Market.CSGO, DMarket and White.market keep the cart action visible on
    phones. */
 @media (hover: none) {
-  html body a.grid-card .grid-cart-btn.grid-cart-btn, html body a.grid-card .grid-star.grid-star { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+  html body div.grid-card .grid-cart-btn.grid-cart-btn, html body div.grid-card .grid-star.grid-star { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
 }
 
 /* ── Empty cart pass 2026-10-05 ──────────────────────────────────────────
@@ -29965,22 +29965,22 @@ html body .info-modal .csfloat-empty-cart-rail-link { margin-right: 0 !important
    scoped to the listing grid, so here the card fell back to older rules:
    striped image well, cramped name, price and seller status side by side.
    These mirror the market card's computed layout. */
-html body .csfloat-empty-cart-rail-grid a.grid-card { display: flex !important; flex-direction: column !important; min-height: 0 !important; height: auto !important; font-size: 16px !important; line-height: 1.55 !important; color: var(--ink) !important; background: rgb(30, 33, 39) !important; border-top: 1px solid var(--line) !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .grid-thumb { flex: 0 0 auto !important; height: auto !important; min-height: 0 !important; aspect-ratio: 4 / 3 !important; border-top: 0 !important; background: linear-gradient(rgb(30, 33, 39) 0%, color-mix(in oklab, var(--bg-2) 85%, white 6%) 100%) !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .gc-rarity-top { display: none !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .gc-rarity-bottom { height: 2px !important; opacity: 0.9 !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .grid-body { padding: 14px 16px 12px !important; min-height: 0 !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .grid-name { padding: 0 !important; font-size: 15px !important; font-weight: 600 !important; line-height: 20px !important; height: auto !important; color: var(--ink) !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .grid-cat { padding: 0 !important; margin: 2px 0 0 !important; font-size: 12px !important; font-weight: 400 !important; line-height: 1.3 !important; white-space: nowrap !important; height: auto !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .grid-footer { display: flex !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 6px !important; padding: 8px 0 0 !important; margin: 10px 0 0 !important; height: auto !important; flex: 0 0 auto !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .grid-footer > div:first-child { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 2px !important; width: auto !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price { display: flex !important; justify-content: flex-start !important; align-items: center !important; width: auto !important; }
-html body .csfloat-empty-cart-rail-grid a.grid-card .gc-card-meta { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; padding: 8px 0 0 !important; width: auto !important; font-size: 11px !important; line-height: 1.3 !important; color: var(--ink-3) !important; border-top: 1px solid var(--line) !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card { display: flex !important; flex-direction: column !important; min-height: 0 !important; height: auto !important; font-size: 16px !important; line-height: 1.55 !important; color: var(--ink) !important; background: rgb(30, 33, 39) !important; border-top: 1px solid var(--line) !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .grid-thumb { flex: 0 0 auto !important; height: auto !important; min-height: 0 !important; aspect-ratio: 4 / 3 !important; border-top: 0 !important; background: linear-gradient(rgb(30, 33, 39) 0%, color-mix(in oklab, var(--bg-2) 85%, white 6%) 100%) !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .gc-rarity-top { display: none !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .gc-rarity-bottom { height: 2px !important; opacity: 0.9 !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .grid-body { padding: 14px 16px 12px !important; min-height: 0 !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .grid-name { padding: 0 !important; font-size: 15px !important; font-weight: 600 !important; line-height: 20px !important; height: auto !important; color: var(--ink) !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .grid-cat { padding: 0 !important; margin: 2px 0 0 !important; font-size: 12px !important; font-weight: 400 !important; line-height: 1.3 !important; white-space: nowrap !important; height: auto !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .grid-footer { display: flex !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 6px !important; padding: 8px 0 0 !important; margin: 10px 0 0 !important; height: auto !important; flex: 0 0 auto !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .grid-footer > div:first-child { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 2px !important; width: auto !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .grid-price { display: flex !important; justify-content: flex-start !important; align-items: center !important; width: auto !important; }
+html body .csfloat-empty-cart-rail-grid div.grid-card .gc-card-meta { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; padding: 8px 0 0 !important; width: auto !important; font-size: 11px !important; line-height: 1.3 !important; color: var(--ink-3) !important; border-top: 1px solid var(--line) !important; }
 @media (max-width: 720px) {
-  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-body { padding: 10px !important; }
-  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price { font-size: 16px !important; gap: 6px !important; flex-wrap: wrap !important; }
-  html body .csfloat-empty-cart-rail-grid a.grid-card .grid-price .steam-market-link,
-  html body .csfloat-empty-cart-rail-grid a.grid-card .gc-card-age { display: none !important; }
+  html body .csfloat-empty-cart-rail-grid div.grid-card .grid-body { padding: 10px !important; }
+  html body .csfloat-empty-cart-rail-grid div.grid-card .grid-price { font-size: 16px !important; gap: 6px !important; flex-wrap: wrap !important; }
+  html body .csfloat-empty-cart-rail-grid div.grid-card .grid-price .steam-market-link,
+  html body .csfloat-empty-cart-rail-grid div.grid-card .gc-card-age { display: none !important; }
 }
 
 /* ── Item page pass 2026-10-06 ───────────────────────────────────────────
@@ -30124,8 +30124,8 @@ html body:has([aria-modal="true"]) .item-buy-bar { display: none !important; }
       its row, All/Buy Now/Auction is a full-width segmented control, and
       the three chips share the last row evenly. Same controls, same order
       of use. */
-html body main.layout a.grid-card .grid-body .grid-footer { flex: 1 1 auto !important; }
-html body main.layout a.grid-card .grid-body .grid-footer > .gc-card-meta { margin-top: auto !important; }
+html body main.layout div.grid-card .grid-body .grid-footer { flex: 1 1 auto !important; }
+html body main.layout div.grid-card .grid-body .grid-footer > .gc-card-meta { margin-top: auto !important; }
 @media (max-width: 720px) {
   html body main.layout .toolbar { gap: 8px !important; }
   html body main.layout .toolbar > .search-wrap { order: 0 !important; flex: 1 1 100% !important; }
@@ -30362,18 +30362,18 @@ html body footer.site-footer .site-footer-bottom { border-top: 1px solid rgba(25
    indented, price centred, seller status beside or under the price
    depending on the card); they now read exactly like the Market cards:
    left-aligned, price block then a ruled status/age row at the bottom. */
-html body .site-root .csfloat-home-preview-row > a.grid-card .grid-body { display: flex !important; flex-direction: column !important; padding: 14px 14px 12px !important; text-align: left !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .grid-name, html body .site-root .csfloat-home-preview-row > a.grid-card .grid-cat { padding: 0 !important; text-align: left !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .grid-name { font-size: 15px !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .grid-cat { font-size: 12px !important; margin-top: 2px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .grid-footer { display: flex !important; flex-direction: column !important; align-items: stretch !important; flex: 1 1 auto !important; padding: 8px 0 0 !important; margin-top: 6px !important; gap: 6px !important; text-align: left !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .grid-footer > div:first-child { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 2px !important; width: 100% !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .grid-price { display: flex !important; align-items: center !important; justify-content: space-between !important; width: 100% !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .gc-card-meta { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; width: 100% !important; margin-top: auto !important; padding-top: 8px !important; border-top: 1px solid oklch(0.3 0.012 260) !important; font-size: 11px !important; text-align: left !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .gc-online-row { margin-top: 0 !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card .gc-card-age { font-size: 11px !important; color: rgb(120, 128, 138) !important; white-space: nowrap !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card { display: flex !important; flex-direction: column !important; }
-html body .site-root .csfloat-home-preview-row > a.grid-card > .grid-body { flex: 1 1 auto !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .grid-body { display: flex !important; flex-direction: column !important; padding: 14px 14px 12px !important; text-align: left !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .grid-name, html body .site-root .csfloat-home-preview-row > div.grid-card .grid-cat { padding: 0 !important; text-align: left !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .grid-name { font-size: 15px !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .grid-cat { font-size: 12px !important; margin-top: 2px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .grid-footer { display: flex !important; flex-direction: column !important; align-items: stretch !important; flex: 1 1 auto !important; padding: 8px 0 0 !important; margin-top: 6px !important; gap: 6px !important; text-align: left !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .grid-footer > div:first-child { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 2px !important; width: 100% !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .grid-price { display: flex !important; align-items: center !important; justify-content: space-between !important; width: 100% !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .gc-card-meta { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; width: 100% !important; margin-top: auto !important; padding-top: 8px !important; border-top: 1px solid oklch(0.3 0.012 260) !important; font-size: 11px !important; text-align: left !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .gc-online-row { margin-top: 0 !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card .gc-card-age { font-size: 11px !important; color: rgb(120, 128, 138) !important; white-space: nowrap !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card { display: flex !important; flex-direction: column !important; }
+html body .site-root .csfloat-home-preview-row > div.grid-card > .grid-body { flex: 1 1 auto !important; }
 /* Look pass round four 2026-10-12
    Phones: Market cards ran to the 16px gutter while the logo, every full
    page and most home sections sat 24px further in, leaving full pages a
@@ -30455,7 +30455,7 @@ html body nav.csfloat-subnav { border-image-source: linear-gradient(rgba(255, 25
   /* Phones: each card's add-to-cart "+" was a 44x40 blue block covering
      a third of the picture; it is now the same 32px square as the
      watchlist heart beside it. */
-  html body .site-root a.grid-card .grid-thumb > .grid-cart-btn { width: 32px !important; height: 32px !important; min-width: 32px !important; min-height: 32px !important; padding: 0 !important; font-size: 16px !important; line-height: 32px !important; right: 46px !important; top: 9px !important; }
+  html body .site-root div.grid-card .grid-thumb > .grid-cart-btn { width: 32px !important; height: 32px !important; min-width: 32px !important; min-height: 32px !important; padding: 0 !important; font-size: 16px !important; line-height: 32px !important; right: 46px !important; top: 9px !important; }
 }
 
 /* Look pass round seven 2026-10-12: the 940px reading pages (Cart,
@@ -30534,8 +30534,8 @@ html body .bot-code-value { font: 700 15px/1.2 var(--mono); letter-spacing: 0.18
 /* Look pass 2026-10-13, market grid. Every real skin market (White.market,
    DMarket, Skinport) reads a card as "type, then name, then price": the
    small category line now sits above the name instead of under it. */
-html body .site-root a.grid-card .grid-body > .grid-cat { order: -1 !important; margin: 0 0 3px !important; font-size: 11px !important; line-height: 1.3 !important; letter-spacing: 0.02em !important; }
-html body .site-root a.grid-card .grid-body > .grid-name { margin-top: 0 !important; }
+html body .site-root div.grid-card .grid-body > .grid-cat { order: -1 !important; margin: 0 0 3px !important; font-size: 11px !important; line-height: 1.3 !important; letter-spacing: 0.02em !important; }
+html body .site-root div.grid-card .grid-body > .grid-name { margin-top: 0 !important; }
 /* Phones: the All / Buy Now / Auction switch and the % Deals and New chips
    took two full rows above the first card; they now share one. */
 @media (max-width: 720px) {
@@ -30570,7 +30570,7 @@ html body .site-root section.csfloat-home-metrics .csfloat-home-metrics-row .csf
 }
 /* Cards: SkinBox's own stock carries the item page's lightning mark in the
    slot where an online seller shows the green dot. */
-html body .site-root a.grid-card .gc-online-row.gc-house-row { display: inline-flex !important; align-items: center !important; gap: 3px !important; color: var(--accent, #3b82f6) !important; }
+html body .site-root div.grid-card .gc-online-row.gc-house-row { display: inline-flex !important; align-items: center !important; gap: 3px !important; color: var(--accent, #3b82f6) !important; }
 
 /* FAQ group headings (Getting started / Buying and selling / Money / When
    something goes wrong): the footer's column-eyebrow look, so they read as
@@ -30712,3 +30712,10 @@ html body .info-modal .info-modal-body .profile-row-value > div > button.btn.btn
 .stall-hero > .stall-share-btn[title*="Get notified"]:not(:hover):not(:focus-visible):not(:active),
 .stall-hero > .stall-share-btn[title*="Get notified"]:not(:hover):not(:focus-visible):not(:active) .stall-share-icon,
 .stall-hero > .stall-share-btn[title*="Get notified"]:not(:hover):not(:focus-visible):not(:active) span { color: rgb(5, 16, 24) !important; opacity: 1 !important; }
+/* Market card link (pass 42). The card is a div; its <a> is the item name, stretched over the whole card so a click or middle-click anywhere still opens the item. The buttons and the Steam link sit above that overlay. The card draws its own focus ring, so the name draws none. */
+html body div.grid-card .grid-card-link { color: inherit !important; text-decoration: none !important; }
+html body div.grid-card .grid-card-link::after { content: "" !important; position: absolute !important; inset: 0 !important; z-index: 3 !important; }
+html body div.grid-card .grid-card-link:focus-visible { outline: none !important; box-shadow: none !important; }
+/* The thumb isolates its own stacking, so it is lifted above the overlay as a whole and lets clicks on the picture fall through to the link; its buttons take clicks through the hover and focus rules that already switch them on. */
+html body div.grid-card .grid-thumb { z-index: 4 !important; pointer-events: none !important; }
+html body div.grid-card .steam-market-link { position: relative !important; z-index: 5 !important; }
