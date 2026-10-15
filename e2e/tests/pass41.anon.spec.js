@@ -40,12 +40,15 @@ test.describe('defect pass 41', () => {
     await page.goto('/market');
     const card = page.locator('.grid-card').first();
     await expect(card).toBeVisible({ timeout: 20_000 });
-    await card.focus();
-    await page.keyboard.press('Tab');
+    // The card's buttons (cart, heart, magnifier) come just before its name link in tab order.
+    await card.locator('.grid-card-link').focus();
+    await page.keyboard.press('Shift+Tab');
     const focused = page.locator('.grid-card :focus');
     await expect(focused).toHaveCount(1);
     await expect.poll(() => focused.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
-    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expect.poll(() => focused.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+    await page.keyboard.press('Shift+Tab');
     await expect.poll(() => focused.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
   });
 
@@ -55,7 +58,7 @@ test.describe('defect pass 41', () => {
       seller: { id: 77, displayName: 'Stall Seller' }, listings: [listing(5077, 5)],
     })));
     await page.goto('/stall/77');
-    await expect(page.locator('.grid-card').first()).toHaveAttribute('href', '/item/5?listing=5077', { timeout: 20_000 });
+    await expect(page.locator('.grid-card .grid-card-link').first()).toHaveAttribute('href', '/item/5?listing=5077', { timeout: 20_000 });
   });
 
   test('a table-view market row is a plain row whose item name is the link', async ({ page }) => {

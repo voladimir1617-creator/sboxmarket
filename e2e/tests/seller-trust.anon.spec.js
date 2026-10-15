@@ -112,10 +112,10 @@ test.describe('Signals on the page must be true', () => {
   // only dot a card may draw is a real Online one.
   test('a card never says Offline, and any dot it draws is a real Online one', async ({ page }) => {
     await page.goto('/market');
-    await expect(page.locator('a.grid-card').first()).toBeVisible({ timeout: 15_000 });
-    const metas = page.locator('a.grid-card .gc-card-meta');
+    await expect(page.locator('.grid-card').first()).toBeVisible({ timeout: 15_000 });
+    const metas = page.locator('.grid-card .gc-card-meta');
     await expect(metas.filter({ hasText: /\bOffline\b/ })).toHaveCount(0);
-    const bad = await page.locator('a.grid-card .gc-online-dot').evaluateAll((dots) => dots.filter((dot) => {
+    const bad = await page.locator('.grid-card .gc-online-dot').evaluateAll((dots) => dots.filter((dot) => {
       const row = dot.closest('.gc-online-row');
       return !row || !row.classList.contains('is-online');
     }).length);

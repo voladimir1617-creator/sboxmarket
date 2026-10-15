@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=16';
+import { GridCard } from './cards.js?v=17';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -2419,14 +2419,14 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             otherFromSeller.listings.map(l => h('a', {
               key: l.id,
               className: 'similar-card',
-              href: '/item/' + (l.item?.id || ''),
+              href: '/item/' + (l.item?.id || '') + '?listing=' + l.id,
               title: l.item?.name,
               onClick: (e) => { if (!l.item?.id) e.preventDefault(); }
             },
               h('div', { className: 'similar-thumb' },
                 h(ItemImage, { item: l.item, variant: 'thumb' })),
               h('div', { className: 'similar-name' }, l.item?.name || 'Item'),
-              h('div', { className: 'similar-price' }, h(Money, { value: l.price }))
+              h('div', { className: 'similar-price' }, h(Money, { value: l.listingType === 'AUCTION' && l.currentBid != null ? l.currentBid : l.price }))
             ))
           )
         ),

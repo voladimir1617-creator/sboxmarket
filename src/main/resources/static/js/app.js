@@ -11,13 +11,13 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=16';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=17';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=280';
+} from './modals.js?v=281';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -152,7 +152,7 @@ function PendingTradeReminder({ me }) {
     ),
     h('a', {
       className: 'pending-trade-nudge-cta',
-      href: paths.profile(),
+      href: '/profile/trades',
       onClick: () => dismiss(t.id)
     }, 'Open trade'),
     h('button', {
@@ -1873,7 +1873,11 @@ function MarketPulse() {
   // Mirror the same `price ?? soldPrice` fallback the pulse rows use.
   // Accumulate in integer CENTS so float drift can't push the 24h-vol chip off
   // the server's exact BigDecimal sum across a rounding boundary. (audit)
-  const vol24 = rows.reduce((acc, r) => acc + Math.round((parseFloat(r.price ?? r.soldPrice) || 0) * 100), 0) / 100;
+  // The feed is the latest sales of any age, so only rows sold in the last
+  // 24 hours count toward the "24H" chip.
+  const dayAgo = Date.now() - 86_400_000;
+  const vol24 = rows.filter(r => Number(r.soldAt) >= dayAgo)
+    .reduce((acc, r) => acc + Math.round((parseFloat(r.price ?? r.soldPrice) || 0) * 100), 0) / 100;
   return h('div', { className: 'pulse', style: { height: 32 } },
     h('span', { className: 'pulse-led' }),
     h('span', { style: { fontWeight: 500, color: 'var(--ink-2)' } }, 'LIVE TAPE'),
@@ -6687,7 +6691,10 @@ export function App() {
           (() => {
             // Use the stable home-featured cache (captured on first load,
             // immune to user filter changes) so the hero card never blanks.
-            const heroPool = (homeFeatured && homeFeatured.length) ? homeFeatured : listings;
+            // The front card reads "Buy now" at one price, so an auction (whose
+            // `price` is only its starting bid) never leads; it can sit behind.
+            const heroAll = ((homeFeatured && homeFeatured.length) ? homeFeatured : listings) || [];
+            const heroPool = [...heroAll.filter(l => l?.listingType !== 'AUCTION'), ...heroAll.filter(l => l?.listingType === 'AUCTION')];
             const top = heroPool && heroPool[0] && heroPool[0].item ? heroPool[0] : null;
             const mid = heroPool && heroPool[1] && heroPool[1].item ? heroPool[1] : null;
             const bot = heroPool && heroPool[2] && heroPool[2].item ? heroPool[2] : null;
@@ -6760,7 +6767,7 @@ export function App() {
                     );
                   })(),
                   h('div', { className: 'csfloat-home-hero-feature-meta' },
-                    h('div', { className: 'csfloat-home-hero-feature-price' }, fmt(top.price || 0),
+                    h('div', { className: 'csfloat-home-hero-feature-price' }, fmt((top.listingType === 'AUCTION' && top.currentBid != null ? top.currentBid : top.price) || 0),
                       currencySymbol() === '$' && h('span', { className: 'csfloat-home-hero-feature-usd', 'aria-hidden': 'true' }, '$')
                     )
                   ),
