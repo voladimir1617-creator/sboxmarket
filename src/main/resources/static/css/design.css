@@ -30750,3 +30750,21 @@ html:root body .item-page button.btn-wishlist { width: auto !important; min-widt
    longer floats on the bare page. */
 html:root body .item-page .modal-preview { border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; background: radial-gradient(55% 60% at 50% 50%, rgba(35, 123, 255, 0.14) 0%, rgba(35, 123, 255, 0) 70%), linear-gradient(180deg, rgb(32, 35, 44) 0%, rgb(24, 26, 33) 100%) !important; overflow: hidden !important; }
 html:root body .item-page .modal-preview img.item-img { filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.5)) !important; }
+
+/* Look refresh pass 2: one type scale on the home page. The journey and FAQ
+   headings were 42px with loose tracking, step labels 24px and FAQ questions
+   20px, so the lower page shouted louder than the hero. */
+html:root body .site-root h2.csfloat-home-journey-title, html:root body .site-root h2.csfloat-home-faq-title { font-size: 30px !important; font-weight: 700 !important; letter-spacing: -0.01em !important; line-height: 1.2 !important; }
+html:root body .site-root .csfloat-home-journey-step-label { font-size: 16px !important; font-weight: 600 !important; letter-spacing: 0 !important; }
+html:root body .site-root .csfloat-home-journey-step-sub { font-size: 13px !important; font-weight: 400 !important; color: rgb(158, 167, 177) !important; }
+html:root body .site-root .csfloat-home-faq-q, html:root body .site-root .csfloat-home-faq-q span { font-size: 15px !important; letter-spacing: 0 !important; }
+html:root body .site-root .csfloat-home-faq-q { background: rgb(28, 31, 38) !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; border-radius: 8px !important; padding: 14px 16px !important; margin: 0 0 8px !important; }
+html:root body .site-root .csfloat-home-faq-q:hover { border-color: rgba(255, 255, 255, 0.14) !important; }
+@media (max-width: 720px) {
+  html:root body .site-root h2.csfloat-home-journey-title, html:root body .site-root h2.csfloat-home-faq-title { font-size: 24px !important; }
+  /* "Steam" overflowed its third of the strip at 390px. */
+  html:root body .site-root section.csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric .csfloat-home-metric-num { font-size: 22px !important; }
+}
+/* The selected filter option was accent blue on a 10% accent wash (4.11:1);
+   a lighter blue of the same hue clears 4.5:1. */
+html:root body .filter-option.selected { color: rgb(120, 172, 255) !important; }
