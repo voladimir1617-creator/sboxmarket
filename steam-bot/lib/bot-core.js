@@ -219,7 +219,8 @@ function createBotCore(opts) {
   async function createAndSend(kind, body) {
     if (!isReady()) return notReady();
     const checked = validateOfferBody(body);
-    if (!checked.ok) return [checked.status, { ok: false, error: checked.error, message: checked.message }];
+    // The same body is refused the same way every time, so a retry never helps.
+    if (!checked.ok) return [checked.status, { ok: false, error: checked.error, message: checked.message, retryable: false }];
     const v = checked.value;
     const key = kind + '|' + v.partner.steamId64 + '|' + [...v.assetIds].sort().join(',');
 
