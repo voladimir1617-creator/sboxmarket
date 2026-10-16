@@ -30783,3 +30783,10 @@ html:root body h1#info-modal-h-loadout-lab.info-modal-header { font-size: 26px !
 html:root body table.db-table tbody tr.db-row { padding-top: 6px !important; padding-bottom: 6px !important; }
 html:root body table.db-table tr.db-row { transition: background-color 120ms ease !important; }
 html:root body table.db-table tr.db-row:hover { background-color: rgba(255, 255, 255, 0.03) !important; }
+
+/* Look refresh pass 5: profile tabs read like the market's own tab row:
+   14px, muted until chosen, the chosen one white with a blue underline
+   (all nine were 16px white, so none stood out as selected). */
+html:root body .profile-tabs > button.profile-tab { font-size: 14px !important; color: rgb(158, 167, 177) !important; background: transparent !important; border-radius: 0 !important; box-shadow: inset 0 -2px 0 transparent !important; transition: color 120ms ease, box-shadow 120ms ease !important; }
+html:root body .profile-tabs > button.profile-tab:hover { color: rgb(242, 244, 247) !important; }
+html:root body .profile-tabs > button.profile-tab.active { color: rgb(255, 255, 255) !important; box-shadow: inset 0 -2px 0 rgb(35, 123, 255) !important; }
