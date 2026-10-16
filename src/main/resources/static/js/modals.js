@@ -7562,6 +7562,7 @@ function ProfileAutoBidsTab() {
       if (e.key === 'ArrowRight' || e.key === 'End') n = TABS.length - 1;
       else if (e.key === 'ArrowLeft' || e.key === 'Home') n = 0;
       setSubtab(TABS[n]);
+      e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
     };
     return h('div', { style: { display: 'flex', gap: 6, marginBottom: 12 }, role: 'tablist', 'aria-label': 'Bids filter' },
       h('button', {
@@ -10317,6 +10318,7 @@ function ProfileOffersTab() {
           else if (e.key === 'Home') n = 0;
           else if (e.key === 'End') n = OFFER_TABS.length - 1;
           setTab(OFFER_TABS[n]);
+          e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
         };
         return [
           h('button', {
@@ -14646,6 +14648,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         else if (e.key === 'Home') n = 0;
         else if (e.key === 'End') n = TABS.length - 1;
         pickTab(TABS[n]);
+        e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
       };
       return h('div', { className: 'mystall-tabs', role: 'tablist', 'aria-label': 'My stall sections' },
         TABS.map(id => h('button', {
@@ -15907,8 +15910,10 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
           else if (e.key === 'ArrowLeft') n = (idx - 1 + MODAL_OFFER_TABS.length) % MODAL_OFFER_TABS.length;
           else if (e.key === 'Home') n = 0;
           else if (e.key === 'End') n = MODAL_OFFER_TABS.length - 1;
-          setTab(MODAL_OFFER_TABS[n]);
+          pickTab(MODAL_OFFER_TABS[n]);
+          e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
         };
+        // Arrow keys go through pickTab too, so the URL follows the tab.
         const pickTab = (id) => {
           setTab(id);
           navigate('/offers/' + id);
@@ -17597,6 +17602,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
             else if (e.key === 'Home') n = 0;
             else if (e.key === 'End') n = WALLET_TABS.length - 1;
             pickTab(WALLET_TABS[n]);
+            e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
           };
           return WALLET_TABS.map(id => h('button', {
             key: id,

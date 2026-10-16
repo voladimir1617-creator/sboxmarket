@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y, fmtDelay
-} from './modals.js?v=292';
+} from './modals.js?v=293';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -875,10 +875,13 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
   // screen reader can resolve "what does opening this control reveal".
   // useState + useId fallback (older React-via-CDN may not have useId).
   const [panelId] = useState(() => 'nav-picker-panel-' + Math.random().toString(36).slice(2, 9));
+  // Same as SortPicker: hand focus back to the chip when a choice or
+  // Escape closes the panel, instead of letting it fall to <body>.
+  const chipRef = React.useRef(null);
   useEffect(() => {
     if (!open) return;
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); chipRef.current?.focus(); } };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -886,10 +889,14 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
-  return h('div', { className: 'nav-picker' + (open ? ' open' : ''), ref, 'aria-label': ariaLabel },
+  return h('div', { className: 'nav-picker' + (open ? ' open' : ''), ref },
     h('button', {
       type: 'button',
       className: 'nav-picker-chip',
+      ref: chipRef,
+      // The name sits on the button itself; on the role-less wrapper div
+      // screen readers never announced it.
+      'aria-label': ariaLabel ? `${ariaLabel}: ${label}` : undefined,
       onClick: () => setOpen(o => !o),
       'aria-haspopup': 'listbox',
       'aria-expanded': open,
@@ -910,6 +917,7 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
           if (opt.soon) return;
           onSelect && onSelect(opt.code);
           setOpen(false);
+          chipRef.current?.focus();
         }
       },
         h('span', { className: 'nav-picker-flag', 'aria-hidden': true }, opt.flag),
@@ -2161,6 +2169,10 @@ function ContactSellerButton({ seller }) {
   const [body, setBody]       = useState('');
   const [busy, setBusy]       = useState(false);
   const textareaRef           = useRef(null);
+  // The server keeps 2000 characters of the ticket body, and the stall
+  // link below is prepended to it, so the box allows only what fits.
+  const stallPrefix = `Seller stall: /stall/${seller.id}\n\n`;
+  const maxBody = 2000 - stallPrefix.length;
   useEffect(() => {
     if (!open) return;
     const id = requestAnimationFrame(() => {
@@ -2184,7 +2196,7 @@ function ContactSellerButton({ seller }) {
       const res = await createSupportTicket({
         category: 'ACCOUNT',
         subject:  `Contact seller · @${seller.displayName || seller.id}`,
-        body:     `Seller stall: /stall/${seller.id}\n\n${trimmed}`
+        body:     stallPrefix + trimmed
       });
       if (res && (res.error || res.code)) {
         try {
@@ -2236,7 +2248,7 @@ function ContactSellerButton({ seller }) {
       h('textarea', {
         ref: textareaRef,
         value: body,
-        maxLength: 2000,
+        maxLength: maxBody,
         placeholder: 'What do you want to ask? (question about a listing, trade, etc.)',
         onChange: (e) => setBody(e.target.value),
         onKeyDown: (e) => {
@@ -2255,7 +2267,7 @@ function ContactSellerButton({ seller }) {
         style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }
       },
         h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
-          `${body.trim().length}/2000 · Ctrl+Enter to send`),
+          `${body.trim().length}/${maxBody} · Ctrl+Enter to send`),
         h('div', { style: { display: 'flex', gap: 6 } },
           h('button', {
             className: 'btn btn-ghost',
