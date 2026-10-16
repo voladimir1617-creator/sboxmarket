@@ -55,7 +55,7 @@ const FAQ = [
   {
     s: 'trade',
     q: 'How do auctions work?',
-    a: "Auction listings show a countdown timer and a Bid input. Enter your bid — the minimum is the current price plus one increment (the increment scales with price, from $0.05 on cheap items up to $100 on four-figure ones). You can also set an auto-bid cap, and the proxy-bidder will raise your bid by the minimum increment until it hits your cap. When the timer runs out, the winner's wallet is charged and the seller is credited (minus 2%)."
+    a: "Auction listings show a countdown timer and a Bid input. Enter your bid — the first bid must meet the starting price, and each bid after that must beat the current top bid by one increment (the increment scales with price, from $0.05 on cheap items up to $100 from $5,000). You can also set an auto-bid cap, and the proxy-bidder will raise your bid by the minimum increment until it hits your cap. When the timer runs out, the winner's wallet is charged and a trade opens; the seller is paid (minus 2%) once delivery is confirmed."
   },
   {
     s: 'money',

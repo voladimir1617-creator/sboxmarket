@@ -51,6 +51,8 @@ test.describe('defect pass 43', () => {
     const tile = page.locator('.csfloat-home-tile', { hasText: 'Live Auctions' });
     await expect(tile).toContainText('last 30 seconds', { timeout: 20_000 });
     await expect(tile).not.toContainText('final minute');
+    await expect(tile).toContainText('moves the close to 30 seconds after that bid');
+    await expect(tile).not.toContainText('adds 30 more');
   });
 
   test('the live sales ticker: one tab stop per sale, and it pauses on hover', async ({ page }) => {
