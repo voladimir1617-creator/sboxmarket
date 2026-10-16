@@ -135,7 +135,7 @@ const FAQ = [
   {
     s: 'trade',
     q: 'Can I see who bought my item?',
-    a: "Yes — Profile → Trades. Each completed trade row shows the buyer's display name, Steam ID, and the exact time they confirmed receipt. The buyer can leave a review on any VERIFIED trade, and it shows on your stall. For privacy, wallet balances and real-name data are never exposed; buyer identity is limited to their public Steam profile."
+    a: "Yes — Profile → Trades. Each trade row shows the buyer's display name and a link to their Steam profile; hover the Verified step to see when the trade was verified. The buyer can leave a review on any VERIFIED trade, and it shows on your stall. For privacy, wallet balances and real-name data are never exposed; buyer identity is limited to their public Steam profile."
   },
   {
     s: 'problems',
