@@ -740,8 +740,42 @@ class EmailServiceSpec extends Specification {
             f.subject.contains('Wizard Hat') &&
             f.text.contains('30 days') &&
             f.text.contains('50') &&
-            f.text.contains('/item/42')
+            f.text.contains('/item/42') &&
+            // Buy orders never hold money, so the email must not claim
+            // a wallet hold was released.
+            !f.text.toLowerCase().contains('hold')
         })
+    }
+
+    def "sendAuctionWon states the seller's real send window, not the 8-day auto-release"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionWon('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('12.00'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('3 days to send') &&
+            f.text.contains('refunded in full') &&
+            !f.text.contains('8 days')
+        })
+    }
+
+    def "sendAuctionWon follows trade.seller-response-days"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+        svc.sellerResponseDays = 5
+
+        when:
+        svc.sendAuctionWon('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('12.00'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> fields(msg).text.contains('5 days to send') })
     }
 
     // ── plain-text / no-HTML-injection (the email-XSS property) ───────

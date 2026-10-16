@@ -56,6 +56,13 @@ class EmailService {
     @Value('${app.public-url:http://localhost:8080}')
     String publicUrl
 
+    /** Seller's window to send the Steam trade offer before the trade
+     *  auto-cancels and refunds the buyer. Same key TradeService uses for
+     *  the cancel itself, so the auction-won email can't drift from it.
+     *  The initializer covers the plain map constructor used in tests. */
+    @Value('${trade.seller-response-days:3}')
+    long sellerResponseDays = 3
+
     /** HMAC secret for signed one-click unsubscribe URLs (batch 891).
      *
      *  <b>No committed fallback.</b> This used to default to the literal
@@ -901,7 +908,7 @@ Staff will review the case even after auto-release. Please act within
         def body = """\
 Hi ${displayName ?: 'there'},
 
-Your standing buy order for ${itemName ?: 'an item'} sat idle for 30 days and has been automatically expired. No funds were moved — the hold on your wallet has been released.
+Your standing buy order for ${itemName ?: 'an item'} sat idle for 30 days and has been automatically expired. No funds were moved.
 
 Your cap was: \$${(maxCap ?: BigDecimal.ZERO).toPlainString()}
 
@@ -983,8 +990,9 @@ Hi ${displayName ?: 'there'},
 
 You won the auction for ${itemName ?: 'an item'} at ${usd(finalPrice)}.
 
-The seller has been notified and will send the Steam trade offer within
-the escrow window (typically 8 days). You can track the trade from
+The seller has been notified and has ${sellerResponseDays} day${sellerResponseDays == 1 ? '' : 's'} to send the Steam
+trade offer. If they don't, the trade cancels and you're refunded in full.
+You can track the trade from
 Profile → Trades${itemUrl ? ' or open the item: ' + absUrl(itemUrl) : '.'}
 
 — The SkinBox team
