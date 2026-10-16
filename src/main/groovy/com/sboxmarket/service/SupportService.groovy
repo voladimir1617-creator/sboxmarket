@@ -66,10 +66,9 @@ class SupportService {
         switch (category ?: 'OTHER') {
             case 'PAYMENT':
                 return "Thanks for reaching out about payments. Most deposits clear within 2 minutes — " +
-                       "if yours hasn't, please include the Stripe session id from your Trades tab so we can investigate."
+                       "if yours hasn't, please include the Stripe session id shown under Wallet → History so we can investigate."
             case 'TRADE':
-                return "Trade questions usually resolve themselves within the 8-day Steam hold. If the listing is " +
-                       "already marked sold, the buyer has confirmed receipt and funds should release automatically."
+                return "Trade questions usually resolve themselves within the 8-day Steam hold."
             case 'REFUND':
                 return "Thanks — a refund specialist will review your trade details and the item delivery status, " +
                        "then follow up here. Typical review turnaround is under 24 hours. If you have a screenshot " +

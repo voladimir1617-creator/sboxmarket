@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y, fmtDelay
-} from './modals.js?v=290';
+} from './modals.js?v=291';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -1296,7 +1296,7 @@ function FindSellerBar() {
             // matched my query". Case-insensitive match + bold <mark>.
             renderHighlighted(s.displayName || 'Player', q),
             s.verified && h('span', {
-              title: 'Verified seller · 10+ sales · ≥4.0★',
+              title: VERIFIED_SELLER_RULE,
               style: {
                 background: 'var(--cta, #237bff)', color: '#fff',
                 fontSize: 10, fontWeight: 700, padding: '1px 5px',
@@ -9057,7 +9057,7 @@ export function App() {
                       stallData.seller.verified ? '✓' : '·'),
                     h('span', null,
                       stallData.seller.verified
-                        ? h('strong', null, 'Verified seller — 10+ completed sales at 4+ stars')
+                        ? h('strong', null, VERIFIED_SELLER_RULE)
                         : (stallData.seller.soldCount > 0
                             ? `${stallData.seller.soldCount} completed sale${stallData.seller.soldCount === 1 ? '' : 's'} so far — building toward Verified`
                             : 'New seller — no completed sales yet'))
