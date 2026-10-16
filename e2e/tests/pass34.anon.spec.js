@@ -126,7 +126,7 @@ test.describe('defect pass 34: stall, trades, profile, CSR', () => {
     const items = Array.from({ length: 12 }, (_, i) => ({ blockedUserId: 500 + i, displayName: `Blocked ${i}` }));
     await page.route('**/api/profile/blocks*', (r) => r.fulfill(json({ count: items.length, items })));
     await page.goto('/profile');
-    const unblocks = page.getByRole('button', { name: 'Unblock', exact: true });
+    const unblocks = page.getByRole('button', { name: /^Unblock Blocked \d+$/ });
     await expect(unblocks.first()).toBeVisible({ timeout: 20_000 });
     await expect(unblocks).toHaveCount(10);
     await page.getByTestId('blocked-more').click();

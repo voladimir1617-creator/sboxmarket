@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=295'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=296'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -224,7 +224,11 @@ function PendingTradeReminder({ me }) {
     h('span', { className: 'pending-trade-nudge-icon' }, '⇄'),
     h('div', { className: 'pending-trade-nudge-text' },
       h('strong', null, isSeller ? 'Buyer is waiting on you' : 'Confirm your trade'),
-      ' — "', t.itemName || ('Trade #' + t.id), '": ', action, ' before the auto-release window.'
+      ' — "', t.itemName || ('Trade #' + t.id), '": ', action,
+      // Seller states end in a cancel and buyer refund after the seller
+      // response window (TradeService.sellerResponseDays); only the buyer's
+      // confirm step ends in an auto-release to the seller.
+      isSeller ? ' before the trade is cancelled and the buyer refunded.' : ' before the auto-release window.'
     ),
     h('a', {
       className: 'pending-trade-nudge-cta',
@@ -422,6 +426,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
           ? 'Sign in to mark reviews as helpful'
           : isAuthor
             ? "You can't vote on your own review"
+            : isOwner
+            ? "You can't vote on reviews of your own stall"
             : (hasVoted ? 'Click to undo your helpful vote' : 'Mark this review as helpful')
       }, hasVoted ? 'Helpful · ' : 'Helpful · ', helpfulCount)
     ),
@@ -3598,6 +3604,16 @@ export function App() {
       return next;
     });
   };
+  // Recent searches show when the box is focused with under 2 characters;
+  // they own the arrow keys whenever no autocomplete rows are on screen.
+  const recentShown = suggestOpen && (!searchInput || searchInput.trim().length < 2) && recentSearches.length > 0;
+  const recentNav = recentShown && suggest.length === 0;
+  const pickRecent = (q) => {
+    setSearchInput(q);
+    setSearch(q);
+    setSuggestOpen(true);
+    setSuggestIdx(-1);
+  };
 
   // Saved searches — named filter presets so users who repeatedly hunt
   // the same slice of the marketplace (e.g. "Limited hats under $20 +
@@ -5273,6 +5289,11 @@ export function App() {
     // 'auction' in state, which the grid treats as buy-now only.
     const canonType = urlType ? String(urlType).toUpperCase() : null;
     if (canonType && ['ALL', 'BUY_NOW', 'AUCTION'].includes(canonType) && canonType !== listingTypeFilter) setListingTypeFilter(canonType);
+    // The quick toggles were only ever cleared here, so Back to (or a link
+    // naming) `deals=1` / `new=1` / `aff=1` left them off.
+    if (params.get('deals') === '1' && !dealsOnly) setDealsOnly(true);
+    if (params.get('new') === '1' && !newOnly) setNewOnly(true);
+    if (params.get('aff') === '1' && !affordableOnly) setAffordableOnly(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeName, route.path, window.location.search]);
 
@@ -7337,7 +7358,8 @@ export function App() {
                   color:      r === 'Limited' ? 'var(--limited-color)' : r === 'Off-Market' ? 'var(--offmarket-color)' : 'var(--standard-color)'
                 }
               }),
-              r,
+              // Same "Scarce" label as the rarity badge and the Database legend.
+              r === 'Off-Market' ? 'Scarce' : r,
               // Match the category-chip pattern: silent on `All` (always full
               // set), silent on a 0 bucket so the filter doesn't read as
               // broken before any listings load. CSFloat shows counts to
@@ -7468,7 +7490,7 @@ export function App() {
                   // priority order so a single Escape always escapes
                   // back to the page no matter what state the input
                   // was in.
-                  if (suggestOpen && suggest.length > 0) {
+                  if (suggestOpen && (suggest.length > 0 || recentShown)) {
                     setSuggestOpen(false); setSuggestIdx(-1);
                   } else if (searchInput) {
                     setSearchInput(''); setSearch('');
@@ -7486,6 +7508,19 @@ export function App() {
                   return;
                 }
                 if (!suggestOpen) return;
+                // The recent-searches list takes the arrows when it is the
+                // popup on screen (no autocomplete rows), so it is reachable
+                // without a mouse.
+                if (recentNav) {
+                  const n = recentSearches.length;
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setSuggestIdx(i => (i + 1) % n); }
+                  else if (e.key === 'ArrowUp') { e.preventDefault(); setSuggestIdx(i => (i - 1 + n) % n); }
+                  else if (e.key === 'Enter' && suggestIdx >= 0 && recentSearches[suggestIdx]) {
+                    e.preventDefault();
+                    pickRecent(recentSearches[suggestIdx]);
+                  }
+                  return;
+                }
                 if (e.key === 'ArrowDown' && suggest.length > 0) {
                   e.preventDefault();
                   setSuggestIdx(i => (i + 1) % suggest.length);
@@ -7526,7 +7561,9 @@ export function App() {
                 : ((suggestOpen && (!searchInput || searchInput.trim().length < 2) && recentSearches.length > 0)
                     ? 'search-recent-listbox' : undefined),
               'aria-activedescendant': (suggestOpen && suggest.length > 0 && suggestIdx >= 0)
-                ? ('search-opt-' + suggestIdx) : undefined
+                ? ('search-opt-' + suggestIdx)
+                : ((recentNav && suggestIdx >= 0 && suggestIdx < recentSearches.length)
+                    ? ('search-recent-opt-' + suggestIdx) : undefined)
             }),
             searchInput && h('button', {
               className: 'search-clear',
@@ -7566,14 +7603,11 @@ export function App() {
               ),
               recentSearches.map((q, i) => h('div', {
                 key: 'rs-' + i,
-                className: 'search-suggest-row recent',
+                id: 'search-recent-opt-' + i,
+                className: `search-suggest-row recent ${recentNav && i === suggestIdx ? 'active' : ''}`,
                 role: 'option',
-                onClick: () => {
-                  setSearchInput(q);
-                  setSearch(q);
-                  setSuggestOpen(true);
-                  setSuggestIdx(-1);
-                }
+                'aria-selected': recentNav && i === suggestIdx,
+                onClick: () => pickRecent(q)
               },
                 h('span', { className: 'search-suggest-recent-icon' }, '⟲'),
                 h('span', { style: { flex: 1, fontSize: 13 } }, q),
@@ -7586,7 +7620,7 @@ export function App() {
                     try { localStorage.setItem('sb_recent_searches', JSON.stringify(next)); } catch (_) {}
                   },
                   title: 'Forget this search',
-                  'aria-label': 'Forget'
+                  'aria-label': `Forget "${q}"`
                 }, '✕')
               ))
             ),

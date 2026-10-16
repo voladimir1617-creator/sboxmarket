@@ -2654,7 +2654,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         const maxDisc = offerTarget ? parseFloat(offerTarget.maxDiscount) || 0 : 0;
         const belowAskPct = (ask > 0 && amt > 0) ? ((ask - amt) / ask * 100) : null;
         const savings     = (ask > 0 && amt > 0 && amt < ask) ? (ask - amt) : 0;
-        const autoThreshold = (ask > 0 && maxDisc > 0) ? (ask * (1 - maxDisc)) : 0;
+        // Whole cents, rounded half-up like OfferService.tryAutoAccept and the
+        // seller's own preview; the raw product could sit a cent under it.
+        const autoThreshold = (ask > 0 && maxDisc > 0)
+          ? Math.round(Math.round(ask * 100) * (100 - Math.round(maxDisc * 100)) / 100) / 100 : 0;
         const autoAccept = (autoThreshold > 0 && amt >= autoThreshold);
         const atOrAboveAsk = amt >= ask;
         // Live-offer pre-check (batch 438). When the viewer already has a
@@ -5227,14 +5230,17 @@ function FollowingListRow() {
       }, '✕ all')
     ),
     h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
-      (showAllFollows ? rows : rows.slice(0, 10)).map(r => h('div', {
+      (showAllFollows ? rows : rows.slice(0, 10)).map(r => {
+       // Every row's buttons otherwise read the same to a screen reader.
+       const who = names[r.sellerUserId] || ('Seller #' + r.sellerUserId);
+       return h('div', {
         key: r.id,
         style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }
       },
         h('a', {
           href: '/stall/' + r.sellerUserId,
           style: { color: 'var(--accent)', textDecoration: 'none', flex: 1 }
-        }, names[r.sellerUserId] || ('Seller #' + r.sellerUserId)),
+        }, who),
         // Mute toggle — 🔔 when loud, 🔕 when muted. Tooltip explains
         // that the follow stays in either state.
         h('button', {
@@ -5248,17 +5254,18 @@ function FollowingListRow() {
             ? 'New-listing pings muted — click to re-enable'
             : 'Mute new-listing pings (you stay following)',
           'aria-label': r.notificationsMuted
-            ? 'New-listing pings muted — click to re-enable'
-            : 'Mute new-listing pings'
+            ? `New-listing pings from ${who} muted — click to re-enable`
+            : `Mute new-listing pings from ${who}`
         }, r.notificationsMuted ? '🔕' : '🔔'),
         h('button', {
           className: 'btn btn-ghost',
           style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
           onClick: () => doUnfollow(r.sellerUserId),
           title: 'Unfollow this seller',
-          'aria-label': 'Unfollow this seller'
+          'aria-label': `Unfollow ${who}`
         }, '✕')
-      )),
+      );
+      }),
       rows.length > 10 && h('button', {
         className: 'btn btn-ghost',
         style: { padding: '2px 8px', fontSize: 11, color: 'var(--text-muted)' },
@@ -5337,7 +5344,8 @@ function BlockedListRow() {
           className: 'btn btn-ghost',
           style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
           onClick: () => doUnblock(r.blockedUserId),
-          title: 'Remove this block'
+          title: 'Remove this block',
+          'aria-label': `Unblock ${r.displayName || ('User #' + r.blockedUserId)}`
         }, 'Unblock')
       )),
       // A button, like the Following row's: the "+N more" text could not
@@ -9419,8 +9427,11 @@ function ProfileTradesTab({ me, privacy }) {
                   setReviewStars(next);
                   // Move focus to the newly-selected star so the
                   // keyboard user sees their own selection.
+                  // Read the group now: React clears currentTarget once the
+                  // handler returns, so inside the frame callback it was null.
+                  const group = e.currentTarget.parentElement;
                   requestAnimationFrame(() => {
-                    const btns = e.currentTarget.parentElement?.querySelectorAll('button[role="radio"]');
+                    const btns = group?.querySelectorAll('button[role="radio"]');
                     if (btns && btns[next - 1]) btns[next - 1].focus();
                   });
                 }
@@ -9962,7 +9973,13 @@ function ProfileOffersTab() {
                                          : 'var(--text-faint)';
       return h('span', {
         style: { marginLeft: 8, color: cls, fontWeight: 700 },
-        title: 'This offer auto-declines after a period of inactivity. Either side can accept, reject, or counter before then.'
+        // Only the seller can counter (OfferService.counterOffer); the buyer
+        // can raise or cancel their own offer.
+        title: isIncoming
+          ? 'This offer auto-declines after a period of inactivity. You can accept, reject, or counter before then.'
+          : o.author === 'SELLER'
+            ? "This offer auto-declines after a period of inactivity. You can accept or decline the seller's counter before then."
+            : 'This offer auto-declines after a period of inactivity. The seller can accept, reject, or counter; you can raise or cancel before then.'
       }, '· expires in ' + label);
     })();
 
@@ -11033,13 +11050,10 @@ function ProfileSupportTab() {
       const ticketId = res?.id;
       setForm({ subject: '', category: 'OTHER', body: '' });
       load();
-      // Batch 897 — name the ticket + cite the category's SLO so the
-      // user knows when to expect a response. Trade + Payment are
-      // high-priority (≤4h) per /legal/trade-safety.html; the rest
-      // fall under the ≤24h default.
-      const sloHours = ['TRADE', 'PAYMENT', 'REFUND'].includes(form.category) ? 4 : 24;
+      // Name the ticket. No reply time is promised: SupportService has no
+      // deadline, and the form's own banner says "as soon as staff can".
       toast(
-        `Ticket ${ticketId ? '#' + ticketId : ''} opened — staff will respond within ${sloHours} hours.`,
+        `Ticket ${ticketId ? '#' + ticketId : ''} opened — staff will reply in this thread as soon as they can.`,
         'ok'
       );
     } finally { setBusy(false); }
