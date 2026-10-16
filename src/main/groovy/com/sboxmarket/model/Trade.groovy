@@ -116,6 +116,13 @@ class Trade {
     @Column(name = 'sent_at')
     Long sentAt
 
+    /** When the buyer had the item: they pressed "Item received", or the
+     *  escrow bot saw its Steam offer ACCEPTED (both via buyerConfirm).
+     *  Never set by the auto-release timer or a staff release, since nobody
+     *  saw the item arrive. Powers the seller "Delivery time" stat (V264). */
+    @Column(name = 'delivered_at')
+    Long deliveredAt
+
     /** Set the first time the buyer is pushed a TRADE_SLOW_SELLER warning
      *  because the seller has been silent for >24h on a pending-seller
      *  state. Stops the warning sweeper from re-pinging every tick. Cleared

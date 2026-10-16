@@ -45,7 +45,7 @@ test.describe('The seller card beside Buy now', () => {
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ [SELLER_ID]: {
         sellerUserId: SELLER_ID, completedTrades: 49, failedTrades: 1, completionRate: 98,
-        medianShipMs: 2 * 3_600_000, memberSince: Date.UTC(2026, 0, 15), lastSeenAt: Date.now(),
+        medianShipMs: 2 * 3_600_000, medianDeliveryMs: 5 * 3_600_000, memberSince: Date.UTC(2026, 0, 15), lastSeenAt: Date.now(),
         rating: 4.8, reviewCount: 12,
       } }),
     }));
@@ -58,6 +58,7 @@ test.describe('The seller card beside Buy now', () => {
     await expect(card.locator('[data-stat="rate"]')).toContainText('98%');
     await expect(card.locator('[data-stat="rate"]')).toContainText('49 of 50');
     await expect(card.locator('[data-stat="ship"]')).toContainText('~2h');
+    await expect(card.locator('[data-stat="delivery"]')).toContainText('~5h');
     await expect(card.locator('[data-stat="rating"]')).toContainText('4.8');
     // The Active Listings row carries the same record in short.
     await expect(page.getByTestId('listing-trade-chip').first()).toContainText('49 trades');
@@ -82,6 +83,7 @@ test.describe('The seller card beside Buy now', () => {
     // cannot know yet shown as a dash, never a made-up value.
     await expect(card.locator('[data-stat="completed"]')).toContainText('0');
     await expect(card.locator('[data-stat="ship"]')).toContainText('–');
+    await expect(card.locator('[data-stat="delivery"]')).toContainText('–');
     await expect(card.locator('[data-stat="rate"]')).toHaveCount(0);
   });
 

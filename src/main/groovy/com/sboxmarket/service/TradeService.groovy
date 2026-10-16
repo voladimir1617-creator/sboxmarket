@@ -837,6 +837,8 @@ class TradeService {
         def t = get(tradeId)
         requireParticipant(t, buyerUserId, 'buyer')
         require(t.state == 'PENDING_BUYER_CONFIRM', "Trade cannot be confirmed in state ${t.state}")
+        // The moment the item is known to have arrived; release() saves it.
+        t.deliveredAt = System.currentTimeMillis()
         release(t)
         t
     }
@@ -2013,6 +2015,44 @@ class TradeService {
                 ? ((sorted[mid - 1] + sorted[mid]) / 2L) as Long
                 : sorted[mid] as Long
             out[uid] = median
+        }
+        out
+    }
+
+    /**
+     * Median delivery time (ms) per seller: from the sale to the moment the
+     * buyer had the item (deliveredAt, set by buyerConfirm), over VERIFIED
+     * trades in the last {@code lookbackDays} days. Same rules as
+     * {@link #typicalShipMsBulk}: median, omitted under 3 samples, sellers
+     * with nothing measured are absent so the UI shows "-".
+     */
+    Map<Long, Long> typicalDeliveryMsBulk(Collection<Long> sellerUserIds, int lookbackDays = 90) {
+        Map<Long, Long> out = [:]
+        if (sellerUserIds == null || sellerUserIds.isEmpty()) return out
+        def ids = sellerUserIds.findAll { it != null }.toSet()
+        if (ids.isEmpty()) return out
+        def since = System.currentTimeMillis() - (lookbackDays * 24L * 60L * 60L * 1000L)
+        List<Object[]> rows
+        try {
+            rows = tradeRepository.findRecentDeliveryMsForSellers(ids, since)
+        } catch (Exception e) {
+            log.debug("typicalDeliveryMsBulk lookup failed: ${e.message}")
+            return out
+        }
+        if (rows == null || rows.isEmpty()) return out
+        Map<Long, List<Long>> bySeller = [:].withDefault { [] }
+        rows.each { row ->
+            def uid = row[0] as Long
+            def ms = row[1] as Long
+            if (uid != null && ms != null && ms >= 0L) bySeller[uid] << ms
+        }
+        bySeller.each { uid, samples ->
+            if (samples.size() < 3) return
+            def sorted = samples.sort(false)
+            def mid = sorted.size().intdiv(2)
+            out[uid] = sorted.size() % 2 == 0
+                ? ((sorted[mid - 1] + sorted[mid]) / 2L) as Long
+                : sorted[mid] as Long
         }
         out
     }
