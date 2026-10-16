@@ -15,7 +15,7 @@ import {
   fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, fetchConnectStatus, connectOnboard, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
-  fetchBuyOrders, deleteBuyOrder, fetchAutoBids, fetchActiveBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey, revokeAllApiKeys,
+  fetchBuyOrders, deleteBuyOrder, pauseBuyOrder, resumeBuyOrder, fetchAutoBids, fetchActiveBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey, revokeAllApiKeys,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, fetchTradesWithTotal, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
   fetchTradeMessages, fetchTradeMessagesOrNull, postTradeMessage,
@@ -225,7 +225,7 @@ function chartRangeUsable(rows, range) {
   return historyWithinDays(rows, range.days, true).length >= 2;
 }
 
-function fmtDelay(ms) {
+export function fmtDelay(ms) {
   const m = Number(ms);
   if (!Number.isFinite(m) || m <= 0) return null;
   const hours = m / 3_600_000;
@@ -262,6 +262,7 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
   const failed = rec ? Number(rec.failedTrades || 0) : 0;
   const decided = completed + failed;
   const ship = rec ? fmtDelay(rec.medianShipMs) : null;
+  const delivery = rec ? fmtDelay(rec.medianDeliveryMs) : null;
   const reviews = rec ? Number(rec.reviewCount || 0) : 0;
 
   let body;
@@ -270,7 +271,7 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
     // the price and buttons below don't drop when the record arrives.
     body = h(React.Fragment, null,
       h('div', { className: 'seller-trust-stats', 'aria-hidden': 'true' },
-        [['completed', 'trades completed'], ['ship', 'median time to send']].map(([key, label]) =>
+        [['completed', 'trades completed'], ['ship', 'median time to send'], ['delivery', 'delivery time']].map(([key, label]) =>
           h('div', { key, className: 'seller-trust-stat', 'data-stat': key },
             h('span', { className: 'seller-trust-val' }, '\u00a0'),
             h('span', { className: 'seller-trust-label' }, label)))),
@@ -297,6 +298,14 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
       tip: ship
         ? 'Median time from sale to the seller marking the Steam trade offer sent, over their last 90 days (shown from 3 trades).'
         : 'Not enough timed trades yet: shown once the seller has sent 3 trades in the last 90 days.' });
+    // Delivery time: sale to the buyer HAVING the item (they confirmed it, or
+    // the escrow bot saw its Steam offer accepted). "–" until 3 such trades
+    // in 90 days; a trade released by the timer or by staff never counts,
+    // because nobody saw the item arrive.
+    cells.push({ key: 'delivery', val: delivery ? '~' + delivery : '–', label: 'delivery time',
+      tip: delivery
+        ? 'Median time from sale to the buyer having the item (they confirmed it, or the escrow bot saw its Steam offer accepted), over the seller\'s last 90 days (shown from 3 trades).'
+        : 'Not measured yet: shown once 3 of this seller\'s trades in the last 90 days were confirmed as received.' });
     if (reviews > 0 && rec.rating != null) cells.push({ key: 'rating', val: Number(rec.rating).toFixed(1),
       label: `rating (${reviews} review${reviews === 1 ? '' : 's'})`, icon: 'star',
       tip: 'Average of the reviews buyers left after completed trades.' });
@@ -549,10 +558,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   const bestBid = buyOrderInfo.bestBid;
   // Batch 639 — top-N active buy orders for this item (aggregate only,
   // no counterparty identity). Drives the CSFloat-style "Buy Orders"
-  // table inline on the item detail modal. Lazy-expanded via a
-  // toggle so the default view stays compact for items where only
-  // the count + best-bid chips are interesting.
-  const [buyOrdersOpen, setBuyOrdersOpen] = useState(false);
+  // table inline on the item detail modal. Open by default as a "Buy
+  // offers" block (White.market shows open orders on every item page,
+  // empty state included); the demand chips still fold it away.
+  const [buyOrdersOpen, setBuyOrdersOpen] = useState(true);
   const [buyOrderRows, setBuyOrderRows]   = useState(null);
   useEffect(() => {
     if (!item?.id || !buyOrdersOpen || buyOrderRows !== null) return;
@@ -1777,7 +1786,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         }
       },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 } },
-          h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 13 } }, 'Active buy orders'),
+          h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 13 } }, 'Buy offers'),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Top-of-book first · counterparties anonymous')
         ),
         buyOrderRows === null
@@ -1786,13 +1795,13 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             // White.market's empty Buy offers panel puts the action on the
             // same line as the "no orders" sentence.
             ? h('div', { 'data-testid': 'buy-orders-empty', style: { padding: 8, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } },
-                h('span', null, 'No active buy orders for this item right now.'),
+                h('span', null, 'There are no active buy orders for this item.'),
                 me
                   ? (!myBuyOrder && onCreateBuyOrder && h('button', {
                       className: 'btn btn-accent',
                       style: { padding: '6px 14px', fontSize: 12 },
                       onClick: () => onCreateBuyOrder(item)
-                    }, 'Place Buy Order'))
+                    }, 'Create a new order'))
                   : h('button', {
                       className: 'btn btn-accent',
                       style: { padding: '6px 14px', fontSize: 12 },
@@ -1827,7 +1836,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           style: { marginTop: 10, width: '100%', border: '1px dashed var(--accent-border)', padding: '8px 12px', fontSize: 11, color: 'var(--accent)' },
           onClick: () => onCreateBuyOrder && onCreateBuyOrder(item),
           title: 'Place your own buy order for this item'
-        }, '+ Place a buy order')
+        }, '+ Create a new order')
       ),
 
       h('div', { className: 'modal-body' },
@@ -2431,25 +2440,46 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           )
         ),
 
-        // ── Similar items strip ────────────────────────────────────
-        similar && similar.length > 0 && h('div', null,
-          h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
-            h('div', { className: 'section-title-dot' }), 'You might also like'),
-          h('div', { className: 'similar-strip' },
-            similar.map(it => h('a', {
-              key: it.id,
-              className: 'similar-card',
-              href: '/item/' + it.id,
-              title: it.name
-            },
-              h('div', { className: 'similar-thumb' }, h(ItemImage, { item: it, variant: 'thumb' })),
-              h('div', { className: 'similar-name' }, it.name),
-              // Only a listed item has a SkinBox price: unlisted ones carry 0, or
-              // the Steam price the price sync writes there. Show "—" for both.
-              h('div', { className: 'similar-price' }, (it.isListed && parseFloat(it.lowestPrice) > 0) ? h(Money, { value: it.lowestPrice }) : '—')
-            ))
-          )
-        )
+        // ── Similar offers / You might also like ──────────────────
+        // White.market shows "Similar offers" under an item: the same thing
+        // in other variants, each with its cheapest live price. s&box has no
+        // exteriors, so the variants here are the nearest items by category,
+        // rarity and price (the /similar query). Items someone is selling
+        // right now go in "Similar offers" with their cheapest price and how
+        // many offers back it; items with no live offer keep the old
+        // "You might also like" strip below it, with no price.
+        similar && similar.length > 0 && (() => {
+          const offered = similar.filter(it => it.isListed && parseFloat(it.lowestPrice) > 0);
+          const rest = similar.filter(it => !(it.isListed && parseFloat(it.lowestPrice) > 0));
+          const card = (it, live) => h('a', {
+            key: it.id,
+            className: 'similar-card',
+            href: '/item/' + it.id,
+            title: live && Number(it.supply) > 0
+              ? `${it.name}: ${Number(it.supply)} offer${Number(it.supply) === 1 ? '' : 's'}, cheapest shown`
+              : it.name
+          },
+            h('div', { className: 'similar-thumb' }, h(ItemImage, { item: it, variant: 'thumb' })),
+            h('div', { className: 'similar-name' }, it.name),
+            // Only a listed item has a SkinBox price: unlisted ones carry 0, or
+            // the Steam price the price sync writes there. Show "—" for both.
+            h('div', { className: 'similar-price' }, live ? h(Money, { value: it.lowestPrice }) : '—',
+              // supply is the active-listing count the floor sweep keeps.
+              live && Number(it.supply) > 0 && h('span', {
+                'data-testid': 'similar-offer-count',
+                style: { marginLeft: 6, fontFamily: 'var(--ui)', fontWeight: 400, fontSize: 11, color: 'var(--ink-3)' }
+              }, Number(it.supply).toLocaleString() + (Number(it.supply) === 1 ? ' offer' : ' offers')))
+          );
+          return h(React.Fragment, null,
+            offered.length > 0 && h('div', { 'data-testid': 'similar-offers' },
+              h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
+                h('div', { className: 'section-title-dot' }), 'Similar offers'),
+              h('div', { className: 'similar-strip' }, offered.map(it => card(it, true)))),
+            rest.length > 0 && h('div', null,
+              h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
+                h('div', { className: 'section-title-dot' }), 'You might also like'),
+              h('div', { className: 'similar-strip' }, rest.map(it => card(it, false)))));
+        })()
       ),
 
       (() => {
@@ -7046,6 +7076,29 @@ function ProfileBuyOrdersTab() {
     load();
     return () => { aliveRef.current = false; };
   }, [load]);
+  const togglePause = async (o) => {
+    if (busyRef.current) return;
+    const resuming = o.status === 'PAUSED';
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const res = resuming ? await resumeBuyOrder(o.id) : await pauseBuyOrder(o.id);
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || (resuming ? 'Could not resume buy order' : 'Could not pause buy order'), 'err');
+        return;
+      }
+      load();
+      const name = o.itemName || 'item';
+      if (!resuming) { toast(`Buy order for "${name}" paused. It won't buy anything until you resume it.`, 'ok'); return; }
+      // Resume probes listings already on the market, so it can fill on the spot.
+      const before = Number.isFinite(o.quantity) ? o.quantity : 0;
+      const bought = res?.status === 'FILLED' ? before
+        : (Number.isFinite(res?.quantity) ? Math.max(0, before - res.quantity) : 0);
+      toast(bought > 0
+        ? `Buy order resumed: bought ${bought} × "${name}" right away. Check your trades.`
+        : `Buy order for "${name}" resumed. 30-day clock restarted.`, 'ok');
+    } finally { busyRef.current = false; setBusy(false); }
+  };
   const cancelOrder = async (o) => {
     if (!confirm(`Cancel buy order for "${o.itemName || 'item'}"? Any remaining quantity is freed.`)) return;
     setBusy(true);
@@ -7084,6 +7137,7 @@ function ProfileBuyOrdersTab() {
   const counts = {
     ALL:       orders.length,
     ACTIVE:    orders.filter(o => o.status === 'ACTIVE').length,
+    PAUSED:    orders.filter(o => o.status === 'PAUSED').length,
     FILLED:    orders.filter(o => o.status === 'FILLED').length,
     CANCELLED: orders.filter(o => o.status === 'CANCELLED').length,
     // Orders the 30-day idle sweep closed. Without a chip they were
@@ -7149,6 +7203,7 @@ function ProfileBuyOrdersTab() {
         [
           { id: 'ALL',       label: 'All' },
           { id: 'ACTIVE',    label: 'Active' },
+          { id: 'PAUSED',    label: 'Paused' },
           { id: 'FILLED',    label: 'Filled' },
           { id: 'CANCELLED', label: 'Cancelled' },
           { id: 'EXPIRED',   label: 'Expired' }
@@ -7160,24 +7215,24 @@ function ProfileBuyOrdersTab() {
           disabled: counts[opt.id] === 0 && opt.id !== 'ALL'
         }, `${opt.label} · ${counts[opt.id] || 0}`))
       ),
-      counts.ACTIVE > 1 && h('button', {
+      (counts.ACTIVE + counts.PAUSED) > 1 && h('button', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11, color: 'var(--red)' },
         disabled: busy,
-        title: `Cancel all ${counts.ACTIVE} active buy orders in one click`,
+        title: `Cancel all ${counts.ACTIVE + counts.PAUSED} open buy orders (active and paused) in one click`,
         onClick: async () => {
-          if (!confirm(`Cancel all ${counts.ACTIVE} active buy orders?`)) return;
+          if (!confirm(`Cancel all ${counts.ACTIVE + counts.PAUSED} open buy orders, paused ones included?`)) return;
           setBusy(true);
           try {
             const { cancelAllBuyOrders } = await import('./api.js');
             const res = await cancelAllBuyOrders();
             if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel buy orders', 'err'); return; }
             const n = (res && res.cancelled) || 0;
-            toast(n === 0 ? 'No active buy orders to cancel.' : `Cancelled ${n} buy order${n === 1 ? '' : 's'}.`, 'ok');
+            toast(n === 0 ? 'No open buy orders to cancel.' : `Cancelled ${n} buy order${n === 1 ? '' : 's'}.`, 'ok');
             load();
           } finally { setBusy(false); }
         }
-      }, '✕ Cancel all active'),
+      }, counts.PAUSED > 0 ? '✕ Cancel all open' : '✕ Cancel all active'),
       orders.length > 0 && h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
@@ -7272,6 +7327,7 @@ function ProfileBuyOrdersTab() {
               })(),
               h('div', { className: `buyorder-status ${o.status}` },
                 o.status === 'ACTIVE'    ? 'Active'
+                : o.status === 'PAUSED'    ? 'Paused'
                 : o.status === 'FILLED'    ? 'Filled'
                 : o.status === 'CANCELLED' ? 'Cancelled'
                 : o.status === 'EXPIRED'   ? 'Expired'
@@ -7280,7 +7336,7 @@ function ProfileBuyOrdersTab() {
               // compact inputs for maxPrice + quantity, save/cancel
               // buttons. Live-reloads the row on save so the queue
               // chip re-ranks with the new price.
-              o.status === 'ACTIVE' && editing === o.id && h('div', {
+              (o.status === 'ACTIVE' || o.status === 'PAUSED') && editing === o.id && h('div', {
                 style: { display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }
               },
                 h('input', {
@@ -7312,7 +7368,7 @@ function ProfileBuyOrdersTab() {
               // still has remaining fillable quantity AND no edit is
               // open for another row. Fills / cancels terminate the row
               // so the buttons hide.
-              o.status === 'ACTIVE' && editing !== o.id && h('div', { style: { display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-end' } },
+              (o.status === 'ACTIVE' || o.status === 'PAUSED') && editing !== o.id && h('div', { style: { display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-end' } },
                 // Batch 857 — "Bump" one-click: resets the 30-day auto-
                 // expire clock without opening the edit flow. Only
                 // surfaces when the order is within 7 days of auto-
@@ -7321,7 +7377,7 @@ function ProfileBuyOrdersTab() {
                 // runway. Calls the existing /api/buy-orders/{id} PUT
                 // with an empty body — the service bumps updatedAt
                 // regardless of whether fields changed.
-                o.updatedAt && (() => {
+                o.status === 'ACTIVE' && o.updatedAt && (() => {
                   const msLeft = (o.updatedAt + 30 * 24 * 3600 * 1000) - Date.now();
                   if (msLeft <= 0 || msLeft > 7 * 24 * 3600 * 1000) return null;
                   return h('button', {
@@ -7353,6 +7409,14 @@ function ProfileBuyOrdersTab() {
                   disabled: busy, onClick: () => startEdit(o),
                   title: 'Adjust your max price or remaining quantity'
                 }, '✎ Edit'),
+                h('button', {
+                  className: 'btn btn-ghost',
+                  style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
+                  disabled: busy, onClick: () => togglePause(o),
+                  title: o.status === 'PAUSED'
+                    ? 'Turn this order back on. It can buy right away if a listing is already at or under your max.'
+                    : 'Stop this order from buying without deleting it. Resume it any time.'
+                }, o.status === 'PAUSED' ? '▶ Resume' : '❚❚ Pause'),
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },

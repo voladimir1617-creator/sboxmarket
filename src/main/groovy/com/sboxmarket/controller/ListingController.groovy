@@ -1174,6 +1174,7 @@ class ListingController {
                 completedTrades:   tradeRecord?.completedTrades,
                 failedTrades:      tradeRecord?.failedTrades,
                 completionRate:    tradeRecord?.completionRate,
+                medianDeliveryMs:  tradeRecord?.medianDeliveryMs,
                 // Batch 1045 — most-recent listedAt across the seller's
                 // ACTIVE listings. Gives buyers a sharper activity signal
                 // than lastSyncedAt (Steam sync, updates on any login)

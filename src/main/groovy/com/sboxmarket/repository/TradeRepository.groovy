@@ -535,6 +535,23 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
                                               @Param("since") Long since)
 
     /**
+     *  Delivery-time samples for the seller "Delivery time" stat: rows of
+     *  `[sellerUserId, deliveredAt - createdAt]` for VERIFIED trades whose
+     *  delivery was seen (buyer confirmed, or the bot saw its offer
+     *  accepted). Auto-released and staff-released trades have no
+     *  deliveredAt and are left out. Served by the V264 partial index.
+     */
+    @Query("""
+        SELECT t.sellerUserId, (t.deliveredAt - t.createdAt) FROM Trade t
+        WHERE t.sellerUserId IN :sellerIds
+          AND t.state        = 'VERIFIED'
+          AND t.deliveredAt IS NOT NULL
+          AND t.deliveredAt >= :since
+    """)
+    List<Object[]> findRecentDeliveryMsForSellers(@Param("sellerIds") Collection<Long> sellerIds,
+                                                  @Param("since") Long since)
+
+    /**
      * A seller's trade record, in bulk: rows of
      * `[sellerUserId, completed, sellerFailed]`.
      *

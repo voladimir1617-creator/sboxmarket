@@ -28,6 +28,9 @@ import org.springframework.stereotype.Service
  *                    to divide by, so "no record" never reads as "100%"
  *   medianShipMs     median time from sale to "marked sent" over the last
  *                    90 days, null under three samples (TradeService's floor)
+ *   medianDeliveryMs median time from sale to the buyer HAVING the item (they
+ *                    confirmed it, or the bot saw its offer accepted), same
+ *                    window and floor; null until measured, shown as "-"
  *
  * Banned accounts are left out entirely: their listings are already hidden,
  * and a record next to nothing would only invite questions a banner answers.
@@ -76,6 +79,12 @@ class SellerTrustService {
         } catch (Exception e) {
             log.debug("typicalShipMsBulk failed: ${e.message}")
         }
+        Map<Long, Long> delivery = [:]
+        try {
+            delivery = tradeService?.typicalDeliveryMsBulk(userIds) ?: [:]
+        } catch (Exception e) {
+            log.debug("typicalDeliveryMsBulk failed: ${e.message}")
+        }
         Map<Long, Map> ratings = [:]
         try {
             ratings = reviewService?.summariesForUsers(userIds) ?: [:]
@@ -94,6 +103,7 @@ class SellerTrustService {
                 failedTrades:    failed,
                 completionRate:  decided > 0L ? (int) Math.floor(completed * 100.0d / decided) : null,
                 medianShipMs:    ship[u.id],
+                medianDeliveryMs: delivery[u.id],
                 memberSince:     u.createdAt,
                 lastSeenAt:      u.lastSeenAt,
                 rating:          rating?.average == null ? null : (rating.average as Double),

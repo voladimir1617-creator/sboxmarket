@@ -384,6 +384,8 @@ class TradeServiceSpec extends Specification {
 
         then:
         t.state == 'VERIFIED'
+        // The buyer saw it arrive: this is the delivery-time sample.
+        t.deliveredAt != null
         // 50.00 − 1.00 fee = 49.00 credited
         sellerWallet.balance == new BigDecimal("49.00")
         1 * transactionRepository.save({ Transaction tx ->
@@ -969,6 +971,8 @@ class TradeServiceSpec extends Specification {
         // Trade is now VERIFIED; seller paid.
         t.state == 'VERIFIED'
         sellerWallet.balance > BigDecimal.ZERO
+        // Nobody saw the item arrive, so it is no delivery-time sample.
+        t.deliveredAt == null
     }
 
     def "adminRelease rejects terminal states"() {
