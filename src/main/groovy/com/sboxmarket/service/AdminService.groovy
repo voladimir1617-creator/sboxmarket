@@ -1836,7 +1836,7 @@ class AdminService {
     /**
      * Wipe a user's TOTP secret — support path for locked-out users who
      * have lost access to their authenticator app. The user can then re-
-     * enrol from Profile → 2FA. Deliberately high-privilege: admin-only
+     * enrol from Profile → Personal Info. Deliberately high-privilege: admin-only
      * (not CSR) because it disables a second factor. Every call lands in
      * the audit log so abuse is visible.
      */
@@ -1877,7 +1877,7 @@ class AdminService {
         def cleanNote = textSanitizer.medium(note) ?: '(no note)'
         notificationService?.safePush(targetUserId, 'TWOFA_RESET',
             "Your 2FA was reset by staff",
-            "Two-factor authentication has been disabled on your account. Please re-enrol from Profile → 2FA next time you sign in.",
+            "Two-factor authentication has been disabled on your account. Please re-enrol from Profile → Personal Info next time you sign in.",
             null, '/profile')
         // Security alert email (batch 575). Admin-reset-2FA is a
         // high-impact action — an attacker with stolen staff creds

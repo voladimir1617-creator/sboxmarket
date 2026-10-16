@@ -15,7 +15,7 @@ const FAQ = [
   {
     s: 'start',
     q: 'How do I sign in?',
-    a: "Click the ‘Sign in through Steam’ button in the top-right of any page. You'll be redirected to steamcommunity.com to approve the login. Your password never touches our servers — we only see your public Steam profile via OpenID."
+    a: "Click the ‘Sign in through Steam’ button in the top-right of any page. You'll be redirected to steamcommunity.com to approve the login. Your password never touches our servers — we only see your public Steam profile and, when you sell, your public inventory."
   },
   {
     s: 'trade',
@@ -110,7 +110,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'I lost access to my 2FA device — what do I do?',
-    a: "Open a support ticket (Profile → Support → + New Ticket) with category Account and include your Steam ID. Staff will verify ownership via Steam OpenID handshake + ban-appeal questions and reset your 2FA. Once reset, every active session on your account is revoked for security, and you'll need to re-enrol a new device from Profile → 2FA on your next sign-in."
+    a: "Open a support ticket (Profile → Support → + New Ticket) with category Account and include your Steam ID. Staff will verify ownership via Steam OpenID handshake + ban-appeal questions and reset your 2FA. Once reset, every active session on your account is revoked for security, and you'll need to re-enrol a new device from Profile → Personal Info on your next sign-in."
   },
   {
     s: 'start',
