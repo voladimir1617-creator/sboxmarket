@@ -667,6 +667,56 @@ class EmailServiceSpec extends Specification {
         })
     }
 
+    def "sendOfferRejected links the item page it tells the buyer to head back to"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendOfferRejected('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('30'), null, 42L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('head back to the listing') &&
+            f.text.contains('/item/42') &&
+            !f.text.contains('/offers')
+        })
+    }
+
+    def "sendOfferRejected without an item id points at the Offers page and says so"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendOfferRejected('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('30'), null)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('your Offers page links back to the listing') &&
+            f.text.contains('/offers') &&
+            !f.text.contains('head back to the listing')
+        })
+    }
+
+    def "sendOfferReceived says a counter-offer restarts the 7-day clock"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendOfferReceived('sally@example.com', 'Sally', 'Alice',
+            'Wizard Hat', new BigDecimal('30'), new BigDecimal('50'), null)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            !f.text.contains('without the offer expiring') &&
+            f.text.replaceAll(/\s+/, ' ').contains('A counter-offer restarts the 7-day clock.')
+        })
+    }
+
     def "sendAuctionExpired surfaces the reason + relist CTA (batch 607)"() {
         given:
         def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')

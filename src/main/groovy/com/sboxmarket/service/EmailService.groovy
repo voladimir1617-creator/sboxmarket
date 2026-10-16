@@ -1175,8 +1175,8 @@ ${noteBlock}
 Accept, counter, or reject from:
 ${publicUrl}/offers
 
-Offers auto-decline after 7 days with no action. Counter-offers keep
-the conversation going without the offer expiring.
+Offers auto-decline after 7 days with no action. A counter-offer
+restarts the 7-day clock.
 
 You're getting this because offers are part of your trade pipeline.
 Mute the "Trade activity" bucket in Profile → Email notifications to
@@ -1256,9 +1256,11 @@ stop these.
     /** Offer rejected — fires from OfferService.rejectOffer when a
      *  seller declines the buyer's offer. Surfaces the optional
      *  seller-supplied reason so the buyer knows whether to re-offer
-     *  at a higher amount or move on. Gated on the TRADES bucket. */
+     *  at a higher amount or move on. Gated on the TRADES bucket.
+     *  `itemId` links the item page, where the buyer can re-offer or
+     *  Buy Now; without it the link falls back to the Offers page. */
     void sendOfferRejected(String toEmail, String displayName, String itemName,
-                           BigDecimal amount, String sellerReply) {
+                           BigDecimal amount, String sellerReply, Long itemId = null) {
         if (!toEmail || amount == null) return
         def subject = "Offer declined · ${itemName ?: 'listing'}"
         def cleanReply = sellerReply?.trim() ?: null
@@ -1270,9 +1272,9 @@ Hi ${displayName ?: 'there'},
 
 The seller declined your ${usd(amount)} offer on ${itemName ?: 'their listing'}.
 ${replyBlock}
-If you still want the item, head back to the listing and try a higher
-offer or use Buy Now:
-${publicUrl}/offers
+${itemId != null
+    ? "If you still want the item, head back to the listing and try a higher\noffer or use Buy Now:\n${absUrl('/item/' + itemId)}"
+    : "If you still want the item, your Offers page links back to the listing:\n${publicUrl}/offers"}
 
 You're getting this because offers are part of your trade pipeline.
 Mute the "Trade activity" bucket in Profile → Email notifications to

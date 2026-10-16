@@ -1978,6 +1978,7 @@ class OfferServiceSpec extends Specification {
         service.emailService = emailService
 
         def offer = pendingOffer(id: 5L, amount: new BigDecimal('30'))
+        offer.itemId = 42L
         offerRepository.findById(5L) >> Optional.of(offer)
         steamUserRepository.findById(10L) >> Optional.of(buyer)
         offerRepository.save(_) >> { Offer o -> o }
@@ -1987,7 +1988,7 @@ class OfferServiceSpec extends Specification {
 
         then:
         1 * emailService.sendOfferRejected('alice@example.com', 'Alice',
-            null, new BigDecimal('30'), 'Firm at asking price — thanks')
+            null, new BigDecimal('30'), 'Firm at asking price — thanks', 42L)
     }
 
     def "rejectOffer emails the buyer even when the seller supplied no reply"() {
@@ -2011,7 +2012,7 @@ class OfferServiceSpec extends Specification {
 
         then:
         1 * emailService.sendOfferRejected('alice@example.com', 'Alice',
-            null, new BigDecimal('30'), null)
+            null, new BigDecimal('30'), null, null)
     }
 
     // ── Batch 699 — PRICE_DROPPED fan-out to offer-holders ────────
