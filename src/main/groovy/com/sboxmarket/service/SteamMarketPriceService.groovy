@@ -36,11 +36,13 @@ class SteamMarketPriceService {
     @Autowired ItemRepository itemRepository
     @Autowired(required = false) PriceHistoryService priceHistoryService
 
-    /** Off on the public demo (application-demo.yml): its catalogue is
-     *  fabricated, so polling Steam for it would only spend Steam's rate
-     *  limit on a host that sells nothing. */
-    @Value('${app.steam-price-sync.enabled:true}')
-    boolean steamSyncEnabled = true
+    /** Off by default (owner's call, 2026-10-15): SkinBox's seed prices
+     *  are settled, and this sync would overwrite unlisted items' prices
+     *  and add price_history rows from an outside feed. Turn it on with
+     *  STEAM_PRICE_SYNC_ENABLED=true (app.steam-price-sync.enabled in
+     *  application.yml). The public demo pins it off as well. */
+    @Value('${app.steam-price-sync.enabled:false}')
+    boolean steamSyncEnabled = false
 
     /** Last-run telemetry (batch 396). Populated at the end of every sync
      *  pass so the admin Health tab can render "last sync 4 min ago,
