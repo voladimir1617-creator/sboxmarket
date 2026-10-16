@@ -30804,3 +30804,19 @@ html:root body div.grid-card .grid-body .grid-price { font-size: 21px !important
 /* On phones the item picture was a 346px square inside a 261px-tall 4:3
    frame, so its top and bottom were cut off; it now fits the frame. */
 html:root body .modal-preview > img.item-img { max-height: 92% !important; width: auto !important; max-width: 92% !important; object-fit: contain !important; }
+/* Make offer on every Active Listings row: the rail Bargain button's blue
+   ghost look at row size, so a buyer can bargain with any seller, not only
+   the cheapest. Icon-only on phones, where the row has no room for a label. */
+html body .modal-listing-row > .listing-offer-btn { appearance: none; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid rgba(64, 160, 254, 0.32); background: rgba(64, 160, 254, 0.10); color: #40a0fe; font-family: Roboto, "Helvetica Neue", sans-serif; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background 140ms ease, border-color 140ms ease; }
+html body .modal-listing-row > .listing-offer-btn:hover, html body .modal-listing-row > .listing-offer-btn.is-open { background: rgba(64, 160, 254, 0.18); border-color: rgba(64, 160, 254, 0.55); }
+html body .modal-listing-row > .listing-offer-btn:focus-visible { outline: 2px solid var(--cta); outline-offset: 2px; }
+html body .offer-drawer-target { color: var(--ink); font-weight: 600; }
+@media (max-width: 768px) {
+  html body .modal-listing-row > .listing-offer-btn { width: 40px; height: 40px; padding: 0; }
+  html body .modal-listing-row > .listing-offer-btn .listing-offer-btn-label { display: none; }
+}
+@media (max-width: 640px) {
+  /* The 84px price column left no room for the offer button, which pushed
+     the report flag onto a third line; let the price take its own width. */
+  html body .modal-listing-row:has(> .listing-offer-btn) > .modal-listing-price { min-width: 0 !important; }
+}
