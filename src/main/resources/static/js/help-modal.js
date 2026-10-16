@@ -40,7 +40,7 @@ const FAQ = [
   {
     s: 'trade',
     q: 'What are Buy Orders?',
-    a: "A standing offer to auto-purchase a specific item as soon as a listing drops to your max price. Open any item, hit Place Buy Order, pick a max, and walk away. When a matching listing appears, we charge your wallet and assign the item automatically. Cancel from your Profile → Buy Orders tab."
+    a: "A standing offer to auto-purchase a specific item as soon as a listing drops to your max price. Open any item, hit Place Buy Order, pick a max, and walk away. When a matching listing appears, we charge your wallet and assign the item automatically. It works on items nobody is selling yet, too: the order waits and fills the first Buy Now listing at or under your max. Cancel from your Profile → Buy Orders tab."
   },
   {
     s: 'trade',
