@@ -1,0 +1,8 @@
+{
+  "name": "image-size",
+  "version": "0.8.3-sbox.1",
+  "private": true,
+  "description": "Keeps steamcommunity's call shape (require('image-size')(buffer)) on patched image-size 2 (GHSA-w3rx-r6r6-pgpr).",
+  "main": "index.js",
+  "dependencies": { "image-size-v2": "npm:image-size@^2.0.4" }
+}
