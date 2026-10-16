@@ -16304,8 +16304,9 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     starred.forEach(l => {
       // An item starred with nothing listed has no price to compare
       // against: wait for its first listing, and replace a 0 baseline
-      // saved before this was guarded.
-      const p = parseFloat(l.price);
+      // saved before this was guarded. Auctions use the current bid, the
+      // same price the card shows.
+      const p = wlShownPrice(l);
       if (l.__noListing || !(p > 0)) return;
       if (!(next[l.item.id] > 0)) {
         next[l.item.id] = p;
@@ -16329,7 +16330,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
 
   const rows = starred.map(l => {
     const snap = snapshots[l.item.id] > 0 ? snapshots[l.item.id] : null;
-    const cur = parseFloat(l.price);
+    const cur = wlShownPrice(l);
     const delta = snap != null ? cur - snap : 0;
     const pct = snap && snap > 0 ? (delta / snap) * 100 : 0;
     // Signed in, the server alert is the real one: the Price alerts strip
@@ -16382,9 +16383,9 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       watchlist.forEach((id, i) => idx.set(id, i));
       order.sort((a, b) => (idx.get(b.listing.item.id) ?? -1) - (idx.get(a.listing.item.id) ?? -1));
     } else if (sortBy === 'price_asc') {
-      order.sort((a, b) => (parseFloat(a.listing.price) || Infinity) - (parseFloat(b.listing.price) || Infinity));
+      order.sort((a, b) => (wlShownPrice(a.listing) || Infinity) - (wlShownPrice(b.listing) || Infinity));
     } else if (sortBy === 'price_desc') {
-      order.sort((a, b) => (parseFloat(b.listing.price) || 0) - (parseFloat(a.listing.price) || 0));
+      order.sort((a, b) => (wlShownPrice(b.listing) || 0) - (wlShownPrice(a.listing) || 0));
     } else if (sortBy === 'biggest_drop') {
       // Negative delta = drop. The most negative delta should come first.
       order.sort((a, b) => (a.delta || 0) - (b.delta || 0));
@@ -16393,7 +16394,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       // Rows without an alert are pushed to the bottom.
       const gap = (r) => {
         if (r.target == null) return Infinity;
-        const p = parseFloat(r.listing.price);
+        const p = wlShownPrice(r.listing);
         if (!isFinite(p)) return Infinity;
         return Math.max(0, p - r.target);
       };
@@ -16778,6 +16779,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                 const next = TABS[n];
                 setShowDropsOnly(next);
                 navigate('/watchlist/' + (next ? 'drops' : 'all'));
+                e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
               };
               return [
                 h('button', {
@@ -16926,7 +16928,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                   }, 'NO LISTINGS'),
                   !r.listing.__noListing && r.snap != null && r.delta !== 0 && h('div', {
                     className: 'watchlist-delta ' + (r.delta < 0 ? 'drop' : 'rise'),
-                    title: `Starred at ${fmt(r.snap)} · now ${fmt(r.listing.price)}`
+                    title: `Starred at ${fmt(r.snap)} · now ${fmt(wlShownPrice(r.listing))}`
                   },
                     r.delta < 0 ? '▼ ' : '▲ ',
                     fmt(Math.abs(r.delta)),
