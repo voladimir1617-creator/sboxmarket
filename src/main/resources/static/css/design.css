@@ -30775,3 +30775,11 @@ html:root body .filter-option.selected { color: rgb(120, 172, 255) !important; }
 html:root body .modal.info-modal > h1.info-modal-header { font-size: 26px !important; font-weight: 700 !important; letter-spacing: -0.01em !important; }
 html:root body .modal.info-modal .info-modal-body div.empty-inline { max-width: none !important; width: auto !important; margin: 0 !important; padding: 40px 24px !important; border-radius: 10px !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; background: radial-gradient(50% 80% at 50% 0%, rgba(35, 123, 255, 0.08) 0%, rgba(35, 123, 255, 0) 70%), rgb(28, 31, 38) !important; min-height: 0 !important; }
 html:root body .modal.info-modal .info-modal-body div.empty-inline .empty-icon { margin: 0 auto 6px !important; }
+
+/* Look refresh pass 4: Loadout Lab's title is pinned at 20px by an id rule,
+   so it read smaller than every other page title; it joins them at 26px.
+   Database rows tighten to a market-table density with a row hover. */
+html:root body h1#info-modal-h-loadout-lab.info-modal-header { font-size: 26px !important; font-weight: 700 !important; letter-spacing: -0.01em !important; }
+html:root body table.db-table tbody tr.db-row { padding-top: 6px !important; padding-bottom: 6px !important; }
+html:root body table.db-table tr.db-row { transition: background-color 120ms ease !important; }
+html:root body table.db-table tr.db-row:hover { background-color: rgba(255, 255, 255, 0.03) !important; }
