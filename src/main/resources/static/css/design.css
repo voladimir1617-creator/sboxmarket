@@ -23635,3 +23635,16 @@ html:root body div.grid-card > .grid-cart-btn > .grid-cart-label { display: none
      so it holds their 422px instead and the tiles below still don't jump. */
   html:root body .csfloat-home-preview[aria-busy="true"] .csfloat-home-preview-row { min-height: 422px !important; }
 }
+
+/* Look refresh pass 8: the item picture stopped stretching to its frame
+   once an older width rule was cut, leaving a 256px picture in a 520px
+   frame on desktop; it fills 92% of the frame again at every width. */
+html:root body .modal-preview > img.item-img.item-img { width: 92% !important; height: 92% !important; max-width: none !important; max-height: none !important; object-fit: contain !important; }
+/* On phones the wallet card sat flush against the top bar while every
+   other page starts 16px or more below it. */
+@media (max-width: 720px) {
+  html:root body .site-root.full-page-mode .modal-backdrop > .modal.wallet-modal.wallet-modal { margin-top: 16px !important; }
+}
+/* Sell page Steam notice: its two stacked buttons were 266px and 320px
+   wide; they now share one width. */
+html:root body .empty-inline > div:has(> a.btn[href*="steamcommunity.com/my/edit/settings"]) > .btn { width: 320px !important; max-width: 100% !important; justify-content: center !important; }
