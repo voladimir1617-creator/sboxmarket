@@ -30790,3 +30790,17 @@ html:root body table.db-table tr.db-row:hover { background-color: rgba(255, 255,
 html:root body .profile-tabs > button.profile-tab { font-size: 14px !important; color: rgb(158, 167, 177) !important; background: transparent !important; border-radius: 0 !important; box-shadow: inset 0 -2px 0 transparent !important; transition: color 120ms ease, box-shadow 120ms ease !important; }
 html:root body .profile-tabs > button.profile-tab:hover { color: rgb(242, 244, 247) !important; }
 html:root body .profile-tabs > button.profile-tab.active { color: rgb(255, 255, 255) !important; box-shadow: inset 0 -2px 0 rgb(35, 123, 255) !important; }
+
+/* Look refresh pass 6: the home banner was 617px tall, pushing every listing
+   below the fold at 1440x900; its showcase card renders at 80% so the first
+   row of listings shows on arrival. Card bodies lose dead space between the
+   name and the price, and the price reads a step larger. */
+@media (min-width: 721px) {
+  html:root body .site-root .csfloat-home-hero .csfloat-home-hero-art { zoom: 0.8; }
+  html:root body .site-root .csfloat-home-hero .csfloat-home-hero-inner { padding-top: 32px !important; padding-bottom: 36px !important; }
+}
+html:root body div.grid-card .grid-body .grid-footer { margin-top: 6px !important; padding-top: 4px !important; }
+html:root body div.grid-card .grid-body .grid-price { font-size: 21px !important; }
+/* On phones the item picture was a 346px square inside a 261px-tall 4:3
+   frame, so its top and bottom were cut off; it now fits the frame. */
+html:root body .modal-preview > img.item-img { max-height: 92% !important; width: auto !important; max-width: 92% !important; object-fit: contain !important; }
