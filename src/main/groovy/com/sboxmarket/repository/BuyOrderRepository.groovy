@@ -22,7 +22,7 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
      *  = 200, batch 1000) is enforced separately at create time.
      *  ACTIVE rows sort first so an old live order can't fall off the
      *  page behind newer filled or cancelled history. */
-    @Query("SELECT b FROM BuyOrder b WHERE b.buyerUserId = :uid ORDER BY CASE WHEN b.status = 'ACTIVE' THEN 0 ELSE 1 END, b.createdAt DESC")
+    @Query("SELECT b FROM BuyOrder b WHERE b.buyerUserId = :uid ORDER BY CASE WHEN b.status = 'ACTIVE' THEN 0 WHEN b.status = 'PAUSED' THEN 1 ELSE 2 END, b.createdAt DESC")
     List<BuyOrder> findByBuyerPaged(@Param("uid") Long uid,
                                      org.springframework.data.domain.Pageable pageable)
 

@@ -9,7 +9,7 @@ import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from '.
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths } from './router.js';
 import {
-  fetchDatabase, fetchBuyOrders, fetchBuyOrdersWithTotal, createBuyOrder, deleteBuyOrder, fetchBuyOrderProjectedPosition,
+  fetchDatabase, fetchBuyOrders, fetchBuyOrdersWithTotal, createBuyOrder, deleteBuyOrder, pauseBuyOrder, resumeBuyOrder, fetchBuyOrderProjectedPosition,
   fetchPublicLoadouts, fetchMyLoadouts, fetchLoadout, createLoadout,
   setLoadoutSlot, lockLoadoutSlot, generateLoadout, deleteLoadout, favoriteLoadout, cloneLoadout, updateLoadout,
   fetchListingsForItem,
@@ -547,6 +547,9 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
 //
 // Both paths hit POST /api/buy-orders with an explicit itemId. The buyer
 // then sees every active buy order grouped by item, with live status.
+/** Buy-order ids with a pause/resume request in flight (double-click latch). */
+const pauseInFlight = new Set();
+
 export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   const [orders, setOrders]   = useState(null);
   // True row count via X-Total-Count header — feeds the "Showing most
@@ -763,6 +766,32 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     const qtyStr = remaining > 1 ? ` (${remaining} units)` : '';
     toast(`Buy order cancelled for "${itemLabel}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}.`,
       'ok');
+  };
+
+  // Pause keeps the order on file but stops it buying; resume can fill
+  // on the spot from a listing already at or under the max.
+  // Plain module-level latch, not a hook: this sits below the signed-out
+  // early return, where a hook would change the hook order.
+  const togglePause = async (o) => {
+    if (pauseInFlight.has(o.id)) return;
+    pauseInFlight.add(o.id);
+    const resuming = o.status === 'PAUSED';
+    const name = o.itemName || 'item';
+    try {
+      const res = resuming ? await resumeBuyOrder(o.id) : await pauseBuyOrder(o.id);
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || (resuming ? 'Could not resume buy order' : 'Could not pause buy order'), 'err');
+        return;
+      }
+      load();
+      if (!resuming) { toast(`Buy order for "${name}" paused. It won't buy anything until you resume it.`, 'ok'); return; }
+      const before = Number.isFinite(o.quantity) ? o.quantity : 0;
+      const bought = res?.status === 'FILLED' ? before
+        : (Number.isFinite(res?.quantity) ? Math.max(0, before - res.quantity) : 0);
+      toast(bought > 0
+        ? `Buy order resumed: bought ${bought} × "${name}" right away. Check your trades.`
+        : `Buy order for "${name}" resumed. 30-day clock restarted.`, 'ok');
+    } finally { pauseInFlight.delete(o.id); }
   };
 
   // Trade-URL nag (batch 388). A buy order that matches a listing fires
@@ -1033,7 +1062,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
           orders.length > 0 && orders.some(o => o.status !== 'ACTIVE') && h('div', {
             style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }
           },
-            ['ACTIVE','FILLED','CANCELLED','EXPIRED','ALL'].map(opt => {
+            ['ACTIVE','PAUSED','FILLED','CANCELLED','EXPIRED','ALL'].map(opt => {
               const count = opt === 'ALL'
                 ? orders.length
                 : orders.filter(o => (o.status || '').toUpperCase() === opt).length;
@@ -1075,6 +1104,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                 h('div', { className: 'buyorder-cap' }, '≤ ' + fmt(o.maxPrice)),
                 h('div', { className: `buyorder-status ${o.status}` },
                   o.status === 'ACTIVE'    ? 'Active'
+                  : o.status === 'PAUSED'    ? 'Paused'
                   : o.status === 'FILLED'    ? 'Filled'
                   : o.status === 'CANCELLED' ? 'Cancelled'
                   : o.status === 'EXPIRED'   ? 'Expired'
@@ -1084,7 +1114,15 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                   // its own .buyorder-status.EXPIRED CSS + filter chip).
                   : ((o.status || '').charAt(0) + (o.status || '').slice(1).toLowerCase()))
               ),
-              o.status === 'ACTIVE' && h('button', {
+              (o.status === 'ACTIVE' || o.status === 'PAUSED') && h('button', {
+                className: 'btn btn-ghost',
+                style: { border: '1px solid var(--border)', padding: '7px 14px', fontSize: 12, marginRight: 6 },
+                onClick: () => togglePause(o),
+                title: o.status === 'PAUSED'
+                  ? 'Turn this order back on. It can buy right away if a listing is already at or under your max.'
+                  : 'Stop this order from buying without deleting it. Resume it any time.'
+              }, o.status === 'PAUSED' ? 'Resume' : 'Pause'),
+              (o.status === 'ACTIVE' || o.status === 'PAUSED') && h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 14px', fontSize: 12 },
                 onClick: () => cancel(o.id)
