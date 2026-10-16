@@ -38,6 +38,36 @@ class SteamBotResult {
     /** Raw decoded JSON body (Map) for any extra fields the caller may need. */
     Map raw
 
+    /** False when the sidecar said {@code retryable:false}: the same request
+     *  will be refused the same way, so callers must not re-send it until
+     *  its input (trade URL, asset ids) changes. True otherwise, including
+     *  every client-side transport failure. */
+    boolean retryable = true
+
+    /** Prefix on a stored failure that halted re-sends, followed by the
+     *  {@link #inputKey} of the refused input. */
+    static final String HALT_PREFIX = 'halted '
+
+    /** Short fingerprint of a send's input, so a halted send is retried
+     *  only once the trade URL or asset ids are different. */
+    static String inputKey(String tradeUrl, List assetIds) {
+        String raw = (tradeUrl ?: '').trim() + '|' + ((assetIds ?: []).collect { String.valueOf(it).trim() }.sort().join(','))
+        byte[] d = java.security.MessageDigest.getInstance('SHA-256').digest(raw.getBytes('UTF-8'))
+        StringBuilder sb = new StringBuilder(12)
+        for (int i = 0; i < 6; i++) sb.append(String.format('%02x', d[i] & 0xff))
+        return sb.toString()
+    }
+
+    /** The text stored for a halted send: marker, input key, then why. */
+    static String haltNote(String key, String why) {
+        return HALT_PREFIX + key + ' ' + (why ?: '')
+    }
+
+    /** True when {@code note} records a halt for exactly this input. */
+    static boolean isHaltedFor(String note, String key) {
+        return note != null && key != null && note.startsWith(HALT_PREFIX + key + ' ')
+    }
+
     static SteamBotResult success(Map body) {
         SteamBotResult r = new SteamBotResult()
         r.ok = true
@@ -65,6 +95,9 @@ class SteamBotResult {
         r.raw = body
         if (body != null && body['offerId'] != null) {
             r.offerId = String.valueOf(body['offerId'])
+        }
+        if (body != null && body['retryable'] == Boolean.FALSE) {
+            r.retryable = false
         }
         return r
     }
