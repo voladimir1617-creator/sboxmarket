@@ -1863,6 +1863,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         else if (e.key === 'Home') n = 0;
         else if (e.key === 'End') n = TABS.length - 1;
         setTab(TABS[n]);
+        e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
       };
       return h('div', { className: 'loadout-tabs', role: 'tablist', 'aria-label': 'Loadout sections' },
         TABS.map(id => h('button', {

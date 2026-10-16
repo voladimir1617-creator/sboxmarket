@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=294'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=295'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -3964,6 +3964,7 @@ export function App() {
   const [me, setMe]                     = useState(null);
   const [meLoaded, setMeLoaded]         = useState(false);
   const [menuOpen, setMenuOpen]         = useState(false);
+  const userChipRef = useRef(null);
   // Batch 933 — close the user menu on Escape. Pointer users can click
   // the backdrop to close; keyboard-only users were stranded inside
   // the open menu with no dismissal path. Listener mounts only while
@@ -3971,7 +3972,8 @@ export function App() {
   useEffect(() => {
     if (!menuOpen) return;
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); setMenuOpen(false); }
+      // Hand focus back to the chip: the focused item unmounts with the menu.
+      if (e.key === 'Escape') { e.stopPropagation(); setMenuOpen(false); userChipRef.current?.focus(); }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -6313,6 +6315,7 @@ export function App() {
         me
           ? h('div', {
               className: 'user-chip',
+              ref: userChipRef,
               // Batch 934 — a11y: make the user-chip keyboard-activatable.
               // Was a plain <div onClick> — not in the Tab order, screen
               // readers didn't announce it as a menu trigger. role=button
@@ -6394,12 +6397,12 @@ export function App() {
                 onClick: (e) => { e.stopPropagation(); setMenuOpen(false); }
               }),
               menuOpen && h('div', { id: 'user-menu-panel', className: 'user-menu', role: 'menu', onClick: e => e.stopPropagation() },
-                h('a', { className: 'user-menu-item', href: paths.profile(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18, fill: true, color: 'var(--ink-2)' }), 'Profile'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.profile(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18, fill: true, color: 'var(--ink-2)' }), 'Profile'),
                 h('div', { className: 'user-menu-divider' }),
-                h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('deposit');  navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'upload', size: 18, fill: true, color: 'var(--ink-2)' }), 'Deposit'),
-                h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('withdraw'); navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'credit_card', size: 18, fill: true, color: 'var(--ink-2)' }), 'Withdraw'),
+                h('button', { role: 'menuitem', className: 'user-menu-item', onClick: () => { setWalletInitialTab('deposit');  navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'upload', size: 18, fill: true, color: 'var(--ink-2)' }), 'Deposit'),
+                h('button', { role: 'menuitem', className: 'user-menu-item', onClick: () => { setWalletInitialTab('withdraw'); navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'credit_card', size: 18, fill: true, color: 'var(--ink-2)' }), 'Withdraw'),
                 h('div', { className: 'user-menu-divider' }),
-                h('a', { className: 'user-menu-item', href: '/profile/trades', onClick: () => setMenuOpen(false) },
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: '/profile/trades', onClick: () => setMenuOpen(false) },
                   h(MaterialIcon, { name: 'swap_horiz', size: 18, fill: true, color: 'var(--ink-2)' }),
                   'Trades',
                   // Combined seller+buyer+disputed+unread-chat+pending-reviews
@@ -6418,9 +6421,9 @@ export function App() {
                     }, (pendingActions.sellerTrades || 0) + (pendingActions.buyerTrades || 0) + (pendingActions.disputedTrades || 0) + (pendingActions.unreadChat || 0) + (pendingActions.pendingReviews || 0))
                 ),
                 h('div', { className: 'user-menu-divider' }),
-                h('a', { className: 'user-menu-item', href: paths.sell(),          onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'sell', size: 18, fill: true, color: 'var(--ink-2)' }), 'Sell Items'),
-                h('a', { className: 'user-menu-item', href: paths.mystall(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'storefront', size: 18, fill: true, color: 'var(--ink-2)' }), 'My Stall'),
-                h('a', { className: 'user-menu-item', href: paths.offers(),        onClick: () => setMenuOpen(false) },
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.sell(),          onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'sell', size: 18, fill: true, color: 'var(--ink-2)' }), 'Sell Items'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.mystall(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'storefront', size: 18, fill: true, color: 'var(--ink-2)' }), 'My Stall'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.offers(),        onClick: () => setMenuOpen(false) },
                   h(MaterialIcon, { name: 'swap_vert', size: 18, fill: true, color: 'var(--ink-2)' }),
                   'Offers',
                   // Only incoming offers need the seller to take action — outgoing offers are waiting on the other party.
@@ -6430,34 +6433,34 @@ export function App() {
                       style: { marginLeft: 'auto', background: 'var(--red)', color: '#0b0f1a', fontWeight: 800 }
                     }, pendingActions.incomingOffers)
                 ),
-                h('a', { className: 'user-menu-item', href: paths.buyorders(),     onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'bolt', size: 18, fill: true, color: 'var(--ink-2)' }), 'Buy Orders'),
-                h('a', { className: 'user-menu-item', href: paths.watchlist(),     onClick: () => setMenuOpen(false) },
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.buyorders(),     onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'bolt', size: 18, fill: true, color: 'var(--ink-2)' }), 'Buy Orders'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.watchlist(),     onClick: () => setMenuOpen(false) },
                   h(MaterialIcon, { name: 'visibility', size: 18, fill: true, color: 'var(--ink-2)' }),
                   'Watchlist',
                   watchlist.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 'auto' } }, watchlist.length)
                 ),
-                h('a', { className: 'user-menu-item', href: paths.notifications(), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'notifications', size: 18, fill: true, color: 'var(--ink-2)' }), 'Notifications'),
-                h('a', { className: 'user-menu-item', href: paths.loadouts(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'checkroom', size: 18, fill: true, color: 'var(--ink-2)' }), 'Loadout Lab'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.notifications(), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'notifications', size: 18, fill: true, color: 'var(--ink-2)' }), 'Notifications'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.loadouts(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'checkroom', size: 18, fill: true, color: 'var(--ink-2)' }), 'Loadout Lab'),
                 h('div', { className: 'user-menu-divider' }),
-                h('a', { className: 'user-menu-item', href: paths.database(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'database', size: 18, fill: true, color: 'var(--ink-3)' }), 'Database'),
-                h('a', { className: 'user-menu-item', href: paths.help(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'help', size: 18, fill: true, color: 'var(--ink-3)' }), 'Help Center'),
-                h('a', { className: 'user-menu-item', href: paths.support(),   onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'chat_bubble', size: 18, fill: true, color: 'var(--ink-3)' }), 'Support'),
-                h('a', { className: 'user-menu-item', href: paths.settings(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'settings', size: 18, fill: true, color: 'var(--ink-3)' }), 'Settings'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.database(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'database', size: 18, fill: true, color: 'var(--ink-3)' }), 'Database'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.help(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'help', size: 18, fill: true, color: 'var(--ink-3)' }), 'Help Center'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.support(),   onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'chat_bubble', size: 18, fill: true, color: 'var(--ink-3)' }), 'Support'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.settings(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'settings', size: 18, fill: true, color: 'var(--ink-3)' }), 'Settings'),
                 // Staff shortcuts — only visible to CSR / ADMIN roles. Admin
                 // role is ONLY granted via the server-side bootstrap list
                 // (env var ADMIN_BOOTSTRAP_STEAM_IDS) or by an existing admin
                 // through the Users tab. No self-service claim from the UI.
                 (isCsr || isAdmin) && h('div', { className: 'user-menu-divider' }),
                 isCsr && h('a', {
-                  className: 'user-menu-item staff',
+                  role: 'menuitem', className: 'user-menu-item staff',
                   href: paths.csr(), onClick: () => setMenuOpen(false)
                 }, h(MaterialIcon, { name: 'headset_mic', size: 18, fill: true, color: 'var(--ink-2)' }), 'Customer Service'),
                 isAdmin && h('a', {
-                  className: 'user-menu-item staff admin',
+                  role: 'menuitem', className: 'user-menu-item staff admin',
                   href: paths.admin(), onClick: () => setMenuOpen(false)
                 }, h(MaterialIcon, { name: 'admin_panel_settings', size: 18, fill: true, color: 'var(--ink-2)' }), 'Admin Panel'),
                 h('div', { className: 'user-menu-divider' }),
-                h('button', { className: 'user-menu-item danger', onClick: doLogout }, h(MaterialIcon, { name: 'logout', size: 18, fill: true, color: 'var(--ink-2)' }), 'Logout')
+                h('button', { role: 'menuitem', className: 'user-menu-item danger', onClick: doLogout }, h(MaterialIcon, { name: 'logout', size: 18, fill: true, color: 'var(--ink-2)' }), 'Logout')
               )
             )
           : h('button', {
@@ -7393,7 +7396,7 @@ export function App() {
         // market page with no filters active (the comment promised this
         // but the guard was missing). No point offering to share an
         // empty-filter default URL.
-        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0 || sort !== 'price_desc' || listingTypeFilter !== 'ALL') && h('button', {
+        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0 || sort !== 'price_desc' || listingTypeFilter !== 'ALL' || dealsOnly || newOnly || affordableOnly) && h('button', {
           className: 'btn-clear',
           style: { marginTop: 8 },
           onClick: async (e) => {
@@ -7992,9 +7995,12 @@ export function App() {
                 // empty-state because the check was on listings, not
                 // dedupedListings.
                 const hasQueryFilters = !!(search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0);
-                const onlyTypeFilter  = !hasQueryFilters && listingTypeFilter !== 'ALL';
-                const hasClientFilters = !hasQueryFilters && !onlyTypeFilter &&
-                    (dealsOnly || newOnly || affordableOnly || (hideMine && !!me?.id));
+                // A browser-side filter (Deals, New, Affordable, Hide mine)
+                // can empty a type-filtered grid too; that is "nothing
+                // matches", not "no auctions right now".
+                const clientOn = dealsOnly || newOnly || affordableOnly || (hideMine && !!me?.id);
+                const onlyTypeFilter  = !hasQueryFilters && listingTypeFilter !== 'ALL' && !clientOn;
+                const hasClientFilters = !hasQueryFilters && clientOn;
                 const isError = !!loadError;
                 let title, sub;
                 if (isError) {
