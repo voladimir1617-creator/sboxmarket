@@ -121,6 +121,23 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     List<Trade> findByStateIn(@Param("states") List<String> states,
                               org.springframework.data.domain.Pageable pageable)
 
+    /** Trades in {@code state} that the bot can actually deliver: its item is
+     *  in the bot's custody, or the bot already sent an offer for it. A P2P
+     *  trade (seller sends the skin by hand) also sits in PENDING_SELLER_SEND,
+     *  and taking the oldest N of every trade let those fill the delivery
+     *  poller's whole batch so no bot sale behind them was ever sent. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.state = :state
+          AND (EXISTS (SELECT e.id FROM EscrowedItem e
+                       WHERE e.listingId = t.listingId AND e.custodyState = 'IN_CUSTODY')
+               OR EXISTS (SELECT a.id FROM SteamDeliveryAttempt a
+                          WHERE a.tradeId = t.id AND a.steamOfferId IS NOT NULL))
+        ORDER BY t.updatedAt ASC
+    """)
+    List<Trade> findBotDeliveryCandidates(@Param("state") String state,
+                                          org.springframework.data.domain.Pageable pageable)
+
     Trade findByListingId(Long listingId)
 
     /** Every trade ever opened on this listing row, any state. */
