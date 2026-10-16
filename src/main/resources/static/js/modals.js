@@ -8532,7 +8532,8 @@ function ProfileTradesTab({ me, privacy }) {
           className: `offer-tab ${filter === f ? 'active' : ''}`,
           'aria-pressed': filter === f,
           onClick: () => setFilter(f)
-        }, f.replace(/_/g, ' ').toLowerCase())
+        // The rows' own state names, so a chip and the rows it shows agree.
+        }, ({ ALL: 'All', OPEN: 'Open', VERIFIED: 'Verified' })[f] || STATE_LABEL[f]?.label || f)
       ),
       h('div', { style: { flex: 1 } }),
       // Role toggle — muted divider then three pill buttons. Persisted
@@ -10911,6 +10912,10 @@ function ProfileReviewsTab({ me }) {
   );
 }
 
+// Same words as the Support tab's filter chips.
+const TICKET_STATUS_LABEL = { OPEN: 'Open', WAITING_STAFF: 'Waiting staff', WAITING_USER: 'Waiting you', RESOLVED: 'Resolved' };
+const ticketStatusLabel = (s) => TICKET_STATUS_LABEL[s] || s;
+
 function ProfileSupportTab() {
   const [tickets, setTickets] = useState(null);
   const [viewing, setViewing] = useState(null);
@@ -11039,7 +11044,10 @@ function ProfileSupportTab() {
   }, [window.location.search]);
 
   const submitCreate = async () => {
-    if (!form.subject.trim() || !form.body.trim()) return;
+    if (!form.subject.trim() || !form.body.trim()) {
+      toast('Add a subject and a message first.', 'err');
+      return;
+    }
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
@@ -11115,7 +11123,7 @@ function ProfileSupportTab() {
         h('button', { className: 'btn btn-ghost', onClick: () => setViewing(null) }, '← Tickets'),
         h('div', { style: { flex: 1 } },
           h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
-          h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status)
+          h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + ticketStatusLabel(viewing.ticket.status))
         ),
         viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
         // Batch 858 — Reopen button on RESOLVED tickets. Keeps the
@@ -11252,7 +11260,7 @@ function ProfileSupportTab() {
                   onClick: () => openTicket(t.id),
                   role: 'button',
                   tabIndex: 0,
-                  'aria-label': `Open ticket #${t.id} — ${t.subject} (${t.status})`,
+                  'aria-label': `Open ticket #${t.id} — ${t.subject} (${ticketStatusLabel(t.status)})`,
                   onKeyDown: (e) => {
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTicket(t.id); }
                   }
@@ -11260,7 +11268,7 @@ function ProfileSupportTab() {
                   h('td', { className: 'db-rank' }, '#' + t.id),
                   h('td', null, t.subject),
                   h('td', { className: 'db-cat' }, t.category),
-                  h('td', { style: { fontSize: 10, fontWeight: 700 } }, t.status),
+                  h('td', { style: { fontSize: 10, fontWeight: 700 } }, ticketStatusLabel(t.status)),
                   h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
                 ))
               )
@@ -12062,11 +12070,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       // Whole percents only: the column stores two decimals of the
       // fraction, so 7.5% was saved as 8% while the preview said 7.5%.
       const pct = Number(rawPct);
-      if (!Number.isInteger(pct) || pct < 1 || pct > 50) {
+      // 0 means off, as Help and the My Stall edit form say.
+      if (!Number.isInteger(pct) || pct < 0 || pct > 50) {
         setError('Auto-accept discount must be a whole number from 1% to 50%.');
         return;
       }
-      opts.maxDiscount = pct / 100;
+      if (pct > 0) opts.maxDiscount = pct / 100;
     }
     if (busyRef.current) return;
     busyRef.current = true;
@@ -12571,11 +12580,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     const rawBulkPct = (bulkAutoPct || '').trim();
     if (rawBulkPct) {
       const pct = Number(rawBulkPct);
-      if (!Number.isInteger(pct) || pct < 1 || pct > 50) {
+      // 0 means off, as Help and the My Stall edit form say.
+      if (!Number.isInteger(pct) || pct < 0 || pct > 50) {
         toast('Auto-accept discount must be a whole number from 1% to 50%.', 'err');
         return;
       }
-      opts.maxDiscount = pct / 100;
+      if (pct > 0) opts.maxDiscount = pct / 100;
     }
     if (!confirm(`List ${ids.length} item${ids.length === 1 ? '' : 's'} at ${fmtUsd(p)} each (Buy Now)${opts.maxDiscount != null ? ` with ${(opts.maxDiscount*100)|0}% auto-accept` : ''}? This cannot be undone in one click — you'd have to cancel each listing individually.`)) return;
     setBulkBusy(true);
@@ -14186,12 +14196,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         h('strong', null, verify.soldCount + '/' + verify.thresholdSales),
         ')'
       ),
-      !verify.verified && verify.salesNeeded === 0 && !verify.ratingOk && h('span', null,
-        'Lift your rating to ',
+      // The rating gate applies at any sales count, so say so even while
+      // sales are still short.
+      !verify.verified && !verify.ratingOk && h('span', null,
+        verify.salesNeeded > 0 ? ' · lift your rating to ' : 'Lift your rating to ',
         h('strong', { style: { color: '#fbbf24' } }, verify.thresholdRating + '★'),
         ' · currently ',
         h('strong', null,
-          verify.ratingAverage != null ? verify.ratingAverage + '★' : '—',
+          // Rounded down: 3.996 is under 4★ and must not read as 4★.
+          verify.ratingAverage != null ? (Math.floor(verify.ratingAverage * 100) / 100) + '★' : '—',
           verify.ratingCount > 0 ? ' (' + verify.ratingCount + ' reviews)' : ''
         )
       ),

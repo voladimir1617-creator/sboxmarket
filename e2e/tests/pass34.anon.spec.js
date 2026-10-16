@@ -116,7 +116,7 @@ test.describe('defect pass 34: stall, trades, profile, CSR', () => {
     await expect(page.locator('textarea').filter({ hasText: 'Took a week' })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await page.getByRole('button', { name: 'open', exact: true }).click();
+    await page.locator('.trade-filter-bar').getByRole('button', { name: 'Open', exact: true }).click();
     await expect(page.getByText('Disputed Hat').first()).toBeVisible();
     await expect(page.getByText('Pending Hat').first()).toBeVisible();
   });

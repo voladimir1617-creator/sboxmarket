@@ -1076,6 +1076,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
               return h('button', {
                 key: opt,
                 className: `wallet-tx-filter-chip ${orderStatusFilter === opt ? 'active' : ''}`,
+                'aria-pressed': orderStatusFilter === opt,
                 onClick: () => setOrderStatusFilter(opt),
                 disabled: count === 0 && opt !== 'ALL'
               }, `${opt === 'ALL' ? 'All' : opt.charAt(0) + opt.slice(1).toLowerCase()} · ${count}`);
@@ -1323,10 +1324,15 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     setTab('view');
   };
 
+  // A double click used to create two loadouts with the same name.
+  const createBusyRef = useRef(false);
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || createBusyRef.current) return;
     const trimmed = newName.trim();
-    const created = await createLoadout({ name: trimmed, visibility: 'PUBLIC' });
+    createBusyRef.current = true;
+    let created;
+    try { created = await createLoadout({ name: trimmed, visibility: 'PUBLIC' }); }
+    finally { createBusyRef.current = false; }
     // Pre-fix: error check only matched `error`, not `code` — backend
     // returns INVALID_PARAMETER / RATE_LIMITED via `code` so a rate-
     // limited create looked silent. Aligned with handleLockSlot pattern.
@@ -1885,7 +1891,12 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       );
     })(),
     creating && h('div', { style: { marginBottom: 14, display: 'flex', gap: 10 } },
-      h('input', { className: 'price-input', 'aria-label': 'New loadout name', placeholder: 'Loadout name…', value: newName, onChange: e => setNewName(e.target.value), style: { flex: 1 } }),
+      // Same 80-character cap as rename (the server cuts longer names), and
+      // Enter creates like it renames.
+      h('input', { className: 'price-input', 'aria-label': 'New loadout name', placeholder: 'Loadout name…', value: newName, maxLength: 80,
+        onChange: e => setNewName(e.target.value),
+        onKeyDown: e => { if (e.key === 'Enter') { e.preventDefault(); handleCreate(); } },
+        style: { flex: 1 } }),
       h('button', { className: 'btn btn-accent', onClick: handleCreate, disabled: !newName.trim() }, 'Create')
     ),
     tab === 'discover' && h('input', {
