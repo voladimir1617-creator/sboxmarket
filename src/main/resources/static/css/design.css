@@ -30821,4 +30821,8 @@ html:root body div.grid-card > .grid-cart-btn > .grid-cart-label { display: none
   html:root body .site-root div.grid-card > .grid-cart-btn.grid-cart-btn:not(.in) { background: rgb(35, 123, 255) !important; color: rgb(255, 255, 255) !important; }
   html:root body .site-root div.grid-card > .grid-cart-btn.grid-cart-btn.in { background: rgba(74, 222, 128, 0.14) !important; color: rgb(134, 239, 172) !important; border: 1px solid rgba(74, 222, 128, 0.35) !important; }
   html:root body div.grid-card > .grid-cart-btn > .grid-cart-label { display: inline; }
+  /* The home strip's loading row holds the cards' place (app.js gives it
+     410px, one desktop card tall); phone cards are now taller by the bar,
+     so it holds their 422px instead and the tiles below still don't jump. */
+  html:root body .csfloat-home-preview[aria-busy="true"] .csfloat-home-preview-row { min-height: 422px !important; }
 }
