@@ -3362,7 +3362,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       h('span', { style: { flex: 1 } },
         h('strong', null, 'Your auto-bid cap · '),
         fmt(yourAutoCap),
-        ' — we\'ll keep you on top up to this amount.',
+        ' — we\'ll keep you on top up to this amount while your wallet covers it.',
         // Inline text link — CSFloat keeps auto-bid controls quiet and
         // inline, not a button. Only present when there's a live AUTO
         // row to cancel. Retracts the cap only; the standing bid stays.

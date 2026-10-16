@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard } from './cards.js?v=18';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=18';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -1002,7 +1002,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         ...(myAlert ? { borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' } : {})
       },
       title: restockMode
-        ? (myAlert ? 'Restock alert active — fires the moment any listing appears.' : 'Get notified when this item is listed again')
+        ? (myAlert ? 'Restock alert active — fires within a few minutes of a listing appearing.' : 'Get notified when this item is listed again')
         : myAlert
           ? (isRestock
               ? 'Restock-style alert active — fires on any future listing regardless of price. Click to switch to a price target.'
@@ -2194,7 +2194,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                         padding: '1px 6px', borderRadius: 10,
                         letterSpacing: 0.3, whiteSpace: 'nowrap'
                       },
-                      title: 'Verified seller — 10+ completed sales at 4+ star avg'
+                      title: VERIFIED_SELLER_RULE
                     }, 'Verified'),
                     rating && rating.count > 0 && h('span', { className: 'modal-seller-rating', title: `${rating.count} review${rating.count === 1 ? '' : 's'}` },
                       '★ ', rating.average.toFixed(1),
@@ -3979,7 +3979,7 @@ export function FaqModal({ onClose }) {
     ['What are Buy Orders?',
       "A standing \"I'll pay up to $X for this item\" request. When a seller lists (or drops their price to) at-or-below your max, our matcher auto-buys and opens an escrowed trade — no action needed on your side. Great for items you keep missing on drops. Cap: 200 active orders per account. Projected queue position shows up in the form so you know if you'd be #1 or stuck at #8 under current demand."],
     ['What is the Watchlist and what are Price Alerts?',
-      "Click the ♡ heart on any item card to add it to your Watchlist — a saved browsing shortcut. Separately, open an item and click \"Set Price Alert\" with a target price: you'll get a notification (and optionally an email) the instant an ACTIVE listing dips to or below your target. Alerts stay ACTIVE until they fire once (then flip to FIRED) or until you cancel. Max 50 active alerts per user."],
+      "Click the ♡ heart on any item card to add it to your Watchlist — a saved browsing shortcut. Separately, open an item and click \"Set Price Alert\" with a target price: you'll get a notification (and optionally an email) within about 5 minutes of when an ACTIVE listing dips to or below your target. Alerts stay ACTIVE until they fire once (then flip to FIRED) or until you cancel. Max 50 active alerts per user."],
     ['What is the Loadout Lab?',
       "Curate up to 8 slots of s&box cosmetics (Hat / Shirt / Pants / Gloves / Boots / Accessories / etc.) into a named look. Publish publicly for discovery + favorites, or keep private while you tweak. \"Auto-generate from budget\" re-picks every unlocked slot (replacing what is there, or emptying it if nothing fits) with the cheapest active listings that fit your total budget. Lock the slots you've curated so Auto-gen keeps them. Cap: 50 loadouts per account."],
     ['Can I hide my wallet balance while streaming or on camera?',
@@ -5143,7 +5143,7 @@ function EmailBucketMutes() {
   const LABELS = {
     TRADES:    { name: 'Trade activity',          hint: 'New sales to send, trade updates and disputes, offers and counters, buy-order fills, and payouts. Muting it also mutes "you sold an item" emails.' },
     AUCTIONS:  { name: 'Auction activity',        hint: 'Outbid notices, auctions ending soon, auction won and auction ended without a sale' },
-    WATCHLIST: { name: 'Watchlist alerts',        hint: 'Price-drop emails for items you are watching' },
+    WATCHLIST: { name: 'Watchlist alerts',        hint: 'Emails when a price alert you set is hit' },
     FOLLOWS:   { name: 'Followed sellers',        hint: 'Emails when a seller you follow lists a new item' },
     MATCHES:   { name: 'Saved-search matches',    hint: 'Emails when a fresh listing matches one of your saved searches' }
   };
