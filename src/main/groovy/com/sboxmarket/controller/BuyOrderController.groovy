@@ -249,7 +249,22 @@ class BuyOrderController {
         ResponseEntity.ok([id: order.id, status: order.status])
     }
 
-    /** Bulk-cancel every ACTIVE buy order the caller owns. Mirrors
+    /** Pause an ACTIVE buy order without deleting it: it stops matching
+     *  and stops counting as demand until resumed. */
+    @PostMapping("/{id}/pause")
+    ResponseEntity<Map> pause(@PathVariable Long id, HttpServletRequest req) {
+        def order = buyOrderService.pause(requireUser(req), id)
+        ResponseEntity.ok([id: order.id, status: order.status])
+    }
+
+    /** Resume a PAUSED buy order. It can fill at once from a listing
+     *  already on the market, so the whole row comes back. */
+    @PostMapping("/{id}/resume")
+    ResponseEntity<BuyOrder> resume(@PathVariable Long id, HttpServletRequest req) {
+        ResponseEntity.ok(buyOrderService.resume(requireUser(req), id))
+    }
+
+    /** Bulk-cancel every open (ACTIVE or PAUSED) buy order the caller owns. Mirrors
      *  POST /api/bids/auto/cancel-all — lets buyers clear a noisy queue
      *  in one click rather than calling DELETE /{id} N times. Returns
      *  the count actually flipped. Idempotent: a zero-row caller gets
@@ -304,7 +319,7 @@ class BuyOrderController {
         // still returns a usable file.
         if (status) {
             def want = status.trim().toUpperCase()
-            if (want in ['ACTIVE', 'FILLED', 'CANCELLED', 'EXPIRED']) {
+            if (want in ['ACTIVE', 'PAUSED', 'FILLED', 'CANCELLED', 'EXPIRED']) {
                 rows = rows.findAll { (it.status ?: '').toUpperCase() == want }
             }
         }
