@@ -30,6 +30,7 @@ class SteamEscrowServiceSpec extends Specification {
     ListingRepository listingRepository = Mock()
     SteamUserRepository steamUserRepository = Mock()
     NotificationService notificationService = Mock()
+    ListingService listingService = Mock()
 
     def setup() {
         service = new SteamEscrowService()
@@ -38,6 +39,7 @@ class SteamEscrowServiceSpec extends Specification {
         service.listingRepository = listingRepository
         service.steamUserRepository = steamUserRepository
         service.notificationService = notificationService
+        service.listingService = listingService
         service.escrowSweepEnabled = true
         service.offerMessage = 'sboxmarket escrow'
         // Trade Protection has its own spec; these pin the go-live path.
@@ -272,6 +274,68 @@ class SteamEscrowServiceSpec extends Specification {
             r.custodyState == EscrowedItem.IN_CUSTODY && r.heldAssetId == '999' })
         1 * listingRepository.findById(10L) >> Optional.of(held)
         1 * listingRepository.save({ Listing l -> l.status == 'ACTIVE' })
+    }
+
+    def "confirm: a deposit going live is offered to standing buy orders"() {
+        given:
+        bot.enabled >> true
+        def e = new EscrowedItem(id: 5L, listingId: 10L, sellerUserId: 1L, assetId: '555',
+                depositOfferId: '444', custodyState: EscrowedItem.PENDING_DEPOSIT)
+        def held = listing(status: SteamEscrowService.STATUS_PENDING_ESCROW)
+
+        when:
+        service.confirmDeposit(5L, [byAsset: ['555': '555'], byName: [:]])
+
+        then:
+        1 * escrowRepository.findById(5L) >> Optional.of(e)
+        1 * bot.getOfferStatus('444') >> SteamBotResult.success([ok: true, status: 'accepted'])
+        1 * listingRepository.findById(10L) >> Optional.of(held)
+        1 * listingRepository.save({ Listing l -> l.status == 'ACTIVE' }) >> { args -> args[0] }
+        1 * listingService.offerToBuyOrders({ Listing l -> l.id == 10L && l.status == 'ACTIVE' })
+    }
+
+    def "confirm: a second copy of the same item never takes the asset another listing already holds"() {
+        given: 'the bot holds two Redlines: 999 backs listing 9, 1000 just arrived for listing 10'
+        bot.enabled >> true
+        def e = new EscrowedItem(id: 5L, listingId: 10L, sellerUserId: 1L, assetId: '555',
+                marketHashName: 'AK-47 | Redline', depositOfferId: '444',
+                custodyState: EscrowedItem.PENDING_DEPOSIT)
+        def held = listing(status: SteamEscrowService.STATUS_PENDING_ESCROW)
+        def index = [byAsset: ['999': '999', '1000': '1000'], byName: ['AK-47 | Redline': '999'],
+                     items: [[assetId: '999', marketHashName: 'AK-47 | Redline', tradable: true],
+                             [assetId: '1000', marketHashName: 'AK-47 | Redline', tradable: true]]]
+
+        when:
+        service.confirmDeposit(5L, index)
+
+        then:
+        1 * escrowRepository.findById(5L) >> Optional.of(e)
+        1 * bot.getOfferStatus('444') >> SteamBotResult.success([ok: true, status: 'accepted'])
+        _ * escrowRepository.findHeldAssetIdsClaimedByOthers('AK-47 | Redline', 5L) >> ['999']
+        1 * escrowRepository.save({ EscrowedItem r ->
+            r.custodyState == EscrowedItem.IN_CUSTODY && r.heldAssetId == '1000' })
+        1 * listingRepository.findById(10L) >> Optional.of(held)
+        1 * listingRepository.save({ Listing l -> l.status == 'ACTIVE' })
+    }
+
+    def "confirm: when every same-name asset in the bot is already claimed, the deposit is not marked held"() {
+        given:
+        bot.enabled >> true
+        def e = new EscrowedItem(id: 5L, listingId: 10L, sellerUserId: 1L, assetId: '555',
+                marketHashName: 'AK-47 | Redline', depositOfferId: '444',
+                custodyState: EscrowedItem.PENDING_DEPOSIT)
+        def index = [byAsset: ['999': '999'], byName: ['AK-47 | Redline': '999'],
+                     items: [[assetId: '999', marketHashName: 'AK-47 | Redline', tradable: true]]]
+
+        when:
+        service.confirmDeposit(5L, index)
+
+        then:
+        1 * escrowRepository.findById(5L) >> Optional.of(e)
+        1 * bot.getOfferStatus('444') >> SteamBotResult.success([ok: true, status: 'accepted'])
+        _ * escrowRepository.findHeldAssetIdsClaimedByOthers('AK-47 | Redline', 5L) >> ['999']
+        0 * escrowRepository.save({ EscrowedItem r -> r.custodyState == EscrowedItem.IN_CUSTODY })
+        0 * listingRepository.save({ Listing l -> l.status == 'ACTIVE' })
     }
 
     def "confirm: declined deposit offer marks custody FAILED, listing not activated"() {
