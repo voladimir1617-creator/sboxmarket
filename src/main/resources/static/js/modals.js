@@ -549,10 +549,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   const bestBid = buyOrderInfo.bestBid;
   // Batch 639 — top-N active buy orders for this item (aggregate only,
   // no counterparty identity). Drives the CSFloat-style "Buy Orders"
-  // table inline on the item detail modal. Lazy-expanded via a
-  // toggle so the default view stays compact for items where only
-  // the count + best-bid chips are interesting.
-  const [buyOrdersOpen, setBuyOrdersOpen] = useState(false);
+  // table inline on the item detail modal. Open by default as a "Buy
+  // offers" block (White.market shows open orders on every item page,
+  // empty state included); the demand chips still fold it away.
+  const [buyOrdersOpen, setBuyOrdersOpen] = useState(true);
   const [buyOrderRows, setBuyOrderRows]   = useState(null);
   useEffect(() => {
     if (!item?.id || !buyOrdersOpen || buyOrderRows !== null) return;
@@ -1777,7 +1777,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         }
       },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 } },
-          h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 13 } }, 'Active buy orders'),
+          h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 13 } }, 'Buy offers'),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Top-of-book first · counterparties anonymous')
         ),
         buyOrderRows === null
@@ -1786,13 +1786,13 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             // White.market's empty Buy offers panel puts the action on the
             // same line as the "no orders" sentence.
             ? h('div', { 'data-testid': 'buy-orders-empty', style: { padding: 8, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } },
-                h('span', null, 'No active buy orders for this item right now.'),
+                h('span', null, 'There are no active buy orders for this item.'),
                 me
                   ? (!myBuyOrder && onCreateBuyOrder && h('button', {
                       className: 'btn btn-accent',
                       style: { padding: '6px 14px', fontSize: 12 },
                       onClick: () => onCreateBuyOrder(item)
-                    }, 'Place Buy Order'))
+                    }, 'Create a new order'))
                   : h('button', {
                       className: 'btn btn-accent',
                       style: { padding: '6px 14px', fontSize: 12 },
@@ -1827,7 +1827,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           style: { marginTop: 10, width: '100%', border: '1px dashed var(--accent-border)', padding: '8px 12px', fontSize: 11, color: 'var(--accent)' },
           onClick: () => onCreateBuyOrder && onCreateBuyOrder(item),
           title: 'Place your own buy order for this item'
-        }, '+ Place a buy order')
+        }, '+ Create a new order')
       ),
 
       h('div', { className: 'modal-body' },
