@@ -171,6 +171,11 @@ class SteamInventoryController {
             // representative below has to skip copies that are already on
             // sale, and it cannot do that from a single remembered id.
             if (s.tradable) (g.tradableAssetIds as List).add(s.assetId?.toString())
+            // The earliest Steam-given unlock date among the locked copies.
+            Long after = s.tradableAfter as Long
+            if (!s.tradable && after != null && (g.tradableAfter == null || after < (g.tradableAfter as Long))) {
+                g.tradableAfter = after
+            }
         }
 
         // ── Which copies are already on sale ────────────────────────────
@@ -230,6 +235,10 @@ class SteamInventoryController {
                 iconUrl:     s.iconUrl,
                 tradable:    s.tradable,
                 marketable:  s.marketable,
+                // When the next locked copy of this stack can move, from
+                // Steam's own date; null when Steam gave none or a copy is
+                // already tradable.
+                tradableAfter: tradableIds.isEmpty() ? g.tradableAfter : null,
                 category:    existing?.category ?: steamInventoryService.inferCategory(s),
                 rarity:      existing?.rarity ?: 'Standard',
                 catalogueId: existing?.id,

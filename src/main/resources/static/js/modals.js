@@ -11849,6 +11849,19 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     if (si?.unlistableReason === null && si?.listableQuantity != null) return null;
     return si?.tradable ? null : 'NOT_TRADABLE';
   };
+  // ── How long Steam's trade lock has left, when Steam said ────────────
+  // `tradableAfter` is Steam's own unlock date (epoch ms), sent only for a
+  // locked row and only when Steam's reply carried one. Returns
+  // { days, on } while that date is still ahead, else null — a lock with
+  // no date keeps the plain NOT TRADABLE label rather than a guess.
+  const steamTradeLock = (si) => {
+    const at = Number(si?.tradableAfter);
+    if (!Number.isFinite(at) || at <= Date.now()) return null;
+    return {
+      days: Math.max(1, Math.ceil((at - Date.now()) / 86400000)),
+      on: new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    };
+  };
   // ── One answer to "what is this worth, and how do we know?" ──────────
   // Returns the anchor AND its basis, because a number with no basis is
   // what produced "Suggested price: $0.00" on every item that has no live
@@ -12134,7 +12147,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // this stack is already on sale — arrived as a server error after
           // the seller had priced it.
           isSteam && pickBlock === 'NOT_TRADABLE' && h('div', { style: { fontSize: 11, color: 'var(--red)', marginBottom: 8, fontWeight: 700 } },
-            'Not tradable on Steam right now',
+            steamTradeLock(item)
+              ? `Trade-locked on Steam until ${steamTradeLock(item).on}`
+              : 'Not tradable on Steam right now',
             h('span', { style: { display: 'block', fontWeight: 400, color: 'var(--text-secondary)', marginTop: 2 } },
               'Steam holds new or recently-traded items for up to 7 days. It becomes listable here the moment Steam releases it — nothing to do on our side.')),
           isSteam && pickBlock === 'ALREADY_LISTED' && h('div', { style: { fontSize: 11, color: 'var(--red)', marginBottom: 8, fontWeight: 700 } },
@@ -12974,7 +12989,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             ? null
             : steamRowBlock(si) === 'ALREADY_LISTED'
               ? `${si.name} — already listed, not available to list again`
-              : `${si.name} — not tradable on Steam right now`
+              : steamTradeLock(si)
+                ? `${si.name} — trade-locked on Steam until ${steamTradeLock(si).on}`
+                : `${si.name} — not tradable on Steam right now`
         },
           // Bulk-select checkbox (batch 370) — absolute positioned in the
           // top-left. stopPropagation so clicking the checkbox doesn't
@@ -13097,8 +13114,16 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // The two blocked states, and the partially-listed one. Previously
           // only "NOT TRADABLE" existed, so a copy that could not be listed
           // because it was ALREADY listed looked exactly like one that could.
-          steamRowBlock(si) === 'NOT_TRADABLE' &&
-            h('div', { style: { fontSize: 9, color: 'var(--red)', fontWeight: 700, marginTop: 2 } }, 'NOT TRADABLE'),
+          // With Steam's unlock date, the label counts the days down, the
+          // way trade sites badge locked items; without one it stays as is.
+          steamRowBlock(si) === 'NOT_TRADABLE' && (() => {
+            const lock = steamTradeLock(si);
+            return h('div', {
+              className: lock ? 'sell-trade-lock' : undefined,
+              style: { fontSize: 9, color: 'var(--red)', fontWeight: 700, marginTop: 2 },
+              title: lock ? `Steam lets this item move on ${lock.on}` : undefined
+            }, lock ? `🔒 TRADE LOCK · ${lock.days} DAY${lock.days === 1 ? '' : 'S'}` : 'NOT TRADABLE');
+          })(),
           steamRowBlock(si) === 'ALREADY_LISTED' &&
             h('div', {
               style: { fontSize: 9, color: 'var(--red)', fontWeight: 700, marginTop: 2 },
