@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=283';
+} from './modals.js?v=284';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -5605,111 +5605,11 @@ export function App() {
     minDiscountPct > 0 || listingTypeFilter !== 'ALL' || dealsOnly || newOnly || affordableOnly || hideMine);
 
   // derived data
-  const catCounts = useMemo(() => {
-    const counts = {};
-    listings.forEach(l => { if (l?.item?.category) counts[l.item.category] = (counts[l.item.category] || 0) + 1; });
-    return counts;
-  }, [listings]);
-  const rarityCounts = useMemo(() => {
-    const counts = {};
-    listings.forEach(l => { if (l?.item?.rarity) counts[l.item.rarity] = (counts[l.item.rarity] || 0) + 1; });
-    return counts;
-  }, [listings]);
-
-  // Representative hero item per category — the highest-priced listing
-  // with an image wins so the tile never degrades to a blank poster.
-  // The "All" tile deliberately gets NO hero: it stays as the editorial
-  // grid-of-squares glyph so it reads as "the everything tile" rather
-  // than duplicating whichever category owns the top hero.
-  const catHeroes = useMemo(() => {
-    const picked = {};
-    const scored = [...listings]
-      .filter(l => l?.item?.imageUrl)
-      .sort((a, b) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
-    scored.forEach(l => {
-      const cat = l.item.category;
-      if (cat && !picked[cat]) picked[cat] = l.item;
-    });
-    return picked;
-  }, [listings]);
-
-  const trending = useMemo(() => {
-    const seen = new Set();
-    return [...listings]
-      .filter(l => l && l.item)
-      .sort((a, b) => Math.abs(b.item.trendPercent || 0) - Math.abs(a.item.trendPercent || 0))
-      .filter(l => { if (seen.has(l.item.id)) return false; seen.add(l.item.id); return true; })
-      .slice(0, 8);
-  }, [listings]);
-
-  // CSFloat-style hero tabs: Top Deals (biggest vs-store discount), Newest
-  // (most recently listed), Unique Items (auctions / no-bid listings).
-  // We intentionally do NOT show "top gainers/losers" — this is a marketplace,
-  // not a stock exchange. Trend data stays as a small ▲/▼ inside cards only.
-  const heroTabs = useMemo(() => {
-    const uniqByItem = {};
-    listings.filter(l => l?.item).forEach(l => {
-      if (!uniqByItem[l.item.id] || l.price < uniqByItem[l.item.id].price) uniqByItem[l.item.id] = l;
-    });
-    const pool = Object.values(uniqByItem);
-    const topDeals = [...pool]
-      .filter(l => l.item.steamPrice && parseFloat(l.item.steamPrice) > parseFloat(l.price))
-      .sort((a, b) => {
-        const da = 1 - parseFloat(a.price) / parseFloat(a.item.steamPrice);
-        const db = 1 - parseFloat(b.price) / parseFloat(b.item.steamPrice);
-        return db - da;
-      })
-      .slice(0, 8);
-    const newest = [...pool].sort((a, b) => (b.listedAt || 0) - (a.listedAt || 0)).slice(0, 8);
-    const unique = [...pool].filter(l => l.listingType === 'AUCTION').slice(0, 8);
-    return { topDeals, newest, unique };
-  }, [listings]);
-
-  // Live-sales ticker — real SOLD rows from /api/listings/recent-sales.
-  // Previously this used ACTIVE listings with synthetic "Xm ago" labels,
-  // which was misleading (the ticker claimed "LIVE SALES" but showed
-  // items that hadn't sold). Now every row is a real settlement with
-  // its actual soldAt timestamp. Fetched once on mount + on every
-  // marketplace refresh so a user who just completed a purchase sees
-  // their row appear in the ticker.
-  const [recentSales, setRecentSales] = useState([]);
-  useEffect(() => {
-    let alive = true;
-    fetchPlatformRecentSales(12).then(rows => {
-      if (!alive || !Array.isArray(rows)) return;
-      setRecentSales(rows.map(r => ({
-        listing: {
-          id:    r.listingId,
-          price: r.price,
-          item:  {
-            id:         r.itemId,
-            name:       r.itemName,
-            category:   r.category,
-            rarity:     r.rarity,
-            imageUrl:   r.imageUrl,
-            steamPrice: r.steamPrice
-          }
-        },
-        time: r.soldAt ? timeAgo(r.soldAt) : 'just now'
-      })));
-    }).catch(() => {});
-    return () => { alive = false; };
-  }, [listings.length]);
-
-  // One-card-per-item view of the marketplace. We show the cheapest listing
-  // per item with the total listing count as a "3 listings from $X" badge.
-  // Matches CSFloat's grid layout and fixes the watchlist "starring one
-  // card highlights every card of the same item" confusion.
-  // Bulk watcher counts for the visible marketplace grid — keyed by
-  // item id. One round-trip after the listings settle, no per-card
-  // fan-out. Items not in the map render no chip (treated as zero-watch).
-  const [watcherCounts, setWatcherCounts] = useState({});
-  // Bulk Steam avatar URLs per sellerUserId — drives real profile
-  // photos on the listing-table seller column instead of the legacy
-  // all-caps 2-letter monogram. Sellers without an avatarUrl on file
-  // are absent, and ListingRow falls through to the monogram.
-  const [sellerAvatarUrls, setSellerAvatarUrls] = useState({});
-  const dedupedListings = useMemo(() => {
+  // The listings the browser-side filters (type, Deals, Hide mine, discount,
+  // New, Affordable) let through. The grid de-duplicates this pool, and the
+  // sidebar's category and rarity counts read it too, so a count matches
+  // what the grid can show.
+  const filteredPool = useMemo(() => {
     // Apply the listing-type filter before dedup so "Auction only" doesn't
     // pick the buy-now as the representative card for an item that has both.
     let pool = listingTypeFilter === 'ALL'
@@ -5773,6 +5673,132 @@ export function App() {
         return isFinite(p) && p <= bal;
       });
     }
+    return pool;
+  }, [listings, listingTypeFilter, dealsOnly, minDiscountPct, newOnly, affordableOnly, hideMine, me?.id, wallet?.balance]);
+  const catCounts = useMemo(() => {
+    const counts = {};
+    filteredPool.forEach(l => { if (l?.item?.category) counts[l.item.category] = (counts[l.item.category] || 0) + 1; });
+    return counts;
+  }, [filteredPool]);
+  const rarityCounts = useMemo(() => {
+    const counts = {};
+    filteredPool.forEach(l => { if (l?.item?.rarity) counts[l.item.rarity] = (counts[l.item.rarity] || 0) + 1; });
+    return counts;
+  }, [filteredPool]);
+
+  // Representative hero item per category — the highest-priced listing
+  // with an image wins so the tile never degrades to a blank poster.
+  // The "All" tile deliberately gets NO hero: it stays as the editorial
+  // grid-of-squares glyph so it reads as "the everything tile" rather
+  // than duplicating whichever category owns the top hero.
+  const catHeroes = useMemo(() => {
+    const picked = {};
+    const scored = [...listings]
+      .filter(l => l?.item?.imageUrl)
+      .sort((a, b) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
+    scored.forEach(l => {
+      const cat = l.item.category;
+      if (cat && !picked[cat]) picked[cat] = l.item;
+    });
+    return picked;
+  }, [listings]);
+
+  const trending = useMemo(() => {
+    const seen = new Set();
+    return [...listings]
+      .filter(l => l && l.item)
+      .sort((a, b) => Math.abs(b.item.trendPercent || 0) - Math.abs(a.item.trendPercent || 0))
+      .filter(l => { if (seen.has(l.item.id)) return false; seen.add(l.item.id); return true; })
+      .slice(0, 8);
+  }, [listings]);
+
+  // CSFloat-style hero tabs: Top Deals (biggest vs-store discount), Newest
+  // (most recently listed), Unique Items (auctions / no-bid listings).
+  // We intentionally do NOT show "top gainers/losers" — this is a marketplace,
+  // not a stock exchange. Trend data stays as a small ▲/▼ inside cards only.
+  const heroTabs = useMemo(() => {
+    const uniqByItem = {};
+    listings.filter(l => l?.item).forEach(l => {
+      if (!uniqByItem[l.item.id] || l.price < uniqByItem[l.item.id].price) uniqByItem[l.item.id] = l;
+    });
+    const pool = Object.values(uniqByItem);
+    const topDeals = [...pool]
+      .filter(l => l.item.steamPrice && parseFloat(l.item.steamPrice) > parseFloat(l.price))
+      .sort((a, b) => {
+        const da = 1 - parseFloat(a.price) / parseFloat(a.item.steamPrice);
+        const db = 1 - parseFloat(b.price) / parseFloat(b.item.steamPrice);
+        return db - da;
+      })
+      .slice(0, 8);
+    const newest = [...pool].sort((a, b) => (b.listedAt || 0) - (a.listedAt || 0)).slice(0, 8);
+    const unique = [...pool].filter(l => l.listingType === 'AUCTION').slice(0, 8);
+    return { topDeals, newest, unique };
+  }, [listings]);
+
+  // Live-sales ticker — real SOLD rows from /api/listings/recent-sales.
+  // Previously this used ACTIVE listings with synthetic "Xm ago" labels,
+  // which was misleading (the ticker claimed "LIVE SALES" but showed
+  // items that hadn't sold). Now every row is a real settlement with
+  // its actual soldAt timestamp. Fetched once on mount + on every
+  // marketplace refresh so a user who just completed a purchase sees
+  // their row appear in the ticker.
+  const [recentSales, setRecentSales] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    // Also re-read every 30s while the tab is visible: the grid's own poll
+    // rarely changes `listings.length`, so "LIVE SALES" never moved.
+    const load = () => fetchPlatformRecentSales(12).then(rows => {
+      if (!alive || !Array.isArray(rows)) return;
+      setRecentSales(rows.map(r => ({
+        listing: {
+          id:    r.listingId,
+          price: r.price,
+          item:  {
+            id:         r.itemId,
+            name:       r.itemName,
+            category:   r.category,
+            rarity:     r.rarity,
+            imageUrl:   r.imageUrl,
+            steamPrice: r.steamPrice
+          }
+        },
+        time: r.soldAt ? timeAgo(r.soldAt) : 'just now'
+      })));
+    }).catch(() => {});
+    load();
+    const id = setInterval(() => { if (!document.hidden) load(); }, 30_000);
+    return () => { alive = false; clearInterval(id); };
+  }, [listings.length]);
+
+  // One-card-per-item view of the marketplace. We show the cheapest listing
+  // per item with the total listing count as a "3 listings from $X" badge.
+  // Matches CSFloat's grid layout and fixes the watchlist "starring one
+  // card highlights every card of the same item" confusion.
+  // Bulk watcher counts for the visible marketplace grid — keyed by
+  // item id. One round-trip after the listings settle, no per-card
+  // fan-out. Items not in the map render no chip (treated as zero-watch).
+  const [watcherCounts, setWatcherCounts] = useState({});
+  // Bulk Steam avatar URLs per sellerUserId — drives real profile
+  // photos on the listing-table seller column instead of the legacy
+  // all-caps 2-letter monogram. Sellers without an avatarUrl on file
+  // are absent, and ListingRow falls through to the monogram.
+  const [sellerAvatarUrls, setSellerAvatarUrls] = useState({});
+  const dedupedListings = useMemo(() => {
+    let pool = filteredPool;
+    // Effective price for filtering / dedup. An AUCTION listing's `price`
+    // is the *starting bid*, not the cost to acquire it — once bidding
+    // has started the real comparable is `currentBid`. Keying the Deals /
+    // discount / Affordable filters and the dedup representative pick off
+    // raw `price` let a $0.01-opener auction masquerade as the cheapest,
+    // pollute every deal filter, and win the card slot over a genuine
+    // Buy-Now listing. Matches the backend discountRatio + GridCard.
+    const effPrice = (l) => {
+      if (l?.listingType === 'AUCTION' && l?.currentBid != null) {
+        const cb = parseFloat(l.currentBid);
+        if (isFinite(cb) && cb > 0) return cb;
+      }
+      return parseFloat(l?.price);
+    };
     // Map (not plain object) so insertion order is preserved regardless of
     // whether item.id stringifies to an integer — `Object.values()` sorts
     // integer-string keys in numeric order, which silently broke price/recent
@@ -5820,7 +5846,7 @@ export function App() {
       rows.sort((a, b) => a.idx - b.idx);
     }
     return rows.map(e => ({ ...e.listing, __listingCount: counts.get(e.listing.item.id) || 1 }));
-  }, [listings, sort, listingTypeFilter, dealsOnly, minDiscountPct, newOnly, affordableOnly, hideMine, me?.id, wallet?.balance]);
+  }, [filteredPool, sort]);
 
   // Bulk-fetch watcher counts for the visible item ids whenever the
   // marketplace grid recomputes. One round-trip, debounced by the dedup
@@ -6950,7 +6976,7 @@ export function App() {
           ),
           h('div', { className: 'csfloat-home-tile-title' }, 'Live Auctions'),
           h('div', { className: 'csfloat-home-tile-blurb' },
-            'Bid in real time on rare s&box items. Auto-extends in the final minute so a sniper can’t steal a win.')
+            'Bid in real time on rare s&box items. A bid in the last 30 seconds adds 30 more to the clock, up to 20 times.')
         ),
         h('div', { className: 'csfloat-home-tile' },
           h('div', { className: 'csfloat-home-tile-icon' },
@@ -7092,18 +7118,30 @@ export function App() {
         // which is exactly the radio-group semantic. Prior code was
         // clickable <div>s: not in tab order, not announced as a
         // selector, keyboard users couldn't filter at all.
-        h('details', { className: 'filter-section', role: 'radiogroup', 'aria-label': 'Category filter', open: true },
+        h('details', { className: 'filter-section', open: true },
           h('summary', { className: 'filter-title' }, 'Category'),
-          CATEGORIES.map(c =>
+          // A <details> takes no role, so the group is a box-less wrapper
+          // inside it. One Tab stop (the checked option); arrows move the choice.
+          h('div', { role: 'radiogroup', 'aria-label': 'Category filter', style: { display: 'contents' } },
+          CATEGORIES.map((c, i) =>
             h('div', {
               key: c,
               className: `filter-option ${category === c ? 'selected' : ''}`,
               role: 'radio',
               'aria-checked': category === c,
-              tabIndex: 0,
+              tabIndex: category === c ? 0 : -1,
               onClick: () => setCategory(c),
               onKeyDown: (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory(c); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory(c); return; }
+                const step = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1
+                  : (e.key === 'ArrowUp' || e.key === 'ArrowLeft') ? -1 : 0;
+                const next = e.key === 'Home' ? 0 : e.key === 'End' ? CATEGORIES.length - 1
+                  : step ? (i + step + CATEGORIES.length) % CATEGORIES.length : null;
+                if (next == null) return;
+                e.preventDefault();
+                setCategory(CATEGORIES[next]);
+                const opts = e.currentTarget.parentElement.querySelectorAll('[role="radio"]');
+                if (opts[next]) opts[next].focus();
               }
             },
               c,
@@ -7114,20 +7152,33 @@ export function App() {
               c !== 'All' && (catCounts[c] || 0) > 0 && h('span', { className: 'filter-count' }, catCounts[c])
             )
           )
+          )
         ),
         h('div', { className: 'filter-divider' }),
-        h('details', { className: 'filter-section', role: 'radiogroup', 'aria-label': 'Rarity filter', open: true },
+        h('details', { className: 'filter-section', open: true },
           h('summary', { className: 'filter-title' }, 'Rarity'),
-          RARITIES.map(r =>
+          // A <details> takes no role, so the group is a box-less wrapper
+          // inside it. One Tab stop (the checked option); arrows move the choice.
+          h('div', { role: 'radiogroup', 'aria-label': 'Rarity filter', style: { display: 'contents' } },
+          RARITIES.map((r, i) =>
             h('div', {
               key: r,
               className: `filter-option ${rarity === r ? 'selected' : ''}`,
               role: 'radio',
               'aria-checked': rarity === r,
-              tabIndex: 0,
+              tabIndex: rarity === r ? 0 : -1,
               onClick: () => setRarity(r),
               onKeyDown: (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRarity(r); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRarity(r); return; }
+                const step = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1
+                  : (e.key === 'ArrowUp' || e.key === 'ArrowLeft') ? -1 : 0;
+                const next = e.key === 'Home' ? 0 : e.key === 'End' ? RARITIES.length - 1
+                  : step ? (i + step + RARITIES.length) % RARITIES.length : null;
+                if (next == null) return;
+                e.preventDefault();
+                setRarity(RARITIES[next]);
+                const opts = e.currentTarget.parentElement.querySelectorAll('[role="radio"]');
+                if (opts[next]) opts[next].focus();
               }
             },
               r !== 'All' && h('span', {
@@ -7144,6 +7195,7 @@ export function App() {
               // signal which buckets are populated.
               r !== 'All' && (rarityCounts[r] || 0) > 0 && h('span', { className: 'filter-count' }, rarityCounts[r])
             )
+          )
           )
         ),
         h('div', { className: 'filter-divider' }),
@@ -8030,9 +8082,13 @@ export function App() {
       h('div', { className: 'ticker' },
         h('div', { className: 'ticker-label' }, 'LIVE SALES'),
         h('div', { className: 'ticker-track' },
+          // The second copy only makes the scroll loop seamlessly: hidden
+          // from screen readers and out of the tab order.
           [...recentSales, ...recentSales].map((s, i) => h('a', {
             key: i,
             className: 'ticker-item',
+            'aria-hidden': i >= recentSales.length ? 'true' : undefined,
+            tabIndex: i >= recentSales.length ? -1 : undefined,
             href: s.listing.item.id ? ('/item/' + s.listing.item.id) : '#',
             style: { textDecoration: 'none', color: 'inherit' },
             title: `${s.listing.item.name} sold for ${fmt(s.listing.price)} · ${s.time}`

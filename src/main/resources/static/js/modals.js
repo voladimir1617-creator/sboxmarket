@@ -10165,7 +10165,13 @@ function ProfileOffersTab() {
     };
     return (a, b) => (b.createdAt || 0) - (a.createdAt || 0); // newest
   })();
-  const list = [...rawList].sort((a, b) => {
+  // The From / To picker filters the rows on screen as well as the CSV, the
+  // way the same picker does on the Trades tab.
+  const offersDateOn = offersDateFrom != null || offersDateTo != null;
+  const datedList = rawList.filter(o =>
+    (offersDateFrom == null || (o.createdAt || 0) >= offersDateFrom) &&
+    (offersDateTo   == null || (o.createdAt || 0) <= offersDateTo));
+  const list = [...datedList].sort((a, b) => {
     // PENDING floats to the top
     const aPending = a.status === 'PENDING' ? 0 : 1;
     const bPending = b.status === 'PENDING' ? 0 : 1;
@@ -10261,9 +10267,9 @@ function ProfileOffersTab() {
         onClick: cancelAllOutgoing,
         title: `Cancel all ${outgoingPending} pending outgoing offers in one click`
       }, '✕ Cancel all pending'),
-      // Date-range filter — pass-through to the CSV `from` / `to`
-      // params so a quarterly export matches the user's accounting
-      // window without spreadsheet post-processing.
+      // Date-range filter: filters the rows below and passes through to
+      // the CSV `from` / `to` params, so a quarterly export matches what
+      // is on screen.
       (data.incoming.length + data.outgoing.length) > 0 && h(DateRangeFilter, {
         from: offersDateFrom,
         to:   offersDateTo,
@@ -10347,7 +10353,14 @@ function ProfileOffersTab() {
             )
       );
     })(),
-    list.length === 0
+    list.length === 0 && offersDateOn && rawList.length > 0
+      ? h('div', { className: 'empty-inline' },
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
+          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            'No offers in these dates'),
+          h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+            'Clear the date filter to see every offer.'))
+    : list.length === 0
       ? h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
