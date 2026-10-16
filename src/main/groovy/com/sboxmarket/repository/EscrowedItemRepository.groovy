@@ -346,6 +346,20 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
     """)
     List<EscrowedItem> findTradeProtectionDue(@Param('now') Long now, Pageable page)
 
+    /** Bot asset ids other custody rows of the same item already hold. A
+     *  deposit that Steam re-numbered is matched to the bot inventory by name,
+     *  and with two copies of one skin in the bot the second deposit must not
+     *  take the asset the first listing already backs. A held id never comes
+     *  back to the bot (Steam issues a new one on every receipt), so every
+     *  state counts, delivered ones included. */
+    @Query("""
+        SELECT e.heldAssetId FROM EscrowedItem e
+        WHERE e.marketHashName = :name
+          AND e.heldAssetId IS NOT NULL
+          AND e.id <> :excludeId
+    """)
+    List<String> findHeldAssetIdsClaimedByOthers(@Param('name') String name, @Param('excludeId') Long excludeId)
+
     /** Rows whose skin should be in the bot's inventory right now: in Trade
      *  Protection, in custody, or returned with the return offer not yet
      *  accepted (the skin stays in the bot until the seller takes it). The

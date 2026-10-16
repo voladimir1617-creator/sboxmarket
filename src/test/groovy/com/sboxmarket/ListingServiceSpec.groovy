@@ -652,6 +652,33 @@ class ListingServiceSpec extends Specification {
         noExceptionThrown()
     }
 
+    def "offerToBuyOrders hands a listing that just went live to the matching engine"() {
+        given:
+        def listing = listingFor()
+
+        when:
+        service.offerToBuyOrders(listing)
+
+        then:
+        1 * buyOrderService.tryMatch(listing)
+    }
+
+    def "offerToBuyOrders leaves auctions alone and swallows a failing match"() {
+        given:
+        def auction = listingFor()
+        auction.listingType = 'AUCTION'
+        def plain = listingFor()
+        buyOrderService.tryMatch(plain) >> { throw new RuntimeException('boom') }
+
+        when:
+        service.offerToBuyOrders(auction)
+        service.offerToBuyOrders(plain)
+
+        then:
+        0 * buyOrderService.tryMatch(auction)
+        noExceptionThrown()
+    }
+
     // ── updateItemFloorPrice keeps item.isListed in sync (batch 237 / bug #104) ──
 
     def "createListing updates item.lowestPrice AND flips isListed=true when floor > 0"() {

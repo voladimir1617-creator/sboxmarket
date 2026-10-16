@@ -4296,7 +4296,8 @@ export function App() {
           steamPrice: l.item?.steamPrice ?? it.steamPrice,
           thumb:      l.item?.imageUrl ?? l.item?.thumb ?? it.thumb,
           sellerName:   l.sellerName   ?? it.sellerName,
-          sellerUserId: l.sellerUserId ?? it.sellerUserId,
+          // null is a real answer (a SkinBox listing); `??` dropped it.
+          sellerUserId: l.sellerUserId !== undefined ? l.sellerUserId : it.sellerUserId,
         };
       }));
     })();
@@ -4668,17 +4669,21 @@ export function App() {
           serverIds = await fetchCartIds();
         }
         if (!alive || !Array.isArray(serverIds)) return;
-        const localById = {};
-        (cart || []).forEach(x => { localById[x.id] = x; });
-        const merged = serverIds.map(id => localById[id] || {
-          id,
-          itemId:     null,
-          name:       'Loading…',
-          price:      null,
-          steamPrice: null,
-          thumb:      null
+        // Read the rows as they are NOW, not as this effect first saw them:
+        // the listing lookups often fill a "Loading…" row in before this
+        // answers, and the stale copy put the bare row back for good.
+        setCart(prev => {
+          const localById = {};
+          (prev || []).forEach(x => { localById[x.id] = x; });
+          return serverIds.map(id => localById[id] || {
+            id,
+            itemId:     null,
+            name:       'Loading…',
+            price:      null,
+            steamPrice: null,
+            thumb:      null
+          });
         });
-        setCart(merged);
       } catch (_) { /* offline — keep local cache */ }
     })();
     return () => { alive = false; };
@@ -9668,7 +9673,9 @@ export function App() {
         // the real deadline lives in `trade.seller-response-days` on the
         // server and a number copied into the SPA is a number that drifts.
         (() => {
-          const anySeller = cart.some(it => it.sellerUserId != null);
+          // Only a row known to be SkinBox's (null) skips the seller text:
+          // a row never filled in (undefined) may well be a person's.
+          const anySeller = cart.some(it => it.sellerUserId !== null);
           return h('div', {
             className: 'cart-confirm-sub',
             'data-testid': anySeller ? 'delivery-expectation-seller' : 'delivery-expectation-platform',
@@ -9689,7 +9696,7 @@ export function App() {
                   // A mixed cart: the house items do not wait on anyone, and
                   // the copy above alone told the buyer they all did.
                   (() => {
-                    const house = cart.filter(it => it.sellerUserId == null).length;
+                    const house = cart.filter(it => it.sellerUserId === null).length;
                     return house > 0 && h('span', { 'data-testid': 'delivery-expectation-mixed' },
                       ` ${house === 1 ? 'One item here is' : `${house} items here are`} held by ${BRAND.name} and ${house === 1 ? 'goes' : 'go'} straight to your Platform Inventory.`);
                   })())

@@ -73,6 +73,7 @@ class SteamEscrowService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SavedSearchService savedSearchService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SellerFollowService sellerFollowService
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy ListingService listingService
 
     /** Master switch for the escrow pollers, independent of the bot's own
      *  enabled flag — lets ops freeze deposit/return sweeps without unsetting
@@ -1471,10 +1472,20 @@ class SteamEscrowService {
         if (e.assetId != null && byAsset.containsKey(e.assetId)) {
             return e.assetId
         }
-        if (e.marketHashName != null && byName.containsKey(e.marketHashName)) {
-            return byName[e.marketHashName] as String
+        if (e.marketHashName == null) return null
+        // Same-item match by name: skip any asset another custody row already
+        // holds, or the second copy of a skin would back two listings with one
+        // asset and the second sale would have nothing to deliver.
+        Set<String> claimed = ((escrowRepository.findHeldAssetIdsClaimedByOthers(e.marketHashName, e.id) ?: []) as List)
+                .collect { it as String } as Set
+        def items = index['items'] instanceof List ? (index['items'] as List) : null
+        if (items != null) {
+            def free = items.find { it instanceof Map && it['marketHashName'] == e.marketHashName &&
+                    it['assetId'] != null && !claimed.contains(it['assetId'] as String) }
+            return free != null ? (free['assetId'] as String) : null
         }
-        return null
+        def byNameHit = byName[e.marketHashName] as String
+        return byNameHit != null && !claimed.contains(byNameHit) ? byNameHit : null
     }
 
     private String resolveSellerTradeUrl(Long sellerUserId) {
@@ -1511,6 +1522,11 @@ class SteamEscrowService {
                 // Followers are skipped the same way until now.
                 try { sellerFollowService?.notifyFollowersOfNewListing(saved) }
                 catch (Exception e) { log.warn("SteamEscrow: follower fanout failed for listing ${listingId}: ${e.message}") }
+                // Standing buy orders are skipped too (matching only sees
+                // ACTIVE rows), so a deposit at or under someone's max has to
+                // be offered to them now or it never fills them.
+                try { listingService?.offerToBuyOrders(saved) }
+                catch (Exception e) { log.warn("SteamEscrow: buy-order match failed for listing ${listingId}: ${e.message}") }
             }
         } catch (Exception e) {
             log.warn("SteamEscrow: could not activate listing ${listingId}: ${e.message}")

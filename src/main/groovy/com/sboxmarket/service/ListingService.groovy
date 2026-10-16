@@ -519,10 +519,15 @@ class ListingService {
      *  order (matching skips hidden rows), so offer them to the engine
      *  the way a fresh listing is. Deferred like save(). */
     private void rematchUnhidden(List<Listing> rows) {
-        if (buyOrderService == null) return
-        rows.findAll { it.listingType != 'AUCTION' }.each { l ->
-            deferOrRun { buyOrderService.tryMatch(l) }
-        }
+        rows.each { offerToBuyOrders(it) }
+    }
+
+    /** A listing that became buyable outside this service (a bot deposit
+     *  going live) is offered to standing buy orders the way a fresh listing
+     *  is. Deferred like save(). Auctions never fill buy orders. */
+    void offerToBuyOrders(Listing l) {
+        if (buyOrderService == null || l == null || l.listingType == 'AUCTION') return
+        deferOrRun { buyOrderService.tryMatch(l) }
     }
 
     /** Active listings away mode is currently hiding. */
