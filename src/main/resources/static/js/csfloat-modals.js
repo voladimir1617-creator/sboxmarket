@@ -237,7 +237,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       h('select', { className: 'sort-select', value: category, onChange: e => setCat(e.target.value), 'aria-label': 'Filter catalogue by category' },
         CATS.map(c => h('option', { key: c, value: c }, c === 'All' ? 'All categories' : c))),
       h('select', { className: 'sort-select', value: rarity, onChange: e => setRar(e.target.value), 'aria-label': 'Filter catalogue by rarity' },
-        RARS.map(r => h('option', { key: r, value: r }, r === 'All' ? 'All rarities' : r))),
+        RARS.map(r => h('option', { key: r, value: r }, r === 'All' ? 'All rarities' : r === 'Off-Market' ? 'Scarce' : r))),
       h('select', { className: 'sort-select', value: sort, onChange: e => setSort(e.target.value), 'aria-label': 'Sort catalogue by' },
         SORTS.map(s => h('option', { key: s.v, value: s.v }, s.l))),
       h('label', {
