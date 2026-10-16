@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=284';
+} from './modals.js?v=285';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -6976,7 +6976,7 @@ export function App() {
           ),
           h('div', { className: 'csfloat-home-tile-title' }, 'Live Auctions'),
           h('div', { className: 'csfloat-home-tile-blurb' },
-            'Bid in real time on rare s&box items. A bid in the last 30 seconds adds 30 more to the clock, up to 20 times.')
+            'Bid in real time on rare s&box items. A bid in the last 30 seconds moves the close to 30 seconds after that bid, up to 20 times.')
         ),
         h('div', { className: 'csfloat-home-tile' },
           h('div', { className: 'csfloat-home-tile-icon' },
