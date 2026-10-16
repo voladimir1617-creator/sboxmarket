@@ -1,0 +1,8 @@
+{
+  "name": "nth-check",
+  "version": "1.0.2-sbox.1",
+  "private": true,
+  "description": "Keeps css-select 1.x's call shape (require('nth-check')(formula)) on patched nth-check 2 (GHSA-rp65-9cf3-cjxr).",
+  "main": "index.js",
+  "dependencies": { "nth-check-v2": "npm:nth-check@^2.1.1" }
+}

@@ -12,14 +12,17 @@
     "start": "node index.js",
     "dev": "node index.js",
     "fake": "node fake-bot.js",
-    "test": "node --test test/fake-bot.test.js test/bot-core.test.js test/guards.test.js"
+    "test": "node --test test/fake-bot.test.js test/bot-core.test.js test/guards.test.js test/deps.test.js"
   },
   "dependencies": {
     "express": "^4.22.3",
     "steam-user": "^5.0.9",
     "steamcommunity": "^3.48.0",
     "steam-tradeoffer-manager": "^2.11.5",
-    "steam-totp": "^2.1.2"
+    "steam-totp": "^2.1.2",
+    "lodash.pick": "file:shims/lodash.pick",
+    "nth-check": "file:shims/nth-check",
+    "image-size": "file:shims/image-size"
   },
   "overrides": {
     "proxy-addr": "^2.0.8",
@@ -27,7 +30,9 @@
     "ip-address": "^10.7.4",
     "adm-zip": "^0.6.1",
     "protobufjs": "^7.6.6",
-    "form-data": "^2.5.6",
-    "tough-cookie": "^4.1.4"
+    "request": "npm:@cypress/request@^4.0.1",
+    "lodash.pick": "$lodash.pick",
+    "nth-check": "$nth-check",
+    "image-size": "$image-size"
   }
 }

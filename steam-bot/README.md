@@ -257,16 +257,16 @@ before the message text does.
 - Rotate `BOT_API_TOKEN` and the Steam secrets if you suspect compromise (rotating the
   mobile authenticator re-triggers the trade-hold period).
 
-### npm advisories (checked 2026-10-15)
+### npm advisories (checked 2026-10-16: `npm audit` reports 0)
 `package.json` pins patched versions of the Steam libraries' sub-dependencies through
-`overrides` (protobufjs, adm-zip, form-data, tough-cookie, qs, proxy-addr, ip-address), which
-clears every critical advisory. `npm audit` still lists these, all inside `steamcommunity`
-and with no patched version that keeps its API:
-- `request` (deprecated; redirect SSRF) and its `uuid` 3: the bot only calls Steam's own
-  hosts, and `request` uses `uuid/v4` without a buffer, which the advisory does not cover.
-- `cheerio` 0.22 -> `css-select` -> `nth-check`, `lodash.pick`: used only with the
-  library's fixed selectors on Steam's own pages.
-- `image-size`: used only by `uploadAvatar`, which the bot never calls.
+`overrides` (protobufjs, adm-zip, qs, proxy-addr, ip-address). Four old packages inside
+`steamcommunity` have no patched release that keeps their API, so they are replaced:
+- `request` -> `@cypress/request` 4, the maintained drop-in fork (redirect SSRF fixed, no
+  `uuid` 3, current `form-data` and `tough-cookie`).
+- `lodash.pick`, `nth-check`, `image-size` -> tiny wrappers in `shims/` that keep the call
+  shape `cheerio` 0.22 / `css-select` 1 / `steamcommunity` expect and forward to patched
+  `lodash` 4.18, `nth-check` 2 and `image-size` 2. They are root dependencies so the
+  `"$name"` overrides can point at them; keep the `shims/` folder next to `package.json`.
 
 Re-run `npm audit` before going live and whenever a Steam library releases.
 
@@ -278,6 +278,7 @@ Re-run `npm audit` before going live and whenever a Steam library releases.
 - `lib/guards.js` — request checks, message fitting, error codes (shared with the fake).
 - `lib/reconnect.js` — the re-login policy.
 - `fake-bot.js` — the fake Steam for local runs; `npm test` runs every test without `npm install`.
+- `shims/` — wrappers that swap three unpatched sub-dependencies for patched ones (see above).
 - `package.json` — dependencies (`steam-user`, `steamcommunity`, `steam-tradeoffer-manager`,
   `steam-totp`, `express`).
 - `.env.example` — environment template (copy to `.env`).

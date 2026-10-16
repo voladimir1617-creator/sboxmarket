@@ -1,0 +1,8 @@
+{
+  "name": "lodash.pick",
+  "version": "4.4.0-sbox.1",
+  "private": true,
+  "description": "Drop-in for the abandoned lodash.pick (GHSA-p6mc-m468-83gw): re-exports pick from patched lodash.",
+  "main": "index.js",
+  "dependencies": { "lodash": "^4.18.1" }
+}

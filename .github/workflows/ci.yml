@@ -40,6 +40,13 @@ jobs:
       - name: Test the Steam bot sidecar and the fake Steam (no npm install needed)
         run: node --test steam-bot/test/fake-bot.test.js steam-bot/test/bot-core.test.js steam-bot/test/guards.test.js
 
+      - name: Install the Steam bot's packages and check the patched dependency swaps
+        working-directory: steam-bot
+        run: |
+          npm ci --no-fund --no-audit
+          node --test test/deps.test.js
+          npm audit --omit=dev --audit-level=critical
+
       - name: Upload test report on failure
         if: failure()
         uses: actions/upload-artifact@v4
