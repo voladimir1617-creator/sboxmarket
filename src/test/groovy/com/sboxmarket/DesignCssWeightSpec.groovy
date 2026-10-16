@@ -20,8 +20,8 @@ import spock.lang.Specification
  */
 class DesignCssWeightSpec extends Specification {
 
-    /** main was 4,824,822 bytes before the first slice, 4,372,884 before the second, 3,872,385 before the third and 3,369,033 before the fourth. */
-    static final long CEILING_BYTES = 2_880_000L
+    /** main was 4,824,822 bytes before the first slice, 4,372,884 before the second, 3,872,385 before the third, 3,369,033 before the fourth and 2,865,407 before the fifth. */
+    static final long CEILING_BYTES = 2_340_000L
 
     def "design.css stays under its byte ceiling"() {
         given:
