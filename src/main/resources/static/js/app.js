@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y, fmtDelay
-} from './modals.js?v=288';
+} from './modals.js?v=289';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -922,19 +922,70 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
   );
 }
 
+// Keyboard shortcuts overlay (press `?`). Uses the shared dialog contract
+// so focus moves into the panel, Tab stays inside, and focus returns to
+// where it was on close.
+function ShortcutsOverlay({ onClose }) {
+  const panelRef = useRef(null);
+  useDialogA11y(panelRef, onClose, true);
+  return h('div', { className: 'shortcuts-backdrop', onClick: onClose },
+    h('div', {
+      className: 'shortcuts-card',
+      ref: panelRef,
+      onClick: e => e.stopPropagation(),
+      // role=dialog + aria-modal so the panel announces correctly;
+      // useDialogA11y above handles Escape, focus and the Tab trap.
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-labelledby': 'shortcuts-title'
+    },
+      h('div', { className: 'shortcuts-title', id: 'shortcuts-title' }, 'Keyboard Shortcuts'),
+      h('div', { className: 'shortcuts-grid' },
+        [
+          ['/',       'Focus search'],
+          ['⌘/Ctrl+K','Focus search (works from anywhere)'],
+          ['?',       'Toggle this panel'],
+          ['Esc',     'Back to market / close detail'],
+          ['g m',     'Go to Market'],
+          ['g d',     'Go to Database'],
+          ['g p',     'Go to Profile'],
+          ['g w',     'Go to Wallet'],
+          ['g c',     'Go to Cart'],
+          ['g l',     'Go to Loadout Lab'],
+          ['g s',     'Go to Sell Items'],
+          ['g f',     'Go to Watchlist (Favorites)'],
+          ['g h',     'Go to Help'],
+          ['g o',     'Go to Offers'],
+          ['g b',     'Go to Buy Orders'],
+          ['g n',     'Go to Notifications'],
+          ['g t',     'Go to Settings'],
+          ['v',       'Toggle grid / table view (on Market)'],
+          ['Ctrl-click balance', 'Toggle privacy mode']
+        ].map(([k, d]) => h('div', { key: k, className: 'shortcut-row' },
+          h('kbd', null, k), h('span', null, d)
+        ))
+      ),
+      h('button', { className: 'btn btn-ghost', style: { marginTop: 14, border: '1px solid var(--border)' }, onClick: onClose }, 'Close')
+    )
+  );
+}
+
 // ── SortPicker — chip-style dropdown for the /market sort selector. Drops
 // the native <select> for a custom panel with per-option icon + label.
 // Consistent with NavPicker visually so the toolbar feels coherent.
 function SortPicker({ value, options, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = React.useRef(null);
+  // Focus goes back to the chip when a choice or Escape closes the panel;
+  // otherwise it falls to <body> as the focused option unmounts.
+  const chipRef = React.useRef(null);
   // aria-expanded must pair with aria-controls — same WCAG 4.1.2
   // requirement as NavPicker (see comment there).
   const [panelId] = useState(() => 'sort-picker-panel-' + Math.random().toString(36).slice(2, 9));
   useEffect(() => {
     if (!open) return;
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); chipRef.current?.focus(); } };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -947,6 +998,7 @@ function SortPicker({ value, options, onChange }) {
     h('button', {
       type: 'button',
       className: 'sort-picker-chip',
+      ref: chipRef,
       onClick: () => setOpen(o => !o),
       'aria-haspopup': 'listbox',
       'aria-expanded': open,
@@ -964,7 +1016,7 @@ function SortPicker({ value, options, onChange }) {
         role: 'option',
         'aria-selected': opt.value === value,
         className: 'sort-picker-row' + (opt.value === value ? ' active' : ''),
-        onClick: () => { onChange && onChange(opt.value); setOpen(false); }
+        onClick: () => { onChange && onChange(opt.value); setOpen(false); chipRef.current?.focus(); }
       },
         h(MaterialIcon, { name: opt.icon || 'sort', size: 14 }),
         h('span', { className: 'sort-picker-row-label' }, opt.label),
@@ -4782,6 +4834,7 @@ export function App() {
 
   // Keyboard-shortcut help overlay state. `?` opens it, `Esc` closes.
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
 
   // Keyboard shortcuts — CSFloat uses `/` to focus the market search.
   useEffect(() => {
@@ -7643,7 +7696,7 @@ export function App() {
             className: `deals-chip ${hideMine ? 'active' : ''}`,
             onClick: () => setHideMineP(!hideMine),
             title: hideMine
-              ? 'Showing your own listings — click to hide them from the grid'
+              ? 'Your listings are hidden — click to show them again'
               : "Hide your own listings so you can size your prices against competitors",
             'aria-pressed': hideMine
           }, hideMine ? 'Mine hidden' : 'Hide mine'),
@@ -10007,45 +10060,7 @@ export function App() {
     ),
 
     /* SHORTCUTS HELP OVERLAY — press `?` to toggle */
-    shortcutsOpen && h('div', { className: 'shortcuts-backdrop', onClick: () => setShortcutsOpen(false) },
-      h('div', {
-        className: 'shortcuts-card',
-        onClick: e => e.stopPropagation(),
-        // Batch 831 — a11y on the shortcuts overlay. Escape is already
-        // wired at the app-level keydown handler (line ~3194) which
-        // toggles `shortcutsOpen` false when it's true. Adding role=
-        // dialog + aria-modal so the panel announces correctly.
-        role: 'dialog',
-        'aria-modal': 'true',
-        'aria-labelledby': 'shortcuts-title'
-      },
-        h('div', { className: 'shortcuts-title', id: 'shortcuts-title' }, 'Keyboard Shortcuts'),
-        h('div', { className: 'shortcuts-grid' },
-          [
-            ['/',       'Focus search'],
-            ['⌘/Ctrl+K','Focus search (works from anywhere)'],
-            ['?',       'Toggle this panel'],
-            ['Esc',     'Back to market / close detail'],
-            ['g m',     'Go to Market'],
-            ['g d',     'Go to Database'],
-            ['g p',     'Go to Profile'],
-            ['g w',     'Go to Wallet'],
-            ['g c',     'Go to Cart'],
-            ['g l',     'Go to Loadout Lab'],
-            ['g s',     'Go to Sell Items'],
-            ['g f',     'Go to Watchlist (Favorites)'],
-            ['g h',     'Go to Help'],
-            ['g o',     'Go to Offers'],
-            ['g b',     'Go to Buy Orders'],
-            ['g n',     'Go to Notifications'],
-            ['Ctrl-click balance', 'Toggle privacy mode']
-          ].map(([k, d]) => h('div', { key: k, className: 'shortcut-row' },
-            h('kbd', null, k), h('span', null, d)
-          ))
-        ),
-        h('button', { className: 'btn btn-ghost', style: { marginTop: 14, border: '1px solid var(--border)' }, onClick: () => setShortcutsOpen(false) }, 'Close')
-      )
-    ),
+    shortcutsOpen && h(ShortcutsOverlay, { onClose: closeShortcuts }),
 
     /* Floating back-to-top affordance — appears after 600px of scroll. */
     h(BackToTopButton, null),

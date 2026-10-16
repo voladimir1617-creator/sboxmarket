@@ -60,7 +60,7 @@ const FAQ = [
   {
     s: 'money',
     q: 'Is my money safe?',
-    a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. When you buy an item the payment is held in escrow — not paid to the seller — until you confirm receipt or the 8-day trade-hold window passes, so a seller can't take your money and ghost you. Withdrawals are queued for manual admin approval before payout and require a verified email (plus a 2FA code if you've enabled it). Session cookies are HttpOnly and SameSite-strict in production, and every wallet write is logged with a correlation id for audit. Test mode: no real money moves yet."
+    a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. When you buy an item the payment is held in escrow — not paid to the seller — until you confirm receipt or the 8-day trade-hold window passes, so a seller can't take your money and ghost you. Withdrawals are queued for manual admin approval before payout and require a verified email (plus a 2FA code if you've enabled it). Session cookies are HttpOnly and SameSite=Lax in production, and every wallet write is logged with a correlation id for audit. Test mode: no real money moves yet."
   },
   {
     s: 'money',
