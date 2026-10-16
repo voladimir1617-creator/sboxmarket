@@ -12083,8 +12083,10 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     // Batch 646 — attach auto-accept threshold (percent input → 0..1).
     // Accept 1..50 % as sane bounds; empty string means "no auto-accept"
     // and the server treats null the same way.
+    // Only Buy Now shows the Auto-accept field, so a value typed there
+    // before switching to Auction must not block or ride on the auction.
     const rawPct = (sellAutoPct || '').trim();
-    if (rawPct) {
+    if (sellType === 'BUY_NOW' && rawPct) {
       // Whole percents only: the column stores two decimals of the
       // fraction, so 7.5% was saved as 8% while the preview said 7.5%.
       const pct = Number(rawPct);
@@ -12293,6 +12295,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           className: `offer-tab ${sellType === 'BUY_NOW' ? 'active' : ''}`,
           style: { flex: 1 },
           onClick: () => setSellType('BUY_NOW'),
+          'aria-pressed': sellType === 'BUY_NOW',
           title: 'Instant-buy listing at a flat price'
         }, 'Buy Now'),
         h('button', {
@@ -12300,6 +12303,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           className: `offer-tab ${sellType === 'AUCTION' ? 'active' : ''}`,
           style: { flex: 1 },
           onClick: () => setSellType('AUCTION'),
+          'aria-pressed': sellType === 'AUCTION',
           title: 'Starting bid — bidders push the price up until the auction ends'
         }, 'Auction')
       ),
@@ -12318,6 +12322,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             type: 'button',
             className: `price-suggest-chip ${String(opt.v) === String(sellDurationHours) ? 'active' : ''}`,
             onClick: () => setSellDurationHours(opt.v),
+            'aria-pressed': String(opt.v) === String(sellDurationHours),
             style: String(opt.v) === String(sellDurationHours)
               ? { borderColor: 'var(--accent)', color: 'var(--accent)' }
               : {}
