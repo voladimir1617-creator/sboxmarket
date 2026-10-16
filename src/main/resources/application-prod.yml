@@ -122,7 +122,7 @@ spring:
     # sessions. Sessions are lost on container restart — acceptable
     # until the underlying NUL sanitizer is rewritten to be airtight.
     store-type: none
-    timeout: 365d
+    timeout: 30d
   flyway:
     enabled: true
     locations: classpath:db/migration

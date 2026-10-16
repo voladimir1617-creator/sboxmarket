@@ -106,22 +106,23 @@ server:
   # controlled by env so local HTTP dev still works.
   servlet:
     session:
-      # 365 days — operator demand 2026-05-01: "NEVER EXPIRE ACTUALLY".
-      # Was 45m which was logging users out mid-browse. Spring Session
-      # JDBC honours this for the server-side row TTL too (see
-      # SessionConfig @EnableJdbcHttpSession maxInactiveIntervalInSeconds).
-      timeout: 365d
+      # 30 days since the last request (security review 2026-10-15,
+      # finding 15; was 365 days). SessionCookieRefreshFilter re-sends the
+      # cookie once a day while the user is active, so anyone who visits at
+      # least once a month stays signed in.
+      timeout: 30d
       cookie:
         http-only: true
         secure: ${COOKIE_SECURE:false}
         same-site: ${COOKIE_SAME_SITE:lax}
         name: SBOX_SESSION
-        # 365-day cookie max-age so the browser keeps replaying the
+        # 30-day cookie max-age so the browser keeps replaying the
         # session token across browser restarts (not just within one
         # browser run). Without max-age, the cookie is a session-only
         # cookie that the browser discards on close — effectively
-        # signing the user out the next time they open Chrome.
-        max-age: 365d
+        # signing the user out the next time they open Chrome. Kept
+        # sliding by SessionCookieRefreshFilter.
+        max-age: 30d
   # Gzip small JSON + static assets so we don't need Nginx for compression.
   # Batch 682 — added application/xml + text/csv so /sitemap.xml (SEO
   # crawler traffic) and the wallet / my-stall CSV exports compress too.
