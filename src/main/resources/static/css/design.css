@@ -2608,8 +2608,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .csfloat-subnav-tab { flex: 0 0 auto; padding: 10px 16px; background: transparent; border: 0; font-family: 'Roboto', 'Inter', system-ui, sans-serif; font-size: 13px; font-weight: 600; color: var(--ink-3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color 140ms ease, border-color 140ms ease; letter-spacing: -0.005em; }
 .csfloat-subnav-tab:hover { color: var(--ink-2); }
 .csfloat-subnav-tab.active { color: var(--ink); border-bottom-color: var(--cta); }
-.sidebar .filter-section[aria-label="Category filter"] { display: none !important; }
-.sidebar .filter-section[aria-label="Category filter"] + .filter-divider { display: none !important; }
+.sidebar .filter-section:has(> [aria-label="Category filter"]) { display: none !important; }
+.sidebar .filter-section:has(> [aria-label="Category filter"]) + .filter-divider { display: none !important; }
 .site-footer-socials { display: inline-flex; gap: 6px; margin: 0 16px; }
 .site-footer-social { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; color: var(--ink-3); text-decoration: none; background: transparent; border: 0; padding: 0; cursor: pointer; transition: color 140ms ease, background 140ms ease; }
 .site-footer-social:hover { color: var(--ink); background: var(--bg-2); }
@@ -30720,3 +30720,5 @@ html body div.grid-card .grid-card-link:focus-visible { outline: none !important
 /* The thumb isolates its own stacking, so it is lifted above the overlay as a whole and lets clicks on the picture fall through to the link; its buttons take clicks through the hover and focus rules that already switch them on. */
 html body div.grid-card .grid-thumb { z-index: 4 !important; pointer-events: none !important; }
 html body div.grid-card .steam-market-link { position: relative !important; z-index: 5 !important; }
+/* Live sales ticker (pass 43): the strip stops while it is hovered or holds keyboard focus, so a link can be read and reached. */
+.ticker:hover .ticker-track, .ticker:focus-within .ticker-track { animation-play-state: paused !important; }
