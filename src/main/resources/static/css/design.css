@@ -30722,3 +30722,31 @@ html body div.grid-card .grid-thumb { z-index: 4 !important; pointer-events: non
 html body div.grid-card .steam-market-link { position: relative !important; z-index: 5 !important; }
 /* Live sales ticker (pass 43): the strip stops while it is hovered or holds keyboard focus, so a link can be read and reached. */
 .ticker:hover .ticker-track, .ticker:focus-within .ticker-track { animation-play-state: paused !important; }
+
+/* ── Look refresh (2026-10-16) ─────────────────────────────────────────────
+   One closing layer over the sediment above, modelled on the dense, neutral
+   dark marketplace look: a flat near-black canvas, lifted cards, items lit on
+   a soft rarity-tinted spotlight, one blue accent. Restyles existing elements
+   only; no wording or flow changes. */
+/* Hero: the two 1px "spark" lines read as rendering glitches; the canvas is
+   flat at the edges so the full-bleed shadow meets it without a seam. */
+html:root body .csfloat-home-hero::before, html:root body .csfloat-home-hero::after { content: none !important; display: none !important; }
+html:root body .site-root .csfloat-home-hero { background-image: radial-gradient(38% 55% at 66% 45%, rgba(35, 123, 255, 0.16) 0%, rgba(35, 123, 255, 0) 100%), radial-gradient(30% 45% at 28% 55%, rgba(35, 123, 255, 0.06) 0%, rgba(35, 123, 255, 0) 100%) !important; background-color: rgb(8, 10, 18) !important; }
+/* Market cards: the picture gets more of the card and sits on a spotlight in
+   its rarity colour instead of a muddy vertical fade. */
+html:root body div.grid-card { border-radius: 10px !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; background: rgb(28, 31, 38) !important; transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease !important; }
+html:root body div.grid-card:hover { border-color: rgba(255, 255, 255, 0.14) !important; transform: translateY(-2px) !important; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important; }
+html:root body div.grid-card .grid-thumb { --gc-glow: rgba(35, 123, 255, 0.22); background: radial-gradient(60% 62% at 50% 52%, var(--gc-glow) 0%, rgba(0, 0, 0, 0) 72%), linear-gradient(180deg, rgb(36, 40, 49) 0%, rgb(30, 33, 41) 100%) !important; }
+html:root body .listing-grid > div.grid-card .grid-thumb { aspect-ratio: 1 / 0.9 !important; }
+html:root body div.grid-card .grid-thumb:has(.gc-rarity-top--Limited) { --gc-glow: rgba(235, 75, 130, 0.22); }
+html:root body div.grid-card .grid-thumb:has(.gc-rarity-top--Off-Market) { --gc-glow: rgba(240, 180, 40, 0.20); }
+html:root body div.grid-card .grid-thumb img.item-img { max-width: 84% !important; max-height: 84% !important; object-fit: contain !important; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45)) !important; transition: transform 200ms ease !important; }
+html:root body div.grid-card:hover .grid-thumb img.item-img { transform: scale(1.05) !important; }
+/* Item page title row: the name takes its own line, then rarity, Share and
+   Watch sit together at one height (Watch was squeezed into a 36px box). */
+html:root body .item-page .modal-name { flex: 1 0 100% !important; font-size: 26px !important; line-height: 1.2 !important; }
+html:root body .item-page button.btn-wishlist { width: auto !important; min-width: 0 !important; height: 36px !important; padding: 0 14px !important; font-size: 13px !important; border-radius: 8px !important; white-space: nowrap !important; }
+/* Item page picture: framed on the same spotlight as the cards, so it no
+   longer floats on the bare page. */
+html:root body .item-page .modal-preview { border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; background: radial-gradient(55% 60% at 50% 50%, rgba(35, 123, 255, 0.14) 0%, rgba(35, 123, 255, 0) 70%), linear-gradient(180deg, rgb(32, 35, 44) 0%, rgb(24, 26, 33) 100%) !important; overflow: hidden !important; }
+html:root body .item-page .modal-preview img.item-img { filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.5)) !important; }
