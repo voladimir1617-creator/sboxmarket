@@ -56,6 +56,7 @@ class BuyOrderPauseResumeDbSpec extends Specification {
         expect:
         o.id in matching()
         buyOrderRepo.countActiveForItem(item.id) == 1L
+        buyOrderRepo.findBestBidForItem(item.id) == 9
 
         when:
         def paused = buyOrderController.pause(o.id, req).body
@@ -64,7 +65,7 @@ class BuyOrderPauseResumeDbSpec extends Specification {
         paused.status == 'PAUSED'
         !(o.id in matching())
         buyOrderRepo.countActiveForItem(item.id) == 0L
-        buyOrderRepo.findBestBidForItem(item.id) == null
+        buyOrderRepo.findBestBidForItem(item.id) == 0  // COALESCE(MAX, 0): no live bid
         !(o.id in buyOrderRepo.findStaleActive(System.currentTimeMillis())*.id)
         buyOrderController.mine(req).body.find { it.id == o.id }.status == 'PAUSED'
 
