@@ -287,8 +287,8 @@ shipments to their own Steam account.
 
 If this WASN'T you:
   1. Change your Steam password immediately.
-  2. Sign out of every SkinBox session from Profile → Security.
-  3. Restore your real trade URL from Profile → Steam settings.
+  2. Sign out of every SkinBox session from Profile → Personal Info.
+  3. Restore your real trade URL from Profile → Personal Info.
   4. Reply to this email — we'll freeze the wallet and review activity.
 
 If it was you, no action needed.
@@ -316,8 +316,8 @@ If this was you, no action needed.
 
 If it WASN'T you, act fast — somebody has access to your account:
   1. Change your Steam password.
-  2. Sign out of every SkinBox session from Profile → Security.
-  3. Re-enable 2FA from Profile → 2FA.
+  2. Sign out of every SkinBox session from Profile → Personal Info.
+  3. Re-enable 2FA from Profile → Personal Info.
   4. Reply to this email — we'll review the account activity.
 
 This is an automated security notification. You can't turn it off.
@@ -590,7 +590,7 @@ ${sellerName} — a seller you follow — just listed ${itemName ?: 'a new item'
 Take a look${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
 
 You're getting this because you followed the seller. Unfollow from the
-seller's stall page or turn off email notifications in Profile → Settings.
+seller's stall page or turn off email notifications in Profile → Personal Info.
 
 — The SkinBox team
 """.stripIndent()
@@ -673,7 +673,7 @@ If you DID NOT mint this key:
   1. Sign in to SkinBox immediately.
   2. Go to Profile → Developers and revoke every API key you don't recognise.
   3. Sign out of all devices from Profile → Personal.
-  4. Rotate your 2FA device via Profile → 2FA.
+  4. Rotate your 2FA device via Profile → Personal Info.
   5. Reply to this email — staff will audit your account for unauthorised activity.
 
 — The SkinBox team
@@ -716,7 +716,7 @@ Two-factor authentication on your SkinBox account was just reset by staff.
 
 ${cleanNote ? 'Staff note: ' + cleanNote + '\n\n' : ''}\
 If this was you:
-  • Sign in and re-enrol 2FA from Profile → Security → Enable 2FA.
+  • Sign in and re-enrol 2FA from Profile → Personal Info.
   • Your old authenticator codes no longer work.
 
 If this was NOT you:
@@ -840,9 +840,9 @@ these.
         def body = """\
 Hi ${displayName ?: 'there'},
 
-We detected a successful Steam sign-in to your SkinBox account from a
-new IP address. If this was you (new device, travel, VPN toggle, etc.),
-no action is needed.
+We detected a successful Steam sign-in to your SkinBox account from an
+IP address we haven't seen on your account in the last 30 days. If this
+was you (new device, travel, VPN toggle, etc.), no action is needed.
 
   · IP:     ${ipLabel}
   · Device: ${uaSnippet}
@@ -943,8 +943,8 @@ Your trade for ${itemName ?: 'the item'} was cancelled.
 
 ${cleanReason ? 'Reason: ' + cleanReason + '\n\n' : ''}\
 ${isBuyer
-    ? 'Your wallet has been refunded the full amount — check Profile → Wallet to confirm. No further action needed on your end.'
-    : 'The item is back in your stall inventory. Relist it from Profile → Sold → Relist if you still want to sell.'}
+    ? 'Your wallet has been refunded the full amount — check your Wallet to confirm. No further action needed on your end.'
+    : 'The item is back in your stall inventory. Relist it from Sell → Platform Inventory if you still want to sell.'}
 
 Any questions? Reply to this email (it threads into support) or open a ticket in-app: ${publicUrl}/support
 
@@ -1370,7 +1370,7 @@ compromised. Act now:
   1. Sign out of every device from Profile → Personal → Sign out everywhere.
   2. Reply to this email — staff will review the audit log and revert
      the grant if it wasn't legitimate.
-  3. Re-enrol 2FA from Profile → Security if you haven't already.
+  3. Re-enrol 2FA from Profile → Personal Info if you haven't already.
 
 This alert cannot be disabled — security-critical events always fire.
 

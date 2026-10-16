@@ -3023,7 +3023,7 @@ function AdminUsersTab({ me }) {
               const targetId = detailUser.id;
               const note = window.prompt(
                 `Reset 2FA for ${label}?\n\n` +
-                `They\'ll need to re-enrol from Profile → 2FA next time they sign in. Enter an audit note (required):`);
+                `They\'ll need to re-enrol from Profile → Personal Info next time they sign in. Enter an audit note (required):`);
               if (!note || !note.trim()) return;
               const res = await adminReset2fa(targetId, note.trim());
               if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }

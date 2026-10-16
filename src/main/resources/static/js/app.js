@@ -3251,7 +3251,7 @@ export function PreSigninModal({ onClose, onAccept }) {
         ),
 
         h('div', { className: 'presignin-footnote' },
-          'Your password never touches our servers — Steam handles the login. We only see your public Steam profile via OpenID.'
+          'Your password never touches our servers — Steam handles the login. We only see your public Steam profile and, when you sell, your public inventory.'
         )
       )
     )

@@ -1934,7 +1934,7 @@ class TradeService {
             "Seller did not respond within ${sellerResponseDays} days — your wallet has been refunded.",
             'buyer')
         fireTradeCancelledEmail(trade,
-            "You didn't respond within ${sellerResponseDays} days, so the trade was auto-cancelled. Relist from Profile → Sold to try again.",
+            "You didn't respond within ${sellerResponseDays} days, so the trade was auto-cancelled. Relist from Sell → Platform Inventory to try again.",
             'seller')
         auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
             "Seller-response timeout after ${sellerResponseDays}d")
