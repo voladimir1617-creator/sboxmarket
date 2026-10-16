@@ -16,8 +16,8 @@ import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=17';
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
-  SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y
-} from './modals.js?v=287';
+  SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y, fmtDelay
+} from './modals.js?v=288';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
@@ -8372,6 +8372,19 @@ export function App() {
                       h('div', { className: 'stall-stat-val' },
                         stallData.seller.completionRate + '%',
                         h('span', { className: 'stall-stat-unit' }, ` ${done} of ${decided}`)));
+                  })(),
+                  // Delivery time: sale to the buyer having the item, median of
+                  // the last 90 days, from 3 confirmed trades; "–" until then.
+                  // Shown wherever the trade record was readable, so a seller
+                  // with no measured deliveries reads "–", never a guess.
+                  stallData.seller.completedTrades != null && (() => {
+                    const d = fmtDelay(stallData.seller.medianDeliveryMs);
+                    return h('div', { className: 'stall-stat', 'data-stat': 'delivery',
+                      title: d
+                        ? 'Median time from sale to the buyer having the item (they confirmed it, or the escrow bot saw its Steam offer accepted), over the last 90 days.'
+                        : 'Not measured yet: shown once 3 of this seller\'s trades in the last 90 days were confirmed as received.' },
+                      h('div', { className: 'stall-stat-label' }, 'Delivery time'),
+                      h('div', { className: 'stall-stat-val' }, d ? '~' + d : '–'));
                   })(),
                   // Sold in tightest active window (24h > 7d > 30d).
                   (stallData.seller.soldLast24h > 0 || stallData.seller.soldLast7d > 0 || stallData.seller.soldLast30d > 0) && (() => {

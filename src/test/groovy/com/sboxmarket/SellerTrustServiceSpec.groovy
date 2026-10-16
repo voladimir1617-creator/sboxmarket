@@ -67,6 +67,7 @@ class SellerTrustServiceSpec extends Specification {
         steamUserRepository.findAllById(_) >> [seller(7L)]
         tradeRepository.tradeRecordForSellers(_) >> [[7L, 4L, 0L] as Object[]]
         tradeService.typicalShipMsBulk(_) >> [7L: 7_200_000L]
+        tradeService.typicalDeliveryMsBulk(_) >> [7L: 10_800_000L]
         reviewService.summariesForUsers(_) >> [7L: [average: 4.8, count: 5]]
 
         when:
@@ -75,10 +76,25 @@ class SellerTrustServiceSpec extends Specification {
         then:
         rec.completionRate == 100
         rec.medianShipMs == 7_200_000L
+        rec.medianDeliveryMs == 10_800_000L
         rec.rating == 4.8d
         rec.reviewCount == 5
         rec.memberSince == 1_000L
         rec.lastSeenAt == 2_000L
+    }
+
+    def "delivery time is null until measured, and a failed lookup does not drop the record"() {
+        given:
+        steamUserRepository.findAllById(_) >> [seller(7L)]
+        tradeRepository.tradeRecordForSellers(_) >> [[7L, 2L, 0L] as Object[]]
+        tradeService.typicalDeliveryMsBulk(_) >> { throw new RuntimeException('db down') }
+
+        when:
+        def rec = service.recordFor([7L])[7L]
+
+        then:
+        rec.completedTrades == 2L
+        rec.medianDeliveryMs == null
     }
 
     def "a failed record lookup leaves the sellers OUT rather than reporting a spotless record"() {

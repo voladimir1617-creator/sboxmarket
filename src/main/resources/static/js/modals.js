@@ -225,7 +225,7 @@ function chartRangeUsable(rows, range) {
   return historyWithinDays(rows, range.days, true).length >= 2;
 }
 
-function fmtDelay(ms) {
+export function fmtDelay(ms) {
   const m = Number(ms);
   if (!Number.isFinite(m) || m <= 0) return null;
   const hours = m / 3_600_000;
@@ -262,6 +262,7 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
   const failed = rec ? Number(rec.failedTrades || 0) : 0;
   const decided = completed + failed;
   const ship = rec ? fmtDelay(rec.medianShipMs) : null;
+  const delivery = rec ? fmtDelay(rec.medianDeliveryMs) : null;
   const reviews = rec ? Number(rec.reviewCount || 0) : 0;
 
   let body;
@@ -270,7 +271,7 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
     // the price and buttons below don't drop when the record arrives.
     body = h(React.Fragment, null,
       h('div', { className: 'seller-trust-stats', 'aria-hidden': 'true' },
-        [['completed', 'trades completed'], ['ship', 'median time to send']].map(([key, label]) =>
+        [['completed', 'trades completed'], ['ship', 'median time to send'], ['delivery', 'delivery time']].map(([key, label]) =>
           h('div', { key, className: 'seller-trust-stat', 'data-stat': key },
             h('span', { className: 'seller-trust-val' }, '\u00a0'),
             h('span', { className: 'seller-trust-label' }, label)))),
@@ -297,6 +298,14 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
       tip: ship
         ? 'Median time from sale to the seller marking the Steam trade offer sent, over their last 90 days (shown from 3 trades).'
         : 'Not enough timed trades yet: shown once the seller has sent 3 trades in the last 90 days.' });
+    // Delivery time: sale to the buyer HAVING the item (they confirmed it, or
+    // the escrow bot saw its Steam offer accepted). "–" until 3 such trades
+    // in 90 days; a trade released by the timer or by staff never counts,
+    // because nobody saw the item arrive.
+    cells.push({ key: 'delivery', val: delivery ? '~' + delivery : '–', label: 'delivery time',
+      tip: delivery
+        ? 'Median time from sale to the buyer having the item (they confirmed it, or the escrow bot saw its Steam offer accepted), over the seller\'s last 90 days (shown from 3 trades).'
+        : 'Not measured yet: shown once 3 of this seller\'s trades in the last 90 days were confirmed as received.' });
     if (reviews > 0 && rec.rating != null) cells.push({ key: 'rating', val: Number(rec.rating).toFixed(1),
       label: `rating (${reviews} review${reviews === 1 ? '' : 's'})`, icon: 'star',
       tip: 'Average of the reviews buyers left after completed trades.' });
@@ -2431,25 +2440,46 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           )
         ),
 
-        // ── Similar items strip ────────────────────────────────────
-        similar && similar.length > 0 && h('div', null,
-          h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
-            h('div', { className: 'section-title-dot' }), 'You might also like'),
-          h('div', { className: 'similar-strip' },
-            similar.map(it => h('a', {
-              key: it.id,
-              className: 'similar-card',
-              href: '/item/' + it.id,
-              title: it.name
-            },
-              h('div', { className: 'similar-thumb' }, h(ItemImage, { item: it, variant: 'thumb' })),
-              h('div', { className: 'similar-name' }, it.name),
-              // Only a listed item has a SkinBox price: unlisted ones carry 0, or
-              // the Steam price the price sync writes there. Show "—" for both.
-              h('div', { className: 'similar-price' }, (it.isListed && parseFloat(it.lowestPrice) > 0) ? h(Money, { value: it.lowestPrice }) : '—')
-            ))
-          )
-        )
+        // ── Similar offers / You might also like ──────────────────
+        // White.market shows "Similar offers" under an item: the same thing
+        // in other variants, each with its cheapest live price. s&box has no
+        // exteriors, so the variants here are the nearest items by category,
+        // rarity and price (the /similar query). Items someone is selling
+        // right now go in "Similar offers" with their cheapest price and how
+        // many offers back it; items with no live offer keep the old
+        // "You might also like" strip below it, with no price.
+        similar && similar.length > 0 && (() => {
+          const offered = similar.filter(it => it.isListed && parseFloat(it.lowestPrice) > 0);
+          const rest = similar.filter(it => !(it.isListed && parseFloat(it.lowestPrice) > 0));
+          const card = (it, live) => h('a', {
+            key: it.id,
+            className: 'similar-card',
+            href: '/item/' + it.id,
+            title: live && Number(it.supply) > 0
+              ? `${it.name}: ${Number(it.supply)} offer${Number(it.supply) === 1 ? '' : 's'}, cheapest shown`
+              : it.name
+          },
+            h('div', { className: 'similar-thumb' }, h(ItemImage, { item: it, variant: 'thumb' })),
+            h('div', { className: 'similar-name' }, it.name),
+            // Only a listed item has a SkinBox price: unlisted ones carry 0, or
+            // the Steam price the price sync writes there. Show "—" for both.
+            h('div', { className: 'similar-price' }, live ? h(Money, { value: it.lowestPrice }) : '—',
+              // supply is the active-listing count the floor sweep keeps.
+              live && Number(it.supply) > 0 && h('span', {
+                'data-testid': 'similar-offer-count',
+                style: { marginLeft: 6, fontFamily: 'var(--ui)', fontWeight: 400, fontSize: 11, color: 'var(--ink-3)' }
+              }, Number(it.supply).toLocaleString() + (Number(it.supply) === 1 ? ' offer' : ' offers')))
+          );
+          return h(React.Fragment, null,
+            offered.length > 0 && h('div', { 'data-testid': 'similar-offers' },
+              h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
+                h('div', { className: 'section-title-dot' }), 'Similar offers'),
+              h('div', { className: 'similar-strip' }, offered.map(it => card(it, true)))),
+            rest.length > 0 && h('div', null,
+              h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
+                h('div', { className: 'section-title-dot' }), 'You might also like'),
+              h('div', { className: 'similar-strip' }, rest.map(it => card(it, false)))));
+        })()
       ),
 
       (() => {
