@@ -62,7 +62,10 @@ test.describe('defect pass 36', () => {
 
   test('"Auctions ending soonest" puts an item\'s soon-ending auction first even when a cheaper Buy Now exists', async ({ page }) => {
     let auctionItemName = null;
-    await page.route(/\/api\/listings\?/, async (r) => {
+    // Only the grid's own request: the home ticker's /api/listings?sort=price_desc
+    // call goes through here too, and whichever answered last used to set the
+    // expected name, so the test passed or failed on request timing.
+    await page.route(/\/api\/listings\?(.*&)?sort=ending_soon/, async (r) => {
       const res = await r.fetch();
       const data = await res.json();
       const rows = Array.isArray(data) ? data : data.items;

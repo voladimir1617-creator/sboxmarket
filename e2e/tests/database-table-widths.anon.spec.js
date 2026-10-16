@@ -9,7 +9,9 @@ for (const width of [601, 768, 901, 1024, 1280, 1440]) {
   test(`at ${width}px the database table shows whole item names`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/database');
-    const rows = page.locator('.db-table tbody tr.db-row');
+    // Wait for loaded rows: the placeholder rows while it loads are tr.db-row
+    // too, but have no .db-name yet.
+    const rows = page.locator('.db-table tbody tr.db-row .db-name');
     await expect(rows.first()).toBeVisible({ timeout: 15_000 });
 
     const m = await page.evaluate(() => {

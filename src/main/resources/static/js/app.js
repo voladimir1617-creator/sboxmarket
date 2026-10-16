@@ -14,14 +14,87 @@ import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } fro
 import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=18';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
-import {
-  ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
-  SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y, fmtDelay
-} from './modals.js?v=293';
-import {
-  DatabaseModal, BuyOrdersModal, LoadoutLabModal,
-  NotificationsModal
-} from './csfloat-modals.js';
+import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
+/* modals.js + csfloat-modals.js (~330 KB gzipped, ~1.2 MB raw) hold only
+   route surfaces: the item page, wallet, profile, sell, database and so on.
+   None of them is on the first screen, yet in the static graph they held the
+   whole app back until they had downloaded and parsed (first content ~6.4s
+   on a throttled phone). They now load right after the first render, so by
+   the time anyone clicks they are usually already here; a route that needs
+   them before that waits for them, exactly as the whole app used to. */
+let _routeModsPromise = null;
+let _routeMods = null;
+function loadRouteMods() {
+  if (!_routeModsPromise) {
+    _routeModsPromise = Promise.all([import('./modals.js?v=294'), import('./csfloat-modals.js')])
+      .then(([m, c]) => (_routeMods = { ...m, ...c }))
+      .catch(e => { _routeModsPromise = null; throw e; });
+  }
+  return _routeModsPromise;
+}
+// Fetch them as soon as the page has loaded, so they are usually in hand
+// before the first click.
+if (document.readyState === 'complete') setTimeout(() => loadRouteMods().catch(() => {}), 0);
+else window.addEventListener('load', () => loadRouteMods().catch(() => {}), { once: true });
+function lazyRouteModal(name, fallback) {
+  function LazyRouteModal(props) {
+    const [, setLoaded] = useState(!!_routeMods);
+    const [err, setErr] = useState(null);
+    useEffect(() => {
+      if (_routeMods) return;
+      let alive = true;
+      loadRouteMods().then(() => alive && setLoaded(true)).catch(e => alive && setErr(e));
+      return () => { alive = false; };
+    }, []);
+    if (_routeMods) return h(_routeMods[name], props);
+    if (err) return h(LazyLoadFailed, { title: 'Page failed to load', onClose: props.onClose });
+    return fallback ? fallback() : null;
+  }
+  LazyRouteModal.displayName = 'Lazy(' + name + ')';
+  return LazyRouteModal;
+}
+// The item page's loading frame: shown while the item loads, and while the
+// item page's own code is still on its way.
+function itemPageSkeleton() {
+  return h('div', { className: 'modal-backdrop page-mode' },
+    // In-page loading state: the item page's own frame (preview
+    // column + buy column) in the grid's skeleton classes, so the
+    // title, price and buttons appear where they will sit rather
+    // than replacing one centred spinner (White.market shows the
+    // page shape at once). The page reserves a full screen so the
+    // footer doesn't flash in and get pushed away.
+    h('main', {
+      className: 'modal item-page',
+      'aria-busy': 'true',
+      'aria-label': 'Loading item',
+      'data-testid': 'item-skeleton',
+      style: { minHeight: '100vh' }
+    },
+      h('div', { className: 'modal-header' },
+        h('div', { className: 'modal-preview' },
+          h('div', { className: 'skeleton-thumb', style: { width: '100%', height: '100%', minHeight: 280 } })),
+        h('div', null,
+          h('div', { className: 'skeleton-line skeleton-line-sm', style: { width: '40%' } }),
+          h('div', { className: 'skeleton-line skeleton-line-xl', style: { width: '70%', marginTop: 14 } }),
+          h('div', { className: 'skeleton-line skeleton-line-xl', style: { width: '30%', marginTop: 18 } }),
+          h('div', { className: 'skeleton-line', style: { width: '100%', height: 40, marginTop: 18 } }),
+          h('div', { className: 'skeleton-line skeleton-line-md', style: { width: '85%', marginTop: 18 } }),
+          h('div', { className: 'skeleton-line skeleton-line-md', style: { width: '60%' } })))));
+}
+const ItemModal = lazyRouteModal('ItemModal', itemPageSkeleton);
+const WalletModal = lazyRouteModal('WalletModal');
+const FaqModal = lazyRouteModal('FaqModal');
+const SettingsModal = lazyRouteModal('SettingsModal');
+const ProfileModal = lazyRouteModal('ProfileModal');
+const AffiliateModal = lazyRouteModal('AffiliateModal');
+const SellItemsModal = lazyRouteModal('SellItemsModal');
+const MyStallModal = lazyRouteModal('MyStallModal');
+const OffersModal = lazyRouteModal('OffersModal');
+const WatchlistModal = lazyRouteModal('WatchlistModal');
+const DatabaseModal = lazyRouteModal('DatabaseModal');
+const BuyOrdersModal = lazyRouteModal('BuyOrdersModal');
+const LoadoutLabModal = lazyRouteModal('LoadoutLabModal');
+const NotificationsModal = lazyRouteModal('NotificationsModal');
 /* Boss QA cycle 13 P2 — staff-modals.js (198KB) is no longer in the static
    import graph. The bundle was loading on every public-route page even
    though only ~0.5% of users hit /admin or /csr. LazyStaffPanel below
@@ -32,6 +105,20 @@ let _staffModsPromise = null;
 function _loadStaffMods() {
   if (!_staffModsPromise) _staffModsPromise = import('./staff-modals.js');
   return _staffModsPromise;
+}
+function LazyLoadFailed({ title, onClose }) {
+  return h('div', { className: 'modal-backdrop', onClick: onClose },
+    h('div', { className: 'modal sm', onClick: e => e.stopPropagation(),
+      // Dialog semantics to match every other modal shell in the app
+      // (presignin, cart-confirm, InfoModal): without these a screen reader
+      // never announces this overlay as a modal.
+      role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'staff-panel-error-title' },
+      h('div', { className: 'modal-header' },
+        h('h3', { id: 'staff-panel-error-title' }, title),
+        h('button', { className: 'modal-close', onClick: onClose, 'aria-label': 'Close' }, '✕')),
+      h('div', { style: { padding: 22 } },
+        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 } },
+          'Refresh the page to retry. If it keeps failing, check your network or sign out and back in.'))));
 }
 function LazyStaffPanel({ which, me, onClose }) {
   const [Mod, setMod] = useState(null);
@@ -46,18 +133,7 @@ function LazyStaffPanel({ which, me, onClose }) {
       .catch(e => alive && setErr(e));
     return () => { alive = false; };
   }, [which]);
-  if (err) return h('div', { className: 'modal-backdrop', onClick: onClose },
-    h('div', { className: 'modal sm', onClick: e => e.stopPropagation(),
-      // Dialog semantics to match every other modal shell in the app
-      // (presignin, cart-confirm, InfoModal): without these a screen reader
-      // never announces this overlay as a modal.
-      role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'staff-panel-error-title' },
-      h('div', { className: 'modal-header' },
-        h('h3', { id: 'staff-panel-error-title' }, 'Staff panel failed to load'),
-        h('button', { className: 'modal-close', onClick: onClose, 'aria-label': 'Close' }, '✕')),
-      h('div', { style: { padding: 22 } },
-        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 } },
-          'Refresh the page to retry. If it keeps failing, check your network or sign out and back in.'))));
+  if (err) return h(LazyLoadFailed, { title: 'Staff panel failed to load', onClose });
   if (!Mod) return h('div', { className: 'modal-backdrop' },
     h('div', { className: 'modal sm', style: { padding: 28, textAlign: 'center' } },
       h('div', { style: { fontSize: 12, color: 'var(--text-secondary)' } }, 'Loading staff panel…')));
@@ -10000,30 +10076,7 @@ export function App() {
     ),
     routeName === 'item' && (selected || modalLoading) && (
       modalLoading
-        ? h('div', { className: 'modal-backdrop page-mode' },
-            // In-page loading state: the item page's own frame (preview
-            // column + buy column) in the grid's skeleton classes, so the
-            // title, price and buttons appear where they will sit rather
-            // than replacing one centred spinner (White.market shows the
-            // page shape at once). The page reserves a full screen so the
-            // footer doesn't flash in and get pushed away.
-            h('main', {
-              className: 'modal item-page',
-              'aria-busy': 'true',
-              'aria-label': 'Loading item',
-              'data-testid': 'item-skeleton',
-              style: { minHeight: '100vh' }
-            },
-              h('div', { className: 'modal-header' },
-                h('div', { className: 'modal-preview' },
-                  h('div', { className: 'skeleton-thumb', style: { width: '100%', height: '100%', minHeight: 280 } })),
-                h('div', null,
-                  h('div', { className: 'skeleton-line skeleton-line-sm', style: { width: '40%' } }),
-                  h('div', { className: 'skeleton-line skeleton-line-xl', style: { width: '70%', marginTop: 14 } }),
-                  h('div', { className: 'skeleton-line skeleton-line-xl', style: { width: '30%', marginTop: 18 } }),
-                  h('div', { className: 'skeleton-line', style: { width: '100%', height: 40, marginTop: 18 } }),
-                  h('div', { className: 'skeleton-line skeleton-line-md', style: { width: '85%', marginTop: 18 } }),
-                  h('div', { className: 'skeleton-line skeleton-line-md', style: { width: '60%' } })))))
+        ? itemPageSkeleton()
         : h(ItemModal, {
             item: selected.item,
             listings: selected.listings,
