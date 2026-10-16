@@ -152,3 +152,98 @@ tasks.withType(GroovyCompile).configureEach {
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << '-parameters'
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE SHIPPED JS AND CSS ARE SHRUNK; THE SOURCE IS NOT.
+//
+// src/main/resources/static stays exactly as written: commented, readable, and
+// what every spec and `bootRun` reads. Only the copy packed into the boot jar
+// is shrunk, by esbuild, one file at a time with no bundling (imports, ?v=
+// tokens and file names are untouched):
+//   static/js/*.js   --minify            comments, whitespace, local names
+//   static/css/*.css --minify-whitespace comments and whitespace only. Full
+//                    CSS minify rewrites oklch() colours as hex, which is not
+//                    exact, so it is not used.
+// js/vendor/ (already minified, SRI-pinned) and every HTML file are copied
+// as they are.
+//
+// Measured 2026-10-16 on a throttled phone (390x844, Slow 4G, 4x CPU, 7 runs):
+// home first contentful paint 3.96s -> 2.78s; first-screen JS 241 -> 91 KB
+// gzipped, design.css 314 -> 260 KB gzipped.
+//
+// esbuild's binary comes from Maven Central (org.mvnpm.at.esbuild:<platform>),
+// so neither Node nor the Docker build needs anything new. Build with
+// -PminifyStatic=false to ship the source as written (the SBOX_MUTATE harness
+// in e2e/tests/buy-journey.anon.spec.js edits served source text).
+// ─────────────────────────────────────────────────────────────────────────────
+def esbuildVersion = '0.25.10'
+def esbuildOs = System.getProperty('os.name').toLowerCase()
+def esbuildPlatform = {
+    def arch = System.getProperty('os.arch').toLowerCase()
+    def cpu = (arch in ['aarch64', 'arm64']) ? 'arm64' : 'x64'
+    if (esbuildOs.contains('win')) return "win32-${cpu}"
+    if (esbuildOs.contains('mac')) return "darwin-${cpu}"
+    return "linux-${cpu}"
+}()
+def minifyStatic = (findProperty('minifyStatic') ?: 'true').toString() != 'false'
+
+configurations {
+    esbuild { transitive = false }
+}
+dependencies {
+    esbuild "org.mvnpm.at.esbuild:${esbuildPlatform}:${esbuildVersion}"
+}
+
+def shippedResources = layout.buildDirectory.dir('shipped-resources')
+def esbuildDir = layout.buildDirectory.dir('esbuild')
+
+tasks.register('shrinkShippedStatic') {
+    group = 'build'
+    description = 'Copies the main resources for the boot jar, with static JS and CSS shrunk by esbuild.'
+    dependsOn 'processResources'
+    def resourcesDir = sourceSets.main.output.resourcesDir
+    def esbuildJar = configurations.esbuild
+    inputs.dir(resourcesDir)
+    inputs.files(esbuildJar)
+    inputs.property('minifyStatic', minifyStatic)
+    outputs.dir(shippedResources)
+    doLast {
+        def out = shippedResources.get().asFile
+        project.delete(out)
+        project.copy { from resourcesDir; into out }
+        if (!minifyStatic) return
+
+        def toolDir = esbuildDir.get().asFile
+        project.delete(toolDir)
+        project.copy {
+            from(project.zipTree(esbuildJar.singleFile)) {
+                include '**/bin/esbuild', '**/esbuild.exe'
+                eachFile { it.path = it.name }
+            }
+            includeEmptyDirs = false
+            into toolDir
+        }
+        def exe = new File(toolDir, esbuildOs.contains('win') ? 'esbuild.exe' : 'esbuild')
+        exe.setExecutable(true)
+
+        def shrink = { String dir, String ext, List<String> flags ->
+            def folder = new File(out, dir)
+            def files = (folder.listFiles() ?: []).findAll { it.isFile() && it.name.endsWith(ext) }*.absolutePath.sort()
+            if (!files) throw new GradleException("shrinkShippedStatic: no ${ext} files in ${folder}")
+            def cmd = [exe.absolutePath] + files + flags +
+                    ['--outdir=' + folder.absolutePath, '--allow-overwrite', '--log-level=warning']
+            def proc = new ProcessBuilder(cmd).redirectErrorStream(true).start()
+            def log = proc.inputStream.text
+            if (proc.waitFor() != 0) throw new GradleException("esbuild failed on ${dir}:\n${log}")
+            if (log.trim()) logger.lifecycle(log.trim())
+        }
+        shrink('static/js', '.js', ['--minify'])
+        shrink('static/css', '.css', ['--minify-whitespace'])
+    }
+}
+
+tasks.named('bootJar') {
+    dependsOn 'shrinkShippedStatic'
+    def resourcesDir = sourceSets.main.output.resourcesDir
+    classpath = classpath.filter { it != resourcesDir } + files(shippedResources)
+}
