@@ -878,6 +878,13 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
           placeholder: picked.lowestPrice ? (parseFloat(picked.lowestPrice) * 0.9).toFixed(2) : '0.00' }),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 } },
           'When a listing for this item drops to or below your max, it is auto-purchased from your wallet.'),
+        // White.market sells orders on not-yet-listed skins as a feature;
+        // ours already allow it, so say so where the buyer sees "no
+        // active listings" above and might think the order is pointless.
+        !(parseFloat(picked.lowestPrice) > 0) && h('div', {
+          'data-testid': 'buyorder-unlisted-note',
+          style: { fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }
+        }, 'Nobody is selling this yet. Your order waits and fills the moment a Buy Now listing at or under your max appears.'),
         // Projected queue-position chip. Previews where this order
         // would land under the engine's priority (maxPrice DESC,
         // createdAt ASC) so the buyer can tune their max price before
@@ -985,7 +992,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               'No buy orders yet'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 16px' } },
-              'Set a standing "pay up to $X for this item" order and the matching engine auto-buys the next listing that drops to your max. Great for items you keep missing the drop on.'),
+              'Set a standing "pay up to $X for this item" order and the matching engine auto-buys the next listing that drops to your max. Great for items you keep missing the drop on, and it works on items nobody is selling yet.'),
             // Batch 901 — inline CTA. Previous copy instructed users to
             // click an item and use "+ Create Buy Order" — buried in
             // the item-detail modal. Now the Buy Orders modal itself
