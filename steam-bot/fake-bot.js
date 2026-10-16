@@ -102,7 +102,7 @@ function createFakeBot(opts = {}) {
   // same answer to a retried send: the offer already out, not a second one.
   function createOffer(kind, body) {
     const checked = validateOfferBody(body);
-    if (!checked.ok) return [checked.status, { ok: false, error: checked.error, message: checked.message }];
+    if (!checked.ok) return [checked.status, { ok: false, error: checked.error, message: checked.message, retryable: false }];
     const { partner: { steamId64: partner }, assetIds: ids, message } = checked.value;
     for (const o of offers.values()) {
       if (o.kind !== kind || !o.assetIds.some((a) => ids.includes(a))) continue;

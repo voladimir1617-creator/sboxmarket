@@ -139,8 +139,16 @@ class SteamDeliveryService {
             // The bot delivers from the SELLER_SEND state onward; we also poll
             // any trade we previously advanced to BUYER_CONFIRM whose offer
             // we're still tracking.
-            sendQ = tradeRepository.findByStateIn([STATE_AWAITING_SEND], page) ?: []
-            confirmQ = tradeRepository.findByStateIn([STATE_AWAITING_CONFIRM], page) ?: []
+            // Only trades the bot can deliver: P2P trades share these states
+            // and, oldest first, used to fill the whole batch. The staging
+            // override can send any trade, so it keeps the unfiltered pick.
+            if (testAssetIdOverride?.trim()) {
+                sendQ = tradeRepository.findByStateIn([STATE_AWAITING_SEND], page) ?: []
+                confirmQ = tradeRepository.findByStateIn([STATE_AWAITING_CONFIRM], page) ?: []
+            } else {
+                sendQ = tradeRepository.findBotDeliveryCandidates(STATE_AWAITING_SEND, page) ?: []
+                confirmQ = tradeRepository.findBotDeliveryCandidates(STATE_AWAITING_CONFIRM, page) ?: []
+            }
         } catch (Exception e) {
             log.warn("SteamDelivery: failed to load candidate trades: ${e.message}")
             return
@@ -207,6 +215,12 @@ class SteamDeliveryService {
         // out of scope for the bot — ignore.
     }
 
+    /** Most-recent attempt row of any kind, or null. */
+    private SteamDeliveryAttempt latestAttempt(Long tradeId) {
+        def rows = attemptRepository.findByTrade(tradeId, PageRequest.of(0, 1))
+        return (rows == null || rows.isEmpty()) ? null : rows.get(0)
+    }
+
     /** Most-recent attempt row that carries a Steam offer id, or null. */
     private SteamDeliveryAttempt latestOfferAttempt(Long tradeId) {
         def rows = attemptRepository.findLatestWithOffer(tradeId, PageRequest.of(0, 1))
@@ -217,14 +231,22 @@ class SteamDeliveryService {
     private void sendOfferForTrade(Trade trade) {
         String tradeUrl = resolveBuyerTradeUrl(trade)
         String assetId = resolveAssetId(trade)
+        // A send refused for good (no trade URL, no asset, or the sidecar's
+        // retryable:false) is not tried again until its input changes, e.g.
+        // the buyer saves a new trade URL. It used to be re-sent, and a new
+        // attempt row written, every 30 seconds.
+        String inputKey = SteamBotResult.inputKey(tradeUrl, assetId ? [assetId] : [])
+        if (SteamBotResult.isHaltedFor(latestAttempt(trade.id)?.errorMessage, inputKey)) return
         if (tradeUrl == null || tradeUrl.trim().isEmpty()) {
             log.warn("SteamDelivery: trade ${trade.id} buyer ${trade.buyerUserId} has no Steam trade URL; cannot auto-deliver")
-            recordAttempt(trade.id, null, 'NO_TRADE_URL', 'SEND', false, 'buyer has no Steam trade URL')
+            recordAttempt(trade.id, null, 'NO_TRADE_URL', 'SEND', false,
+                    SteamBotResult.haltNote(inputKey, 'buyer has no Steam trade URL'))
             return
         }
         if (assetId == null || assetId.trim().isEmpty()) {
             log.warn("SteamDelivery: trade ${trade.id} has no resolvable Steam asset id; cannot auto-deliver (see DELIVERY-INTEGRATION-NOTES.md)")
-            recordAttempt(trade.id, null, 'NO_ASSET_ID', 'SEND', false, 'no Steam asset id available for the sold item')
+            recordAttempt(trade.id, null, 'NO_ASSET_ID', 'SEND', false,
+                    SteamBotResult.haltNote(inputKey, 'no Steam asset id available for the sold item'))
             return
         }
 
@@ -252,10 +274,12 @@ class SteamDeliveryService {
             safeNotifyBuyer(trade,
                 "A trade offer for your purchase (trade #${trade.id}) has been sent by our bot. Accept it in Steam to complete delivery.")
         } else {
-            // Transient (rate limit / not ready / transport) — record but do NOT
-            // persist an offer id, so the next tick retries the send.
-            recordAttempt(trade.id, null, res.errorCode, 'SEND', false, res.message)
-            log.warn("SteamDelivery: send failed for trade ${trade.id}: ${res.errorCode} ${res.message}")
+            // No offer id is persisted. A transient failure (rate limit / not
+            // ready / transport) is retried next tick; one the sidecar marks
+            // retryable:false waits for a different trade URL or asset.
+            recordAttempt(trade.id, null, res.errorCode, 'SEND', false,
+                    res.retryable ? res.message : SteamBotResult.haltNote(inputKey, res.message))
+            log.warn("SteamDelivery: send failed for trade ${trade.id}: ${res.errorCode} ${res.message}${res.retryable ? '' : ' (not retrying until the trade URL or item changes)'}")
         }
     }
 
