@@ -15,7 +15,7 @@ import {
   fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, fetchConnectStatus, connectOnboard, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
-  fetchBuyOrders, deleteBuyOrder, fetchAutoBids, fetchActiveBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey, revokeAllApiKeys,
+  fetchBuyOrders, deleteBuyOrder, pauseBuyOrder, resumeBuyOrder, fetchAutoBids, fetchActiveBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey, revokeAllApiKeys,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, fetchTradesWithTotal, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
   fetchTradeMessages, fetchTradeMessagesOrNull, postTradeMessage,
@@ -7076,6 +7076,29 @@ function ProfileBuyOrdersTab() {
     load();
     return () => { aliveRef.current = false; };
   }, [load]);
+  const togglePause = async (o) => {
+    if (busyRef.current) return;
+    const resuming = o.status === 'PAUSED';
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const res = resuming ? await resumeBuyOrder(o.id) : await pauseBuyOrder(o.id);
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || (resuming ? 'Could not resume buy order' : 'Could not pause buy order'), 'err');
+        return;
+      }
+      load();
+      const name = o.itemName || 'item';
+      if (!resuming) { toast(`Buy order for "${name}" paused. It won't buy anything until you resume it.`, 'ok'); return; }
+      // Resume probes listings already on the market, so it can fill on the spot.
+      const before = Number.isFinite(o.quantity) ? o.quantity : 0;
+      const bought = res?.status === 'FILLED' ? before
+        : (Number.isFinite(res?.quantity) ? Math.max(0, before - res.quantity) : 0);
+      toast(bought > 0
+        ? `Buy order resumed: bought ${bought} × "${name}" right away. Check your trades.`
+        : `Buy order for "${name}" resumed. 30-day clock restarted.`, 'ok');
+    } finally { busyRef.current = false; setBusy(false); }
+  };
   const cancelOrder = async (o) => {
     if (!confirm(`Cancel buy order for "${o.itemName || 'item'}"? Any remaining quantity is freed.`)) return;
     setBusy(true);
@@ -7114,6 +7137,7 @@ function ProfileBuyOrdersTab() {
   const counts = {
     ALL:       orders.length,
     ACTIVE:    orders.filter(o => o.status === 'ACTIVE').length,
+    PAUSED:    orders.filter(o => o.status === 'PAUSED').length,
     FILLED:    orders.filter(o => o.status === 'FILLED').length,
     CANCELLED: orders.filter(o => o.status === 'CANCELLED').length,
     // Orders the 30-day idle sweep closed. Without a chip they were
@@ -7179,6 +7203,7 @@ function ProfileBuyOrdersTab() {
         [
           { id: 'ALL',       label: 'All' },
           { id: 'ACTIVE',    label: 'Active' },
+          { id: 'PAUSED',    label: 'Paused' },
           { id: 'FILLED',    label: 'Filled' },
           { id: 'CANCELLED', label: 'Cancelled' },
           { id: 'EXPIRED',   label: 'Expired' }
@@ -7190,24 +7215,24 @@ function ProfileBuyOrdersTab() {
           disabled: counts[opt.id] === 0 && opt.id !== 'ALL'
         }, `${opt.label} · ${counts[opt.id] || 0}`))
       ),
-      counts.ACTIVE > 1 && h('button', {
+      (counts.ACTIVE + counts.PAUSED) > 1 && h('button', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11, color: 'var(--red)' },
         disabled: busy,
-        title: `Cancel all ${counts.ACTIVE} active buy orders in one click`,
+        title: `Cancel all ${counts.ACTIVE + counts.PAUSED} open buy orders (active and paused) in one click`,
         onClick: async () => {
-          if (!confirm(`Cancel all ${counts.ACTIVE} active buy orders?`)) return;
+          if (!confirm(`Cancel all ${counts.ACTIVE + counts.PAUSED} open buy orders, paused ones included?`)) return;
           setBusy(true);
           try {
             const { cancelAllBuyOrders } = await import('./api.js');
             const res = await cancelAllBuyOrders();
             if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel buy orders', 'err'); return; }
             const n = (res && res.cancelled) || 0;
-            toast(n === 0 ? 'No active buy orders to cancel.' : `Cancelled ${n} buy order${n === 1 ? '' : 's'}.`, 'ok');
+            toast(n === 0 ? 'No open buy orders to cancel.' : `Cancelled ${n} buy order${n === 1 ? '' : 's'}.`, 'ok');
             load();
           } finally { setBusy(false); }
         }
-      }, '✕ Cancel all active'),
+      }, counts.PAUSED > 0 ? '✕ Cancel all open' : '✕ Cancel all active'),
       orders.length > 0 && h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
@@ -7302,6 +7327,7 @@ function ProfileBuyOrdersTab() {
               })(),
               h('div', { className: `buyorder-status ${o.status}` },
                 o.status === 'ACTIVE'    ? 'Active'
+                : o.status === 'PAUSED'    ? 'Paused'
                 : o.status === 'FILLED'    ? 'Filled'
                 : o.status === 'CANCELLED' ? 'Cancelled'
                 : o.status === 'EXPIRED'   ? 'Expired'
@@ -7310,7 +7336,7 @@ function ProfileBuyOrdersTab() {
               // compact inputs for maxPrice + quantity, save/cancel
               // buttons. Live-reloads the row on save so the queue
               // chip re-ranks with the new price.
-              o.status === 'ACTIVE' && editing === o.id && h('div', {
+              (o.status === 'ACTIVE' || o.status === 'PAUSED') && editing === o.id && h('div', {
                 style: { display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }
               },
                 h('input', {
@@ -7342,7 +7368,7 @@ function ProfileBuyOrdersTab() {
               // still has remaining fillable quantity AND no edit is
               // open for another row. Fills / cancels terminate the row
               // so the buttons hide.
-              o.status === 'ACTIVE' && editing !== o.id && h('div', { style: { display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-end' } },
+              (o.status === 'ACTIVE' || o.status === 'PAUSED') && editing !== o.id && h('div', { style: { display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-end' } },
                 // Batch 857 — "Bump" one-click: resets the 30-day auto-
                 // expire clock without opening the edit flow. Only
                 // surfaces when the order is within 7 days of auto-
@@ -7351,7 +7377,7 @@ function ProfileBuyOrdersTab() {
                 // runway. Calls the existing /api/buy-orders/{id} PUT
                 // with an empty body — the service bumps updatedAt
                 // regardless of whether fields changed.
-                o.updatedAt && (() => {
+                o.status === 'ACTIVE' && o.updatedAt && (() => {
                   const msLeft = (o.updatedAt + 30 * 24 * 3600 * 1000) - Date.now();
                   if (msLeft <= 0 || msLeft > 7 * 24 * 3600 * 1000) return null;
                   return h('button', {
@@ -7383,6 +7409,14 @@ function ProfileBuyOrdersTab() {
                   disabled: busy, onClick: () => startEdit(o),
                   title: 'Adjust your max price or remaining quantity'
                 }, '✎ Edit'),
+                h('button', {
+                  className: 'btn btn-ghost',
+                  style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
+                  disabled: busy, onClick: () => togglePause(o),
+                  title: o.status === 'PAUSED'
+                    ? 'Turn this order back on. It can buy right away if a listing is already at or under your max.'
+                    : 'Stop this order from buying without deleting it. Resume it any time.'
+                }, o.status === 'PAUSED' ? '▶ Resume' : '❚❚ Pause'),
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },

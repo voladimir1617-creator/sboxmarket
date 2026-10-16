@@ -529,11 +529,11 @@ class BuyOrderService {
         // would rewrite history — a fulfilled order (buyer paid, items
         // delivered) would masquerade as cancelled in the Profile tab and
         // CSV export, and an auto-expired order would lose its EXPIRED
-        // reason. Only an ACTIVE order can be cancelled, mirroring
-        // update()'s NOT_ACTIVE guard and OfferService.withdrawOffer.
-        if (o.status != 'ACTIVE') {
+        // reason. Only an open (ACTIVE or PAUSED) order can be cancelled,
+        // mirroring update()'s NOT_ACTIVE guard and OfferService.withdrawOffer.
+        if (!(o.status in OPEN_STATUSES)) {
             throw new BadRequestException("NOT_ACTIVE",
-                "Only active buy orders can be cancelled")
+                "Only active or paused buy orders can be cancelled")
         }
         o.status = "CANCELLED"
         o.updatedAt = System.currentTimeMillis()
@@ -562,8 +562,10 @@ class BuyOrderService {
      */
     int cancelAllForUser(Long buyerUserId) {
         if (buyerUserId == null) return 0
+        // PAUSED orders are cancelled too: staff ban / account-close call
+        // this to clear everything the user still has open.
         def active = buyOrderRepository.findByBuyer(buyerUserId)
-            .findAll { it.status == 'ACTIVE' }
+            .findAll { it.status in OPEN_STATUSES }
         if (active.isEmpty()) return 0
         int n = 0
         def now = System.currentTimeMillis()
@@ -574,7 +576,7 @@ class BuyOrderService {
                 // turned a FILLED order back into CANCELLED.
                 def fresh = buyOrderRepository.findById(stale.id)
                 def o = fresh != null ? fresh.orElse(null) : stale
-                if (o == null || o.status != 'ACTIVE') return
+                if (o == null || !(o.status in OPEN_STATUSES)) return
                 o.status = 'CANCELLED'
                 o.updatedAt = now
                 buyOrderRepository.save(o)
@@ -619,9 +621,11 @@ class BuyOrderService {
         if (o.buyerUserId != buyerUserId) {
             throw new ForbiddenException("Not your buy order")
         }
-        if (o.status != 'ACTIVE') {
+        // A PAUSED order can be edited too (lower the price while it is
+        // paused, then resume); the re-fill probe below only runs for ACTIVE.
+        if (!(o.status in OPEN_STATUSES)) {
             throw new BadRequestException("NOT_ACTIVE",
-                "Only active buy orders can be edited")
+                "Only active or paused buy orders can be edited")
         }
         // Wallet-frozen + dispute-hold gate (parity with create(), batch 511).
         // Without this, a buyer frozen / disputed AFTER they placed an order
@@ -630,24 +634,7 @@ class BuyOrderService {
         // refuses inside the swallowed catch block — invisible failure, the
         // exact bug the create-time gate exists to prevent. Symmetric guard
         // here so a held buyer is told *why* before they bother editing.
-        def buyer = steamUserRepository?.findById(buyerUserId)?.orElse(null)
-        if (buyer != null) {
-            def buyerWallet = walletRepository.findByUsername("steam_${buyer.steamId64}")
-            if (buyerWallet != null && Boolean.TRUE.equals(buyerWallet.frozen)) {
-                throw new BadRequestException("WALLET_FROZEN",
-                    "Your wallet is frozen by staff" +
-                        (buyerWallet.frozenReason ? ": ${buyerWallet.frozenReason}" : '') +
-                        ". Open a support ticket to resolve.")
-            }
-            if (buyerWallet != null && transactionRepository != null) {
-                long disputed = transactionRepository.countActiveDisputedDeposits(buyerWallet.id)
-                if (disputed > 0L) {
-                    throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
-                        "Buy orders are paused while you have ${disputed} unresolved deposit " +
-                        "dispute${disputed == 1 ? '' : 's'} on file.")
-                }
-            }
-        }
+        assertWalletCanBuy(buyerUserId)
         BigDecimal priceBefore = o.maxPrice
         if (newMaxPrice != null) {
             if (newMaxPrice <= BigDecimal.ZERO) {
@@ -698,6 +685,98 @@ class BuyOrderService {
             }
         }
         saved
+    }
+
+    /** Wallet-frozen + dispute-hold gate shared by update() and resume(). */
+    private void assertWalletCanBuy(Long buyerUserId) {
+        def buyer = steamUserRepository?.findById(buyerUserId)?.orElse(null)
+        if (buyer != null) {
+            def buyerWallet = walletRepository.findByUsername("steam_${buyer.steamId64}")
+            if (buyerWallet != null && Boolean.TRUE.equals(buyerWallet.frozen)) {
+                throw new BadRequestException("WALLET_FROZEN",
+                    "Your wallet is frozen by staff" +
+                        (buyerWallet.frozenReason ? ": ${buyerWallet.frozenReason}" : '') +
+                        ". Open a support ticket to resolve.")
+            }
+            if (buyerWallet != null && transactionRepository != null) {
+                long disputed = transactionRepository.countActiveDisputedDeposits(buyerWallet.id)
+                if (disputed > 0L) {
+                    throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
+                        "Buy orders are paused while you have ${disputed} unresolved deposit " +
+                        "dispute${disputed == 1 ? '' : 's'} on file.")
+                }
+            }
+        }
+    }
+
+    /** Statuses a buyer can still act on: ACTIVE matches listings, PAUSED
+     *  is kept on file but skipped by every ACTIVE-only matcher query. */
+    static final List<String> OPEN_STATUSES = ['ACTIVE', 'PAUSED'].asImmutable()
+
+    /**
+     * Pause an ACTIVE buy order without deleting it. Every matcher, order
+     * book, queue and auto-expire query filters on status = 'ACTIVE', so a
+     * PAUSED row never fills, never shows as demand and never expires.
+     * Idempotent on an already-paused order.
+     */
+    @Transactional
+    BuyOrder pause(Long buyerUserId, Long orderId) {
+        def o = lockOwned(buyerUserId, orderId)
+        if (o.status == 'PAUSED') return o
+        if (o.status != 'ACTIVE') {
+            throw new BadRequestException("NOT_ACTIVE",
+                "Only active buy orders can be paused")
+        }
+        o.status = 'PAUSED'
+        o.updatedAt = System.currentTimeMillis()
+        buyOrderRepository.save(o)
+    }
+
+    /**
+     * Resume a PAUSED buy order. Re-applies the gates create() uses (ban,
+     * frozen wallet, dispute hold, the per-buyer ACTIVE cap), restarts the
+     * 30-day idle clock, then probes listings already on the market exactly
+     * as create() does. Idempotent on an already-active order.
+     */
+    @Transactional
+    BuyOrder resume(Long buyerUserId, Long orderId) {
+        banGuard.assertNotBanned(buyerUserId)
+        def o = lockOwned(buyerUserId, orderId)
+        if (o.status == 'ACTIVE') return o
+        if (o.status != 'PAUSED') {
+            throw new BadRequestException("NOT_PAUSED",
+                "Only paused buy orders can be resumed")
+        }
+        if (buyOrderRepository.countActiveByBuyer(buyerUserId) >= MAX_ACTIVE_ORDERS_PER_BUYER) {
+            throw new BadRequestException("BUY_ORDER_CAP",
+                "You've reached the ${MAX_ACTIVE_ORDERS_PER_BUYER}-active-order cap. " +
+                "Cancel or pause another order before resuming this one.")
+        }
+        assertWalletCanBuy(buyerUserId)
+        o.status = 'ACTIVE'
+        o.updatedAt = System.currentTimeMillis()
+        def saved = buyOrderRepository.save(o)
+        try {
+            tryFillFromExisting(saved)
+        } catch (Exception e) {
+            log.warn("Buy order ${saved.id} fill probe after resume failed: ${e.message}")
+        }
+        saved
+    }
+
+    /** Ownership check on a plain read, then the same pessimistic row lock
+     *  cancel() and the matcher take, so a pause never overwrites a fill. */
+    private BuyOrder lockOwned(Long buyerUserId, Long orderId) {
+        def probe = buyOrderRepository.findById(orderId)
+            .orElseThrow { new NotFoundException("BuyOrder", orderId) }
+        if (probe.buyerUserId != buyerUserId) {
+            throw new ForbiddenException("Not your buy order")
+        }
+        def o = (orderId != null ? buyOrderRepository.findByIdForUpdate(orderId) : null) ?: probe
+        if (o.buyerUserId != buyerUserId) {
+            throw new ForbiddenException("Not your buy order")
+        }
+        o
     }
 
     /**

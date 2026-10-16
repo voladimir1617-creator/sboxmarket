@@ -1152,6 +1152,18 @@ export async function updateBuyOrder(id, { maxPrice, quantity }) {
   });
 }
 
+/** Pause an ACTIVE buy order without deleting it (POST /{id}/pause).
+ *  A paused order never fills and is not counted as demand. */
+export async function pauseBuyOrder(id) {
+  return writeJson(`${API}/buy-orders/${id}/pause`, { method: 'POST', credentials: 'same-origin' });
+}
+
+/** Resume a PAUSED buy order. It may fill at once from a listing already
+ *  at or under its max, so the returned row can come back FILLED. */
+export async function resumeBuyOrder(id) {
+  return writeJson(`${API}/buy-orders/${id}/resume`, { method: 'POST', credentials: 'same-origin' });
+}
+
 // Bump a buy order's updatedAt so the 30-day auto-expire sweep resets
 // without the user having to open the edit flow and re-submit
 // unchanged values. The existing update endpoint already bumps

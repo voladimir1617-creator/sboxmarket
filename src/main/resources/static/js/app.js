@@ -17,7 +17,7 @@ import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
   SellItemsModal, MyStallModal, OffersModal, WatchlistModal, useDialogA11y, fmtDelay
-} from './modals.js?v=287';
+} from './modals.js?v=288';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
