@@ -30456,7 +30456,7 @@ html body nav.csfloat-subnav { border-image-source: linear-gradient(rgba(255, 25
   /* Phones: each card's add-to-cart "+" was a 44x40 blue block covering
      a third of the picture; it is now the same 32px square as the
      watchlist heart beside it. */
-  html body .site-root div.grid-card .grid-thumb > .grid-cart-btn { width: 32px !important; height: 32px !important; min-width: 32px !important; min-height: 32px !important; padding: 0 !important; font-size: 16px !important; line-height: 32px !important; right: 46px !important; top: 9px !important; }
+  html body .site-root div.grid-card > .grid-cart-btn.grid-cart-btn { width: 32px !important; height: 32px !important; min-width: 32px !important; min-height: 32px !important; padding: 0 !important; font-size: 16px !important; line-height: 32px !important; right: 46px !important; top: 9px !important; }
 }
 
 /* Look pass round seven 2026-10-12: the 940px reading pages (Cart,
@@ -30835,4 +30835,26 @@ html body .offer-drawer-target { color: var(--ink); font-weight: 600; }
   /* The 84px price column left no room for the offer button, which pushed
      the report flag onto a third line; let the price take its own width. */
   html body .modal-listing-row:has(> .listing-offer-btn) > .modal-listing-price { min-width: 0 !important; }
+}
+
+/* Phone Add to cart bar 2026-10-16. White.market, Waxpeer and CS.Deals give
+   every phone card a full-width add bar under the price (look-learning pass
+   2). Ours was the 32px "+" in the picture's corner, faded out until :hover,
+   which a phone without a mouse never fires. The button is now a child of
+   the card, not the picture (cards.js), so on desktop the same top/right
+   still pin it into the picture's corner, and here it becomes a bar along the card's bottom
+   edge, with the card padded so the bar sits under the price and covers
+   nothing. Auctions and the viewer's own listings have no cart button and
+   keep their height. */
+html:root body div.grid-card > .grid-cart-btn > .grid-cart-label { display: none; }
+@media (max-width: 760px) {
+  html:root body .site-root div.grid-card:has(> .grid-cart-btn) { padding-bottom: 52px !important; }
+  html:root body .site-root div.grid-card > .grid-cart-btn.grid-cart-btn { top: auto !important; bottom: 8px !important; left: 8px !important; right: 8px !important; width: auto !important; min-width: 0 !important; height: 36px !important; min-height: 36px !important; padding: 0 12px !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; border-radius: 8px !important; font-size: 14px !important; font-weight: 500 !important; line-height: 1 !important; opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+  html:root body .site-root div.grid-card > .grid-cart-btn.grid-cart-btn:not(.in) { background: rgb(35, 123, 255) !important; color: rgb(255, 255, 255) !important; }
+  html:root body .site-root div.grid-card > .grid-cart-btn.grid-cart-btn.in { background: rgba(74, 222, 128, 0.14) !important; color: rgb(134, 239, 172) !important; border: 1px solid rgba(74, 222, 128, 0.35) !important; }
+  html:root body div.grid-card > .grid-cart-btn > .grid-cart-label { display: inline; }
+  /* The home strip's loading row holds the cards' place (app.js gives it
+     410px, one desktop card tall); phone cards are now taller by the bar,
+     so it holds their 422px instead and the tiles below still don't jump. */
+  html:root body .csfloat-home-preview[aria-busy="true"] .csfloat-home-preview-row { min-height: 422px !important; }
 }
