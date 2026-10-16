@@ -176,4 +176,25 @@ class SteamBotResultSpec extends Specification {
         SteamBotResult.success([offerId: 'A1', status: 'sent']).toString() ==
             'SteamBotResult(ok=true, status=sent, offerId=A1, errorCode=null, message=null)'
     }
+
+    def "retryable is false only when the sidecar says so"() {
+        expect:
+        SteamBotResult.error('ASSET_COMMITTED', 'x', [ok: false, retryable: false]).retryable == false
+        SteamBotResult.error('RATE_LIMITED', 'x', [ok: false, retryable: true]).retryable
+        SteamBotResult.error('HTTP_500', 'x', [ok: false]).retryable
+        SteamBotResult.error('TIMEOUT', 'x').retryable
+    }
+
+    def "a halt note matches only the same input"() {
+        given:
+        String key = SteamBotResult.inputKey('https://steamcommunity.com/tradeoffer/new/?partner=1&token=a', ['5'])
+        String note = SteamBotResult.haltNote(key, 'ASSET_COMMITTED')
+
+        expect:
+        SteamBotResult.isHaltedFor(note, key)
+        !SteamBotResult.isHaltedFor(note, SteamBotResult.inputKey('https://steamcommunity.com/tradeoffer/new/?partner=1&token=b', ['5']))
+        !SteamBotResult.isHaltedFor(note, SteamBotResult.inputKey('https://steamcommunity.com/tradeoffer/new/?partner=1&token=a', ['6']))
+        !SteamBotResult.isHaltedFor('ASSET_COMMITTED', key)
+        !SteamBotResult.isHaltedFor(null, key)
+    }
 }

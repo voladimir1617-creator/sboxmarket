@@ -345,10 +345,13 @@ class SteamEscrowService {
             safeNotifySeller(listing.sellerUserId, listing.id,
                     "Accept the Steam trade offer from our bot to deposit your item — your listing goes live the moment we receive it.")
         } else {
-            // Transient (rate limit / not ready / transport) — persist the row
-            // WITHOUT an offer id so a later retry can re-request. Listing
-            // stays held (PENDING_ESCROW) — not buyable.
-            row.lastError = "${res.errorCode}: ${res.message}"
+            // Persist the row WITHOUT an offer id so a later retry can
+            // re-request. Listing stays held (PENDING_ESCROW) — not buyable.
+            // A refusal the sidecar marks retryable:false is not re-sent
+            // until the seller's trade URL or the asset changes.
+            String why = "${res.errorCode}: ${res.message}".toString()
+            row.lastError = res.retryable ? why
+                    : SteamBotResult.haltNote(SteamBotResult.inputKey(tradeUrl, [assetId.trim()]), why)
             persist(row)
             log.warn("SteamEscrow: deposit request failed for listing ${listing.id}: ${res.errorCode} ${res.message}")
         }
@@ -1183,6 +1186,14 @@ class SteamEscrowService {
                     touchError(e, 'seller has no Steam trade URL — set one in Profile to deposit')
                     continue
                 }
+                // Refused for good last time with this same trade URL and
+                // asset: don't ask Steam again. Touch only, so the row moves
+                // behind the rest of the queue instead of blocking it.
+                String inputKey = SteamBotResult.inputKey(tradeUrl, [(e.assetId ?: '').trim()])
+                if (SteamBotResult.isHaltedFor(e.lastError, inputKey)) {
+                    touch(e)
+                    continue
+                }
                 // Multi-pod claim, CAS on updatedAt. The side effect is a real
                 // Steam trade offer landing in a seller's client — two pods
                 // racing here would send the seller two identical deposit
@@ -1209,7 +1220,8 @@ class SteamEscrowService {
                     safeNotifySeller(fresh.sellerUserId, fresh.listingId,
                             "Accept the Steam trade offer from our bot to deposit your item — your listing goes live the moment we receive it.")
                 } else {
-                    touchError(fresh, "re-request ${res.errorCode}: ${res.message}")
+                    String why = "re-request ${res.errorCode}: ${res.message}".toString()
+                    touchError(fresh, res.retryable ? why : SteamBotResult.haltNote(inputKey, why))
                     log.warn("SteamEscrow: deposit re-request failed for listing ${fresh.listingId}: ${res.errorCode} ${res.message}")
                 }
             } catch (Exception ex) {
