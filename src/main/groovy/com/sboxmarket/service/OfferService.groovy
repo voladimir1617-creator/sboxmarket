@@ -1224,7 +1224,7 @@ class OfferService {
                     if (emailService.canSendTo(buyer, 'TRADES')) {
                         emailService.sendOfferRejected(
                             buyer.email, buyer.displayName, offer.itemName,
-                            offer.amount, cleanReply)
+                            offer.amount, cleanReply, offer.itemId)
                     }
                 }
             } catch (Exception e) {
