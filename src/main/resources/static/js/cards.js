@@ -247,23 +247,6 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           color: '#0b1220', letterSpacing: 0.4
         }
       }, auctionBadge.label),
-      // Quick-add-to-cart — only for BUY_NOW listings (auctions make no
-      // sense in a cart). Stops click-propagation so clicking the button
-      // doesn't also open the item modal. The cartHas prop lets the
-      // parent tell us when it's already in the cart so the label flips.
-      !isAuction && onAddToCart && h('button', {
-        className: `grid-cart-btn ${inCart ? 'in' : ''}`,
-        onClick: e => { e.preventDefault(); e.stopPropagation(); if (!inCart) onAddToCart(listing); },
-        title: inCart ? 'Already in cart' : 'Add to cart',
-        // Batch 950 — name the item in the aria-label so a SR user
-        // skimming 30 cart buttons on the grid hears "Add Wizard Hat
-        // to cart" instead of 30 identical "Add to cart" reads.
-        // Matches the batch-931 watchlist ♥ pattern.
-        'aria-label': inCart
-          ? `${item?.name || 'Item'} already in cart`
-          : `Add ${item?.name || 'item'} to cart`,
-        disabled: inCart
-      }, inCart ? '✓' : '+'),
       onToggleStar && h('button', {
         className: `grid-star ${starred ? 'on' : ''}`,
         onClick: e => { e.preventDefault(); e.stopPropagation(); onToggleStar(item.id); },
@@ -437,6 +420,32 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           );
         })()
       )
+    ),
+    // Quick-add-to-cart — only for BUY_NOW listings (auctions make no
+    // sense in a cart). Stops click-propagation so clicking the button
+    // doesn't also open the item modal. The cartHas prop lets the
+    // parent tell us when it's already in the cart so the label flips.
+    // It is the card's last child, not the picture's: on desktop it is
+    // still pinned into the picture's top-right corner (the card's
+    // padding box is the picture's, so the same top/right land in the
+    // same place), and on phones it becomes a full-width "Add to cart"
+    // bar under the price, which it could not do from inside the picture.
+    !isAuction && onAddToCart && h('button', {
+      className: `grid-cart-btn ${inCart ? 'in' : ''}`,
+      onClick: e => { e.preventDefault(); e.stopPropagation(); if (!inCart) onAddToCart(listing); },
+      title: inCart ? 'Already in cart' : 'Add to cart',
+      // Batch 950 — name the item in the aria-label so a SR user
+      // skimming 30 cart buttons on the grid hears "Add Wizard Hat
+      // to cart" instead of 30 identical "Add to cart" reads.
+      // Matches the batch-931 watchlist ♥ pattern.
+      'aria-label': inCart
+        ? `${item?.name || 'Item'} already in cart`
+        : `Add ${item?.name || 'item'} to cart`,
+      disabled: inCart
+    },
+      h('span', { className: 'grid-cart-glyph', 'aria-hidden': 'true' }, inCart ? '✓' : '+'),
+      // Shown only on phones, where the button is a full-width bar.
+      h('span', { className: 'grid-cart-label', 'aria-hidden': 'true' }, inCart ? 'In cart' : 'Add to cart')
     )
   );
 }
