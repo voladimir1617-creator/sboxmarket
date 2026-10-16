@@ -357,6 +357,13 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   const cheapestBuyNow = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id) || null;
   const auctionOnly    = !cheapestBuyNow && !!(listings[0] && listings[0].listingType === 'AUCTION');
   const [offerOpen, setOfferOpen] = useState(false);
+  // The listing the offer drawer bargains on. null = the cheapest buy-now
+  // listing (the rail Bargain and action-bar Make Offer); an Active
+  // Listings row's Make offer sets its own id so a buyer can bargain with
+  // any seller, not only the cheapest one.
+  const [offerListingId, setOfferListingId] = useState(null);
+  const offerTarget = (offerListingId != null
+    && listings.find(l => l && l.id === offerListingId && l.listingType === 'BUY_NOW')) || cheapestBuyNow;
   // Which auction the bid panel bids on. An item can have several
   // auctions from different sellers; the row's Bid button picks one,
   // otherwise the first (cheapest) auction is shown.
@@ -1426,6 +1433,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 className: 'item-rail-actions-bargain',
                 onClick: () => {
                   if (!me) { signInWithSteam(); return; }
+                  setOfferListingId(null);
                   setOfferOpen(o => !o);
                 }
               },
@@ -2319,6 +2327,32 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   }, (l.bidCount ?? 0) > 0 ? 'BID' : 'START'),
                   h('span', { className: 'modal-listing-price' },
                     fmt(l.listingType === 'AUCTION' && l.currentBid ? l.currentBid : l.price)),
+                  // Make offer on THIS listing. The drawer used to bargain only
+                  // with the cheapest seller; a buyer who preferred a faster
+                  // shipper or a better-rated seller a few cents up had no way
+                  // to offer on their row. Same drawer, same checks, aimed at
+                  // this row's listing id. Buy-now rows only (auctions bid),
+                  // never the viewer's own listing.
+                  l.listingType === 'BUY_NOW' && !isMine && h('button', {
+                    className: 'listing-offer-btn' + (offerOpen && offerTarget && offerTarget.id === l.id ? ' is-open' : ''),
+                    type: 'button',
+                    'data-testid': 'listing-offer-btn',
+                    'aria-label': me ? `Make an offer on listing #${l.id}` : 'Sign in with Steam to make an offer',
+                    'aria-expanded': me ? !!(offerOpen && offerTarget && offerTarget.id === l.id) : undefined,
+                    title: me ? `Make an offer to ${l.sellerName || 'this seller'} below ${fmt(l.price)}` : 'Sign in with Steam to make an offer',
+                    onClick: () => {
+                      if (!me) { signInWithSteam(); return; }
+                      if (offerOpen && offerTarget && offerTarget.id === l.id) { setOfferOpen(false); return; }
+                      setOfferListingId(l.id);
+                      setOfferAmt('');
+                      setOfferErr('');
+                      setOfferOpen(true);
+                      requestAnimationFrame(() => {
+                        const el = document.querySelector('.item-offer-drawer');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      });
+                    }
+                  }, h(MaterialIcon, { name: 'forum', size: 16 }), h('span', { className: 'listing-offer-btn-label' }, 'Make offer')),
                   // Anon users get a sign-in CTA — bouncing into the API would
                   // fail with a generic auth error that reads as a bug. Own
                   // listings disable the button so sellers don't accidentally
@@ -2577,7 +2611,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             : h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
-                onClick: () => setOfferOpen(o => !o),
+                onClick: () => { setOfferListingId(null); setOfferOpen(o => !o); },
                 disabled: !cheapestBuyNow
               }, offerOpen ? 'Cancel Offer' : 'Make Offer'),
         /* Place Buy Order hidden for anon viewers — requires auth anyway.
@@ -2621,9 +2655,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // guidance without submitting. Anchored on the cheapest BUY_NOW
         // listing — that's the listing the offer targets and what the
         // server will charge if accepted.
-        const ask = cheapestBuyNow ? parseFloat(cheapestBuyNow.price) || 0 : 0;
+        const ask = offerTarget ? parseFloat(offerTarget.price) || 0 : 0;
         const amt = parseFloat(offerAmt) || 0;
-        const maxDisc = cheapestBuyNow ? parseFloat(cheapestBuyNow.maxDiscount) || 0 : 0;
+        const maxDisc = offerTarget ? parseFloat(offerTarget.maxDiscount) || 0 : 0;
         const belowAskPct = (ask > 0 && amt > 0) ? ((ask - amt) / ask * 100) : null;
         const savings     = (ask > 0 && amt > 0 && amt < ask) ? (ask - amt) : 0;
         const autoThreshold = (ask > 0 && maxDisc > 0) ? (ask * (1 - maxDisc)) : 0;
@@ -2634,7 +2668,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // refuse a new one with OFFER_ALREADY_PENDING. Surface that state
         // upfront with a clear "View / raise it instead" route so the
         // user doesn't type a price, hit Send, and bounce off a 400.
-        const myLive = cheapestBuyNow ? myOffersByListing[cheapestBuyNow.id] : null;
+        const myLive = offerTarget ? myOffersByListing[offerTarget.id] : null;
         return h('div', { className: 'item-offer-drawer', style: { padding: '14px 30px', background: 'var(--bg-secondary)', borderRadius: 8, margin: '10px 30px' } },
         myLive && h('div', {
           style: {
@@ -2669,7 +2703,12 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           }, 'View offer →')
         ),
         h('div', { className: 'wallet-input-label offer-drawer-label', style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' } },
-          'Your offer', ask > 0 && h('span', { className: 'offer-drawer-ask' }, ' · must be below the ' + fmt(ask) + ' asking price')),
+          'Your offer',
+          // Name the seller when the offer is not on the cheapest listing, so
+          // the buyer can see which row they are bargaining on.
+          offerTarget && cheapestBuyNow && offerTarget.id !== cheapestBuyNow.id && h('span', { className: 'offer-drawer-target', 'data-testid': 'offer-drawer-target' },
+            ' to ' + (offerTarget.sellerName || 'this seller') + ' (listing #' + offerTarget.id + ')'),
+          ask > 0 && h('span', { className: 'offer-drawer-ask' }, ' · must be below the ' + fmt(ask) + ' asking price')),
         h('input', {
           className: 'wallet-amount-input',
           type: 'number', min: '0.01', step: '0.01',
@@ -2711,7 +2750,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // seller's auto-accept threshold we also inject a "Auto-accept"
         // chip so the buyer can instantly settle without waiting.
         (() => {
-          const ask = parseFloat(cheapestBuyNow?.price || 0);
+          const ask = parseFloat(offerTarget?.price || 0);
           if (!(ask > 0)) return null;
           const chips = [
             { label: '−5%',  v: +(ask * 0.95).toFixed(2) },
@@ -2808,7 +2847,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 offerBusyRef.current = true;
                 setOfferBusy(true);
                 try {
-                  const res = await onMakeOffer(cheapestBuyNow?.id, parseFloat(offerAmt), offerMsg);
+                  const res = await onMakeOffer(offerTarget?.id, parseFloat(offerAmt), offerMsg);
                   if (res && res.error) { setOfferErr(res.message || res.error); return; }
                   setOfferOpen(false);
                   setOfferAmt('');
