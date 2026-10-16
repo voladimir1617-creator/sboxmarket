@@ -197,3 +197,48 @@ test.describe('Sell page - a capped inventory says so', () => {
     await expect(page.locator('text=/this list is incomplete/i')).toHaveCount(0);
   });
 });
+
+test.describe('Sell page - a trade-locked item counts down to Steam\'s own date', () => {
+
+  /**
+   * Lesson F5 from the creator videos: trade sites badge each locked item
+   * with the days left on its lock. The server sends `tradableAfter` only when
+   * Steam's reply carried an unlock date; without one the card keeps the plain
+   * NOT TRADABLE label, so the badge never shows a guessed figure.
+   */
+  async function stubLocked(page, extra) {
+    await page.route('**/api/steam/inventory', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [{
+            assetId: '55556666', name: 'Wizard Hat', category: 'Hats',
+            rarity: 'Standard', iconUrl: 'https://example.com/h.png',
+            marketable: false, tradable: false, quantity: 1,
+            listableQuantity: 0, unlistableReason: 'NOT_TRADABLE',
+            ...extra,
+          }],
+          count: 1, assetCount: 1, lastSyncedAt: null,
+          steamId64: '76561199000000001',
+        }),
+      });
+    });
+  }
+
+  test('with Steam\'s unlock date the card shows the days left', async ({ page }) => {
+    await stubLocked(page, { tradableAfter: Date.now() + 4.5 * 86400000 });
+    await page.goto('/sell');
+    const badge = page.locator('.sell-trade-lock').first();
+    await expect(badge).toBeVisible({ timeout: 15_000 });
+    await expect(badge).toHaveText(/TRADE LOCK · 5 DAYS/);
+    await expect(badge).toHaveAttribute('title', /Steam lets this item move on/);
+  });
+
+  test('without a date from Steam the card keeps the plain label', async ({ page }) => {
+    await stubLocked(page, {});
+    await page.goto('/sell');
+    await expect(page.locator('text=NOT TRADABLE').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.sell-trade-lock')).toHaveCount(0);
+  });
+});

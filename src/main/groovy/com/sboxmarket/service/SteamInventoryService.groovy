@@ -458,6 +458,7 @@ class SteamInventoryService {
                     name:       (d.market_hash_name ?: d.market_name ?: d.name)?.toString(),
                     tradable:   ((d.tradable as Integer) ?: 0) == 1,
                     marketable: ((d.marketable as Integer) ?: 0) == 1,
+                    tradableAfter: ((d.tradable as Integer) ?: 0) == 1 ? null : tradableAfterOf(d),
                     type:       d.type?.toString(),
                     iconUrl:    fullIcon,
                     imageUrl:   fullIcon,   // alias so ItemImage can read it directly
@@ -473,6 +474,40 @@ class SteamInventoryService {
         // treat it as unreadable rather than as a confident zero.
         boolean unreadable = (json == null) || (json?.assets == null && json?.descriptions == null)
         return [items: out, malformed: unreadable]
+    }
+
+    private static final java.util.regex.Pattern TRADABLE_AFTER = java.util.regex.Pattern.compile(
+        /After\s+([A-Z][a-z]{2})\s+(\d{1,2}),\s+(\d{4})\s*\((\d{1,2}):(\d{2}):(\d{2})\)\s*GMT/)
+    private static final List<String> MONTHS =
+        ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+    /**
+     * When Steam lets a trade-locked item move again, epoch millis, or null
+     * when Steam did not say. Only ever read off the description Steam sent:
+     * its `cache_expiration` (ISO-8601, set on items under a trade cooldown)
+     * or an owner line such as "Tradable/Marketable After Oct 23, 2026
+     * (7:00:00) GMT". No date is ever estimated, so a locked item Steam gave
+     * no date for keeps the plain "not tradable" label.
+     *
+     * Package-private for direct Spock coverage.
+     */
+    Long tradableAfterOf(d) {
+        try {
+            def iso = d?.cache_expiration?.toString()?.trim()
+            if (iso) return java.time.Instant.parse(iso).toEpochMilli()
+        } catch (Exception ignored) { }
+        try {
+            for (def od : (d?.owner_descriptions ?: [])) {
+                def m = TRADABLE_AFTER.matcher((od?.value ?: '').toString())
+                if (!m.find()) continue
+                int month = MONTHS.indexOf(m.group(1)) + 1
+                if (month < 1) continue
+                return java.time.LocalDateTime.of(m.group(3) as int, month, m.group(2) as int,
+                        m.group(4) as int, m.group(5) as int, m.group(6) as int)
+                    .toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
+            }
+        } catch (Exception ignored) { }
+        return null
     }
 
     /**
