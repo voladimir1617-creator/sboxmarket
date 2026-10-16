@@ -30804,3 +30804,19 @@ html:root body div.grid-card .grid-body .grid-price { font-size: 21px !important
 /* On phones the item picture was a 346px square inside a 261px-tall 4:3
    frame, so its top and bottom were cut off; it now fits the frame. */
 html:root body .modal-preview > img.item-img { max-height: 92% !important; width: auto !important; max-width: 92% !important; object-fit: contain !important; }
+
+/* Look refresh pass 7: the phone filter drawer was drawn as a bottom sheet
+   (grab handle, rounded top) but later sidebar rules pinned it 240px wide
+   under the top bar, leaving the right third of the screen dark. It now
+   rises from the bottom across the full width, above the tab bar. */
+@media (max-width: 1099px) {
+  html:root body main.layout > aside.sidebar.mobile-drawer-open { top: auto !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important; max-width: none !important; min-width: 0 !important; height: auto !important; max-height: 80vh !important; padding: 8px 16px calc(84px + env(safe-area-inset-bottom)) !important; border-radius: 15px 15px 0 0 !important; }
+}
+/* Small grey text that fell under a 4.5:1 contrast ratio: the item page's
+   empty Buy offers panel (3.6:1 on its raised panel), card "Listed" ages,
+   ticker seller names and Help's group labels (4.1-4.5:1). */
+html:root body main.item-page div:has(> [data-testid="buy-orders-empty"]) > div:first-child > div:last-child,
+html:root body main.item-page [data-testid="buy-orders-empty"] { color: rgb(158, 166, 176) !important; }
+html:root body div.grid-card .gc-card-age.gc-card-age,
+html:root body .pulse-stream .pulse-item > span:not(.up):not(.down) { color: rgb(145, 153, 163) !important; }
+html:root body .full-page-mode .info-modal .help-faq h3.help-faq-group.help-faq-group { color: rgb(145, 153, 163) !important; }
