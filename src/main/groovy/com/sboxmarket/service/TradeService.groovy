@@ -727,7 +727,7 @@ class TradeService {
             try {
                 if (emailService != null && emailService.canSendTo(seller, 'TRADES')) {
                     emailService.sendTradeOpened(seller.email, seller.displayName,
-                        itemName, buyerName, price, trade.id)
+                        itemName, buyerName, price, trade.id, sellerResponseDays)
                 }
             } catch (Exception e) {
                 log.warn("Trade-opened email failed for seller ${sellerUserId}: ${e.message}")
@@ -971,7 +971,8 @@ class TradeService {
                     def seller = steamUserRepository.findById(t.sellerUserId).orElse(null)
                     if (emailService.canSendTo(seller, 'TRADES')) {
                         emailService.sendSaleCompleted(seller.email, seller.displayName,
-                            t.itemName, (t.price - t.feeAmount), '/wallet')
+                            t.itemName, (t.price - t.feeAmount), '/wallet',
+                            autoRelease ? autoReleaseDays : null)
                     }
                 }
             } catch (Exception e) {

@@ -140,7 +140,7 @@ class TradeServiceSpec extends Specification {
         service.open(100L, 1L, 'Wizard Hat', 10L, 500L, 20L, 600L, new BigDecimal("50"))
 
         then:
-        1 * emailService.sendTradeOpened('bob@example.com', 'Bob', 'Wizard Hat', 'Alice', new BigDecimal("50"), 1L)
+        1 * emailService.sendTradeOpened('bob@example.com', 'Bob', 'Wizard Hat', 'Alice', new BigDecimal("50"), 1L, 3L)
     }
 
     def "open does NOT email a seller who opted out of notifications (batch 564)"() {
@@ -1747,6 +1747,48 @@ class TradeServiceSpec extends Specification {
         // the buyer is actively on the site confirming, so an email
         // would be noise.
         0 * emailService.sendTradeAutoReleased(*_)
+    }
+
+    def "the seller's sale email says the window ran out on auto-release, not that the buyer confirmed"() {
+        given:
+        def stale = tradeIn('PENDING_BUYER_CONFIRM', [id: 7L])
+        def sellerWallet = new Wallet(id: 600L, balance: new BigDecimal("0"))
+        def seller = new com.sboxmarket.model.SteamUser(id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: true, emailNotificationsEnabled: true)
+        tradeRepository.findPendingConfirmOlderThan(_) >> [stale]
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+        emailService.canSendTo(seller, 'TRADES') >> true
+
+        when:
+        service.sweepPendingConfirm()
+
+        then:
+        1 * emailService.sendSaleCompleted('bob@example.com', 'Bob', 'Wizard Hat',
+            new BigDecimal("49.00"), '/wallet', 8L)
+    }
+
+    def "the seller's sale email on a buyer confirm carries no auto-release window"() {
+        given:
+        def t = tradeIn('PENDING_BUYER_CONFIRM', [id: 8L])
+        def sellerWallet = new Wallet(id: 600L, balance: new BigDecimal("0"))
+        def seller = new com.sboxmarket.model.SteamUser(id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: true, emailNotificationsEnabled: true)
+        tradeRepository.findById(8L) >> Optional.of(t)
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.save(_) >> { Wallet w -> w }
+        emailService.canSendTo(seller, 'TRADES') >> true
+
+        when:
+        service.buyerConfirm(10L, 8L)
+
+        then:
+        1 * emailService.sendSaleCompleted('bob@example.com', 'Bob', 'Wizard Hat',
+            new BigDecimal("49.00"), '/wallet', null)
     }
 
     def "sweepPendingConfirm keeps going even if one release throws"() {
