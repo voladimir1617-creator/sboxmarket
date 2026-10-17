@@ -602,7 +602,21 @@ export function NotificationBell({ me }) {
       role: 'menu',
       'aria-orientation': 'vertical',
       'aria-label': 'Notifications',
-      onClick: e => e.stopPropagation()
+      onClick: e => e.stopPropagation(),
+      // A role=menu promises arrow-key movement between its items:
+      // Up/Down step through the rows, Home/End jump to the ends.
+      onKeyDown: e => {
+        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+        const items = Array.from(e.currentTarget.querySelectorAll('[role="menuitem"]'));
+        if (!items.length) return;
+        e.preventDefault();
+        const i = items.indexOf(document.activeElement);
+        const next = e.key === 'Home' ? 0
+          : e.key === 'End' ? items.length - 1
+          : e.key === 'ArrowDown' ? (i + 1) % items.length
+          : (i <= 0 ? items.length - 1 : i - 1);
+        items[next].focus();
+      }
     },
       h('div', { className: 'notif-header' },
         'Notifications',

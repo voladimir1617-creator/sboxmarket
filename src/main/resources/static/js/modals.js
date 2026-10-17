@@ -1143,6 +1143,13 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             'aria-label': 'Price alert target (USD)',
             value: alertTarget,
             onChange: e => setAlertTarget(e.target.value),
+            // Enter saves — same as the Make Offer input (Escape is
+            // handled by the drawer).
+            onKeyDown: e => {
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              e.currentTarget.parentElement?.parentElement?.querySelector('[data-alert-save]')?.click();
+            },
             autoFocus: true
           })
         ),
@@ -1162,6 +1169,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           className: 'btn btn-accent',
           style: { padding: '8px 18px', fontSize: 13 },
           disabled: alertBusy || !valid,
+          'data-alert-save': '',
           onClick: async () => {
             setAlertErr('');
             if (!valid) { setAlertErr('Enter a positive dollar amount (≤ $100,000)'); return; }
@@ -3374,7 +3382,8 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
   // Live validation regex matches the server-side check.
   const URL_RE = /^https:\/\/steamcommunity\.com\/tradeoffer\/[A-Za-z0-9_?&=/\-]+$/;
   const trimmed = (url || '').trim();
-  const valid = trimmed.length === 0 || URL_RE.test(trimmed);
+  // The server rejects offer URLs over 200 characters (TRADE_OFFER_URL_TOO_LONG).
+  const valid = trimmed.length === 0 || (trimmed.length <= 200 && URL_RE.test(trimmed));
   // Try to surface an auto-paste suggestion from the clipboard if it
   // already holds a Steam trade-offer URL — the user just pasted it
   // into the Steam window, so it's likely still there. Silent fallback
@@ -3437,8 +3446,10 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
         spellCheck: false,
         'aria-label': 'Steam offer URL',
         placeholder: 'https://steamcommunity.com/tradeoffer/1234567/',
+        maxLength: 200,
         value: url,
         onChange: e => { setUrl(e.target.value); setErr(''); },
+        onKeyDown: e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } },
         style: valid ? undefined : { borderColor: 'var(--red)' }
       }),
       h('div', {
@@ -3454,7 +3465,9 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
           ? 'Paste the URL from the Steam offer you just sent — lets the buyer open it in one click. Skip if you can\'t grab it easily.'
           : valid
             ? 'Looks valid. Submit to mark the trade sent and ping the buyer.'
-            : 'Must start with https://steamcommunity.com/tradeoffer/...'),
+            : trimmed.length > 200
+              ? 'That URL is too long — the limit is 200 characters.'
+              : 'Must start with https://steamcommunity.com/tradeoffer/...'),
       err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
       h('div', { style: { display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' } },
         h('button', {
@@ -10941,6 +10954,8 @@ function ProfileReviewsTab({ me }) {
 // Same words as the Support tab's filter chips.
 const TICKET_STATUS_LABEL = { OPEN: 'Open', WAITING_STAFF: 'Waiting staff', WAITING_USER: 'Waiting you', RESOLVED: 'Resolved' };
 const ticketStatusLabel = (s) => TICKET_STATUS_LABEL[s] || s;
+const TICKET_CATEGORY_LABEL = { TRADE: 'Trade', PAYMENT: 'Payment', REFUND: 'Refund', ACCOUNT: 'Account', BUG: 'Bug report', OTHER: 'Other' };
+const ticketCategoryLabel = (c) => TICKET_CATEGORY_LABEL[c] || c;
 
 function ProfileSupportTab() {
   const [tickets, setTickets] = useState(null);
@@ -11117,12 +11132,19 @@ function ProfileSupportTab() {
     // Batch 913 — capture id + subject BEFORE the resolve so the toast
     // names the ticket even after the tab reloads.
     const t = viewing.ticket;
-    const res = await resolveSupportTicket(t.id);
-    if (res && res.error) { toast(res.error, 'err'); return; }
-    await showTicket(t.id);
-    load();
-    const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
-    toast(`Ticket #${t.id}${subjStr} resolved. Reopen any time from the thread.`, 'ok');
+    // Latch so a double-click can't send a second resolve that fails
+    // with "already resolved" right after the success toast.
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const res = await resolveSupportTicket(t.id);
+      if (res && res.error) { toast(res.error, 'err'); return; }
+      await showTicket(t.id);
+      load();
+      const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
+      toast(`Ticket #${t.id}${subjStr} resolved. Reopen any time from the thread.`, 'ok');
+    } finally { setBusy(false); busyRef.current = false; }
   };
 
   // Batch 858 — reopen a RESOLVED ticket so the user isn't forced to
@@ -11149,9 +11171,9 @@ function ProfileSupportTab() {
         h('button', { className: 'btn btn-ghost', onClick: () => setViewing(null) }, '← Tickets'),
         h('div', { style: { flex: 1 } },
           h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
-          h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + ticketStatusLabel(viewing.ticket.status))
+          h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))
         ),
-        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
+        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, disabled: busy, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
         // Batch 858 — Reopen button on RESOLVED tickets. Keeps the
         // existing thread instead of forcing a fresh ticket; staff are
         // re-notified via the same fan-out pattern as user replies.
@@ -11228,7 +11250,7 @@ function ProfileSupportTab() {
       h('input', { className: 'wallet-amount-input', 'aria-label': 'Ticket subject', value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), maxLength: 80, placeholder: 'Short subject line…' }),
       h('div', { className: 'wallet-input-label' }, 'Category'),
       h('select', { className: 'sort-select', 'aria-label': 'Ticket category', value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) },
-        ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, c))
+        ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, ticketCategoryLabel(c)))
       ),
       h('div', { className: 'wallet-input-label' }, 'Message'),
       h('textarea', { className: 'wallet-amount-input', 'aria-label': 'Ticket message body', style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), maxLength: 2000, placeholder: 'Describe your issue…' }),
@@ -11293,7 +11315,7 @@ function ProfileSupportTab() {
                 },
                   h('td', { className: 'db-rank' }, '#' + t.id),
                   h('td', null, t.subject),
-                  h('td', { className: 'db-cat' }, t.category),
+                  h('td', { className: 'db-cat' }, ticketCategoryLabel(t.category)),
                   h('td', { style: { fontSize: 10, fontWeight: 700 } }, ticketStatusLabel(t.status)),
                   h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
                 ))
@@ -14097,6 +14119,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             [-10, -5, -1, 1, 5, 10].map(n => h('button', {
               key: n,
               className: `price-suggest-chip ${String(n) === bulkAdjustPct ? 'active' : ''}`,
+              'aria-pressed': String(n) === bulkAdjustPct,
               onClick: () => setChip(n),
               disabled: bulkAdjustBusy,
               style: n < 0
@@ -15095,6 +15118,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                           else if (e.key === 'Escape') { e.preventDefault(); setEditing(null); }
                         },
                         placeholder: 'description (500 chars)',
+                        'aria-label': 'Listing description (max 500 characters)',
                         style: { flex: 1 }
                       }),
                       h('input', {
@@ -16808,6 +16832,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
               ].map(opt => h('button', {
                 key: opt.id,
                 className: `wallet-tx-filter-chip ${stateFilter === opt.id ? 'active' : ''}`,
+                'aria-pressed': stateFilter === opt.id,
                 onClick: () => setState(opt.id),
                 title: opt.id === 'UNAVAILABLE'
                   ? 'Watched items currently off the market (sold out or delisted)'

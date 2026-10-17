@@ -85,7 +85,14 @@ function statusLine(status, coverageAmount) {
 // Read-only — a tasteful shield row, no actions.
 function ProtectedBadge({ protection }) {
   const status = (protection && protection.status) || 'ACTIVE';
-  const line = statusLine(status, protection && protection.coverageAmount);
+  // reverseClaim moves a clawed-back claim to EXPIRED with a "Claim
+  // reversed — …" reason. Without this check the badge read "Trade
+  // Protected · Cover completed" in green after the payout was reclaimed.
+  const reason = (protection && protection.claimReason) || '';
+  const reversed = status === 'EXPIRED' && reason.startsWith('Claim reversed');
+  const line = reversed
+    ? { text: reason, color: 'var(--text-muted)' }
+    : statusLine(status, protection && protection.coverageAmount);
   return h('div', {
     className: 'trade-protection-badge',
     style: {
@@ -96,22 +103,22 @@ function ProtectedBadge({ protection }) {
       gap: 10,
       padding: '8px 12px',
       borderRadius: 6,
-      background: 'rgba(34,197,94,0.08)',
-      border: '1px solid rgba(34,197,94,0.28)'
+      background: reversed ? 'var(--bg-elevated)' : 'rgba(34,197,94,0.08)',
+      border: reversed ? '1px solid var(--border)' : '1px solid rgba(34,197,94,0.28)'
     }
   },
     h('span', {
       'aria-hidden': true,
       style: {
         width: 30, height: 30, flex: '0 0 30px',
-        borderRadius: 6, background: 'rgba(34,197,94,0.14)',
+        borderRadius: 6, background: reversed ? 'var(--bg-elevated)' : 'rgba(34,197,94,0.14)',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
       }
-    }, h(MaterialIcon, { name: 'verified_user', size: 18, fill: true, color: 'var(--green)' })),
+    }, h(MaterialIcon, { name: 'verified_user', size: 18, fill: !reversed, color: reversed ? 'var(--text-muted)' : 'var(--green)' })),
     h('div', { style: { display: 'flex', flexDirection: 'column', minWidth: 0 } },
       h('div', {
         style: { fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }
-      }, 'Trade Protected'),
+      }, reversed ? 'Trade Protection reversed' : 'Trade Protected'),
       h('div', {
         style: { fontSize: 11, color: line.color, fontWeight: 600 }
       }, line.text)

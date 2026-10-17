@@ -2491,6 +2491,7 @@ export function NotificationsModal({ onClose, me }) {
         return h('button', {
           key: opt.id,
           className: `wallet-tx-filter-chip ${typeFilter === opt.id ? 'active' : ''}`,
+          'aria-pressed': typeFilter === opt.id,
           onClick: () => setTypeFilter(opt.id),
           disabled: c === 0 && opt.id !== 'ALL'
         }, `${opt.label} · ${c}`);
