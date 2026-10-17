@@ -11588,7 +11588,7 @@ export function SellerObligations({ policy, custody, isAuction, net }) {
     bot
       ? h('ul', { className: 'sell-obligations-list' },
           h('li', null, `It is delivered from ${BRAND.name} escrow, so there is no trade offer for you to send.`),
-          h('li', null, 'You are paid ', h('strong', null, pay), ' when the buyer confirms it arrived.'))
+          h('li', null, 'You are paid ', h('strong', null, pay), ' when the buyer accepts the Steam trade offer.'))
       : h('ul', { className: 'sell-obligations-list' },
           h('li', { 'data-line': 'send' }, 'Accept the sale and send the buyer a Steam trade offer',
             respond ? h(React.Fragment, null, ' within ', h('strong', null, days(respond))) : null,

@@ -1006,21 +1006,30 @@ Profile → Trades${itemUrl ? ' or open the item: ' + absUrl(itemUrl) : '.'}
      *  buyerConfirm AND on the 8-day auto-release sweep. Sellers who
      *  close a sale and walk away need this email to know the money
      *  actually arrived — the in-app TRADE_VERIFIED notification is
-     *  easy to miss for days. */
+     *  easy to miss for days. `autoReleaseDays` is set only on the sweep
+     *  path, where the buyer never confirmed, so the opening line says
+     *  the window ran out instead of claiming a confirmation;
+     *  `buyerConfirmed` is false on the admin force-release path, which
+     *  states only that the sale is complete. */
     void sendSaleCompleted(String toEmail, String displayName, String itemName,
-                           BigDecimal netCredit, String walletUrl) {
+                           BigDecimal netCredit, String walletUrl, Long autoReleaseDays = null,
+                           boolean buyerConfirmed = true) {
         if (!toEmail) return
         def subject = "Sale completed · ${itemName ?: 'your listing'}"
+        def item = itemName ?: 'your item'
+        def opening = autoReleaseDays
+            ? "The buyer's ${autoReleaseDays}-day window to confirm or dispute ${item} ended, so funds have"
+            : buyerConfirmed
+            ? "The buyer confirmed receipt of ${item} and funds have"
+            : "Your sale of ${item} is complete, so funds have"
         def body = """\
 Hi ${displayName ?: 'there'},
 
-The buyer confirmed receipt of ${itemName ?: 'your item'} and funds have
+${opening}
 been released from escrow. Your wallet was credited ${usd(netCredit)}
 (sale price minus the 2% platform fee).
 
 You can cash out to Stripe from your wallet at any time${walletUrl ? ': ' + absUrl(walletUrl) : '.'}
-
-Payouts typically clear in 1-2 business days.
 
 — The SkinBox team
 """.stripIndent()
@@ -1123,9 +1132,12 @@ If the seller doesn't respond within 3 days, the trade auto-cancels and you'll b
      *  in-app — without this, a sale goes silent for up to 24 hours
      *  until the slow-seller sweeper warns the buyer + nudges the
      *  seller. Gated on verified email + global notification pref +
-     *  TRADES bucket mute (same rules as sendSaleCompleted). */
+     *  TRADES bucket mute (same rules as sendSaleCompleted).
+     *  `responseDays` is TradeService's trade.seller-response-days, so the
+     *  auto-cancel deadline quoted here is the one the sweeper enforces. */
     void sendTradeOpened(String toEmail, String displayName, String itemName,
-                         String buyerName, BigDecimal price, Long tradeId) {
+                         String buyerName, BigDecimal price, Long tradeId,
+                         Long responseDays = 3L) {
         if (!toEmail) return
         def tradeRef = tradeId ? " (trade #${tradeId})" : ''
         def subject = "New sale · ${itemName ?: 'your listing'}"
@@ -1139,7 +1151,7 @@ The funds are held in escrow until you:
   2. Send the Steam trade offer to the buyer
   3. They confirm receipt
 
-Trades auto-cancel if the seller doesn't respond within 3 days, so please action it soon:
+Trades auto-cancel if the seller doesn't respond within ${responseDays} day${responseDays == 1L ? '' : 's'}, so please action it soon:
 ${publicUrl}/profile?tab=trades
 
 — The SkinBox team

@@ -508,6 +508,48 @@ class EmailServiceSpec extends Specification {
         })
     }
 
+    def "sendTradeOpened quotes the seller response window it is given"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendTradeOpened('bob@example.com', 'Bob', 'Wizard Hat', 'Alice', new BigDecimal('50.00'), 42L, days)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> fields(msg).text.contains(expected) })
+
+        where:
+        days | expected
+        3L   | "doesn't respond within 3 days, so"
+        5L   | "doesn't respond within 5 days, so"
+        1L   | "doesn't respond within 1 day, so"
+    }
+
+    def "sendSaleCompleted only claims a buyer confirmation when there was one"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+        String text = null
+
+        when:
+        svc.sendSaleCompleted('seller@example.com', 'Sam', 'Wizard Hat',
+            new BigDecimal('49.00'), '/wallet', days, confirmed)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send(_) >> { MimeMessage msg -> text = fields(msg).text }
+        text.contains(opening)
+        text.contains('been released from escrow')
+        text.contains('confirmed receipt') == (days == null && confirmed)
+        !text.contains('business days')
+
+        where:
+        days | confirmed | opening
+        null | true      | 'The buyer confirmed receipt of Wizard Hat and funds have'
+        8L   | true      | "The buyer's 8-day window to confirm or dispute Wizard Hat ended, so funds have"
+        null | false     | 'Your sale of Wizard Hat is complete, so funds have'
+    }
+
     def "sendPurchaseReceipt surfaces the price + seller name (batch 571)"() {
         given:
         def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')

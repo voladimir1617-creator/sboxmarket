@@ -727,7 +727,7 @@ class TradeService {
             try {
                 if (emailService != null && emailService.canSendTo(seller, 'TRADES')) {
                     emailService.sendTradeOpened(seller.email, seller.displayName,
-                        itemName, buyerName, price, trade.id)
+                        itemName, buyerName, price, trade.id, sellerResponseDays)
                 }
             } catch (Exception e) {
                 log.warn("Trade-opened email failed for seller ${sellerUserId}: ${e.message}")
@@ -859,7 +859,7 @@ class TradeService {
         if (reason != null && !reason.trim().isEmpty()) {
             t.note = textSanitizer.medium(reason)
         }
-        release(t)
+        release(t, false, true)
         auditService?.log(AuditService.TRADE_FORCE_RELEASED, adminUserId, t.sellerUserId, t.id,
             "Force-released: ${reason ?: '(no reason)'}")
         t
@@ -869,9 +869,10 @@ class TradeService {
      * Transition → VERIFIED. Credits the seller wallet with (price - fee) and
      * records matching SALE transactions on both sides. Called by
      * `buyerConfirm` and by the auto-release sweep after the trade-hold window.
+     * `forced` marks adminRelease, where no buyer confirmed anything.
      */
     @Transactional
-    protected void release(Trade t, boolean autoRelease = false) {
+    protected void release(Trade t, boolean autoRelease = false, boolean forced = false) {
         transitionTo(t, 'VERIFIED')
         t.settledAt = System.currentTimeMillis()
         tradeRepository.save(t)
@@ -971,7 +972,8 @@ class TradeService {
                     def seller = steamUserRepository.findById(t.sellerUserId).orElse(null)
                     if (emailService.canSendTo(seller, 'TRADES')) {
                         emailService.sendSaleCompleted(seller.email, seller.displayName,
-                            t.itemName, (t.price - t.feeAmount), '/wallet')
+                            t.itemName, (t.price - t.feeAmount), '/wallet',
+                            autoRelease ? autoReleaseDays : null, !forced)
                     }
                 }
             } catch (Exception e) {
