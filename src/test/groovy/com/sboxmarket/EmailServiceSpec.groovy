@@ -1316,7 +1316,10 @@ class EmailServiceSpec extends Specification {
         then:
         1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
             f.subject.contains('full access') &&
-            f.text.contains('full access')
+            f.text.contains('full access') &&
+            // Personal Info has Disable 2FA and Enable 2FA, no "rotate" control.
+            f.text.contains('disable 2FA and enable it again') &&
+            !f.text.contains('Rotate your 2FA')
         })
     }
 

@@ -145,12 +145,12 @@ const FAQ = [
   {
     s: 'start',
     q: 'How do I use the API from a bot or browser extension?',
-    a: "Mint an API key at Profile → Developers → + New Key. Pick RW (full access — can buy / sell / move funds) or RO (read-only — fetches listings + wallet balance but can't mutate anything). Send the raw token as Authorization: Bearer sbx_live_… on every request. The server accepts this in place of session cookies on the market and wallet /api/* routes, so no CSRF token is needed. Account settings (email, trade URL, 2FA, payout account), minting more keys and staff tools only work signed in on the website. Active-key cap is 20 per user — revoke stale ones first if you hit the wall. Every mint fires a security-alert email; if you see one you didn't trigger, click 'Revoke all active keys' in Profile → Developers and open a ticket."
+    a: "Mint an API key at Profile → Developers → + New Key. Pick RW (full access — can buy / sell / move funds) or RO (read-only — fetches listings + wallet balance but can't mutate anything). Send the raw token as Authorization: Bearer sbx_live_… on every request. The server accepts this in place of session cookies on the market and wallet /api/* routes, so no CSRF token is needed. Account settings (email, trade URL, 2FA, payout account), minting more keys and staff tools only work signed in on the website. Active-key cap is 20 per user — revoke stale ones first if you hit the wall. Every mint sends a security-alert email to the verified email on file; if you see one you didn't trigger, click 'Revoke all active keys' in Profile → Developers and open a ticket."
   },
   {
     s: 'start',
     q: 'How do I audit my own account activity?',
-    a: "Two collapsed panels on Profile → Personal show your activity trail: Recent Sign-Ins (last 20 Steam logins with IP + browser) and Security Activity (last 50 events where your account was the subject — 2FA resets, API key mints, withdrawals, disputes, admin force-actions). Staff actions are marked with a blue STAFF chip so you can tell admin-initiated events apart from your own. If you see something you didn't trigger, use 'Sign out everywhere' + 'Revoke all active keys' on the same tab, then open a support ticket."
+    a: "Two collapsed panels on Profile → Personal show your activity trail: Recent Sign-Ins (last 20 Steam logins with IP + browser) and Security Activity (last 50 events where your account was the subject — 2FA resets, API key mints, withdrawals, disputes, admin force-actions). Staff actions are marked with a blue STAFF chip so you can tell admin-initiated events apart from your own. If you see something you didn't trigger, use 'Sign out everywhere' on this tab and click 'Revoke all active keys' in Profile → Developers, then open a support ticket."
   }
 ];
 

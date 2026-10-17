@@ -673,7 +673,7 @@ If you DID NOT mint this key:
   1. Sign in to SkinBox immediately.
   2. Go to Profile → Developers and revoke every API key you don't recognise.
   3. Sign out of all devices from Profile → Personal.
-  4. Rotate your 2FA device via Profile → Personal Info.
+  4. Re-secure 2FA: on Profile → Personal Info, disable 2FA and enable it again with a fresh authenticator.
   5. Reply to this email — staff will audit your account for unauthorised activity.
 
 — The SkinBox team
