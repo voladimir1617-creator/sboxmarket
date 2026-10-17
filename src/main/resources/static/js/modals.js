@@ -7339,6 +7339,10 @@ function ProfileBuyOrdersTab() {
                   // say so: the row beside it may read in another currency.
                   'aria-label': 'New max price per item in USD',
                   value: editMax, onChange: e => setEditMax(e.target.value),
+                  onKeyDown: e => {
+                    if (e.key === 'Enter') { e.preventDefault(); if (!busy) saveEdit(o); }
+                    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                  },
                   placeholder: 'Max USD',
                   title: 'New max price per item, in USD'
                 }),
@@ -7349,6 +7353,10 @@ function ProfileBuyOrdersTab() {
                   inputMode: 'numeric',
                   'aria-label': 'New quantity',
                   value: editQty, onChange: e => setEditQty(e.target.value),
+                  onKeyDown: e => {
+                    if (e.key === 'Enter') { e.preventDefault(); if (!busy) saveEdit(o); }
+                    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                  },
                   placeholder: 'Qty',
                   title: "Remaining quantity (can't exceed what's still unfilled)"
                 }),
@@ -10542,20 +10550,39 @@ function ProfileReviewsTab({ me }) {
   // before the shared filter/rows logic to keep the rest untouched.
   if (mode === 'pending') {
     if (pending === null) return h('div', { className: 'spinner' });
+    // Same WAI-ARIA tabs pattern as the main branch below, so Pending
+    // keeps its tab role and selected state.
+    const P_TABS = ['received', 'given', 'pending'];
+    const pTab = (id) => ({
+      role: 'tab',
+      'aria-selected': mode === id,
+      tabIndex: mode === id ? 0 : -1,
+      onKeyDown: (e) => {
+        if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
+        e.preventDefault();
+        const idx = P_TABS.indexOf(mode);
+        const n = e.key === 'Home' ? 0 : e.key === 'End' ? P_TABS.length - 1
+          : e.key === 'ArrowRight' ? (idx + 1) % P_TABS.length : (idx - 1 + P_TABS.length) % P_TABS.length;
+        setMode(P_TABS[n]);
+      }
+    });
     return h('div', null,
-      h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' } },
+      h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
         h('button', {
           className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
-          onClick: () => setMode('received')
+          onClick: () => setMode('received'),
+          ...pTab('received')
         }, 'Received', received && received.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, received.length)),
         h('button', {
           className: `offer-tab ${mode === 'given' ? 'active' : ''}`,
-          onClick: () => setMode('given')
+          onClick: () => setMode('given'),
+          ...pTab('given')
         }, 'Given', given && given.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, given.length)),
         h('button', {
           className: `offer-tab active`,
           onClick: () => setMode('pending'),
-          title: 'Trades you settled but never reviewed'
+          title: 'Trades you settled but never reviewed',
+          ...pTab('pending')
         }, 'Pending', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, pending.length))
       ),
       pending.length === 0
@@ -12668,7 +12695,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   };
   return h(InfoModal, { title: 'Sell Items', onClose },
     h('div', { className: 'sell-source-tabs' },
-      h('button', { className: `offer-tab ${source === 'steam' ? 'active' : ''}`, onClick: () => setSource('steam') },
+      h('button', { className: `offer-tab ${source === 'steam' ? 'active' : ''}`, 'aria-pressed': source === 'steam', onClick: () => setSource('steam') },
         'Steam Inventory',
         // When Steam rate-limits us we don't actually know the inventory
         // count, so showing "0" misleadingly suggests the user is broke
@@ -12683,7 +12710,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
               ? "Count unavailable — couldn't reach the inventory service"
               : null
         }, (steamData.blocked || steamData.error) && steamList.length === 0 ? '—' : steamList.length)),
-      h('button', { className: `offer-tab ${source === 'internal' ? 'active' : ''}`, onClick: () => setSource('internal') },
+      h('button', { className: `offer-tab ${source === 'internal' ? 'active' : ''}`, 'aria-pressed': source === 'internal', onClick: () => setSource('internal') },
         'Platform Inventory', internal && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, internalList.length)),
       h('div', { style: { flex: 1 } }),
       // Price-freshness chip — quiet "Prices updated 23s ago" badge

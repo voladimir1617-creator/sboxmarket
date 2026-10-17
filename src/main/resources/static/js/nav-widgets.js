@@ -7,7 +7,7 @@ import { MaterialIcon } from './primitives.js';
 // Route a notification to the right page when the server didn't supply one.
 // Kept in sync with kindFallbackPath in csfloat-modals.js — any new event kind
 // should be handled in both places or (better) carry a server-side `path`.
-function fallbackPath(kind) {
+function fallbackPath(kind, refId) {
   if (!kind) return '/profile';
   const k = kind.toUpperCase();
   if (k === 'DEPOSIT_COMPLETE' || k === 'DEPOSIT_EXPIRED' || k.startsWith('WITHDRAWAL_') ||
@@ -16,6 +16,12 @@ function fallbackPath(kind) {
   if (k === 'CHARGEBACK_OPENED') return '/admin?tab=disputes';
   if (k === 'CARD_TESTING_DETECTED') return '/admin?tab=users';
   if (k === 'CART_ITEM_SOLD') return paths.cart();
+  // Same homes as kindFallbackPath: the services send a null path for
+  // these when the item id doesn't resolve, and the bell used to drop
+  // them all on the profile page while the feed routed them properly.
+  if (k === 'PRICE_DROPPED') return paths.cart();
+  if (k === 'WATCHLIST_PRICE_DROP') return refId ? ('/item/' + refId) : paths.watchlist();
+  if (k === 'NEW_LISTING_FROM_SELLER' || k === 'LISTING_MATCH') return paths.market();
   if (k === 'FRAUD_SIGNAL_HIGH') return '/admin?tab=fraud';
   if (k === 'BUY_ORDER_FILLED' || k === 'BUY_ORDER_EXPIRED') return paths.buyorders();
   if (k === 'OFFER_RECEIVED' || k === 'OFFER_ACCEPTED' || k === 'OFFER_REJECTED' || k === 'OFFER_COUNTERED') return paths.offers();
@@ -551,7 +557,7 @@ export function NotificationBell({ me }) {
       tellNotificationsPage();
     }
     setOpen(false);
-    let target = n.path || fallbackPath(n.kind);
+    let target = n.path || fallbackPath(n.kind, n.refId);
     // Batch 744 — mirror of the NotificationsModal logic: append
     // `?highlight=<tradeId>` for TRADE_* so the trades tab scrolls the
     // right row into view. TRADE_MESSAGE already carries its own
@@ -706,9 +712,9 @@ export function NotificationBell({ me }) {
                 fontSize: 12, color: 'var(--accent)',
                 fontWeight: 600, textDecoration: 'none'
               }
-            }, items.length > 12
-                ? `View all notifications (${items.length})`
-                : 'View all notifications')
+              // No count: the bell loads at most 12 rows (100 with mutes,
+              // the server's cap), so any number here understated the total.
+            }, 'View all notifications')
           ]
     )
   );

@@ -2395,7 +2395,11 @@ export function NotificationsModal({ onClose, me }) {
   const shownItems = mutedSet.size > 0
     ? data.items.filter(n => !mutedSet.has(typeOf(n.kind)))
     : data.items;
-  const shownUnread = mutedSet.size > 0 ? shownItems.filter(n => !n.read).length : data.unread;
+  // With mutes the count comes from the loaded rows, which the server caps
+  // at 100; when that cap is hit there may be more unread, so say "N+".
+  const shownUnread = mutedSet.size > 0
+    ? shownItems.filter(n => !n.read).length + (data.items.length >= 100 ? '+' : '')
+    : data.unread;
 
   if (!me) return h(InfoModal, { title: 'Notifications', onClose },
     h(SignInNeededEmptyState, { what: 'your notifications' }));
@@ -2424,9 +2428,9 @@ export function NotificationsModal({ onClose, me }) {
       }, 'Manage →')
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
-      h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, onClick: () => setFilter('ALL') },
+      h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, 'aria-pressed': filter === 'ALL', onClick: () => setFilter('ALL') },
         'All ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length)),
-      h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, onClick: () => setFilter('UNREAD') },
+      h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, 'aria-pressed': filter === 'UNREAD', onClick: () => setFilter('UNREAD') },
         'Unread ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownUnread)),
       h('div', { style: { flex: 1 } }),
       data.items.length > 0 && (() => {
