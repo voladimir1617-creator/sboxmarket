@@ -241,7 +241,9 @@ class TradeProtectionService {
 
         notificationService?.safePush(buyerUserId, 'TRADE_PROTECTED',
             "Protection added · ${trade.itemName ?: 'your trade'}",
-            "If this trade fails you'll be auto-refunded \$${trade.price} — no support ticket needed.",
+            // Same backed wording as the opt-in panel: cancels and seller
+            // timeouts refund without protection, so it only covers disputes.
+            "Covered for \$${trade.price}. Cancelled and timed-out trades are refunded automatically either way; protection covers disputes.",
             tradeId, '/profile?tab=trades')
         // Subject = buyer (the wallet that just moved), NOT the seller.
         // Convention pinned by the sibling CLAIMED / REVERSED audit writes

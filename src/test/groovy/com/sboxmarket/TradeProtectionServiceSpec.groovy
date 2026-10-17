@@ -453,7 +453,12 @@ class TradeProtectionServiceSpec extends Specification {
         protection.updatedAt > 0
 
         and: "the buyer is notified and the action is audited"
-        1 * notificationService.safePush(10L, 'TRADE_PROTECTED', _, _, 1L, _)
+        // The push matches the panel: protection covers disputes, and
+        // cancelled / timed-out trades refund either way — it must not
+        // imply an unprotected failed trade goes unrefunded.
+        1 * notificationService.safePush(10L, 'TRADE_PROTECTED', _, { body ->
+            body.toString() == 'Covered for \$50.00. Cancelled and timed-out trades are refunded automatically either way; protection covers disputes.'
+        }, 1L, _)
         // Subject = buyer (10), not seller (20). Audit subject convention
         // for buyer-wallet money-impact events: the wallet owner is the
         // subject so bySubject() returns it on /security-activity. Mirrors
