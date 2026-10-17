@@ -8746,7 +8746,9 @@ export function App() {
                   (stallData.awayCount > 0
                     ? `${stallData.awayCount} listing${stallData.awayCount === 1 ? ' is' : 's are'} temporarily hidden until the seller is back.`
                     : 'Their listings are temporarily hidden until the seller is back.')
-                  + ' You can still view their stall and leave a review.')
+                  // Reviews come from Profile → Trades on a VERIFIED purchase
+                  // (ReviewService.leaveReview); the stall has no review form.
+                  + ' You can still view their stall, and buyers can still review past trades.')
               )
             ),
             // Stall bio — rendered when the seller has set one. Plain
