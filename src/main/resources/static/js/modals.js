@@ -1918,6 +1918,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               return h('button', {
                 key: r.id,
                 className: `chart-range-btn ${chartRange === r.id ? 'active' : ''}${insufficient ? ' is-disabled' : ''}`,
+                'aria-pressed': chartRange === r.id,
                 onClick: () => { if (!insufficient) setChartRange(r.id); },
                 disabled: insufficient,
                 title: insufficient
@@ -2068,7 +2069,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 },
                 title: o.sellerReply
               }, '↩ “', o.sellerReply, '”'),
-              h('div', { className: 'item-offer-status' }, o.status)
+              h('div', { className: 'item-offer-status' },
+                ({ PENDING: 'Pending', ACCEPTED: 'Accepted', REJECTED: 'Rejected', CANCELLED: 'Cancelled',
+                   EXPIRED: 'Expired', COUNTERED: 'Countered', CLOSED: 'Closed' })[o.status] || o.status)
             ))
           )
         ),
@@ -5652,7 +5655,15 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     } finally { setTradeUrlBusy(false); }
   };
 
+  // Latch: a double-click sent a second PUT that hit the resend cooldown
+  // and replaced the success message with an error.
+  const emailBusyRef = useRef(false);
   const saveEmail = async () => {
+    if (emailBusyRef.current) return;
+    emailBusyRef.current = true;
+    try { await saveEmailInner(); } finally { emailBusyRef.current = false; }
+  };
+  const saveEmailInner = async () => {
     setEmailResult(null);
     const trimmed = emailDraft.trim();
     if (!trimmed) return;
@@ -5978,7 +5989,15 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             autoComplete: 'email',
             autoCapitalize: 'off',
             spellCheck: false,
-            value: emailDraft, onChange: e => setEmailDraft(e.target.value)
+            'aria-label': 'Email address',
+            // The server rejects addresses over 254 characters (EMAIL_TOO_LONG).
+            maxLength: 254,
+            autoFocus: true,
+            value: emailDraft, onChange: e => setEmailDraft(e.target.value),
+            onKeyDown: e => {
+              if (e.key === 'Enter') { e.preventDefault(); saveEmail(); }
+              else if (e.key === 'Escape') { e.preventDefault(); setEditingEmail(false); }
+            }
           }),
           h('button', { className: 'buy-btn', onClick: saveEmail }, 'Save'),
           h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => setEditingEmail(false), 'aria-label': 'Cancel email edit' }, '✕')
@@ -5994,7 +6013,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             'Dev mode: use this token to verify the email.'),
           emailResult?.token && h('div', { className: 'mono', style: { fontSize: 11, color: 'var(--accent)', marginBottom: 6 } }, emailResult.token),
           h('div', { style: { display: 'flex', gap: 6 } },
-            h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Paste token', value: emailToken, onChange: e => setEmailToken(e.target.value) }),
+            h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Paste token', 'aria-label': 'Email verification code', value: emailToken, onChange: e => setEmailToken(e.target.value),
+              onKeyDown: e => { if (e.key === 'Enter') { e.preventDefault(); confirmEmail(); } } }),
             h('button', { className: 'buy-btn', onClick: () => confirmEmail() }, 'Verify')
           )
         ),
@@ -6326,6 +6346,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             spellCheck: false,
             maxLength: 6,
             placeholder: '000000',
+            'aria-label': '6-digit code from your authenticator app',
             value: twofaCode,
             // Batch 813 — auto-submit the moment 6 digits are in the
             // field. Autofill from iOS Messages / Android pastes the
@@ -11411,7 +11432,8 @@ function ProfileDevelopersTab() {
     h('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
       // Named for screen readers like the scope select; 80 is where
       // ApiKeyService cuts the label.
-      h('input', { className: 'price-input', 'aria-label': 'API key label', maxLength: 80, placeholder: 'Label (e.g. my-bot)', style: { flex: 1, minWidth: 180 }, value: label, onChange: e => setLabel(e.target.value) }),
+      h('input', { className: 'price-input', 'aria-label': 'API key label', maxLength: 80, placeholder: 'Label (e.g. my-bot)', style: { flex: 1, minWidth: 180 }, value: label, onChange: e => setLabel(e.target.value),
+        onKeyDown: e => { if (e.key === 'Enter' && !e.repeat && !busy) { e.preventDefault(); mint(); } } }),
       h('select', {
         className: 'price-input',
         'aria-label': 'API key scope',
@@ -12612,6 +12634,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           rows: 2,
           maxLength: 500,
           placeholder: 'e.g. "Quick sale, open to offers" or "Mint condition"',
+          'aria-label': 'Seller note (optional, max 500 characters)',
           value: sellDescription,
           onChange: e => setSellDescription(e.target.value),
           style: { fontFamily: 'inherit', fontSize: 13, lineHeight: 1.4, resize: 'vertical' }
@@ -13793,6 +13816,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // trap mounted continuously while a bulk-adjust API call is in flight.
   const bulkAdjustPanelRef = useRef(null);
   const bulkAdjustBusyRef  = useRef(bulkAdjustBusy);
+  const savingEditRef = useRef(false);
   bulkAdjustBusyRef.current = bulkAdjustBusy;
   const bulkAdjustClose = useCallback(() => {
     if (bulkAdjustBusyRef.current) return;
@@ -13891,6 +13915,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // that the same form already shows above the Save button.
     const itemName = original?.item?.name || null;
     const oldPrice = original ? parseFloat(original.price) : null;
+    // Latch: Save and Enter in any of the three inputs all land here, and a
+    // double-click or repeated Enter sent two PATCHes and two toasts.
+    if (savingEditRef.current) return;
+    savingEditRef.current = true;
     let res;
     try {
       res = await updateStallListing(id, patch);
@@ -13899,7 +13927,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       // stayed open with no feedback and the seller assumed the price changed.
       toast('Could not update the listing — network error. Please try again.', 'err');
       return;
-    }
+    } finally { savingEditRef.current = false; }
     if (res && res.error) { toast(res.error, 'err'); return; }
     setEditing(null);
     load();
@@ -15158,6 +15186,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         },
                         placeholder: 'auto %',
                         title: 'Auto-accept offers at or above this % discount (blank = off). e.g. 20 = accept offers ≥ 80% of ask.',
+                        'aria-label': 'Auto-accept offers at this % below ask (1–50, blank = off)',
                         inputMode: 'numeric',
                         style: { width: 80 }
                       })
