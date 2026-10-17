@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=297'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=298'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -3670,7 +3670,12 @@ export function App() {
   const commitSaveSearch = async (rawName) => {
     const name = (rawName || '').trim();
     if (!name) return;
-    if (savedSearches.length >= 10) {
+    // Same exact-name match as SavedSearchService.upsert: the server
+    // replaces that preset's filters, so do the same here (after asking)
+    // instead of listing a second one with the same name.
+    const existing = savedSearches.find(s => (s.name || '') === name.slice(0, 60));
+    if (existing && !confirm(`Replace saved search "${existing.name}" with the current filters?`)) return;
+    if (!existing && savedSearches.length >= 10) {
       showToast('Saved-search slot limit (10) reached — delete one first.', 'err');
       setSaveSearchDraft(null);
       return;
@@ -3686,15 +3691,18 @@ export function App() {
       listingType: listingTypeFilter,
       savedAt: Date.now()
     };
-    persistSavedSearches([entry, ...savedSearches]);
+    persistSavedSearches(existing
+      ? [entry, ...savedSearches.filter(s => s !== existing)]
+      : [entry, ...savedSearches]);
     setSaveSearchDraft(null);
     // Batch 912 — name the saved preset + hint at the match-alert behaviour.
     // New users don't know saved searches auto-fire notifications when a
     // fresh listing matches; surfacing it here raises retention.
     // Signed-out saves live only in this browser, so no alert can fire.
+    const verb = existing ? 'Updated' : 'Saved';
     showToast(me
-      ? `Saved search "${entry.name}" — you'll get a match alert when a fresh listing fits.`
-      : `Saved search "${entry.name}" in this browser. Sign in to get match alerts.`, 'ok');
+      ? `${verb} search "${entry.name}" — you'll get a match alert when a fresh listing fits.`
+      : `${verb} search "${entry.name}" in this browser. Sign in to get match alerts.`, 'ok');
     if (!me) return;
     try {
       const { upsertSavedSearch } = await import('./api.js');

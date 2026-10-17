@@ -1527,7 +1527,12 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           className: 'btn btn-ghost',
           title: 'Copy this loadout to your own stable — starts as PRIVATE + unlocked so you can retune before publishing',
           onClick: async () => {
-            const res = await cloneLoadout(viewing.loadout.id);
+            // A double click used to make two copies.
+            if (createBusyRef.current) return;
+            createBusyRef.current = true;
+            let res;
+            try { res = await cloneLoadout(viewing.loadout.id); }
+            finally { createBusyRef.current = false; }
             if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not clone loadout', 'err'); return; }
             toast(`Cloned to "${res?.name || 'your loadouts'}".`, 'ok');
             // Re-open the copy so the user lands directly on the new loadout.

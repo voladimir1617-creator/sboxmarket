@@ -70,7 +70,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'My purchase is stuck, what do I do?',
-    a: "First, three checks that clear most stuck trades: your Steam inventory is set to public; the Steam trade URL in your Profile is current; and you can trade on Steam (Steam Guard mobile authenticator on, no trade ban). Still stuck? Open a ticket from Profile → Support → + New Ticket and include the transaction id from your Trades tab. Clara, the automated first-responder, replies instantly with the most likely fix, and staff follow up as soon as they can; trade, payment and refund tickets jump the queue."
+    a: "First, three checks that clear most stuck trades: your Steam inventory is set to public; the Steam trade URL in your Profile is current; and you can trade on Steam (Steam Guard mobile authenticator on, no trade ban). Still stuck? Open a ticket from Profile → Support → + New Ticket and include the transaction id from your Trades tab. Clara, the automated first-responder, replies instantly with the most likely fix, and staff follow up as soon as they can."
   },
   {
     s: 'problems',
@@ -115,7 +115,7 @@ const FAQ = [
   {
     s: 'start',
     q: 'How do I delete my account?',
-    a: "Profile → Personal → Delete account. Staff review deletion requests within 1-2 business days; while the request is pending you can cancel it via the same page. Once finalized: display name, avatar, email, trade URL and 2FA are wiped; listings and trade history stay on the ledger for audit. Funds in your wallet must be withdrawn first — the request is rejected if there's a pending withdrawal or open trade."
+    a: "Profile → Personal → Delete account. Staff review deletion requests within 1-2 business days; while the request is pending you can cancel it via the same page. Once finalized: display name, avatar, email, trade URL and 2FA are wiped; listings and trade history stay on the ledger for audit. Funds in your wallet must be withdrawn first, and open trades and pending withdrawals must be resolved before staff can finalize it; staff will contact you if anything is outstanding."
   },
   {
     s: 'problems',
