@@ -1008,15 +1008,20 @@ Profile → Trades${itemUrl ? ' or open the item: ' + absUrl(itemUrl) : '.'}
      *  actually arrived — the in-app TRADE_VERIFIED notification is
      *  easy to miss for days. `autoReleaseDays` is set only on the sweep
      *  path, where the buyer never confirmed, so the opening line says
-     *  the window ran out instead of claiming a confirmation. */
+     *  the window ran out instead of claiming a confirmation;
+     *  `buyerConfirmed` is false on the admin force-release path, which
+     *  states only that the sale is complete. */
     void sendSaleCompleted(String toEmail, String displayName, String itemName,
-                           BigDecimal netCredit, String walletUrl, Long autoReleaseDays = null) {
+                           BigDecimal netCredit, String walletUrl, Long autoReleaseDays = null,
+                           boolean buyerConfirmed = true) {
         if (!toEmail) return
         def subject = "Sale completed · ${itemName ?: 'your listing'}"
         def item = itemName ?: 'your item'
         def opening = autoReleaseDays
             ? "The buyer's ${autoReleaseDays}-day window to confirm or dispute ${item} ended, so funds have"
-            : "The buyer confirmed receipt of ${item} and funds have"
+            : buyerConfirmed
+            ? "The buyer confirmed receipt of ${item} and funds have"
+            : "Your sale of ${item} is complete, so funds have"
         def body = """\
 Hi ${displayName ?: 'there'},
 

@@ -1767,7 +1767,29 @@ class TradeServiceSpec extends Specification {
 
         then:
         1 * emailService.sendSaleCompleted('bob@example.com', 'Bob', 'Wizard Hat',
-            new BigDecimal("49.00"), '/wallet', 8L)
+            new BigDecimal("49.00"), '/wallet', 8L, true)
+    }
+
+    def "the seller's sale email on an admin force-release does not claim a buyer confirmation"() {
+        given:
+        def t = tradeIn('DISPUTED', [id: 9L])
+        def sellerWallet = new Wallet(id: 600L, balance: new BigDecimal("0"))
+        def seller = new com.sboxmarket.model.SteamUser(id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: true, emailNotificationsEnabled: true)
+        tradeRepository.findById(9L) >> Optional.of(t)
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.save(_) >> { Wallet w -> w }
+        adminAuthorization.requireAdmin(999L) >> {}
+        emailService.canSendTo(seller, 'TRADES') >> true
+
+        when:
+        service.adminRelease(999L, 9L, 'released')
+
+        then:
+        1 * emailService.sendSaleCompleted('bob@example.com', 'Bob', 'Wizard Hat',
+            new BigDecimal("49.00"), '/wallet', null, false)
     }
 
     def "the seller's sale email on a buyer confirm carries no auto-release window"() {
@@ -1788,7 +1810,7 @@ class TradeServiceSpec extends Specification {
 
         then:
         1 * emailService.sendSaleCompleted('bob@example.com', 'Bob', 'Wizard Hat',
-            new BigDecimal("49.00"), '/wallet', null)
+            new BigDecimal("49.00"), '/wallet', null, true)
     }
 
     def "sweepPendingConfirm keeps going even if one release throws"() {

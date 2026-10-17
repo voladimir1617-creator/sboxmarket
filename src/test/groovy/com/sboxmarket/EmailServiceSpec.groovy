@@ -533,20 +533,21 @@ class EmailServiceSpec extends Specification {
 
         when:
         svc.sendSaleCompleted('seller@example.com', 'Sam', 'Wizard Hat',
-            new BigDecimal('49.00'), '/wallet', days)
+            new BigDecimal('49.00'), '/wallet', days, confirmed)
         svc.awaitSmtpForTests()
 
         then:
         1 * mailSender.send(_) >> { MimeMessage msg -> text = fields(msg).text }
         text.contains(opening)
         text.contains('been released from escrow')
-        text.contains('confirmed receipt') == (days == null)
+        text.contains('confirmed receipt') == (days == null && confirmed)
         !text.contains('business days')
 
         where:
-        days | opening
-        null | 'The buyer confirmed receipt of Wizard Hat and funds have'
-        8L   | "The buyer's 8-day window to confirm or dispute Wizard Hat ended, so funds have"
+        days | confirmed | opening
+        null | true      | 'The buyer confirmed receipt of Wizard Hat and funds have'
+        8L   | true      | "The buyer's 8-day window to confirm or dispute Wizard Hat ended, so funds have"
+        null | false     | 'Your sale of Wizard Hat is complete, so funds have'
     }
 
     def "sendPurchaseReceipt surfaces the price + seller name (batch 571)"() {
