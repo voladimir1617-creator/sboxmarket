@@ -2725,7 +2725,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           // the buyer can see which row they are bargaining on.
           offerTarget && cheapestBuyNow && offerTarget.id !== cheapestBuyNow.id && h('span', { className: 'offer-drawer-target', 'data-testid': 'offer-drawer-target' },
             ' to ' + (offerTarget.sellerName || 'this seller') + ' (listing #' + offerTarget.id + ')'),
-          ask > 0 && h('span', { className: 'offer-drawer-ask' }, ' · must be below the ' + fmt(ask) + ' asking price')),
+          ask > 0 && h('span', { className: 'offer-drawer-ask' }, ' · must be below the ' + fmtUsd(ask) + ' asking price')),
         h('input', {
           className: 'wallet-amount-input',
           type: 'number', min: '0.01', step: '0.01',
@@ -5035,8 +5035,11 @@ function EmailPrefToggle({ initial, onChange }) {
     h('div', {
       className: `toggle-switch ${on ? '' : 'off'}`,
       onClick: toggle,
+      onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } },
       role: 'switch',
+      tabIndex: 0,
       'aria-checked': on,
+      'aria-label': 'Email notifications',
       title: on ? 'Email notifications ON — click to disable' : 'Email notifications OFF — click to enable'
     }),
     h('span', { style: { fontSize: 11, color: 'var(--text-muted)' } },
@@ -6091,7 +6094,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
             value: tradeUrlDraft,
             style: { flex: 1, minWidth: 240, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12 },
-            onChange: e => setTradeUrlDraft(e.target.value)
+            onChange: e => setTradeUrlDraft(e.target.value),
+            onKeyDown: e => {
+              if (e.key === 'Enter' && !tradeUrlBusy) { e.preventDefault(); saveTradeUrl(tradeUrlDraft.trim()); }
+              else if (e.key === 'Escape' && !tradeUrlBusy) { e.preventDefault(); setEditingTradeUrl(false); setTradeUrlErr(''); }
+            }
           }),
           h('button', { className: 'btn btn-accent', disabled: tradeUrlBusy, onClick: () => saveTradeUrl(tradeUrlDraft.trim()) }, tradeUrlBusy ? 'Saving…' : 'Save'),
           h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: tradeUrlBusy, onClick: () => { setEditingTradeUrl(false); setTradeUrlErr(''); } }, 'Cancel')
@@ -10508,6 +10515,7 @@ function ProfileReviewsTab({ me }) {
   const [editId, setEditId]   = useState(null);
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
+  const replyBusyRef = useRef(false);
   // Batch 750 — Given-tab inline edit state. Separate from the
   // Received-tab reply-edit fields so a user mid-edit on one side
   // doesn't lose their draft when switching tabs.
@@ -10660,6 +10668,8 @@ function ProfileReviewsTab({ me }) {
 
   const filtered = starFilter > 0 ? rows.filter(r => r.rating === starFilter) : rows;
   const submit = async (reviewId, clear = false) => {
+    if (replyBusyRef.current) return;
+    replyBusyRef.current = true;
     setBusy(true);
     try {
       // Pre-fix: silent on success — seller replies to a review, hits
@@ -10676,7 +10686,7 @@ function ProfileReviewsTab({ me }) {
         ? `Reply removed from ${who}'s review.`
         : `Reply posted to ${who}'s review.`,
         'ok');
-    } finally { setBusy(false); }
+    } finally { replyBusyRef.current = false; setBusy(false); }
   };
   const deleteMine = async (reviewId) => {
     if (!confirm('Delete this review? This cannot be undone.')) return;
@@ -10911,7 +10921,9 @@ function ProfileReviewsTab({ me }) {
                       type: 'button',
                       className: 'star-btn' + (editGivenStars >= n ? ' on' : ''),
                       onClick: () => setEditGivenStars(n),
-                      title: n + '★'
+                      title: n + '★',
+                      'aria-label': `${n} star${n === 1 ? '' : 's'}`,
+                      'aria-pressed': editGivenStars === n
                     }, editGivenStars >= n ? '★' : '☆'))
                   ),
                   h('textarea', {
@@ -10919,6 +10931,7 @@ function ProfileReviewsTab({ me }) {
                     onChange: e => setEditGivenComment(e.target.value),
                     maxLength: 500,
                     'aria-label': 'Edit your review comment',
+                    onKeyDown: e => { if (e.key === 'Escape' && !editGivenBusy) { e.preventDefault(); cancelEditGiven(); } },
                     placeholder: 'Share context so future buyers can judge this seller (optional, 500 chars).',
                     style: { width: '100%', marginTop: 8, minHeight: 80, fontSize: 12 }
                   }),
@@ -10952,6 +10965,7 @@ function ProfileReviewsTab({ me }) {
                     onChange: e => setDraft(e.target.value),
                     maxLength: 300,
                     'aria-label': 'Seller reply to review',
+                    onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); setEditId(null); setDraft(''); } },
                     placeholder: 'Public response (300 chars)',
                     autoFocus: true
                   }),
@@ -10975,6 +10989,7 @@ function ProfileReviewsTab({ me }) {
                     r.sellerReply && h('button', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
+                      disabled: busy,
                       onClick: () => submit(r.id, true)
                     }, 'Remove reply')
                   ))
@@ -14386,6 +14401,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     h('div', { className: 'stall-toolbar' },
       h('button', {
         className: `toggle-switch ${away ? '' : 'off'}`,
+        role: 'switch',
+        'aria-checked': away,
+        'aria-label': 'Away mode (hide all listings)',
         style: { display: 'inline-block', verticalAlign: 'middle', marginRight: 10 },
         onClick: toggleAway
       }),
@@ -14477,6 +14495,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           min: localYmd(new Date()),
           max: localYmd(new Date(Date.now() + 90 * 86400_000)),
           onChange: e => setAwayDraftDate(e.target.value),
+          onKeyDown: e => {
+            if (e.key === 'Enter') { e.preventDefault(); scheduleAwayReturn(); }
+            else if (e.key === 'Escape') { e.preventDefault(); setPickingAwayUntil(false); }
+          },
           style: { fontSize: 11, padding: '3px 6px' }
         }),
         h('button', {
