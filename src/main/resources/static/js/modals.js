@@ -959,7 +959,16 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
     return h('button', {
       className: 'btn btn-ghost btn-wishlist' + (starred ? ' on' : ''),
       style: { border: '1px solid var(--border)', ...(compact ? compactBtn : {}) },
-      onClick: () => onToggleStar && item?.id != null && onToggleStar(item.id),
+      onClick: () => {
+        if (!onToggleStar || item?.id == null) return;
+        onToggleStar(item.id);
+        // Unwatching cancels the item's price alert server-side
+        // (WatchlistService.remove), so stop showing it as set and say so.
+        if (starred && myAlert && me?.id) {
+          setMyAlert(null);
+          toast(`Your price alert on ${item.name || 'this item'} was cancelled too.`, 'ok');
+        }
+      },
       title: starred ? 'Remove from watchlist' : 'Add to watchlist',
       'aria-label': starred ? `Remove ${item.name} from watchlist` : `Add ${item.name} to watchlist`,
       'aria-pressed': starred
@@ -1189,7 +1198,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         floor > 0 && h('span', null, 'Current floor ', h('strong', null, fmt(floor)), ' · '),
         valid
           ? (aboveFloor
-              ? 'This target is already at or above the current floor — the alert will fire immediately.'
+              ? 'This target is already at or above the current floor — the alert will fire on the next price check, within a few minutes.'
               : `We'll ping you when any listing on this item drops to ${fmt(typed)} or lower.`)
           : 'Enter a positive dollar amount.'
       ),
@@ -2721,15 +2730,15 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           placeholder: 'e.g. ' + (ask > 0 ? ask * 0.85 : 0).toFixed(2),
           value: offerAmt,
           onChange: e => setOfferAmt(e.target.value),
-          // Batch 823 — Esc closes the offer drawer. Before this the
-          // drawer ate focus but gave the user no keyboard exit; the
-          // only dismissal was a pointer click on the ✕ button.
-          // (Enter-to-submit is NOT wired here because the submit
-          // handler is a closure on the Send Offer button — refactoring
-          // it out would churn validation logic that's already carefully
-          // tested. Esc-to-close is the high-value half of the
-          // keyboard loop.)
+          // Esc closes the offer drawer. Enter (the phone's Send key, from
+          // enterKeyHint) presses Send Offer itself, so its checks and its
+          // disabled state still decide; a disabled button ignores click().
           onKeyDown: (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.currentTarget.closest('.item-offer-drawer')?.querySelector('[data-offer-send]')?.click();
+              return;
+            }
             if (e.key === 'Escape') {
               e.stopPropagation(); e.preventDefault();
               setOfferOpen(false);
@@ -2829,6 +2838,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                     : undefined;
             return h(React.Fragment, null, h('button', {
               className: 'btn btn-accent',
+              'data-offer-send': '',
               style: { padding: '0 22px', fontSize: 13 },
               disabled: offerBusy || !offerAmt || atOrAboveAsk || !!myLive || !hasTradeUrl,
               title: whyDisabled,
@@ -5466,7 +5476,11 @@ function SecurityActivityRow() {
     ADMIN_REVOKED:           { label: 'Admin role revoked',     icon: '—' },
     CSR_GRANTED:             { label: 'CSR role granted',       icon: '—' },
     CSR_REVOKED:             { label: 'CSR role revoked',       icon: '—' },
-    REFUND_ISSUED:           { label: 'Refund issued',          icon: '↩' }
+    REFUND_ISSUED:           { label: 'Refund issued',          icon: '↩' },
+    // Also on the server whitelist; they showed as raw codes.
+    TRADE_AUTO_RELEASED:       { label: 'Trade auto-released',       icon: '✓' },
+    TRADE_PROTECTION_CLAIMED:  { label: 'Trade Protection paid out', icon: '↩' },
+    TRADE_PROTECTION_REVERSED: { label: 'Trade Protection reversed', icon: '↺' }
   };
   return h('div', { className: 'profile-row' },
     h('div', { className: 'profile-row-label' }, 'Security activity'),
@@ -10114,7 +10128,19 @@ function ProfileOffersTab() {
           'aria-label': isIncoming ? 'Counter price in USD' : 'Raise offer to, in USD',
           placeholder: isIncoming ? 'Counter (USD)' : 'Raise to (USD)',
           value: counterAmt,
-          onChange: e => setCounterAmt(e.target.value)
+          onChange: e => setCounterAmt(e.target.value),
+          // Same keys as the /offers page: Enter presses the form's send
+          // button (ignored while it is disabled), Esc closes the form.
+          onKeyDown: (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.currentTarget.parentElement?.querySelector('.buy-btn')?.click();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setCounterFor(null);
+            }
+          },
+          autoFocus: true
         }),
         // Quick-price chips (batch 372) — one-click common counter
         // amounts so the seller doesn't have to type. Halfway between
@@ -11192,8 +11218,8 @@ function ProfileSupportTab() {
           '⏱ Response times'),
         h('div', null,
           ['TRADE','PAYMENT','REFUND'].includes(form.category)
-            ? 'Trade, payment, and refund tickets are answered first, as soon as staff can. Include transaction IDs in the message to speed up review.'
-            : 'Staff answer tickets as soon as they can. Trade, payment, and refund tickets jump the queue automatically. Include any relevant IDs, screenshots, or Steam offer URLs.')
+            ? 'Staff answer tickets as soon as they can. Include transaction IDs in the message to speed up review.'
+            : 'Staff answer tickets as soon as they can. Include any relevant IDs, screenshots, or Steam offer URLs.')
       ),
       h('div', { className: 'wallet-input-label' }, 'Subject'),
       // a11y audit — visible label exists but wasn't programmatically tied
@@ -11334,7 +11360,9 @@ function ProfileDevelopersTab() {
         href: '/help?q=API', style: { color: 'var(--accent)', marginLeft: 6 }
       }, 'How to use the API →')),
     h('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
-      h('input', { className: 'price-input', placeholder: 'Label (e.g. my-bot)', style: { flex: 1, minWidth: 180 }, value: label, onChange: e => setLabel(e.target.value) }),
+      // Named for screen readers like the scope select; 80 is where
+      // ApiKeyService cuts the label.
+      h('input', { className: 'price-input', 'aria-label': 'API key label', maxLength: 80, placeholder: 'Label (e.g. my-bot)', style: { flex: 1, minWidth: 180 }, value: label, onChange: e => setLabel(e.target.value) }),
       h('select', {
         className: 'price-input',
         'aria-label': 'API key scope',
