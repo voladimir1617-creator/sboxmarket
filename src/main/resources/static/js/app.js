@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=305'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=306'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -7433,11 +7433,14 @@ export function App() {
           onClick: async (e) => {
             const url = window.location.href;
             const btn = e.currentTarget;
-            const prev = btn.textContent;
+            // A second click mid-flash would save "Copied" as the label.
             const flash = () => {
+              if (btn.dataset.flashing) return;
+              btn.dataset.flashing = '1';
+              const prev = btn.textContent;
               btn.textContent = 'Copied';
               btn.style.color = 'var(--green)';
-              setTimeout(() => { btn.textContent = prev; btn.style.color = ''; }, 1200);
+              setTimeout(() => { btn.textContent = prev; btn.style.color = ''; delete btn.dataset.flashing; }, 1200);
             };
             try {
               if (navigator.clipboard?.writeText) {
@@ -8450,18 +8453,25 @@ export function App() {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { padding: '6px 12px', fontSize: 11, border: '1px solid rgba(248,113,113,0.4)', color: 'inherit' },
-                onClick: async () => {
-                  const { unblockUser } = await import('./api.js');
-                  const res = await unblockUser(stallData.seller.id);
-                  if (res && (res.error || res.code)) {
-                    showToast(res.message || res.error || 'Could not unblock', 'err');
-                    return;
-                  }
-                  // Refresh stall so the banner disappears and the
-                  // blockedByViewer flag flips back to false.
-                  const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
-                  if (fresh && !fresh.__error) setStallData(fresh);
-                  showToast('Unblocked.', 'ok');
+                onClick: async (e) => {
+                  // Double-click latch: the banner stays up until the
+                  // refetch lands, so a second click sent a second DELETE.
+                  const btn = e.currentTarget;
+                  if (btn.disabled) return;
+                  btn.disabled = true;
+                  try {
+                    const { unblockUser } = await import('./api.js');
+                    const res = await unblockUser(stallData.seller.id);
+                    if (res && (res.error || res.code)) {
+                      showToast(res.message || res.error || 'Could not unblock', 'err');
+                      return;
+                    }
+                    // Refresh stall so the banner disappears and the
+                    // blockedByViewer flag flips back to false.
+                    const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
+                    if (fresh && !fresh.__error) setStallData(fresh);
+                    showToast('Unblocked.', 'ok');
+                  } finally { btn.disabled = false; }
                 }
               }, 'Unblock')
             ),

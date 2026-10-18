@@ -295,7 +295,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
        read "0 results · page 1 / 1" sitting above the error panel, which
        looks like a contradictory healthy-but-empty result. */
     !loadErr && h('div', { className: 'db-meta' },
-      h('strong', null, Number(data.total).toLocaleString()), ' results · page ',
+      h('strong', null, Number(data.total).toLocaleString()), Number(data.total) === 1 ? ' result · page ' : ' results · page ',
       h('strong', null, page + 1), ' / ', totalPages
     ),
     /* CSFLOAT-1:1 ship #10302 — rarity legend / key. Three tier swatches
@@ -1397,6 +1397,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   const [generatingLoadout, setGeneratingLoadout] = useState(false);
   const [favBusy, setFavBusy] = useState(false);
   const favBusyRef = useRef(false);
+  const [visBusy, setVisBusy] = useState(false);
+  const visBusyRef = useRef(false);
   const handleGenerate = async () => {
     if (!viewing || generatingLoadout) return;
     // Tolerant parse — strip `$`, commas, currency code prefixes so a user
@@ -1613,22 +1615,30 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           title: viewing.loadout.visibility === 'PUBLIC'
             ? 'Make PRIVATE — hide from Discover. Only you can view it; its link stops working for everyone else.'
             : 'Make PUBLIC — show in Discover so others can favorite + clone.',
+          disabled: visBusy,
           onClick: async () => {
-            const nextVis = viewing.loadout.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
-            const res = await updateLoadout(viewing.loadout.id, { visibility: nextVis });
-            if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not change visibility', 'err'); return; }
-            toast(`Loadout is now ${nextVis}.`, 'ok');
-            // 2026-05-20 audit fix — `load()` refetches the Discover/Mine
-            // *list*, not the open `viewing` loadout, so the toggle's own
-            // label + tooltip stayed stale and a second click recomputed
-            // nextVis from the old value (sending the wrong target).
-            // Reflect the new visibility in `viewing` in place, matching
-            // the favorite handler's optimistic-update pattern above.
-            setViewing(prev => prev ? {
-              ...prev,
-              loadout: { ...prev.loadout, visibility: nextVis }
-            } : prev);
-            await load();
+            // Double-click latch, as on Favorite: two clicks sent two PUTs
+            // and stacked two "Loadout is now X" toasts.
+            if (visBusyRef.current) return;
+            visBusyRef.current = true;
+            setVisBusy(true);
+            try {
+              const nextVis = viewing.loadout.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+              const res = await updateLoadout(viewing.loadout.id, { visibility: nextVis });
+              if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not change visibility', 'err'); return; }
+              toast(`Loadout is now ${nextVis}.`, 'ok');
+              // 2026-05-20 audit fix — `load()` refetches the Discover/Mine
+              // *list*, not the open `viewing` loadout, so the toggle's own
+              // label + tooltip stayed stale and a second click recomputed
+              // nextVis from the old value (sending the wrong target).
+              // Reflect the new visibility in `viewing` in place, matching
+              // the favorite handler's optimistic-update pattern above.
+              setViewing(prev => prev ? {
+                ...prev,
+                loadout: { ...prev.loadout, visibility: nextVis }
+              } : prev);
+              await load();
+            } finally { visBusyRef.current = false; setVisBusy(false); }
           }
         }, viewing.loadout.visibility === 'PUBLIC' ? 'Public' : 'Private'),
         isOwner && h('button', { className: 'btn btn-ghost', style: { color: 'var(--red)', border: '1px solid rgba(248,113,113,0.3)' }, onClick: handleDelete }, 'Delete'),
@@ -2232,7 +2242,15 @@ export function NotificationsModal({ onClose, me }) {
   // a user filtering to "Trades" and clicking "Mark all read" silently
   // wipes unread rows in every other bucket too. Full view (no filter)
   // still uses the cheap single-endpoint `/read-all`.
+  // Double-click latch: both clicks would count the same unread rows,
+  // post twice and stack two "Marked N read" toasts.
+  const clearBusyRef = useRef(false);
   const clear = async () => {
+    if (clearBusyRef.current) return;
+    clearBusyRef.current = true;
+    try { await clearOnce(); } finally { clearBusyRef.current = false; }
+  };
+  const clearOnce = async () => {
     const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0) || mutedSet.size > 0;
     if (filterActive) {
       const ids = groups.flatMap(g => g.items).filter(n => !n.read).map(n => n.id);
