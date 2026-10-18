@@ -4379,6 +4379,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   const [profile, setProfile]     = useState(undefined);
   const [privacy, setPrivacy]     = useState(() => localStorage.getItem('sb_privacy') === '1');
   const [syncing, setSyncing]     = useState(false);
+  // Double-click latch: the syncing state lags a re-render, so a quick second click ran a second Steam sync.
+  const syncBusyRef = useRef(false);
   // Actionable-trade count — trades where the signed-in user is the
   // blocking party. Drives the red pip on the Trades tab so users see
   // at-a-glance that a trade needs their input. Fetched once at profile-
@@ -4564,6 +4566,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   const maskAmount = (val) => privacy ? '$•••••' : fmt(val);
 
   const runSync = async () => {
+    if (syncBusyRef.current) return;
+    syncBusyRef.current = true;
+    try { return await runSyncOnce(); } finally { syncBusyRef.current = false; }
+  };
+  const runSyncOnce = async () => {
     setSyncing(true);
     try {
       // Pre-fix: silent both ways — successful sync left the user to
@@ -11447,7 +11454,14 @@ function ProfileDevelopersTab() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  // Double-click latch: the busy state lags a re-render, so a quick second click minted a second API key.
+  const mintBusyRef = useRef(false);
   const mint = async () => {
+    if (mintBusyRef.current) return;
+    mintBusyRef.current = true;
+    try { return await mintOnce(); } finally { mintBusyRef.current = false; }
+  };
+  const mintOnce = async () => {
     setBusy(true);
     try {
       const res = await createApiKey(label || 'Untitled', scope);
@@ -11694,6 +11708,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const busyRef = useRef(busy); busyRef.current = busy;
   const [error, setError]         = useState('');
   const [syncing, setSyncing]     = useState(false);
+  // Double-click latch: the syncing state lags a re-render, so a quick second click ran a second Steam sync.
+  const resyncBusyRef = useRef(false);
   // Listing-type + auction duration. Default to BUY_NOW so the form shape
   // stays backwards-compatible; the user opts into AUCTION by flipping the
   // radio, which reveals the duration picker. Duration is in hours, 1-168
@@ -11906,6 +11922,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     h(SignInNeededEmptyState, { what: 'your Steam inventory and platform inventory' }));
 
   const resync = async () => {
+    if (resyncBusyRef.current) return;
+    resyncBusyRef.current = true;
+    try { return await resyncOnce(); } finally { resyncBusyRef.current = false; }
+  };
+  const resyncOnce = async () => {
     setSyncing(true);
     try {
       // Batch 920 — surface the sync result. Previously the click
