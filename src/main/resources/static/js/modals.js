@@ -1324,10 +1324,12 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   /* Use innerHTML so the Material icon span survives the
                      "Copied" flash. Otherwise textContent overwrites the
                      icon and only the literal word "Copied" remains. */
+                  if (btn.dataset.flashing) return;
+                  btn.dataset.flashing = '1';
                   const prev = btn.innerHTML;
                   btn.textContent = 'Copied';
                   btn.style.color = 'var(--green)';
-                  setTimeout(() => { btn.innerHTML = prev; btn.style.color = ''; }, 1400);
+                  setTimeout(() => { btn.innerHTML = prev; btn.style.color = ''; delete btn.dataset.flashing; }, 1400);
                 };
                 // Native share sheet: Discord, Twitter/X, Messages,
                 // AirDrop, etc. — the standard mobile experience and
@@ -5163,18 +5165,25 @@ function FollowingListRow() {
     })();
     return () => { alive = false; };
   }, [reloadKey]);
+  // Per-row double-click latch: the row stays until the DELETE lands,
+  // so a second click sent a second DELETE and a second toast.
+  const unfollowBusyRef = useRef(new Set());
   const doUnfollow = async (sellerId) => {
-    // Batch 925 — capture the seller name from the enriched-names map
-    // BEFORE the row filter runs so the toast names the right stall.
-    const who = names[sellerId];
-    const { unfollowSeller } = await import('./api.js');
-    const res = await unfollowSeller(sellerId);
-    if (res && (res.error || res.code)) {
-      toast(res.message || res.error || 'Could not unfollow', 'err');
-      return;
-    }
-    setRows(rs => (rs || []).filter(r => r.sellerUserId !== sellerId));
-    toast(who ? `Unfollowed @${who}.` : 'Unfollowed.', 'ok');
+    if (unfollowBusyRef.current.has(sellerId)) return;
+    unfollowBusyRef.current.add(sellerId);
+    try {
+      // Batch 925 — capture the seller name from the enriched-names map
+      // BEFORE the row filter runs so the toast names the right stall.
+      const who = names[sellerId];
+      const { unfollowSeller } = await import('./api.js');
+      const res = await unfollowSeller(sellerId);
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || 'Could not unfollow', 'err');
+        return;
+      }
+      setRows(rs => (rs || []).filter(r => r.sellerUserId !== sellerId));
+      toast(who ? `Unfollowed @${who}.` : 'Unfollowed.', 'ok');
+    } finally { unfollowBusyRef.current.delete(sellerId); }
   };
   // Mute / un-mute the new-listing pings for one seller without
   // unfollowing (batch 279). Optimistic flip with revert on error.
@@ -5319,20 +5328,27 @@ function BlockedListRow() {
     } catch (_) { setRows([]); }
   }, []);
   useEffect(() => { loadRows(); }, [loadRows]);
+  // Per-row double-click latch, as on the Following list.
+  const unblockBusyRef = useRef(new Set());
   const doUnblock = async (userId) => {
-    // Batch 911 — capture display name BEFORE the row is filtered out
-    // of local state so the confirmation toast can name the user even
-    // after the list has re-rendered.
-    const r = (rows || []).find(x => Number(x.blockedUserId) === Number(userId));
-    const who = r?.blockedName || r?.displayName || null;
-    const { unblockUser } = await import('./api.js');
-    const res = await unblockUser(userId);
-    if (res && (res.error || res.code)) {
-      toast(res.message || res.error || 'Could not unblock', 'err');
-      return;
-    }
-    setRows(rs => (rs || []).filter(r => Number(r.blockedUserId) !== Number(userId)));
-    toast(who ? `Unblocked @${who} — their listings are visible again.` : 'Unblocked.', 'ok');
+    const key = Number(userId);
+    if (unblockBusyRef.current.has(key)) return;
+    unblockBusyRef.current.add(key);
+    try {
+      // Batch 911 — capture display name BEFORE the row is filtered out
+      // of local state so the confirmation toast can name the user even
+      // after the list has re-rendered.
+      const r = (rows || []).find(x => Number(x.blockedUserId) === key);
+      const who = r?.blockedName || r?.displayName || null;
+      const { unblockUser } = await import('./api.js');
+      const res = await unblockUser(userId);
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || 'Could not unblock', 'err');
+        return;
+      }
+      setRows(rs => (rs || []).filter(r => Number(r.blockedUserId) !== key));
+      toast(who ? `Unblocked @${who} — their listings are visible again.` : 'Unblocked.', 'ok');
+    } finally { unblockBusyRef.current.delete(key); }
   };
   const doUnblockAll = async () => {
     if (rows.length === 0) return;
@@ -5881,14 +5897,18 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           title: 'Copy Steam ID to clipboard',
           'aria-label': 'Copy Steam ID',
           onClick: async (e) => {
+            // React nulls currentTarget once the handler yields, so read
+            // it before the await or the flash throws into the prompt.
+            const btn = e.currentTarget;
             try {
               if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(me.steamId64);
-                const btn = e.currentTarget;
+                if (btn.dataset.flashing) return;
+                btn.dataset.flashing = '1';
                 const prev = btn.textContent;
                 btn.textContent = '✓';
                 btn.style.color = 'var(--green)';
-                setTimeout(() => { btn.textContent = prev; btn.style.color = ''; }, 1200);
+                setTimeout(() => { btn.textContent = prev; btn.style.color = ''; delete btn.dataset.flashing; }, 1200);
               } else {
                 window.prompt('Copy:', me.steamId64);
               }
@@ -13347,7 +13367,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         },
         title: `Server caps this list at 500 rows per request. Older items stay safe in your inventory — list the most recent ones first.`
       },
-        h('span', null, '—',
+        h('span', null,
           'Showing most recent ',
           h('strong', { style: { color: 'var(--text-primary)' } }, internalList.length),
           ' of ',
@@ -14330,7 +14350,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         h('strong', null,
           // Rounded down: 3.996 is under 4★ and must not read as 4★.
           verify.ratingAverage != null ? (Math.floor(verify.ratingAverage * 100) / 100) + '★' : '—',
-          verify.ratingCount > 0 ? ' (' + verify.ratingCount + ' reviews)' : ''
+          verify.ratingCount > 0 ? ' (' + verify.ratingCount + (verify.ratingCount === 1 ? ' review)' : ' reviews)') : ''
         )
       ),
       verify.verified && h('span', { style: { color: 'var(--green)', fontWeight: 600 } },
@@ -14438,10 +14458,12 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             : `Browse my ${BRAND.name} stall — s&box skin marketplace.`;
           const btn = e.currentTarget;
           const flash = () => {
+            if (btn.dataset.flashing) return;
+            btn.dataset.flashing = '1';
             const prev = btn.textContent;
             btn.textContent = 'Copied';
             btn.style.color = 'var(--green)';
-            setTimeout(() => { btn.textContent = prev; btn.style.color = ''; }, 1400);
+            setTimeout(() => { btn.textContent = prev; btn.style.color = ''; delete btn.dataset.flashing; }, 1400);
           };
           if (typeof navigator.share === 'function') {
             try {
@@ -14854,7 +14876,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 },
                 title: 'Server caps the list at 200 rows. Full history lives in the CSV export.'
               },
-                h('span', null, '—',
+                h('span', null,
                   'Showing most recent ',
                   h('strong', { style: { color: 'var(--text-primary)' } }, sold.length),
                   ' of ',
@@ -14896,7 +14918,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 )
               ),
               h('div', { className: 'mystall-sold-summary' },
-                h('span', { className: 'mystall-sold-label' }, 'Gross · last ' + sold.length + ' sales'),
+                h('span', { className: 'mystall-sold-label' }, 'Gross · last ' + sold.length + (sold.length === 1 ? ' sale' : ' sales')),
                 // Privacy-mask seller revenue — consistent with maskEarn
                 // on the earnings hero strip above.
                 h('span', { className: 'mystall-sold-total' }, maskEarn(soldTotal)),
@@ -14971,7 +14993,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       },
       title: 'Server caps the list at 500 rows. Download the CSV to see every active listing.'
     },
-      h('span', null, '—',
+      h('span', null,
         'Showing most recent ',
         h('strong', { style: { color: 'var(--text-primary)' } }, stall.length),
         ' of ',
