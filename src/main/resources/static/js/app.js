@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=304'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=305'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -7400,10 +7400,11 @@ export function App() {
               // The server filter is inclusive (>= min, <= max), so the
               // strict "<" and ">" chips stop a cent short: max=2 put a
               // $2.00 item under "<$2" as well as "$2–$5".
-              { min: '',      max: '1.99', fmt: (lo, hi) => '<' + fmt(2) },
-              { min: '2',     max: '4.99', fmt: (lo, hi) => fmt(2) + '–' + fmt(5) },
-              { min: '5',     max: '10',   fmt: (lo, hi) => fmt(5) + '–' + fmt(10) },
-              { min: '10.01', max: '',     fmt: (lo, hi) => '>' + fmt(10) }
+              // Labelled in dollars: the boxes they fill are USD.
+              { min: '',      max: '1.99', fmt: (lo, hi) => '<$2.00' },
+              { min: '2',     max: '4.99', fmt: (lo, hi) => '$2.00–$5.00' },
+              { min: '5',     max: '10',   fmt: (lo, hi) => '$5.00–$10.00' },
+              { min: '10.01', max: '',     fmt: (lo, hi) => '>$10.00' }
             ].map(chip => {
               const label = chip.fmt();
               const isActive = String(minPrice || '') === chip.min && String(maxPrice || '') === chip.max;
@@ -7880,8 +7881,8 @@ export function App() {
               'search: ', h('strong', null, '"' + search + '"'), h('span', { 'aria-hidden': true }, ' ✕')),
             category !== 'All' && h('button', { className: 'filter-chip', onClick: () => setCategory('All'), 'aria-label': `Remove category filter: ${category}` },
               h('strong', null, category), h('span', { 'aria-hidden': true }, ' ✕')),
-            rarity !== 'All' && h('button', { className: 'filter-chip', onClick: () => setRarity('All'), 'aria-label': `Remove rarity filter: ${rarity}` },
-              h('strong', null, rarity), h('span', { 'aria-hidden': true }, ' ✕')),
+            rarity !== 'All' && h('button', { className: 'filter-chip', onClick: () => setRarity('All'), 'aria-label': `Remove rarity filter: ${rarity === 'Off-Market' ? 'Scarce' : rarity}` },
+              h('strong', null, rarity === 'Off-Market' ? 'Scarce' : rarity), h('span', { 'aria-hidden': true }, ' ✕')),
             minPrice && h('button', { className: 'filter-chip', onClick: () => setMinPrice(''), 'aria-label': `Remove minimum price filter $${minPrice}` },
               '≥ $', h('strong', null, minPrice), h('span', { 'aria-hidden': true }, ' ✕')),
             maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice(''), 'aria-label': `Remove maximum price filter $${maxPrice}` },
@@ -8845,7 +8846,7 @@ export function App() {
                           className: `wallet-tx-filter-chip ${stallRarity === r ? 'active' : ''}`,
                           'aria-pressed': stallRarity === r,
                           onClick: () => setStallRarity(r)
-                        }, `${r} · ${stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === r).length}`))
+                        }, `${r === 'Off-Market' ? 'Scarce' : r} · ${stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === r).length}`))
                       ),
                       // Name search — only surfaces when the stall is big
                       // enough that eyeballing the grid isn't fast.

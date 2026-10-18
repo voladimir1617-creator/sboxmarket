@@ -169,7 +169,7 @@ const SHORTCUTS = [
   { keys: '/',           desc: 'Focus the marketplace search box' },
   { keys: '⌘/Ctrl + K',  desc: 'Focus search from anywhere (works even while typing in another input)' },
   { keys: '?',           desc: 'Toggle the keyboard shortcut cheat-sheet overlay' },
-  { keys: 'Esc',    desc: 'Close the current item detail / modal / page' },
+  { keys: 'Esc',    desc: 'Close the current item detail or dialog' },
   { keys: 'g m',    desc: 'Go to Market' },
   { keys: 'g d',    desc: 'Go to Item Database' },
   { keys: 'g p',    desc: 'Go to Profile' },
