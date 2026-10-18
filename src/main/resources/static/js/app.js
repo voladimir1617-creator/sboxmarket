@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=307'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=308'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -311,7 +311,14 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   const [voteBusy, setVoteBusy]         = useState(false);
   // The server refuses votes on reviews of your own stall (SELF_VOTE) too.
   const canVote = !!me && !isAuthor && !isOwner;
+  // Double-click latch: the busy state lags a re-render, so a quick second click toggled the vote twice.
+  const voteBusyRef = useRef(false);
   const toggleHelpful = async () => {
+    if (voteBusyRef.current) return;
+    voteBusyRef.current = true;
+    try { return await toggleHelpfulOnce(); } finally { voteBusyRef.current = false; }
+  };
+  const toggleHelpfulOnce = async () => {
     if (!canVote || voteBusy) return;
     // Optimistic update — flip the state immediately so the click
     // feels responsive. Revert on any non-success response.
@@ -1584,7 +1591,14 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   const [err, setErr]         = useState('');
   const startEdit = () => { setDraft(bio || ''); setEditing(true); setErr(''); };
   const cancel = () => { setEditing(false); setDraft(''); setErr(''); };
+  // Double-click latch: the busy state lags a re-render, so a quick second click saved the bio twice.
+  const bioBusyRef = useRef(false);
   const save = async () => {
+    if (bioBusyRef.current) return;
+    bioBusyRef.current = true;
+    try { return await saveOnce(); } finally { bioBusyRef.current = false; }
+  };
+  const saveOnce = async () => {
     setBusy(true); setErr('');
     try {
       const { setStallBio } = await import('./api.js');
@@ -2125,7 +2139,14 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
       .catch(() => { if (alive) setBlocked(false); });
     return () => { alive = false; };
   }, [sellerId, blockedByViewer]);
+  // Double-click latch: the busy state lags a re-render, so a quick second click sent a second block/unblock.
+  const blockBusyRef = useRef(false);
   const toggle = async () => {
+    if (blockBusyRef.current) return;
+    blockBusyRef.current = true;
+    try { return await toggleOnce(); } finally { blockBusyRef.current = false; }
+  };
+  const toggleOnce = async () => {
     if (blocked === null || busy) return;
     if (!blocked) {
       const who = sellerName ? `@${sellerName}` : 'this seller';
@@ -2189,7 +2210,14 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
       .catch(() => { if (alive) setStatus({ following: false, followerCount: 0 }); });
     return () => { alive = false; };
   }, [sellerId]);
+  // Double-click latch: the busy state lags a re-render, so a quick second click sent a second follow/unfollow.
+  const followBusyRef = useRef(false);
   const toggle = async () => {
+    if (followBusyRef.current) return;
+    followBusyRef.current = true;
+    try { return await toggleOnce(); } finally { followBusyRef.current = false; }
+  };
+  const toggleOnce = async () => {
     if (!status) return;
     setBusy(true);
     try {
@@ -4228,7 +4256,14 @@ export function App() {
   const [reviewStars, setReviewStars]     = useState(5);
   const [reviewText, setReviewText]       = useState('');
   const [reviewBusy, setReviewBusy]       = useState(false);
+  // Double-click latch: the busy state lags a re-render, so a quick second click posted the review twice.
+  const reviewBusyRef = useRef(false);
   const submitStallReview = async () => {
+    if (reviewBusyRef.current) return;
+    reviewBusyRef.current = true;
+    try { return await submitStallReviewOnce(); } finally { reviewBusyRef.current = false; }
+  };
+  const submitStallReviewOnce = async () => {
     if (!reviewTradeId) return;
     setReviewBusy(true);
     try {
@@ -9223,7 +9258,12 @@ export function App() {
                   ),
                   stallData.seller.joinedAt && h('li', null,
                     h('span', { className: 'stall-trust-icon' }, '·'),
-                    h('span', null, `Joined ${BRAND.name} `, timeAgo(stallData.seller.joinedAt))
+                    h('span', null, `Joined ${BRAND.name} `,
+                      // Same rule as the header "Joined" stat: relative under
+                      // a year, the year for older accounts.
+                      (Date.now() - stallData.seller.joinedAt < 365 * 24 * 3600_000)
+                        ? timeAgo(stallData.seller.joinedAt).replace(/^Just now$/, 'just now')
+                        : 'in ' + new Date(stallData.seller.joinedAt).getFullYear())
                   ),
                   stallData.seller.responseRatePct != null && h('li', null,
                     h('span', { className: 'stall-trust-icon' }, '·'),

@@ -433,7 +433,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
           // announce "table with 9 columns and N rows" with no
           // semantic anchor.
           h('caption', { className: 'visually-hidden' },
-            `s&box item database — ${data?.items?.length || 0} items, columns: rank, item, category, rarity, supply, sold, views, floor price, watchlist toggle.`),
+            `s&box item database — ${data?.items?.length || 0} item${(data?.items?.length || 0) === 1 ? '' : 's'}, columns: rank, item, category, rarity, supply, sold, views, floor price, watchlist toggle.`),
           h('thead', null, h('tr', { className: 'db-row db-head' },
             h('th', { scope: 'col' }, '#'),
             h('th', { scope: 'col' }, 'Item'),
@@ -1192,6 +1192,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   const [adminRemoveDraft, setAdminRemoveDraft] = useState(null);
   const [adminRemoveBusy, setAdminRemoveBusy]   = useState(false);
   const [renameBusy, setRenameBusy]     = useState(false);
+  // Shared by the rename button and Enter: the busy state lags a
+  // re-render, so a quick second press sent the rename twice.
+  const renameBusyRef = useRef(false);
 
   // Deep-link: /loadout/:id lands here with `loadoutId` set. Jump
   // straight to the view tab with the right row loaded instead of
@@ -1733,12 +1736,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           maxLength: 80,
           onChange: e => setRenameDraft(e.target.value),
           onKeyDown: async (e) => {
-            if (e.key === 'Enter' && !renameBusy) {
+            if (e.key === 'Enter' && !renameBusy && !renameBusyRef.current) {
               e.preventDefault();
               const trimmed = (renameDraft || '').trim();
               if (!trimmed || trimmed === viewing.loadout.name) {
                 setRenaming(false); return;
               }
+              renameBusyRef.current = true;
               setRenameBusy(true);
               try {
                 const res = await updateLoadout(viewing.loadout.id, { name: trimmed });
@@ -1757,7 +1761,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 } : prev);
                 toast('Loadout renamed.', 'ok');
                 await load();
-              } finally { setRenameBusy(false); }
+              } finally { renameBusyRef.current = false; setRenameBusy(false); }
             } else if (e.key === 'Escape') {
               e.preventDefault();
               setRenaming(false);
@@ -1773,7 +1777,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           disabled: renameBusy || !renameDraft.trim() || renameDraft.trim() === viewing.loadout.name,
           onClick: async () => {
             const trimmed = (renameDraft || '').trim();
-            if (!trimmed || trimmed === viewing.loadout.name) return;
+            if (!trimmed || trimmed === viewing.loadout.name || renameBusyRef.current) return;
+            renameBusyRef.current = true;
             setRenameBusy(true);
             try {
               const res = await updateLoadout(viewing.loadout.id, { name: trimmed });
@@ -1791,7 +1796,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               } : prev);
               toast('Loadout renamed.', 'ok');
               await load();
-            } finally { setRenameBusy(false); }
+            } finally { renameBusyRef.current = false; setRenameBusy(false); }
           }
         }, renameBusy ? '…' : 'Save'),
         h('button', {
@@ -2049,7 +2054,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 h('a', {
                   href: '/loadout/' + l.id,
                   style: { color: 'inherit', textDecoration: 'none' },
-                  'aria-label': `Open loadout ${l.name}${l.ownerName ? ' by ' + l.ownerName : ''} (${l.favorites} favorites, ${fmt(l.totalValue)})`,
+                  'aria-label': `Open loadout ${l.name}${l.ownerName ? ' by ' + l.ownerName : ''} (${l.favorites} favorite${l.favorites === 1 ? '' : 's'}, ${fmt(l.totalValue)})`,
                   onClick: (e) => {
                     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) { e.stopPropagation(); return; }
                     e.preventDefault();
