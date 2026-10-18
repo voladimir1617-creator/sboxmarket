@@ -992,7 +992,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
     const alertLabel = restockMode
       ? (myAlert ? ' Restock Alert · On' : ' Notify When Listed')
       : myAlert
-        ? (isRestock ? ' Restock Alert · Edit' : ` Alert at ${fmt(myAlert.targetPrice)} · Edit`)
+        ? (isRestock ? ' Restock Alert · Edit' : ` Alert at ${fmtUsd(myAlert.targetPrice)} · Edit`)
         : ' Set Price Alert';
     return h('button', {
       className: 'btn btn-ghost',
@@ -1115,7 +1115,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               fontWeight: isActive ? 700 : 500
             },
             onClick: () => setAlertTarget(next.toFixed(2)),
-            title: `Notify me when the floor drops ${pct}% from current — that's ${fmt(next)}`
+            title: `Notify me when the floor drops ${pct}% from current — that's ${fmtUsd(next)}`
           }, '−', pct, '%');
         })
       ),
@@ -1181,7 +1181,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 setAlertErr(res.message || res.error || 'Could not save alert');
                 return;
               }
-              toast(`Price alert set — you'll be notified when ${item.name} drops to ${fmt(typed)}.`, 'ok');
+              toast(`Price alert set — you'll be notified when ${item.name} drops to ${fmtUsd(typed)}.`, 'ok');
               // Sync the "Alert at $X" chip immediately — refetch would
               // also work but we already know the target we just saved.
               setMyAlert({ itemId: item.id, targetPrice: typed, status: 'ACTIVE' });
@@ -1203,11 +1203,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           lineHeight: 1.5
         }
       },
-        floor > 0 && h('span', null, 'Current floor ', h('strong', null, fmt(floor)), ' · '),
+        floor > 0 && h('span', null, 'Current floor ', h('strong', null, fmtUsd(floor)), ' · '),
         valid
           ? (aboveFloor
               ? 'This target is already at or above the current floor — the alert will fire on the next price check, within a few minutes.'
-              : `We'll ping you when any listing on this item drops to ${fmt(typed)} or lower.`)
+              : `We'll ping you when any listing on this item drops to ${fmtUsd(typed)} or lower.`)
           : 'Enter a positive dollar amount.'
       ),
       alertErr && h('div', {
@@ -1297,8 +1297,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               className: 'modal-name-rarity',
               href: '/market?rarity=' + encodeURIComponent(item.rarity || 'Standard'),
               onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
-              title: `Browse all ${item.rarity || 'Standard'} items`
-            }, item.rarity || 'Standard'),
+              title: `Browse all ${item.rarity === 'Off-Market' ? 'Scarce' : (item.rarity || 'Standard')} items`
+            }, item.rarity === 'Off-Market' ? 'Scarce' : (item.rarity || 'Standard')),
             // Share button — tries the Web Share API first (opens the
             // native share sheet on mobile + Chrome desktop with every
             // installed app: Discord, Twitter, Messages, AirDrop, etc).
@@ -9012,6 +9012,7 @@ function ProfileTradesTab({ me, privacy }) {
                       className: 'trade-counterparty-copy',
                       type: 'button',
                       title: 'Copy URL to clipboard',
+                      'aria-label': 'Copy trade URL',
                       onClick: async () => {
                         // Counterparty trade URL — sellers paste this
                         // into Steam to send the trade offer, so silent
@@ -15776,8 +15777,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         })()
       ),
       h('div', { style: { textAlign: 'right', marginRight: 14 } },
-        h('div', { style: { fontSize: 14, fontWeight: 800, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(offer.amount)),
-        h('div', { style: { fontSize: 11, color: 'var(--text-muted)', textDecoration: 'line-through', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, fmt(offer.askingPrice)),
+        h('div', { style: { fontSize: 14, fontWeight: 800, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, (counterFor === offer.id ? fmtUsd : fmt)(offer.amount)),
+        // While the USD counter box is open, both figures are in dollars too.
+        h('div', { style: { fontSize: 11, color: 'var(--text-muted)', textDecoration: 'line-through', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, (counterFor === offer.id ? fmtUsd : fmt)(offer.askingPrice)),
         h('div', { style: { fontSize: 10, fontWeight: 700, color: pctOff > 0 ? 'var(--green)' : 'var(--text-muted)' } }, pctOff > 0 ? `−${pctOff}%` : '')
       ),
       offer.status === 'PENDING'

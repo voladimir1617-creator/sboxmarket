@@ -1062,7 +1062,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
             },
             title: 'Server caps the list at 300 rows. Older orders stay on file — use ⇣ CSV for the full history.'
           },
-            h('span', null, '—',
+            h('span', null,
               'Showing most recent ',
               h('strong', { style: { color: 'var(--text-primary)' } }, orders.length),
               ' of ',
@@ -2433,7 +2433,7 @@ export function NotificationsModal({ onClose, me }) {
         display: 'flex', alignItems: 'center', gap: 10
       }
     },
-      h('span', null, '—',
+      h('span', null,
         h('strong', null, `${mutedSet.size} notification type${mutedSet.size === 1 ? '' : 's'} muted`),
         ' — muted rows are hidden from this view.'),
       h('a', {
