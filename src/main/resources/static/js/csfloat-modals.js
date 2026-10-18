@@ -1110,7 +1110,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                   o.itemName || ('Any ' + (o.category || 'item'))
                 ),
                 h('div', { className: 'buyorder-sub' },
-                  'Created ', timeAgo(o.createdAt),
+                  'Created ', timeAgo(o.createdAt).replace(/^Just now$/, 'just now'),
                   ' · Qty ', h('strong', null, o.quantity), ' / ', o.originalQuantity
                 )
               ),
@@ -2245,6 +2245,9 @@ export function NotificationsModal({ onClose, me }) {
   // Double-click latch: both clicks would count the same unread rows,
   // post twice and stack two "Marked N read" toasts.
   const clearBusyRef = useRef(false);
+  // Per-row latch for Mark as unread / Delete: the row stays until the
+  // reload lands, so a double-click sent the request twice.
+  const rowBusyRef = useRef(new Set());
   const clear = async () => {
     if (clearBusyRef.current) return;
     clearBusyRef.current = true;
@@ -2669,12 +2672,17 @@ export function NotificationsModal({ onClose, me }) {
                   // Pre-fix: errors here were swallowed and `load()` re-fetched
                   // the same data, so a server reject silently looked like a
                   // dead button. Now we surface non-2xx as a toast.
+                  const key = 'unread:' + n.id;
+                  if (rowBusyRef.current.has(key)) return;
+                  rowBusyRef.current.add(key);
                   try {
-                    const { markNotificationUnread } = await import('./api.js');
-                    const r = await markNotificationUnread(n.id);
-                    if (r && r.ok === false) toast('Could not mark unread — try again.', 'err');
-                  } catch (_) { toast('Could not mark unread — try again.', 'err'); }
-                  await load();
+                    try {
+                      const { markNotificationUnread } = await import('./api.js');
+                      const r = await markNotificationUnread(n.id);
+                      if (r && r.ok === false) toast('Could not mark unread — try again.', 'err');
+                    } catch (_) { toast('Could not mark unread — try again.', 'err'); }
+                    await load();
+                  } finally { rowBusyRef.current.delete(key); }
                 }
               }, '📥'),
               // Per-row dismiss. Hardest-to-mis-click target so use a
@@ -2692,11 +2700,16 @@ export function NotificationsModal({ onClose, me }) {
                   e.stopPropagation();
                   // Pre-fix: errors swallowed; failed deletes silently no-oped
                   // because `load()` re-fetched the same row.
+                  const key = 'delete:' + n.id;
+                  if (rowBusyRef.current.has(key)) return;
+                  rowBusyRef.current.add(key);
                   try {
-                    const r = await deleteNotification(n.id);
-                    if (r && r.ok === false) toast('Could not delete notification — try again.', 'err');
-                  } catch (_) { toast('Could not delete notification — try again.', 'err'); }
-                  await load();
+                    try {
+                      const r = await deleteNotification(n.id);
+                      if (r && r.ok === false) toast('Could not delete notification — try again.', 'err');
+                    } catch (_) { toast('Could not delete notification — try again.', 'err'); }
+                    await load();
+                  } finally { rowBusyRef.current.delete(key); }
                 }
               }, '✕')
             ))

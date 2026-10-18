@@ -940,7 +940,7 @@ export function PriceFreshnessChip({ compact = false }) {
   // 300s is genuinely off the rails.
   const stale = ageMs > 5 * 60_000;
   const dotColor   = stale ? 'var(--amber, #d4a015)' : 'var(--green, #28a745)';
-  const text       = 'Prices updated ' + timeAgo(status.lastUpdatedAt);
+  const text       = 'Prices updated ' + timeAgo(status.lastUpdatedAt).replace(/^Just now$/, 'just now');
   const titleAttr  = 'Last sweep: ' + new Date(status.lastUpdatedAt).toLocaleString()
                    + '\nFloor sweep every 60s · Steam Market every 30 min';
   if (compact) {

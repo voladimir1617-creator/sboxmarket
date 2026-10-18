@@ -509,8 +509,14 @@ export function NotificationBell({ me }) {
     };
   }, [open]);
 
+  // Double-click latch: each click posted read-all and toasted again.
+  const clearBusyRef = React.useRef(false);
   const clearAll = async () => {
-    if (!me) return;
+    if (!me || clearBusyRef.current) return;
+    clearBusyRef.current = true;
+    try { await clearAllOnce(); } finally { clearBusyRef.current = false; }
+  };
+  const clearAllOnce = async () => {
     // Pre-fix: the bell-dropdown "Mark all read" called the API with
     // zero error handling and zero success feedback — a network blip
     // or backend rejection would surface only as an unhandled promise
@@ -633,7 +639,7 @@ export function NotificationBell({ me }) {
         items.length > 0 && h('button', {
           className: 'notif-clear',
           onClick: clearAll,
-          'aria-label': unread > 0 ? `Mark all ${unread} unread notifications read` : 'Mark all notifications read'
+          'aria-label': unread === 1 ? 'Mark 1 unread notification read' : unread > 0 ? `Mark all ${unread} unread notifications read` : 'Mark all notifications read'
         }, 'Mark all read')
       ),
       items.length === 0

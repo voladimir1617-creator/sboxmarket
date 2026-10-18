@@ -11,7 +11,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=18';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=19';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=306'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=307'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -3135,7 +3135,7 @@ export function SiteFooter() {
         lastSync > 0 && h('span', { className: 'dot' }, '·'),
         lastSync > 0 && h('span', { className: 'footer-sync-badge', title: `Last catalogue sync: ${new Date(lastSync).toLocaleString()}` },
           h('span', { className: 'footer-sync-dot' }),
-          'Catalog updated ', timeAgo(lastSync))
+          'Catalog updated ', timeAgo(lastSync).replace(/^Just now$/, 'just now'))
       )
     )
   );
@@ -6360,7 +6360,7 @@ export function App() {
               // resolve which popup the chip activates.
               'aria-controls': 'user-menu-panel',
               'aria-label': `User menu · @${me.displayName || 'Player'}${
-                pendingActions && pendingActions.total > 0 ? ` · ${pendingActions.total} action${pendingActions.total === 1 ? '' : 's'} need attention` : ''
+                pendingActions && pendingActions.total > 0 ? ` · ${pendingActions.total} ${pendingActions.total === 1 ? 'action needs' : 'actions need'} attention` : ''
               }`,
               onKeyDown: (e) => {
                 // Keys pressed on a menu item bubble up here; leave them to
@@ -6393,7 +6393,7 @@ export function App() {
                     if (revs)   parts.push(`${revs} trade${revs === 1 ? '' : 's'} to review`);
                     return parts.length > 0
                       ? `${pendingActions.total} action${pendingActions.total === 1 ? '' : 's'} · ${parts.join(' · ')}`
-                      : `${pendingActions.total} action${pendingActions.total === 1 ? '' : 's'} need your attention`;
+                      : `${pendingActions.total} ${pendingActions.total === 1 ? 'action needs' : 'actions need'} your attention`;
                   })()
                 : null
             },
