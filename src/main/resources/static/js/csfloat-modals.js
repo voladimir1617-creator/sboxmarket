@@ -19,6 +19,12 @@ import {
   fetchWatchlist, starItem, unstarItem
 } from './api.js';
 
+// Literal USD for amounts that sit beside a USD-only input (the buy-order
+// max price); fmt() converts to the display currency.
+const fmtUsd = (v) => '$' + (Math.round((Number(v) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// An unlisted item has no floor to start below, so the field stays empty.
+const suggestedMax = (it) => { const f = parseFloat(it?.lowestPrice) || 0; return f > 0 ? (f * 0.9).toFixed(2) : ''; };
+
 // ── Database ────────────────────────────────────────────────────
 export function DatabaseModal({ onClose, onPickItem, me }) {
   const [data, setData]       = useState({ items: [], total: 0, indexed: 0 });
@@ -688,7 +694,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       floor = asks.length ? Math.min(...asks) : NaN;
     } catch (_) { /* keep the catalogue floor */ }
     if (Number.isFinite(floor) && floor > 0 && max >= floor) {
-      setErr(`Your max (${fmt(max)}) is at or above the current floor (${fmt(floor)}) — just buy now instead.`);
+      setErr(`Your max (${fmtUsd(max)}) is at or above the current floor (${fmtUsd(floor)}) — just buy now instead.`);
       return;
     }
     // Quantity guard. The backend enforces @Positive + @Max(100) on
@@ -860,7 +866,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                   : 'No matches.')
             : filteredPool.map(it => h('div', {
                 key: it.id, className: 'buyorder-picker-row',
-                onClick: () => { setPicked(it); setMaxPrice((parseFloat(it.lowestPrice || 0) * 0.9).toFixed(2)); },
+                onClick: () => { setPicked(it); setMaxPrice(suggestedMax(it)); },
                 role: 'button',
                 tabIndex: 0,
                 'aria-label': `Pick ${it.name} — ${it.category} · ${it.rarity} · floor ${fmt(it.lowestPrice)}`,
@@ -868,7 +874,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     setPicked(it);
-                    setMaxPrice((parseFloat(it.lowestPrice || 0) * 0.9).toFixed(2));
+                    setMaxPrice(suggestedMax(it));
                   }
                 }
               },
@@ -890,7 +896,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
           h('div', { style: { flex: 1, minWidth: 0 } },
             h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, picked.name),
             h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Floor · ', parseFloat(picked.lowestPrice) > 0
-              ? h('strong', { style: { color: 'var(--accent)' } }, fmt(picked.lowestPrice))
+              ? h('strong', { style: { color: 'var(--accent)' } }, fmtUsd(picked.lowestPrice))
               : h('strong', { style: { color: 'var(--text-muted)' } }, 'no active listings'))
           ),
           !preselectedItem && h('button', {
@@ -1389,6 +1395,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // the loadout reloaded (which could be a second or two on a cold DB
   // query). Silent runs read as "did my click register?".
   const [generatingLoadout, setGeneratingLoadout] = useState(false);
+  const [favBusy, setFavBusy] = useState(false);
+  const favBusyRef = useRef(false);
   const handleGenerate = async () => {
     if (!viewing || generatingLoadout) return;
     // Tolerant parse — strip `$`, commas, currency code prefixes so a user
@@ -1551,6 +1559,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         !isOwner && me && h('button', {
           className: `btn ${viewing.favorited ? 'btn-accent' : 'btn-ghost'}`,
           'aria-pressed': !!viewing.favorited,
+          disabled: favBusy,
           title: viewing.favorited
             ? 'Remove from your Favorites tab'
             : 'Save to your Favorites tab so you can re-find it later',
@@ -1559,8 +1568,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             // to refresh the viewing state in place (optimistic + toast)
             // instead of re-fetching the full list. Matches the star-
             // button pattern on item cards.
+            if (favBusyRef.current) return;
+            favBusyRef.current = true;
+            setFavBusy(true);
             const wasFavorited = !!viewing.favorited;
-            const res = await favoriteLoadout(viewing.loadout.id);
+            let res;
+            try { res = await favoriteLoadout(viewing.loadout.id); }
+            finally { favBusyRef.current = false; setFavBusy(false); }
             if (res && (res.error || res.code)) {
               toast(res.message || res.error || 'Could not update favorite', 'err');
               return;
@@ -1677,7 +1691,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           // /wallet without a NaN.
           inputMode: 'decimal',
           title: `Cap on Generate, in ${currencySymbol()}. Defaults to ${fmt(10000)} if blank. Currency signs and commas are accepted.`,
-          'aria-label': 'Max budget for Generate'
+          'aria-label': 'Max budget for Generate',
+          onKeyDown: e => { if (e.key === 'Enter' && !generatingLoadout) { e.preventDefault(); handleGenerate(); } }
         }),
         h('button', {
           className: 'btn btn-accent',

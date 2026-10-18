@@ -5879,6 +5879,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           className: 'btn btn-ghost',
           style: { padding: '3px 8px', fontSize: 10, border: '1px solid var(--border)' },
           title: 'Copy Steam ID to clipboard',
+          'aria-label': 'Copy Steam ID',
           onClick: async (e) => {
             try {
               if (navigator.clipboard?.writeText) {
@@ -11214,6 +11215,8 @@ function ProfileSupportTab() {
   // open a brand-new ticket with no context when follow-up comes up.
   const reopen = async () => {
     if (!viewing?.ticket) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const { reopenSupportTicket } = await import('./api.js');
@@ -11225,7 +11228,7 @@ function ProfileSupportTab() {
       await showTicket(viewing.ticket.id);
       load();
       toast('Ticket reopened — staff will pick it back up.', 'ok');
-    } finally { setBusy(false); }
+    } finally { setBusy(false); busyRef.current = false; }
   };
 
   if (viewing) {
@@ -12376,7 +12379,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             ' other seller', pickedCompeting.count === 1 ? '' : 's', ' · floor ',
             h('span', {
               style: { color: 'var(--accent)', fontWeight: 700, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" }
-            }, fmt(pickedCompeting.floor))
+            }, fmtUsd(pickedCompeting.floor))
           )
         )
       ),
@@ -12576,7 +12579,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                 background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.3)',
                 color: '#f87171', fontWeight: 600
               }
-            }, `⚠ ${vsSteam}% above the Steam market price (${fmt(steam)}). Buyers comparing against Steam will go there instead.`);
+            }, `⚠ ${vsSteam}% above the Steam market price (${fmtUsd(steam)}). Buyers comparing against Steam will go there instead.`);
           })()
         );
       })(),
@@ -16251,9 +16254,13 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   const [editingServerAlertId, setEditingServerAlertId] = useState(null);
   const [serverAlertDraft, setServerAlertDraft] = useState('');
   const [serverAlertBusy, setServerAlertBusy] = useState(false);
+  const [clearFiredBusy, setClearFiredBusy] = useState(false);
+  const clearFiredBusyRef = useRef(false);
   const startEditServerAlert = (a) => {
     setEditingServerAlertId(a.id);
-    setServerAlertDraft(String(a.targetPrice));
+    // A restock alert stores the 99999 sentinel; its row reads "restock",
+    // so the edit box starts empty rather than showing the placeholder.
+    setServerAlertDraft(parseFloat(a.targetPrice) >= 99999 ? '' : String(a.targetPrice));
   };
   const saveEditServerAlert = async (a) => {
     const n = parseFloat(serverAlertDraft);
@@ -16598,18 +16605,24 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             className: 'btn btn-ghost',
             style: { padding: '3px 10px', fontSize: 11, border: '1px solid var(--border)' },
             title: 'Delete every fired alert so only still-watching rows stay',
+            disabled: clearFiredBusy,
             onClick: async () => {
-              // Batch 913 — snapshot the count before clearing so
-              // the toast cites the number of rows just deleted.
-              const before = fired.length;
-              const { clearFiredWatchlistAlerts } = await import('./api.js');
-              const res = await clearFiredWatchlistAlerts();
-              if (res && (res.error || res.code)) {
-                toast(res.message || res.error || 'Could not clear fired alerts', 'err');
-                return;
-              }
-              loadServerAlerts();
-              toast(`${before} fired alert${before === 1 ? '' : 's'} cleared.`, 'ok');
+              if (clearFiredBusyRef.current) return;
+              clearFiredBusyRef.current = true;
+              setClearFiredBusy(true);
+              try {
+                // Batch 913 — snapshot the count before clearing so
+                // the toast cites the number of rows just deleted.
+                const before = fired.length;
+                const { clearFiredWatchlistAlerts } = await import('./api.js');
+                const res = await clearFiredWatchlistAlerts();
+                if (res && (res.error || res.code)) {
+                  toast(res.message || res.error || 'Could not clear fired alerts', 'err');
+                  return;
+                }
+                loadServerAlerts();
+                toast(`${before} fired alert${before === 1 ? '' : 's'} cleared.`, 'ok');
+              } finally { clearFiredBusyRef.current = false; setClearFiredBusy(false); }
             }
           }, 'Clear fired')
         ),
