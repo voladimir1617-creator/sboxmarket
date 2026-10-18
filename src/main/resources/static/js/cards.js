@@ -419,7 +419,7 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             : false;
           // The server applies the stall's ✓ rule (10+ sales, rating 4+ or none).
           const isVerified = listing.sellerVerified === true;
-          const listedAgo = !isAuction && listing.listedAt ? 'Listed ' + timeAgo(listing.listedAt) : null;
+          const listedAgo = !isAuction && listing.listedAt ? 'Listed ' + timeAgo(listing.listedAt).replace(/^Just now$/, 'just now') : null;
           // Presence is the signal, absence is silent: real markets never
           // label sellers offline on a card, and a grid where nearly every
           // card read "Offline" looked like a dead market. A listing SkinBox

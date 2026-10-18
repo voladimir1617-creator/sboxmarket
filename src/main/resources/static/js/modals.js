@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=18';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=19';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -5465,7 +5465,7 @@ function SignInHistoryRow() {
             )
       ),
       open && rows && rows.length > 0 && h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 } },
-        'See a sign-in you don\'t recognise? Change your Steam password, then reset 2FA from the Security section below.')
+        'See a sign-in you don\'t recognise? Change your Steam password, then reset 2FA from the Two-Factor Auth row below.')
     )
   );
 }
@@ -5565,7 +5565,7 @@ function SecurityActivityRow() {
             )
       ),
       open && rows && rows.length > 0 && h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 } },
-        'See an event you didn\'t trigger? Sign out everywhere above, then open a support ticket with details.')
+        'See an event you didn\'t trigger? Sign out everywhere below, then open a support ticket with details.')
     )
   );
 }
@@ -5708,7 +5708,16 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     try { refreshProfile && await refreshProfile(); } catch (_) { /* the save itself succeeded */ }
     try { onMeChanged && onMeChanged(); } catch (_) { /* same */ }
   };
+  // Double-click latch: the second POST of a used code overwrote
+  // "Email verified" with an invalid-code error.
+  const confirmBusyRef = useRef(false);
+  const resendBusyRef = useRef(false);
   const confirmEmail = async (tokenArg) => {
+    if (confirmBusyRef.current) return;
+    confirmBusyRef.current = true;
+    try { await confirmEmailOnce(tokenArg); } finally { confirmBusyRef.current = false; }
+  };
+  const confirmEmailOnce = async (tokenArg) => {
     // Batch 893 — accept an optional token arg so the auto-submit on
     // `/profile?verify=<token>` deep-link can bypass the state race
     // (setEmailToken + confirmEmail in the same tick would otherwise
@@ -6051,9 +6060,15 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '5px 12px', fontSize: 11, marginTop: 6 },
           onClick: async () => {
-            const res = await resendEmailVerification();
-            if (res && (res.error || res.code)) { setEmailResult({ err: res.message || res.error }); return; }
-            setEmailResult({ ok: true, resent: true, token: res.token });
+            // Double-click latch: each resend mints a new code, so a second
+            // click sent a second email and killed the first one's code.
+            if (resendBusyRef.current) return;
+            resendBusyRef.current = true;
+            try {
+              const res = await resendEmailVerification();
+              if (res && (res.error || res.code)) { setEmailResult({ err: res.message || res.error }); return; }
+              setEmailResult({ ok: true, resent: true, token: res.token });
+            } finally { resendBusyRef.current = false; }
           }
         }, '↻ Resend verification email')
       )
@@ -15141,7 +15156,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     color: 'var(--accent)', padding: '2px 8px', borderRadius: 8,
                     background: 'rgba(30,165,255,0.10)', border: '1px solid rgba(30,165,255,0.35)'
                   },
-                  title: `${stallWatcherCounts[l.item.id]} buyer${stallWatcherCounts[l.item.id] === 1 ? '' : 's'} have starred this item — they're watching for a deal`
+                  title: `${stallWatcherCounts[l.item.id]} ${stallWatcherCounts[l.item.id] === 1 ? 'buyer has' : 'buyers have'} starred this item — they're watching for a deal`
                 }, '★ ', stallWatcherCounts[l.item.id]),
                 // Item view-count chip (batch 864) — shows sellers how
                 // much detail-page traffic their listing is pulling.
@@ -15281,7 +15296,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     })()
                   )
                 : h('div', { className: 'item-sub' },
-                    l.item.category + ' · listed ' + timeAgo(l.listedAt),
+                    l.item.category + ' · listed ' + timeAgo(l.listedAt).replace(/^Just now$/, 'just now'),
                     // Auction signal chip — shows type, current bid / bid
                     // count, and a time-to-close so the seller can spot
                     // hot auctions at a glance. Only renders for AUCTION
@@ -17046,7 +17061,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
               className: 'btn-danger-ghost',
               style: { padding: '6px 12px', fontSize: 11 },
               onClick: async () => {
-                if (!confirm(`Clear all ${watchlist.length} watchlisted items and cancel their price alerts?`)) return;
+                if (!confirm(watchlist.length === 1 ? 'Clear 1 watchlisted item and cancel its price alert?' : `Clear all ${watchlist.length} watchlisted items and cancel their price alerts?`)) return;
                 if (me?.id) {
                   // One bulk DELETE. Its result is checked: per-item
                   // unstar calls after it used to trip the rate limit and
