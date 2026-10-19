@@ -558,6 +558,9 @@ const pauseInFlight = new Set();
 /** Buy-order ids with a cancel in flight (double-click latch), module-level
  *  for the same reason: the hooks sit below the signed-out early return. */
 const cancelInFlight = new Set();
+// Loadout slot lock toggles and loadout deletes in flight.
+const lockInFlight = new Set();
+const deleteInFlight = new Set();
 
 export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   const [orders, setOrders]   = useState(null);
@@ -1388,6 +1391,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
 
   const handleLockSlot = async (slot) => {
     if (!viewing) return;
+    // A second click would toggle the lock straight back.
+    const key = viewing.loadout.id + ':' + slot;
+    if (lockInFlight.has(key)) return;
+    lockInFlight.add(key);
+    try { await lockSlotOnce(slot); } finally { lockInFlight.delete(key); }
+  };
+  const lockSlotOnce = async (slot) => {
     const res = await lockLoadoutSlot(viewing.loadout.id, slot);
     if (res && (res.error || res.code)) {
       toast(res.message || res.error || 'Could not toggle lock', 'err');
@@ -1468,8 +1478,14 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   const handleDelete = async () => {
     if (!viewing) return;
     const name = viewing.loadout?.name || 'this loadout';
+    const id = viewing.loadout.id;
+    if (deleteInFlight.has(id)) return;
     if (!confirm(`Delete "${name}"?\n\nThis can't be undone — the slots, favorites, and share link all go away.`)) return;
-    const res = await deleteLoadout(viewing.loadout.id);
+    deleteInFlight.add(id);
+    try { await deleteOnce(id, name); } finally { deleteInFlight.delete(id); }
+  };
+  const deleteOnce = async (id, name) => {
+    const res = await deleteLoadout(id);
     // Pre-fix: missed `code`-shaped errors (FORBIDDEN if the user isn't
     // the owner, RATE_LIMITED, etc). Same baseline gap fixed in
     // handleSlot + handleCreate this lap.

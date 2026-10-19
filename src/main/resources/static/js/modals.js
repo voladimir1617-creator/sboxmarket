@@ -6226,7 +6226,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 // Auto-submit if it looks like a pasted full TOTP code.
                 if (/^\d{6}$/.test(v.trim()) && !disableBusy) submitDisable(v.trim());
               },
-              onKeyDown: (e) => { if (e.key === 'Enter' && !disableBusy) submitDisable(); }
+              onKeyDown: (e) => {
+                if (e.key === 'Enter' && !disableBusy) submitDisable();
+                // Esc backs out like the email and trade-URL boxes above.
+                else if (e.key === 'Escape' && !disableBusy) { e.preventDefault(); setDisableDrawerOpen(false); setDisableCode(''); setDisableErr(''); }
+              }
             }),
             disableErr && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, disableErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
@@ -6276,7 +6280,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 setRegenCode(v);
                 if (v.length === 6 && !regenBusy) submitRegen(v);
               },
-              onKeyDown: (e) => { if (e.key === 'Enter' && !regenBusy) submitRegen(); }
+              onKeyDown: (e) => {
+                if (e.key === 'Enter' && !regenBusy) submitRegen();
+                else if (e.key === 'Escape' && !regenBusy) { e.preventDefault(); setRegenDrawerOpen(false); setRegenCode(''); setRegenErr(''); }
+              }
             }),
             regenErr && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, regenErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
@@ -7286,7 +7293,10 @@ function ProfileBuyOrdersTab() {
         disabled: busy,
         title: `Cancel all ${counts.ACTIVE + counts.PAUSED} open buy orders (active and paused) in one click`,
         onClick: async () => {
+          if (busyRef.current) return;
           if (!confirm(`Cancel all ${counts.ACTIVE + counts.PAUSED} open buy orders, paused ones included?`)) return;
+          // Same latch as Cancel and Bump: busy lags a re-render.
+          busyRef.current = true;
           setBusy(true);
           try {
             const { cancelAllBuyOrders } = await import('./api.js');
@@ -7295,7 +7305,7 @@ function ProfileBuyOrdersTab() {
             const n = (res && res.cancelled) || 0;
             toast(n === 0 ? 'No open buy orders to cancel.' : `Cancelled ${n} buy order${n === 1 ? '' : 's'}.`, 'ok');
             load();
-          } finally { setBusy(false); }
+          } finally { busyRef.current = false; setBusy(false); }
         }
       }, counts.PAUSED > 0 ? '✕ Cancel all open' : '✕ Cancel all active'),
       orders.length > 0 && h('a', {
@@ -9848,6 +9858,10 @@ function ProfileTradesTab({ me, privacy }) {
   );
 }
 
+// In-flight ids for the API key Revoke and watchlist alert ✕ buttons.
+const revokeInFlight = new Set();
+const alertCancelInFlight = new Set();
+
 function ProfileOffersTab() {
   // Two tabs (incoming / outgoing) with accept / reject / counter / cancel
   // buttons right on each row. Countering opens an inline input, so the user
@@ -9984,6 +9998,7 @@ function ProfileOffersTab() {
     } finally { setBusy(false); }
   };
   const doReject = async (id) => {
+    if (busyRef.current) return;
     const o = findOffer(id);
     const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
     // Confirm — reject notifies the buyer and can't be undone; the ✕
@@ -9992,27 +10007,30 @@ function ProfileOffersTab() {
     if (!confirm(ownCounter
       ? `Withdraw your ${fmt(o?.amount || 0)} counter on ${label}? The buyer is told and can make a new offer.`
       : `Reject the ${fmt(o?.amount || 0)} offer on ${label}? The buyer is notified and this can't be undone.`)) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const res = await rejectOffer(id);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reject failed', 'err'); return; }
       await load();
       toast(ownCounter ? `Counter on ${label} withdrawn.` : `Offer on ${label} rejected.`, 'ok');
-    } finally { setBusy(false); }
+    } finally { busyRef.current = false; setBusy(false); }
   };
   const doCancel = async (id) => {
+    if (busyRef.current) return;
     const o = findOffer(id);
     const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
     // Confirm — cancelling withdraws the offer (or declines a seller
     // counter); a single misclick shouldn't drop it silently.
     if (!confirm(`Cancel the ${fmt(o?.amount || 0)} offer on ${label}?`)) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const res = await cancelOffer(id);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); return; }
       await load();
       toast(`Your offer on ${label} was cancelled.`, 'ok');
-    } finally { setBusy(false); }
+    } finally { busyRef.current = false; setBusy(false); }
   };
   const doCounter = async (id) => {
     const amt = parseFloat(counterAmt);
@@ -10307,10 +10325,13 @@ function ProfileOffersTab() {
   // Batch 645 — apply the chosen sort client-side. PENDING rows bubble
   // to the top regardless of sort so actionable items always lead
   // (accept/reject on a 30-day-old REJECTED row is wasted energy).
+  // Reputation is an Incoming-only option, so on Outgoing the list sorts
+  // the way the dropdown reads there: newest first.
+  const effSort = sortBy === 'reputation' && tab !== 'incoming' ? 'newest' : sortBy;
   const sortFn = (() => {
-    if (sortBy === 'oldest')   return (a, b) => (a.createdAt || 0) - (b.createdAt || 0);
-    if (sortBy === 'amount')   return (a, b) => (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0);
-    if (sortBy === 'closest')  return (a, b) => {
+    if (effSort === 'oldest')   return (a, b) => (a.createdAt || 0) - (b.createdAt || 0);
+    if (effSort === 'amount')   return (a, b) => (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0);
+    if (effSort === 'closest')  return (a, b) => {
       const aPct = parseFloat(a.askingPrice) > 0 ? parseFloat(a.amount) / parseFloat(a.askingPrice) : 0;
       const bPct = parseFloat(b.askingPrice) > 0 ? parseFloat(b.amount) / parseFloat(b.askingPrice) : 0;
       return bPct - aPct; // closest to ask (ratio ≈ 1.0) first
@@ -10321,7 +10342,7 @@ function ProfileOffersTab() {
     // buyerCompletedTrades is populated (batch 847) — outgoing rows
     // don't carry that field, so sort-by-rep on outgoing falls back to
     // amount.
-    if (sortBy === 'reputation') return (a, b) => {
+    if (effSort === 'reputation') return (a, b) => {
       const aRep = Number(a.buyerCompletedTrades) || 0;
       const bRep = Number(b.buyerCompletedTrades) || 0;
       if (bRep !== aRep) return bRep - aRep;
@@ -10344,6 +10365,7 @@ function ProfileOffersTab() {
   });
 
   const cancelAllOutgoing = async () => {
+    if (busyRef.current) return;
     // The outgoing list mixes the buyer's own offers with seller counters
     // awaiting the buyer's reply — "cancel all" walks away from those
     // counters too, so the confirm must say so.
@@ -10352,6 +10374,8 @@ function ProfileOffersTab() {
       ? `Cancel all ${outgoingPending} pending outgoing offers? This also declines ${sellerCounters} seller counter${sellerCounters === 1 ? '' : 's'} awaiting your reply. Sellers are notified.`
       : `Cancel all ${outgoingPending} pending outgoing offers? Sellers are notified.`;
     if (!confirm(msg)) return;
+    // Latch before the await: busy lags a re-render.
+    busyRef.current = true;
     setBusy(true);
     try {
       const { cancelAllOutgoingOffers } = await import('./api.js');
@@ -10360,7 +10384,7 @@ function ProfileOffersTab() {
       const n = (res && res.cancelled) || 0;
       toast(n === 0 ? 'No pending offers to cancel.' : `Cancelled ${n} offer${n === 1 ? '' : 's'}.`, 'ok');
       load();
-    } finally { setBusy(false); }
+    } finally { busyRef.current = false; setBusy(false); }
   };
 
   return h('div', null,
@@ -10412,7 +10436,7 @@ function ProfileOffersTab() {
       rawList.length > 1 && h('select', {
         className: 'sort-select',
         style: { fontSize: 12, padding: '4px 8px' },
-        value: sortBy,
+        value: effSort,
         onChange: e => setSort(e.target.value),
         'aria-label': 'Sort offers',
         title: 'Sort the offers list. PENDING rows always float to the top regardless of sort.'
@@ -11480,7 +11504,13 @@ function ProfileDevelopersTab() {
   };
 
   const revoke = async (id) => {
+    // Per-key latch: a double click must not send a second revoke.
+    if (revokeInFlight.has(id)) return;
     if (!confirm('Revoke this API key? Applications using it will stop working immediately.')) return;
+    revokeInFlight.add(id);
+    try { await revokeOnce(id); } finally { revokeInFlight.delete(id); }
+  };
+  const revokeOnce = async (id) => {
     // Batch 911 — snapshot the row BEFORE the revoke so the toast can
     // name the key label. Useful for users with 3+ keys ("was it
     // my-bot or my-scraper I just revoked?").
@@ -15922,6 +15952,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     maxLength: 280,
                     value: rejectReply,
                     onChange: e => setRejectReply(e.target.value),
+                    // Esc backs out like the counter box beside it.
+                    onKeyDown: (e) => {
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setRejectFor(null); setRejectReply('');
+                      }
+                    },
                     autoFocus: true
                   }),
                   h('div', { style: { display: 'flex', gap: 6, justifyContent: 'flex-end' } },
@@ -16291,6 +16328,12 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   }, [me?.id]);
   useEffect(() => { loadServerAlerts(); }, [loadServerAlerts]);
   const cancelServerAlert = async (id) => {
+    // Per-alert latch: a double click must not send a second cancel.
+    if (alertCancelInFlight.has(id)) return;
+    alertCancelInFlight.add(id);
+    try { await cancelServerAlertOnce(id); } finally { alertCancelInFlight.delete(id); }
+  };
+  const cancelServerAlertOnce = async (id) => {
     // Batch 913 — snapshot the alert row before cancel so the toast
     // can name the item + target price. Server list is refetched via
     // loadServerAlerts(), so we need the row in hand up front.
