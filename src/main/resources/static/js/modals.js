@@ -5,7 +5,7 @@ import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, dis
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
 import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=19';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
-import { navigate } from './router.js';
+import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
 import { TradeProtectionPanel } from './trade-protection.js';
 import { SellerPayoutsCard } from './seller-payouts.js';
@@ -2194,7 +2194,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       ? h('a', {
                           className: 'modal-seller-name',
                           href: '/stall/' + l.sellerUserId,
-                          onClick: (e) => e.stopPropagation(),
+                          onClick: (e) => { e.stopPropagation(); followInternalLink(e); },
                           style: { color: 'inherit', textDecoration: 'none' },
                           title: `View ${l.sellerName}'s stall`
                         }, l.sellerName)
@@ -8865,7 +8865,7 @@ function ProfileTradesTab({ me, privacy }) {
                         href: '/item/' + t.itemId,
                         style: { color: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' },
                         title: 'Open item detail',
-                        onClick: (e) => e.stopPropagation()
+                        onClick: (e) => { e.stopPropagation(); followInternalLink(e); }
                       }, thumb, t.itemName || ('Trade #' + t.id))
                     : h('span', { style: { display: 'inline-flex', alignItems: 'center' } },
                         thumb, t.itemName || ('Trade #' + t.id)),
@@ -8928,7 +8928,7 @@ function ProfileTradesTab({ me, privacy }) {
                       ? h('a', {
                           ...common,
                           href: '/stall/' + cpId,
-                          onClick: (e) => e.stopPropagation(),
+                          onClick: (e) => { e.stopPropagation(); followInternalLink(e); },
                           // Preserve the muted look — avoid the accent
                           // recolor that `<a>` inherits by default.
                           style: { ...common.style, textDecoration: 'none' }
@@ -13164,7 +13164,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             }, h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(estValue)), ' est. value'),
             liquidCount > 0 && h('div', {
               className: 'sell-summary-chip ok',
-              title: `${liquidCount} stack${liquidCount === 1 ? '' : 's'} have a standing buy order — the total is the wallet credit if one copy of each were Quick Sold right now (before the 2% platform fee). Stacks of multiple copies may go further if buy-order depth allows.`
+              title: `${liquidCount} stack${liquidCount === 1 ? ' has' : 's have'} a standing buy order — the total is the wallet credit if one copy of each were Quick Sold right now (before the 2% platform fee). Stacks of multiple copies may go further if buy-order depth allows.`
             }, '⚡ ', h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(liquidValue)), ' liquid now')
           );
         })(),
@@ -13425,7 +13425,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             h('a', {
               href: '/me/stall',
               style: { fontSize: 9, color: 'var(--accent)', fontWeight: 700, marginTop: 2, display: 'inline-block' },
-              onClick: e => e.stopPropagation()
+              onClick: (e) => { e.stopPropagation(); followInternalLink(e); }
             }, 'Manage in My Stall'),
           !steamRowBlock(si) && si.listedCount > 0 &&
             h('div', {
@@ -13537,7 +13537,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           }, h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(intEstValue)), ' est. value'),
           intLiquidCount > 0 && h('div', {
             className: 'sell-summary-chip ok',
-            title: `${intLiquidCount} item${intLiquidCount === 1 ? '' : 's'} have a standing buy order — the total is the exact wallet credit if every row were Quick Sold right now (before the 2% platform fee).`
+            title: `${intLiquidCount} item${intLiquidCount === 1 ? ' has' : 's have'} a standing buy order — the total is the exact wallet credit if every row were Quick Sold right now (before the 2% platform fee).`
           }, '⚡ ', h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(intLiquidValue)), ' liquid now')
         ),
         (rarities.length > 1 || internalList.length > 6) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
@@ -14155,14 +14155,20 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     toast(`Stall hidden until ${new Date(until).toLocaleDateString()}.`, 'ok');
   };
 
-  const soldTotal = sold ? sold.reduce((s, l) => s + (parseFloat(l.price) || 0), 0) : 0;
+  // The From/To boxes narrow the visible sales (and their totals), not just
+  // the CSV link, same as the Trades and Offers date filters.
+  const soldShown = (sold || []).filter(l => {
+    const t = new Date(l.soldAt || l.updatedAt || l.listedAt).getTime();
+    return (soldDateFrom == null || t >= soldDateFrom) && (soldDateTo == null || t <= soldDateTo);
+  });
+  const soldTotal = soldShown.reduce((s, l) => s + (parseFloat(l.price) || 0), 0);
   // Net revenue. The 2% platform fee is charged PER TRADE (TradeService.open
   // stores a per-trade feeAmount; release credits price − feeAmount), so the
   // net of a stall is the sum of each sale's payout — not the payout of the
   // summed gross. sellerPayoutTotal does exactly that, with the server's
   // round-the-fee-then-subtract order. Showing both makes the "fee already
   // deducted" hint line concrete instead of vague.
-  const soldNet = sellerPayoutTotal(sold ? sold.map(l => l.price) : []);
+  const soldNet = sellerPayoutTotal(soldShown.map(l => l.price));
 
   // 30-day rolling rollup per CSFloat Visual §23 — sellers want a
   // concrete "last month" figure for tax / cash-flow without filtering
@@ -15027,7 +15033,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 )
               ),
               h('div', { className: 'mystall-sold-summary' },
-                h('span', { className: 'mystall-sold-label' }, 'Gross · last ' + sold.length + (sold.length === 1 ? ' sale' : ' sales')),
+                h('span', { className: 'mystall-sold-label' }, 'Gross · last ' + soldShown.length + (soldShown.length === 1 ? ' sale' : ' sales')),
                 // Privacy-mask seller revenue — consistent with maskEarn
                 // on the earnings hero strip above.
                 h('span', { className: 'mystall-sold-total' }, maskEarn(soldTotal)),
@@ -15050,7 +15056,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 }, '⇣ CSV')
               ),
               h('div', { className: 'recent-sales-list' },
-                sold.map(l => h('div', { key: l.id, className: 'recent-sales-row' },
+                soldShown.length === 0 && h('div', { className: 'recent-sales-row' },
+                  h('span', { className: 'recent-sales-time' }, 'No sales in this date range.')),
+                soldShown.map(l => h('div', { key: l.id, className: 'recent-sales-row' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 } },
                     h('div', { className: 'item-thumb', style: { width: 28, height: 28, flexShrink: 0 } }, h(ItemImage, { item: l.item, variant: 'mini' })),
                     h('span', { style: { fontSize: 12.5, color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, l.item?.name || 'Item')
@@ -15282,7 +15290,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                   const closesDeal = best > 0 && priced > 0 && best >= priced;
                   return h('a', {
                     href: '/item/' + l.item.id,
-                    onClick: (e) => e.stopPropagation(),
+                    onClick: (e) => { e.stopPropagation(); followInternalLink(e); },
                     style: {
                       marginLeft: 8, fontSize: 10, fontWeight: 700,
                       color: closesDeal ? 'var(--green)' : '#fbbf24',
@@ -15431,7 +15439,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         (1 - parseFloat(o.bestAmount) / parseFloat(l.price)) * 100));
                       return h('a', {
                         href: '/offers',
-                        onClick: (e) => { e.stopPropagation(); },
+                        onClick: (e) => { e.stopPropagation(); followInternalLink(e); },
                         style: {
                           marginLeft: 10, padding: '2px 8px', borderRadius: 4,
                           fontSize: 10, fontWeight: 700, color: '#fbbf24',

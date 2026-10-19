@@ -258,37 +258,45 @@ export function useRoute() {
  * triggering a full page reload. Mount once in App.
  */
 export function installAnchorInterceptor() {
-  document.addEventListener('click', (e) => {
-    if (e.defaultPrevented) return;
-    if (e.button !== 0) return;
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    let el = e.target;
-    while (el && el.tagName !== 'A') el = el.parentElement;
-    if (!el) return;
-    const href = el.getAttribute('href');
-    if (!href) return;
-    if (href.startsWith('http') || href.startsWith('//') || href.startsWith('mailto:')) return;
-    if (el.getAttribute('target') === '_blank') return;
-    if (href.startsWith('#')) return;          // hash links left alone
-    if (href.startsWith('/api/')) return;      // backend auth links go via the browser
-    if (href.startsWith('/h2-console') || href.startsWith('/swagger-ui')) return;
-    // Reject any non-path scheme that slipped past the http/mailto check.
-    // Without this, `href="javascript:…"`, `tel:`, `data:`, `blob:`,
-    // `vbscript:`, `file:` etc. fall through to navigate(), which calls
-    // history.pushState() with a non-same-origin URL and throws a
-    // SecurityError that masks the original click intent. Let the
-    // browser handle every non-/ href naturally instead.
-    if (!href.startsWith('/')) return;
-    // Any path that carries a file extension (/legal/terms.html,
-    // /favicon.ico, /img/logo.png, /css/styles.css, downloadable PDFs,
-    // etc.) needs to go through the browser to hit the real static
-    // asset — if we call navigate() the SPA router treats it as an
-    // unknown app route and renders the 404 page.
-    const lastSeg = href.split('/').pop().split('?')[0];
-    if (/\.[a-zA-Z0-9]{1,5}$/.test(lastSeg)) return;
-    e.preventDefault();
-    navigate(href);
-  });
+  document.addEventListener('click', followInternalLink);
+}
+
+/**
+ * Route a plain left-click on an internal <a href="/..."> through the SPA
+ * router. installAnchorInterceptor runs it on document; React handlers that
+ * call stopPropagation() (menus, the InfoModal panel, row links) keep the
+ * click from ever reaching document, so they call this themselves.
+ */
+export function followInternalLink(e) {
+  if (e.defaultPrevented) return;
+  if (e.button !== 0) return;
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  let el = e.target;
+  while (el && el.tagName !== 'A') el = el.parentElement;
+  if (!el) return;
+  const href = el.getAttribute('href');
+  if (!href) return;
+  if (href.startsWith('http') || href.startsWith('//') || href.startsWith('mailto:')) return;
+  if (el.getAttribute('target') === '_blank') return;
+  if (href.startsWith('#')) return;          // hash links left alone
+  if (href.startsWith('/api/')) return;      // backend auth links go via the browser
+  if (href.startsWith('/h2-console') || href.startsWith('/swagger-ui')) return;
+  // Reject any non-path scheme that slipped past the http/mailto check.
+  // Without this, `href="javascript:…"`, `tel:`, `data:`, `blob:`,
+  // `vbscript:`, `file:` etc. fall through to navigate(), which calls
+  // history.pushState() with a non-same-origin URL and throws a
+  // SecurityError that masks the original click intent. Let the
+  // browser handle every non-/ href naturally instead.
+  if (!href.startsWith('/')) return;
+  // Any path that carries a file extension (/legal/terms.html,
+  // /favicon.ico, /img/logo.png, /css/styles.css, downloadable PDFs,
+  // etc.) needs to go through the browser to hit the real static
+  // asset — if we call navigate() the SPA router treats it as an
+  // unknown app route and renders the 404 page.
+  const lastSeg = href.split('/').pop().split('?')[0];
+  if (/\.[a-zA-Z0-9]{1,5}$/.test(lastSeg)) return;
+  e.preventDefault();
+  navigate(href);
 }
 
 // ── Top route progress bar ─────────────────────────────────────────

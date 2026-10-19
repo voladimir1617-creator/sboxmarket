@@ -7,6 +7,7 @@
 // This is how we make /profile, /wallet, /help, /admin, etc. look like real
 // pages in CSFloat's shape without rewriting every modal body.
 import { React, h, useState, useEffect, useRef, signInWithSteam } from './utils.js';
+import { followInternalLink } from './router.js';
 
 export function InfoModal({ title, onClose, children, wide }) {
   // Batch 821 — a11y: proper focus management + Escape-to-close.
@@ -155,7 +156,7 @@ export function InfoModal({ title, onClose, children, wide }) {
       // time (InfoModal routes and home/market are mutually exclusive).
       id: 'main',
       className: 'modal info-modal' + (wide ? ' wide' : ''),
-      onClick: e => e.stopPropagation(),
+      onClick: e => { e.stopPropagation(); followInternalLink(e); },
       role: asPage ? 'main' : 'dialog',
       'aria-modal': asPage ? undefined : 'true',
       'aria-labelledby': headerId || undefined
