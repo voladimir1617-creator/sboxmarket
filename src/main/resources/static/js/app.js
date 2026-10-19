@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=310'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=311'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2274,6 +2274,8 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
 // with no multi-line support — a support ticket body often wants
 // paragraphs. The drawer opens inline below the stall hero, autofocus
 // on the textarea, Ctrl+Enter or button to submit, Esc to close.
+// Seller ids with a Contact ticket being sent.
+const contactInFlight = new Set();
 function ContactSellerButton({ seller }) {
   const [open, setOpen]       = useState(false);
   const [body, setBody]       = useState('');
@@ -2299,7 +2301,10 @@ function ContactSellerButton({ seller }) {
   }, [open, busy]);
   const submit = async () => {
     const trimmed = (body || '').trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || contactInFlight.has(seller.id)) return;
+    // Latch before the await: busy lags a re-render, so a double click
+    // or a repeated Ctrl+Enter would open two tickets.
+    contactInFlight.add(seller.id);
     setBusy(true);
     try {
       const { createSupportTicket } = await import('./api.js');
@@ -2325,7 +2330,7 @@ function ContactSellerButton({ seller }) {
       } catch (_) {}
       setOpen(false);
       setBody('');
-    } finally { setBusy(false); }
+    } finally { contactInFlight.delete(seller.id); setBusy(false); }
   };
   return h(React.Fragment, null,
     h('button', {
@@ -9160,6 +9165,7 @@ export function App() {
                       key: n,
                       className: `wallet-tx-filter-chip ${stallStarFilter === n ? 'active' : ''}`,
                       'aria-pressed': stallStarFilter === n,
+                      'aria-label': n === 0 ? 'Show all reviews' : `Show ${n}-star reviews`,
                       onClick: () => setStallStarFilter(n)
                     }, n === 0 ? 'All' : `${n}★`))
                   ),

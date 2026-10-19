@@ -1173,6 +1173,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           onClick: async () => {
             setAlertErr('');
             if (!valid) { setAlertErr('Enter a positive dollar amount (≤ $100,000)'); return; }
+            if (bulkInFlight.has('alert-save:' + item.id)) return;
+            bulkInFlight.add('alert-save:' + item.id);
             setAlertBusy(true);
             try {
               const { createWatchlistAlert } = await import('./api.js');
@@ -1186,7 +1188,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               // also work but we already know the target we just saved.
               setMyAlert({ itemId: item.id, targetPrice: typed, status: 'ACTIVE' });
               setAlertOpen(false);
-            } finally { setAlertBusy(false); }
+            } finally { bulkInFlight.delete('alert-save:' + item.id); setAlertBusy(false); }
           }
         }, alertBusy ? '…' : 'Save'),
         h('button', {
@@ -5217,9 +5219,14 @@ function FollowingListRow() {
     );
   };
   const doUnfollowAll = async () => {
+    if (bulkInFlight.has('unfollow')) return;
     if (!confirm(`Unfollow all ${rows.length} seller${rows.length === 1 ? '' : 's'}? You'll stop getting new-listing pings from them.`)) return;
-    const { unfollowAllSellers } = await import('./api.js');
-    const res = await unfollowAllSellers();
+    bulkInFlight.add('unfollow');
+    let res;
+    try {
+      const { unfollowAllSellers } = await import('./api.js');
+      res = await unfollowAllSellers();
+    } finally { bulkInFlight.delete('unfollow'); }
     if (res && (res.error || res.code)) {
       toast(res.message || res.error || 'Could not unfollow', 'err');
       return;
@@ -5271,7 +5278,8 @@ function FollowingListRow() {
         className: 'btn btn-ghost',
         style: { marginLeft: 6, padding: '2px 8px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
         onClick: doUnfollowAll,
-        title: 'Unfollow every seller in one click'
+        title: 'Unfollow every seller in one click',
+        'aria-label': 'Unfollow all sellers'
       }, '✕ all')
     ),
     h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
@@ -5359,9 +5367,14 @@ function BlockedListRow() {
   };
   const doUnblockAll = async () => {
     if (rows.length === 0) return;
+    if (bulkInFlight.has('unblock')) return;
     if (!confirm(`Unblock all ${rows.length} user${rows.length === 1 ? '' : 's'}? Their listings will return to your grid and they'll be able to send you offers again.`)) return;
-    const { unblockAllUsers } = await import('./api.js');
-    const res = await unblockAllUsers();
+    bulkInFlight.add('unblock');
+    let res;
+    try {
+      const { unblockAllUsers } = await import('./api.js');
+      res = await unblockAllUsers();
+    } finally { bulkInFlight.delete('unblock'); }
     if (res && (res.error || res.code)) {
       toast(res.message || res.error || 'Could not clear block list', 'err');
       return;
@@ -5379,7 +5392,8 @@ function BlockedListRow() {
         className: 'btn btn-ghost',
         style: { marginLeft: 8, padding: '2px 8px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
         onClick: doUnblockAll,
-        title: 'Remove every block in one click'
+        title: 'Remove every block in one click',
+        'aria-label': 'Unblock all users'
       }, '✕ all')
     ),
     h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
@@ -9861,6 +9875,9 @@ function ProfileTradesTab({ me, privacy }) {
 // In-flight ids for the API key Revoke and watchlist alert ✕ buttons.
 const revokeInFlight = new Set();
 const alertCancelInFlight = new Set();
+// Keys of the bulk and per-row toggles in flight (unfollow/unblock all,
+// My Stall hide and cancel all).
+const bulkInFlight = new Set();
 
 function ProfileOffersTab() {
   // Two tabs (incoming / outgoing) with accept / reject / counter / cancel
@@ -10763,7 +10780,9 @@ function ProfileReviewsTab({ me }) {
     } finally { replyBusyRef.current = false; setBusy(false); }
   };
   const deleteMine = async (reviewId) => {
+    if (bulkInFlight.has('review-delete:' + reviewId)) return;
     if (!confirm('Delete this review? This cannot be undone.')) return;
+    bulkInFlight.add('review-delete:' + reviewId);
     // Batch 910 — find the review before the API call so the toast can
     // name the counterparty even after the row has been removed from
     // the `given` list.
@@ -10777,7 +10796,7 @@ function ProfileReviewsTab({ me }) {
       await Promise.all([loadGiven(), loadPending()]);
       const who = r?.toUserName || r?.sellerName || null;
       toast(who ? `Review for @${who} deleted.` : 'Review deleted.', 'ok');
-    } finally { setBusy(false); }
+    } finally { bulkInFlight.delete('review-delete:' + reviewId); setBusy(false); }
   };
   // Batch 750 — inline edit for a review the signed-in user authored.
   // Reuses /api/reviews POST (leaveReview) which the service-layer has
@@ -10905,6 +10924,7 @@ function ProfileReviewsTab({ me }) {
         key: n,
         className: `wallet-tx-filter-chip ${starFilter === n ? 'active' : ''}`,
         'aria-pressed': starFilter === n,
+        'aria-label': n === 0 ? 'Show all reviews' : `Show ${n}-star reviews`,
         onClick: () => setStarFilter(n)
       }, n === 0 ? 'All' : `${n}★`))
     ),
@@ -14055,7 +14075,12 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   };
 
   const toggleHidden = async (l) => {
-    const res = await updateStallListing(l.id, { hidden: !l.hidden });
+    // Per-listing latch: a second click would flip it straight back.
+    if (bulkInFlight.has('hide:' + l.id)) return;
+    bulkInFlight.add('hide:' + l.id);
+    let res;
+    try { res = await updateStallListing(l.id, { hidden: !l.hidden }); }
+    finally { bulkInFlight.delete('hide:' + l.id); }
     if (res && res.error) { toast(res.error, 'err'); return; }
     load();
     // Batch 919 — confirm toast so the seller sees what flipped.
@@ -14656,7 +14681,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         style: { border: '1px solid rgba(248,113,113,0.35)', color: 'var(--red)',
                  padding: '6px 12px', fontSize: 11, marginLeft: 6 },
         onClick: async () => {
+          if (bulkInFlight.has('stall-cancel-all')) return;
           if (!confirm(`Cancel all ${stall.length} active listings? Auctions with live bids are kept (cancel those individually if needed). Pending offers on the affected listings will be rejected with a courtesy notification.`)) return;
+          bulkInFlight.add('stall-cancel-all');
           try {
             const r = await fetch('/api/listings/my-stall', { method: 'DELETE', credentials: 'same-origin' });
             const data = await r.json();
@@ -14670,6 +14697,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             load();
             onRefresh && await onRefresh();
           } catch (_) { toast('Network error cancelling listings.', 'err'); }
+          finally { bulkInFlight.delete('stall-cancel-all'); }
         },
         title: 'Cancel every active BUY_NOW listing and every no-bid auction'
       }, '✕ Cancel all')
@@ -16377,6 +16405,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       toast('Enter a positive dollar amount', 'err');
       return;
     }
+    if (alertCancelInFlight.has('edit:' + a.id)) return;
+    alertCancelInFlight.add('edit:' + a.id);
     setServerAlertBusy(true);
     try {
       const { createWatchlistAlert } = await import('./api.js');
@@ -16398,7 +16428,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
       const nm = a ? alertItemName(a.itemId) : null;
       const who = nm ? `"${nm}"` : 'item';
       toast(`Alert target on ${who} updated to ${fmt(n)}${deltaStr}.`, 'ok');
-    } finally { setServerAlertBusy(false); }
+    } finally { alertCancelInFlight.delete('edit:' + a.id); setServerAlertBusy(false); }
   };
   const saveAlert = (itemId, value) => {
     const n = parseFloat(value);
@@ -17131,32 +17161,37 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
               className: 'btn-danger-ghost',
               style: { padding: '6px 12px', fontSize: 11 },
               onClick: async () => {
-                if (!confirm(watchlist.length === 1 ? 'Clear 1 watchlisted item and cancel its price alert?' : `Clear all ${watchlist.length} watchlisted items and cancel their price alerts?`)) return;
-                if (me?.id) {
-                  // One bulk DELETE. Its result is checked: per-item
-                  // unstar calls after it used to trip the rate limit and
-                  // re-star most rows while the toast claimed success.
-                  let res = null;
-                  try {
-                    const { clearWatchlist } = await import('./api.js');
-                    res = await clearWatchlist();
-                  } catch (_) { res = { error: 'Network error' }; }
-                  if (!res || res.error || res.code) {
-                    toast((res && (res.message || res.error)) || 'Could not clear your watchlist — try again.', 'err');
-                    return;
+                // Latch: a double click must not send a second clear.
+                if (bulkInFlight.has('watchlist-clear')) return;
+                bulkInFlight.add('watchlist-clear');
+                try {
+                  if (!confirm(watchlist.length === 1 ? 'Clear 1 watchlisted item and cancel its price alert?' : `Clear all ${watchlist.length} watchlisted items and cancel their price alerts?`)) return;
+                  if (me?.id) {
+                    // One bulk DELETE. Its result is checked: per-item
+                    // unstar calls after it used to trip the rate limit and
+                    // re-star most rows while the toast claimed success.
+                    let res = null;
+                    try {
+                      const { clearWatchlist } = await import('./api.js');
+                      res = await clearWatchlist();
+                    } catch (_) { res = { error: 'Network error' }; }
+                    if (!res || res.error || res.code) {
+                      toast((res && (res.message || res.error)) || 'Could not clear your watchlist — try again.', 'err');
+                      return;
+                    }
                   }
-                }
-                // Drop client-side state so the marketplace grid un-stars
-                // cards at once (signed out, the list is local only).
-                if (typeof onClearAll === 'function') onClearAll();
-                else starred.forEach(l => { if (l?.item?.id) onToggleStar(l.item.id); });
-                localStorage.removeItem('sb_watchlist_snap');
-                localStorage.removeItem('sb_watchlist_alerts');
-                setSnapshots({});
-                setAlerts({});
-                // The server cancelled the price alerts on those items too.
-                try { loadServerAlerts(); } catch (_) {}
-                toast(`Cleared ${watchlist.length} watched item${watchlist.length === 1 ? '' : 's'}.`, 'ok');
+                  // Drop client-side state so the marketplace grid un-stars
+                  // cards at once (signed out, the list is local only).
+                  if (typeof onClearAll === 'function') onClearAll();
+                  else starred.forEach(l => { if (l?.item?.id) onToggleStar(l.item.id); });
+                  localStorage.removeItem('sb_watchlist_snap');
+                  localStorage.removeItem('sb_watchlist_alerts');
+                  setSnapshots({});
+                  setAlerts({});
+                  // The server cancelled the price alerts on those items too.
+                  try { loadServerAlerts(); } catch (_) {}
+                  toast(`Cleared ${watchlist.length} watched item${watchlist.length === 1 ? '' : 's'}.`, 'ok');
+                } finally { bulkInFlight.delete('watchlist-clear'); }
               }
             }, '✕ Clear all')
           ),
