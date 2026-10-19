@@ -2720,7 +2720,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             href: '/offers/outgoing',
             className: 'btn btn-accent',
             style: { padding: '5px 12px', fontSize: 11, textDecoration: 'none' },
-            onClick: (e) => { e.stopPropagation(); onClose && onClose(); }
+            onClick: (e) => { e.stopPropagation(); onClose && onClose(); followInternalLink(e); }
           }, 'View offer →')
         ),
         h('div', { className: 'wallet-input-label offer-drawer-label', style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' } },
@@ -15792,7 +15792,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
             href: itemHref,
             className: 'item-thumb',
             style: { width: 56, height: 56, display: 'block' },
-            onClick: (e) => { e.stopPropagation(); onClose && onClose(); },
+            onClick: (e) => { e.stopPropagation(); onClose && onClose(); followInternalLink(e); },
             title: 'Open ' + (offer.itemName || 'item')
           }, thumbInner)
         : h('div', { className: 'item-thumb', style: { width: 56, height: 56 } }, thumbInner),
@@ -15802,7 +15802,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
               href: itemHref,
               className: 'item-name',
               style: { color: 'inherit', textDecoration: 'none' },
-              onClick: (e) => { e.stopPropagation(); onClose && onClose(); },
+              onClick: (e) => { e.stopPropagation(); onClose && onClose(); followInternalLink(e); },
               title: 'Open ' + (offer.itemName || 'item')
             }, offer.itemName || ('Listing #' + offer.listingId))
           : h('div', { className: 'item-name' }, offer.itemName || ('Listing #' + offer.listingId)),

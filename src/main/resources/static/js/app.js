@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=313'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=314'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -255,7 +255,7 @@ function StaffAccessDeniedModal({ what, onClose }) {
     onClose && onClose();
   };
   return h('div', { className: 'modal-backdrop', onClick: handleBackdropClick },
-    h('div', { className: 'modal', onClick: (e) => e.stopPropagation(), style: { maxWidth: 440, textAlign: 'center', padding: '32px 24px' } },
+    h('div', { className: 'modal', onClick: (e) => { e.stopPropagation(); followInternalLink(e); }, style: { maxWidth: 440, textAlign: 'center', padding: '32px 24px' } },
       h('div', { style: { marginBottom: 12, display: 'flex', justifyContent: 'center' } },
         h(MaterialIcon, { name: 'lock', size: 40, color: 'var(--text-muted)' })),
       h('h1', { style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' } }, 'Staff access only'),
