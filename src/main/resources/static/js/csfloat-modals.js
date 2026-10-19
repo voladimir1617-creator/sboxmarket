@@ -555,6 +555,9 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
 // then sees every active buy order grouped by item, with live status.
 /** Buy-order ids with a pause/resume request in flight (double-click latch). */
 const pauseInFlight = new Set();
+/** Buy-order ids with a cancel in flight (double-click latch), module-level
+ *  for the same reason: the hooks sit below the signed-out early return. */
+const cancelInFlight = new Set();
 
 export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   const [orders, setOrders]   = useState(null);
@@ -760,18 +763,22 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     // /buyorders), so keeping it generic was the inconsistent outlier.
     const o = (orders || []).find(x => x.id === id);
     const itemLabel = o?.itemName || 'item';
+    if (cancelInFlight.has(id)) return;
     if (!confirm(`Cancel buy order for "${itemLabel}"? Any remaining quantity is freed.`)) return;
-    const res = await deleteBuyOrder(id);
-    if (res && res.error) { toast(res.error, 'err'); return; }
-    load();
-    const priceStr = o?.maxPrice != null ? fmt(parseFloat(o.maxPrice)) : '';
-    // BuyOrder.quantity is ALREADY the remaining (un-filled) count — it's
-    // decremented per auto-fill. There is no `filledQuantity` field on
-    // the model, so the old `- (filledQuantity||0)` was a dead no-op.
-    const remaining = o?.quantity || 0;
-    const qtyStr = remaining > 1 ? ` (${remaining} units)` : '';
-    toast(`Buy order cancelled for "${itemLabel}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}.`,
-      'ok');
+    cancelInFlight.add(id);
+    try {
+      const res = await deleteBuyOrder(id);
+      if (res && res.error) { toast(res.error, 'err'); return; }
+      load();
+      const priceStr = o?.maxPrice != null ? fmt(parseFloat(o.maxPrice)) : '';
+      // BuyOrder.quantity is ALREADY the remaining (un-filled) count — it's
+      // decremented per auto-fill. There is no `filledQuantity` field on
+      // the model, so the old `- (filledQuantity||0)` was a dead no-op.
+      const remaining = o?.quantity || 0;
+      const qtyStr = remaining > 1 ? ` (${remaining} units)` : '';
+      toast(`Buy order cancelled for "${itemLabel}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}.`,
+        'ok');
+    } finally { cancelInFlight.delete(id); }
   };
 
   // Pause keeps the order on file but stops it buying; resume can fill
@@ -1930,7 +1937,12 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       // Enter creates like it renames.
       h('input', { className: 'price-input', 'aria-label': 'New loadout name', placeholder: 'Loadout name…', value: newName, maxLength: 80,
         onChange: e => setNewName(e.target.value),
-        onKeyDown: e => { if (e.key === 'Enter') { e.preventDefault(); handleCreate(); } },
+        // Escape backs out like the rename box does; stopPropagation keeps the
+        // page-level Escape from closing the whole loadout view.
+        onKeyDown: e => {
+          if (e.key === 'Enter') { e.preventDefault(); handleCreate(); }
+          else if (e.key === 'Escape') { e.stopPropagation(); setCreating(false); setNewName(''); }
+        },
         style: { flex: 1 } }),
       h('button', { className: 'btn btn-accent', onClick: handleCreate, disabled: !newName.trim() }, 'Create')
     ),
@@ -2176,7 +2188,8 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
         onClick: () => { onPick(it.id); setOpen(false); },
         role: 'button',
         tabIndex: 0,
-        'aria-label': `Add ${it.name} to the ${slot} slot (${fmt(it.lowestPrice)})`,
+        // Same no-listing rule as the visible price cell, which shows a dash.
+        'aria-label': `Add ${it.name} to the ${slot} slot (${parseFloat(it.lowestPrice) > 0 ? fmt(it.lowestPrice) : 'no listings'})`,
         onKeyDown: (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();

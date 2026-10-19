@@ -634,7 +634,7 @@ function AdminReportedTab() {
           role: 'button',
           tabIndex: 0,
           'aria-expanded': !!expanded[r.id],
-          'aria-label': `${expanded[r.id] ? 'Collapse' : 'Expand'} reported listing #${r.id} — ${r.itemName || 'unknown item'} (${r.reportCount} reports)`,
+          'aria-label': `${expanded[r.id] ? 'Collapse' : 'Expand'} reported listing #${r.id} — ${r.itemName || 'unknown item'} (${r.reportCount} report${r.reportCount === 1 ? '' : 's'})`,
           onKeyDown: (e) => {
             const tag = (e.target?.tagName || '').toLowerCase();
             if (tag === 'button' || tag === 'a' || tag === 'input') return;
@@ -1491,12 +1491,14 @@ function AdminSimulatorTab() {
     try {
       const res = await adminSimulateListings(spawnN);
       if (res.code || res.error) { setToast(`Error: ${res.message || res.error}`); return; }
-      setToast(`Spawned ${res.created} simulated listings`);
+      setToast(`Spawned ${res.created} simulated listing${res.created === 1 ? '' : 's'}`);
       await reload();
     } finally { setBusy(false); }
   };
   const runClear = async () => {
-    if (!confirm(`Delete all ${count} simulated listings? Real listings are untouched.`)) return;
+    if (!confirm(count === 1
+      ? 'Delete the 1 simulated listing? Real listings are untouched.'
+      : `Delete all ${count} simulated listings? Real listings are untouched.`)) return;
     setBusy(true); setToast('');
     try {
       const res = await adminClearSimulated();
@@ -1525,6 +1527,7 @@ function AdminSimulatorTab() {
           h('label', { style: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 } }, 'Count:'),
           h('input', {
             type: 'number', min: 1, max: 100, step: 1,
+            'aria-label': 'Count',
             value: spawnN,
             onChange: e => setSpawnN(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 20))),
             style: {
@@ -1537,7 +1540,7 @@ function AdminSimulatorTab() {
             className: 'btn btn-accent',
             disabled: busy,
             onClick: runSpawn
-          }, busy ? 'Working…' : `Spawn ${spawnN} listings`),
+          }, busy ? 'Working…' : `Spawn ${spawnN} listing${spawnN === 1 ? '' : 's'}`),
           h('button', {
             className: 'btn btn-ghost',
             disabled: busy || count === 0,
@@ -2878,7 +2881,8 @@ function AdminUsersTab({ me }) {
                     className: 'btn btn-ghost',
                     style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
                     onClick: () => setDetailUser(u),
-                    title: 'View user detail'
+                    title: 'View user detail',
+                    'aria-label': `View user detail for ${u.displayName || ('user #' + u.id)}`
                   }, '🔎'),
                   h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u) }, '$'),
                   u.role === 'USER'

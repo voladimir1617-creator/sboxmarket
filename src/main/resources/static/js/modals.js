@@ -7162,7 +7162,10 @@ function ProfileBuyOrdersTab() {
     } finally { busyRef.current = false; setBusy(false); }
   };
   const cancelOrder = async (o) => {
+    if (busyRef.current) return;
     if (!confirm(`Cancel buy order for "${o.itemName || 'item'}"? Any remaining quantity is freed.`)) return;
+    // Latch before the await: the busy state lags a re-render.
+    busyRef.current = true;
     setBusy(true);
     try {
       const res = await deleteBuyOrder(o.id);
@@ -7177,7 +7180,7 @@ function ProfileBuyOrdersTab() {
       const qtyStr = remaining > 1 ? ` (${remaining} units)` : '';
       toast(`Buy order cancelled for "${o.itemName || 'item'}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}.`,
         'ok');
-    } finally { setBusy(false); }
+    } finally { busyRef.current = false; setBusy(false); }
   };
   if (err) return h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
@@ -7456,6 +7459,9 @@ function ProfileBuyOrdersTab() {
                     disabled: busy,
                     title: 'Reset the 30-day auto-expire clock — keeps this order active without changing price or quantity.',
                     onClick: async () => {
+                      // Same latch as Edit and Pause: busy lags a re-render.
+                      if (busyRef.current) return;
+                      busyRef.current = true;
                       setBusy(true);
                       try {
                         const { bumpBuyOrder } = await import('./api.js');
@@ -7469,7 +7475,7 @@ function ProfileBuyOrdersTab() {
                         // window so the user sees exactly what they bumped.
                         // Match the buy-order toast family from batch 910.
                         toast(`Buy order for "${o.itemName || 'item'}" bumped — 30-day clock restarted.`, 'ok');
-                      } finally { setBusy(false); }
+                      } finally { busyRef.current = false; setBusy(false); }
                     }
                   }, 'Bump');
                 })(),
