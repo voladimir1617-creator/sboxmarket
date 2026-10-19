@@ -239,6 +239,10 @@ export function NotificationBell({ me }) {
   const [open, setOpen]     = useState(false);
   const [items, setItems]   = useState([]);
   const [unread, setUnread] = useState(0);
+  // Whether the rows have ever loaded ('ok') or the last load failed
+  // ('error'), so an empty list doesn't read "all caught up" before the
+  // first fetch lands or after it fails.
+  const [fullState, setFullState] = useState('idle');
   const wrapRef = React.useRef(null);
   // Sentinel: -1 until the first poll lands, so the initial "you have
   // N unread already" render doesn't trigger a ding for every unread
@@ -264,10 +268,11 @@ export function NotificationBell({ me }) {
     const data = await fetchNotifications(muted.size > 0 ? 100 : 12);
     // A failed fetch keeps what's already shown instead of blanking the
     // badge and flashing "all caught up".
-    if (data?.error) return null;
+    if (data?.error) { setFullState('error'); return null; }
     const all = Array.isArray(data?.items) ? data.items : [];
     const visible = muted.size > 0 ? all.filter(n => !muted.has(kindBucket(n.kind))) : all;
     const visibleUnread = visible.filter(n => !n.read).length;
+    setFullState('ok');
     setItems(visible);
     // The badge needs the TRUE unread count. Deriving it from the 12-row
     // dropdown slice caps the badge at 12 for any user with more unread.
@@ -644,7 +649,8 @@ export function NotificationBell({ me }) {
       ),
       items.length === 0
         ? (me
-            ? h('div', { className: 'notif-empty' }, "You're all caught up.")
+            ? h('div', { className: 'notif-empty' },
+                fullState === 'ok' ? "You're all caught up." : fullState === 'error' ? "Couldn't load notifications." : 'Loading…')
             : h('div', { className: 'notif-empty', style: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', padding: '14px 12px' } },
                 h('div', { style: { fontSize: 12, color: 'var(--text-secondary)' } },
                   'Sign in with Steam to see your notifications.'),

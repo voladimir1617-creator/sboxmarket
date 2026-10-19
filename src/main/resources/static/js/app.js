@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=312'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=313'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -141,7 +141,7 @@ function LazyStaffPanel({ which, me, onClose }) {
 }
 import { HelpModal } from './help-modal.js';
 import { InfoModal, markAuthKnown } from './info-modal.js';
-import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious } from './router.js';
+import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious, followInternalLink } from './router.js';
 
 // ── Pending trade reminder — surfaces a slim banner whenever the signed-in
 // user has a trade sitting in a state where they're the actor and the
@@ -6473,7 +6473,7 @@ export function App() {
                 className: 'user-menu-backdrop',
                 onClick: (e) => { e.stopPropagation(); setMenuOpen(false); }
               }),
-              menuOpen && h('div', { id: 'user-menu-panel', className: 'user-menu', role: 'menu', onClick: e => e.stopPropagation() },
+              menuOpen && h('div', { id: 'user-menu-panel', className: 'user-menu', role: 'menu', onClick: e => { e.stopPropagation(); followInternalLink(e); } },
                 h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.profile(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18, fill: true, color: 'var(--ink-2)' }), 'Profile'),
                 h('div', { className: 'user-menu-divider' }),
                 h('button', { role: 'menuitem', className: 'user-menu-item', onClick: () => { setWalletInitialTab('deposit');  navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'upload', size: 18, fill: true, color: 'var(--ink-2)' }), 'Deposit'),
