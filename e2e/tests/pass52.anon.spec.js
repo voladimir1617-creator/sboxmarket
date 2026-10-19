@@ -31,12 +31,12 @@ test.describe('defect pass 52', () => {
     });
     await page.goto('/profile');
     const row = page.locator('.profile-row', { hasText: 'Email' }).first();
-    await row.getByRole('button', { name: 'Edit', exact: true }).click({ timeout: 20_000 });
+    await row.getByRole('button', { name: 'Edit email address' }).click({ timeout: 20_000 });
     const box = page.getByRole('textbox', { name: 'Email address' });
     await expect(box).toHaveAttribute('maxlength', '254');
     await box.press('Escape');
     await expect(box).toHaveCount(0);
-    await row.getByRole('button', { name: 'Edit', exact: true }).click();
+    await row.getByRole('button', { name: 'Edit email address' }).click();
     await box.fill('new@example.com');
     await box.press('Enter');
     await box.press('Enter').catch(() => {});

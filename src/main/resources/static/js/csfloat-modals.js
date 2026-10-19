@@ -2122,7 +2122,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               l.visibility !== 'PRIVATE' && h('button', {
                 className: 'loadout-card-share',
                 title: 'Copy link to this loadout',
-                'aria-label': 'Copy link',
+                'aria-label': `Copy link to ${l.name || 'this loadout'}`,
                 onClick: async (e) => {
                   e.stopPropagation();
                   const url = `${window.location.origin}/loadout/${l.id}`;
