@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=311'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=312'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -290,6 +290,10 @@ function StaffAccessDeniedModal({ what, onClose }) {
 // when the review carries a sellerReply; otherwise the seller themselves
 // (viewing their own stall) sees a "Reply" button that toggles an inline
 // textarea. 300-char cap mirrors the service-layer sanitiser.
+// Stall review ids with a reply or delete in flight; busy lags a re-render.
+const stallReviewInFlight = new Set();
+// Market toolbar Refresh in flight.
+const refreshInFlight = new Set();
 function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState('');
@@ -363,6 +367,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
     } finally { setVoteBusy(false); }
   };
   const submit = async (clear = false) => {
+    if (stallReviewInFlight.has(review.id)) return;
+    stallReviewInFlight.add(review.id);
     setBusy(true); setErr('');
     try {
       const res = await replyToReview(review.id, clear ? '' : (draft || '').trim());
@@ -370,20 +376,22 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       setEditing(false);
       setDraft('');
       onSaved && onSaved();
-    } finally { setBusy(false); }
+    } finally { stallReviewInFlight.delete(review.id); setBusy(false); }
   };
   // Buyer-side delete for their own reviews. Only shown to the review's
   // author (server still enforces fromUserId == caller). A simple
   // confirm() is deliberate here — a full modal would out-scope the row.
   const onDelete = async () => {
+    if (stallReviewInFlight.has(review.id)) return;
     if (!confirm('Delete this review? This cannot be undone.')) return;
+    stallReviewInFlight.add(review.id);
     setBusy(true); setErr('');
     try {
       const { deleteReview } = await import('./api.js');
       const res = await deleteReview(review.id);
       if (res && (res.error || res.code)) { setErr(res.message || res.error); return; }
       onSaved && onSaved();
-    } finally { setBusy(false); }
+    } finally { stallReviewInFlight.delete(review.id); setBusy(false); }
   };
   return h('div', { className: 'stall-review' },
     h('div', { className: 'stall-review-head' },
@@ -2449,7 +2457,7 @@ function ShareStallButton({ userId, sellerName, showToast }) {
     className: 'stall-share-btn',
     onClick: share,
     title: 'Copy a link to this stall',
-    'aria-label': 'Share stall'
+    'aria-label': copied ? 'Stall link copied' : 'Share stall'
   },
     // Material icon glyph in place of the legacy U+2398 unicode (no
     // system font reliably ships Misc Technical glyphs — same fix
@@ -5979,7 +5987,7 @@ export function App() {
             steamPrice: r.steamPrice
           }
         },
-        time: r.soldAt ? timeAgo(r.soldAt) : 'just now'
+        time: r.soldAt ? timeAgo(r.soldAt) : 'Just now'
       })));
     }).catch(() => {});
     load();
@@ -7895,8 +7903,9 @@ export function App() {
             // wondering whether the click registered.
             className: 'toolbar-refresh' + (loading ? ' busy' : ''),
             onClick: async () => {
-              if (loading) return;
-              await load(false);
+              if (loading || refreshInFlight.has('market')) return;
+              refreshInFlight.add('market');
+              try { await load(false); } finally { refreshInFlight.delete('market'); }
               showToast('Listings refreshed.', 'ok');
             },
             disabled: loading,

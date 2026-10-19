@@ -55,7 +55,7 @@ test('a buyer adds a Steam trade URL on the profile page', async () => {
   await H.call(pixel, 'PUT', '/api/profile/trade-url', { tradeUrl: '' });
   const page = pixel.page;
   await page.goto('/profile');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: 'Add Steam trade URL', exact: true }).click();
   await page.getByPlaceholder(/tradeoffer\/new/).fill(H.tradeUrlFor(pixel.steamId64));
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText(H.tradeUrlFor(pixel.steamId64)).first()).toBeVisible({ timeout: 8_000 });

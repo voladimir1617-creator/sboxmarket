@@ -5013,6 +5013,9 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
 // Email-notification toggle row. Lazy-loads the PUT helper so this
 // file doesn't gain a new top-level dependency; state is local, with
 // the server value seeded from ProfileService.buildProfile.
+// Email preference writes in flight: busy lags a re-render, so a quick
+// second click would act on the pre-click value.
+const emailPrefInFlight = new Set();
 function EmailPrefToggle({ initial, onChange }) {
   const [on, setOn] = useState(initial !== false);
   const [busy, setBusy] = useState(false);
@@ -5022,7 +5025,8 @@ function EmailPrefToggle({ initial, onChange }) {
     if (!busy && typeof initial === 'boolean') setOn(initial);
   }, [initial]);
   const toggle = async () => {
-    if (busy) return;
+    if (busy || emailPrefInFlight.has('master')) return;
+    emailPrefInFlight.add('master');
     setBusy(true);
     const next = !on;
     setOn(next);  // optimistic
@@ -5040,7 +5044,7 @@ function EmailPrefToggle({ initial, onChange }) {
         setOn(!next);  // revert
         try { onChange && onChange(!next); } catch (_) {}
       }
-    } finally { setBusy(false); }
+    } finally { emailPrefInFlight.delete('master'); setBusy(false); }
   };
   return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
     h('div', {
@@ -6031,7 +6035,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
-            onClick: () => { setEditingEmail(true); setEmailDraft(profile?.user?.email || ''); }
+            onClick: () => { setEditingEmail(true); setEmailDraft(profile?.user?.email || ''); },
+            'aria-label': 'Edit email address'
           }, 'Edit')
         ),
         editingEmail && h('div', { style: { display: 'flex', gap: 6, width: '100%' } },
@@ -6112,7 +6117,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-            onClick: () => { setTradeUrlDraft(profile?.user?.tradeUrl || ''); setEditingTradeUrl(true); setTradeUrlErr(''); }
+            onClick: () => { setTradeUrlDraft(profile?.user?.tradeUrl || ''); setEditingTradeUrl(true); setTradeUrlErr(''); },
+            'aria-label': hasTradeUrl ? 'Edit Steam trade URL' : 'Add Steam trade URL'
           }, hasTradeUrl ? 'Edit' : 'Add'),
           hasTradeUrl && h('button', {
             className: 'btn btn-ghost',
@@ -11634,9 +11640,12 @@ function ProfileDevelopersTab() {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid rgba(248,113,113,0.4)', color: 'var(--red)', padding: '5px 12px', fontSize: 11 },
                 onClick: async () => {
+                  if (revokeInFlight.has('all')) return;
                   const n = keys.filter(k => !k.revoked).length;
                   if (!confirm(`Revoke ALL ${n} active API keys?\n\nEvery third-party bot or extension using these will immediately stop working. Use this if you suspect any of them were compromised.`)) return;
-                  const res = await revokeAllApiKeys();
+                  revokeInFlight.add('all');
+                  let res;
+                  try { res = await revokeAllApiKeys(); } finally { revokeInFlight.delete('all'); }
                   if (res && (res.error || res.code)) { toast(res.message || res.error || 'Bulk revoke failed', 'err'); return; }
                   toast(`Revoked ${res.revoked || 0} API key${res.revoked === 1 ? '' : 's'}.`, 'ok');
                   load();

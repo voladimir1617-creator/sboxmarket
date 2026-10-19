@@ -84,7 +84,7 @@ test.describe('defect pass 54', () => {
     await page.route('**/api/profile/trade-url', (r) => { puts += 1; return r.fulfill(json({ tradeUrl: ME.tradeUrl })); });
     await page.goto('/profile');
     const row = page.locator('.profile-row', { hasText: 'Steam trade URL' }).first();
-    const edit = row.getByRole('button', { name: /^(Add|Edit)$/ });
+    const edit = row.getByRole('button', { name: /^(Add|Edit) Steam trade URL$/ });
     await edit.click({ timeout: 20_000 });
     const box = page.getByRole('textbox', { name: 'Steam trade URL' });
     await box.press('Escape');
