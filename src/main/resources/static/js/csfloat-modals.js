@@ -7,7 +7,7 @@ import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol, fxToUsd } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
-import { navigate, paths } from './router.js';
+import { navigate, paths, followInternalLink } from './router.js';
 import {
   fetchDatabase, fetchBuyOrders, fetchBuyOrdersWithTotal, createBuyOrder, deleteBuyOrder, pauseBuyOrder, resumeBuyOrder, fetchBuyOrderProjectedPosition,
   fetchPublicLoadouts, fetchMyLoadouts, fetchLoadout, createLoadout,
@@ -823,7 +823,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   const visibleOrderCount = orderStatusFilter === 'ALL'
     ? ((orders && orders.length) || 0)
     : ((orders || []).filter(o => (o.status || '').toUpperCase() === orderStatusFilter).length);
-  return h(InfoModal, { title: `Buy Orders · ${visibleOrderCount}`, onClose },
+  return h(InfoModal, { title: (orders === null || ordersErr) ? 'Buy Orders' : `Buy Orders · ${visibleOrderCount}`, onClose },
     tradeUrlMissing && h('div', {
       style: {
         margin: '0 0 14px', padding: '10px 14px',
@@ -842,7 +842,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
         href: '/profile',
         className: 'btn btn-accent',
         style: { padding: '6px 14px', fontSize: 12, textDecoration: 'none' },
-        onClick: (e) => { e.stopPropagation(); onClose && onClose(); }
+        onClick: (e) => { e.stopPropagation(); onClose && onClose(); followInternalLink(e); }
       }, 'Open Profile')
     ),
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 16 } },
@@ -2474,7 +2474,7 @@ export function NotificationsModal({ onClose, me }) {
   if (!me) return h(InfoModal, { title: 'Notifications', onClose },
     h(SignInNeededEmptyState, { what: 'your notifications' }));
 
-  return h(InfoModal, { title: `Notifications · ${shownUnread} unread`, onClose },
+  return h(InfoModal, { title: (loading || loadErr) ? 'Notifications' : `Notifications · ${shownUnread} unread`, onClose },
     // Batch 769 — muted-kinds banner. When the user has muted specific
     // notification categories via Settings, surface a concise "X types
     // muted · manage" line so they're not confused about a quiet bell
