@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=314'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=315'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1646,6 +1646,8 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         maxLength: CAP,
         onChange: e => setDraft(e.target.value),
         'aria-label': 'Stall bio',
+        // The button that opened the editor unmounts; land the caret here.
+        autoFocus: true,
         // Batch 923 — Ctrl+Enter saves so a seller typing a multi-line
         // bio doesn't need to mouse over to Save. Matches the drawer
         // submit pattern from the shared ReasonDrawer.

@@ -28,6 +28,9 @@ const suggestedMax = (it) => { const f = parseFloat(it?.lowestPrice) || 0; retur
 // ── Database ────────────────────────────────────────────────────
 export function DatabaseModal({ onClose, onPickItem, me }) {
   const [data, setData]       = useState({ items: [], total: 0, indexed: 0 });
+  // False until the first page lands, so the heading and result line don't
+  // print the placeholder zeros as if they were real counts.
+  const [loaded, setLoaded]   = useState(false);
   // Starred item ids — populated once on open for signed-in users so the
   // db-table can render a ★ toggle in each row without a per-row fetch.
   // Anon viewers see the outline star and get redirected to sign-in on
@@ -188,7 +191,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       // exactly as the NotificationsModal consumer below reads it. Detect
       // that explicitly: the catch beneath is a backstop, not the mechanism.
       if (res && res.error) setLoadErr(true);
-      else setData(res);
+      else { setData(res); setLoaded(true); }
     } catch (_) {
       // Backstop only — an unexpected throw (a future refactor, a bug in
       // the helper) must not fall through to the "Catalogue is empty" copy.
@@ -224,7 +227,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
   // the title above it still stated a count of zero. A number we never
   // received is not zero; it is unknown, and the honest render omits it.
   return h(InfoModal, {
-    title: loadErr
+    title: (loadErr || !loaded)
       ? 'Database'
       : `Database · ${Number(data.indexed || 0).toLocaleString()} indexed`,
     onClose },
@@ -294,7 +297,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
        failed fetch `data.total` is still its 0 initial value, so the meta
        read "0 results · page 1 / 1" sitting above the error panel, which
        looks like a contradictory healthy-but-empty result. */
-    !loadErr && h('div', { className: 'db-meta' },
+    !loadErr && loaded && h('div', { className: 'db-meta' },
       h('strong', null, Number(data.total).toLocaleString()), Number(data.total) === 1 ? ' result · page ' : ' results · page ',
       h('strong', null, page + 1), ' / ', totalPages
     ),
@@ -1163,7 +1166,9 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
 
 // ── Loadout Lab ─────────────────────────────────────────────────
 export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
-  const [tab, setTab]         = useState('discover'); // discover | mine | view
+  // A shared /loadout/:id opens straight on its view (spinner until it
+  // loads) instead of flashing the Discover list first.
+  const [tab, setTab]         = useState(loadoutId ? 'view' : 'discover'); // discover | mine | view
   const [list, setList]       = useState(null);
   // Audit fix — `load()` did `setList(null)` then awaited
   // fetchPublicLoadouts/fetchMyLoadouts with no catch, so a rejected
@@ -1504,6 +1509,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // 404 branch — deep-link to a missing or private loadout. Kept above
   // the normal view so the rendered tab doesn't try to dereference
   // viewing.loadout.ownerUserId on the sentinel object.
+  if (tab === 'view' && !viewing) {
+    return h(InfoModal, { title: 'Loadout Lab', onClose }, h('div', { className: 'spinner' }));
+  }
   if (tab === 'view' && viewing && viewing.__notFound) {
     // Reflect the not-found state in the page title too so browser tab +
     // history don't read as a generic "Loadout · SkinBox" placeholder.
@@ -1744,7 +1752,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       // Batch 833 — inline rename panel. Replaces window.prompt.
       isOwner && renaming && h('div', {
         style: {
-          display: 'flex', gap: 8, alignItems: 'center',
+          display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
           padding: '10px 14px', marginBottom: 10, borderRadius: 8,
           background: 'rgba(30,165,255,0.06)',
           border: '1px solid var(--accent-border)'
@@ -1951,7 +1959,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     creating && h('div', { style: { marginBottom: 14, display: 'flex', gap: 10 } },
       // Same 80-character cap as rename (the server cuts longer names), and
       // Enter creates like it renames.
-      h('input', { className: 'price-input', 'aria-label': 'New loadout name', placeholder: 'Loadout name…', value: newName, maxLength: 80,
+      h('input', { className: 'price-input', 'aria-label': 'New loadout name', placeholder: 'Loadout name…', value: newName, maxLength: 80, autoFocus: true,
         onChange: e => setNewName(e.target.value),
         // Escape backs out like the rename box does; stopPropagation keeps the
         // page-level Escape from closing the whole loadout view.
