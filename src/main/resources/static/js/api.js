@@ -2036,7 +2036,8 @@ export async function fetchBuyOrderCountForItem(itemId) {
 export async function fetchBuyOrdersForItem(itemId, limit = 10) {
   if (!itemId) return [];
   const data = await safeJson(`${API}/buy-orders/for-item/${itemId}?limit=${limit}`, { cache: 'no-cache' });
-  return Array.isArray(data) ? data : [];
+  // null on failure, so the panel can say so instead of "no buy orders".
+  return Array.isArray(data) ? data : null;
 }
 
 /** Projected queue position for a hypothetical buy order at (itemId,
