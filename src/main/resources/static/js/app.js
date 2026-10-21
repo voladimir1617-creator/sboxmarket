@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=316'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=317'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -263,7 +263,9 @@ function StaffAccessDeniedModal({ what, onClose }) {
         'You need a staff role to open ', what, '. If you think this is a mistake, reach out via ',
         h('a', {
           href: '/support',
-          onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate(paths.support()); },
+          // navigate() alone: onClose pushes /market first, so Back would skip
+          // this page.
+          onClick: (e) => { e.preventDefault(); navigate(paths.support()); },
           style: { color: 'var(--accent)' }
         }, 'Support'),
         '.'
@@ -598,7 +600,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         maxLength: 300,
         'aria-label': 'Public reply to this review',
         placeholder: 'Public response to this review (300 chars max)',
-        autoFocus: true
+        autoFocus: true,
+        onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); setEditing(false); setDraft(''); setErr(''); } }
       }),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
         h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditing(false); setDraft(''); setErr(''); } }, 'Cancel'),
@@ -9117,6 +9120,8 @@ export function App() {
                   // the user starts typing. aria-label gives the textarea
                   // a stable accessible name throughout the input cycle.
                   'aria-label': 'Review comment (optional)',
+                  autoFocus: true,
+                  onKeyDown: (e) => { if (e.key === 'Escape' && !reviewBusy) { e.preventDefault(); setReviewTradeId(null); } },
                   onChange: (e) => setReviewText(e.target.value)
                 }),
                 h('div', { className: 'stall-review-actions' },

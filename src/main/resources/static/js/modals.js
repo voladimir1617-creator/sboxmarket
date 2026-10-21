@@ -563,15 +563,17 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // offers" block (White.market shows open orders on every item page,
   // empty state included); the demand chips still fold it away.
   const [buyOrdersOpen, setBuyOrdersOpen] = useState(true);
+  // null = loading, false = the load failed.
   const [buyOrderRows, setBuyOrderRows]   = useState(null);
+  const [buyOrderRetry, setBuyOrderRetry] = useState(0);
   useEffect(() => {
     if (!item?.id || !buyOrdersOpen || buyOrderRows !== null) return;
     let alive = true;
     fetchBuyOrdersForItem(item.id, 10).then(rows => {
-      if (alive) setBuyOrderRows(Array.isArray(rows) ? rows : []);
+      if (alive) setBuyOrderRows(Array.isArray(rows) ? rows : false);
     });
     return () => { alive = false; };
-  }, [item?.id, buyOrdersOpen]);
+  }, [item?.id, buyOrdersOpen, buyOrderRetry]);
   // Viewer's own buy order on THIS item, if any. Lets the user see
   // their queue position + cancel without hopping to the Profile →
   // Buy Orders tab (batch 287). Signed-in only.
@@ -1814,6 +1816,14 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         ),
         buyOrderRows === null
           ? h('div', { style: { padding: 8, color: 'var(--text-muted)', fontStyle: 'italic' } }, 'Loading…')
+          : buyOrderRows === false
+            ? h('div', { role: 'alert', style: { padding: 8, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } },
+                h('span', null, "Couldn't load buy orders."),
+                h('button', {
+                  className: 'btn btn-ghost',
+                  style: { padding: '6px 14px', fontSize: 12, border: '1px solid var(--border)' },
+                  onClick: () => { setBuyOrderRows(null); setBuyOrderRetry(n => n + 1); }
+                }, 'Retry'))
           : buyOrderRows.length === 0
             // White.market's empty Buy offers panel puts the action on the
             // same line as the "no orders" sentence.
@@ -11048,6 +11058,7 @@ function ProfileReviewsTab({ me }) {
                     onChange: e => setEditGivenComment(e.target.value),
                     maxLength: 500,
                     'aria-label': 'Edit your review comment',
+                    autoFocus: true,
                     onKeyDown: e => { if (e.key === 'Escape' && !editGivenBusy) { e.preventDefault(); cancelEditGiven(); } },
                     placeholder: 'Share context so future buyers can judge this seller (optional, 500 chars).',
                     style: { width: '100%', marginTop: 8, minHeight: 80, fontSize: 12 }
