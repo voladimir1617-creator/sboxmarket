@@ -3948,7 +3948,7 @@ export function FaqModal({ onClose }) {
       h('span', null, "Can't find an answer?"),
       h('a', {
         href: '/support',
-        onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate('/support'); }
+        onClick: (e) => { e.preventDefault(); navigate('/support'); }
       }, 'Open a support ticket →')
     ),
     ENTRIES.length > 4 && h('input', {
@@ -4008,7 +4008,7 @@ export function FaqModal({ onClose }) {
               href: '/support',
               className: 'btn btn-accent',
               style: { padding: '8px 14px', fontSize: 12 },
-              onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate('/support'); }
+              onClick: (e) => { e.preventDefault(); navigate('/support'); }
             }, 'Open a ticket →')
           )
         )
@@ -4030,7 +4030,7 @@ export function FaqModal({ onClose }) {
         href: '/support',
         className: 'btn btn-accent',
         style: { padding: '8px 14px', fontSize: 12 },
-        onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate('/support'); }
+        onClick: (e) => { e.preventDefault(); navigate('/support'); }
       }, 'Open a ticket →')
     )
   );
@@ -6166,6 +6166,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             type: 'url',
             className: 'wallet-amount-input',
             'aria-label': 'Steam trade URL',
+            autoFocus: true,
             placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
             value: tradeUrlDraft,
             style: { flex: 1, minWidth: 240, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12 },
@@ -11428,7 +11429,7 @@ function ProfileSupportTab() {
       // a11y audit — visible label exists but wasn't programmatically tied
       // to the input. Screen-reader users heard "edit, blank" instead of
       // "Ticket subject, edit". Same fix for the Message textarea below.
-      h('input', { className: 'wallet-amount-input', 'aria-label': 'Ticket subject', value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), maxLength: 80, placeholder: 'Short subject line…' }),
+      h('input', { className: 'wallet-amount-input', 'aria-label': 'Ticket subject', autoFocus: true, value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), maxLength: 80, placeholder: 'Short subject line…' }),
       h('div', { className: 'wallet-input-label' }, 'Category'),
       h('select', { className: 'sort-select', 'aria-label': 'Ticket category', value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) },
         ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, ticketCategoryLabel(c)))
@@ -15808,7 +15809,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
             href: itemHref,
             className: 'item-thumb',
             style: { width: 56, height: 56, display: 'block' },
-            onClick: (e) => { e.stopPropagation(); onClose && onClose(); followInternalLink(e); },
+            onClick: (e) => { e.stopPropagation(); followInternalLink(e); },
             title: 'Open ' + (offer.itemName || 'item')
           }, thumbInner)
         : h('div', { className: 'item-thumb', style: { width: 56, height: 56 } }, thumbInner),
@@ -15818,7 +15819,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
               href: itemHref,
               className: 'item-name',
               style: { color: 'inherit', textDecoration: 'none' },
-              onClick: (e) => { e.stopPropagation(); onClose && onClose(); followInternalLink(e); },
+              onClick: (e) => { e.stopPropagation(); followInternalLink(e); },
               title: 'Open ' + (offer.itemName || 'item')
             }, offer.itemName || ('Listing #' + offer.listingId))
           : h('div', { className: 'item-name' }, offer.itemName || ('Listing #' + offer.listingId)),
@@ -15995,7 +15996,10 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     : 'Optional note ("brand new acct, fast pay")',
                   maxLength: 280,
                   value: counterMsg,
-                  onChange: e => setCounterMsg(e.target.value)
+                  onChange: e => setCounterMsg(e.target.value),
+                  onKeyDown: (e) => {
+                    if (e.key === 'Escape') { e.preventDefault(); setCounterFor(null); setCounterAmt(''); setCounterMsg(''); }
+                  }
                 })
               )
             : rejectFor === offer.id
@@ -17253,7 +17257,9 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                     starred: true,
                     onToggleStar,
                     onClick: () => {
-                      onClose();
+                      // No onClose() first: the route change below unmounts
+                      // this page, and pushing /market in between made Back
+                      // from the item land on the market, not the watchlist.
                       // Nothing listed: the card still opens the item page
                       // (history, buy order) its link points at.
                       if (r.listing.__noListing) navigate('/item/' + r.listing.item.id);

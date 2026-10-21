@@ -318,7 +318,7 @@ export function HelpModal({ onClose }) {
               // doesn't mistake this for a browser back/forward. A bare
               // pushState here desynced that counter and broke
               // closeToPrevious() for later modal-close buttons.
-              onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate(paths.support()); }
+              onClick: (e) => { e.preventDefault(); navigate(paths.support()); }
             }, 'Open a ticket →')
           )
         )
@@ -386,7 +386,7 @@ export function HelpModal({ onClose }) {
         // Before: click landed on Profile → Personal and the user had
         // to hunt the Support tab. Now a single click drops them at
         // the ticket list + New Ticket button in one step.
-        onClick: () => { onClose && onClose(); navigate(paths.support()); }
+        onClick: () => { navigate(paths.support()); }
       }, h(MaterialIcon, { name: 'support_agent', size: 18 }), 'Contact Support')
     )
   );

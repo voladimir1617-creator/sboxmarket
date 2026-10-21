@@ -2410,7 +2410,8 @@ export function NotificationsModal({ onClose, me }) {
         && target.includes('tab=trades')) {
       target += (target.includes('?') ? '&' : '?') + 'highlight=' + n.refId;
     }
-    if (onClose) onClose();
+    // The route change unmounts this page; calling onClose() first pushed
+    // /market in between, so Back from the target skipped /notifications.
     if (target) navigate(target);
     else load();
   };
@@ -2501,8 +2502,7 @@ export function NotificationsModal({ onClose, me }) {
         ' — muted rows are hidden from this view.'),
       h('a', {
         href: paths.settings ? paths.settings() : '/settings',
-        style: { marginLeft: 'auto', color: 'var(--accent)', fontWeight: 700, textDecoration: 'none', fontSize: 11 },
-        onClick: () => { onClose && onClose(); }
+        style: { marginLeft: 'auto', color: 'var(--accent)', fontWeight: 700, textDecoration: 'none', fontSize: 11 }
       }, 'Manage →')
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
