@@ -5443,11 +5443,15 @@ function SignInHistoryRow() {
     setOpen(v => !v);
     if (loaded.current) return;
     loaded.current = true;
+    let data = null;
     try {
       const { fetchSignInHistory } = await import('./api.js');
-      const data = await fetchSignInHistory();
-      setRows(Array.isArray(data) ? data : []);
-    } catch (_) { setRows([]); }
+      data = await fetchSignInHistory();
+    } catch (_) {}
+    // A failed load is not "nothing recorded": say so, and let the next
+    // Show try again.
+    if (Array.isArray(data)) setRows(data);
+    else { loaded.current = false; setRows(false); }
   };
   // Compact user-agent summary — just the browser family, since the
   // full UA string is long and unreadable at a glance. Tooltip shows
@@ -5471,6 +5475,8 @@ function SignInHistoryRow() {
       }, open ? 'Hide' : 'Show last 20 sign-ins'),
       open && (rows === null
         ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Loading…')
+        : rows === false
+          ? h('div', { role: 'alert', style: { fontSize: 11, color: 'var(--red)' } }, "Couldn't load your sign-ins. Hide and show them again to retry.")
         : rows.length === 0
           ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'No sign-in history recorded yet.')
           : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, width: '100%', maxHeight: 220, overflowY: 'auto' } },
@@ -5509,11 +5515,15 @@ function SecurityActivityRow() {
     setOpen(v => !v);
     if (loaded.current) return;
     loaded.current = true;
+    let data = null;
     try {
       const { fetchSecurityActivity } = await import('./api.js');
-      const data = await fetchSecurityActivity();
-      setRows(Array.isArray(data) ? data : []);
-    } catch (_) { setRows([]); }
+      data = await fetchSecurityActivity();
+    } catch (_) {}
+    // A failed load is not "nothing recorded": say so, and let the next
+    // Show try again.
+    if (Array.isArray(data)) setRows(data);
+    else { loaded.current = false; setRows(false); }
   };
   // Event-type label + emoji lookup. Kept in sync with the server-
   // side WHITELIST in ProfileController.securityActivity.
@@ -5553,6 +5563,8 @@ function SecurityActivityRow() {
       }, open ? 'Hide' : 'Show recent security events'),
       open && (rows === null
         ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Loading…')
+        : rows === false
+          ? h('div', { role: 'alert', style: { fontSize: 11, color: 'var(--red)' } }, "Couldn't load your security events. Hide and show them again to retry.")
         : rows.length === 0
           ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'No security-relevant events on record yet.')
           : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, width: '100%', maxHeight: 260, overflowY: 'auto' } },
@@ -10690,6 +10702,7 @@ function ProfileReviewsTab({ me }) {
         const n = e.key === 'Home' ? 0 : e.key === 'End' ? P_TABS.length - 1
           : e.key === 'ArrowRight' ? (idx + 1) % P_TABS.length : (idx - 1 + P_TABS.length) % P_TABS.length;
         setMode(P_TABS[n]);
+        e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
       }
     });
     return h('div', null,
@@ -10761,7 +10774,50 @@ function ProfileReviewsTab({ me }) {
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load the reviews you've written"),
     h('button', { className: 'btn btn-accent', onClick: loadGiven }, 'Retry')
   );
-  if (rows === null) return h('div', { className: 'spinner' });
+  // Built before the loading return so the tabs stay put (and keep focus)
+  // while a lazily loaded tab fetches.
+  const tabList = (() => {
+    const TABS = pending && pending.length > 0 ? ['received', 'given', 'pending'] : ['received', 'given'];
+    const onKey = (e) => {
+      if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
+      e.preventDefault();
+      const idx = TABS.indexOf(mode);
+      let n = idx;
+      if (e.key === 'ArrowRight') n = (idx + 1) % TABS.length;
+      else if (e.key === 'ArrowLeft') n = (idx - 1 + TABS.length) % TABS.length;
+      else if (e.key === 'Home') n = 0;
+      else if (e.key === 'End') n = TABS.length - 1;
+      setMode(TABS[n]);
+      // Focus follows the selection; the old tab drops to tabIndex -1.
+      e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
+    };
+    const sharedProps = (id) => ({
+      role: 'tab',
+      'aria-selected': mode === id,
+      tabIndex: mode === id ? 0 : -1,
+      onKeyDown: onKey
+    });
+    return h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
+      h('button', Object.assign({
+        className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
+        onClick: () => setMode('received')
+      }, sharedProps('received')), 'Received', received && received.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, received.length)),
+      h('button', Object.assign({
+        className: `offer-tab ${mode === 'given' ? 'active' : ''}`,
+        onClick: () => setMode('given')
+      }, sharedProps('given')), 'Given', given && given.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, given.length)),
+      pending && pending.length > 0 && h('button', Object.assign({
+        className: `offer-tab ${mode === 'pending' ? 'active' : ''}`,
+        onClick: () => setMode('pending'),
+        title: 'Trades you settled but never reviewed',
+        style: { position: 'relative' }
+      }, sharedProps('pending')), 'Pending ', h('span', {
+        className: 'filter-count',
+        style: { marginLeft: 6, background: 'rgba(30,165,255,0.15)', color: 'var(--accent)', fontWeight: 700 }
+      }, pending.length))
+    );
+  })();
+  if (rows === null) return h('div', null, tabList, h('div', { className: 'spinner' }));
 
   const filtered = starFilter > 0 ? rows.filter(r => r.rating === starFilter) : rows;
   const submit = async (reviewId, clear = false) => {
@@ -10866,47 +10922,7 @@ function ProfileReviewsTab({ me }) {
     // pending reviews don't see an extra dead tab.
     // WAI-ARIA tabs pattern + Arrow/Home/End keyboard nav, mirroring
     // /wallet, /loadout, /me/stall, /watchlist.
-    (() => {
-      const TABS = pending && pending.length > 0 ? ['received', 'given', 'pending'] : ['received', 'given'];
-      const onKey = (e) => {
-        if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
-        e.preventDefault();
-        const idx = TABS.indexOf(mode);
-        let n = idx;
-        if (e.key === 'ArrowRight') n = (idx + 1) % TABS.length;
-        else if (e.key === 'ArrowLeft') n = (idx - 1 + TABS.length) % TABS.length;
-        else if (e.key === 'Home') n = 0;
-        else if (e.key === 'End') n = TABS.length - 1;
-        setMode(TABS[n]);
-        // Focus follows the selection; the old tab drops to tabIndex -1.
-        e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
-      };
-      const sharedProps = (id) => ({
-        role: 'tab',
-        'aria-selected': mode === id,
-        tabIndex: mode === id ? 0 : -1,
-        onKeyDown: onKey
-      });
-      return h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
-        h('button', Object.assign({
-          className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
-          onClick: () => setMode('received')
-        }, sharedProps('received')), 'Received', received && received.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, received.length)),
-        h('button', Object.assign({
-          className: `offer-tab ${mode === 'given' ? 'active' : ''}`,
-          onClick: () => setMode('given')
-        }, sharedProps('given')), 'Given', given && given.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, given.length)),
-        pending && pending.length > 0 && h('button', Object.assign({
-          className: `offer-tab ${mode === 'pending' ? 'active' : ''}`,
-          onClick: () => setMode('pending'),
-          title: 'Trades you settled but never reviewed',
-          style: { position: 'relative' }
-        }, sharedProps('pending')), 'Pending ', h('span', {
-          className: 'filter-count',
-          style: { marginLeft: 6, background: 'rgba(30,165,255,0.15)', color: 'var(--accent)', fontWeight: 700 }
-        }, pending.length))
-      );
-    })(),
+    tabList,
     // With no reviews the empty state below already says so; the big
     // average line only earns its place once there is a number to show.
     mode === 'received' && (summary?.count || 0) > 0 && h('div', { className: 'profile-reviews-head' },

@@ -1339,19 +1339,21 @@ export async function fetchDatabase(params = {}) {
 export async function fetchPublicLoadouts(search) {
   // The endpoint sends max-age=60; revalidate so a loadout just deleted,
   // made private or favourited doesn't linger on Discover for a minute.
-  const data = await safeJson(`${API}/loadouts/discover${search ? '?search=' + encodeURIComponent(search) : ''}`, { cache: 'no-cache' });
+  // Throws on failure so the Loadout Lab shows its error + Retry panel
+  // instead of "No public loadouts yet".
+  const data = await safeJson(`${API}/loadouts/discover${search ? '?search=' + encodeURIComponent(search) : ''}`, { cache: 'no-cache' }, { throwOnFailure: true });
   return Array.isArray(data) ? data : [];
 }
 
 export async function fetchMyLoadouts() {
-  const data = await safeJson(`${API}/loadouts/mine`);
+  const data = await safeJson(`${API}/loadouts/mine`, undefined, { throwOnFailure: true });
   return Array.isArray(data) ? data : [];
 }
 
 /** Loadouts the signed-in user has favorited, newest-favorite first.
  *  Empty array for anon viewers (401 on the underlying endpoint). */
 export async function fetchFavoriteLoadouts() {
-  const data = await safeJson(`${API}/loadouts/favorites`);
+  const data = await safeJson(`${API}/loadouts/favorites`, undefined, { throwOnFailure: true });
   return Array.isArray(data) ? data : [];
 }
 
@@ -1515,10 +1517,11 @@ export async function adminUserSummary(id) {
   }
 }
 /** Sign-in history for the caller — 20 most-recent USER_SIGN_IN
- *  audit rows (batch 569). Returns [] on error. */
+ *  audit rows (batch 569). Returns null on error, so a failed load is not
+ *  shown as "no history". */
 export async function fetchSignInHistory() {
   const data = await safeJson(`${API}/profile/sign-in-history`);
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : null;
 }
 
 /** Batch 714 — security-relevant audit events (2FA resets, API key
@@ -1526,7 +1529,7 @@ export async function fetchSignInHistory() {
  *  rows, newest-first, whitelisted event types only. 401 for anon. */
 export async function fetchSecurityActivity() {
   const data = await safeJson(`${API}/profile/security-activity`);
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : null;
 }
 /** Admin drill-down: 100 most-recent wallet transactions for a user
  *  (batch 568). Returns [] on error so the drawer still renders. */
