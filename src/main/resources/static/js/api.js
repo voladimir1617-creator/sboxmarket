@@ -1841,7 +1841,8 @@ export async function fetchBlockedUsers() {
   // limit, Profile undercounted and a stall's Block button read "Block"
   // for a seller already blocked past the 50th.
   const data = await safeJson(`${API}/profile/blocks?limit=200`);
-  return (data && typeof data === 'object') ? data : { count: 0, items: [] };
+  // null on failure, so Profile can say so instead of hiding the list.
+  return (data && typeof data === 'object') ? data : null;
 }
 /** Block another user — non-destructive, silent to the blocked user. */
 export async function blockUser(userId) {

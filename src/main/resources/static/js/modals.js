@@ -2730,7 +2730,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             href: '/offers/outgoing',
             className: 'btn btn-accent',
             style: { padding: '5px 12px', fontSize: 11, textDecoration: 'none' },
-            onClick: (e) => { e.stopPropagation(); onClose && onClose(); followInternalLink(e); }
+            // No onClose: on the item page it is history.back(), which
+            // undid this push and landed on the market.
+            onClick: (e) => { e.stopPropagation(); followInternalLink(e); }
           }, 'View offer →')
         ),
         h('div', { className: 'wallet-input-label offer-drawer-label', style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' } },
@@ -4334,8 +4336,8 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
         h('a', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12, textDecoration: 'none' },
-          href: '/profile/personal',
-          onClick: () => onClose && onClose()
+          // InfoModal routes the link; closing first pushed /market and broke Back.
+          href: '/profile/personal'
         }, 'Manage account →'),
         h('a', {
           className: 'btn btn-ghost',
@@ -4428,7 +4430,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   // declared below the anon guard) so the effect is self-contained.
   useEffect(() => {
     const VALID = ['personal','listings','transactions','buyorders','autobids','trades','offers','reviews','support','developers'];
-    if (initialTab && VALID.includes(initialTab)) setTab(initialTab);
+    // Bare /profile (Back, the nav link) means the default tab.
+    setTab(initialTab && VALID.includes(initialTab) ? initialTab : 'personal');
   }, [initialTab]);
 
   // A deep link to a section (/profile/trades from a "seller sent the item"
@@ -5348,13 +5351,15 @@ function FollowingListRow() {
 // nobody so it doesn't clutter the Personal tab for the common case.
 function BlockedListRow() {
   const [rows, setRows] = useState(null);
+  const [loadErr, setLoadErr] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const loadRows = useCallback(async () => {
     try {
       const { fetchBlockedUsers } = await import('./api.js');
       const data = await fetchBlockedUsers();
-      setRows(Array.isArray(data?.items) ? data.items : []);
-    } catch (_) { setRows([]); }
+      if (!Array.isArray(data?.items)) { setLoadErr(true); return; }
+      setRows(data.items);
+    } catch (_) { setLoadErr(true); }
   }, []);
   useEffect(() => { loadRows(); }, [loadRows]);
   // Per-row double-click latch, as on the Following list.
@@ -5396,6 +5401,13 @@ function BlockedListRow() {
     setRows([]);
     toast(`Cleared ${res?.removed || rows.length} block${(res?.removed || rows.length) === 1 ? '' : 's'}.`, 'ok');
   };
+  // Same failure row as Following: hiding the list left no way to unblock.
+  if (loadErr && !rows) return h('div', { className: 'profile-row', role: 'alert' },
+    h('div', { className: 'profile-row-label' }, 'Blocked'),
+    h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
+      'Could not load the users you blocked. ',
+      h('button', { className: 'btn btn-ghost', style: { padding: '2px 8px', fontSize: 11 },
+        onClick: () => { setLoadErr(false); loadRows(); } }, 'Retry')));
   if (!rows || rows.length === 0) return null;
   return h('div', { className: 'profile-row' },
     h('div', { className: 'profile-row-label' },
@@ -13788,9 +13800,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // displayed tab stale (useState only reads its argument once).
   // Mirrors the WalletModal initialTab sync effect.
   useEffect(() => {
-    if (initialTab === 'active' || initialTab === 'sold' || initialTab === 'analytics') {
-      setTab(initialTab);
-    }
+    // Bare /me/stall (Back, the nav link) means the Active tab.
+    setTab(initialTab === 'sold' || initialTab === 'analytics' ? initialTab : 'active');
   }, [initialTab]);
   const [editing, setEditing] = useState(null); // listing id being edited inline
   const [editPrice, setEditPrice] = useState('');

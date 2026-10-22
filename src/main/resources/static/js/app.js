@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=317'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=318'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2214,15 +2214,19 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
 // Click-when-following unfollows, click-when-not follows. Shows the
 // current follower count as a quiet chip so buyers see social proof.
 function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) {
+  // null = loading, 'error' = the status load failed. A made-up
+  // "not following, 0 followers" status used to overwrite the stall's
+  // real follower count on the next click.
   const [status, setStatus] = useState(null);
   const [busy, setBusy]     = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     let alive = true;
     import('./api.js').then(({ fetchFollowStatus }) => fetchFollowStatus(sellerId))
-      .then(data => { if (alive) setStatus(data || { following: false, followerCount: 0 }); })
-      .catch(() => { if (alive) setStatus({ following: false, followerCount: 0 }); });
+      .then(data => { if (alive) setStatus(data && typeof data.following === 'boolean' ? data : 'error'); })
+      .catch(() => { if (alive) setStatus('error'); });
     return () => { alive = false; };
-  }, [sellerId]);
+  }, [sellerId, reloadKey]);
   // Double-click latch: the busy state lags a re-render, so a quick second click sent a second follow/unfollow.
   const followBusyRef = useRef(false);
   const toggle = async () => {
@@ -2263,6 +2267,13 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
     // pending state so focus on the still-mounted-but-loading button
     // doesn't strand the user on an unlabelled control.
     return h('button', { className: 'stall-share-btn', disabled: true, 'aria-label': 'Loading follow status' }, '…');
+  }
+  if (status === 'error') {
+    return h('button', {
+      className: 'stall-share-btn',
+      title: "Couldn't load follow status. Click to retry.",
+      onClick: () => { setStatus(null); setReloadKey(k => k + 1); }
+    }, 'Retry follow status');
   }
   const cls = status.following ? 'stall-share-btn' : 'stall-share-btn';
   const style = status.following
