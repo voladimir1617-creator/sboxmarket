@@ -138,9 +138,18 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
     } catch (_) { /* history unavailable */ }
   }, [search]);
-  const [category, setCat]    = useState('All');
-  const [rarity, setRar]      = useState('All');
-  const [sort, setSort]       = useState('rarest');
+  // Seeded from the URL (kept in step below) so Back from an item page
+  // lands on the same category, rarity, sort and page.
+  const urlParam = (k, allowed, dflt) => {
+    try {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return dflt;
+      const v = new URLSearchParams(window.location.search).get(k);
+      return allowed.includes(v) ? v : dflt;
+    } catch (_) { return dflt; }
+  };
+  const [category, setCat]    = useState(() => urlParam('category', ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'], 'All'));
+  const [rarity, setRar]      = useState(() => urlParam('rarity', ['Limited','Off-Market','Standard'], 'All'));
+  const [sort, setSort]       = useState(() => urlParam('sort', ['most_traded','most_viewed','price_desc','price_asc','newest'], 'rarest'));
   // "Listed only" — hides catalogue rows with no active listings. CSFloat
   // parity: browsing the database, a buyer usually only cares about
   // items they can actually buy right now. Persisted in localStorage so
@@ -158,7 +167,13 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   useEffect(() => {
     try { localStorage.setItem('sb_db_listed_only', listedOnly ? '1' : '0'); } catch (_) {}
   }, [listedOnly]);
-  const [page, setPage]       = useState(0);
+  const [page, setPage]       = useState(() => {
+    try {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return 0;
+      const n = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10);
+      return Number.isFinite(n) && n > 1 && n <= 1000 ? n - 1 : 0;
+    } catch (_) { return 0; }
+  });
   const PAGE_SIZE = 30;
 
   // Race-condition guard — bump a monotonic request id on every load()
@@ -203,7 +218,30 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
     }
   }, [search, category, rarity, sort, listedOnly, minPrice, maxPrice, page]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(0); }, [search, category, rarity, sort, listedOnly, minPrice, maxPrice]);
+  // Back to page 1 when a filter changes — not on mount, which would drop
+  // the page the URL asked for.
+  const filterKey = [search, category, rarity, sort, listedOnly, minPrice, maxPrice].join('|');
+  const filterKeyRef = useRef(filterKey);
+  useEffect(() => {
+    if (filterKeyRef.current === filterKey) return;
+    filterKeyRef.current = filterKey;
+    setPage(0);
+  }, [filterKey]);
+  // Keep category / rarity / sort / page in the URL (replaceState, like ?q=).
+  useEffect(() => {
+    try {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return;
+      const params = new URLSearchParams(window.location.search);
+      const put = (k, v, dflt) => { if (v !== dflt) params.set(k, String(v)); else params.delete(k); };
+      put('category', category, 'All');
+      put('rarity', rarity, 'All');
+      put('sort', sort, 'rarest');
+      put('page', page + 1, 1);
+      const qs = params.toString();
+      if (qs === window.location.search.replace(/^\?/, '')) return;
+      window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
+    } catch (_) { /* history unavailable */ }
+  }, [category, rarity, sort, page]);
 
   const CATS = ['All','Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
   const RARS = ['All','Limited','Off-Market','Standard'];
@@ -2364,7 +2402,15 @@ export function NotificationsModal({ onClose, me }) {
   // itself is the safeguard (the user can see exactly which rows
   // will go away). Full-view still gets the confirm — deleting every
   // read row across every bucket is a bigger commitment.
+  // Same latch as Mark all read: the filtered branch has no confirm, so a
+  // double-click posted delete-batch twice and stacked two toasts.
+  const clearReadBusyRef = useRef(false);
   const clearRead = async () => {
+    if (clearReadBusyRef.current) return;
+    clearReadBusyRef.current = true;
+    try { await clearReadOnce(); } finally { clearReadBusyRef.current = false; }
+  };
+  const clearReadOnce = async () => {
     const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0) || mutedSet.size > 0;
     if (filterActive) {
       const ids = groups.flatMap(g => g.items).filter(n => n.read).map(n => n.id);
