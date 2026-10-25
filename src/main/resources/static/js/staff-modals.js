@@ -28,6 +28,8 @@ function usdAmount(v) {
   return '$' + (Number(v) || 0).toFixed(2) + ' USD';
 }
 
+const ADMIN_TAB_IDS = ['dashboard', 'withdrawals', 'trades', 'users', 'tickets', 'refunds', 'catalogue',
+  'simulator', 'fraud', 'disputes', 'reported', 'deletions', 'announce', 'health', 'audit'];
 export function AdminModal({ onClose, me }) {
   // Deep-link via `?tab=<id>` (batch 463) — lets a notification like
   // CHARGEBACK_OPENED route the admin straight to /admin?tab=disputes
@@ -36,17 +38,25 @@ export function AdminModal({ onClose, me }) {
   const initialTab = (() => {
     try {
       const t = new URLSearchParams(window.location.search).get('tab');
-      return t || 'dashboard';
+      return ADMIN_TAB_IDS.includes(t) ? t : 'dashboard';
     } catch { return 'dashboard'; }
   })();
   const [tab, setTab] = useState(initialTab);
+  // Dashboard tiles switch tabs too; mirror them into the URL like a tab click.
+  const selectTab = (id) => {
+    setTab(id);
+    try {
+      const next = id === 'dashboard' ? '/admin' : '/admin?tab=' + id;
+      if (window.location.pathname + window.location.search !== next) window.history.replaceState({}, '', next);
+    } catch (_) {}
+  };
   // A bell link to another ?tab= while the panel is already open changes
   // only the URL; follow it instead of staying on the current tab.
   const searchNow = window.location.search;
   useEffect(() => {
     try {
       const t = new URLSearchParams(searchNow).get('tab');
-      if (t) setTab(t);
+      if (t && ADMIN_TAB_IDS.includes(t)) setTab(t);
     } catch (_) { /* keep the current tab */ }
   }, [searchNow]);
   // Priority-tab badge counts (batch 487). Polls dashboardStats every
@@ -163,7 +173,7 @@ export function AdminModal({ onClose, me }) {
     // tracks the active tab button so screen readers announce the right
     // section name. One stable id is fine since only one tab renders at a time.
     h('div', { role: 'tabpanel', id: 'admin-tabpanel', 'aria-labelledby': `admin-tab-${tab}` },
-      tab === 'dashboard'   && h(AdminDashboardTab, { onNavTab: setTab }),
+      tab === 'dashboard'   && h(AdminDashboardTab, { onNavTab: selectTab }),
       tab === 'withdrawals' && h(AdminWithdrawalsTab, null),
       tab === 'trades'      && h(AdminTradesTab, null),
       tab === 'users'       && h(AdminUsersTab, { me }),
@@ -749,11 +759,15 @@ function AdminAnnouncementsTab() {
   const [bcPath, setBcPath]   = useState('');
   const [bcBusy, setBcBusy]   = useState(false);
   const [bcMsg, setBcMsg]     = useState('');
+  // A failed load is not "No announcements yet." — a live banner may exist.
+  const [loadErr, setLoadErr] = useState(false);
+  // Banner ids with a Stop in flight (double-click latch).
+  const stopBusyRef = React.useRef(new Set());
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/admin/announcements', { credentials: 'same-origin' });
-      if (r.ok) setRows(await r.json());
-    } catch (_) {}
+      if (r.ok) { setRows(await r.json()); setLoadErr(false); } else setLoadErr(true);
+    } catch (_) { setLoadErr(true); }
   }, []);
   useEffect(() => { load(); }, [load]);
   const create = async () => {
@@ -790,6 +804,11 @@ function AdminAnnouncementsTab() {
     } finally { setBusy(false); }
   };
   const deactivate = async (id) => {
+    if (stopBusyRef.current.has(id)) return;
+    stopBusyRef.current.add(id);
+    try { await deactivateOnce(id); } finally { stopBusyRef.current.delete(id); }
+  };
+  const deactivateOnce = async (id) => {
     const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
     try {
       const r = await fetch(`/api/admin/announcements/${id}`, {
@@ -939,7 +958,10 @@ function AdminAnnouncementsTab() {
       ))
     ),
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '10px 0 6px' } }, 'History'),
-    rows.length === 0
+    loadErr
+      ? h('div', { className: 'wallet-error', role: 'alert' }, 'Couldn’t load announcements. ',
+          h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
+      : rows.length === 0
       ? h('div', { style: { fontSize: 13, color: 'var(--text-muted)', padding: 20, textAlign: 'center' } }, 'No announcements yet.')
       : rows.map(r => h('div', {
           key: r.id,
@@ -2010,6 +2032,9 @@ function AdminAuditTab() {
 
 function AdminDashboardTab({ onNavTab }) {
   const [stats, setStats] = useState(null);
+  // A failed first load used to spin forever; say so and offer Retry.
+  const [statsErr, setStatsErr] = useState(false);
+  const [statsRetry, setStatsRetry] = useState(0);
   // Recent activity — last 10 audit rows surfaced as a mini feed so the
   // admin landing page shows ops pulse at a glance. Refetched every 30s
   // while the tab is open; no new endpoint — reuses /api/admin/audit.
@@ -2024,8 +2049,9 @@ function AdminDashboardTab({ onNavTab }) {
       try {
         const s = await adminStats();
         // A failed poll keeps the last good numbers instead of zeroing them.
-        if (alive && s) setStats(s);
-      } catch (_) {}
+        if (!alive) return;
+        if (s) { setStats(s); setStatsErr(false); } else setStatsErr(true);
+      } catch (_) { if (alive) setStatsErr(true); }
     };
     load();
     // Batch 806 — visibility-aware poll.
@@ -2036,7 +2062,7 @@ function AdminDashboardTab({ onNavTab }) {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, []);
+  }, [statsRetry]);
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -2055,7 +2081,11 @@ function AdminDashboardTab({ onNavTab }) {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
-  if (!stats) return h('div', { className: 'spinner' });
+  if (!stats) return statsErr
+    ? h('div', { className: 'profile-panel' },
+        h('div', { className: 'wallet-error', role: 'alert' }, 'Dashboard stats failed to load. ',
+          h('button', { className: 'btn btn-sm', onClick: () => { setStatsErr(false); setStatsRetry(n => n + 1); } }, 'Retry')))
+    : h('div', { className: 'spinner' });
   // Compute a % delta vs the prior 24h window. When the prior bucket
   // is 0 we render either "+new" (current has volume) or no delta
   // (both zero — nothing interesting to compare).
