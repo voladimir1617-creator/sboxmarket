@@ -567,6 +567,25 @@ class EmailServiceSpec extends Specification {
         })
     }
 
+    def "sendPurchaseReceipt quotes trade.seller-response-days, not a fixed 3"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+        svc.sellerResponseDays = days
+
+        when:
+        svc.sendPurchaseReceipt('alice@example.com', 'Alice', 'Wizard Hat', 'Bob', new BigDecimal('50.00'), 7L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> fields(msg).text.contains(expected) })
+
+        where:
+        days | expected
+        3L   | "doesn't respond within 3 days, the trade"
+        5L   | "doesn't respond within 5 days, the trade"
+        1L   | "doesn't respond within 1 day, the trade"
+    }
+
     def "sendTradeDisputed surfaces the filer role + reason snippet (batch 567)"() {
         given:
         def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
