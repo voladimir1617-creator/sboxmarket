@@ -1370,7 +1370,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     }
     setNewName('');
     setCreating(false);
-    if (created && created.id) openLoadout(created.id);
+    if (created && created.id) goLoadout(created.id);
     // Pre-fix: success path was silent — the modal switched to the new
     // loadout view but a screen-reader user got no announcement, and
     // even sighted users seeing a slot grid full of "Empty slot" rows
@@ -1598,7 +1598,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not clone loadout', 'err'); return; }
             toast(`Cloned to "${res?.name || 'your loadouts'}".`, 'ok');
             // Re-open the copy so the user lands directly on the new loadout.
-            if (res?.id) openLoadout(res.id);
+            if (res?.id) goLoadout(res.id);
             else load();
           }
         }, '⎘ Clone'),

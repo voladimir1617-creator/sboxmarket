@@ -4391,6 +4391,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   // undefined until /profile/me answers (null if it failed), so the page
   // can hold the Account Standing card's place while it loads.
   const [profile, setProfile]     = useState(undefined);
+  const [profileErr, setProfileErr] = useState(false);
+  const [profileRetry, setProfileRetry] = useState(0);
   const [privacy, setPrivacy]     = useState(() => localStorage.getItem('sb_privacy') === '1');
   const [syncing, setSyncing]     = useState(false);
   // Double-click latch: the syncing state lags a re-render, so a quick second click ran a second Steam sync.
@@ -4469,9 +4471,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     // user's profile with the previous user's data. The sibling effect
     // below (3384) uses the same pattern.
     let alive = true;
-    fetchProfile().then(p => { if (alive) setProfile(p); });
+    setProfileErr(false);
+    fetchProfile().then(p => { if (!alive) return; if (p) setProfile(p); else setProfileErr(true); });
     return () => { alive = false; };
-  }, [me]);
+  }, [me, profileRetry]);
 
   useEffect(() => {
     if (!me) return;
@@ -5007,7 +5010,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       id: 'profile-panel-' + tab,
       'aria-labelledby': 'profile-tab-' + tab
     },
-      tab === 'personal' && h(ProfilePersonalTab, {
+      tab === 'personal' && profileErr && h('div', { className: 'empty-inline', role: 'alert' },
+        h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Couldn’t load your profile details.'),
+        h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => setProfileRetry(n => n + 1) }, 'Retry')),
+      tab === 'personal' && !profileErr && h(ProfilePersonalTab, {
         me, profile, syncing, onSync: runSync, transactions, privacy,
         // Batch 929 — lightweight profile refresh for actions that need
         // to pick up the new `profile.user.deletionRequestedAt` state
@@ -6283,6 +6289,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               spellCheck: false,
               maxLength: 32,
               'aria-label': '6-digit authenticator code or backup code',
+              autoFocus: true,
               placeholder: '000000 or backup code',
               value: disableCode,
               onChange: (e) => {
@@ -6339,6 +6346,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               maxLength: 6,
               'aria-label': '6-digit authenticator code',
               placeholder: '000000',
+              autoFocus: true,
               value: regenCode,
               onChange: (e) => {
                 const v = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -10112,7 +10120,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await counterOffer(id, amt);
-      if (res.code || res.error) { toast(res.message || res.error || 'Counter failed', 'err'); silentRefresh(); return; }
+      if (res.code || res.error) { toast(res.message || res.error || 'Counter failed', 'err'); setCounterFor(null); silentRefresh(); return; }
       setCounterFor(null); setCounterAmt('');
       await load();
       // Batch 910 — name the item + counter amount so the user sees the
@@ -10132,7 +10140,7 @@ function ProfileOffersTab() {
     try {
       const { raiseOffer } = await import('./api.js');
       const res = await raiseOffer(id, amt);
-      if (res.code || res.error) { toast(res.message || res.error || 'Raise failed', 'err'); silentRefresh(); return; }
+      if (res.code || res.error) { toast(res.message || res.error || 'Raise failed', 'err'); setCounterFor(null); silentRefresh(); return; }
       setCounterFor(null); setCounterAmt('');
       await load();
       // Batch 910 — name the item + new offer amount + original so the
@@ -10499,8 +10507,9 @@ function ProfileOffersTab() {
             onKeyDown: onKey
           }, 'Outgoing', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, outgoingPending))
         ];
-      })(),
-      h('div', { style: { flex: 1 } }),
+      })()
+    ),
+    h('div', { className: 'offer-toolbar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 12 } },
       // Batch 645 — sort dropdown. Only rendered when there's enough
       // volume for the sort to matter (>1 row) so a user with a single
       // offer doesn't see noise.
@@ -14131,7 +14140,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       toast('Could not update the listing — network error. Please try again.', 'err');
       return;
     } finally { savingEditRef.current = false; }
-    if (res && res.error) { toast(res.error, 'err'); return; }
+    if (res && res.error) { toast(res.error, 'err'); load(); return; }
     setEditing(null);
     load();
     onRefresh && onRefresh();
@@ -14692,6 +14701,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         h('input', {
           type: 'date',
           'aria-label': 'Stall return date',
+          autoFocus: true,
           value: awayDraftDate,
           min: localYmd(new Date()),
           max: localYmd(new Date(Date.now() + 90 * 86400_000)),
