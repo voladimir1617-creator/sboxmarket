@@ -4449,6 +4449,16 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     const el = profileTabsRef.current;
     if (el) requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'start' }); } catch (_) { /* old browser: stay put */ } });
   }, [profile, initialTab]);
+  // On a phone the tab strip scrolls sideways: keep the selected tab in view.
+  useEffect(() => {
+    // Sideways only, so the page itself never jumps.
+    const strip = profileTabsRef.current;
+    const sel = strip?.querySelector('[aria-selected="true"]');
+    if (!sel) return;
+    const left = sel.offsetLeft - strip.offsetLeft;
+    if (left < strip.scrollLeft) strip.scrollLeft = left;
+    else if (left + sel.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = left + sel.offsetWidth - strip.clientWidth;
+  }, [tab, profile]);
 
   useEffect(() => {
     if (!me) return;
@@ -7149,7 +7159,7 @@ function ProfileBuyOrdersTab() {
     try {
       const { updateBuyOrder } = await import('./api.js');
       const res = await updateBuyOrder(o.id, { maxPrice, quantity });
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not update buy order', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not update buy order', 'err'); load(); return; }
       cancelEdit();
       load();
       // Batch 910 — name the item + the new max + quantity so the user
@@ -7209,6 +7219,7 @@ function ProfileBuyOrdersTab() {
       const res = resuming ? await resumeBuyOrder(o.id) : await pauseBuyOrder(o.id);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || (resuming ? 'Could not resume buy order' : 'Could not pause buy order'), 'err');
+        load();
         return;
       }
       load();
@@ -7231,7 +7242,7 @@ function ProfileBuyOrdersTab() {
     setBusy(true);
     try {
       const res = await deleteBuyOrder(o.id);
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel buy order', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel buy order', 'err'); load(); return; }
       load();
       // Batch 910 — toast names the item + max price + remaining qty so
       // the user sees the exact order the row referenced (important
@@ -7477,6 +7488,7 @@ function ProfileBuyOrdersTab() {
                   // Buy orders are priced in USD (like the offer forms), so
                   // say so: the row beside it may read in another currency.
                   'aria-label': 'New max price per item in USD',
+                  autoFocus: true,
                   value: editMax, onChange: e => setEditMax(e.target.value),
                   onKeyDown: e => {
                     if (e.key === 'Enter') { e.preventDefault(); if (!busy) saveEdit(o); }
@@ -7533,6 +7545,7 @@ function ProfileBuyOrdersTab() {
                         const res = await bumpBuyOrder(o.id);
                         if (res && (res.error || res.code)) {
                           toast(res.message || res.error || 'Could not bump buy order', 'err');
+                          load();
                           return;
                         }
                         load();
@@ -14043,7 +14056,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       : itemName ? `Remove the listing for "${itemName}"?` : 'Remove this listing?';
     if (!confirm(confirmMsg)) return;
     const res = await cancelListing(id);
-    if (res && res.error) { toast(res.error, 'err'); return; }
+    if (res && res.error) { toast(res.error, 'err'); load(); return; }
     load();
     onRefresh && onRefresh();
     toast(inBot
@@ -14140,7 +14153,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     let res;
     try { res = await updateStallListing(l.id, { hidden: !l.hidden }); }
     finally { bulkInFlight.delete('hide:' + l.id); }
-    if (res && res.error) { toast(res.error, 'err'); return; }
+    if (res && res.error) { toast(res.error, 'err'); load(); return; }
     load();
     // Batch 919 — confirm toast so the seller sees what flipped.
     // Hiding removes the listing from public grids + stall page
@@ -15789,6 +15802,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       const res = await cancelOffer(id);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || 'Could not cancel offer', 'err');
+        await load();
         return;
       }
       await load();
@@ -15812,7 +15826,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       const res = mode === 'raise'
         ? await raiseOffer(id, amt, counterMsg)
         : await counterOffer(id, amt, counterMsg);
-      if (res.code || res.error) { toast(res.message || res.error || 'Action failed', 'err'); return; }
+      if (res.code || res.error) {
+        toast(res.message || res.error || 'Action failed', 'err');
+        // The offer may have moved on (accepted, cancelled): show its real state.
+        setCounterFor(null);
+        await load();
+        return;
+      }
       setCounterFor(null); setCounterAmt(''); setCounterMsg('');
       await load();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;

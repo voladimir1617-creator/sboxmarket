@@ -776,7 +776,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     cancelInFlight.add(id);
     try {
       const res = await deleteBuyOrder(id);
-      if (res && res.error) { toast(res.error, 'err'); return; }
+      if (res && res.error) { toast(res.error, 'err'); load(); return; }
       load();
       const priceStr = o?.maxPrice != null ? fmt(parseFloat(o.maxPrice)) : '';
       // BuyOrder.quantity is ALREADY the remaining (un-filled) count — it's
@@ -802,6 +802,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       const res = resuming ? await resumeBuyOrder(o.id) : await pauseBuyOrder(o.id);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || (resuming ? 'Could not resume buy order' : 'Could not pause buy order'), 'err');
+        load();
         return;
       }
       load();
@@ -1574,7 +1575,11 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         }, 'Browse all public loadouts →')
       ),
       h('div', { className: 'loadout-action-row', style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { setViewing(null); setTab(isOwner ? 'mine' : 'discover'); } }, '← Back'),
+        h('button', { className: 'btn btn-ghost', onClick: () => {
+          setViewing(null); setTab(isOwner ? 'mine' : 'discover');
+          // A loadout opened at /loadout/:id: leave its URL too, or a reload reopens it.
+          if (loadoutId) navigate(paths.loadouts());
+        } }, '← Back'),
         h('div', { className: 'loadout-action-spacer', style: { flex: 1, minWidth: 0 } }),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap' } },
           'By ', h('strong', { style: { color: 'var(--text-secondary)' } }, viewing.loadout.ownerName || 'anon'),
