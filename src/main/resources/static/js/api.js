@@ -1506,7 +1506,8 @@ export async function adminUsers(opts) {
   if (opts.banned === false) params.set('banned', 'false');
   const qs = params.toString();
   const data = await safeJson(`${API}/admin/users${qs ? '?' + qs : ''}`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the Users tab must not read that as "no users".
+  return Array.isArray(data) ? data : null;
 }
 /** Consolidated per-user staff summary (batch 549) — wallet + dispute
  *  + 2FA + email-verified state in one round-trip. Returns null if the
@@ -1680,7 +1681,8 @@ export async function adminCloseTicket(id) {
 }
 export async function adminTrades(state = 'ALL') {
   const data = await safeJson(`${API}/admin/trades?state=${encodeURIComponent(state)}`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the Trades tab must not read that as an empty queue.
+  return Array.isArray(data) ? data : null;
 }
 export async function adminReleaseTrade(id, reason) {
   return writeJson(`${API}/admin/trades/${id}/release`, {
@@ -1833,7 +1835,8 @@ export async function fetchEligibleReviews(sellerUserId) {
  *  Returns { count: 0, items: [] } for anonymous viewers. */
 export async function fetchPendingReviews() {
   const data = await safeJson(`${API}/reviews/pending`);
-  return (data && typeof data === 'object') ? data : { count: 0, items: [] };
+  // null = the load failed, so it is never read as "nothing to review".
+  return (data && typeof data === 'object') ? data : null;
 }
 
 /** Users the signed-in caller has blocked. Auth-gated — returns

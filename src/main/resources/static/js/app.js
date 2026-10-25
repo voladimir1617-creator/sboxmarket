@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=323'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=324'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -9258,6 +9258,19 @@ export function App() {
                      : `↓ Show all ${displayReviews.length} reviews`)
               );
             })(),
+            // A failed reviews load (null once the stall is in) used to drop the
+            // whole section silently under a "· 12 reviews" header.
+            stallReviews === null && stallData && !stallData.__notFound && !stallData.__error && h('div', {
+              className: 'wallet-error', role: 'alert', style: { margin: '14px 0' }
+            }, "Couldn't load this seller's reviews. ",
+              h('button', {
+                className: 'btn btn-sm',
+                onClick: async () => {
+                  const fresh = await fetchReviewsForUser(stallData.seller.id, { fresh: true });
+                  if (Array.isArray(fresh)) setStallReviews(fresh);
+                  else showToast("Couldn't load reviews — try again.", 'err');
+                }
+              }, 'Retry')),
             // S1 Boss-QA — trust + discovery panel that fills the empty
             // bottom of the page even when the seller has only 1
             // listing / 0 reviews / 1 sold. Replaces the huge dead
