@@ -10047,7 +10047,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await acceptOffer(id);
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Accept failed', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Accept failed', 'err'); silentRefresh(); return; }
       await load();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       // The server may charge less than the offer (the ask dropped below it).
@@ -10069,7 +10069,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await rejectOffer(id);
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reject failed', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reject failed', 'err'); silentRefresh(); return; }
       await load();
       toast(ownCounter ? `Counter on ${label} withdrawn.` : `Offer on ${label} rejected.`, 'ok');
     } finally { busyRef.current = false; setBusy(false); }
@@ -10085,7 +10085,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await cancelOffer(id);
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); silentRefresh(); return; }
       await load();
       toast(`Your offer on ${label} was cancelled.`, 'ok');
     } finally { busyRef.current = false; setBusy(false); }
@@ -10099,7 +10099,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await counterOffer(id, amt);
-      if (res.code || res.error) { toast(res.message || res.error || 'Counter failed', 'err'); return; }
+      if (res.code || res.error) { toast(res.message || res.error || 'Counter failed', 'err'); silentRefresh(); return; }
       setCounterFor(null); setCounterAmt('');
       await load();
       // Batch 910 — name the item + counter amount so the user sees the
@@ -10119,7 +10119,7 @@ function ProfileOffersTab() {
     try {
       const { raiseOffer } = await import('./api.js');
       const res = await raiseOffer(id, amt);
-      if (res.code || res.error) { toast(res.message || res.error || 'Raise failed', 'err'); return; }
+      if (res.code || res.error) { toast(res.message || res.error || 'Raise failed', 'err'); silentRefresh(); return; }
       setCounterFor(null); setCounterAmt('');
       await load();
       // Batch 910 — name the item + new offer amount + original so the
@@ -10647,6 +10647,8 @@ function ProfileReviewsTab({ me }) {
   const [editId, setEditId]   = useState(null);
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
+  // The review being deleted, so only its button reads "Deleting…".
+  const [deletingId, setDeletingId] = useState(null);
   const replyBusyRef = useRef(false);
   // Batch 750 — Given-tab inline edit state. Separate from the
   // Received-tab reply-edit fields so a user mid-edit on one side
@@ -10873,6 +10875,7 @@ function ProfileReviewsTab({ me }) {
     // the `given` list.
     const r = (given || []).find(x => x.id === reviewId);
     setBusy(true);
+    setDeletingId(reviewId);
     try {
       const res = await deleteReview(reviewId);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Delete failed', 'err'); return; }
@@ -10881,7 +10884,7 @@ function ProfileReviewsTab({ me }) {
       await Promise.all([loadGiven(), loadPending()]);
       const who = r?.toUserName || r?.sellerName || null;
       toast(who ? `Review for @${who} deleted.` : 'Review deleted.', 'ok');
-    } finally { bulkInFlight.delete('review-delete:' + reviewId); setBusy(false); }
+    } finally { bulkInFlight.delete('review-delete:' + reviewId); setBusy(false); setDeletingId(null); }
   };
   // Batch 750 — inline edit for a review the signed-in user authored.
   // Reuses /api/reviews POST (leaveReview) which the service-layer has
@@ -11147,7 +11150,7 @@ function ProfileReviewsTab({ me }) {
                       disabled: busy,
                       onClick: () => deleteMine(r.id),
                       title: 'Permanently delete your review'
-                    }, busy ? 'Deleting…' : 'Delete')
+                    }, deletingId === r.id ? 'Deleting…' : 'Delete')
                   )
           ))
         )
@@ -11321,6 +11324,9 @@ function ProfileSupportTab() {
       if (res && res.error) { toast(res.error, 'err'); return; }
       setReply('');
       await showTicket(viewing.ticket.id);
+      // A reply moves the ticket to "Waiting staff"; refresh the list too
+      // so "← Tickets" doesn't show the old status.
+      load();
       // Batch 898 — subtle reply-sent toast so a user who sends a
       // reply and immediately scrolls up in the thread (long tickets
       // have 20+ messages) knows their reply landed. Also serves as
@@ -11372,10 +11378,10 @@ function ProfileSupportTab() {
 
   if (viewing) {
     return h('div', { className: 'profile-panel' },
-      h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
+      h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } },
         h('button', { className: 'btn btn-ghost', onClick: () => setViewing(null) }, '← Tickets'),
-        h('div', { style: { flex: 1 } },
-          h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
+        h('div', { style: { flex: 1, minWidth: 0 } },
+          h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none', overflowWrap: 'anywhere' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))
         ),
         viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, disabled: busy, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
@@ -11416,7 +11422,9 @@ function ProfileSupportTab() {
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', 'aria-label': 'Reply to support', value: reply, maxLength: 2000, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
-        h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: submitReply }, 'Send')
+        // btn-primary: the panel's full-width btn-accent rule squeezed the
+        // reply box to a sliver on a phone.
+        h('button', { className: 'btn btn-primary', disabled: busy || !reply.trim(), onClick: submitReply }, 'Send')
       )
     );
   }
@@ -11583,6 +11591,8 @@ function ProfileDevelopersTab() {
     const k = (keys || []).find(x => x.id === id);
     const res = await revokeApiKey(id);
     if (res && res.error) { toast(res.error, 'err'); return; }
+    // A revoked key's one-time token panel would otherwise stay up.
+    if (newKey?.id === id) setNewKey(null);
     load();
     toast(k?.label
       ? `API key "${k.label}" revoked — calls using it will 401.`
@@ -11626,7 +11636,7 @@ function ProfileDevelopersTab() {
       h('div', { style: { fontSize: 11, color: 'var(--yellow)', fontWeight: 700, marginBottom: 6, letterSpacing: 0.4 } },
         'COPY THIS NOW — it will not be shown again'),
       h('div', { className: 'api-key-token' }, newKey.token),
-      h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
+      h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
         h('button', {
           className: 'btn btn-accent',
           style: { padding: '6px 14px', fontSize: 11 },
@@ -11688,6 +11698,7 @@ function ProfileDevelopersTab() {
                   try { res = await revokeAllApiKeys(); } finally { revokeInFlight.delete('all'); }
                   if (res && (res.error || res.code)) { toast(res.message || res.error || 'Bulk revoke failed', 'err'); return; }
                   toast(`Revoked ${res.revoked || 0} API key${res.revoked === 1 ? '' : 's'}.`, 'ok');
+                  setNewKey(null);
                   load();
                 },
                 title: 'Security panic button — revokes every active API key on your account in one click.'
@@ -15723,7 +15734,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     setBusy(true);
     try {
       const res = await acceptOffer(id);
-      if (res.code || res.error) { toast(res.message || res.error || 'Could not accept offer', 'err'); return; }
+      if (res.code || res.error) { toast(res.message || res.error || 'Could not accept offer', 'err'); load(); return; }
       await load();
       onRefresh && onRefresh();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
@@ -15750,6 +15761,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       const res = await rejectOffer(id, rejectReply);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || 'Could not reject offer', 'err');
+        // The offer may no longer be pending; show its real state.
+        load();
         return;
       }
       setRejectFor(null); setRejectReply('');
