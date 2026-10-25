@@ -134,13 +134,11 @@ jobs:
           tail -100 app.log
           exit 1
 
+      # The dl.k6.io apt repo started signing with a key the old keyring
+      # lacks (NO_PUBKEY C780D0BDB1A69C86), so install k6 with Grafana's
+      # own action instead of apt.
       - name: Install k6
-        run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update -qq
-          sudo apt-get install -y k6
+        uses: grafana/setup-k6-action@v1
 
       - name: Run smoke load test
         run: |

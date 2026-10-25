@@ -10133,7 +10133,7 @@ export function App() {
       cartHas: (id) => cart.some(c => c.id === id),
       initialTab: route.params?.tab
     }),
-    routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); }, me }),
+    routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); }, me, onWatchlistIds: setWatchlist }),
     routeName === 'buyorders'     && h(BuyOrdersModal,     { onClose: () => { setPreselectedBuyItem(null); navigate(paths.market()); }, me, wallet, preselectedItem: preselectedBuyItem }),
     routeName === 'loadouts'      && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, meLoaded }),
     routeName === 'loadout'       && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, meLoaded, loadoutId: route.params?.id }),

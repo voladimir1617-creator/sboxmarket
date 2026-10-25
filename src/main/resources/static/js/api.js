@@ -1357,12 +1357,14 @@ export async function fetchFavoriteLoadouts() {
   return Array.isArray(data) ? data : [];
 }
 
-export async function fetchLoadout(id) {
+export async function fetchLoadout(id, { strict = false } = {}) {
   // Endpoint returns 200 with `{notFound: true}` for missing OR private-
   // from-this-viewer loadouts (keeps Chrome's fetch 404 out of console).
   // Translate to null so the LoadoutLabModal's existing `__notFound`
   // sentinel branch still fires from `data || { __notFound: true }`.
-  const data = await safeJson(`${API}/loadouts/${id}`, undefined, { expect: [404] });
+  // strict: a 404 still returns null, any other failure throws, so the
+  // page can tell "doesn't exist" from "couldn't load".
+  const data = await safeJson(`${API}/loadouts/${id}`, undefined, { expect: [404], throwOnFailure: strict });
   if (data && data.notFound) return null;
   return data;
 }

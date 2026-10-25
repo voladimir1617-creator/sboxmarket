@@ -26,7 +26,7 @@ const fmtUsd = (v) => '$' + (Math.round((Number(v) || 0) * 100) / 100).toLocaleS
 const suggestedMax = (it) => { const f = parseFloat(it?.lowestPrice) || 0; return f > 0 ? (f * 0.9).toFixed(2) : ''; };
 
 // ── Database ────────────────────────────────────────────────────
-export function DatabaseModal({ onClose, onPickItem, me }) {
+export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   const [data, setData]       = useState({ items: [], total: 0, indexed: 0 });
   // False until the first page lands, so the heading and result line don't
   // print the placeholder zeros as if they were real counts.
@@ -72,6 +72,8 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         });
         toast(res.message || res.error || 'Could not update watchlist', 'err');
       } else {
+        // Hand the server's list to App so /watchlist and the nav badge agree.
+        if (Array.isArray(res?.ids)) onWatchlistIds && onWatchlistIds(res.ids);
         toast(isStarred ? 'Removed from watchlist' : 'Added to watchlist', 'ok');
       }
     } catch (_) {
@@ -1219,6 +1221,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // "not found" panel. Boss test path /loadout/1 always renders
   // SOMETHING valuable now, even on an installation where ids 1
   // and 2 were taken by deleted user loadouts.
+  const [deepRetry, setDeepRetry] = useState(0);
   useEffect(() => {
     if (!loadoutId) return;
     let alive = true;
@@ -1229,7 +1232,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
      // through to the __notFound sentinel, which renders a friendly
      // panel with a "Browse public loadouts" escape.
      try {
-      const data = await fetchLoadout(loadoutId);
+      const data = await fetchLoadout(loadoutId, { strict: true });
       if (!alive) return;
       if (data) {
         // Backend now serves a server-side fallback for missing/private
@@ -1273,14 +1276,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       setViewing({ __notFound: true });
       setTab('view');
      } catch (_) {
-      // Audit fix — any un-handled reject above (first fetchLoadout)
-      // lands here. Show the same friendly not-found panel instead of
-      // leaving `viewing` null and the modal spinning forever.
-      if (alive) { setViewing({ __notFound: true }); setTab('view'); }
+      // The first fetchLoadout throws only when the load failed (a real
+      // 404 returns null), so say that rather than "doesn't exist".
+      if (alive) { setViewing({ __error: true }); setTab('view'); }
      }
     })();
     return () => { alive = false; };
-  }, [loadoutId]);
+  }, [loadoutId, deepRetry]);
 
   // Race-condition guard — rapid tab switches (discover → mine →
   // favorites) used to fire overlapping requests with no ordering; a
@@ -1333,20 +1335,21 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   }, []);
 
   const openLoadout = async (id) => {
-    // Guard the fetch — fetchLoadout returns null on a 404 and REJECTS on
-    // a network error / non-404 5xx. Either way, leaving `viewing` null
-    // while tab==='view' renders an indefinite spinner. Coerce both to
-    // the `__notFound` sentinel so the friendly not-found panel shows,
-    // mirroring the deep-link effect's recovery.
+    // strict: fetchLoadout returns null on a 404 and throws on any other
+    // failure, which is not "not found", so stay put and say so.
     let data;
     try {
-      data = await fetchLoadout(id);
+      data = await fetchLoadout(id, { strict: true });
     } catch (_) {
-      data = null;
+      toast("Couldn't load that loadout. Try again.", 'err');
+      return;
     }
     setViewing(data || { __notFound: true });
     setTab('view');
   };
+  // A card opens its own /loadout/:id URL so Back returns to the list;
+  // navigate() is a no-op on the current path, so reopen in place then.
+  const goLoadout = (id) => (String(loadoutId) === String(id) ? openLoadout(id) : navigate(paths.loadout(id)));
 
   // A double click used to create two loadouts with the same name.
   const createBusyRef = useRef(false);
@@ -1511,6 +1514,16 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // viewing.loadout.ownerUserId on the sentinel object.
   if (tab === 'view' && !viewing) {
     return h(InfoModal, { title: 'Loadout Lab', onClose }, h('div', { className: 'spinner' }));
+  }
+  if (tab === 'view' && viewing && viewing.__error) {
+    return h(InfoModal, { title: 'Loadout', onClose },
+      h('div', { className: 'empty-inline', role: 'alert', style: { padding: '32px 16px' } },
+        h('h2', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' } }, "Couldn't load this loadout"),
+        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+          'Check your connection and try again.'),
+        h('button', { className: 'btn btn-accent', onClick: () => { setViewing(null); setDeepRetry(n => n + 1); } }, 'Retry')
+      )
+    );
   }
   if (tab === 'view' && viewing && viewing.__notFound) {
     // Reflect the not-found state in the page title too so browser tab +
@@ -2084,7 +2097,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               // Mouse convenience only. Keyboard and screen readers open the
               // card through the name link below; a role=button card could
               // not contain the Copy link button as a separate control.
-              onClick: () => openLoadout(l.id)
+              onClick: () => goLoadout(l.id)
             },
               h('div', { className: 'loadout-card-name' },
                 h('a', {
@@ -2095,7 +2108,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) { e.stopPropagation(); return; }
                     e.preventDefault();
                     e.stopPropagation();
-                    openLoadout(l.id);
+                    goLoadout(l.id);
                   }
                 }, highlightMatch(l.name || '', search))),
               h('div', { className: 'loadout-card-meta' },
@@ -2507,9 +2520,9 @@ export function NotificationsModal({ onClose, me }) {
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
       h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, 'aria-pressed': filter === 'ALL', onClick: () => setFilter('ALL') },
-        'All ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length)),
+        'All ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length)),
       h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, 'aria-pressed': filter === 'UNREAD', onClick: () => setFilter('UNREAD') },
-        'Unread ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownUnread)),
+        'Unread ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownUnread)),
       h('div', { style: { flex: 1 } }),
       data.items.length > 0 && (() => {
         // Batch 635 — dynamic label: when a filter is active, show the
