@@ -1912,7 +1912,7 @@ function AdminAuditTab() {
       since:   sinceMs || null
     });
     if (reqId !== auditReqId.current) return;
-    setRows(result);
+    setRows(Array.isArray(result) ? result : false);
   }, [filter]);
   useEffect(() => { load(); }, [load]);
 
@@ -1944,7 +1944,7 @@ function AdminAuditTab() {
   // Apply the client-side free-text filter against whatever the backend
   // returned. Case-insensitive on summary + the pre-resolved display names.
   const displayRows = (() => {
-    if (!rows) return null;
+    if (!Array.isArray(rows)) return rows;
     const q = textSearch.trim().toLowerCase();
     if (q.length === 0) return rows;
     return rows.filter(r => {
@@ -2005,6 +2005,9 @@ function AdminAuditTab() {
     ),
     displayRows === null
       ? h('div', { className: 'spinner' })
+      : displayRows === false
+        ? h('div', { className: 'wallet-error', role: 'alert' }, 'Couldn’t load the audit log. ',
+            h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
       : displayRows.length === 0
         ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'receipt_long', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
@@ -2388,20 +2391,30 @@ function AdminCatalogueTab() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [draft, setDraft] = useState({});
+  // A failed search used to read as "No items match."; say it failed instead.
+  const [searchErr, setSearchErr] = useState(false);
+  const [searchRetry, setSearchRetry] = useState(0);
   useEffect(() => {
     const qs = (q || '').trim();
-    if (qs.length < 2) { setResults([]); return; }
+    if (qs.length < 2) { setResults([]); setSearchErr(false); return; }
     let alive = true;
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`/api/items?q=${encodeURIComponent(qs)}`, { credentials: 'same-origin' });
-        if (!r.ok) return;
+        if (!r.ok) { if (alive) { setResults([]); setSearchErr(true); } return; }
         const j = await r.json();
-        if (alive) setResults(Array.isArray(j) ? j.slice(0, 30) : []);
-      } catch (_) {}
+        if (alive) { setResults(Array.isArray(j) ? j.slice(0, 30) : []); setSearchErr(false); }
+      } catch (_) { if (alive) { setResults([]); setSearchErr(true); } }
     }, 220);
     return () => { alive = false; clearTimeout(t); };
-  }, [q]);
+  }, [q, searchRetry]);
+  // Escape closes the edit drawer (the admin panel leaves Escape to it).
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (e) => { if (e.key === 'Escape' && !busy) { e.stopPropagation(); setEditing(null); } };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [editing, busy]);
   const edit = (it) => {
     setEditing(it);
     setDraft({
@@ -2453,7 +2466,9 @@ function AdminCatalogueTab() {
     ),
     q.trim().length < 2 && h('div', { style: { fontSize: 12, color: 'var(--text-muted)', padding: 16 } },
       'Type at least 2 letters to search the catalogue. Edit steamPrice / rarity / imageUrl / accentColor inline; updates apply without waiting for the next SCMM sync.'),
-    q.trim().length >= 2 && results.length === 0 && h('div', { className: 'empty-inline' },
+    q.trim().length >= 2 && searchErr && h('div', { className: 'wallet-error', role: 'alert' }, 'Couldn’t search the catalogue. ',
+      h('button', { className: 'btn btn-sm', onClick: () => setSearchRetry(n => n + 1) }, 'Retry')),
+    q.trim().length >= 2 && !searchErr && results.length === 0 && h('div', { className: 'empty-inline' },
       h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No items match.')),
     results.length > 0 && h('table', { className: 'db-table', style: { marginTop: 8 } },
       h('thead', null, h('tr', null,
@@ -3472,8 +3487,12 @@ function AdminTicketsTab() {
     } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
-    if (!viewing?.ticket) return;
+    // Latched like sendReply: a double-click used to close the ticket twice.
+    if (!viewing?.ticket || sendingRef.current) return;
     const t = viewing.ticket;
+    sendingRef.current = true;
+    setBusy(true);
+    try {
     const res = await adminCloseTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
     // Guard the refetch — same reasoning as sendReply: the close already
@@ -3485,6 +3504,7 @@ function AdminTicketsTab() {
     // many tickets back-to-back knows which one just closed.
     const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
     toast(`Ticket #${t.id}${subjStr} closed. User can reopen from the thread.`, 'ok');
+    } finally { sendingRef.current = false; setBusy(false); }
   };
 
   if (viewing) {
@@ -3496,7 +3516,7 @@ function AdminTicketsTab() {
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
             viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))
         ),
-        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close Ticket')
+        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', disabled: busy, onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close Ticket')
       ),
       h('div', { className: 'support-thread' },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
@@ -3883,6 +3903,7 @@ function CsrFlagTab() {
 function CsrDashboardTab() {
   const [stats, setStats] = useState(null);
   const [err, setErr]     = useState('');
+  const [retry, setRetry] = useState(0);
   // Pre-fix: bare `.then(setStats)` — no cleanup (setState fired after
   // the modal closed) and no `.catch` (a rejected csrStats() left the
   // spinner up forever). Guard with an `alive` flag + surface the error.
@@ -3892,8 +3913,9 @@ function CsrDashboardTab() {
       .then(s => { if (alive) setStats(s); })
       .catch(e => { if (alive) setErr(e?.message || 'Failed to load queue stats'); });
     return () => { alive = false; };
-  }, []);
-  if (err) return h('div', { className: 'profile-panel' }, h('div', { className: 'wallet-error' }, err));
+  }, [retry]);
+  if (err) return h('div', { className: 'profile-panel' }, h('div', { className: 'wallet-error', role: 'alert' }, err, '. ',
+    h('button', { className: 'btn btn-sm', onClick: () => { setErr(''); setRetry(n => n + 1); } }, 'Retry')));
   if (!stats) return h('div', { className: 'spinner' });
   const waitMs = stats.oldestWaitingAgeMs || 0;
   const waitingHours = Math.floor(waitMs / 3_600_000);
@@ -4079,8 +4101,12 @@ function CsrTicketsTab() {
     } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
-    if (!viewing?.ticket) return;
+    // Latched like sendReply: a double-click used to close the ticket twice.
+    if (!viewing?.ticket || sendingRef.current) return;
     const t = viewing.ticket;
+    sendingRef.current = true;
+    setBusy(true);
+    try {
     const res = await csrCloseTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
     // Guard the refetch — the close already succeeded; a failed refresh
@@ -4092,6 +4118,7 @@ function CsrTicketsTab() {
     // + admin paths feel consistent.
     const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
     toast(`Ticket #${t.id}${subjStr} closed. User can reopen from the thread.`, 'ok');
+    } finally { sendingRef.current = false; setBusy(false); }
   };
 
   if (viewing) {
@@ -4102,7 +4129,7 @@ function CsrTicketsTab() {
           h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))
         ),
-        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close')
+        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', disabled: busy, onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close')
       ),
       h('div', { className: 'support-thread' },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },

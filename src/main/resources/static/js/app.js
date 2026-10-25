@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=322'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=323'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2181,7 +2181,7 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
         return;
       }
       setBlocked(!blocked);
-      onChanged && onChanged();
+      onChanged && onChanged(!blocked);
       // Batch 918 — name the seller in the toast so a user bouncing
       // between stalls sees exactly which one they just flipped.
       const who = sellerName ? `@${sellerName}` : 'Seller';
@@ -8534,7 +8534,9 @@ export function App() {
                     // Refresh stall so the banner disappears and the
                     // blockedByViewer flag flips back to false.
                     const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
+                    // The unblock landed even if the refetch failed; drop the banner anyway.
                     if (fresh && !fresh.__error) setStallData(fresh);
+                    else setStallData(s => s ? Object.assign({}, s, { blockedByViewer: false }) : s);
                     showToast('Unblocked.', 'ok');
                   } finally { btn.disabled = false; }
                 }
@@ -8800,9 +8802,11 @@ export function App() {
                 h(BlockSellerButton, {
                   sellerId: stallData.seller.id, sellerName: stallData.seller.displayName || stallData.seller.name, showToast,
                   blockedByViewer: stallData.blockedByViewer,
-                  onChanged: async () => {
+                  onChanged: async (nowBlocked) => {
                     const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
                     if (fresh && !fresh.__error) setStallData(fresh);
+                    // A failed refetch must not leave the banner disagreeing with the button.
+                    else setStallData(d => d ? Object.assign({}, d, { blockedByViewer: !!nowBlocked }) : d);
                   }
                 }),
               // Report button opens a FRAUD-category support ticket with the
