@@ -5101,6 +5101,9 @@ function EmailBucketMutes() {
   const [available, setAvailable] = useState([]);
   const [muted, setMuted] = useState(new Set());
   const [busy, setBusy] = useState(false);
+  // A failed load used to hide the whole category list without a word.
+  const [loadErr, setLoadErr] = useState(false);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -5111,10 +5114,11 @@ function EmailBucketMutes() {
         setAvailable(Array.isArray(data.available) ? data.available : []);
         setMuted(new Set(Array.isArray(data.muted) ? data.muted : []));
       }
+      setLoadErr(!data);
       setLoaded(true);
     })();
     return () => { alive = false; };
-  }, []);
+  }, [retry]);
   const toggle = async (bucket) => {
     if (busy) return;
     const next = new Set(muted);
@@ -5132,6 +5136,8 @@ function EmailBucketMutes() {
     } finally { setBusy(false); }
   };
   if (!loaded) return h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Loading categories…');
+  if (loadErr) return h('div', { className: 'wallet-error', role: 'alert', style: { fontSize: 11 } }, 'Email categories failed to load. ',
+    h('button', { className: 'btn btn-sm', onClick: () => { setLoaded(false); setRetry(n => n + 1); } }, 'Retry'));
   if (available.length === 0) return null;
   const LABELS = {
     TRADES:    { name: 'Trade activity',          hint: 'New sales to send, trade updates and disputes, offers and counters, buy-order fills, and payouts. Muting it also mutes "you sold an item" emails.' },

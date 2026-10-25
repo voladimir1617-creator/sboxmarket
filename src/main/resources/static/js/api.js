@@ -1706,7 +1706,8 @@ export async function adminAudit(params = {}) {
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => { if (v) q.append(k, v); });
   const data = await safeJson(`${API}/admin/audit?${q}`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the Audit tab must not read that as "no entries".
+  return Array.isArray(data) ? data : null;
 }
 /** Fraud-signal rollup — multiple IPs per user, shared IPs across accounts,
  *  rapid withdraw-after-deposit, high-velocity purchases. Rolls up the
