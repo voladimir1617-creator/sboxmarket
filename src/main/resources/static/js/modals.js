@@ -8086,6 +8086,14 @@ function ProfileTradesTab({ me, privacy }) {
   const [chatDraft, setChatDraft] = useState('');
   const [chatSending, setChatSending] = useState(false);
   const [chatErrors, setChatErrors] = useState({});
+  // The thread lists oldest first in a 200px scroller: keep it pinned to
+  // the newest message when it opens and when a message arrives.
+  const chatScrollRef = useRef(null);
+  const openChatLen = openChat != null ? (chatThreads[openChat] || []).length : 0;
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [openChat, openChatLen]);
   const loadChat = async (tradeId) => {
     const rows = await fetchTradeMessagesOrNull(tradeId);
     // A failed load is not an empty thread, and the server marked
@@ -9453,6 +9461,7 @@ function ProfileTradesTab({ me, privacy }) {
                 }
               },
                 h('div', {
+                  ref: chatScrollRef,
                   style: { maxHeight: 200, overflowY: 'auto', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }
                 },
                   chatErrors[t.id] && (chatThreads[t.id] || []).length === 0

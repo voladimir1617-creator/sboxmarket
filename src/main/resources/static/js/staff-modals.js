@@ -221,7 +221,9 @@ function AdminHealthTab() {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
-  if (err) return h('div', { className: 'admin-tab-content' }, h('div', { className: 'wallet-error' }, err));
+  // A failed poll keeps the last reading (and the SMTP / price-sync rows
+  // below, with whatever was typed in them) and says the figures are stale.
+  if (err && !data) return h('div', { className: 'admin-tab-content' }, h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load server health (", err, '). Retrying every 5 seconds.'));
   if (!data) return h('div', { className: 'admin-tab-content' }, h('div', { className: 'spinner' }));
 
   const uptimeH = Math.floor((data.uptimeMs || 0) / 3_600_000);
@@ -240,6 +242,8 @@ function AdminHealthTab() {
   );
 
   return h('div', { className: 'admin-tab-content' },
+    err && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 12 } },
+      "Couldn't refresh server health (", err, '). Showing the last reading; retrying every 5 seconds.'),
     h('div', { className: 'health-grid' },
       card('Uptime', `${uptimeH}h ${uptimeM}m`,
            `Started ${new Date(data.startedAt).toLocaleString()}`),
@@ -1013,12 +1017,14 @@ function ApiKeyLookupPanel() {
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [lookupErr, setLookupErr] = useState(false);
   const doLookup = async () => {
     const prefix = (q || '').trim();
     if (prefix.length < 3) return;
     setBusy(true);
     try {
       const data = await adminApiKeyLookup(prefix);
+      setLookupErr(data == null);
       setRows(data || []);
       setSearched(true);
     } finally { setBusy(false); }
@@ -1045,7 +1051,10 @@ function ApiKeyLookupPanel() {
         disabled: busy || (q || '').trim().length < 3
       }, busy ? 'Searching…' : 'Lookup')
     ),
-    searched && rows.length === 0 && h('div', {
+    searched && lookupErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 10 } },
+      "Lookup failed, so we can't say whether a key matches. ",
+      h('button', { className: 'btn btn-sm', disabled: busy, onClick: doLookup }, 'Retry')),
+    searched && !lookupErr && rows.length === 0 && h('div', {
       style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }
     }, 'No matching API keys. Check the prefix — search requires ≥ 3 chars.'),
     rows.length > 0 && h('table', { className: 'db-table', style: { marginTop: 10 } },
@@ -1499,12 +1508,14 @@ function AdminSimulatorTab() {
   const [busy, setBusy]       = useState(false);
   const [spawnN, setSpawnN]   = useState(20);
   const [toast, setToast]     = useState('');
+  // The count failed to load: say so instead of "0 simulated" with Clear off.
+  const [countErr, setCountErr] = useState(false);
 
   const reload = useCallback(async () => {
-    try {
-      const res = await adminCountSimulated();
-      if (res && typeof res.count === 'number') setCount(res.count);
-    } catch (e) {}
+    let res = null;
+    try { res = await adminCountSimulated(); } catch (e) {}
+    if (res && typeof res.count === 'number') { setCount(res.count); setCountErr(false); }
+    else setCountErr(true);
   }, []);
   useEffect(() => { reload(); }, [reload]);
 
@@ -1541,9 +1552,12 @@ function AdminSimulatorTab() {
   return h('div', { className: 'admin-panel' },
     h('div', { className: 'admin-card' },
       h('div', { className: 'admin-card-title' }, 'Marketplace Simulator'),
-      h('div', { className: 'admin-card-sub' },
-        `${count} simulated listing${count === 1 ? '' : 's'} currently live. Real listings are never touched.`
-      ),
+      countErr
+        ? h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load the simulated-listing count. ",
+            h('button', { className: 'btn btn-sm', onClick: reload }, 'Retry'))
+        : h('div', { className: 'admin-card-sub' },
+            `${count} simulated listing${count === 1 ? '' : 's'} currently live. Real listings are never touched.`
+          ),
       h('div', { className: 'admin-card-body' },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
           h('label', { style: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 } }, 'Count:'),
@@ -1565,10 +1579,10 @@ function AdminSimulatorTab() {
           }, busy ? 'Working…' : `Spawn ${spawnN} listing${spawnN === 1 ? '' : 's'}`),
           h('button', {
             className: 'btn btn-ghost',
-            disabled: busy || count === 0,
+            disabled: busy || countErr || count === 0,
             style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
             onClick: runClear
-          }, `Clear ${count} simulated`),
+          }, countErr ? 'Clear simulated' : `Clear ${count} simulated`),
           h('button', {
             className: 'btn btn-ghost',
             disabled: busy,
@@ -3989,10 +4003,17 @@ function CsrLookupTab() {
   const [q, setQ] = useState('');
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Only the latest search may paint: Enter while a slow lookup is in
+  // flight used to let the older answer land last and replace the new one.
+  const lookupSeqRef = React.useRef(0);
   const search = async () => {
     if (!q.trim()) return;
+    const seq = ++lookupSeqRef.current;
     setBusy(true);
-    try { setData(await csrLookup(q)); } finally { setBusy(false); }
+    try {
+      const res = await csrLookup(q);
+      if (seq === lookupSeqRef.current) setData(res);
+    } finally { if (seq === lookupSeqRef.current) setBusy(false); }
   };
   const giveCredit = async (u) => {
     const label = u.displayName || u.steamId64;

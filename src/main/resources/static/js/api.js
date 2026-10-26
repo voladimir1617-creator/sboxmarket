@@ -1727,7 +1727,8 @@ export async function adminApiKeyLookup(prefix) {
   const p = (prefix || '').trim();
   if (p.length < 3) return [];
   const data = await safeJson(`${API}/admin/api-keys/lookup?prefix=${encodeURIComponent(p)}`);
-  return Array.isArray(data) ? data : [];
+  // null = the lookup failed; it must not read as "no matching keys".
+  return Array.isArray(data) ? data : null;
 }
 
 /** Admin chargeback queue (batch 462) — every DEPOSIT transaction in
@@ -1771,7 +1772,8 @@ export async function adminClearSimulated() {
   });
 }
 export async function adminCountSimulated() {
-  return (await safeJson(`${API}/admin/simulate/count`)) || { count: 0 };
+  // null = the count failed to load; it must not read as "0 simulated".
+  return safeJson(`${API}/admin/simulate/count`);
 }
 export async function adminSyncScmm() {
   try {
