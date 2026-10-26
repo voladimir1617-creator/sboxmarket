@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=325'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=326'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -991,7 +991,21 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
-  return h('div', { className: 'nav-picker' + (open ? ' open' : ''), ref },
+  // A role=listbox promises arrow keys, as on SortPicker: Up/Down step
+  // through the enabled options (from the chip too), Home/End jump to the ends.
+  const onListKey = (e) => {
+    if (!open || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const opts = Array.from(e.currentTarget.querySelectorAll('[role="option"]:not([disabled])'));
+    if (!opts.length) return;
+    e.preventDefault();
+    const i = opts.indexOf(document.activeElement);
+    const next = e.key === 'Home' ? 0
+      : e.key === 'End' ? opts.length - 1
+      : e.key === 'ArrowDown' ? (i + 1) % opts.length
+      : (i <= 0 ? opts.length - 1 : i - 1);
+    opts[next].focus();
+  };
+  return h('div', { className: 'nav-picker' + (open ? ' open' : ''), ref, onKeyDown: onListKey },
     h('button', {
       type: 'button',
       className: 'nav-picker-chip',
@@ -8983,8 +8997,12 @@ export function App() {
                     rows.length === 0
                       ? h('div', { className: 'empty-inline' },
                           h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: search ? 8 : 0 } },
+                            // Under a rarity chip the search only looked at that
+                            // rarity, so "in this stall" was not true.
                             search
-                              ? `No listings match "${stallSearch}" in this stall.`
+                              ? (stallRarity !== 'All'
+                                  ? `No ${stallRarity === 'Off-Market' ? 'Scarce' : stallRarity} listings match "${stallSearch}".`
+                                  : `No listings match "${stallSearch}" in this stall.`)
                               : 'No listings match this filter.'),
                           search && h('button', {
                             className: 'btn btn-ghost',

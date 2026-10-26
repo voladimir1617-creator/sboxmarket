@@ -3500,8 +3500,13 @@ function AdminTicketsTab() {
   const [search, setSearch] = useState('');
   const [busy, setBusy]     = useState(false);
 
+  // Only the newest request commits: a slow answer for an older search or
+  // filter used to land last and replace the list for the current one.
+  const loadSeqRef = React.useRef(0);
   const load = useCallback(async () => {
-    setList(await adminTickets(filter, search));
+    const seq = ++loadSeqRef.current;
+    const res = await adminTickets(filter, search);
+    if (seq === loadSeqRef.current) setList(res);
   }, [filter, search]);
   useEffect(() => {
     const h = setTimeout(() => { load(); }, search ? 300 : 0);
@@ -4126,7 +4131,13 @@ function CsrTicketsTab() {
   const [search, setSearch] = useState('');
   const [busy, setBusy]     = useState(false);
 
-  const load = useCallback(async () => { setList(await csrTickets(filter, search)); }, [filter, search]);
+  // Newest request wins, as on the admin Tickets tab.
+  const loadSeqRef = React.useRef(0);
+  const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
+    const res = await csrTickets(filter, search);
+    if (seq === loadSeqRef.current) setList(res);
+  }, [filter, search]);
   useEffect(() => {
     const h = setTimeout(() => { load(); }, search ? 300 : 0);
     return () => clearTimeout(h);

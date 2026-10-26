@@ -1251,6 +1251,21 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // Shared by the rename button and Enter: the busy state lags a
   // re-render, so a quick second press sent the rename twice.
   const renameBusyRef = useRef(false);
+  // The rename and create boxes unmount on close (Escape, Cancel, Save),
+  // which dropped keyboard focus to <body>; hand it back to the button
+  // that opened them.
+  const renameBtnRef = useRef(null);
+  const createBtnRef = useRef(null);
+  const wasRenamingRef = useRef(false);
+  const wasCreatingRef = useRef(false);
+  useEffect(() => {
+    if (wasRenamingRef.current && !renaming) renameBtnRef.current?.focus();
+    wasRenamingRef.current = renaming;
+  }, [renaming]);
+  useEffect(() => {
+    if (wasCreatingRef.current && !creating) createBtnRef.current?.focus();
+    wasCreatingRef.current = creating;
+  }, [creating]);
 
   // Deep-link: /loadout/:id lands here with `loadoutId` set. Jump
   // straight to the view tab with the right row loaded instead of
@@ -1542,6 +1557,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     }
     setViewing(null);
     setTab('mine');
+    // Opened at /loadout/:id: leave that URL, or a reload lands on a deleted loadout.
+    if (loadoutId) navigate(paths.loadouts());
     load();
     // Batch 920 — name the deleted loadout in the toast so a user
     // deleting multiple in a row sees which one just went.
@@ -1690,6 +1707,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         }, '♡ Favorite'),
         isOwner && h('button', {
           className: 'btn btn-ghost',
+          ref: renameBtnRef,
           title: 'Rename this loadout',
           // Batch 833 — open the inline rename drawer instead of
           // window.prompt. The drawer renders below the toolbar and
@@ -1772,6 +1790,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               setAdminRemoveDraft(null);
               setViewing(null);
               setTab('discover');
+              if (loadoutId) navigate(paths.loadouts());
               load();
             } catch (_) {
               toast('Network error removing loadout', 'err');
@@ -2009,7 +2028,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           onKeyDown: onKey
         }, labels[id])),
         h('div', { style: { flex: 1 } }),
-        me && h('button', { className: 'btn btn-accent', onClick: () => setCreating(c => !c) }, creating ? 'Cancel' : '+ Create')
+        me && h('button', { className: 'btn btn-accent', ref: createBtnRef, onClick: () => setCreating(c => !c) }, creating ? 'Cancel' : '+ Create')
       );
     })(),
     creating && h('div', { style: { marginBottom: 14, display: 'flex', gap: 10 } },
