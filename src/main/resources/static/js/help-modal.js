@@ -1,7 +1,7 @@
 // Standalone Help Center — FAQ accordion, getting started guide, keyboard
 // shortcut reference, and a Contact Support CTA. Lives on its own route
 // `/help`, but also accepts being opened from any button via the same shell.
-import { h, useState, useEffect, highlightMatch } from './utils.js';
+import { h, useState, useEffect, useRef, highlightMatch } from './utils.js';
 import { InfoModal } from './info-modal.js';
 import { MaterialIcon } from './primitives.js';
 import { navigate, paths } from './router.js';
@@ -209,6 +209,7 @@ export function HelpModal({ onClose }) {
   })();
   const [openIdx, setOpenIdx] = useState(0);
   const [search, setSearch]   = useState(initialQ);
+  const searchRef = useRef(null);
   const q = search.trim().toLowerCase();
   const filteredFaq = q.length === 0
     ? FAQ.map((item, origIdx) => ({ ...item, origIdx }))
@@ -284,6 +285,7 @@ export function HelpModal({ onClose }) {
       style: { width: '100%', marginBottom: 10, fontSize: 13 },
       placeholder: 'Search FAQs…',
       value: search,
+      ref: searchRef,
       onChange: e => setSearch(e.target.value)
     }),
     filteredFaq.length === 0
@@ -305,7 +307,8 @@ export function HelpModal({ onClose }) {
             h('button', {
               className: 'btn btn-ghost',
               style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12 },
-              onClick: () => setSearch('')
+              // The button goes away with the no-match state; keep focus in the search box.
+              onClick: () => { setSearch(''); searchRef.current?.focus(); }
             }, 'Clear search'),
             h('a', {
               className: 'btn btn-accent',

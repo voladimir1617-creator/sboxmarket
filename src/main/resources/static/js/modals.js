@@ -2464,6 +2464,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               width: '100%', padding: '6px 12px', fontSize: 11,
               border: '1px dashed var(--border)', color: 'var(--text-secondary)'
             },
+            'aria-expanded': showAllListings,
             onClick: () => setShowAllListings(v => !v),
             title: showAllListings
               ? `Collapse back to the cheapest 6 listings`
@@ -3909,6 +3910,7 @@ export function FaqModal({ onClose }) {
     catch { return ''; }
   })();
   const [q, setQ] = useState(initialQ);
+  const searchRef = useRef(null);
   const ENTRIES = [
     [`What is ${BRAND.name}?`,
       `${BRAND.name} is a peer-to-peer marketplace for s&box cosmetic items. Every listing comes from a real seller who sets their own price — we're the middle layer that makes transactions safe, fast, and cheaper than going through the Steam store.`],
@@ -3968,6 +3970,7 @@ export function FaqModal({ onClose }) {
       style: { width: '100%', fontSize: 13, marginBottom: 18 },
       placeholder: 'Search FAQs…',
       value: q,
+      ref: searchRef,
       onChange: e => setQ(e.target.value),
       'aria-label': 'Search FAQ'
     }),
@@ -4014,7 +4017,8 @@ export function FaqModal({ onClose }) {
             h('button', {
               className: 'btn btn-ghost',
               style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12 },
-              onClick: () => setQ('')
+              // The button goes away with the no-match state; keep focus in the search box.
+              onClick: () => { setQ(''); searchRef.current?.focus(); }
             }, 'Clear search'),
             h('a', {
               href: '/support',
@@ -5515,6 +5519,7 @@ function SignInHistoryRow() {
       h('button', {
         className: 'btn btn-ghost',
         style: { padding: '5px 12px', fontSize: 11, border: '1px solid var(--border)' },
+        'aria-expanded': open,
         onClick: toggle
       }, open ? 'Hide' : 'Show last 20 sign-ins'),
       open && (rows === null
@@ -5602,6 +5607,7 @@ function SecurityActivityRow() {
       h('button', {
         className: 'btn btn-ghost',
         style: { padding: '5px 12px', fontSize: 11, border: '1px solid var(--border)' },
+        'aria-expanded': open,
         onClick: toggle,
         title: 'Shows 2FA resets, API key mints / revocations, admin actions, withdrawals, and disputes on your account.'
       }, open ? 'Hide' : 'Show recent security events'),
@@ -5715,6 +5721,17 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   const [tradeUrlDraft, setTradeUrlDraft]     = useState('');
   const [tradeUrlErr, setTradeUrlErr]         = useState('');
   const [tradeUrlBusy, setTradeUrlBusy]       = useState(false);
+  // Leaving an inline editor (Save, Cancel, Escape) unmounts the focused
+  // input; hand focus back to the row's Edit button instead of the page.
+  const tradeUrlEditRef = useRef(null);
+  const emailEditRef = useRef(null);
+  const editorsWereOpen = useRef({ trade: false, email: false });
+  useEffect(() => {
+    const was = editorsWereOpen.current;
+    if (was.trade && !editingTradeUrl) tradeUrlEditRef.current?.focus();
+    if (was.email && !editingEmail) emailEditRef.current?.focus();
+    editorsWereOpen.current = { trade: editingTradeUrl, email: editingEmail };
+  }, [editingTradeUrl, editingEmail]);
   const hasTradeUrl = !!profile?.user?.tradeUrl;
   const saveTradeUrl = async (raw) => {
     setTradeUrlBusy(true); setTradeUrlErr('');
@@ -6091,6 +6108,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
+            ref: emailEditRef,
             onClick: () => { setEditingEmail(true); setEmailDraft(profile?.user?.email || ''); },
             'aria-label': 'Edit email address'
           }, 'Edit')
@@ -6134,7 +6152,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           )
         ),
         emailResult?.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } }, 'Email verified'),
-        emailResult?.err && h('div', { className: 'wallet-error' }, emailResult.err),
+        emailResult?.err && h('div', { className: 'wallet-error', role: 'alert' }, emailResult.err),
         // Resend verification link — only meaningful when email is set but
         // not yet verified. Regenerates the token and re-delivers via
         // EmailService (or logs it in dev mode).
@@ -6173,6 +6191,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+            ref: tradeUrlEditRef,
             onClick: () => { setTradeUrlDraft(profile?.user?.tradeUrl || ''); setEditingTradeUrl(true); setTradeUrlErr(''); },
             'aria-label': hasTradeUrl ? 'Edit Steam trade URL' : 'Add Steam trade URL'
           }, hasTradeUrl ? 'Edit' : 'Add'),
@@ -6232,7 +6251,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           }, 'Steam → Trade offers → Who can send me offers'),
           '.'
         ),
-        tradeUrlErr && h('div', { className: 'wallet-error' }, tradeUrlErr)
+        tradeUrlErr && h('div', { className: 'wallet-error', role: 'alert' }, tradeUrlErr)
       )
     ),
 

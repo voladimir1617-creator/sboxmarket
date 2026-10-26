@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=327'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=328'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -7700,7 +7700,12 @@ export function App() {
             }),
             searchInput && h('button', {
               className: 'search-clear',
-              onClick: () => { setSearchInput(''); setSearch(''); setSuggestOpen(false); },
+              onClick: (e) => {
+                // The button unmounts once the box is empty; keep focus in the box.
+                // Focus first so the input's onFocus does not reopen the dropdown.
+                e.currentTarget.parentElement?.querySelector('.search-input')?.focus();
+                setSearchInput(''); setSearch(''); setSuggestOpen(false);
+              },
               title: 'Clear search',
               'aria-label': 'Clear search'
             }, '✕'),
