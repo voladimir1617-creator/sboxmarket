@@ -888,7 +888,7 @@ function AdminAnnouncementsTab() {
           onClick: create
         }, busy ? 'Posting…' : 'Post banner')
       ),
-      err && h('div', { className: 'wallet-error' }, err)
+      err && h('div', { className: 'wallet-error', role: 'alert' }, err)
     ),
     // Batch 566 — broadcast notification form. Fan-out: one bell-row per
     // active user. Distinct from banner (which is a site-wide static
@@ -942,6 +942,7 @@ function AdminAnnouncementsTab() {
           }
         }, bcBusy ? 'Broadcasting…' : '📢 Send broadcast'),
         bcMsg && h('span', {
+          role: bcMsg.startsWith('✓') ? 'status' : 'alert',
           style: { fontSize: 11, color: bcMsg.startsWith('✓') ? 'var(--green)' : 'var(--red)' }
         }, bcMsg)
       )
@@ -3518,8 +3519,13 @@ function AdminTicketsTab() {
   // Guard against a null return (safeJson yields null on 404/5xx) — an
   // unguarded setView(null) made a row click a silent no-op. Also guard
   // a missing `ticket` field so the detail view never renders half-data.
+  // Only the ticket clicked last opens: a slow answer for an earlier row
+  // used to land afterwards and swap the thread (or reopen one after Back).
+  const openSeqRef = React.useRef(0);
   const open = async (id) => {
+    const seq = ++openSeqRef.current;
     const t = await adminTicket(id);
+    if (seq !== openSeqRef.current) return;
     if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
     // A draft belongs to the ticket it was written on.
     setReply('');
@@ -3573,7 +3579,7 @@ function AdminTicketsTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { setView(null); setReply(''); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
           h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
@@ -4146,8 +4152,13 @@ function CsrTicketsTab() {
     return () => clearTimeout(h);
   }, [load, search]);
   // Guard a null/empty return — matches AdminTicketsTab.open.
+  // Only the ticket clicked last opens: a slow answer for an earlier row
+  // used to land afterwards and swap the thread (or reopen one after Back).
+  const openSeqRef = React.useRef(0);
   const open = async (id) => {
+    const seq = ++openSeqRef.current;
     const t = await csrTicket(id);
+    if (seq !== openSeqRef.current) return;
     if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
     // A draft belongs to the ticket it was written on.
     setReply('');
@@ -4201,7 +4212,7 @@ function CsrTicketsTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { setView(null); setReply(''); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
           h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))

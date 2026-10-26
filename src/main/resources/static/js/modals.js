@@ -6835,7 +6835,7 @@ function ProfileListingsTab({ me }) {
   // Error card — recoverable, mirrors the "Retry" affordance used by
   // other self-fetching panels. Distinct from the empty state so a
   // network blip never reads as "you have no listings".
-  if (err) return h('div', { className: 'empty-inline' },
+  if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your listings'),
@@ -7181,6 +7181,16 @@ function ProfileBuyOrdersTab() {
     setEditQty(o.quantity != null ? String(o.quantity) : '');
   };
   const cancelEdit = () => { setEditing(null); setEditMax(''); setEditQty(''); };
+  // Closing the editor (Escape, ✕, Save) unmounts the focused input; hand
+  // focus back to that row's Edit button instead of dropping it on the page.
+  const editBtnRefs = useRef({});
+  const lastEditRef = useRef(null);
+  useEffect(() => {
+    if (editing != null) { lastEditRef.current = editing; return; }
+    const id = lastEditRef.current;
+    lastEditRef.current = null;
+    if (id != null) editBtnRefs.current[id]?.focus();
+  }, [editing]);
   const saveEdit = async (o) => {
     if (busyRef.current) return;
     const maxPrice = parseFloat(editMax);
@@ -7288,7 +7298,7 @@ function ProfileBuyOrdersTab() {
         'ok');
     } finally { busyRef.current = false; setBusy(false); }
   };
-  if (err) return h('div', { className: 'empty-inline' },
+  if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your buy orders'),
@@ -7593,6 +7603,7 @@ function ProfileBuyOrdersTab() {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
+                  ref: (el) => { if (el) editBtnRefs.current[o.id] = el; else delete editBtnRefs.current[o.id]; },
                   disabled: busy, onClick: () => startEdit(o),
                   title: 'Adjust your max price or remaining quantity'
                 }, '✎ Edit'),
@@ -8462,7 +8473,7 @@ function ProfileTradesTab({ me, privacy }) {
   useDialogA11y(confirmPanelRef, confirmClose, !!confirmTrade);
 
   if (!me) return h(SignInNeededEmptyState, { what: 'your trades' });
-  if (err) return h('div', { className: 'empty-inline' },
+  if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your trades'),
@@ -10071,7 +10082,7 @@ function ProfileOffersTab() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [silentRefresh]);
 
-  if (err) return h('div', { className: 'empty-inline' },
+  if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your offers'),
@@ -10845,18 +10856,19 @@ function ProfileReviewsTab({ me }) {
   }
 
   const rows = mode === 'received' ? received : given;
-  if (mode === 'received' && reviewsErr) return h('div', { className: 'empty-inline', style: { padding: '24px 16px' } },
+  // Failure cards render under the tab strip (built below): returning them
+  // alone removed the tabs, so a failed Given load left no way back.
+  const loadErrCard = (mode === 'received' && reviewsErr) ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '24px 16px' } },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load your reviews"),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
       'Something went wrong fetching your reviews — your reputation is safe; check your connection and retry.'),
     h('button', { className: 'btn btn-accent', onClick: loadReceived }, 'Retry')
-  );
-  if (mode === 'given' && givenErr) return h('div', { className: 'empty-inline', style: { padding: '24px 16px' } },
+  ) : (mode === 'given' && givenErr) ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '24px 16px' } },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load the reviews you've written"),
     h('button', { className: 'btn btn-accent', onClick: loadGiven }, 'Retry')
-  );
+  ) : null;
   // Built before the loading return so the tabs stay put (and keep focus)
   // while a lazily loaded tab fetches.
   const tabList = (() => {
@@ -10903,6 +10915,7 @@ function ProfileReviewsTab({ me }) {
       "Couldn't check for trades waiting on a review. ",
       h('button', { className: 'btn btn-sm', onClick: () => { setPending(null); loadPending(); } }, 'Retry')));
   })();
+  if (loadErrCard) return h('div', null, tabList, loadErrCard);
   if (rows === null) return h('div', null, tabList, h('div', { className: 'spinner' }));
 
   const filtered = starFilter > 0 ? rows.filter(r => r.rating === starFilter) : rows;
@@ -11260,6 +11273,15 @@ function ProfileSupportTab() {
   // heading on open, and back to the ticket's row on "← Tickets".
   const threadHeadRef = useRef(null);
   const lastOpenedTicketRef = useRef(null);
+  // Closing the new-ticket form can unmount the button that was clicked
+  // (with no tickets, Cancel swaps back to the empty state's button), so
+  // hand focus to whichever New Ticket button is now on screen.
+  const newTicketBtnRef = useRef(null);
+  const wasCreatingRef = useRef(false);
+  useEffect(() => {
+    if (wasCreatingRef.current && !creating) newTicketBtnRef.current?.focus();
+    wasCreatingRef.current = creating;
+  }, [creating]);
   const viewingId = viewing?.ticket?.id ?? null;
   useEffect(() => {
     if (viewingId != null) {
@@ -11271,8 +11293,13 @@ function ProfileSupportTab() {
     const row = document.querySelector(`tr[data-ticket-id="${id}"]`);
     if (row) row.focus();
   }, [viewingId]);
+  // Only the newest open commits: a slow answer for a ticket clicked
+  // earlier used to land last and swap the thread (or reopen it after Back).
+  const showSeqRef = useRef(0);
   const showTicket = async (id) => {
+    const seq = ++showSeqRef.current;
     const t = await fetchSupportTicket(id);
+    if (seq !== showSeqRef.current) return false;
     if (t && t.ticket) { setViewing(t); return true; }
     toast('Could not load that ticket — try again.', 'err');
     return false;
@@ -11440,7 +11467,7 @@ function ProfileSupportTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } },
-        h('button', { className: 'btn btn-ghost', onClick: () => setViewing(null) }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; setViewing(null); } }, '← Tickets'),
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none', overflowWrap: 'anywhere' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))
@@ -11494,7 +11521,7 @@ function ProfileSupportTab() {
   // like the other profile tabs, instead of a lone button above it.
   const noTickets = Array.isArray(tickets) && tickets.length === 0;
   return h('div', { className: 'profile-panel' },
-    (creating || !noTickets) && h('button', { className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => setCreating(c => !c) },
+    (creating || !noTickets) && h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => setCreating(c => !c) },
       creating ? 'Cancel' : '+ New Ticket'),
     creating && h('div', { className: 'buyorder-form' },
       // Batch 683 — SLA commitment banner. Sets user expectations up
@@ -11542,7 +11569,7 @@ function ProfileSupportTab() {
             'No support tickets yet'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
             'Open a ticket if something goes wrong with a trade, a payment or your account.'),
-          h('button', { className: 'btn btn-accent', onClick: () => setCreating(true) }, '+ New Ticket'));
+          h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', onClick: () => setCreating(true) }, '+ New Ticket'));
       const filtered = statusFilter === 'ALL'
         ? tickets
         : statusFilter === 'OPEN'
@@ -11610,6 +11637,8 @@ function ProfileDevelopersTab() {
   const [scope, setScope] = useState('RW');
   const [newKey, setNewKey] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Dismiss unmounts the one-time token panel; return focus to New Key.
+  const newKeyBtnRef = useRef(null);
 
   const [keysErr, setKeysErr] = useState(false);
   const load = useCallback(async () => {
@@ -11687,7 +11716,7 @@ function ProfileDevelopersTab() {
         h('option', { value: 'RW' }, 'RW · full'),
         h('option', { value: 'RO' }, 'RO · read-only')
       ),
-      h('button', { className: 'btn btn-accent', disabled: busy, onClick: mint }, busy ? 'Minting…' : '+ New Key')
+      h('button', { ref: newKeyBtnRef, className: 'btn btn-accent', disabled: busy, onClick: mint }, busy ? 'Minting…' : '+ New Key')
     ),
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: -6, marginBottom: 14 } },
       scope === 'RO'
@@ -11727,7 +11756,7 @@ function ProfileDevelopersTab() {
         h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
-          onClick: () => setNewKey(null)
+          onClick: () => { setNewKey(null); newKeyBtnRef.current?.focus(); }
         }, 'Dismiss')
       )
     ),
@@ -14087,7 +14116,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   if (!me) return h(InfoModal, { title: 'My Stall', onClose },
     h(SignInNeededEmptyState, { what: 'your stall' }));
   if (stallErr) return h(InfoModal, { title: 'My Stall', onClose },
-    h('div', { className: 'empty-inline' },
+    h('div', { className: 'empty-inline', role: 'alert' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
         "Couldn't load your stall"),
@@ -15072,7 +15101,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     ),
     tab === 'sold' && (
       soldErr
-        ? h('div', { className: 'empty-inline' },
+        ? h('div', { className: 'empty-inline', role: 'alert' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               "Couldn't load your sold history"),
@@ -16357,7 +16386,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     loadErr
       // Load-failure branch — replaces the old never-ending spinner with a
       // retryable message so a transient network error is recoverable.
-      ? h('div', { className: 'empty-inline' },
+      ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             "Couldn't load your offers"),
