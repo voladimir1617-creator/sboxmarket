@@ -208,7 +208,13 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       // exactly as the NotificationsModal consumer below reads it. Detect
       // that explicitly: the catch beneath is a backstop, not the mechanism.
       if (res && res.error) setLoadErr(true);
-      else { setData(res); setLoaded(true); }
+      else {
+        setData(res); setLoaded(true);
+        // A ?page= past the end (an old link, or rows that sold since) came
+        // back empty under "N results"; go to the last page that has rows.
+        const last = Math.ceil(Number(res?.total || 0) / PAGE_SIZE) - 1;
+        if (page > 0 && last >= 0 && page > last) setPage(last);
+      }
     } catch (_) {
       // Backstop only — an unexpected throw (a future refactor, a bug in
       // the helper) must not fall through to the "Catalogue is empty" copy.
@@ -2630,7 +2636,9 @@ export function NotificationsModal({ onClose, me }) {
           : 'Clear read');
       })()
     ),
-    data.items.length > 5 && h('div', { style: { marginBottom: 12 } },
+    // Kept while a search is on, so a delete that drops the list to 5 rows
+    // doesn't hide the box that is still filtering it.
+    (data.items.length > 5 || search) && h('div', { style: { marginBottom: 12 } },
       h('input', {
         className: 'price-input',
         style: { width: '100%', fontSize: 12 },
@@ -2640,7 +2648,7 @@ export function NotificationsModal({ onClose, me }) {
         onChange: e => setSearch(e.target.value)
       })
     ),
-    data.items.length > 3 && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
+    (data.items.length > 3 || typeFilter !== 'ALL') && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
       [
         { id: 'ALL',      label: 'All' },
         { id: 'TRADES',   label: 'Trades' },

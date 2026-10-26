@@ -455,8 +455,9 @@ function SmtpTestRow() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setRes({ ok: false, msg: j.message || j.error || `HTTP ${r.status}` }); return; }
       setRes({ ok: true, msg: `Sent to ${j.to || to.trim()}. Check the inbox (or the server log in dev).` });
-    } catch (e) {
-      setRes({ ok: false, msg: String(e) });
+    } catch (_) {
+      // A dropped request used to print the raw "TypeError: Failed to fetch".
+      setRes({ ok: false, msg: 'Could not reach the server — check your connection and try again.' });
     } finally { setBusy(false); }
   };
   return h('div', {

@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=326'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=327'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1631,7 +1631,13 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
   const startEdit = () => { setDraft(bio || ''); setEditing(true); setErr(''); };
-  const cancel = () => { setEditing(false); setDraft(''); setErr(''); };
+  // The editor unmounts the focused textarea / Cancel; land focus back on
+  // the Edit (or Add a bio) button instead of <body>.
+  const editBtnRef = useRef(null);
+  const cancel = () => {
+    setEditing(false); setDraft(''); setErr('');
+    requestAnimationFrame(() => editBtnRef.current?.focus());
+  };
   // Double-click latch: the busy state lags a re-render, so a quick second click saved the bio twice.
   const bioBusyRef = useRef(false);
   const save = async () => {
@@ -1728,6 +1734,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       h('button', {
         className: 'btn btn-ghost',
         style: { border: '1px dashed var(--border)', padding: '6px 12px', fontSize: 11, opacity: 0.7 },
+        ref: editBtnRef,
         onClick: startEdit,
         title: 'Add a short bio for buyers visiting your stall'
       }, '+ Add a bio')
@@ -1748,6 +1755,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
     canEdit && h('button', {
       className: 'btn btn-ghost',
       style: { flexShrink: 0, padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)' },
+      ref: editBtnRef,
       onClick: startEdit,
       title: 'Edit your stall bio'
     }, '✎ Edit')
@@ -2335,6 +2343,10 @@ function ContactSellerButton({ seller }) {
   const [body, setBody]       = useState('');
   const [busy, setBusy]       = useState(false);
   const textareaRef           = useRef(null);
+  // Closing unmounts the focused textarea or button; hand focus back to
+  // Contact instead of dropping it on <body>.
+  const triggerRef            = useRef(null);
+  const close = () => { setOpen(false); requestAnimationFrame(() => triggerRef.current?.focus()); };
   // The server keeps 2000 characters of the ticket body, and the stall
   // link below is prepended to it, so the box allows only what fits.
   const stallPrefix = `Seller stall: /stall/${seller.id}\n\n`;
@@ -2345,7 +2357,7 @@ function ContactSellerButton({ seller }) {
       if (textareaRef.current) textareaRef.current.focus({ preventScroll: true });
     });
     const onKey = (e) => {
-      if (e.key === 'Escape' && !busy) { e.stopPropagation(); setOpen(false); }
+      if (e.key === 'Escape' && !busy) { e.stopPropagation(); close(); }
     };
     document.addEventListener('keydown', onKey);
     return () => {
@@ -2382,12 +2394,13 @@ function ContactSellerButton({ seller }) {
           kind: 'ok'
         }}));
       } catch (_) {}
-      setOpen(false);
+      close();
       setBody('');
     } finally { contactInFlight.delete(seller.id); setBusy(false); }
   };
   return h(React.Fragment, null,
     h('button', {
+      ref: triggerRef,
       className: 'stall-share-btn',
       onClick: () => setOpen(v => !v),
       'aria-haspopup': 'dialog',
@@ -2441,7 +2454,7 @@ function ContactSellerButton({ seller }) {
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '6px 14px', fontSize: 12 },
-            onClick: () => { setOpen(false); setBody(''); },
+            onClick: () => { close(); setBody(''); },
             disabled: busy
           }, 'Cancel'),
           h('button', {
