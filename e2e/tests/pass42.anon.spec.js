@@ -91,7 +91,7 @@ test.describe('defect pass 42', () => {
       { id: 7, itemName: 'Trade Hat', state: 'PENDING_BUYER_CONFIRM', buyerUserId: 1, sellerUserId: 2, updatedAt: Date.now() - 3 * 3_600_000 },
     ])));
     await page.goto('/market');
-    await expect(page.getByRole('link', { name: 'Open trade' })).toHaveAttribute('href', '/profile/trades', { timeout: 20_000 });
+    await expect(page.getByRole('link', { name: 'Open trade' })).toHaveAttribute('href', '/profile/trades?highlight=7', { timeout: 20_000 });
   });
 
   test('a "More from" card on an item page opens that seller\'s listing at its current bid', async ({ page }) => {

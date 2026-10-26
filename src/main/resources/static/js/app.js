@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=324'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=325'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -232,7 +232,9 @@ function PendingTradeReminder({ me }) {
     ),
     h('a', {
       className: 'pending-trade-nudge-cta',
-      href: '/profile/trades',
+      // ?highlight= makes the Trades tab clear a saved role / status filter
+      // that would hide this trade, and scroll it into view.
+      href: '/profile/trades?highlight=' + t.id,
       onClick: () => dismiss(t.id)
     }, 'Open trade'),
     h('button', {
@@ -1102,7 +1104,21 @@ function SortPicker({ value, options, onChange }) {
     };
   }, [open]);
   const active = options.find(o => o.value === value) || options[0];
-  return h('div', { className: 'sort-picker' + (open ? ' open' : ''), ref },
+  // A role=listbox promises arrow keys: Up/Down step through the options
+  // (from the chip too), Home/End jump to the ends.
+  const onListKey = (e) => {
+    if (!open || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const opts = Array.from(e.currentTarget.querySelectorAll('[role="option"]'));
+    if (!opts.length) return;
+    e.preventDefault();
+    const i = opts.indexOf(document.activeElement);
+    const next = e.key === 'Home' ? 0
+      : e.key === 'End' ? opts.length - 1
+      : e.key === 'ArrowDown' ? (i + 1) % opts.length
+      : (i <= 0 ? opts.length - 1 : i - 1);
+    opts[next].focus();
+  };
+  return h('div', { className: 'sort-picker' + (open ? ' open' : ''), ref, onKeyDown: onListKey },
     h('button', {
       type: 'button',
       className: 'sort-picker-chip',
@@ -6427,6 +6443,20 @@ export function App() {
                 pendingActions && pendingActions.total > 0 ? ` · ${pendingActions.total} ${pendingActions.total === 1 ? 'action needs' : 'actions need'} attention` : ''
               }`,
               onKeyDown: (e) => {
+                // A role=menu promises arrow keys: Up/Down step through the
+                // items (from the chip too), Home/End jump to the ends.
+                if (menuOpen && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+                  const items = Array.from(e.currentTarget.querySelectorAll('#user-menu-panel [role="menuitem"]'));
+                  if (!items.length) return;
+                  e.preventDefault();
+                  const i = items.indexOf(document.activeElement);
+                  const next = e.key === 'Home' ? 0
+                    : e.key === 'End' ? items.length - 1
+                    : e.key === 'ArrowDown' ? (i + 1) % items.length
+                    : (i <= 0 ? items.length - 1 : i - 1);
+                  items[next].focus();
+                  return;
+                }
                 // Keys pressed on a menu item bubble up here; leave them to
                 // the item, or Enter on "Deposit" just closed the menu.
                 if (e.target !== e.currentTarget) return;
