@@ -1696,6 +1696,7 @@ function AdminTradesTab() {
       STATES.map(s => h('button', {
         key: s,
         className: `offer-tab ${filter === s ? 'active' : ''}`,
+        'aria-pressed': filter === s,
         onClick: () => setFilter(s)
       }, s.replace(/_/g, ' ').toLowerCase())),
       h('div', { style: { flex: 1 } }),
@@ -3615,7 +3616,7 @@ function AdminTicketsTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' } },
       [['',  'All'],['WAITING_STAFF','Waiting on us'],['WAITING_USER','Waiting on user'],['RESOLVED','Resolved']].map(([v, l]) =>
-        h('button', { key: v || 'all', className: `offer-tab ${filter === v ? 'active' : ''}`, onClick: () => setFilter(v) }, l)
+        h('button', { key: v || 'all', className: `offer-tab ${filter === v ? 'active' : ''}`, 'aria-pressed': filter === v, onClick: () => setFilter(v) }, l)
       ),
       // Batch 576 — free-text search across subject / username /
       // category. Debounced client-side (see load()) so typing doesn't
@@ -3951,6 +3952,7 @@ function CsrFlagTab() {
       onClick: submit
     }, busy ? 'Flagging…' : '🚩 Flag listing'),
     result && h('div', {
+      role: result.ok ? 'status' : 'alert',
       style: {
         marginTop: 12, padding: 10, borderRadius: 6,
         background: result.ok ? 'rgba(34,197,94,0.1)' : 'var(--red-dim)',
@@ -4238,7 +4240,7 @@ function CsrTicketsTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' } },
       [['WAITING_STAFF','Waiting on us'],['WAITING_USER','Waiting on user'],['','All']].map(([v, l]) =>
-        h('button', { key: v || 'all', className: `offer-tab ${filter === v ? 'active' : ''}`, onClick: () => setFilter(v) }, l)
+        h('button', { key: v || 'all', className: `offer-tab ${filter === v ? 'active' : ''}`, 'aria-pressed': filter === v, onClick: () => setFilter(v) }, l)
       ),
       // Batch 581 — free-text search mirrors the admin-tickets tab.
       h('input', {
