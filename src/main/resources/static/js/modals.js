@@ -13871,6 +13871,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // accept (listing.maxDiscount stays null).
   const [editAutoPct, setEditAutoPct] = useState('');
   const [away, setAway] = useState(false);
+  // True when the away-mode lookup failed: the switch then can't say which
+  // way it is set, so it says so instead of "listings visible".
+  const [awayErr, setAwayErr] = useState(false);
   // Vacation-mode resume timestamp — null = no scheduled return. Read
   // from /api/listings/away on mount so a returning seller sees the
   // chip without flipping the toggle. Updated optimistically when the
@@ -13998,7 +14001,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       try {
         const { fetchAwayMode } = await import('./api.js');
         const data = await fetchAwayMode();
-        if (!alive || !data) return;
+        if (!alive) return;
+        if (!data) { setAwayErr(true); return; }
+        setAwayErr(false);
         setAway(!!data.hidden);
         setAwayUntil(data.until || null);
       } catch (_) {}
@@ -14635,10 +14640,13 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         'aria-checked': away,
         'aria-label': 'Away mode (hide all listings)',
         style: { display: 'inline-block', verticalAlign: 'middle', marginRight: 10 },
+        disabled: awayErr,
         onClick: toggleAway
       }),
       h('span', { style: { fontSize: 12, color: 'var(--text-secondary)' } },
-        'Away Mode — ', away ? 'all listings hidden' : 'listings visible'
+        'Away Mode — ', awayErr
+          ? "couldn't load whether it is on. Reload the page to try again."
+          : (away ? 'all listings hidden' : 'listings visible')
       ),
       // Share-stall quick link (batch 406). Tries the native Web Share
       // API first (native share sheet on mobile + desktop Chrome/Safari)
