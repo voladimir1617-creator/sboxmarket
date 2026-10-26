@@ -10725,7 +10725,9 @@ function ProfileReviewsTab({ me }) {
   const loadPending = useCallback(async () => {
     if (!me) return;
     const data = await fetchPendingReviews();
-    setPending(Array.isArray(data?.items) ? data.items : []);
+    // false = the check failed (an alert with Retry), not "no pending reviews".
+    // A failed re-check keeps the list already shown (the Pending view reads it).
+    setPending(prev => Array.isArray(data?.items) ? data.items : (Array.isArray(prev) ? prev : false));
   }, [me?.id]);
   useEffect(() => { loadReceived(); }, [loadReceived]);
   // Pending is the one query we want the badge from, so load it on mount
@@ -10850,7 +10852,7 @@ function ProfileReviewsTab({ me }) {
       tabIndex: mode === id ? 0 : -1,
       onKeyDown: onKey
     });
-    return h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
+    return h(React.Fragment, null, h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
       h('button', Object.assign({
         className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
         onClick: () => setMode('received')
@@ -10868,7 +10870,10 @@ function ProfileReviewsTab({ me }) {
         className: 'filter-count',
         style: { marginLeft: 6, background: 'rgba(30,165,255,0.15)', color: 'var(--accent)', fontWeight: 700 }
       }, pending.length))
-    );
+    ),
+    pending === false && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 14 } },
+      "Couldn't check for trades waiting on a review. ",
+      h('button', { className: 'btn btn-sm', onClick: () => { setPending(null); loadPending(); } }, 'Retry')));
   })();
   if (rows === null) return h('div', null, tabList, h('div', { className: 'spinner' }));
 
@@ -13305,7 +13310,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         // Filter bar — rarity chips + free-text search. Hides when the
         // inventory has <=6 items because the chips add noise for free.
-        steamList.length > 6 && h('div', { className: 'sell-filter-bar' },
+        // Also while a filter is on (a /sell?q= deep link, or a chip picked on
+        // the other tab), or its Clear button is gone and the items stay hidden.
+        (steamList.length > 6 || sellRarityFilter !== 'All' || sellSearch) && h('div', { className: 'sell-filter-bar' },
           h('button', {
             className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === 'All',
@@ -13619,7 +13626,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             title: `${intLiquidCount} item${intLiquidCount === 1 ? ' has' : 's have'} a standing buy order — the total is the exact wallet credit if every row were Quick Sold right now (before the 2% platform fee).`
           }, '⚡ ', h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(intLiquidValue)), ' liquid now')
         ),
-        (rarities.length > 1 || internalList.length > 6) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
+        (rarities.length > 1 || internalList.length > 6 || sellRarityFilter !== 'All' || sellSearch) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
           h('button', {
             className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === 'All',

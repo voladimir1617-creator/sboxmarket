@@ -13,7 +13,7 @@ import {
   adminCreditWallet, adminFreezeWallet, adminUnfreezeWallet, adminRemoveListing, adminReportedListings, adminDismissReports, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals, adminApiKeyLookup,
-  adminTrades, adminReleaseTrade, adminCancelTrade, adminDeleteTradeMessage, fetchTradeMessages,
+  adminTrades, adminReleaseTrade, adminCancelTrade, adminDeleteTradeMessage, fetchTradeMessagesOrNull,
   adminSimulateListings, adminClearSimulated, adminCountSimulated, adminSyncScmm,
   adminSyncSteamPrices,
   csrStats, csrLookup, csrTickets, csrTicket, csrTicketReply, csrCloseTicket,
@@ -1615,25 +1615,39 @@ function AdminTradesTab() {
   // is logged to audit AND surfaced to the user via notification, so
   // the drawer is the right UX for composing it.
   const [actionDraft, setActionDraft] = useState(null);  // { kind: 'release'|'cancel', row }
+  // null = the chat failed to load (shown as an error with Retry, never as
+  // "No messages in this trade.").
+  const loadChat = async (tradeId) => {
+    setChatThreads(prev => ({ ...prev, [tradeId]: undefined }));
+    const msgs = await fetchTradeMessagesOrNull(tradeId);
+    setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+  };
   const toggleChat = async (tradeId) => {
     if (openChat === tradeId) { setOpenChat(null); return; }
     setOpenChat(tradeId);
-    const msgs = await fetchTradeMessages(tradeId);
-    setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+    await loadChat(tradeId);
   };
   const redactMessage = async (tradeId, msgId) => {
     if (!confirm(`Redact message ${msgId}? Its text is removed and both parties see "Message removed by moderators" in its place. The text can't be recovered.`)) return;
     const res = await adminDeleteTradeMessage(msgId);
     if (res && (res.error || res.code)) { toast(res.message || res.error, 'err'); return; }
-    const msgs = await fetchTradeMessages(tradeId);
-    setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+    const msgs = await fetchTradeMessagesOrNull(tradeId);
+    if (msgs) setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
     // Pre-fix: silent on success — staff saw the row vanish from chat but
     // had no confirmation that the audit-log write landed. Surface a toast
     // so admin actions consistently report outcome.
     toast(`Message #${msgId} redacted from trade #${tradeId}.`, 'ok');
   };
 
-  const load = useCallback(async () => { setRows(null); setRows(await adminTrades(filter)); }, [filter]);
+  // Only the newest filter's reply may land; false = the load failed.
+  const tradesReqId = React.useRef(0);
+  const load = useCallback(async () => {
+    const reqId = ++tradesReqId.current;
+    setRows(null);
+    const data = await adminTrades(filter);
+    if (reqId !== tradesReqId.current) return;
+    setRows(Array.isArray(data) ? data : false);
+  }, [filter]);
   useEffect(() => { load(); }, [load]);
 
   const submitTradeAction = async (reason) => {
@@ -1660,7 +1674,7 @@ function AdminTradesTab() {
   // Effective rows — optionally reverse newest-first ordering. The
   // backend returns rows sorted by updatedAt DESC; flipping here gives
   // ops a "fix the oldest trade first" view.
-  const display = rows ? (oldestFirst ? [...rows].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0)) : rows) : null;
+  const display = rows === false ? false : rows ? (oldestFirst ? [...rows].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0)) : rows) : null;
 
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
@@ -1688,6 +1702,9 @@ function AdminTradesTab() {
     ),
     display === null
       ? h('div', { className: 'spinner' })
+      : display === false
+        ? h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load trades. ",
+            h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
       : display.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'swap_horiz', size: 26 })),
@@ -1799,6 +1816,9 @@ function AdminTradesTab() {
                   // messages in this trade." before the request resolves.
                   chatThreads[r.id] === undefined
                     ? h('div', { className: 'spinner' })
+                    : chatThreads[r.id] === null
+                    ? h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load this chat. ",
+                        h('button', { className: 'btn btn-sm', onClick: () => loadChat(r.id) }, 'Retry'))
                     : (chatThreads[r.id] || []).length === 0
                     ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
                         'No messages in this trade.')
@@ -2646,6 +2666,7 @@ function AdminUsersTab({ me }) {
   // path on the service keeps the cold open snappy). BANNED is a
   // special case — it's a status filter, not a role — so we map it
   // to `banned=true` without constraining role.
+  const usersReqId = React.useRef(0);
   const load = useCallback(async () => {
     const opts = { search };
     if (roleFilter === 'BANNED') {
@@ -2654,7 +2675,12 @@ function AdminUsersTab({ me }) {
       opts.role = roleFilter;
       opts.banned = false;  // role chips mean "active of this role" — hide banned
     }
-    setRows(await adminUsers(opts));
+    // Search fires per keystroke: only the newest reply may land, or a slow
+    // "al" could finish over "alice". false = the load failed.
+    const reqId = ++usersReqId.current;
+    const data = await adminUsers(opts);
+    if (reqId !== usersReqId.current) return;
+    setRows(Array.isArray(data) ? data : false);
   }, [search, roleFilter]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -2694,6 +2720,18 @@ function AdminUsersTab({ me }) {
       } catch (_) {}
     })();
     return () => { alive = false; };
+  }, [detailUser?.id]);
+  // Escape closes the detail drawer (the admin panel leaves Escape to a
+  // .cart-confirm-backdrop), and focus goes back to the row's 🔎 button.
+  useEffect(() => {
+    if (!detailUser) return;
+    const opener = document.activeElement;
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setDetailUser(null); } };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus();
+    };
   }, [detailUser?.id]);
 
   // Ban-reason templates surface from the prompt dialog — admins can
@@ -2850,7 +2888,7 @@ function AdminUsersTab({ me }) {
     // runs server-side, so the loaded rows only describe the active chip:
     // only that chip carries a count, and the row stays up on an empty
     // result so "All" is always there to go back to.
-    rows !== null && (() => {
+    Array.isArray(rows) && (() => {
       return h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 } },
         [
           { id: 'ALL',    label: 'All' },
@@ -2878,6 +2916,10 @@ function AdminUsersTab({ me }) {
       // represents the filter result. Keep the variable for readability
       // below + defensive re-filter in case role goes stale between a
       // refetch and a chip click.
+      if (rows === false) {
+        return h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load users. ",
+          h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'));
+      }
       const visibleRows = rows === null ? null : (roleFilter === 'ALL'
         ? rows
         : roleFilter === 'BANNED' ? rows.filter(r => r.banned)
