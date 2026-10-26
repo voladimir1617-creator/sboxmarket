@@ -11512,7 +11512,8 @@ function ProfileSupportTab() {
       h('button', { className: 'btn btn-accent wallet-submit', disabled: busy, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
     (() => {
-      if (tickets === null && ticketsErr) return h('div', { className: 'empty-inline', role: 'alert' },
+      // Also after a refresh fails: the old list (or "No tickets yet") is stale.
+      if (ticketsErr) return h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your support tickets.'),
           h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setTicketsErr(false); load(); } }, 'Retry'));
       if (tickets === null) return h('div', { className: 'spinner' });
@@ -11711,7 +11712,8 @@ function ProfileDevelopersTab() {
         }, 'Dismiss')
       )
     ),
-    keysErr && keys === null
+    // Also after a refresh fails, so a stale list or "No API keys yet" never shows.
+    keysErr
       ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your API keys.'),
           h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setKeysErr(false); load(); } }, 'Retry'))
