@@ -1241,7 +1241,7 @@ function AdminFraudTab() {
           onClick: () => setShowReviewed(v => !v)
         }, showReviewed ? 'Hide reviewed' : `Show ${hiddenCount} reviewed`)
       ),
-      error && h('div', { className: 'admin-error' }, error),
+      error && h('div', { className: 'admin-error', role: 'alert' }, error),
       !loading && !error && rows.length === 0 && h('div', { className: 'empty-inline' },
         '✨ No suspicious patterns detected in the last 24 hours.'),
       !loading && rows.length > 0 && visible.length === 0 && h('div', { className: 'empty-inline' },
@@ -2452,6 +2452,20 @@ function AdminCatalogueTab() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [editing, busy]);
+  // The drawer is modal: move focus into it on open and back to the row's
+  // Edit button on close, instead of leaving it behind the backdrop.
+  useEffect(() => {
+    if (!editing) return;
+    const prev = document.activeElement;
+    const id = requestAnimationFrame(() => {
+      const panel = document.getElementById('catalogue-edit-title')?.closest('[role="dialog"]');
+      panel?.querySelector('input, select, textarea, button')?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      try { if (prev && document.contains(prev)) prev.focus(); } catch (_) {}
+    };
+  }, [editing?.id]);
   const edit = (it) => {
     setEditing(it);
     setDraft({
@@ -2539,8 +2553,9 @@ function AdminCatalogueTab() {
     ),
     // Edit drawer — partial PUT, validates on the server.
     editing && h('div', { className: 'cart-confirm-backdrop', onClick: () => !busy && setEditing(null) },
-      h('div', { className: 'cart-confirm-panel', style: { maxWidth: 520 }, onClick: e => e.stopPropagation() },
-        h('div', { className: 'cart-confirm-title' }, '✎ Edit ' + editing.name),
+      h('div', { className: 'cart-confirm-panel', style: { maxWidth: 520 }, onClick: e => e.stopPropagation(),
+        role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'catalogue-edit-title' },
+        h('div', { className: 'cart-confirm-title', id: 'catalogue-edit-title' }, '✎ Edit ' + editing.name),
         h('div', { className: 'cart-confirm-sub' },
           `ID #${editing.id} — partial edits apply immediately. Clear a field to restore the SCMM default on the next sync.`),
         h('div', { style: { marginTop: 14, display: 'grid', gap: 10 } },
@@ -2586,7 +2601,7 @@ function AdminCatalogueTab() {
             })
           )
         ),
-        err && h('div', { className: 'wallet-error' }, err),
+        err && h('div', { className: 'wallet-error', role: 'alert' }, err),
         h('div', { className: 'cart-confirm-actions' },
           h('button', {
             className: 'btn btn-ghost',

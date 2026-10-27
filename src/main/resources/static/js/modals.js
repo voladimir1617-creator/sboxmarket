@@ -3491,7 +3491,7 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
             : trimmed.length > 200
               ? 'That URL is too long — the limit is 200 characters.'
               : 'Must start with https://steamcommunity.com/tradeoffer/...'),
-      err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
+      err && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, err),
       h('div', { style: { display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' } },
         h('button', {
           className: 'btn btn-ghost',
@@ -9732,6 +9732,7 @@ function ProfileTradesTab({ me, privacy }) {
           ),
 
           reviewErr && h('div', {
+            role: 'alert',
             style: {
               padding: '10px 12px',
               background: 'var(--red-dim)',
@@ -12930,7 +12931,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           style: { fontFamily: 'inherit', fontSize: 13, lineHeight: 1.4, resize: 'vertical' }
         })
       ),
-      error && h('div', { className: 'wallet-error' }, error),
+      error && h('div', { className: 'wallet-error', role: 'alert' }, error),
       h('div', { style: { display: 'flex', gap: 10, marginTop: 20 } },
         h('button', { className: 'btn btn-ghost', style: { flex: 1, border: '1px solid var(--border)', justifyContent: 'center', padding: 13 }, onClick: () => setPicking(null) }, 'Back'),
         h('button', {
