@@ -54,7 +54,7 @@ test.describe('defect pass 73', () => {
     await page.route('**/api/listings/my-stall', (r) => r.fulfill(json(rows)));
     await page.route('**/api/listings/1/stall', (r) => { rows = []; return r.fulfill(json({ code: 'LISTING_NOT_ACTIVE', message: 'Listing is no longer active (SOLD)', error: 'Listing is no longer active (SOLD)' }, 409)); });
     await page.goto('/me/stall');
-    await page.getByRole('button', { name: '✎ Edit' }).click({ timeout: 20000 });
+    await page.getByRole('button', { name: /^Edit price of / }).click({ timeout: 20000 });
     await page.getByLabel('Price in US dollars').fill('6');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByText(/no longer active/).first()).toBeVisible();

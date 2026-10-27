@@ -47,7 +47,7 @@ test.describe('defect pass 60', () => {
       items: [{ id: 3, name: 'Plain Cap', category: 'Hats', rarity: 'Standard', lowestPrice: null }], total: 1, indexed: 1,
     })));
     await page.goto('/loadout/55');
-    await page.locator('.loadout-slot', { hasText: 'Hats' }).getByRole('button', { name: '+ Add' }).click({ timeout: 20_000 });
+    await page.locator('.loadout-slot', { hasText: 'Hats' }).getByRole('button', { name: 'Add an item to the Hats slot' }).click({ timeout: 20_000 });
     await expect(page.locator('.loadout-picker-item').first()).toHaveAttribute('aria-label', 'Add Plain Cap to the Hats slot (no listings)');
   });
 

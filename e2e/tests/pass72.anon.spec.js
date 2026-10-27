@@ -92,9 +92,9 @@ test.describe('defect pass 72', () => {
     await page.route('**/api/listings/my-stall', (r) => r.fulfill(json(rows)));
     await page.route('**/api/listings/1/stall', (r) => { rows = []; return r.fulfill(conflict('LISTING_NOT_ACTIVE', 'Listing is no longer active (SOLD)')); });
     await page.goto('/me/stall');
-    await page.getByRole('button', { name: 'Hide', exact: true }).click({ timeout: 20_000 });
+    await page.getByRole('button', { name: /^Hide / }).click({ timeout: 20_000 });
     await expect(page.getByText(/no longer active/).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Hide', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Hide / })).toHaveCount(0);
   });
 
   for (const [path, name] of [['/profile/developers', /Developers/], ['/support', /Support/]]) {
