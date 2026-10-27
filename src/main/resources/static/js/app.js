@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=330'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=331'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -594,7 +594,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
     ),
     // Shown to everyone who can act on the row: a failed admin remove or
     // reply removal used to set this and show nothing.
-    !editing && err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
+    !editing && err && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, err),
     isOwner && editing && h('div', { className: 'stall-review-reply-edit' },
       h('textarea', {
         value: draft,
@@ -609,7 +609,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditing(false); setDraft(''); setErr(''); } }, 'Cancel'),
         h('button', { className: 'btn btn-accent', disabled: busy || !draft.trim(), onClick: () => submit(false) }, busy ? 'Saving…' : 'Post reply')
       ),
-      err && h('div', { className: 'wallet-error' }, err)
+      err && h('div', { className: 'wallet-error', role: 'alert' }, err)
     )
   );
 }
@@ -1630,10 +1630,17 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
-  const startEdit = () => { setDraft(bio || ''); setEditing(true); setErr(''); };
+  // Set by a successful save: the editor unmounts the focused Save button,
+  // and the stall refetch swaps "+ Add a bio" for "Edit", so focus follows
+  // whichever bio button is drawn once the new bio arrives.
+  const refocusRef = useRef(false);
+  const startEdit = () => { refocusRef.current = false; setDraft(bio || ''); setEditing(true); setErr(''); };
   // The editor unmounts the focused textarea / Cancel; land focus back on
   // the Edit (or Add a bio) button instead of <body>.
   const editBtnRef = useRef(null);
+  useEffect(() => {
+    if (refocusRef.current && !editing) editBtnRef.current?.focus();
+  }, [editing, bio]);
   const cancel = () => {
     setEditing(false); setDraft(''); setErr('');
     requestAnimationFrame(() => editBtnRef.current?.focus());
@@ -1654,6 +1661,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         setErr(res.message || res.error || 'Could not save');
         return;
       }
+      refocusRef.current = true;
       setEditing(false);
       onSaved && onSaved();
       // Batch 923 — surface save success. Previously the block collapsed
@@ -1712,7 +1720,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       h('div', { style: { display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' } },
         h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
           `${draft.length} / ${CAP}`),
-        err && h('span', { style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, err),
+        err && h('span', { role: 'alert', style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, err),
         h('div', { style: { flex: 1 } }),
         h('button', {
           className: 'btn btn-ghost',

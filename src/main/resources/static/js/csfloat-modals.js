@@ -2799,7 +2799,8 @@ export function NotificationsModal({ onClose, me }) {
                   border: '1px solid transparent', marginLeft: 4
                 },
                 title: 'Mark as unread',
-                'aria-label': 'Mark as unread',
+                // Name the row: every row's buttons otherwise read the same.
+                'aria-label': `Mark as unread: ${n.title || 'notification'}`,
                 onClick: async (e) => {
                   e.stopPropagation();
                   // Pre-fix: errors here were swallowed and `load()` re-fetched
@@ -2828,7 +2829,7 @@ export function NotificationsModal({ onClose, me }) {
                   border: '1px solid transparent', marginLeft: 4
                 },
                 title: 'Delete this notification',
-                'aria-label': 'Delete this notification',
+                'aria-label': `Delete this notification: ${n.title || 'notification'}`,
                 onClick: async (e) => {
                   e.stopPropagation();
                   // Pre-fix: errors swallowed; failed deletes silently no-oped
