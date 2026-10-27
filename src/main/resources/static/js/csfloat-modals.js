@@ -266,6 +266,16 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   ];
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
+  // Reaching the first or last page disables the arrow that was pressed,
+  // which drops keyboard focus to <body>; move it to the other arrow.
+  const pagerRef = useRef(null);
+  const pagerEdgeRef = useRef(null);
+  useEffect(() => {
+    const which = pagerEdgeRef.current;
+    if (!which) return;
+    pagerEdgeRef.current = null;
+    pagerRef.current?.querySelectorAll('button')[which === 'prev' ? 0 : 1]?.focus();
+  }, [page]);
 
   // The header must not assert a catalogue size we could not read.
   // "Database · 0 indexed" was the FIRST thing the walk saw under a forced
@@ -581,10 +591,10 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
        is intentionally NOT a condition here: keeping the pager mounted
        through a page-to-page fetch avoids it flickering out and back on
        every Next/Prev click (totalPages stays stable across the fetch). */
-    !loadErr && totalPages > 1 && h('div', { className: 'db-pager' },
-      h('button', { className: 'btn btn-ghost', disabled: page === 0, onClick: () => setPage(p => Math.max(0, p - 1)) }, '← Prev'),
+    !loadErr && totalPages > 1 && h('div', { className: 'db-pager', ref: pagerRef },
+      h('button', { className: 'btn btn-ghost', disabled: page === 0, onClick: () => { if (page <= 1) pagerEdgeRef.current = 'next'; setPage(p => Math.max(0, p - 1)); } }, '← Prev'),
       h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, `${page + 1} of ${totalPages}`),
-      h('button', { className: 'btn btn-ghost', disabled: page + 1 >= totalPages, onClick: () => setPage(p => p + 1) }, 'Next →')
+      h('button', { className: 'btn btn-ghost', disabled: page + 1 >= totalPages, onClick: () => { if (page + 2 >= totalPages) pagerEdgeRef.current = 'prev'; setPage(p => p + 1); } }, 'Next →')
     )
   );
 }
@@ -1457,8 +1467,17 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     const fresh = await fetchLoadout(viewing.loadout.id);
     // A failed reload must not blank the open loadout into a spinner.
     if (!fresh) { toast('Saved, but the loadout did not reload. Refresh to see the change.', 'err'); return; }
+    // Clearing a slot unmounts its ✕ button; hand focus to the slot's + Add.
+    if (itemId == null) clearedSlotRef.current = slot;
     setViewing(fresh);
   };
+  const clearedSlotRef = useRef(null);
+  useEffect(() => {
+    const slot = clearedSlotRef.current;
+    if (slot == null) return;
+    clearedSlotRef.current = null;
+    document.querySelector(`.loadout-add-btn[aria-label="Add an item to the ${slot} slot"]`)?.focus();
+  }, [viewing]);
 
   const handleLockSlot = async (slot) => {
     if (!viewing) return;
@@ -2385,6 +2404,15 @@ export function NotificationsModal({ onClose, me }) {
   // Per-row latch for Mark as unread / Delete: the row stays until the
   // reload lands, so a double-click sent the request twice.
   const rowBusyRef = useRef(new Set());
+  // A row action that removes its own button sets this; it runs once the
+  // reloaded list has rendered.
+  const pendingFocusRef = useRef(null);
+  useEffect(() => {
+    const f = pendingFocusRef.current;
+    if (!f) return;
+    pendingFocusRef.current = null;
+    f();
+  }, [data]);
   const clear = async () => {
     if (clearBusyRef.current) return;
     clearBusyRef.current = true;
@@ -2823,12 +2851,17 @@ export function NotificationsModal({ onClose, me }) {
                   const key = 'unread:' + n.id;
                   if (rowBusyRef.current.has(key)) return;
                   rowBusyRef.current.add(key);
+                  // This button only exists on read rows; once the row is
+                  // unread, keep focus on the row's open control.
+                  const btn = e.currentTarget;
+                  const row = btn.closest('.notif-feed-row');
                   try {
                     try {
                       const { markNotificationUnread } = await import('./api.js');
                       const r = await markNotificationUnread(n.id);
                       if (r && r.ok === false) toast('Could not mark unread — try again.', 'err');
                     } catch (_) { toast('Could not mark unread — try again.', 'err'); }
+                    pendingFocusRef.current = () => { if (!btn.isConnected) row?.querySelector('[role="button"]')?.focus(); };
                     await load();
                   } finally { rowBusyRef.current.delete(key); }
                 }
@@ -2851,11 +2884,18 @@ export function NotificationsModal({ onClose, me }) {
                   const key = 'delete:' + n.id;
                   if (rowBusyRef.current.has(key)) return;
                   rowBusyRef.current.add(key);
+                  // The row goes away with its buttons; hand focus to the
+                  // next row (or the previous one at the end of the list).
+                  const btn = e.currentTarget;
+                  const allRows = [...document.querySelectorAll('.notif-feed-row')];
+                  const at = allRows.indexOf(btn.closest('.notif-feed-row'));
+                  const neighbours = [allRows[at + 1], allRows[at - 1]];
                   try {
                     try {
                       const r = await deleteNotification(n.id);
                       if (r && r.ok === false) toast('Could not delete notification — try again.', 'err');
                     } catch (_) { toast('Could not delete notification — try again.', 'err'); }
+                    pendingFocusRef.current = () => { if (!btn.isConnected) neighbours.find(r => r && r.isConnected)?.querySelector('[role="button"]')?.focus(); };
                     await load();
                   } finally { rowBusyRef.current.delete(key); }
                 }

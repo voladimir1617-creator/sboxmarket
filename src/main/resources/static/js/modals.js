@@ -5728,6 +5728,17 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   // returns plaintext codes except in the response that mints them.
   const [backupCodes, setBackupCodes] = useState(null);
   const [recoveryStatus, setRecoveryStatus] = useState(null);
+  // Closing a 2FA drawer (Cancel, Escape, success) or the backup-codes panel
+  // unmounts the focused control; hand focus back to the button that opened it.
+  const disable2faBtnRef = useRef(null);
+  const regenBtnRef = useRef(null);
+  const twofaPanelsWereOpen = useRef({ disable: false, regen: false, codes: false });
+  useEffect(() => {
+    const was = twofaPanelsWereOpen.current;
+    if (was.disable && !disableDrawerOpen) disable2faBtnRef.current?.focus();
+    if ((was.regen && !regenDrawerOpen) || (was.codes && !backupCodes)) regenBtnRef.current?.focus();
+    twofaPanelsWereOpen.current = { disable: disableDrawerOpen, regen: regenDrawerOpen, codes: !!backupCodes };
+  }, [disableDrawerOpen, regenDrawerOpen, backupCodes]);
   const refreshRecoveryStatus = useCallback(async () => {
     try {
       const s = await fetch2faRecoveryStatus();
@@ -6317,8 +6328,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               recoveryStatus.remainingCodes <= 3 ? '⚠ ' : '',
               recoveryStatus.remainingCodes, ' backup code', recoveryStatus.remainingCodes === 1 ? '' : 's', ' left'
             ),
-            h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 }, onClick: regenerateBackupCodes, title: 'Mint a fresh set of backup codes. The current set becomes invalid.' }, 'Regenerate codes'),
-            h('button', { className: 'btn btn-ghost', style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 }, onClick: disableTwofa }, 'Disable')
+            h('button', { ref: regenBtnRef, className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 }, onClick: regenerateBackupCodes, title: 'Mint a fresh set of backup codes. The current set becomes invalid.' }, 'Regenerate codes'),
+            h('button', { ref: disable2faBtnRef, className: 'btn btn-ghost', style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 }, onClick: disableTwofa }, 'Disable')
           ),
           // Batch 814 — inline drawer: Disable 2FA. Replaces window.prompt()
           // so the TOTP input gets password-manager autofill, visible
@@ -11474,6 +11485,8 @@ function ProfileSupportTab() {
     try {
       const res = await resolveSupportTicket(t.id);
       if (res && res.error) { toast(res.error, 'err'); return; }
+      // Mark Resolved swaps for Reopen; keep focus in the thread.
+      threadHeadRef.current?.focus?.();
       await showTicket(t.id);
       load();
       const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
@@ -11495,6 +11508,8 @@ function ProfileSupportTab() {
         toast(res.message || res.error || 'Could not reopen', 'err');
         return;
       }
+      // Reopen swaps for Mark Resolved; keep focus in the thread.
+      threadHeadRef.current?.focus?.();
       await showTicket(viewing.ticket.id);
       load();
       toast('Ticket reopened — staff will pick it back up.', 'ok');
