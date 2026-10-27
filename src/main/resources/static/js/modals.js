@@ -3234,7 +3234,9 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   const panelRef = useRef(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
-  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  // Escape must not close the drawer mid-submit, same as the Cancel button.
+  const busyRef = useRef(false);
+  const stableCancel = useCallback(() => { if (!busyRef.current) onCancelRef.current && onCancelRef.current(); }, []);
   useDialogA11y(panelRef, stableCancel);
   // 2026-05-20 — seed `reason` from the first server-supplied reason
   // rather than a hard-coded string. The <select> options come from the
@@ -3247,6 +3249,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
     (Array.isArray(reasons) && reasons.length > 0) ? reasons[0] : 'Suspicious pricing');
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
+  busyRef.current = busy;
   const [err, setErr]       = useState('');
   const [done, setDone]     = useState('');
   const MAX_NOTE = 500;
@@ -3282,7 +3285,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   }, []);
   const submit = async () => {
     if (!reason) { setErr('Pick a reason first'); return; }
-    setErr(''); setBusy(true);
+    setErr(''); setBusy(true); busyRef.current = true;
     try {
       const res = await reportListing(listing.id, reason, note);
       if (res && (res.error || res.code)) {
@@ -3300,7 +3303,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   };
   return h('div', {
     className: 'cart-confirm-backdrop',
-    onClick: onCancel,
+    onClick: () => !busy && onCancel(),
     style: { zIndex: 100 }
   },
     h('div', {
@@ -3355,7 +3358,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
               },
               disabled: busy
             }),
-            err && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, err),
+            err && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, err),
             h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
               h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: onCancel }, 'Cancel'),
               h('button', { className: 'btn btn-accent', disabled: busy, onClick: submit },
@@ -3529,7 +3532,8 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
   const panelRef = useRef(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
-  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  // Escape must not close the drawer mid-submit, same as the backdrop.
+  const stableCancel = useCallback(() => { if (!busyRef.current) onCancelRef.current && onCancelRef.current(); }, []);
   useDialogA11y(panelRef, stableCancel);
   const REASONS = ['Scam attempt','Harassment in chat','Impersonation','Other'];
   const [reason, setReason] = useState(REASONS[0]);
@@ -3619,7 +3623,7 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
       h('div', {
         style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, textAlign: 'right' }
       }, note.length, ' / 1000'),
-      err && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, err),
+      err && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, err),
       h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
         h('button', {
           className: 'btn btn-ghost',
@@ -6263,6 +6267,9 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, 'Disabled'),
           h('button', { className: 'btn btn-accent', style: { padding: '6px 14px', fontSize: 11 }, disabled: twofaBusy, onClick: startEnroll }, 'Enable 2FA')
         ),
+        // A failed enroll start set twofaErr, but it only rendered inside the
+        // enrolling panel, so the click did nothing visible.
+        !enrolling && !has2fa && twofaErr && h('div', { className: 'wallet-error', role: 'alert' }, twofaErr),
         !enrolling && has2fa && h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10 } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
             h('span', { style: { fontSize: 12, color: 'var(--green)', fontWeight: 700 } }, 'Enabled'),
@@ -6329,7 +6336,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 else if (e.key === 'Escape' && !disableBusy) { e.preventDefault(); setDisableDrawerOpen(false); setDisableCode(''); setDisableErr(''); }
               }
             }),
-            disableErr && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, disableErr),
+            disableErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, disableErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
               h('button', {
                 className: 'btn btn-ghost',
@@ -6383,7 +6390,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 else if (e.key === 'Escape' && !regenBusy) { e.preventDefault(); setRegenDrawerOpen(false); setRegenCode(''); setRegenErr(''); }
               }
             }),
-            regenErr && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, regenErr),
+            regenErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, regenErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
               h('button', {
                 className: 'btn btn-ghost',
@@ -6518,7 +6525,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               }
             }
           }),
-          twofaErr && h('div', { className: 'wallet-error' }, twofaErr),
+          twofaErr && h('div', { className: 'wallet-error', role: 'alert' }, twofaErr),
           h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
             h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: async () => {
               // Tell the server to drop the staged secret — else email verify/resend
