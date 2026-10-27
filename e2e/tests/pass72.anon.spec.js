@@ -51,9 +51,9 @@ test.describe('defect pass 72', () => {
     await page.route(/\/api\/buy-orders$/, (r) => r.fulfill(json([order(status)])));
     await page.route('**/api/buy-orders/5', (r) => { status = 'FILLED'; return r.fulfill(conflict('BUY_ORDER_NOT_ACTIVE', 'This buy order is no longer active')); });
     await page.goto('/profile/buyorders');
-    await page.getByRole('button', { name: '✕ Cancel' }).click({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Cancel buy order for/ }).click({ timeout: 20_000 });
     await expect(page.getByText(/no longer active/).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: '✕ Cancel' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Cancel buy order for/ })).toHaveCount(0);
   });
 
   test('a failed buy-order cancel on the Buy Orders page refreshes the order', async ({ page }) => {
@@ -62,16 +62,16 @@ test.describe('defect pass 72', () => {
     await page.route(/\/api\/buy-orders$/, (r) => r.fulfill(json([order(status)])));
     await page.route('**/api/buy-orders/5', (r) => { status = 'FILLED'; return r.fulfill(conflict('BUY_ORDER_NOT_ACTIVE', 'This buy order is no longer active')); });
     await page.goto('/buy-orders');
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Cancel buy order for/ }).click({ timeout: 20_000 });
     await expect(page.getByText(/no longer active/).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Cancel buy order for/ })).toHaveCount(0);
   });
 
   test('editing a buy order puts the caret in the max price box', async ({ page }) => {
     await signedIn(page);
     await page.route(/\/api\/buy-orders$/, (r) => r.fulfill(json([order('ACTIVE')])));
     await page.goto('/profile/buyorders');
-    await page.getByRole('button', { name: '✎ Edit' }).click({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Edit buy order for/ }).click({ timeout: 20_000 });
     await expect(page.getByLabel('New max price per item in USD')).toBeFocused();
   });
 

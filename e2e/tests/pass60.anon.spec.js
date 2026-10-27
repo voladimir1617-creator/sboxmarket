@@ -106,7 +106,7 @@ test.describe('defect pass 60', () => {
     await buyOrders(page, order());
     const deletes = await countSlow(page, '**/api/buy-orders/3', 'DELETE');
     await page.goto('/profile/buyorders');
-    const btn = page.getByRole('button', { name: '✕ Cancel', exact: true });
+    const btn = page.getByRole('button', { name: /Cancel buy order for/ });
     await btn.waitFor({ timeout: 20_000 });
     await doubleClick(btn);
     await page.waitForTimeout(800);

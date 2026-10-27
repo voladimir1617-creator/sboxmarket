@@ -6133,11 +6133,12 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             value: emailDraft, onChange: e => setEmailDraft(e.target.value),
             onKeyDown: e => {
               if (e.key === 'Enter') { e.preventDefault(); saveEmail(); }
-              else if (e.key === 'Escape') { e.preventDefault(); setEditingEmail(false); }
+              // A save in flight keeps the box: closing it lost the draft the error is about.
+              else if (e.key === 'Escape') { e.preventDefault(); if (!emailBusyRef.current) setEditingEmail(false); }
             }
           }),
           h('button', { className: 'buy-btn', onClick: saveEmail }, 'Save'),
-          h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => setEditingEmail(false), 'aria-label': 'Cancel email edit' }, '✕')
+          h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => { if (!emailBusyRef.current) setEditingEmail(false); }, 'aria-label': 'Cancel email edit' }, '✕')
         ),
         // Mail was sent (no token comes back when real mail is on): say so,
         // otherwise Save and Resend look like they did nothing.
@@ -7542,7 +7543,7 @@ function ProfileBuyOrdersTab() {
                   value: editMax, onChange: e => setEditMax(e.target.value),
                   onKeyDown: e => {
                     if (e.key === 'Enter') { e.preventDefault(); if (!busy) saveEdit(o); }
-                    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                    else if (e.key === 'Escape') { e.preventDefault(); if (!busyRef.current) cancelEdit(); }
                   },
                   placeholder: 'Max USD',
                   title: 'New max price per item, in USD'
@@ -7556,13 +7557,13 @@ function ProfileBuyOrdersTab() {
                   value: editQty, onChange: e => setEditQty(e.target.value),
                   onKeyDown: e => {
                     if (e.key === 'Enter') { e.preventDefault(); if (!busy) saveEdit(o); }
-                    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                    else if (e.key === 'Escape') { e.preventDefault(); if (!busyRef.current) cancelEdit(); }
                   },
                   placeholder: 'Qty',
                   title: "Remaining quantity (can't exceed what's still unfilled)"
                 }),
                 h('button', { className: 'buy-btn', style: { padding: '4px 10px', fontSize: 11 }, disabled: busy, onClick: () => saveEdit(o) }, 'Save'),
-                h('button', { className: 'btn btn-ghost', style: { padding: '4px 8px', fontSize: 11 }, onClick: cancelEdit, 'aria-label': 'Cancel edit' }, '✕')
+                h('button', { className: 'btn btn-ghost', style: { padding: '4px 8px', fontSize: 11 }, disabled: busy, onClick: cancelEdit, 'aria-label': 'Cancel edit' }, '✕')
               ),
               // Edit + Bump + Cancel buttons — only shown while the order
               // still has remaining fillable quantity AND no edit is
@@ -7612,12 +7613,15 @@ function ProfileBuyOrdersTab() {
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
                   ref: (el) => { if (el) editBtnRefs.current[o.id] = el; else delete editBtnRefs.current[o.id]; },
                   disabled: busy, onClick: () => startEdit(o),
+                  // Every row's buttons otherwise read the same to a screen reader.
+                  'aria-label': `Edit buy order for ${o.itemName || 'item'}`,
                   title: 'Adjust your max price or remaining quantity'
                 }, '✎ Edit'),
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
                   disabled: busy, onClick: () => togglePause(o),
+                  'aria-label': `${o.status === 'PAUSED' ? 'Resume' : 'Pause'} buy order for ${o.itemName || 'item'}`,
                   title: o.status === 'PAUSED'
                     ? 'Turn this order back on. It can buy right away if a listing is already at or under your max.'
                     : 'Stop this order from buying without deleting it. Resume it any time.'
@@ -7626,6 +7630,7 @@ function ProfileBuyOrdersTab() {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
                   disabled: busy,
+                  'aria-label': `Cancel buy order for ${o.itemName || 'item'}`,
                   onClick: () => cancelOrder(o)
                 }, '✕ Cancel')
               )
