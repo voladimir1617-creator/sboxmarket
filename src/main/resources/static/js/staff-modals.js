@@ -697,6 +697,8 @@ function AdminReportedTab() {
                   actionDraft && actionDraft.kind === 'dismiss' && actionDraft.row.id === r.id
                     ? null
                     : { kind: 'dismiss', row: r }),
+                // Every row's buttons otherwise read the same to a screen reader.
+                'aria-label': `Dismiss reports on listing #${r.id} — ${r.itemName || 'unknown item'}`,
                 title: 'Mark reviewed — keep the listing, clear the reports'
               }, 'Dismiss'),
               h('button', {
@@ -708,7 +710,8 @@ function AdminReportedTab() {
                 onClick: () => setActionDraft(
                   actionDraft && actionDraft.kind === 'remove' && actionDraft.row.id === r.id
                     ? null
-                    : { kind: 'remove', row: r })
+                    : { kind: 'remove', row: r }),
+                'aria-label': `Remove listing #${r.id} — ${r.itemName || 'unknown item'}`
               }, 'Remove')
             )
           )
@@ -752,7 +755,9 @@ function AdminReportedTab() {
 }
 
 function AdminAnnouncementsTab() {
-  const [rows, setRows]       = useState([]);
+  // null until the first load answers, so the history doesn't read
+  // "No announcements yet." while it is still loading.
+  const [rows, setRows]       = useState(null);
   const [message, setMessage] = useState('');
   const [severity, setSeverity] = useState('INFO');
   const [hours, setHours]     = useState('');
@@ -851,7 +856,7 @@ function AdminAnnouncementsTab() {
     }
     await load();
   };
-  const live = rows.filter(r => r.active && (!r.expiresAt || r.expiresAt > Date.now()));
+  const live = (rows || []).filter(r => r.active && (!r.expiresAt || r.expiresAt > Date.now()));
   return h('div', { className: 'admin-tab-content' },
     h('div', { style: { padding: 16, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 18 } },
       h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 10 } }, 'Post sitewide banner'),
@@ -960,13 +965,15 @@ function AdminAnnouncementsTab() {
           const hh = Math.floor(d / 3600000), mm = Math.floor((d % 3600000) / 60000);
           return hh > 0 ? `ends in ${hh}h ${mm}m` : `ends in ${mm}m`;
         })()),
-        h('button', { className: 'btn btn-ghost', style: { padding: '4px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, onClick: () => deactivate(r.id) }, 'Stop')
+        h('button', { className: 'btn btn-ghost', style: { padding: '4px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, 'aria-label': `Stop banner: ${r.message}`, onClick: () => deactivate(r.id) }, 'Stop')
       ))
     ),
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '10px 0 6px' } }, 'History'),
     loadErr
       ? h('div', { className: 'wallet-error', role: 'alert' }, 'Couldn’t load announcements. ',
           h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
+      : rows === null
+      ? h('div', { className: 'spinner' })
       : rows.length === 0
       ? h('div', { style: { fontSize: 13, color: 'var(--text-muted)', padding: 20, textAlign: 'center' } }, 'No announcements yet.')
       : rows.map(r => h('div', {
@@ -3546,6 +3553,15 @@ function AdminTicketsTab() {
     setReply('');
     setView(t);
   };
+  // ← Tickets unmounts the thread; hand focus back to the row that opened it
+  // instead of dropping it on the page.
+  const backFocusRef = React.useRef(null);
+  useEffect(() => {
+    if (viewing || backFocusRef.current == null) return;
+    const id = backFocusRef.current;
+    backFocusRef.current = null;
+    document.querySelector(`tr[data-ticket-row="${id}"]`)?.focus();
+  }, [viewing]);
   // Enter auto-repeat (or Enter then a click) re-entered this before the
   // async busy state landed and posted the reply twice; a ref latches now.
   const sendingRef = React.useRef(false);
@@ -3594,7 +3610,7 @@ function AdminTicketsTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; setView(null); setReply(''); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; backFocusRef.current = viewing.ticket.id; setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
           h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
@@ -3683,6 +3699,7 @@ function AdminTicketsTab() {
               h('th', { className: 'right' }, 'Updated'))),
             h('tbody', null, list.map(t => h('tr', {
               key: t.id, className: 'db-row',
+              'data-ticket-row': t.id,
               onClick: () => open(t.id),
               role: 'button',
               tabIndex: 0,
@@ -4179,6 +4196,15 @@ function CsrTicketsTab() {
     setReply('');
     setView(t);
   };
+  // ← Tickets unmounts the thread; hand focus back to the row that opened it
+  // instead of dropping it on the page.
+  const backFocusRef = React.useRef(null);
+  useEffect(() => {
+    if (viewing || backFocusRef.current == null) return;
+    const id = backFocusRef.current;
+    backFocusRef.current = null;
+    document.querySelector(`tr[data-ticket-row="${id}"]`)?.focus();
+  }, [viewing]);
   // Enter auto-repeat (or Enter then a click) re-entered this before the
   // async busy state landed and posted the reply twice; a ref latches now.
   const sendingRef = React.useRef(false);
@@ -4227,7 +4253,7 @@ function CsrTicketsTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; setView(null); setReply(''); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; backFocusRef.current = viewing.ticket.id; setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
           h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))
@@ -4301,6 +4327,7 @@ function CsrTicketsTab() {
               return h('tr', {
                 key: t.id,
                 className: `db-row${urgent ? ' urgent-row' : ''}`,
+                'data-ticket-row': t.id,
                 onClick: () => open(t.id),
                 // Keyboard access parity with the admin Tickets tab — the
                 // CSR rows were mouse-only (no role/tabIndex/onKeyDown).

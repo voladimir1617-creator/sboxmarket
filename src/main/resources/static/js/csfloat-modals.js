@@ -1192,6 +1192,8 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)', padding: '7px 14px', fontSize: 12, marginRight: 6 },
                 onClick: () => togglePause(o),
+                // Every row's buttons otherwise read the same to a screen reader.
+                'aria-label': `${o.status === 'PAUSED' ? 'Resume' : 'Pause'} buy order for ${o.itemName || 'item'}`,
                 title: o.status === 'PAUSED'
                   ? 'Turn this order back on. It can buy right away if a listing is already at or under your max.'
                   : 'Stop this order from buying without deleting it. Resume it any time.'
@@ -1199,6 +1201,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
               (o.status === 'ACTIVE' || o.status === 'PAUSED') && h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 14px', fontSize: 12 },
+                'aria-label': `Cancel buy order for ${o.itemName || 'item'}`,
                 onClick: () => cancel(o.id)
               }, 'Cancel')
             )));
@@ -1876,7 +1879,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               } finally { renameBusyRef.current = false; setRenameBusy(false); }
             } else if (e.key === 'Escape') {
               e.preventDefault();
-              setRenaming(false);
+              // Cancel is disabled while saving; Escape waits too, so a failed
+              // rename leaves the draft in the box.
+              if (!renameBusyRef.current) setRenaming(false);
             }
           },
           style: { flex: 1, minWidth: 200 },
