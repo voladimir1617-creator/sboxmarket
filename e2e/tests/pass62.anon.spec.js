@@ -40,7 +40,7 @@ test.describe('defect pass 62', () => {
     await page.route('**/api/listings/my-stall', (r) => (r.request().method() === 'GET' ? r.fulfill(json([listing(1)])) : r.fallback()));
     const puts = await countSlow(page, '**/api/listings/1/stall', 'PUT');
     await page.goto('/me/stall');
-    const btn = page.getByRole('button', { name: 'Hide', exact: true }).first();
+    const btn = page.getByRole('button', { name: /^Hide / }).first();
     await btn.waitFor({ timeout: 20_000 });
     await doubleClick(btn);
     await page.waitForTimeout(800);

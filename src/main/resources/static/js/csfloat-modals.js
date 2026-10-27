@@ -2261,6 +2261,14 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
 function SlotPicker({ slot, allItems, poolErr, onPick }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
+  // Cancel and Escape unmount the picker; hand focus back to its + Add
+  // button instead of dropping it to <body>.
+  const addBtnRef = useRef(null);
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (wasOpenRef.current && !open) addBtnRef.current?.focus();
+    wasOpenRef.current = open;
+  }, [open]);
   const filtered = useMemo(() => {
     let pool = allItems;
     if (slot !== 'Wild') pool = pool.filter(i => i.category === slot);
@@ -2269,7 +2277,8 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
   }, [allItems, slot, q]);
 
   if (!open) {
-    return h('button', { className: 'loadout-add-btn', onClick: () => setOpen(true) }, '+ Add');
+    // Every empty slot has one; name the slot so they don't all read "+ Add".
+    return h('button', { className: 'loadout-add-btn', ref: addBtnRef, 'aria-label': `Add an item to the ${slot} slot`, onClick: () => setOpen(true) }, '+ Add');
   }
   return h('div', { className: 'loadout-picker' },
     // Audit fix — aria-label was a stale "Filter loadouts" copy-paste

@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=332'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=333'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -3383,13 +3383,19 @@ function SaveSearchDrawer({ initial, onCancel, onSave }) {
   const [name, setName] = useState(initial || '');
   const inputRef = useRef(null);
   useEffect(() => {
+    // The drawer unmounts on Cancel, Escape or Save; hand focus back to the
+    // Save search button that opened it instead of dropping it to <body>.
+    const opener = document.activeElement;
     const id = requestAnimationFrame(() => {
       if (inputRef.current) {
         inputRef.current.focus({ preventScroll: true });
         try { inputRef.current.select(); } catch (_) {}
       }
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(id);
+      if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+    };
   }, []);
   useEffect(() => {
     const onKey = (e) => {

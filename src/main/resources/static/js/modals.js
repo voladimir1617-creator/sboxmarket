@@ -5224,6 +5224,18 @@ function FollowingListRow() {
   // Per-row double-click latch: the row stays until the DELETE lands,
   // so a second click sent a second DELETE and a second toast.
   const unfollowBusyRef = useRef(new Set());
+  // The unfollowed row (and the focused ✕ with it) unmounts; move focus to
+  // the ✕ now in its place, or the last one, instead of dropping to <body>.
+  const followListRef = useRef(null);
+  const refocusUnfollowRef = useRef(null);
+  useEffect(() => {
+    const idx = refocusUnfollowRef.current;
+    if (idx == null) return;
+    refocusUnfollowRef.current = null;
+    const btns = followListRef.current?.querySelectorAll('[data-unfollow]') || [];
+    const next = btns[Math.min(idx, btns.length - 1)];
+    if (next) next.focus();
+  }, [rows]);
   const doUnfollow = async (sellerId) => {
     if (unfollowBusyRef.current.has(sellerId)) return;
     unfollowBusyRef.current.add(sellerId);
@@ -5237,6 +5249,9 @@ function FollowingListRow() {
         toast(res.message || res.error || 'Could not unfollow', 'err');
         return;
       }
+      const shown = showAllFollows ? (rows || []) : (rows || []).slice(0, 10);
+      const at = shown.findIndex(r => r.sellerUserId === sellerId);
+      if (at >= 0 && followListRef.current?.contains(document.activeElement)) refocusUnfollowRef.current = at;
       setRows(rs => (rs || []).filter(r => r.sellerUserId !== sellerId));
       toast(who ? `Unfollowed @${who}.` : 'Unfollowed.', 'ok');
     } finally { unfollowBusyRef.current.delete(sellerId); }
@@ -5329,7 +5344,7 @@ function FollowingListRow() {
         'aria-label': 'Unfollow all sellers'
       }, '✕ all')
     ),
-    h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
+    h('div', { ref: followListRef, className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
       (showAllFollows ? rows : rows.slice(0, 10)).map(r => {
        // Every row's buttons otherwise read the same to a screen reader.
        const who = names[r.sellerUserId] || ('Seller #' + r.sellerUserId);
@@ -5361,6 +5376,7 @@ function FollowingListRow() {
           className: 'btn btn-ghost',
           style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
           onClick: () => doUnfollow(r.sellerUserId),
+          'data-unfollow': '',
           title: 'Unfollow this seller',
           'aria-label': `Unfollow ${who}`
         }, '✕')
@@ -5492,9 +5508,13 @@ function SignInHistoryRow() {
   const [rows, setRows] = useState(null);
   const loaded = useRef(false);
   const toggle = async () => {
-    setOpen(v => !v);
-    if (loaded.current) return;
+    // Load on Show only, and clear a failed attempt's error while the
+    // retry is in flight instead of showing it over the new request.
+    const opening = !open;
+    setOpen(opening);
+    if (!opening || loaded.current) return;
     loaded.current = true;
+    setRows(null);
     let data = null;
     try {
       const { fetchSignInHistory } = await import('./api.js');
@@ -5565,9 +5585,13 @@ function SecurityActivityRow() {
   const [rows, setRows] = useState(null);
   const loaded = useRef(false);
   const toggle = async () => {
-    setOpen(v => !v);
-    if (loaded.current) return;
+    // Load on Show only, and clear a failed attempt's error while the
+    // retry is in flight instead of showing it over the new request.
+    const opening = !open;
+    setOpen(opening);
+    if (!opening || loaded.current) return;
     loaded.current = true;
+    setRows(null);
     let data = null;
     try {
       const { fetchSecurityActivity } = await import('./api.js');
@@ -14519,7 +14543,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       ' by ', h('strong', null, Math.abs(pctNum) + '%'), '.');
                   })()
                 : 'Pick a chip or type a non-zero percentage from -50 to +50.'),
-          bulkAdjustErr && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, bulkAdjustErr),
+          bulkAdjustErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, bulkAdjustErr),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
             h('button', {
               className: 'btn btn-ghost',
@@ -15640,7 +15664,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         disabled: true,
                         title: "Auctions with bids are locked — they settle when the timer ends"
                       }, 'Price locked')
-                    : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l) }, '✎ Edit'),
+                    : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l), 'aria-label': `Edit price of ${l.item?.name || 'listing #' + l.id}` }, '✎ Edit'),
                   // Match-top-bid quick-action (batch 416). Renders only
                   // when a standing buy order exists on this item at a
                   // price BELOW the seller's current ask — one click
@@ -15683,6 +15707,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 },
                       disabled: lockedHide,
                       title: lockedHide ? 'Auctions with bids stay visible until they settle' : undefined,
+                      // Every row's buttons otherwise read the same to a screen reader.
+                      'aria-label': `${l.hidden ? 'Show' : 'Hide'} ${l.item?.name || 'listing #' + l.id}`,
                       onClick: () => toggleHidden(l)
                     }, l.hidden ? 'Show' : 'Hide');
                   })(),
@@ -15694,6 +15720,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     className: 'btn btn-ghost',
                     style: { padding: '7px 10px', fontSize: 11 },
                     title: 'Copy a link to this listing',
+                    'aria-label': `Copy a link to ${l.item?.name || 'listing #' + l.id}`,
                     onClick: async () => {
                       const url = `${window.location.origin}/item/${l.item.id}`;
                       try {
@@ -15734,7 +15761,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         className: 'btn btn-ghost',
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
                         title: 'Cancel listing',
-                        'aria-label': 'Cancel listing',
+                        'aria-label': `Cancel listing for ${l.item?.name || 'listing #' + l.id}`,
                         onClick: () => doCancel(l)
                       }, '✕')
                 )

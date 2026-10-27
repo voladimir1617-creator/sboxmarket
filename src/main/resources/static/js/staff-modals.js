@@ -2767,7 +2767,12 @@ function AdminUsersTab({ me }) {
     const opener = document.activeElement;
     const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setDetailUser(null); } };
     document.addEventListener('keydown', onKey);
+    // Move focus into the drawer, as the catalogue Edit drawer does.
+    const raf = requestAnimationFrame(() => {
+      document.getElementById('admin-user-detail-title')?.closest('[role="dialog"]')?.focus({ preventScroll: true });
+    });
     return () => {
+      cancelAnimationFrame(raf);
       document.removeEventListener('keydown', onKey);
       if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus();
     };
@@ -3063,14 +3068,17 @@ function AdminUsersTab({ me }) {
       h('div', {
         className: 'cart-confirm-panel',
         style: { maxWidth: 640 },
-        onClick: e => e.stopPropagation()
+        onClick: e => e.stopPropagation(),
+        // A modal over the Users table: name it after the user and take focus.
+        role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'admin-user-detail-title',
+        tabIndex: -1
       },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 } },
           detailUser.avatarUrl
             ? h('img', { src: detailUser.avatarUrl, alt: '', style: { width: 56, height: 56, borderRadius: '50%' } })
             : h('div', { className: 'db-thumb', style: { width: 56, height: 56, fontSize: 18 } }, (detailUser.displayName || 'U').substring(0, 2).toUpperCase()),
           h('div', { style: { flex: 1, minWidth: 0 } },
-            h('div', { className: 'cart-confirm-title' }, detailUser.displayName || 'Player'),
+            h('div', { className: 'cart-confirm-title', id: 'admin-user-detail-title' }, detailUser.displayName || 'Player'),
             h('div', { className: 'cart-confirm-sub' },
               `Steam ID ${detailUser.steamId64} · #${detailUser.id} · role ${detailUser.role || 'USER'}`)
           ),
