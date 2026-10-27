@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=329'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=330'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -9914,7 +9914,7 @@ export function App() {
           },
           disabled: reportSellerBusy
         }),
-        reportSellerErr && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, reportSellerErr),
+        reportSellerErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, reportSellerErr),
         h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
           h('button', {
             className: 'btn btn-ghost',
