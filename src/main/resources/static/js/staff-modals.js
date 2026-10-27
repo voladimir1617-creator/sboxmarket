@@ -3564,6 +3564,11 @@ function AdminTicketsTab() {
   // ← Tickets unmounts the thread; hand focus back to the row that opened it
   // instead of dropping it on the page.
   const backFocusRef = React.useRef(null);
+  // Opening a ticket unmounts the row that had focus; move it to the
+  // thread heading so keyboard focus doesn't fall to <body>.
+  const threadHeadRef = React.useRef(null);
+  const viewingId = viewing?.ticket?.id ?? null;
+  useEffect(() => { if (viewingId != null) threadHeadRef.current?.focus(); }, [viewingId]);
   useEffect(() => {
     if (viewing || backFocusRef.current == null) return;
     const id = backFocusRef.current;
@@ -3603,6 +3608,8 @@ function AdminTicketsTab() {
     try {
     const res = await adminCloseTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
+    // The Close button goes away once the ticket is resolved.
+    threadHeadRef.current?.focus();
     // Guard the refetch — same reasoning as sendReply: the close already
     // succeeded server-side, so a failed refresh shouldn't blank the view.
     const fresh = await adminTicket(t.id);
@@ -3620,7 +3627,7 @@ function AdminTicketsTab() {
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
         h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; backFocusRef.current = viewing.ticket.id; setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
-          h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
+          h('div', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
             viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))
         ),
@@ -4207,6 +4214,11 @@ function CsrTicketsTab() {
   // ← Tickets unmounts the thread; hand focus back to the row that opened it
   // instead of dropping it on the page.
   const backFocusRef = React.useRef(null);
+  // Opening a ticket unmounts the row that had focus; move it to the
+  // thread heading so keyboard focus doesn't fall to <body>.
+  const threadHeadRef = React.useRef(null);
+  const viewingId = viewing?.ticket?.id ?? null;
+  useEffect(() => { if (viewingId != null) threadHeadRef.current?.focus(); }, [viewingId]);
   useEffect(() => {
     if (viewing || backFocusRef.current == null) return;
     const id = backFocusRef.current;
@@ -4246,6 +4258,8 @@ function CsrTicketsTab() {
     try {
     const res = await csrCloseTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
+    // The Close button goes away once the ticket is resolved.
+    threadHeadRef.current?.focus();
     // Guard the refetch — the close already succeeded; a failed refresh
     // shouldn't blank the ticket view out from under the CSR.
     const fresh = await csrTicket(t.id);
@@ -4263,7 +4277,7 @@ function CsrTicketsTab() {
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
         h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; backFocusRef.current = viewing.ticket.id; setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
-          h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
+          h('div', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))
         ),
         viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', disabled: busy, onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close')
