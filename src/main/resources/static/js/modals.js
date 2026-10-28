@@ -4261,7 +4261,6 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '3px 10px', fontSize: 11 },
           title: 'Play the notification ding once (bypasses the mute toggle).',
-          'aria-label': 'Send a test notification ding',
           onClick: async () => {
             try {
               const { playNotifyDing } = await import('./nav-widgets.js');
@@ -6623,7 +6622,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       h('div', { className: 'profile-row-label' }, 'Last Steam Sync'),
       h('div', { className: 'profile-row-value' },
         profile?.user?.lastSyncedAt ? timeAgo(profile.user.lastSyncedAt) : 'Never',
-        h('button', { className: 'btn btn-ghost', style: { marginLeft: 12, padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: syncing, onClick: onSync },
+        h('button', { className: 'btn btn-ghost', style: { marginLeft: 12, padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, 'aria-disabled': syncing || undefined, onClick: onSync },
           syncing ? 'Syncing…' : 'Sync Now')
       )
     ),
@@ -13093,7 +13092,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           height: 32, padding: '0 12px', fontSize: 11, lineHeight: 1,
           border: '1px solid var(--border)', boxSizing: 'border-box'
         },
-        disabled: syncing,
+        // aria-disabled keeps keyboard focus here while it syncs; resync's latch ignores clicks.
+        'aria-disabled': syncing || undefined,
         onClick: resync
       },
         h(MaterialIcon, { name: syncing ? 'hourglass_top' : 'refresh', size: 14 }),
@@ -13203,7 +13203,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         h('button', {
           className: 'btn btn-accent',
-          disabled: syncing,
+          'aria-disabled': syncing || undefined,
           onClick: resync,
           style: {
             display: 'inline-flex', alignItems: 'center', gap: 6,

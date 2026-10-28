@@ -342,7 +342,10 @@ function AdminHealthTab() {
 function ForcePriceSyncRow({ priceSync }) {
   const [busy, setBusy]  = useState(false);
   const [result, setRes] = useState(null);
+  const busyRef = React.useRef(false);
   const submit = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true); setRes(null);
     try {
       const res = await adminSyncSteamPrices();
@@ -353,7 +356,7 @@ function ForcePriceSyncRow({ priceSync }) {
       }
     } catch (e) {
       setRes({ ok: false, msg: String(e) });
-    } finally { setBusy(false); }
+    } finally { busyRef.current = false; setBusy(false); }
   };
   return h('div', {
     style: {
@@ -422,7 +425,8 @@ function ForcePriceSyncRow({ priceSync }) {
     })(),
     h('button', {
       className: 'btn btn-accent',
-      disabled: busy,
+      // aria-disabled keeps keyboard focus here while it starts; submit's latch ignores clicks.
+      'aria-disabled': busy || undefined,
       onClick: submit
     }, busy ? 'Starting…' : 'Run sync now'),
     result && h('div', {
@@ -442,8 +446,11 @@ function SmtpTestRow() {
   const [to, setTo]       = useState('');
   const [busy, setBusy]   = useState(false);
   const [result, setRes]  = useState(null);
+  const busyRef = React.useRef(false);
   const submit = async () => {
+    if (busyRef.current) return;
     if (!to.trim()) { toast('Enter a destination address', 'err'); return; }
+    busyRef.current = true;
     setBusy(true); setRes(null);
     try {
       const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
@@ -461,7 +468,7 @@ function SmtpTestRow() {
     } catch (_) {
       // A dropped request used to print the raw "TypeError: Failed to fetch".
       setRes({ ok: false, msg: 'Could not reach the server — check your connection and try again.' });
-    } finally { setBusy(false); }
+    } finally { busyRef.current = false; setBusy(false); }
   };
   return h('div', {
     style: {
@@ -480,17 +487,21 @@ function SmtpTestRow() {
         className: 'price-input',
         style: { flex: 1, minWidth: 240 },
         type: 'email',
+        'aria-label': 'SMTP test email address',
         placeholder: 'ops@example.com',
         value: to,
         onChange: e => setTo(e.target.value)
       }),
       h('button', {
         className: 'btn btn-accent',
-        disabled: busy || !to.trim(),
+        // aria-disabled while sending keeps keyboard focus here; submit's latch ignores clicks.
+        disabled: !busy && !to.trim(),
+        'aria-disabled': busy || undefined,
         onClick: submit
       }, busy ? 'Sending…' : 'Send test')
     ),
     result && h('div', {
+      role: result.ok ? 'status' : 'alert',
       style: {
         marginTop: 10, padding: 8, borderRadius: 6,
         background: result.ok ? 'rgba(34,197,94,0.1)' : 'var(--red-dim)',
