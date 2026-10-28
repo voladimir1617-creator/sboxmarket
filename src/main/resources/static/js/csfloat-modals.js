@@ -121,6 +121,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   })();
   const [searchInput, setSearchInput] = useState(initialQ);
   const [search, setSearch]   = useState(initialQ);
+  const searchRef = useRef(null);
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
@@ -295,6 +296,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       h('input', {
         className: 'price-input', style: { flex: 1, minWidth: 180 },
         placeholder: 'Search items…', value: searchInput,
+        ref: searchRef,
         onChange: e => setSearchInput(e.target.value),
         type: 'search', enterKeyHint: 'search',
         'aria-label': 'Search items in catalogue'
@@ -480,6 +482,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
                   setSearchInput(''); setSearch('');
                   setCat('All'); setRar('All');
                   setListedOnly(false); setMinPrice(''); setMaxPrice('');
+                  // The button goes away with the empty state; keep focus in the search box.
+                  searchRef.current?.focus();
                 }
               }, 'Clear Filters')
             )
@@ -2359,6 +2363,12 @@ export function NotificationsModal({ onClose, me }) {
   const [filter, setFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  // Where focus goes when the control that had it unmounts (the empty
+  // states' buttons, Clear read once nothing read is left).
+  const searchRef = useRef(null);
+  const allBtnRef = useRef(null);
+  const allChipRef = useRef(null);
+  const markAllRef = useRef(null);
   // Audit fix — `load()` had no try/catch, and `data` starts as an
   // empty {items:[],unread:0}, so a rejected fetchNotifications() left
   // the modal showing the "You're all caught up / Quiet so far" empty
@@ -2476,9 +2486,12 @@ export function NotificationsModal({ onClose, me }) {
   // Same latch as Mark all read: the filtered branch has no confirm, so a
   // double-click posted delete-batch twice and stacked two toasts.
   const clearReadBusyRef = useRef(false);
-  const clearRead = async () => {
+  const clearRead = async (e) => {
     if (clearReadBusyRef.current) return;
     clearReadBusyRef.current = true;
+    // Clear read hides itself once no read row is left; keep focus in the toolbar.
+    const btn = e && e.currentTarget;
+    pendingFocusRef.current = () => { if (btn && !btn.isConnected) (markAllRef.current || allBtnRef.current)?.focus(); };
     try { await clearReadOnce(); } finally { clearReadBusyRef.current = false; }
   };
   const clearReadOnce = async () => {
@@ -2641,7 +2654,7 @@ export function NotificationsModal({ onClose, me }) {
       }, 'Manage →')
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
-      h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, 'aria-pressed': filter === 'ALL', onClick: () => setFilter('ALL') },
+      h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, 'aria-pressed': filter === 'ALL', ref: allBtnRef, onClick: () => setFilter('ALL') },
         'All ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length)),
       h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, 'aria-pressed': filter === 'UNREAD', onClick: () => setFilter('UNREAD') },
         'Unread ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownUnread)),
@@ -2654,6 +2667,7 @@ export function NotificationsModal({ onClose, me }) {
         return h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+          ref: markAllRef,
           onClick: clear,
           title: filterActive
             ? 'Only the notifications currently visible on the page will be marked read. Clear filters to mark everything.'
@@ -2691,6 +2705,7 @@ export function NotificationsModal({ onClose, me }) {
         'aria-label': 'Search notifications',
         placeholder: 'Search notifications…',
         value: search,
+        ref: searchRef,
         onChange: e => setSearch(e.target.value)
       })
     ),
@@ -2711,6 +2726,7 @@ export function NotificationsModal({ onClose, me }) {
           key: opt.id,
           className: `wallet-tx-filter-chip ${typeFilter === opt.id ? 'active' : ''}`,
           'aria-pressed': typeFilter === opt.id,
+          ref: opt.id === 'ALL' ? allChipRef : undefined,
           onClick: () => setTypeFilter(opt.id),
           disabled: c === 0 && opt.id !== 'ALL'
         }, `${opt.label} · ${c}`);
@@ -2766,7 +2782,9 @@ export function NotificationsModal({ onClose, me }) {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
-                onClick: () => setSearch('')
+                // The button goes away with this state; keep focus in the
+                // search box (or on the All filter if the box goes too).
+                onClick: () => { setSearch(''); (data.items.length > 5 ? searchRef : allBtnRef).current?.focus(); }
               }, 'Clear search'));
           }
           if (filter === 'UNREAD') {
@@ -2777,7 +2795,7 @@ export function NotificationsModal({ onClose, me }) {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
-                onClick: () => setFilter('ALL')
+                onClick: () => { setFilter('ALL'); allBtnRef.current?.focus(); }
               }, 'Show all'));
           }
           if (typeFilter !== 'ALL') {
@@ -2788,7 +2806,7 @@ export function NotificationsModal({ onClose, me }) {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
-                onClick: () => setTypeFilter('ALL')
+                onClick: () => { setTypeFilter('ALL'); (data.items.length > 3 ? allChipRef : allBtnRef).current?.focus(); }
               }, 'Clear type filter'));
           }
           return h('div', { className: 'empty-inline' },

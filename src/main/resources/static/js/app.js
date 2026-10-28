@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=336'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=337'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -8226,7 +8226,7 @@ export function App() {
                   sub   = 'Be the first to list an item — head to Sell to put one of your skins up for grabs.';
                 }
                 const showClear = !isError && (hasQueryFilters || hasClientFilters || onlyTypeFilter);
-                return h('div', { className: 'empty-state' },
+                return h('div', { className: 'empty-state', role: isError ? 'alert' : undefined },
                   h('div', { className: 'empty-state-icon' },
                     h(MaterialIcon, { name: isError ? 'cloud_off' : (listingTypeFilter === 'AUCTION' ? 'gavel' : 'inventory_2'), size: 42 })
                   ),
@@ -8251,6 +8251,9 @@ export function App() {
                         clearFilters();
                         setListingTypeFilter('ALL');
                         setDealsOnly(false); setNewOnly(false); setAffordableOnly(false);
+                        // This button goes away with the empty state; land on
+                        // the category strip's "All" tab instead of <body>.
+                        document.querySelector('.csfloat-subnav-tab')?.focus();
                       }
                     }, 'Clear Filters'),
                     // Same link the empty buy-orders tab uses. The buy-order
@@ -8533,7 +8536,7 @@ export function App() {
           // Distinct from __notFound: a genuine fetch error (500/network) must NOT
           // tell a visitor a real seller "doesn't exist" — show a recoverable error
           // with Retry instead of the dead-end not-found copy.
-          ? h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
+          ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '32px 16px' } },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
               h('h2', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' } }, "Couldn't load this stall"),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
@@ -10294,7 +10297,7 @@ export function App() {
             'data-testid': itemLoadError ? 'item-load-error' : 'item-not-found',
             style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }
           }, itemLoadError ? "Couldn't load this item" : 'Item not found'),
-          h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
+          h('div', { role: itemLoadError ? 'alert' : undefined, style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
             itemLoadError
               ? "We couldn't reach the marketplace to look this item up, so we can't tell you whether it's still for sale. This is usually temporary — try again in a moment."
               : 'This item has been removed or the link is wrong. Search the market for it, or go back to the marketplace.'),
