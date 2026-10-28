@@ -257,7 +257,7 @@ export function HelpModal({ onClose }) {
     // leaving the section visually empty until the user clicked. Each
     // preview row, when clicked, expands the full accordion entry
     // below + scrolls it into view.
-    !q && h('div', { className: 'help-faq-preview', 'aria-label': 'Top FAQ questions' },
+    !q && h('div', { className: 'help-faq-preview', role: 'group', 'aria-label': 'Top FAQ questions' },
       FAQ.slice(0, 3).map((item, i) => h('button', {
         key: 'preview-' + i,
         type: 'button',
