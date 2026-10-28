@@ -7657,7 +7657,9 @@ function ProfileBuyOrdersTab() {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
-                  disabled: busy, onClick: () => togglePause(o),
+                  // aria-disabled keeps focus on the button while it saves;
+                  // togglePause's busyRef latch already ignores repeat clicks.
+                  'aria-disabled': busy ? 'true' : undefined, onClick: () => togglePause(o),
                   'aria-label': `${o.status === 'PAUSED' ? 'Resume' : 'Pause'} buy order for ${o.itemName || 'item'}`,
                   title: o.status === 'PAUSED'
                     ? 'Turn this order back on. It can buy right away if a listing is already at or under your max.'
@@ -11770,7 +11772,9 @@ function ProfileDevelopersTab() {
         h('option', { value: 'RW' }, 'RW · full'),
         h('option', { value: 'RO' }, 'RO · read-only')
       ),
-      h('button', { ref: newKeyBtnRef, className: 'btn btn-accent', disabled: busy, onClick: mint }, busy ? 'Minting…' : '+ New Key')
+      // aria-disabled, not disabled: a disabled button drops keyboard focus to
+      // the page, and mint() already ignores clicks while one is in flight.
+      h('button', { ref: newKeyBtnRef, className: 'btn btn-accent', 'aria-disabled': busy ? 'true' : undefined, onClick: mint }, busy ? 'Minting…' : '+ New Key')
     ),
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: -6, marginBottom: 14 } },
       scope === 'RO'

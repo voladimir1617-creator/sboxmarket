@@ -45,6 +45,8 @@ export function AdminModal({ onClose, me }) {
   // Dashboard tiles switch tabs too; mirror them into the URL like a tab click.
   const selectTab = (id) => {
     setTab(id);
+    // The tile that was clicked unmounts with the dashboard; focus the tab.
+    requestAnimationFrame(() => document.getElementById('admin-tab-' + id)?.focus());
     try {
       const next = id === 'dashboard' ? '/admin' : '/admin?tab=' + id;
       if (window.location.pathname + window.location.search !== next) window.history.replaceState({}, '', next);
@@ -617,6 +619,12 @@ function AdminReportedTab() {
       }
       setActionDraft(null);
       await load();
+      // The reload swaps the table for a spinner, so the drawer could not hand
+      // focus back to its row button; land on the first remaining row instead.
+      requestAnimationFrame(() => {
+        (document.querySelector('#admin-tabpanel tr[role="button"]') ||
+          document.getElementById('admin-tab-reported'))?.focus();
+      });
     } finally { setBusy(false); }
   };
   if (rows === null) return h('div', { className: 'spinner' });
@@ -1516,7 +1524,10 @@ function AdminDisputesTab() {
 function AdminSimulatorTab() {
   const [count, setCount]     = useState(0);
   const [busy, setBusy]       = useState(false);
-  const [spawnN, setSpawnN]   = useState(20);
+  // '' while the admin has cleared the field to type a new number; snapping
+  // straight back to 20 turned Backspace-then-5 into "205" (clamped to 100).
+  const [spawnInput, setSpawnN] = useState(20);
+  const spawnN = spawnInput === '' ? 20 : spawnInput;
   const [toast, setToast]     = useState('');
   // The count failed to load: say so instead of "0 simulated" with Clear off.
   const [countErr, setCountErr] = useState(false);
@@ -1574,8 +1585,9 @@ function AdminSimulatorTab() {
           h('input', {
             type: 'number', min: 1, max: 100, step: 1,
             'aria-label': 'Count',
-            value: spawnN,
-            onChange: e => setSpawnN(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 20))),
+            value: spawnInput,
+            onChange: e => setSpawnN(e.target.value === '' ? '' : Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 20))),
+            onBlur: () => { if (spawnInput === '') setSpawnN(20); },
             style: {
               width: 80, padding: '8px 12px', fontSize: 13, fontWeight: 700,
               background: 'var(--bg-input)', border: '1px solid var(--border)',
@@ -3019,13 +3031,13 @@ function AdminUsersTab({ me }) {
                   }, '🔎'),
                   h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u) }, '$'),
                   u.role === 'USER'
-                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role' }, '+CSR')
+                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role', 'aria-label': `Grant CSR role to ${u.displayName || ('user #' + u.id)}` }, '+CSR')
                     : u.role === 'CSR'
-                      ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevokeCsr(u), title: 'Revoke CSR role' }, '−CSR')
+                      ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevokeCsr(u), title: 'Revoke CSR role', 'aria-label': `Revoke CSR role from ${u.displayName || ('user #' + u.id)}` }, '−CSR')
                       : null,
                   u.role !== 'ADMIN'
-                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u) }, '+Admin')
-                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevoke(u) }, '−Admin')),
+                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u), 'aria-label': `Grant admin role to ${u.displayName || ('user #' + u.id)}` }, '+Admin')
+                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevoke(u), 'aria-label': `Revoke admin role from ${u.displayName || ('user #' + u.id)}` }, '−Admin')),
                   u.banned
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(74,222,128,0.3)', color: 'var(--green)' }, disabled: busy, onClick: () => doUnban(u) }, 'Unban')
                     // Hide Ban on self — banning your own admin account
@@ -3042,7 +3054,9 @@ function AdminUsersTab({ me }) {
                     className: 'btn btn-ghost',
                     style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
                     disabled: busy, onClick: () => doForceLogout(u),
-                    title: 'Revoke every live session (does not ban)'
+                    title: 'Revoke every live session (does not ban)',
+                    // Every row's buttons otherwise read the same to a screen reader.
+                    'aria-label': `Force logout ${u.displayName || ('user #' + u.id)}`
                   }, 'Force logout')
                 )
               )
@@ -3854,12 +3868,14 @@ function AdminRefundsTab() {
 }
 
 // ── CSR PANEL ───────────────────────────────────────────────────
+const CSR_TAB_IDS = ['dashboard', 'lookup', 'tickets', 'flag'];
 export function CsrModal({ onClose, me }) {
   // Deep-link via `?tab=<id>` (batch 464). Same pattern as AdminModal.
   const initialTab = (() => {
     try {
       const t = new URLSearchParams(window.location.search).get('tab');
-      return t || 'dashboard';
+      // An unknown id selected no tab and left the panel blank.
+      return CSR_TAB_IDS.includes(t) ? t : 'dashboard';
     } catch { return 'dashboard'; }
   })();
   const [tab, setTab] = useState(initialTab);
@@ -3869,7 +3885,7 @@ export function CsrModal({ onClose, me }) {
   useEffect(() => {
     try {
       const t = new URLSearchParams(searchNow).get('tab');
-      if (t) setTab(t);
+      if (t && CSR_TAB_IDS.includes(t)) setTab(t);
     } catch (_) { /* keep the current tab */ }
   }, [searchNow]);
   const TABS = [
@@ -3943,6 +3959,7 @@ function CsrFlagTab() {
   const [note, setNote]    = useState('');
   const [busy, setBusy]    = useState(false);
   const [result, setResult]= useState(null);
+  const idRef = React.useRef(null);
   const REASONS = [
     'Suspicious pricing',
     'Suspected duplicate / scam',
@@ -3964,7 +3981,12 @@ function CsrFlagTab() {
         setResult({ ok: true, msg: 'Listing #' + res.id + ' added to the admin review queue' });
         setId(''); setReason(''); setNote('');
       }
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+      // The button is disabled while flagging (and stays so once the form
+      // clears); hand focus back to the Listing ID box instead of the page.
+      requestAnimationFrame(() => idRef.current?.focus());
+    }
   };
   return h('div', { className: 'profile-panel' },
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 } },
@@ -3974,6 +3996,7 @@ function CsrFlagTab() {
         className: 'price-input',
         style: { width: 140 },
         placeholder: 'Listing ID',
+        ref: idRef,
         value: id,
         inputMode: 'numeric',
         // Clear the prior result so a stale "Flag note appended to #5"
