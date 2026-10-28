@@ -1696,7 +1696,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         !isOwner && me && h('button', {
           className: `btn ${viewing.favorited ? 'btn-accent' : 'btn-ghost'}`,
           'aria-pressed': !!viewing.favorited,
-          disabled: favBusy,
+          // aria-disabled keeps keyboard focus here while it saves; the latch ignores clicks.
+          'aria-disabled': favBusy || undefined,
           title: viewing.favorited
             ? 'Remove from your Favorites tab'
             : 'Save to your Favorites tab so you can re-find it later',
@@ -1751,7 +1752,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           title: viewing.loadout.visibility === 'PUBLIC'
             ? 'Make PRIVATE — hide from Discover. Only you can view it; its link stops working for everyone else.'
             : 'Make PUBLIC — show in Discover so others can favorite + clone.',
-          disabled: visBusy,
+          // aria-disabled keeps keyboard focus here while it saves; the latch ignores clicks.
+          'aria-disabled': visBusy || undefined,
           onClick: async () => {
             // Double-click latch, as on Favorite: two clicks sent two PUTs
             // and stacked two "Loadout is now X" toasts.

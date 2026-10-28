@@ -424,6 +424,7 @@ function ForcePriceSyncRow({ priceSync }) {
       onClick: submit
     }, busy ? 'Starting…' : 'Run sync now'),
     result && h('div', {
+      role: result.ok ? 'status' : 'alert',
       style: {
         marginTop: 10, padding: 8, borderRadius: 6,
         background: result.ok ? 'rgba(34,197,94,0.1)' : 'var(--red-dim)',
@@ -1600,6 +1601,7 @@ function AdminSimulatorTab() {
           }, '↻ Re-sync SCMM catalogue')
         ),
         toast && h('div', {
+          role: toast.startsWith('Error') ? 'alert' : 'status',
           style: {
             marginTop: 14, padding: '10px 14px',
             background: toast.startsWith('Error') ? 'var(--red-dim)' : 'var(--accent-dim)',

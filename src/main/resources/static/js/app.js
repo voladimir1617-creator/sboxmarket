@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=334'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=335'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -433,7 +433,11 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       (helpfulCount > 0 || canVote) && h('button', {
         className: 'stall-review-helpful',
         onClick: toggleHelpful,
-        disabled: !canVote || voteBusy,
+        // The label reads the same either way, so say whether it is voted;
+        // aria-disabled (not disabled) keeps focus here while the vote saves.
+        disabled: !canVote,
+        'aria-pressed': canVote ? hasVoted : undefined,
+        'aria-disabled': voteBusy || undefined,
         style: {
           marginLeft: 8, padding: '2px 8px', fontSize: 12, fontWeight: 700,
           borderRadius: 8, border: '1px solid var(--border)',
@@ -2245,7 +2249,8 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
     style: blocked
       ? { border: '1px solid var(--red)', color: 'var(--red)', opacity: 0.9 }
       : { border: '1px solid var(--border)', opacity: 0.7 },
-    disabled: busy,
+    // aria-disabled keeps keyboard focus on the button while it saves; the latch ignores clicks.
+    'aria-disabled': busy || undefined,
     onClick: toggle,
     title: blocked
       ? 'You have blocked this seller. Click to unblock.'
@@ -2326,7 +2331,8 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
     ? { border: '1px solid var(--border)', opacity: 0.75 }
     : { border: '1px solid var(--accent-border)', color: 'var(--accent)' };
   return h('button', {
-    className: cls, style, disabled: busy, onClick: toggle,
+    // aria-disabled keeps keyboard focus on the button while it saves; the latch ignores clicks.
+    className: cls, style, 'aria-disabled': busy || undefined, onClick: toggle,
     title: status.following ? 'Click to unfollow' : 'Get notified when this seller lists something new'
   },
     h('span', { className: 'stall-share-icon' }, status.following ? '✓' : '+'),

@@ -5173,7 +5173,9 @@ function EmailBucketMutes() {
           type: 'checkbox',
           checked: !off,
           onChange: () => toggle(b),
-          disabled: busy,
+          // aria-disabled, not disabled: disabling the focused box dropped
+          // keyboard focus to the page. toggle() already ignores busy clicks.
+          'aria-disabled': busy || undefined,
           style: { accentColor: 'var(--accent)' }
         }),
         h('div', { style: { flex: 1, minWidth: 0 } },
@@ -11842,6 +11844,8 @@ function ProfileDevelopersTab() {
                   try { res = await revokeAllApiKeys(); } finally { revokeInFlight.delete('all'); }
                   if (res && (res.error || res.code)) { toast(res.message || res.error || 'Bulk revoke failed', 'err'); return; }
                   toast(`Revoked ${res.revoked || 0} API key${res.revoked === 1 ? '' : 's'}.`, 'ok');
+                  // This button goes away with the keys; keep focus on + New Key.
+                  newKeyBtnRef.current?.focus();
                   setNewKey(null);
                   load();
                 },
