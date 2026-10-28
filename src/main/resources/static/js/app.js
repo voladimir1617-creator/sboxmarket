@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=337'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=338'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -637,6 +637,7 @@ function EmailVerifyNag({ me }) {
   // verification email without navigating to Profile. Flashes "✓ sent"
   // for 4s on success so the user knows to check their inbox.
   const [resendState, setResendState] = useState(''); // '' | 'busy' | 'sent' | 'err'
+  const resendBusyRef = useRef(false);
   if (!me) return null;
   if (me.emailVerified) return null;
   if (!me.email) return null;
@@ -647,6 +648,8 @@ function EmailVerifyNag({ me }) {
     setDismissedAt(Date.now());
   };
   const doResend = async () => {
+    if (resendBusyRef.current) return;
+    resendBusyRef.current = true;
     setResendState('busy');
     try {
       const { resendEmailVerification } = await import('./api.js');
@@ -661,7 +664,7 @@ function EmailVerifyNag({ me }) {
     } catch (_) {
       setResendState('err');
       setTimeout(() => setResendState(''), 4000);
-    }
+    } finally { resendBusyRef.current = false; }
   };
   return h('div', { className: 'announce-banner sev-warn', role: 'status' },
     h('span', { className: 'announce-banner-icon' }, '✉'),
@@ -676,7 +679,8 @@ function EmailVerifyNag({ me }) {
         marginLeft: 10, padding: '4px 10px', fontSize: 11,
         border: '1px solid currentColor', opacity: resendState === 'busy' ? 0.6 : 1
       },
-      disabled: resendState === 'busy',
+      // aria-disabled keeps keyboard focus here while it sends; doResend's latch ignores clicks.
+      'aria-disabled': resendState === 'busy' || undefined,
       onClick: doResend,
       title: 'Re-send the verification email to ' + me.email
     },
@@ -7752,6 +7756,8 @@ export function App() {
                   className: 'search-suggest-forget',
                   onClick: (e) => {
                     e.stopPropagation();
+                    // The list unmounts with its last row; keep focus in the search box.
+                    e.currentTarget.closest('.search-wrap')?.querySelector('.search-input')?.focus();
                     setRecentSearches([]);
                     try { localStorage.removeItem('sb_recent_searches'); } catch (_) {}
                   },
@@ -7773,6 +7779,8 @@ export function App() {
                   className: 'search-suggest-forget',
                   onClick: (e) => {
                     e.stopPropagation();
+                    // This row (and the list, if it was the last) unmounts; keep focus in the search box.
+                    e.currentTarget.closest('.search-wrap')?.querySelector('.search-input')?.focus();
                     const next = recentSearches.filter(x => x !== q);
                     setRecentSearches(next);
                     try { localStorage.setItem('sb_recent_searches', JSON.stringify(next)); } catch (_) {}
