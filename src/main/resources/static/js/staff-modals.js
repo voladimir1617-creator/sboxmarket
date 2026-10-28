@@ -1069,6 +1069,7 @@ function ApiKeyLookupPanel() {
         className: 'price-input',
         style: { flex: 1, minWidth: 240, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12 },
         placeholder: 'sbx_live_…',
+        'aria-label': 'API key prefix',
         value: q,
         onChange: e => setQ(e.target.value),
         onKeyDown: e => { if (e.key === 'Enter') doLookup(); }
@@ -1390,7 +1391,8 @@ function AdminDisputesTab() {
       h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
         h('button', {
           className: 'btn btn-ghost', style: { padding: '6px 14px' },
-          onClick: load, disabled: loading
+          // aria-disabled keeps focus on the button while it reloads; clicks are ignored meanwhile.
+          onClick: () => { if (!loading) load(); }, 'aria-disabled': loading || undefined
         }, loading ? 'Loading…' : 'Refresh'),
         // Batch 578 — CSV export of the dispute queue for quarterly
         // reconciliation against Stripe dashboard exports.
@@ -1401,7 +1403,7 @@ function AdminDisputesTab() {
           title: 'Export the active-disputes queue as CSV'
         }, '⇣ CSV')
       ),
-      err && h('div', { className: 'admin-error' }, err),
+      err && h('div', { className: 'admin-error', role: 'alert' }, err),
       !loading && !err && rows.length === 0 && h('div', { className: 'empty-inline' },
         '✓ No active chargebacks. The webhook will populate this list when one fires.'),
       rows.length > 0 && h('table', { className: 'db-table', style: { marginTop: 14 } },
@@ -2043,8 +2045,8 @@ function AdminAuditTab() {
       h('select', { className: 'sort-select', 'aria-label': 'Filter by audit event', value: filter.event, onChange: e => setFilter(f => ({ ...f, event: e.target.value })) },
         EVENTS.map(ev => h('option', { key: ev || 'all', value: ev }, ev || 'All events'))
       ),
-      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', value: filter.actor, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, actor: e.target.value.replace(/\D/g, '') })) }),
-      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Subject user #id', value: filter.subject, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, subject: e.target.value.replace(/\D/g, '') })) }),
+      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', 'aria-label': 'Actor user #id', value: filter.actor, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, actor: e.target.value.replace(/\D/g, '') })) }),
+      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Subject user #id', 'aria-label': 'Subject user #id', value: filter.subject, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, subject: e.target.value.replace(/\D/g, '') })) }),
       // Batch 556 — date-horizon chips. Each chip stores its hours-ago
       // value; the load() callback translates to a wall-clock floor at
       // fetch time. "All time" clears the bound so the server returns
@@ -2061,7 +2063,7 @@ function AdminAuditTab() {
           title: opt.id ? `Only events in the last ${opt.label}` : 'Full 500-row recent window'
         }, opt.label))
       ),
-      h('input', { className: 'price-input', style: { flex: 1, minWidth: 140 }, placeholder: '🔎 Search summary / names…', value: textSearch, onChange: e => setTextSearch(e.target.value) }),
+      h('input', { className: 'price-input', style: { flex: 1, minWidth: 140 }, placeholder: '🔎 Search summary / names…', 'aria-label': 'Search summary / names', value: textSearch, onChange: e => setTextSearch(e.target.value) }),
       h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: load }, 'Refresh'),
       // CSV export — honors the current filter selection so the download
       // matches what the admin is looking at.
@@ -2556,6 +2558,7 @@ function AdminCatalogueTab() {
       h('input', {
         className: 'price-input',
         placeholder: 'Search items by name…',
+        'aria-label': 'Search items by name',
         value: q,
         onChange: e => setQ(e.target.value),
         style: { flex: 1 }
@@ -2945,6 +2948,7 @@ function AdminUsersTab({ me }) {
       h('input', {
         className: 'price-input', style: { flex: 1 },
         placeholder: 'Search by name, Steam ID…',
+        'aria-label': 'Search by name, Steam ID',
         value: search,
         onChange: e => setSearch(e.target.value),
         onKeyDown: e => { if (e.key === 'Enter') load(); }
@@ -3433,6 +3437,7 @@ function AdminUsersTab({ me }) {
                   className: 'price-input',
                   style: { width: '100%', minHeight: 70, resize: 'vertical', fontFamily: 'inherit', fontSize: 12 },
                   placeholder: 'Internal context — ops observations, prior incidents, handoff notes between CSRs.',
+                  'aria-label': 'Staff notes (not visible to user)',
                   value: notesDraft,
                   maxLength: 4000,
                   onChange: e => setNotesDraft(e.target.value)
@@ -3441,8 +3446,10 @@ function AdminUsersTab({ me }) {
                   h('button', {
                     className: 'btn btn-accent',
                     style: { padding: '5px 14px', fontSize: 11 },
-                    disabled: notesSaving,
+                    // aria-disabled keeps focus on the button while it saves; repeat clicks are ignored meanwhile.
+                    'aria-disabled': notesSaving || undefined,
                     onClick: async () => {
+                      if (notesSaving) return;
                       setNotesSaving(true);
                       try {
                         const res = await adminWriteNotes(detailUser.id, notesDraft);
@@ -3700,8 +3707,9 @@ function AdminTicketsTab() {
         }, tpl.label))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Staff reply…', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
-        h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: sendReply }, 'Send')
+        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Staff reply…', 'aria-label': 'Staff reply', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
+        // aria-disabled keeps focus on Send while the reply posts; sendReply ignores empty or in-flight sends.
+        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: sendReply }, 'Send')
       )
     );
   }
@@ -4021,6 +4029,7 @@ function CsrFlagTab() {
         className: 'price-input',
         style: { width: 140 },
         placeholder: 'Listing ID',
+        'aria-label': 'Listing ID',
         ref: idRef,
         value: id,
         inputMode: 'numeric',
@@ -4357,7 +4366,8 @@ function CsrTicketsTab() {
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply as CSR…', 'aria-label': 'Reply as CSR', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
-        h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: sendReply }, 'Send')
+        // aria-disabled keeps focus on Send while the reply posts; sendReply ignores empty or in-flight sends.
+        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: sendReply }, 'Send')
       )
     );
   }

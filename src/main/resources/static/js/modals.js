@@ -9659,7 +9659,8 @@ function ProfileTradesTab({ me, privacy }) {
                   h('button', {
                     className: 'btn btn-accent',
                     style: { padding: '6px 14px', fontSize: 12 },
-                    disabled: chatSending || !chatDraft.trim(),
+                    // aria-disabled keeps focus on Send while the message posts; sendChat ignores empty or in-flight sends.
+                    'aria-disabled': (chatSending || !chatDraft.trim()) || undefined,
                     onClick: () => sendChat(t.id)
                   }, chatSending ? '…' : 'Send')
                 )
@@ -11567,7 +11568,8 @@ function ProfileSupportTab() {
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', 'aria-label': 'Reply to support', value: reply, maxLength: 2000, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
         // btn-primary: the panel's full-width btn-accent rule squeezed the
         // reply box to a sliver on a phone.
-        h('button', { className: 'btn btn-primary', disabled: busy || !reply.trim(), onClick: submitReply }, 'Send')
+        // aria-disabled keeps focus on Send while the reply posts; submitReply ignores empty or in-flight sends.
+        h('button', { className: 'btn btn-primary', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: submitReply }, 'Send')
       )
     );
   }
