@@ -1076,13 +1076,15 @@ function ApiKeyLookupPanel() {
       h('button', {
         className: 'btn btn-accent',
         style: { padding: '6px 14px' },
-        onClick: doLookup,
-        disabled: busy || (q || '').trim().length < 3
+        // aria-disabled keeps focus on the button while it searches; the click is ignored while busy.
+        onClick: () => { if (!busy) doLookup(); },
+        'aria-disabled': busy || undefined,
+        disabled: (q || '').trim().length < 3
       }, busy ? 'Searching…' : 'Lookup')
     ),
     searched && lookupErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 10 } },
       "Lookup failed, so we can't say whether a key matches. ",
-      h('button', { className: 'btn btn-sm', disabled: busy, onClick: doLookup }, 'Retry')),
+      h('button', { className: 'btn btn-sm', 'aria-disabled': busy || undefined, onClick: () => { if (!busy) doLookup(); } }, 'Retry')),
     searched && !lookupErr && rows.length === 0 && h('div', {
       style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }
     }, 'No matching API keys. Check the prefix — search requires ≥ 3 chars.'),
@@ -1239,7 +1241,8 @@ function AdminFraudTab() {
         h('button', {
           className: 'btn btn-ghost',
           style: { padding: '6px 14px' },
-          onClick: load, disabled: loading
+          // aria-disabled keeps focus on the button while it reloads; the click is ignored meanwhile.
+          onClick: () => { if (!loading) load(); }, 'aria-disabled': loading || undefined
         }, loading ? 'Loading…' : 'Refresh'),
         // Batch 588 — CSV export for quarterly reporting / ops archive.
         // Same as the withdrawals/trades/tickets CSVs pattern. Signals
@@ -1307,7 +1310,18 @@ function AdminFraudTab() {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { marginTop: 6, padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
-                onClick: () => markReviewed(r),
+                onClick: (e) => {
+                  // Marking hides the row (and its button); move focus to the next
+                  // row's button, or to the "Show N reviewed" chip when none is left.
+                  const hides = !showReviewed && !isReviewed;
+                  const list = e.currentTarget.closest('.fraud-list');
+                  const card = list && list.closest('.admin-card');
+                  markReviewed(r);
+                  if (hides) requestAnimationFrame(() => {
+                    const btns = list && list.isConnected ? list.querySelectorAll('.fraud-time button') : [];
+                    (btns[Math.min(i, btns.length - 1)] || card?.querySelector('.wallet-tx-filter-chip'))?.focus();
+                  });
+                },
                 title: isReviewed ? 'Move back to queue' : 'Mark reviewed (hides from your queue)'
               }, isReviewed ? '↺ Reopen' : '✓ Reviewed')
             )
@@ -4143,11 +4157,12 @@ function CsrLookupTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
       h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Steam ID / display name / user #id', 'aria-label': 'Look up a user by Steam ID, display name or user id', value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') search(); } }),
-      h('button', { className: 'btn btn-accent', disabled: busy, onClick: search }, busy ? '…' : 'Search')
+      // aria-disabled keeps focus on the button while it searches; the click is ignored while busy.
+      h('button', { className: 'btn btn-accent', 'aria-disabled': busy || undefined, onClick: () => { if (!busy) search(); } }, busy ? '…' : 'Search')
     ),
     data && (data.error
       ? h('div', { className: 'wallet-error', role: 'alert' }, 'Lookup failed, so we can\'t say whether this user exists. ',
-          h('button', { className: 'btn btn-sm', disabled: busy, onClick: search }, 'Retry'))
+          h('button', { className: 'btn btn-sm', 'aria-disabled': busy || undefined, onClick: () => { if (!busy) search(); } }, 'Retry'))
       : (data.matches || []).length === 0
       ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search', size: 26 })),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No matches.'))

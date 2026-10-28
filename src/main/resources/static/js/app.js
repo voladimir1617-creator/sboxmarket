@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=338'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=339'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4349,6 +4349,13 @@ export function App() {
 
   // Inline review form state (lives on the stall page).
   const [reviewTradeId, setReviewTradeId] = useState(null);
+  // Closing the review form unmounts the focused Cancel / textarea; hand
+  // focus back to that trade's "Write review" button.
+  const closeReviewForm = () => {
+    const id = reviewTradeId;
+    setReviewTradeId(null);
+    requestAnimationFrame(() => document.querySelector(`.stall-review-cta-row[data-trade-id="${id}"] button`)?.focus());
+  };
   const [reviewStars, setReviewStars]     = useState(5);
   const [reviewText, setReviewText]       = useState('');
   const [reviewBusy, setReviewBusy]       = useState(false);
@@ -8014,7 +8021,8 @@ export function App() {
               try { await load(false); } finally { refreshInFlight.delete('market'); }
               showToast('Listings refreshed.', 'ok');
             },
-            disabled: loading,
+            // aria-disabled keeps focus on the button while it reloads; the click handler ignores it meanwhile.
+            'aria-disabled': loading || undefined,
             'aria-label': loading ? 'Refreshing listings' : 'Refresh listings',
             'aria-busy': loading ? 'true' : undefined,
             title: loading ? 'Refreshing…' : 'Refresh listings'
@@ -8371,7 +8379,8 @@ export function App() {
                       opacity: loadingMore ? 0.6 : 1,
                       cursor: loadingMore ? 'wait' : 'pointer'
                     },
-                    disabled: loadingMore,
+                    // aria-disabled keeps focus on the button while the page loads; loadMore ignores repeat clicks.
+                    'aria-disabled': loadingMore || undefined,
                     onClick: loadMore,
                     title: `Load the next 100 listings after the current ${listings.length}`
                   }, loadingMore ? 'Loading…' : `↓ Load more (${listings.length} listings loaded)`)
@@ -9179,6 +9188,7 @@ export function App() {
                   width: '100%', marginTop: 8, padding: '8px 12px', fontSize: 12,
                   border: '1px dashed var(--border)', color: 'var(--text-secondary)'
                 },
+                'aria-expanded': stallSoldExpanded,
                 onClick: () => setStallSoldExpanded(v => !v)
               }, stallSoldExpanded
                    ? '↑ Collapse to 10 most recent'
@@ -9197,7 +9207,7 @@ export function App() {
                 // Unreviewed trades first so a seventh-newest trade still waiting
                 // for its review is not hidden behind six already reviewed.
                 [...eligibleTrades.filter(t => !t.reviewed), ...eligibleTrades.filter(t => t.reviewed)]
-                  .slice(0, 6).map(t => h('div', { key: t.tradeId, className: 'stall-review-cta-row' },
+                  .slice(0, 6).map(t => h('div', { key: t.tradeId, className: 'stall-review-cta-row', 'data-trade-id': t.tradeId },
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { className: 'stall-review-cta-item' }, t.itemName || 'Trade'),
                     h('div', { className: 'stall-review-cta-sub' },
@@ -9233,13 +9243,13 @@ export function App() {
                   // a stable accessible name throughout the input cycle.
                   'aria-label': 'Review comment (optional)',
                   autoFocus: true,
-                  onKeyDown: (e) => { if (e.key === 'Escape' && !reviewBusy) { e.preventDefault(); setReviewTradeId(null); } },
+                  onKeyDown: (e) => { if (e.key === 'Escape' && !reviewBusy) { e.preventDefault(); closeReviewForm(); } },
                   onChange: (e) => setReviewText(e.target.value)
                 }),
                 h('div', { className: 'stall-review-actions' },
                   h('button', {
                     className: 'btn btn-ghost',
-                    onClick: () => setReviewTradeId(null),
+                    onClick: closeReviewForm,
                     disabled: reviewBusy
                   }, 'Cancel'),
                   h('button', {
@@ -9349,6 +9359,7 @@ export function App() {
                     width: '100%', marginTop: 8, padding: '8px 12px', fontSize: 12,
                     border: '1px dashed var(--border)', color: 'var(--text-secondary)'
                   },
+                  'aria-expanded': stallReviewsExpanded,
                   onClick: () => setStallReviewsExpanded(v => !v)
                 }, stallReviewsExpanded
                      ? '↑ Collapse to 10 most relevant'
