@@ -75,7 +75,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'How do I report a suspicious listing or user?',
-    a: "On any item detail page, the Report button next to each active listing opens a short report form (reason + optional note). To report a user directly — e.g. chat harassment or a scam attempt before the trade opens — open the seller's stall page and hit Report. Both flows route to the support queue; the reporter is notified when staff acts."
+    a: "On any item detail page, the Report button next to each active listing opens a short report form (reason + optional note). To report a user directly — e.g. chat harassment or a scam attempt before the trade opens — open the seller's stall page and hit Report. A listing report goes to the staff review queue and a user report opens a support ticket; the reporter is notified when staff acts."
   },
   {
     s: 'start',
@@ -120,7 +120,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'What if the item I bought never arrives — or arrives wrong?',
-    a: "If the seller hasn't sent it within 3 days, the purchase cancels itself and your money comes back in full. There's nothing to press. Until then your money sits in escrow, not the seller's wallet, and it stays there until you confirm receipt. If the offer was sent but the item is wrong or missing, you have 8 days from when the seller marks it sent to confirm receipt or file a dispute: go to Profile → Trades, find the row, and click 'Report issue' / 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff review the dispute and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
+    a: "If the seller hasn't sent it within 3 days, the purchase cancels itself and your money comes back in full. There's nothing to press. Until then your money sits in escrow, not the seller's wallet, and it stays there until you confirm receipt. If the offer was sent but the item is wrong or missing, you have 8 days from when the seller marks it sent to confirm receipt or file a dispute: go to Profile → Trades, find the row, and click 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff review the dispute and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
   },
   {
     s: 'problems',
@@ -135,7 +135,7 @@ const FAQ = [
   {
     s: 'trade',
     q: 'Can I see who bought my item?',
-    a: "Yes — Profile → Trades. Each trade row shows the buyer's display name and a link to their Steam profile; hover the Verified step to see when the trade was verified. The buyer can leave a review on any VERIFIED trade, and it shows on your stall. For privacy, wallet balances and real-name data are never exposed; buyer identity is limited to their public Steam profile."
+    a: "Yes — Profile → Trades. Each trade row shows the buyer's display name with a link to their stall; hover the Verified step to see when the trade was verified. The buyer can leave a review on any VERIFIED trade, and it shows on your stall. For privacy, wallet balances and real-name data are never exposed; buyer identity is limited to their public Steam profile."
   },
   {
     s: 'problems',
@@ -150,7 +150,7 @@ const FAQ = [
   {
     s: 'start',
     q: 'How do I audit my own account activity?',
-    a: "Two collapsed panels on Profile → Personal show your activity trail: Recent Sign-Ins (last 20 Steam logins with IP + browser) and Security Activity (last 50 events where your account was the subject — 2FA resets, API key mints, withdrawals, disputes, admin force-actions). Staff actions are marked with a blue STAFF chip so you can tell admin-initiated events apart from your own. If you see something you didn't trigger, use 'Sign out everywhere' on this tab and click 'Revoke all active keys' in Profile → Developers, then open a support ticket."
+    a: "Two collapsed panels on Profile → Personal Info show your activity trail: Recent sign-ins (last 20 Steam logins with IP + browser) and Security activity (last 50 events where your account was the subject — 2FA resets, API key mints, withdrawals, disputes, admin force-actions). Staff actions are marked with a blue STAFF chip so you can tell admin-initiated events apart from your own. If you see something you didn't trigger, use 'Sign out everywhere' on this tab and click 'Revoke all active keys' in Profile → Developers, then open a support ticket."
   }
 ];
 
