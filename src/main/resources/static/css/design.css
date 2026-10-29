@@ -13602,3 +13602,5 @@ html body nav.nav:has(#user-menu-panel), html body nav.nav:has(#notif-dropdown-p
   html body nav.nav .wallet-btn { margin-left: 0 !important; padding-left: 8px !important; padding-right: 8px !important; }
   html body nav.nav .user-chip { margin-left: 0 !important; padding-right: 4px !important; }
 }
+/* Account menu: the icon-font glyphs (.mi) missed the 16px icon spacing the svg/material-icons rule gives, so every label sat flush against its icon. */
+body #user-menu-panel .user-menu-item > .mi { margin-right: 16px !important; flex-shrink: 0 !important; }
