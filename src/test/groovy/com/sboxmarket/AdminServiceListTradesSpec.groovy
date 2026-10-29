@@ -36,7 +36,7 @@ class AdminServiceListTradesSpec extends Specification {
         given:
         def trade = new Trade(id: 5L, listingId: 25L, itemId: 12L, itemName: 'Vintage Design Crop Top',
             buyerUserId: 3L, sellerUserId: 5L, price: new BigDecimal('0.52'), state: 'PENDING_SELLER_ACCEPT')
-        tradeRepository.findForAdmin('PENDING_SELLER_ACCEPT') >> [trade]
+        tradeRepository.findForAdmin('PENDING_SELLER_ACCEPT', _) >> [trade]
         steamUserRepository.findAllById(_) >> [
             new SteamUser(id: 3L, steamId64: '1', displayName: 'PixelPusher'),
             new SteamUser(id: 5L, steamId64: '2', displayName: 'EmberWolf')
@@ -53,5 +53,15 @@ class AdminServiceListTradesSpec extends Specification {
         rows[0].buyerName == 'PixelPusher'
         rows[0].sellerName == 'EmberWolf'
         rows[0].state == 'PENDING_SELLER_ACCEPT'
+    }
+
+    def "listTrades caps the queue in SQL instead of loading every trade"() {
+        when:
+        def rows = service.listTrades('ALL')
+
+        then:
+        1 * tradeRepository.findForAdmin('', { it.pageSize == 500 && it.pageNumber == 0 }) >> []
+        0 * tradeRepository.findForAdmin(_)
+        rows == []
     }
 }

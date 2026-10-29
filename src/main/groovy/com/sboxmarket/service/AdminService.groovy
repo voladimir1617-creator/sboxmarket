@@ -652,22 +652,29 @@ class AdminService {
             }
         }
 
+        // Dispute counts once per wallet, not once per row: a user with many
+        // queued withdrawals re-ran the same two queries (one hydrating up to
+        // 500 transactions) for every row of the 500-row queue.
+        Map<Long, List<Long>> disputesByWallet = [:]
         all.collect { tx ->
             def wallet = walletById[tx.walletId]
             def uname = wallet?.username ?: ''
             def user = uname.startsWith('steam_') ? userBySteamId[uname.substring('steam_'.length())] : null
-            long activeDisputes = wallet ? transactionRepository.countActiveDisputedDeposits(wallet.id) : 0L
-            long lifetimeDisputes = 0L
-            if (wallet != null) {
+            def counts = wallet == null ? [0L, 0L] : disputesByWallet.computeIfAbsent(wallet.id) { Long wid ->
+                long active = transactionRepository.countActiveDisputedDeposits(wid)
+                long lifetime = 0L
                 try {
-                    def allTx = transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.id,
+                    def allTx = transactionRepository.findByWalletIdOrderByCreatedAtDesc(wid,
                         org.springframework.data.domain.PageRequest.of(0, 500))
-                    lifetimeDisputes = allTx.count { t ->
+                    lifetime = allTx.count { t ->
                         t.type == 'DEPOSIT' &&
                         (t.status == 'DISPUTED' || (t.description ?: '').contains('DISPUTE_CLEARED'))
                     } as long
                 } catch (Exception ignored) { /* fall through */ }
+                [active, lifetime]
             }
+            long activeDisputes = counts[0]
+            long lifetimeDisputes = counts[1]
             [
                 id:                tx.id,
                 walletId:          tx.walletId,
@@ -2514,14 +2521,18 @@ class AdminService {
         def userIds = rows*.userId.findAll { it != null }.unique()
         def userById = userIds.isEmpty() ? [:] :
             steamUserRepository.findAllById(userIds).collectEntries { [(it.id): it] }
+        // Wallet signals once per user, not once per ticket: a user with
+        // several tickets re-ran the wallet lookup and a 500-transaction scan
+        // for each of them.
+        Map<Long, List> walletSignalsByUser = [:]
         rows.collect { t ->
             def user = userById[t.userId]
             // lifetimeDisputes — scan last 500 tx for DEPOSIT + DISPUTED
             // or DISPUTE_CLEARED marker. Null-safe for users without a
             // wallet yet (shouldn't happen post-signup but belt-and-braces).
-            long lifetimeDisputes = 0L
-            boolean walletFrozen = false
-            if (user != null) {
+            def signals = user == null ? [0L, false] : walletSignalsByUser.computeIfAbsent(user.id) { Long uid ->
+                long lifetimeDisputes = 0L
+                boolean walletFrozen = false
                 try {
                     def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
                     if (wallet != null) {
@@ -2534,6 +2545,7 @@ class AdminService {
                         } as long
                     }
                 } catch (Exception ignored) { /* fall through */ }
+                [lifetimeDisputes, walletFrozen]
             }
             [
                 id:             t.id,
@@ -2548,8 +2560,8 @@ class AdminService {
                 userCreatedAt:  user?.createdAt,
                 userEmailVerified: user?.emailVerified,
                 userBanned:     user?.banned,
-                walletFrozen:   walletFrozen,
-                lifetimeDisputes: lifetimeDisputes
+                walletFrozen:   signals[1] as boolean,
+                lifetimeDisputes: signals[0] as long
             ]
         }
     }
@@ -2664,7 +2676,10 @@ class AdminService {
         // Hard-cap at 500 — matches the admin withdrawals queue cap. Past
         // that, ops should use the audit log / CSV for historical digging
         // rather than hydrating a mega-list into memory on every page.
-        def trades = tradeRepository.findForAdmin(state)?.take(500) ?: []
+        // LIMIT in SQL: the unpaged query hydrated every trade ever made
+        // (thousands on "all") just to keep 500 of them.
+        def trades = tradeRepository.findForAdmin(state,
+            org.springframework.data.domain.PageRequest.of(0, 500)) ?: []
         if (trades.isEmpty()) return []
         // Fraud-signal enrichment (batch 526). Batches buyer + seller
         // user lookups so dispute triage has the context inline: who's

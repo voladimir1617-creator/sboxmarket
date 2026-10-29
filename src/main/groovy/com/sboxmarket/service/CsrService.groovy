@@ -239,11 +239,14 @@ class CsrService {
         def userIds = rows*.userId.findAll { it != null }.unique()
         def userById = userIds.isEmpty() ? [:] :
             steamUserRepository.findAllById(userIds).collectEntries { [(it.id): it] }
+        // Wallet signals once per user, not once per ticket (see
+        // AdminService.listAllTickets).
+        Map<Long, List> walletSignalsByUser = [:]
         rows.collect { t ->
             def user = userById[t.userId]
-            long lifetimeDisputes = 0L
-            boolean walletFrozen = false
-            if (user != null) {
+            def signals = user == null ? [0L, false] : walletSignalsByUser.computeIfAbsent(user.id) { Long uid ->
+                long lifetimeDisputes = 0L
+                boolean walletFrozen = false
                 try {
                     def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
                     if (wallet != null) {
@@ -256,7 +259,10 @@ class CsrService {
                         } as long
                     }
                 } catch (Exception ignored) { /* fall through */ }
+                [lifetimeDisputes, walletFrozen]
             }
+            boolean walletFrozen = signals[1] as boolean
+            long lifetimeDisputes = signals[0] as long
             [
                 id:              t.id,
                 subject:         t.subject,
