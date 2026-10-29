@@ -12040,6 +12040,16 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // claiming "Platform inventory empty". (fetch-swallow bug class)
   const [internalErr, setInternalErr] = useState(false);
   const [picking, setPicking]     = useState(null);    // { kind: 'steam'|'internal', item: {...} }
+  // On the /sell page the form replaces the grid in place, so a pick made
+  // far down the grid opened the form scrolled to its bottom (or past it,
+  // into the footer, on a phone). Open the form at its top and put the
+  // seller back where he was in the grid when he presses Back.
+  const gridScrollRef = useRef(null);
+  useEffect(() => {
+    if (gridScrollRef.current == null) return;   // first render: leave the router's scroll alone
+    if (!document.querySelector('.site-root.full-page-mode')) return;
+    window.scrollTo({ top: picking ? 0 : gridScrollRef.current, behavior: 'instant' });
+  }, [!!picking]);
   const [price, setPrice]         = useState('');
   const [busy, setBusy]           = useState(false);
   // Sync re-entrancy latch — submit() calls setBusy AFTER its await (list/relist),
@@ -12442,6 +12452,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   };
   const startPickSteam = (si) => {
     resetSellFormFields();
+    gridScrollRef.current = window.scrollY;
     setPicking({ kind: 'steam', item: si });
     // Seed the field from a price we actually HAVE. The old line was
     // `setPrice(parseFloat(si.suggestedPrice || 0).toFixed(2))`, which
@@ -12465,6 +12476,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   };
   const startPickInternal = (l) => {
     resetSellFormFields();
+    gridScrollRef.current = window.scrollY;
     setPicking({ kind: 'internal', item: l.item, listingId: l.id });
     // Floor may be null for an item with no other live listings (first
     // seller back on a freshly-spawned skin). parseFloat(null) is NaN
