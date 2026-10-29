@@ -42,6 +42,7 @@ class OpenGraphController {
     @Autowired SteamUserRepository steamUserRepository
     @Autowired LoadoutRepository loadoutRepository
     @Autowired(required = false) ListingService listingService
+    @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
 
     @Value('${app.public-url:http://localhost:8080}')
     String publicUrl
@@ -250,7 +251,21 @@ class OpenGraphController {
         // be misleading), no SKU (item ids are not treated as merchant
         // SKUs). Out-of-stock items drop the price block and mark
         // availability=OutOfStock so Google doesn't show stale pricing.
-        def jsonLd = itemJsonLd(item, url, image, name)
+        // Many sellers, one item: an AggregateOffer with the price range and
+        // the live seller count when the listing queries answer.
+        Long offerCount = null
+        BigDecimal highPrice = null
+        if (listingRepository != null && item.id != null) {
+            try {
+                offerCount = listingRepository.countActiveForItem(item.id)
+                highPrice = listingRepository.maxPriceForItem(item.id)
+            } catch (Exception e) {
+                log.debug("OG offer lookup failed for item ${item.id}: ${e.message}")
+                offerCount = null
+                highPrice = null
+            }
+        }
+        def jsonLd = itemJsonLd(item, url, image, name, offerCount, highPrice)
 
         // og:price:amount + og:price:currency — Facebook's Open Graph
         // Product object spec recommends both for rich shopping
@@ -288,7 +303,8 @@ class OpenGraphController {
      * Lives as a private method so the test suite can exercise the
      * edge cases without needing the full itemPage round-trip.
      */
-    private static String itemJsonLd(com.sboxmarket.model.Item item, String url, String image, String escapedName) {
+    private static String itemJsonLd(com.sboxmarket.model.Item item, String url, String image, String escapedName,
+                                     Long offerCount = null, BigDecimal highPrice = null) {
         def inStock = item.lowestPrice != null && item.lowestPrice > BigDecimal.ZERO
         def sb = new StringBuilder()
         sb.append('{"@context":"https://schema.org","@type":"Product"')
@@ -307,6 +323,22 @@ class OpenGraphController {
             sb.append(',"category":"').append(jsonEscape(item.category)).append('"')
         }
         sb.append(',"brand":{"@type":"Brand","name":"SkinBox"}')
+        // AggregateOffer needs lowPrice, so an out-of-stock item (or one the
+        // count query could not answer for) keeps the single Offer.
+        if (inStock && offerCount != null && offerCount > 0L) {
+            def low = item.lowestPrice.setScale(2, BigDecimal.ROUND_HALF_UP)
+            def high = (highPrice != null && highPrice > low ? highPrice : low).setScale(2, BigDecimal.ROUND_HALF_UP)
+            sb.append(',"offers":{"@type":"AggregateOffer"')
+            sb.append(',"url":"').append(jsonEscape(url)).append('"')
+            sb.append(',"priceCurrency":"USD"')
+            sb.append(',"lowPrice":"').append(low.toPlainString()).append('"')
+            sb.append(',"highPrice":"').append(high.toPlainString()).append('"')
+            sb.append(',"offerCount":').append(offerCount)
+            sb.append(',"availability":"https://schema.org/InStock"')
+            sb.append(',"itemCondition":"https://schema.org/UsedCondition"')
+            sb.append('}}')
+            return sb.toString()
+        }
         sb.append(',"offers":{"@type":"Offer"')
         sb.append(',"url":"').append(jsonEscape(url)).append('"')
         sb.append(',"priceCurrency":"USD"')

@@ -219,6 +219,28 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     BigDecimal minPriceForItem(@Param("itemId") Long itemId)
 
+    /** Highest visible asking price for one item, same rules as
+     *  minPriceForItem (auctions at their current bid, hidden excluded).
+     *  The top of the price range in the item page's AggregateOffer. */
+    @Query("""
+        SELECT MAX(CASE WHEN l.listingType = 'AUCTION' AND l.currentBid IS NOT NULL
+                        THEN l.currentBid ELSE l.price END) FROM Listing l
+        WHERE l.item.id = :itemId
+          AND l.status = 'ACTIVE'
+          AND (l.hidden IS NULL OR l.hidden = false)
+    """)
+    BigDecimal maxPriceForItem(@Param("itemId") Long itemId)
+
+    /** Latest listedAt and soldAt per item, as [itemId, maxListedAt,
+     *  maxSoldAt] rows, over every non-hidden listing. One grouped scan so
+     *  the sitemap can date an item by its last real market change. */
+    @Query("""
+        SELECT l.item.id, MAX(l.listedAt), MAX(l.soldAt) FROM Listing l
+        WHERE (l.hidden IS NULL OR l.hidden = false)
+        GROUP BY l.item.id
+    """)
+    List<Object[]> latestActivityByItem()
+
     /** Cheapest visible Buy Now price per item, as [itemId, price] rows.
      *  Buy orders only ever fill against BUY_NOW listings, so Profile ->
      *  Buy Orders measures its floor gap here rather than against the
