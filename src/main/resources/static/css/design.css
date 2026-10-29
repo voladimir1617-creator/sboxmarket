@@ -4305,6 +4305,7 @@ svg.chart, .sparkline-wrap > svg { width: 100%; max-width: 100%; height: auto; d
 .modal-breadcrumb-link, .chart-range-btn, .db-row .btn.btn-ghost, .grid-star, .grid-cart-btn, .steam-market-link.compact { min-width: 32px !important; }
 .filter-option input[type="checkbox"], .csfloat-filter-checkbox input[type="checkbox"], .db-controls input[type="checkbox"], .db-table input[type="checkbox"], .db-table-scroll input[type="checkbox"] { width: 32px !important; height: 32px !important; min-width: 32px !important; min-height: 32px !important; }
 .db-row .btn.btn-ghost, .grid-star, .grid-cart-btn { width: 32px !important; height: 32px !important; min-height: 32px !important; }
+.db-row td .btn.btn-ghost:not(.db-row-star) { width: auto !important; min-width: 0 !important; }
 .steam-market-link.compact { width: 32px !important; height: 32px !important; min-height: 32px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
 .steam-market-link.compact svg { flex: 0 0 auto !important; width: 14px !important; height: 14px !important; }
 .site-footer-bottom > .site-footer-meta { flex-basis: 100%; margin-top: 6px; padding-top: 14px; border-top: 1px dashed var(--line); justify-content: flex-start; }
@@ -5205,6 +5206,10 @@ body .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-back, body .
 .active-filters .clear-all, .active-filters .filter-chip.clear-all { display: inline-flex !important; align-items: center !important; height: 28px !important; padding: 0 8px !important; margin-left: 4px !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; color: rgba(255,255,255,0.50) !important; font-family: var(--mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace) !important; font-size: 11px !important; font-weight: 500 !important; letter-spacing: 0.08em !important; text-transform: uppercase !important; text-decoration: none !important; cursor: pointer !important; transition: color 120ms ease !important; }
 .active-filters .clear-all:hover, .active-filters .filter-chip.clear-all:hover { color: #fff !important; background: transparent !important; border-color: transparent !important; text-decoration: underline !important; text-decoration-thickness: 1px !important; text-underline-offset: 3px !important; }
 .active-filters .filter-chip.clear-all::after { content: none !important; }
+.active-filters .filter-chip:has(> span[aria-hidden])::after { content: none !important; }
+.active-filters .filter-chip { max-width: 100% !important; }
+.active-filters .filter-chip strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.results-meta > span, .empty-state-title { min-width: 0; overflow-wrap: anywhere; }
 .pagination, nav.pagination, .market-pagination, .listing-pagination, .results-pagination { display: flex !important; justify-content: center !important; align-items: center !important; gap: 6px !important; margin: 24px 0 16px !important; padding: 8px 0 !important; font-family: var(--mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace) !important; font-variant-numeric: tabular-nums !important; }
 .pagination button, .pagination a, .market-pagination button, .market-pagination a, .listing-pagination button, .listing-pagination a, .results-pagination button, .results-pagination a { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 32px !important; height: 32px !important; padding: 0 8px !important; background: transparent !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important; color: rgba(255,255,255,0.78) !important; font-family: inherit !important; font-size: 13px !important; font-weight: 500 !important; font-variant-numeric: tabular-nums !important; letter-spacing: 0 !important; cursor: pointer !important; transition: background 120ms ease, border-color 120ms ease, color 120ms ease !important; }
 .pagination button:hover:not(:disabled):not(.active), .pagination a:hover:not(.active), .market-pagination button:hover:not(:disabled):not(.active), .market-pagination a:hover:not(.active) { background: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.22) !important; color: #fff !important; }
@@ -5991,7 +5996,7 @@ main.layout:has(> .sidebar), main.layout:has(> aside.sidebar) { grid-template-co
 }
 .grid-card.is-auction .grid-thumb { position: relative !important; }
 .grid-card.is-auction .grid-thumb > .auction-countdown, .auctions-ending-soon-rail .grid-card.is-auction .grid-thumb > .auction-countdown { position: absolute !important; top: 8px !important; left: 8px !important; z-index: 3 !important; }
-body .alert, body .toast, body .snackbar, body .banner, body [role="alert"], body .mdc-snackbar__surface, body .mat-mdc-snack-bar-container .mdc-snackbar__surface { background: rgb(66, 66, 66) !important; color: rgb(255, 255, 255) !important; border-radius: 4px !important; min-width: 344px !important; max-width: 672px !important; box-shadow: 0 3px 5px -1px rgba(0, 0, 0, 0.2), 0 6px 10px 0 rgba(0, 0, 0, 0.14), 0 1px 18px 0 rgba(0, 0, 0, 0.12) !important; border: 0 !important; padding: 0 16px !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 14px !important; line-height: 20px !important; font-weight: 400 !important; letter-spacing: 0.25px !important; display: flex !important; align-items: center !important; }
+body .alert, body .toast, body .snackbar, body .banner, body [role="alert"], body .mdc-snackbar__surface, body .mat-mdc-snack-bar-container .mdc-snackbar__surface { background: rgb(66, 66, 66) !important; color: rgb(255, 255, 255) !important; border-radius: 4px !important; min-width: min(344px, 100%) !important; max-width: 672px !important; box-shadow: 0 3px 5px -1px rgba(0, 0, 0, 0.2), 0 6px 10px 0 rgba(0, 0, 0, 0.14), 0 1px 18px 0 rgba(0, 0, 0, 0.12) !important; border: 0 !important; padding: 0 16px !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 14px !important; line-height: 20px !important; font-weight: 400 !important; letter-spacing: 0.25px !important; display: flex !important; align-items: center !important; }
 body .alert > *, body .toast > *, body .snackbar > *, body .banner > *, body [role="alert"] > *, body .mat-mdc-snack-bar-label, body .mdc-snackbar__label { padding: 14px 16px !important; font-size: 14px !important; line-height: 20px !important; letter-spacing: 0.25px !important; color: rgb(255, 255, 255) !important; }
 body .alert-info, body .alert.info, body [role="alert"].info, body .banner.info { border-left: 4px solid rgb(35, 123, 255) !important; background: rgb(66, 66, 66) !important; }
 body .alert-success, body .alert.success, body [role="alert"].success, body .banner.success { border-left: 4px solid rgb(76, 175, 80) !important; background: rgb(66, 66, 66) !important; }
@@ -6364,6 +6369,7 @@ body .nav-right .user-chip { display: inline-flex !important; align-items: cente
 body .nav-right .user-chip:hover { background: rgba(255, 255, 255, 0.04) !important; }
 body .nav-right .user-chip-avatar { width: 32px !important; height: 32px !important; border-radius: 50% !important; overflow: hidden !important; flex-shrink: 0 !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important; background: rgba(255, 255, 255, 0.04) !important; }
 body .nav-right .user-chip:hover .user-chip-avatar { box-shadow: inset 0 0 0 1px rgba(35, 123, 255, 0.55) !important; }
+body .nav-right .user-chip-avatar:has(.pending-actions-badge) { overflow: visible !important; }
 body .nav-right .user-chip-name { font-size: 13px !important; font-weight: 500 !important; color: rgba(255, 255, 255, 0.9) !important; letter-spacing: -0.005em !important; line-height: 1 !important; max-width: 140px !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
 .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body { display: grid !important; grid-template-columns: 240px minmax(0, 1fr) !important; grid-template-rows: auto auto 1fr !important; grid-template-areas: "sidebar meta" "sidebar body" "sidebar body" !important; column-gap: 24px !important; row-gap: 12px !important; align-items: start !important; }
 .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls { grid-area: sidebar !important; position: sticky !important; top: 12px !important; align-self: start !important; width: 240px !important; max-width: 240px !important; flex-direction: column !important; align-items: stretch !important; gap: 12px !important; padding: 0 !important; }
@@ -8930,6 +8936,7 @@ html body .profile-tabs > button.profile-tab:hover, html body .profile-tabs > .p
 html body .profile-tabs > button.profile-tab.active, html body .profile-tabs > .profile-tab.active, html body .profile-tabs > button.profile-tab[aria-selected="true"], html body .profile-tabs > .profile-tab[aria-selected="true"] { background: rgba(193, 206, 255, 0.04) !important; background-color: rgba(193, 206, 255, 0.04) !important; color: rgb(255, 255, 255) !important; border-bottom: 0 !important; font-weight: 400 !important; }
 html body .profile-tabs > button.profile-tab.active::after, html body .profile-tabs > .profile-tab.active::after, html body .profile-tabs > button.profile-tab::after { display: none !important; content: none !important; }
 body .stall-row .price-input { width: 100% !important; max-width: 159px !important; height: 40px !important; min-height: 40px !important; padding: 0 10px 0 28px !important; background-color: rgba(193, 206, 255, 0.04) !important; background-image: none !important; border: 0 !important; border-radius: 6px !important; box-shadow: none !important; color: rgb(255, 255, 255) !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 16px !important; font-weight: 400 !important; line-height: 24px !important; letter-spacing: normal !important; outline: none !important; transition: background-color 100ms cubic-bezier(0.4, 0, 0.2, 1) !important; position: relative !important; }
+body .stall-row .price-input[aria-label^="Listing description"] { max-width: none !important; min-width: 120px !important; }
 body .stall-row .price-input:hover { background-color: rgba(193, 206, 255, 0.06) !important; }
 body .stall-row .price-input:focus { background-color: rgba(193, 206, 255, 0.08) !important; border: 0 !important; box-shadow: inset 0 -1px 0 0 rgb(35, 123, 255) !important; }
 body .stall-row .price-input::placeholder { color: rgb(158, 167, 177) !important; opacity: 1 !important; }
@@ -9561,6 +9568,9 @@ body .auction-bid-form::after { content: "Minimum Bid" !important; position: abs
 body .auction-bid-form { padding-top: 32px !important; }
 body .auction-bid-form { display: flex !important; flex-direction: column !important; gap: 8px !important; padding: 32px 0 0 0 !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; margin-bottom: 16px !important; align-items: stretch !important; }
 body .auction-bid-form > input { flex: 0 0 auto !important; width: 100% !important; }
+body .auction-panel .auction-bid-form { padding-top: 34px !important; }
+body .auction-panel .auction-bid-form::after { top: 10px !important; left: 14px !important; }
+body .auction-panel .auction-bid-form::before { top: 50px !important; }
 body .auction-bid-form > .price-suggest-row { margin-top: 8px !important; margin-bottom: 4px !important; }
 body .auction-bid-form .btn.btn-accent, body .auction-bid-form button.btn.btn-accent { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 36px !important; min-height: 36px !important; padding: 0 16px !important; margin-top: 12px !important; background: rgb(35, 123, 255) !important; color: rgb(255, 255, 255) !important; border: 0 !important; border-radius: 4px !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; line-height: 36px !important; letter-spacing: 0.0892857143em !important; text-transform: none !important; box-shadow: none !important; cursor: pointer !important; }
 body .auction-bid-form .btn.btn-accent:not([disabled]) { background: rgb(35, 123, 255) !important; }
@@ -9672,7 +9682,7 @@ body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .nav-picker-flag
 body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .nav-picker-flag::before { content: "("; }
 body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .nav-picker-flag::after { content: ")"; }
 body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .nav-picker-code { order: 1; font-weight: 400 !important; font-size: 16px !important; line-height: 24px !important; color: rgb(255, 255, 255) !important; }
-.cart-popover .container, .cart-popover-container, .cart-overlay-popover .container, body .csfloat-cart-drawer, body .csfloat-cart-popover-container { background: rgba(21, 23, 28, 0.8) !important; border: 2px solid rgba(193, 206, 255, 0.07) !important; border-radius: 12px !important; padding: 20px !important; box-shadow: none !important; box-sizing: border-box !important; width: 370px !important; max-width: 100% !important; max-height: 680px !important; }
+.cart-popover .container, .cart-popover-container, .cart-overlay-popover .container, body .csfloat-cart-drawer, body .csfloat-cart-popover-container { background: rgb(21, 23, 28) !important; border: 2px solid rgba(193, 206, 255, 0.07) !important; border-radius: 12px !important; padding: 20px !important; box-shadow: none !important; box-sizing: border-box !important; width: 370px !important; max-width: 100% !important; max-height: 680px !important; }
 body .csfloat-cart-drawer, body .cart-popover-container, body .csfloat-cart-popover-container { width: 370px !important; }
 @media (max-width: 480px) { body .csfloat-cart-drawer, body .cart-popover-container, body .csfloat-cart-popover-container { width: 100vw !important; max-width: 100vw !important; }
 }
@@ -10129,6 +10139,8 @@ body { padding-left: 16px !important; padding-right: 16px !important; }
 main.layout:has(> .sidebar), main.layout:has(> aside.sidebar) { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
 main.layout .listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 main.layout .listing-grid > * { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+.info-modal .listing-grid > *, .info-modal .listing-grid > * > .grid-card { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+html body #watchlist-results > div > .grid-card .gc-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .csfloat-home-faq-q { min-height: 44px; display: flex; align-items: center; padding: 8px 0; }
 .grid-star, .steam-market-link.compact, .loadout-card-share { width: 40px !important; height: 40px !important; }
 .type-toggle-btn, .offer-tab, .cf-rarity-legend-item, .csfloat-home-rail-tab, .sort-select, .discount-select { min-height: 40px !important; }
@@ -12917,6 +12929,10 @@ html body nav.nav::before { content: "" !important; position: absolute !importan
 @media (max-width: 768px) {
   html body nav.nav::before { left: -16px !important; right: -16px !important; }
 }
+/* Item pages use a 12px side gutter at <=1100px; a wider bleed scrolled the page sideways. */
+@media (max-width: 1100px) {
+  html body:has(.modal.item-page) nav.nav::before { left: -12px !important; right: -12px !important; }
+}
 html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) { background: transparent !important; background-color: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; max-width: calc(100% - 88px) !important; }
 @media (max-width: 768px) {
   html body .site-root.full-page-mode .modal-backdrop > .modal.info-modal:not(:has(.help-intro)) { max-width: 100% !important; }
@@ -13566,3 +13582,19 @@ html:root body .modal-preview > img.item-img.item-img { width: 92% !important; h
 /* Sell page Steam notice: its two stacked buttons were 266px and 320px
    wide; they now share one width. */
 html:root body .empty-inline > div:has(> a.btn[href*="steamcommunity.com/my/edit/settings"]) > .btn { width: 320px !important; max-width: 100% !important; justify-content: center !important; }
+/* The bar's backdrop-filter made it the containing block for the menu's fixed backdrop (only 56px tall, so taps fell
+   through to the page) and the backdrop root for the menus (their blur saw nothing, so they were see-through). */
+html body nav.nav:has(#user-menu-panel), html body nav.nav:has(#notif-dropdown-panel) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+/* Phones: the account menu ran under the bottom tab bar (Settings and Logout hidden or unreachable). */
+@media (max-width: 720px) {
+  html body nav.nav:has(#user-menu-panel) { z-index: 1001 !important; }
+  body #user-menu-panel { max-height: calc(100dvh - var(--nav-h, 56px) - 16px) !important; overscroll-behavior: contain; }
+  /* Toasts sat on top of the bottom tab bar. The cart-tray and buy-bar offsets are more specific and still win. */
+  html body .toast-stack, html body .sale-toasts { bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+/* 360px phones: a four-figure balance pushed the avatar chip off the right edge. */
+@media (max-width: 420px) {
+  html body nav.nav .nav-logo { margin-right: 0 !important; }
+  html body nav.nav .wallet-btn { margin-left: 0 !important; padding-left: 8px !important; padding-right: 8px !important; }
+  html body nav.nav .user-chip { margin-left: 0 !important; padding-right: 4px !important; }
+}

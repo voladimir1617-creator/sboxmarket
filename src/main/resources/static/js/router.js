@@ -107,7 +107,8 @@ const SCROLL_CAP = 32;
 function snapshotScroll() {
   const layout = document.querySelector('.layout');
   const key = window.location.pathname + window.location.search;
-  const top = layout ? layout.scrollTop : window.scrollY;
+  // /market scrolls the window while .layout stays at 0; take whichever moved.
+  const top = Math.max(layout ? layout.scrollTop : 0, window.scrollY || 0);
   if (top > 0) {
     if (scrollByUrl.size >= SCROLL_CAP) {
       // Evict oldest entry (insertion-order preserved by Map).

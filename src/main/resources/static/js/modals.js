@@ -350,6 +350,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // true only when there is genuinely no buy-now option at all.
   const cheapestBuyNow = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id) || null;
   const auctionOnly    = !cheapestBuyNow && !!(listings[0] && listings[0].listingType === 'AUCTION');
+  // What a buyer pays today. item.lowestPrice also counts an auction's
+  // current bid, so it can sit far below anything buyable.
+  const floorPrice = cheapestBuyNow ? parseFloat(cheapestBuyNow.price) : parseFloat(item?.lowestPrice);
   const [offerOpen, setOfferOpen] = useState(false);
   // The listing the offer drawer bargains on. null = the cheapest buy-now
   // listing (the rail Bargain and action-bar Make Offer); an Active
@@ -629,18 +632,18 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
       // endpoint is cached, so a refetch would still show it.
       setBuyOrderInfo(info => {
         const count = Math.max(0, (info?.count || 0) - 1);
-        if (count === 0) return { count: 0, bestBid: null };
+        if (count === 0) return { loaded: info?.loaded, count: 0, bestBid: null };
         // Another order may sit at the same price, so the best bid is only
         // known to be gone when the cancelled row was the only one at it.
         const best = parseFloat(info?.bestBid);
         const others = Array.isArray(buyOrderRows)
           ? buyOrderRows.filter(r => r.id !== myBuyOrder.id)
           : null;
-        if (best !== cancelledPrice) return { count, bestBid: info.bestBid };
+        if (best !== cancelledPrice) return { loaded: info?.loaded, count, bestBid: info.bestBid };
         // Without the table loaded we cannot tell, so hide rather than guess.
-        if (!others) return { count, bestBid: null };
+        if (!others) return { loaded: info?.loaded, count, bestBid: null };
         const next = others.reduce((m, r) => Math.max(m, parseFloat(r.maxPrice) || 0), 0);
-        return { count, bestBid: next > 0 ? next : null };
+        return { loaded: info?.loaded, count, bestBid: next > 0 ? next : null };
       });
       // The expanded table must not keep listing the cancelled order.
       setBuyOrderRows(rows => Array.isArray(rows) ? rows.filter(r => r.id !== myBuyOrder.id) : rows);
@@ -852,9 +855,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // finite check and computed (0 - base)/base = a fake "-100.0%" crash pill.
   // Require a positive live floor so the pill hides (→ "no data") when nothing
   // is currently listed, matching the Listing-price "Not listed" treatment.
-  const hasChange30dData = change30dBase != null && parseFloat(item.lowestPrice) > 0;
+  const hasChange30dData = change30dBase != null && floorPrice > 0;
   const change30d = change30dBase != null
-    ? (parseFloat(item.lowestPrice) - change30dBase).toFixed(2)
+    ? (floorPrice - change30dBase).toFixed(2)
     : '0.00';
   const changePct = change30dBase != null
     ? ((change30d / change30dBase) * 100).toFixed(1)
@@ -1765,8 +1768,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           //  - else                 → "Fair price"    (neutral, hidden)
           //                            // when range is too narrow (<$0.02)
           //                            // since percentiles are meaningless.
-          priceExtremes && priceExtremes.low30d != null && parseFloat(item.lowestPrice) > 0 && (priceExtremes.high30d - priceExtremes.low30d) >= 0.02 && (() => {
-            const floor = parseFloat(item.lowestPrice);
+          priceExtremes && priceExtremes.low30d != null && floorPrice > 0 && (priceExtremes.high30d - priceExtremes.low30d) >= 0.02 && (() => {
+            const floor = floorPrice;
             const { low30d, high30d } = priceExtremes;
             const span = high30d - low30d;
             if (floor < low30d) {
@@ -1880,7 +1883,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // renders when there's actually a P2P listing to act on (system
         // listings don't need a trade URL since no Steam handoff happens).
         me && !(me.tradeUrl && String(me.tradeUrl).trim()) &&
-            listings.some(l => l && l.sellerUserId != null) && h('div', {
+            listings.some(l => l && l.sellerUserId != null && l.sellerUserId !== me.id) && h('div', {
           style: {
             margin: '0 0 14px', padding: '10px 14px',
             background: 'rgba(250,204,21,0.08)',
@@ -1986,7 +1989,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               : prices[mid];
             const lo = prices[0];
             const hi = prices[prices.length - 1];
-            const floor = parseFloat(item?.lowestPrice || 0);
+            const floor = floorPrice || 0;
             let deltaChip = null;
             if (floor > 0 && median > 0) {
               const pct = Math.round(((floor - median) / median) * 100);
@@ -2386,7 +2389,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   // listings disable the button so sellers don't accidentally
                   // try to buy themselves (the server also rejects but the UI
                   // should surface it up front).
-                  l.listingType === 'AUCTION'
+                  l.listingType === 'AUCTION' && !isMine
                     ? h('button', {
                         className: 'buy-btn',
                         onClick: () => {
@@ -3325,7 +3328,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
             color: '#22c55e',
             padding: 12, borderRadius: 6, fontSize: 13, textAlign: 'center'
           } }, done)
-        : h('div', null,
+        : h('div', { style: { padding: '0 24px 20px' } },
             h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
             h('select', {
               ref: selectRef,
@@ -4981,7 +4984,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           // updates → routeName/route.params.tab change → title-effect
           // re-fires → document.title reflects the new tab. Pre-fix,
           // the URL changed but the title stayed stale on tab click.
+          // navigate() jumps to the top of the page; a tab switch keeps
+          // the tab bar where the user tapped it.
+          const y = window.scrollY;
           navigate('/profile/' + t.id);
+          window.scrollTo({ top: y, behavior: 'instant' });
         },
         onKeyDown: (e) => {
           // Batch 936 — arrow-key navigation between tabs. Standard
@@ -7994,7 +8001,7 @@ function ProfileAutoBidsTab() {
         'Max: ~', h('strong', { style: { color: 'var(--text)' } }, fmt(maxExposure))
       )
     ),
-    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
+    h('div', { style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 } },
       h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
         `${bids.length} active bid${bids.length === 1 ? '' : 's'} across auctions` +
         (autoBidsCount > 0 ? ` · ${autoBidsCount} auto-raising` : '')),
@@ -8732,7 +8739,8 @@ function ProfileTradesTab({ me, privacy }) {
     // confirmation. Mirrors the named-success pattern from onAccept
     // (line 6293) so the seller gets symmetric feedback on every step.
     const t = trades.find(x => x.id === id);
-    if (!confirm('Cancel this trade? The buyer will be refunded.')) return;
+    const iAmBuyer = !!(me && t && t.buyerUserId === me.id);
+    if (!confirm(iAmBuyer ? 'Cancel this trade? You will be refunded.' : 'Cancel this trade? The buyer will be refunded.')) return;
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
@@ -8741,7 +8749,7 @@ function ProfileTradesTab({ me, privacy }) {
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); return; }
       await load();
       const label = t?.itemName ? `"${t.itemName}"` : `trade #${id}`;
-      const priceBit = t?.price != null ? ` — ${fmt(t.price)} refunded to the buyer` : '';
+      const priceBit = t?.price != null ? ` — ${fmt(t.price)} refunded to ${iAmBuyer ? 'your wallet' : 'the buyer'}` : '';
       toast(`Cancelled ${label}${priceBit}.`, 'ok');
     } finally { setBusy(false); }
   };
@@ -12277,9 +12285,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       if (prices.length === 0) return true;
       prices.sort((a, b) => a - b);
       const mid = Math.floor(prices.length / 2);
-      const median = prices.length % 2 === 0
-        ? (prices[mid - 1] + prices[mid]) / 2
-        : prices[mid];
+      // In whole cents so headline, placeholder and chip round alike.
+      const cents = prices.map(n => Math.round(n * 100));
+      const median = Math.round(prices.length % 2 === 0
+        ? (cents[mid - 1] + cents[mid]) / 2
+        : cents[mid]) / 100;
       setPickedRecentMedian(median);
       setPickedRecentCount(prices.length);
       return true;
@@ -12636,6 +12646,10 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     // placeholder; anchor.basis === null means "do not quote a price".
     // Blocked, and why — computed once for the warning line and the button.
     const pickBlock = isSteam ? steamRowBlock(item) : null;
+    // With the bot on, the server refuses every relist (SellService.assertRelistNotBypassingEscrow),
+    // so say so before the seller fills the form in, in the server's own words.
+    const relistBlocked = !isSteam && custody.known && custody.shortLabel === 'escrow-protected';
+    const relistMsg = 'Our bot has to hold an item before it can sell, and a relist gives us no Steam item to collect. List it from the Steam tab instead.';
     const anchor = priceAnchorFor(item, isSteam, pickedRecentMedian);
     const suggested = anchor.value > 0 ? anchor.value.toFixed(2) : '';
     const anchorLabel = anchor.basis === 'floor'  ? 'lowest active listing right now'
@@ -13008,14 +13022,14 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           style: { fontFamily: 'inherit', fontSize: 13, lineHeight: 1.4, resize: 'vertical' }
         })
       ),
-      error && h('div', { className: 'wallet-error', role: 'alert' }, error),
+      (error || relistBlocked) && h('div', { className: 'wallet-error', role: 'alert' }, error || relistMsg),
       h('div', { style: { display: 'flex', gap: 10, marginTop: 20 } },
         h('button', { className: 'btn btn-ghost', style: { flex: 1, border: '1px solid var(--border)', justifyContent: 'center', padding: 13 }, onClick: () => setPicking(null) }, 'Back'),
         h('button', {
           className: 'btn btn-accent',
           style: { flex: 1, justifyContent: 'center', padding: 13 },
           // Blocked for either reason, not just the tradable one.
-          disabled: busy || (isSteam && !!pickBlock),
+          disabled: busy || relistBlocked || (isSteam && !!pickBlock),
           title: isSteam && pickBlock === 'ALREADY_LISTED'
             ? 'Every copy of this item you own is already on sale — cancel one in My Stall to relist it'
             : isSteam && pickBlock === 'NOT_TRADABLE'
@@ -15545,7 +15559,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               ),
               editing === l.id
                 ? h('div', { style: { marginTop: 6 } },
-                    h('div', { style: { display: 'flex', gap: 6 } },
+                    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
                       // Batch 825 — Enter submits, Esc cancels on the
                       // inline edit form. A seller editing 20 prices
                       // sequentially kept having to reach for the
@@ -15987,7 +16001,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       await load();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       const amtBit = o?.amount != null ? ` (${fmt(parseFloat(o.amount))})` : '';
-      toast(`Cancelled your offer on ${label}${amtBit}.`, 'ok');
+      toast(o?.author === 'SELLER'
+        ? `Declined the seller's counter on ${label}${amtBit}.`
+        : `Cancelled your offer on ${label}${amtBit}.`, 'ok');
     } finally { setBusy(false); }
   };
   const handleCounter = async (id, mode) => {
@@ -16085,8 +16101,10 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         }, '↩ Seller: “', offer.sellerReply, '”'),
         h('div', { className: 'item-sub' },
           isIncoming
-            ? `From ${offer.buyerName}`
-            : (offer.sellerName ? `To @${offer.sellerName}` : 'Your offer'),
+            ? (offer.author === 'SELLER' ? `Your counter to ${offer.buyerName}` : `From ${offer.buyerName}`)
+            : offer.author === 'SELLER'
+              ? (offer.sellerName ? `Counter from @${offer.sellerName}` : 'Seller counter')
+              : (offer.sellerName ? `To @${offer.sellerName}` : 'Your offer'),
           ' · ', timeAgo(offer.createdAt),
           // Auto-decline countdown — server-computed `expiresAt` is set
           // for PENDING rows only (batch 269). Red when ≤24h so a
@@ -17842,7 +17860,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
     try {
       if (tab === 'deposit') {
         const res = await depositFunds(num);
-        if (res.code || res.error) { setError(res.message || res.error); return; }
+        if (res.code || res.error) { setError(res.error || res.message); return; }
         if (res.live && res.checkoutUrl) {
           // Real Stripe redirect — the user will land back on
           // /?deposit=success which already triggers a wallet refresh +
@@ -17873,7 +17891,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
           if (res.code === 'TOTP_REQUIRED' || res.code === 'TOTP_INVALID') {
             setError(res.message || 'Two-factor code required');
           } else {
-            setError(res.message || res.error);
+            setError(res.error || res.message);
           }
           return;
         }
