@@ -7123,7 +7123,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
       )
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-      h('div', { className: 'wallet-tx-filter-row', style: { flex: 1, minWidth: 0 } },
+      h('div', { className: 'wallet-tx-filter-row', style: { flex: '1 1 260px', minWidth: 0 } },
         [
           { id: 'ALL',      label: 'All' },
           { id: 'IN',       label: 'Credits' },
@@ -7450,7 +7450,7 @@ function ProfileBuyOrdersTab() {
       )
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-      h('div', { className: 'wallet-tx-filter-row', style: { flex: 1, minWidth: 0 } },
+      h('div', { className: 'wallet-tx-filter-row', style: { flex: '1 1 260px', minWidth: 0 } },
         [
           { id: 'ALL',       label: 'All' },
           { id: 'ACTIVE',    label: 'Active' },
