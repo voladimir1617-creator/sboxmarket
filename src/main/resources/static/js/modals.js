@@ -8217,8 +8217,15 @@ function ProfileTradesTab({ me, privacy }) {
     const el = chatScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [openChat, openChatLen]);
+  // Per-trade read generation. The 15s poll answering after the reload that
+  // follows a send put the thread back without the message just sent (and
+  // the draft was already cleared), which read as a lost message.
+  const chatSeqRef = useRef({});
   const loadChat = async (tradeId) => {
+    const seq = (chatSeqRef.current[tradeId] || 0) + 1;
+    chatSeqRef.current[tradeId] = seq;
     const rows = await fetchTradeMessagesOrNull(tradeId);
+    if (chatSeqRef.current[tradeId] !== seq) return;
     // A failed load is not an empty thread, and the server marked
     // nothing read, so the unread badge stays.
     if (rows === null) { setChatErrors(prev => ({ ...prev, [tradeId]: true })); return; }
