@@ -153,6 +153,9 @@ class ListingController {
         // findActivePublic JPQL carries a matching `ESCAPE '\'` clause.
         def searchEscaped = (search != null && !search.isEmpty()) ? escapeLike(search) : search
         def all = listingService.getActiveListings(sort, category, rarity, min, max, searchEscaped, typeParam)
+        // Checked before the viewer's block list trims the result: a buyer
+        // who blocked the only seller is not a sign that nobody sells it.
+        boolean noneListed = all.isEmpty()
         // Block-list filter (batch 345). Signed-in viewers don't see
         // listings from sellers they've blocked. Applied AFTER the
         // service query — the block set is a small per-user thing (cap
@@ -171,11 +174,15 @@ class ListingController {
             }
         }
         // A first-page search that finds nothing is a buyer wanting an item
-        // nobody sells. Tallied in memory for the staff dashboard.
-        if (all.isEmpty() && safeOffset == 0 && search && zeroResultSearchTracker != null) {
+        // nobody sells. Tallied in memory for the staff dashboard. Only a
+        // bare search counts: with a category, rarity, price or type filter
+        // on, an empty page says nothing about whether anyone sells it.
+        boolean narrowed = category != 'All' || rarity != 'All' || min != null || max != null || typeParam != null
+        if (safeOffset == 0 && search && !narrowed && zeroResultSearchTracker != null) {
             try {
                 def requester = req?.getSession(false)?.id ?: req?.remoteAddr
-                zeroResultSearchTracker.record(search, requester)
+                if (noneListed) zeroResultSearchTracker.record(search, requester)
+                else zeroResultSearchTracker.noteFound(search, requester)
             } catch (Exception ignored) { }
         }
         def page = all.drop(safeOffset).take(safeLimit)
