@@ -3188,6 +3188,7 @@ to { opacity: 1; transform: translateY(0); }
 @supports (-webkit-touch-callout: none) { input[type="text"], input[type="search"], input[type="email"], input[type="number"], input[type="password"], textarea, select { font-size: max(13px, 16px); }
 }
 html { scroll-padding-top: 80px; }
+@media (min-width: 961px) { html:has(.csfloat-subnav) { scroll-padding-top: calc(var(--nav-h, 56px) + var(--sub-h, 44px) + 16px); } }
 h1, h2, h3, .csfloat-h1, .csfloat-h2, .csfloat-h3 { text-wrap: balance; }
 p, li, .csfloat-lede { text-wrap: pretty; }
 time, [data-time], .csfloat-time { font-variant-numeric: tabular-nums; letter-spacing: -0.005em; }

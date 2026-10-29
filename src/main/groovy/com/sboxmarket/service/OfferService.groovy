@@ -1818,6 +1818,62 @@ class OfferService {
     }
 
     /**
+     * Closes PENDING offers on listings that sold some other way. Buy Now,
+     * a buy-order fill and an auction settle all flip the listing to SOLD
+     * without calling into OfferService (only acceptOffer expires the
+     * competing offers), so those offers used to stay PENDING for up to
+     * the full auto-decline window and the buyer was never told the item
+     * had sold.
+     *
+     * Same shape as sweepStaleOffers: the atomic claimAutoExpire claim
+     * (PENDING→EXPIRED only while still PENDING, so sibling pods and a
+     * late buyer/seller action win cleanly), one OFFER_REJECTED push per
+     * won claim, per-row try/catch, and NOT @Transactional for the same
+     * rollback-only reason documented there.
+     */
+    @Scheduled(fixedDelay = 10L * 60L * 1000L, initialDelay = 5L * 60L * 1000L)
+    void sweepOffersOnSoldListings() {
+        def orphaned = offerRepository.findPendingOnSoldListings()
+        if (!orphaned) return
+        def listingIds = orphaned*.listingId.findAll { it != null }.unique()
+        def listingsById = [:]
+        if (listingRepository != null && !listingIds.isEmpty()) {
+            try {
+                listingRepository.findAllById(listingIds).each { l -> listingsById[l.id] = l }
+            } catch (Exception e) {
+                log.warn("Sold-listing offer sweep name lookup failed: ${e.message}")
+            }
+        }
+        int fired = 0
+        orphaned.each { offer ->
+            try {
+                int claimed = offerRepository.claimAutoExpire(offer.id, System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("Sold-listing offer claim lost for ${offer.id} — sibling pod or status change")
+                    return
+                }
+                fired++
+                // A pending SELLER counter leaves its parent COUNTERED;
+                // close it so the thread does not dangle.
+                closeCounteredParent(offer)
+                def itemName = listingsById[offer.listingId]?.item?.name ?: 'this item'
+                def itemId = listingsById[offer.listingId]?.item?.id
+                notificationService?.push(
+                    offer.buyerUserId,
+                    'OFFER_REJECTED',
+                    "Offer closed · ${itemName}",
+                    "The ${itemName} sold to another buyer, so your offer closed.",
+                    offer.listingId,
+                    itemId != null ? "/item/${itemId}" : '/offers/outgoing'
+                )
+            } catch (Exception e) {
+                log.warn("sold-listing offer close failed for id=${offer.id}: ${e.message}")
+            }
+        }
+        log.info("Closed ${fired} of ${orphaned.size()} pending offers on sold listings (rest claimed by sibling pods or status-changed)")
+    }
+
+    /**
      * Half-life nudge sweeper (batch 499). Pings the seller once when a
      * PENDING offer has been sitting for half its auto-decline window so
      * a busy seller can act before the silent auto-EXPIRY closes it.

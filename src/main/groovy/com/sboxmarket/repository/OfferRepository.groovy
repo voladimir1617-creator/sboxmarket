@@ -121,6 +121,18 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     @Query("SELECT o FROM Offer o WHERE o.status = 'PENDING' AND o.updatedAt <= :cutoff")
     List<Offer> findStalePending(@Param("cutoff") Long cutoff)
 
+    /** PENDING offers whose listing has already sold (SOLD, or RELISTED by
+     *  its new owner). Buy Now, buy-order fills and auction settles flip
+     *  the listing without touching its offers, so OfferService's
+     *  sold-listing sweep uses this to close them and tell each buyer. */
+    @Query("""
+        SELECT o FROM Offer o, Listing l
+        WHERE l.id = o.listingId
+          AND o.status = 'PENDING'
+          AND l.status IN ('SOLD', 'RELISTED')
+    """)
+    List<Offer> findPendingOnSoldListings()
+
     /** Paged companion — on a busy platform the stale candidate set can
      *  swell after long downtimes; batch sweeper callers should walk in
      *  chunks rather than hydrating the full set per tick. */
