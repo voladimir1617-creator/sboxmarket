@@ -1832,7 +1832,11 @@ function AdminTradesTab() {
             h('tbody', null, display.map(r => [
               h('tr', { key: r.id, className: 'db-row' },
                 h('td', { className: 'db-rank' }, '#' + r.id),
-                h('td', null, r.itemName || '—'),
+                // The dispute reason (the trade note) came back on every row
+                // but was never shown, so staff resolved disputes without
+                // seeing what was claimed.
+                h('td', null, r.itemName || '—',
+                  r.note && h('div', { style: { fontSize: 10, marginTop: 2, color: 'var(--text-muted)', maxWidth: 260, whiteSpace: 'normal', wordBreak: 'break-word' } }, r.note)),
                 // Buyer + seller cells (batch 526). Now show name and
                 // inline risk chips — chargeback count (red), fresh
                 // account (amber), banned (red). Clicking a name row
@@ -1944,8 +1948,10 @@ function AdminTradesTab() {
                             fontSize: 12
                           }
                         },
+                          // Name the side, not just the id: staff reading a
+                          // dispute thread had to map "#3" to buyer/seller.
                           h('div', { style: { minWidth: 70, fontSize: 10, color: 'var(--text-muted)' } },
-                            '#' + m.senderUserId),
+                            (m.senderUserId === r.buyerUserId ? 'Buyer ' : m.senderUserId === r.sellerUserId ? 'Seller ' : '') + '#' + m.senderUserId),
                           // Redacted rows show the placeholder to staff too —
                           // the original text is gone post-redaction (body column
                           // cleared on soft-redact, batch 349). If staff wants
@@ -1988,7 +1994,7 @@ function AdminTradesTab() {
           ? `Force-release trade #${actionDraft.row.id}${actionDraft.row.itemName ? ' — ' + actionDraft.row.itemName : ''}`
           : `Force-cancel trade #${actionDraft.row.id}${actionDraft.row.itemName ? ' — ' + actionDraft.row.itemName : ''}`,
         hint: actionDraft.kind === 'release'
-          ? 'Seller gets paid; buyer receives a notification with this reason. Logged in the audit trail.'
+          ? 'Seller gets paid; this reason is shown on the trade to both parties. Logged in the audit trail.'
           : 'Buyer is refunded; both parties receive a notification with this reason. Logged in the audit trail.',
         initial: '',
         cta: actionDraft.kind === 'release' ? 'Force-release trade' : 'Force-cancel trade',

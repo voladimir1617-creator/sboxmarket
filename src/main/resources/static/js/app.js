@@ -5116,6 +5116,15 @@ export function App() {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [loadWallet]);
+  // Trade actions on the profile Trades tab move money (a cancel refunds,
+  // a protected dispute pays out, enabling protection charges a fee) but
+  // live outside this component; they fire sb:wallet-changed so the header
+  // balance doesn't keep showing the old figure until a reload.
+  useEffect(() => {
+    const onChanged = () => loadWallet();
+    window.addEventListener('sb:wallet-changed', onChanged);
+    return () => window.removeEventListener('sb:wallet-changed', onChanged);
+  }, [loadWallet]);
 
   // Batch 664 — active-tab wallet polling while a deposit is mid-flight.
   // The tab-focus refresh above catches the common "user flips to

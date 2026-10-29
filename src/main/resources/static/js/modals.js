@@ -3684,10 +3684,10 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
   const [err, setErr]       = useState('');
-  // The trade stores "reason + blank line + details" in a 500-character
+  // The trade stores "reason — details" in a 500-character
   // note. The box used to allow 1500, and everything past ~450 was cut off
   // without a word, so staff lost the evidence. Cap it at what fits.
-  const detailsMax = Math.max(0, 500 - reason.length - 2);
+  const detailsMax = Math.max(0, 500 - reason.length - 3);
   // Synchronous re-entrancy latch — filing a dispute freezes escrow + opens an
   // irreversible DISPUTED state + notifies staff; a double-click must not file
   // twice. Async `busy` alone leaves a window; gate on a ref. Synced each render.
@@ -3702,8 +3702,11 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
       // dispute endpoint takes a single `reason` field). Use a
       // structured prefix so staff can grep the audit log later.
       const trimmed = (note || '').trim().slice(0, detailsMax);
+      // " — " rather than a blank line: the server collapses whitespace in
+      // the note, so "\n\n" ran the reason into the details ("Item not
+      // received Seller marked…") on the trade row, staff queue and emails.
       const composed = trimmed.length > 0
-        ? `${reason}\n\n${trimmed}`
+        ? `${reason} — ${trimmed}`
         : reason;
       const { tradeDispute } = await import('./api.js');
       const res = await tradeDispute(trade.id, composed);
@@ -8763,8 +8766,12 @@ function ProfileTradesTab({ me, privacy }) {
     busyRef.current = true;
     setBusy(true);
     try {
-      const res = await tradeCancel(id, 'User cancelled');
+      // The reason lands in the counterparty's notification and email
+      // ("Reason: …"); a bare "User cancelled" didn't say which side ended it.
+      const res = await tradeCancel(id, iAmBuyer ? 'Cancelled by the buyer' : 'Cancelled by the seller');
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); return; }
+      // The refund moved the buyer's balance; refresh the header figure.
+      try { window.dispatchEvent(new Event('sb:wallet-changed')); } catch (_) {}
       await load();
       const label = t?.itemName ? `"${t.itemName}"` : `trade #${id}`;
       const priceBit = t?.price != null ? ` — ${fmt(t.price)} refunded to ${iAmBuyer ? 'your wallet' : 'the buyer'}` : '';
@@ -10000,6 +10007,9 @@ function ProfileTradesTab({ me, privacy }) {
         // "staff will review".
         const label = disputeTrade.itemName ? `"${disputeTrade.itemName}"` : `trade #${disputeTrade.id}`;
         setDisputeTrade(null);
+        // A protected buyer's dispute pays the cover out at once; refresh the
+        // header balance so it doesn't show the pre-payout figure.
+        try { window.dispatchEvent(new Event('sb:wallet-changed')); } catch (_) {}
         await load();
         toast(`Dispute filed on ${label}. Staff will respond as soon as they can.`, 'ok');
       }

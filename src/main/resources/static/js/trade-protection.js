@@ -273,9 +273,16 @@ export function TradeProtectionPanel({ trade, me, onChanged }) {
 
   // Resolve protection state — only when the trade object didn't already
   // tell us. Skips the call entirely when the embedded fields answered.
+  // The trade list doesn't embed protection, so the record fetched on mount
+  // went stale when the trade moved on: a protected dispute's payout still
+  // read "Covered for $X" (and a staff reversal "Protection paid out") until
+  // a reload. Re-read a known record whenever the trade's state changes.
+  const seenState = useRef(trade.state);
   useEffect(() => {
     let cancelled = false;
-    if (protection !== undefined) return;  // already known
+    const stateChanged = seenState.current !== trade.state;
+    seenState.current = trade.state;
+    if (protection !== undefined && !(stateChanged && protection)) return;  // already known
     (async () => {
       const res = await fetchTradeProtection(trade.id);
       if (cancelled) return;
@@ -286,7 +293,7 @@ export function TradeProtectionPanel({ trade, me, onChanged }) {
       setProtection(res && res.protection ? res.protection : null);
     })();
     return () => { cancelled = true; };
-  }, [trade.id]);
+  }, [trade.id, trade.state]);
 
   // Fetch the authoritative fee for the opt-in panel. Only the buyer of
   // an unprotected, still-escrowed trade ever sees the button, so the
@@ -326,6 +333,8 @@ export function TradeProtectionPanel({ trade, me, onChanged }) {
       // the protected badge without waiting on a refetch.
       setProtection(res);
       toast('Trade Protection enabled — you’re covered.', 'ok');
+      // The fee came out of the wallet; refresh the header balance.
+      try { window.dispatchEvent(new Event('sb:wallet-changed')); } catch (_) {}
       if (typeof onChanged === 'function') {
         try { onChanged(); } catch (_) {}
       }
