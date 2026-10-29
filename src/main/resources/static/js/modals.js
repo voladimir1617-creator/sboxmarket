@@ -16188,12 +16188,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         // visually reads as a quote, not an attribute. Renders for both
         // incoming (seller perspective) and outgoing (buyer's own draft
         // echoed back) so both sides see the same context.
+        // Wraps rather than ellipsing: the title tooltip never shows on a
+        // phone, so a cut note could not be read there at all.
         offer.message && h('div', {
           style: {
             fontSize: 12, color: 'var(--text-secondary)',
             fontStyle: 'italic', marginTop: 2,
-            overflow: 'hidden', textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap', maxWidth: 320
+            overflowWrap: 'anywhere', maxWidth: 320
           },
           title: offer.message
         }, '“', offer.message, '”'),
