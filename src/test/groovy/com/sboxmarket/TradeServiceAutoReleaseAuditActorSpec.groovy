@@ -135,4 +135,25 @@ class TradeServiceAutoReleaseAuditActorSpec extends Specification {
         // The manual path never writes the system auto-release row.
         0 * auditService.log(AuditService.TRADE_AUTO_RELEASED, _, _, _, _)
     }
+
+    def "staff force-release does not name the buyer as having verified the trade"() {
+        given:
+        def t = pendingConfirm(11L)
+        t.state = 'DISPUTED'
+        def sellerWallet = new Wallet(id: 600L, balance: new BigDecimal('0.00'), currency: 'USD')
+        tradeRepository.findById(11L) >> Optional.of(t)
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+
+        when: 'admin #1 force-releases'
+        service.adminRelease(1L, 11L, 'checked Steam history')
+
+        then:
+        t.state == 'VERIFIED'
+        1 * auditService.log(AuditService.TRADE_VERIFIED, null, 20L, 11L, { it.contains('force-released by staff') })
+        0 * auditService.log(AuditService.TRADE_VERIFIED, 10L, _, _, _)
+        1 * auditService.log(AuditService.TRADE_FORCE_RELEASED, 1L, 20L, 11L, _)
+    }
 }

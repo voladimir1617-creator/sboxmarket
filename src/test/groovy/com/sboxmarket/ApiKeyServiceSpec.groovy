@@ -351,6 +351,28 @@ class ApiKeyServiceSpec extends Specification {
         0 * apiKeyRepository.saveAll(_)
     }
 
+    def "revokeAll audits the user as actor on a self-revoke and the staff member when staff revoke"() {
+        given:
+        def audit = Mock(com.sboxmarket.service.AuditService)
+        service.auditService = audit
+        apiKeyRepository.findByUser(10L) >>> [
+            [new ApiKey(id: 1L, userId: 10L, revoked: false, label: 'a', publicPrefix: 'sbx_live_aa')],
+            [new ApiKey(id: 2L, userId: 10L, revoked: false, label: 'b', publicPrefix: 'sbx_live_bb')]
+        ]
+
+        when: 'the user revokes their own keys'
+        service.revokeAll(10L)
+
+        then:
+        1 * audit.log('API_KEY_REVOKED', 10L, 10L, 1L, { !it.contains('staff') })
+
+        when: 'staff (#1) force-logs the user out'
+        service.revokeAll(10L, 1L)
+
+        then:
+        1 * audit.log('API_KEY_REVOKED', 1L, 10L, 2L, { it.contains('by staff') })
+    }
+
     def "create rejects once the user hits the active-key ceiling (batch 692)"() {
         given:
         // User is already at exactly 20 active keys — next mint must refuse.
