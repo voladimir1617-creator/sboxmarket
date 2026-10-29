@@ -326,6 +326,25 @@ class GlobalExceptionHandlerSpec extends Specification {
         resp.body.message.contains('no longer available')
     }
 
+    def "optimistic lock on a trade action says the trade changed, not that a listing sold"() {
+        given:
+        def ex = new ObjectOptimisticLockingFailureException(
+            "Row was updated or deleted by another transaction",
+            com.sboxmarket.model.Trade
+        )
+
+        when:
+        def resp = handler.handleOptimisticLock(ex, req(path))
+
+        then:
+        resp.statusCode == HttpStatus.CONFLICT
+        resp.body.code == 'TRADE_CHANGED'
+        !resp.body.message.contains('bought')
+
+        where:
+        path << ['/api/trades/13/cancel', '/api/trades/13/dispute', '/api/admin/trades/13/release']
+    }
+
     def "unhandled Exception maps to INTERNAL_ERROR with a generic message"() {
         when:
         def resp = handler.handleAny(new RuntimeException("NPE at BuyOrderService line 42"), req())
