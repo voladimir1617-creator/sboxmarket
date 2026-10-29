@@ -109,6 +109,11 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     @Query("SELECT COUNT(o) FROM Offer o WHERE o.sellerUserId = :uid AND o.status = 'PENDING' AND (o.author IS NULL OR o.author <> 'SELLER')")
     long countPendingBySeller(@Param("uid") Long sellerUserId)
 
+    /** Seller counters waiting on this buyer's accept / decline — the
+     *  buyer-side twin of countPendingBySeller for the nav offers badge. */
+    @Query("SELECT COUNT(o) FROM Offer o WHERE o.buyerUserId = :uid AND o.status = 'PENDING' AND o.author = 'SELLER'")
+    long countPendingCountersForBuyer(@Param("uid") Long buyerUserId)
+
     /** Stale PENDING offers — drives the auto-decline sweeper. `updatedAt`
      *  captures the last seller/buyer interaction (counter, partial reply,
      *  etc.), so the 7-day window is "last meaningful activity", not

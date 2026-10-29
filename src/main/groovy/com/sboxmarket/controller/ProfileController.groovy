@@ -1231,12 +1231,15 @@ class ProfileController {
         long disputed       = tradeRepository?.countDisputedForUser(uid) ?: 0L
         long incomingOffers = offerRepository?.countPendingBySeller(uid) ?: 0L
         long outgoingOffers = offerRepository?.countPendingByBuyer(uid) ?: 0L
+        // A seller's counter waits on this user's accept / decline, so it is
+        // an action like an incoming offer (outgoingOffers below is not).
+        long offerCounters  = offerRepository?.countPendingCountersForBuyer(uid) ?: 0L
         // Unread chat messages from any trade counterparty (batch 282).
         // A buyer with 5 unread "did you send the offer?" replies should
         // see the same red dot a pending trade triggers.
         long unreadChat     = tradeMessageRepository?.countUnreadForUser(uid) ?: 0L
         long pendingReviews = reviewService?.countPendingReviewsFor(uid) ?: 0L
-        long total = sellerTrades + buyerTrades + disputed + incomingOffers + unreadChat + pendingReviews
+        long total = sellerTrades + buyerTrades + disputed + incomingOffers + offerCounters + unreadChat + pendingReviews
         // outgoingOffers is intentionally NOT summed into the badge —
         // you can't take action on an offer you already sent; the number
         // is exposed for tooltip context only.
@@ -1247,6 +1250,7 @@ class ProfileController {
             disputedTrades: disputed,
             incomingOffers: incomingOffers,
             outgoingOffers: outgoingOffers,
+            offerCounters:  offerCounters,
             unreadChat:     unreadChat,
             // Trades the buyer settled but never reviewed (batch 338).
             // Summed into total so the nav avatar badge reflects the

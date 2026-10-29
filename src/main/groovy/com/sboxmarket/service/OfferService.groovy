@@ -1622,6 +1622,9 @@ class OfferService {
     long countPendingOutgoing(Long buyerUserId) {
         offerRepository.countPendingByBuyer(buyerUserId)
     }
+    long countCountersAwaitingBuyer(Long buyerUserId) {
+        offerRepository.countPendingCountersForBuyer(buyerUserId)
+    }
 
     /**
      * For each of the seller's active listings that has at least one
