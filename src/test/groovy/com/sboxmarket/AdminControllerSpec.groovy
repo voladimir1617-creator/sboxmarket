@@ -564,4 +564,31 @@ class AdminControllerSpec extends Specification {
         // defuse is uniform across every numeric column.
         cells[3] != ''
     }
+
+    // Same Elvis-on-zero trap in the queue CSVs: a disputed user whose
+    // wallet is at $0 (the usual chargeback shape) exported a BLANK
+    // walletBalance, and a fee-waived trade a blank feeAmount, so Excel
+    // filters like "walletBalance = 0" missed exactly those rows.
+    def "queue CSVs render a \$0 walletBalance / feeAmount as '0', not blank"() {
+        given:
+        3 * req.session >> ses
+        3 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        3 * adminService.requireAdmin(100L)
+        1 * adminService.listDisputedDeposits() >> [[id: 1L, amount: 5.00G, currency: 'USD',
+            walletBalance: BigDecimal.ZERO, userId: 2L, createdAt: 1L, updatedAt: 1L]]
+        1 * adminService.listWithdrawals('PENDING') >> [[id: 3L, status: 'PENDING', amount: 5.00G,
+            currency: 'USD', walletBalance: BigDecimal.ZERO, ownerUserId: 2L, createdAt: 1L, updatedAt: 1L]]
+        1 * adminService.listTrades('ALL') >> [[id: 4L, state: 'VERIFIED', price: 5.00G,
+            feeAmount: BigDecimal.ZERO, buyerUserId: 2L, sellerUserId: 3L, createdAt: 1L, updatedAt: 1L]]
+
+        when:
+        def disputes = controller.disputesCsv(req).body.split('\n')[1].split(',', -1)
+        def withdrawals = controller.withdrawalsCsv('PENDING', req).body.split('\n')[1].split(',', -1)
+        def trades = controller.tradesCsv('ALL', req).body.split('\n')[1].split(',', -1)
+
+        then:
+        disputes[4] == '0'
+        withdrawals[6] == '0'
+        trades[3] == '0'
+    }
 }
