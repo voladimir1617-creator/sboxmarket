@@ -150,11 +150,7 @@ class LoadoutController {
             if (raw.isEmpty()) {
                 throw new com.sboxmarket.exception.BadRequestException("INVALID_BUDGET", "budget must be a valid number")
             }
-            try {
-                budget = new BigDecimal(raw)
-            } catch (NumberFormatException ignored) {
-                throw new com.sboxmarket.exception.BadRequestException("INVALID_BUDGET", "budget must be a valid number")
-            }
+            budget = com.sboxmarket.util.MoneyParse.parse(raw, 'budget', 'INVALID_BUDGET')
             if (budget <= BigDecimal.ZERO) {
                 throw new com.sboxmarket.exception.BadRequestException("INVALID_BUDGET", "budget must be positive")
             }

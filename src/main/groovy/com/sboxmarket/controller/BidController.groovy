@@ -62,12 +62,7 @@ class BidController {
         // transactional path isn't entered at a surprise price — mirrors
         // the buy-listing and cart-checkout guards.
         if (body?.expectedPrice != null) {
-            BigDecimal expected
-            try { expected = new BigDecimal(body.expectedPrice.toString()) }
-            catch (NumberFormatException ignored) {
-                throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE",
-                    "expectedPrice must be a valid number")
-            }
+            BigDecimal expected = com.sboxmarket.util.MoneyParse.parse(body.expectedPrice, 'expectedPrice', 'INVALID_PRICE')
             def lOpt = listingRepository?.findById(id)?.orElse(null)
             if (lOpt != null && lOpt.buyNowPrice != null &&
                     lOpt.buyNowPrice.compareTo(expected) != 0) {

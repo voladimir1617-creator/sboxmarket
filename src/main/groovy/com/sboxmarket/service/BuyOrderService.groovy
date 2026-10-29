@@ -1047,6 +1047,10 @@ class BuyOrderService {
      *  so the create response, the first fill probe and later fills all
      *  agree, and refuse anything that rounds below one cent. */
     private static BigDecimal centsOrReject(BigDecimal price) {
+        // Scale/precision guard before setScale: "1e-100000000" is positive
+        // and tiny, passes every range check, and setScale(2) on it pins
+        // the thread computing 10^1e8 (see MoneyParse).
+        com.sboxmarket.util.MoneyParse.requireSane(price, 'maxPrice', 'INVALID_PRICE')
         def p = price.setScale(2, java.math.RoundingMode.HALF_UP)
         if (p < new BigDecimal("0.01")) {
             throw new BadRequestException("INVALID_PRICE", "Max price must be at least \$0.01")

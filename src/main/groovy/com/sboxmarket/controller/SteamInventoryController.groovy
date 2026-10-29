@@ -413,12 +413,10 @@ class SteamInventoryController {
         // non-numeric payloads that would bypass the inventory ownership check.
         if (!assetId.matches(/^\d+$/)) throw new BadRequestException("INVALID_ASSET", "assetId must be numeric")
         if (!priceRaw) throw new BadRequestException("INVALID_PRICE", "price is required")
-        BigDecimal price
-        try {
-            price = new BigDecimal(priceRaw.toString())
-        } catch (NumberFormatException ignored) {
-            throw new BadRequestException("INVALID_PRICE", "price must be a valid number")
-        }
+        // Bounded parse (length + scale/precision) before the floor check
+        // and setScale below: "1e100000000" passed the floor and pinned a
+        // thread in setScale(2).
+        BigDecimal price = com.sboxmarket.util.MoneyParse.parse(priceRaw, 'price', 'INVALID_PRICE')
         // Floor at $0.01 — the relist path enforces @DecimalMin("0.01") via
         // SellListingRequest; this first-list path validated by hand and only
         // rejected <= 0, so a sub-cent price (e.g. 0.004) rounded to $0.00 in
@@ -521,13 +519,11 @@ class SteamInventoryController {
                 throw new BadRequestException("BUY_NOW_ON_BUY_NOW",
                     "buyNowPrice only applies to AUCTION listings — the price field already sets the Buy Now amount on BUY_NOW listings.")
             }
-            try {
-                // Same cents rounding as price: 10.004 vs a 10.00 start passed
-                // the "greater than" check and was stored as an equal 10.00.
-                buyNowPrice = new BigDecimal(rawBuyNow.toString()).setScale(2, java.math.RoundingMode.HALF_UP)
-            } catch (NumberFormatException ignored) {
-                throw new BadRequestException("INVALID_BUY_NOW", "buyNowPrice must be a valid number")
-            }
+            // Same cents rounding as price: 10.004 vs a 10.00 start passed
+            // the "greater than" check and was stored as an equal 10.00.
+            // Bounded parse first so the setScale can't be fed a huge exponent.
+            buyNowPrice = com.sboxmarket.util.MoneyParse.parse(rawBuyNow, 'buyNowPrice', 'INVALID_BUY_NOW')
+                .setScale(2, java.math.RoundingMode.HALF_UP)
             if (buyNowPrice <= price) {
                 throw new BadRequestException("INVALID_BUY_NOW",
                     "buyNowPrice must be greater than the starting bid (\$${price})")
@@ -557,10 +553,7 @@ class SteamInventoryController {
         BigDecimal maxDiscount = null
         def rawMaxDisc = body?.maxDiscount
         if (rawMaxDisc != null && rawMaxDisc.toString().trim()) {
-            try { maxDiscount = new BigDecimal(rawMaxDisc.toString()) }
-            catch (NumberFormatException ignored) {
-                throw new BadRequestException("INVALID_DISCOUNT", "maxDiscount must be a valid number")
-            }
+            maxDiscount = com.sboxmarket.util.MoneyParse.parse(rawMaxDisc, 'maxDiscount', 'INVALID_DISCOUNT')
             if (maxDiscount < BigDecimal.ZERO || maxDiscount >= BigDecimal.ONE) {
                 throw new BadRequestException("INVALID_DISCOUNT",
                     "maxDiscount must be between 0 and 1 (exclusive)")
@@ -666,11 +659,8 @@ class SteamInventoryController {
         }
         def priceRaw = body?.price
         if (priceRaw == null) throw new BadRequestException("INVALID_PRICE", "price is required")
-        BigDecimal price
-        try { price = new BigDecimal(priceRaw.toString()) }
-        catch (NumberFormatException ignored) {
-            throw new BadRequestException("INVALID_PRICE", "price must be a valid number")
-        }
+        // Bounded parse before the floor check + setScale (exponent DoS).
+        BigDecimal price = com.sboxmarket.util.MoneyParse.parse(priceRaw, 'price', 'INVALID_PRICE')
         // Floor at $0.01 (matches the single-list path + relist DTO) — a
         // sub-cent bulk price would round to $0.00 per row in NUMERIC(10,2).
         if (price < new BigDecimal("0.01")) throw new BadRequestException("INVALID_PRICE", "price must be at least \$0.01")
@@ -686,10 +676,7 @@ class SteamInventoryController {
         BigDecimal bulkMaxDiscount = null
         def rawBulkMaxDisc = body?.maxDiscount
         if (rawBulkMaxDisc != null && rawBulkMaxDisc.toString().trim()) {
-            try { bulkMaxDiscount = new BigDecimal(rawBulkMaxDisc.toString()) }
-            catch (NumberFormatException ignored) {
-                throw new BadRequestException("INVALID_DISCOUNT", "maxDiscount must be a valid number")
-            }
+            bulkMaxDiscount = com.sboxmarket.util.MoneyParse.parse(rawBulkMaxDisc, 'maxDiscount', 'INVALID_DISCOUNT')
             if (bulkMaxDiscount < BigDecimal.ZERO || bulkMaxDiscount >= BigDecimal.ONE) {
                 throw new BadRequestException("INVALID_DISCOUNT",
                     "maxDiscount must be between 0 and 1 (exclusive)")

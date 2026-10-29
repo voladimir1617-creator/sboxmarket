@@ -57,7 +57,7 @@ class WatchlistAlertController {
         BigDecimal target
         try {
             itemId = Long.parseLong(body.itemId.toString().trim())
-            target = new BigDecimal(body.targetPrice.toString().trim())
+            target = com.sboxmarket.util.MoneyParse.parse(body.targetPrice, 'targetPrice', 'INVALID_PARAMETER')
         } catch (NumberFormatException e) {
             // Preserve the cause chain (Throwable arg) AND use a fixed
             // safe message — never echo the JDK NumberFormatException

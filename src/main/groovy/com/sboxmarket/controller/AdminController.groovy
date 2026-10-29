@@ -233,11 +233,7 @@ class AdminController {
             if (raw == null || raw.toString().isEmpty()) {
                 item.steamPrice = null
             } else {
-                BigDecimal p
-                try { p = new BigDecimal(raw.toString()) }
-                catch (NumberFormatException ignored) {
-                    throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "steamPrice must be a number")
-                }
+                BigDecimal p = com.sboxmarket.util.MoneyParse.parse(raw, 'steamPrice', 'INVALID_PRICE')
                 if (p < BigDecimal.ZERO) throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "steamPrice must be ≥ 0")
                 if (p > new BigDecimal("100000")) throw new com.sboxmarket.exception.BadRequestException("PRICE_TOO_HIGH", 'steamPrice must not exceed $100,000')
                 item.steamPrice = p
@@ -711,11 +707,8 @@ class AdminController {
         if (body?.amount == null) {
             throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount is required")
         }
-        BigDecimal amt
-        try { amt = new BigDecimal(body.amount.toString()) }
-        catch (NumberFormatException ignored) {
-            throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be a valid number")
-        }
+        // Bounded parse (length + scale/precision): see MoneyParse.
+        BigDecimal amt = com.sboxmarket.util.MoneyParse.parse(body.amount, 'amount', 'INVALID_AMOUNT')
         InputLimits.requireMax(body, 'note',
             InputLimits.MEDIUM_TEXT, 'NOTE_TOO_LONG', 'note')
         ResponseEntity.ok(adminService.creditWallet(uid, id, amt, body.note as String))
@@ -1188,10 +1181,7 @@ class AdminController {
         def adminUserId = requireAdmin(req)
         BigDecimal amount = null
         if (body?.amount != null) {
-            try { amount = new BigDecimal(body.amount.toString()) }
-            catch (NumberFormatException ignored) {
-                throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be a valid number")
-            }
+            amount = com.sboxmarket.util.MoneyParse.parse(body.amount, 'amount', 'INVALID_AMOUNT')
         }
         // StripeService.refundDeposit throws java.util.NoSuchElementException
         // for a missing deposit tx (or its wallet) — that type has no
