@@ -1925,6 +1925,10 @@ function AdminTradesTab() {
               ),
               openChat === r.id && h('tr', { key: r.id + '-chat' },
                 h('td', { colSpan: 8, style: { padding: 12, background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' } },
+                  // On a phone the table scrolls sideways and this cell spans all
+                  // of it, so the chat sat off-screen (centred in ~830px). Keep
+                  // it pinned to the visible part of the table.
+                  h('div', { style: { position: 'sticky', left: 0, maxWidth: 'calc(100vw - 84px)' } },
                   // `undefined` = fetch still in flight; `[]` = loaded-empty.
                   // Distinguishing the two stops the panel flashing "No
                   // messages in this trade." before the request resolves.
@@ -1978,6 +1982,7 @@ function AdminTradesTab() {
                           }, 'Redact')
                         ))
                       )
+                  )
                 )
               )
             ]).flat())
