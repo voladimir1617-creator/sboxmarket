@@ -15219,27 +15219,32 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                   title: 'Download the per-listing analytics for every active listing in your stall (capped at 500 rows) as CSV — useful for offline rank-sorting / pivot-table work in Excel.'
                 }, '⇣ CSV')
               ),
-              h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
-                h('div', null, 'Item'),
+              // One grid for the header and every row (each a subgrid), so an
+              // `auto` column is as wide in the header as in the rows. With a
+              // grid per row the headings drifted off their numbers and a
+              // seller read the price under "vs Floor".
+              h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', columnGap: 10 } },
+              h('div', { style: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'subgrid', padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
+                h('div', { style: { textAlign: 'left' } }, 'Item'),
                 h('div', { style: { textAlign: 'right' } }, 'My Price'),
                 h('div', { style: { textAlign: 'right' } }, 'vs Floor'),
                 h('div', { style: { textAlign: 'right' } }, 'Views'),
                 h('div', { style: { textAlign: 'right' } }, '30d Sold')),
               analytics.map(row => h('div', {
                 key: row.listingId,
-                style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
+                style: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'subgrid', padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
               },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
                   row.imageUrl && h('img', { src: row.imageUrl, alt: '', style: { width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' } }),
                   h('div', { style: { minWidth: 0, overflow: 'hidden' } },
                     h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, row.itemName || `#${row.itemId}`),
-                    h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
+                    h('div', { style: { fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600 } }, fmt(row.price)),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
                   row.floorDelta == null ? '—' : (parseFloat(row.floorDelta) >= 0 ? '+' : '') + fmt(row.floorDelta)),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-secondary)' } }, Number(row.viewCount || 0).toLocaleString()),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? row.itemSales30d : '—')
-              ))
+              )))
             )
     ),
     tab === 'sold' && (
