@@ -62,8 +62,16 @@ class WalletController {
     @org.springframework.beans.factory.annotation.Value('${wallet.daily-withdrawal-cap:5000}')
     BigDecimal dailyWithdrawalCap
 
-    /** Demo fallback — used when no one is logged in so the marketplace stays browsable. */
-    private static final Long DEMO_WALLET_ID = 1L
+    /** Demo fallback — used when no one is logged in so the marketplace stays browsable.
+     *  Found by the username SeedService gives it, never by id: SeedService only
+     *  runs with the demo catalogue on, so on a fresh live database wallet #1
+     *  is the first real user's, and an id check hid their history and payout
+     *  setup as if it were the demo wallet. Real wallets are "steam_<id64>". */
+    private static final String DEMO_WALLET_USERNAME = 'demo'
+
+    private static boolean isDemoWallet(Wallet w) {
+        w != null && w.username == DEMO_WALLET_USERNAME
+    }
 
     /** Resolve the wallet for the current session, falling back to the demo wallet. */
     @Transactional
@@ -98,7 +106,7 @@ class WalletController {
                 return w
             }
         }
-        walletRepository.findById(DEMO_WALLET_ID).orElse(null)
+        walletRepository.findByUsername(DEMO_WALLET_USERNAME)
     }
 
     protected SteamUser currentUser(HttpServletRequest req) {
@@ -281,7 +289,7 @@ class WalletController {
         def userId = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (userId == null) throw new UnauthorizedException()
         def wallet = currentWallet(req)
-        if (wallet == null || wallet.id == DEMO_WALLET_ID) {
+        if (wallet == null || isDemoWallet(wallet)) {
             // Demo wallet never belongs to a signed-in user, so a real
             // session with no real wallet yet means "zero history".
             return ResponseEntity.ok([
@@ -346,7 +354,7 @@ class WalletController {
         def userId = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (userId == null) throw new UnauthorizedException()
         def wallet = currentWallet(req)
-        boolean noLedger = wallet == null || wallet.id == DEMO_WALLET_ID
+        boolean noLedger = wallet == null || isDemoWallet(wallet)
         long now = System.currentTimeMillis()
         long day = 24L * 60L * 60L * 1000L
         Map<String, Long> windows = ['7d': now - 7L * day, '30d': now - 30L * day, 'all': 0L]
@@ -364,7 +372,7 @@ class WalletController {
         def user = currentUser(req)
         if (user == null) throw new UnauthorizedException("Sign in to view your payouts")
         def wallet = currentWallet(req)
-        if (wallet != null && wallet.id == DEMO_WALLET_ID) wallet = null
+        if (isDemoWallet(wallet)) wallet = null
         ResponseEntity.ok(sellerPayoutService.summary(user.id, wallet))
     }
 
@@ -402,11 +410,11 @@ class WalletController {
         // session whose `steamUserId` points at a since-deleted user
         // still passes the gate above, but currentWallet() then fails to
         // resolve the user row and falls through to the persisted demo
-        // wallet (findById(DEMO_WALLET_ID)) — leaking its ledger again,
+        // wallet (the "demo" wallet) — leaking its ledger again,
         // the exact class of bug batch 977 set out to close. Reject the
         // demo wallet explicitly so a stale session gets an empty list,
-        // matching the `wallet.id == DEMO_WALLET_ID` guard on /spend.
-        if (wallet == null || wallet.id == DEMO_WALLET_ID) return ResponseEntity.ok([])
+        // matching the isDemoWallet guard on /spend.
+        if (wallet == null || isDemoWallet(wallet)) return ResponseEntity.ok([])
         // SQL-level LIMIT 500 so only 500 rows leave the database.
         // Previous code loaded everything then sliced in memory.
         def txs = transactionRepository.findByWalletIdOrderByCreatedAtDesc(
@@ -839,7 +847,7 @@ class WalletController {
         def user = currentUser(req)
         if (user == null) throw new UnauthorizedException("Sign in to view payout status")
         def wallet = currentWallet(req)
-        if (wallet == null || wallet.id == DEMO_WALLET_ID) {
+        if (wallet == null || isDemoWallet(wallet)) {
             // No real wallet yet — report a clean "needs onboarding" state
             // rather than leaking the demo wallet's payout flags.
             return ResponseEntity.ok([

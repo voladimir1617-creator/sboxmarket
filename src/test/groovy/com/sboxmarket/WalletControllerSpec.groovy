@@ -397,7 +397,7 @@ class WalletControllerSpec extends Specification {
         def user = verifiedUser()
         steamUserRepository.findById(10L) >> Optional.of(user)
         walletRepository.findByUsername('steam_111') >> null
-        walletRepository.save(_) >> new Wallet(id: 1L)   // DEMO_WALLET_ID sentinel
+        walletRepository.save(_) >> new Wallet(id: 1L, username: 'demo')   // demo wallet sentinel
 
         when:
         def resp = controller.getSpendSummary(reqFor(10L))
@@ -502,7 +502,7 @@ class WalletControllerSpec extends Specification {
         given:
         steamUserRepository.findById(10L) >> Optional.of(verifiedUser())
         walletRepository.findByUsername('steam_111') >> null
-        walletRepository.save(_) >> new Wallet(id: 1L)   // DEMO_WALLET_ID sentinel
+        walletRepository.save(_) >> new Wallet(id: 1L, username: 'demo')   // demo wallet sentinel
 
         when:
         def body = controller.getActivitySummary(reqFor(10L)).body
@@ -552,8 +552,7 @@ class WalletControllerSpec extends Specification {
         // endpoint queried its ledger, a stale session would see it —
         // the exact leak class batch 977 set out to close, but its
         // short-circuit only covered the anonymous (userId == null) case.
-        walletRepository.findById(1L) >> Optional.of(
-            new Wallet(id: 1L, username: 'demo', balance: new BigDecimal('250'), currency: 'USD'))
+        walletRepository.findByUsername('demo') >> new Wallet(id: 1L, username: 'demo', balance: new BigDecimal('250'), currency: 'USD')
 
         when:
         def resp = controller.getTransactions(reqFor(99L))
@@ -562,6 +561,22 @@ class WalletControllerSpec extends Specification {
         0 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(_, _)
         resp.statusCode.value() == 200
         resp.body == []
+    }
+
+    def "getTransactions() a real user's wallet that happens to be id 1 (fresh live database, no demo seed) returns its ledger"() {
+        given:
+        def user = verifiedUser()
+        def wallet = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('9.80'), currency: 'USD')
+        def txs = [new Transaction(id: 3L, type: 'SALE', amount: new BigDecimal('9.80'))]
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(1L, _) >> txs
+
+        when:
+        def resp = controller.getTransactions(reqFor(10L))
+
+        then:
+        resp.body.is(txs)
     }
 
     // ─── GET /api/wallet/transactions.csv ───────────────────────────
@@ -1450,7 +1465,7 @@ class WalletControllerSpec extends Specification {
         def user = verifiedUser()
         steamUserRepository.findById(10L) >> Optional.of(user)
         walletRepository.findByUsername('steam_111') >> null
-        walletRepository.save(_) >> new Wallet(id: 1L)   // DEMO_WALLET_ID
+        walletRepository.save(_) >> new Wallet(id: 1L, username: 'demo')   // demo wallet
         stripeService.isLive() >> true
 
         when:

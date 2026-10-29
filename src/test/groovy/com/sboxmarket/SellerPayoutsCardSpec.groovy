@@ -67,7 +67,7 @@ class SellerPayoutsCardSpec extends Specification {
 
     def "the shared demo wallet never leaks into a seller's payouts"() {
         given:
-        def demo = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('250'))
+        def demo = new Wallet(id: 1L, username: 'demo', balance: new BigDecimal('250'))
         steamUserRepository.findById(9L) >> Optional.of(new SteamUser(id: 9L, steamId64: '111'))
         walletRepository.findByUsername('steam_111') >> demo
 
