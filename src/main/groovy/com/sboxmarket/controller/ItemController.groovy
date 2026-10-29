@@ -62,7 +62,10 @@ class ItemController {
         if ((q == null || q.isBlank()) && search != null && !search.isBlank()) {
             q = search
         }
-        if (q != null) q = q.replace('\u0000', '')
+        // Trim like /api/listings and /api/database do: `?q=%20%20` returned
+        // no items instead of the whole catalogue, and `?q=%20hat%20` missed
+        // every hat because the LIKE pattern kept the spaces.
+        if (q != null) q = q.replace('\u0000', '').trim()
         if (category != null) category = category.replace('\u0000', '')
         if (rarity != null) rarity = rarity.replace('\u0000', '')
         if (q != null && q.length() > 100) q = q.substring(0, 100)
