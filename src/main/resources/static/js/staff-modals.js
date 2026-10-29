@@ -2230,6 +2230,7 @@ function AdminDashboardTab({ onNavTab }) {
       )
     );
   const depositDelta = delta(stats.deposits24h, stats.depositsPrior24h);
+  const zeroSearches = Array.isArray(stats.zeroResultSearches) ? stats.zeroResultSearches : [];
   const salesDelta   = delta(stats.sales24h,    stats.salesPrior24h);
   return h('div', { className: 'profile-panel' },
     h('div', { className: 'admin-stats-grid' },
@@ -2269,7 +2270,26 @@ function AdminDashboardTab({ onNavTab }) {
       // them. A spike here is a card-fraud surge even when the active
       // count stays low. Click jumps to Disputes for drill-down.
       Stat('Chargebacks · 30d',    Number(stats.chargebacks30d || 0),
-           stats.chargebacks30d > 5 ? 'yellow' : '', null, 'disputes')
+           stats.chargebacks30d > 5 ? 'yellow' : '', null, 'disputes'),
+      // Supply concentration: the top 5 sellers' share of completed sale
+      // volume over 30 days. A dash until anything has sold.
+      Stat('Top 5 sellers · 30d share', stats.top5Share30d == null ? '—' : `${stats.top5Share30d}%`,
+           stats.top5Share30d >= 80 ? 'yellow' : '', null, 'trades')
+    ),
+    // Searches that found nothing since the last restart — items buyers
+    // want that nobody lists. In memory only; no user is recorded.
+    zeroSearches.length > 0 && h('div', { className: 'admin-activity', style: { marginTop: 20 } },
+      h('div', { className: 'admin-activity-head' },
+        h('span', { className: 'section-title-dot' }),
+        'Searches with no results',
+        h('span', { className: 'admin-activity-hint' }, 'since last restart · top 10')
+      ),
+      h('div', { className: 'admin-activity-list' },
+        zeroSearches.map(z => h('div', { key: z.term, className: 'admin-activity-row' },
+          h('span', { className: 'admin-activity-event' }, `${z.count}×`),
+          h('span', { className: 'admin-activity-summary' }, z.term)
+        ))
+      )
     ),
     // Recent activity feed — compact list of the last 10 audit rows
     // with event type, actor, subject, and relative time. Clicking a

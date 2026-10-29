@@ -507,6 +507,28 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
                                                    org.springframework.data.domain.Pageable page)
 
     /**
+     * Sellers ranked by VERIFIED sale revenue since the cutoff. Drives the
+     * admin dashboard's "top 5 sellers' share of volume" tile, which asks
+     * whether supply rests on a few sellers.
+     */
+    @Query("""
+        SELECT t.sellerUserId AS sellerUserId,
+               SUM(t.price)   AS totalRevenue
+          FROM Trade t
+         WHERE t.state        = 'VERIFIED'
+           AND t.settledAt   >= :since
+           AND t.sellerUserId IS NOT NULL
+         GROUP BY t.sellerUserId
+         ORDER BY SUM(t.price) DESC
+    """)
+    List<Map<String, Object>> findSellerRevenueSince(@Param("since") Long since,
+                                                     org.springframework.data.domain.Pageable page)
+
+    /** Total VERIFIED sale revenue since the cutoff (null when none). */
+    @Query("SELECT SUM(t.price) FROM Trade t WHERE t.state = 'VERIFIED' AND t.settledAt >= :since")
+    BigDecimal sumVerifiedRevenueSince(@Param("since") Long since)
+
+    /**
      * Ship-time samples for the "Typically ships in ~N hours" stall metric
      * (batch 550). Returns the delta between each verified trade's sent_at
      * and created_at for a seller over the lookback window. The service

@@ -41,6 +41,7 @@ class SellService {
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
     @Autowired(required = false) SellerFollowService sellerFollowService
+    @Autowired(required = false) @Lazy SellerMarketPingService sellerMarketPingService
     @Autowired(required = false) SavedSearchService savedSearchService
     @Autowired(required = false) BidRepository bidRepository
     @Autowired(required = false) OfferRepository offerRepository
@@ -418,6 +419,13 @@ class SellService {
             sellerFollowService?.notifyFollowersOfNewListing(saved)
         } catch (Exception e) {
             log.warn("Follower fanout failed for listing ${saved.id}: ${e.message}")
+        }
+        // Tell other sellers of this item priced above it that they were
+        // undercut. Skips itself while the listing waits on its deposit.
+        try {
+            sellerMarketPingService?.notifyUndercut(saved)
+        } catch (Exception e) {
+            log.warn("Undercut ping failed for listing ${saved.id}: ${e.message}")
         }
         // Saved-search match fanout — same isolation contract as above.
         try {
