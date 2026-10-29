@@ -31,7 +31,20 @@ const DEFAULT_STATES = {
 const ACTIVE_ONLY_FILTER = 1;
 
 const REGISTRY_LIMIT = 5000;
-const CONFIRM_GIVE_UP_MS = 60 * 60 * 1000;
+// A failed confirmation is retried on every timer tick for the first hour, then
+// on a doubling delay (1 min, 2 min, ... capped at 30 min) until the offer
+// leaves needs_confirmation or a week has passed. It used to be dropped after
+// one hour, which left the offer stuck in needs_confirmation for good: the
+// backend treats that as non-terminal and polls it until its own timeout.
+const CONFIRM_FAST_MS = 60 * 60 * 1000;
+const CONFIRM_BACKOFF_BASE_MS = 60 * 1000;
+const CONFIRM_BACKOFF_MAX_MS = 30 * 60 * 1000;
+const CONFIRM_GIVE_UP_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Delay before the n-th (1-based) confirmation retry after the first hour. */
+function confirmBackoffMs(n) {
+  return Math.min(CONFIRM_BACKOFF_BASE_MS * 2 ** Math.max(0, n - 1), CONFIRM_BACKOFF_MAX_MS);
+}
 
 function createBotCore(opts) {
   const getManager = opts.getManager;
@@ -50,8 +63,29 @@ function createBotCore(opts) {
   const inflight = new Map();
   // asset ids a give-offer is being built for right now -> key.
   const committing = new Map();
-  // offerId -> { at, attempts } for our own offers whose confirmation failed.
+  // offerId -> { at, attempts, slowAttempts, nextAt } for our own offers whose
+  // confirmation failed.
   const needsConfirm = new Map();
+
+  // sent + needsConfirm survive a restart through opts.store (lib/state-store.js)
+  // when one is given. Without a store (tests, or none configured) both stay
+  // in memory only, as before.
+  const store = opts.store || null;
+  if (store) {
+    const saved = store.load();
+    for (const [id, entry] of saved.sent) sent.set(String(id), entry);
+    while (sent.size > REGISTRY_LIMIT) sent.delete(sent.keys().next().value);
+    for (const [id, entry] of saved.needsConfirm) {
+      needsConfirm.set(String(id), Object.assign({ at: now(), attempts: 0 }, entry));
+    }
+    if (saved.sent.length || saved.needsConfirm.length) {
+      log.log('[bot] restored %d sent offer(s) and %d awaiting confirmation from %s',
+        sent.size, needsConfirm.size, store.file || 'state store');
+    }
+  }
+  function persist() {
+    if (store) store.save({ sent: [...sent], needsConfirm: [...needsConfirm] });
+  }
 
   const LIVE = new Set([S.Active, S.CreatedNeedsConfirmation, S.InEscrow]);
 
@@ -98,6 +132,7 @@ function createBotCore(opts) {
   function remember(offerId, entry) {
     sent.set(String(offerId), entry);
     if (sent.size > REGISTRY_LIMIT) sent.delete(sent.keys().next().value);
+    persist();
   }
 
   /**
@@ -120,7 +155,7 @@ function createBotCore(opts) {
       } catch (err) {
         // Steam no longer has it: nothing to collide with. Anything else is
         // a failed check and refuses the send.
-        if (/no matching|not found/i.test(String(err && err.message))) { sent.delete(id); continue; }
+        if (/no matching|not found/i.test(String(err && err.message))) { sent.delete(id); persist(); continue; }
         throw err;
       }
       candidates.set(String(offer.id), offer);
@@ -144,11 +179,14 @@ function createBotCore(opts) {
   async function confirmOwn(offer) {
     try {
       await p((cb) => community.acceptConfirmationForObject(identitySecret, offer.id, cb));
-      needsConfirm.delete(String(offer.id));
+      if (needsConfirm.delete(String(offer.id))) persist();
       log.log('[bot] confirmed offer #%s', offer.id);
       return null;
     } catch (err) {
-      if (!needsConfirm.has(String(offer.id))) needsConfirm.set(String(offer.id), { at: now(), attempts: 0 });
+      if (!needsConfirm.has(String(offer.id))) {
+        needsConfirm.set(String(offer.id), { at: now(), attempts: 0 });
+        persist();
+      }
       log.error('[bot] confirmation failed for offer #%s, will retry: %s', offer.id, err.message || err);
       return err;
     }
@@ -339,13 +377,25 @@ function createBotCore(opts) {
 
   /**
    * Re-try confirming our own offers whose first confirmation failed. Only ids
-   * this process sent are ever touched; an offer no longer waiting for a
-   * confirmation, or one stuck past an hour, is dropped from the list.
+   * this bot sent are ever touched (the list is restored from the state file
+   * after a restart). An offer no longer waiting for a confirmation is dropped.
+   * One still waiting is retried every tick for the first hour, then on a
+   * doubling delay capped at 30 min, and given up only after a week.
    */
   async function retryConfirmations() {
-    const out = { confirmed: [], dropped: [], failed: [] };
+    const out = { confirmed: [], dropped: [], failed: [], deferred: [] };
     if (!isReady()) return out;
     for (const [id, entry] of [...needsConfirm]) {
+      const t = now();
+      if (t - entry.at > CONFIRM_GIVE_UP_MS) {
+        needsConfirm.delete(id);
+        persist();
+        out.dropped.push(id);
+        log.error('[bot] gave up confirming offer #%s after %d attempts over %d h; confirm it by hand ' +
+          'in the authenticator or cancel it', id, entry.attempts, Math.round((t - entry.at) / 3600000));
+        continue;
+      }
+      if (entry.nextAt && t < entry.nextAt) { out.deferred.push(id); continue; }
       let offer;
       try {
         [offer] = await p((cb) => getManager().getOffer(id, cb));
@@ -355,18 +405,22 @@ function createBotCore(opts) {
       }
       if (offer.state !== S.CreatedNeedsConfirmation) {
         needsConfirm.delete(id);
+        persist();
         out.dropped.push(id);
-        continue;
-      }
-      if (now() - entry.at > CONFIRM_GIVE_UP_MS) {
-        needsConfirm.delete(id);
-        out.dropped.push(id);
-        log.error('[bot] gave up confirming offer #%s after %d attempts; Steam cancels it on its own', id, entry.attempts);
         continue;
       }
       entry.attempts += 1;
       const err = await confirmOwn(offer);
-      (err ? out.failed : out.confirmed).push(id);
+      if (err) {
+        if (now() - entry.at > CONFIRM_FAST_MS) {
+          entry.slowAttempts = (entry.slowAttempts || 0) + 1;
+          entry.nextAt = now() + confirmBackoffMs(entry.slowAttempts);
+        }
+        if (needsConfirm.has(id)) persist();
+        out.failed.push(id);
+      } else {
+        out.confirmed.push(id);
+      }
     }
     return out;
   }
@@ -383,4 +437,7 @@ function createBotCore(opts) {
   };
 }
 
-module.exports = { createBotCore, DEFAULT_STATES };
+module.exports = {
+  createBotCore, DEFAULT_STATES, confirmBackoffMs,
+  CONFIRM_FAST_MS, CONFIRM_BACKOFF_MAX_MS, CONFIRM_GIVE_UP_MS,
+};

@@ -35,11 +35,12 @@
  */
 
 const http = require('http');
-const { parseTradeUrl, validateOfferBody, isValidOfferId, tokenMatches } = require('./lib/guards');
+const {
+  parseTradeUrl, validateOfferBody, isValidOfferId, tokenMatches, UNAUTHORIZED_BODY, LOOPBACK_HOSTS: LOOPBACK,
+} = require('./lib/guards');
 
 const BOT_STEAM_ID = '76561190000000001';
 const DEFAULT_ITEMS = ['Fake Wizard Hat', 'Fake Leather Jacket', 'Fake Aviator Glasses'];
-const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 
 /** steamid64 from a trade URL's partner= (a 32-bit account id), or null. */
 function partnerSteamId(tradeUrl) {
@@ -173,7 +174,7 @@ function createFakeBot(opts = {}) {
       if (m[2] !== appId) return [200, { assets: [], descriptions: [], total_inventory_count: 0, success: 1 }];
       return [200, steamInventoryJson(m[1])];
     }
-    if (!tokenMatches(auth, apiToken)) return [401, { ok: false, error: 'unauthorized' }];
+    if (!tokenMatches(auth, apiToken)) return [401, Object.assign({}, UNAUTHORIZED_BODY)];
 
     if (method === 'POST' && path === '/offers/send') return createOffer('give', body);
     if (method === 'POST' && path === '/offers/request') return createOffer('receive', body);

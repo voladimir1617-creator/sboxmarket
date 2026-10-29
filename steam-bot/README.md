@@ -124,8 +124,9 @@ authenticator:
 
 ### 4. Get a Steam Web API key (optional)
 - Visit <https://steamcommunity.com/dev/apikey> while logged in as the bot and create a key.
-- Not needed: the sidecar ignores `STEAM_BOT_API_KEY` (index.js logs that it is unused);
-  `steam-tradeoffer-manager` obtains its own key after the first web login. Leave it blank.
+- Not needed: the sidecar ignores `STEAM_BOT_API_KEY` (index.js logs that it is unused).
+  `steam-tradeoffer-manager` runs with `useAccessToken: true` and authenticates its Web API
+  calls with the login session's access token, so no key is looked up or created. Leave it blank.
 
 ### 5. Configure environment
 ```bash
@@ -135,9 +136,27 @@ cp .env.example .env
 ```
 - `BOT_API_TOKEN` must **exactly match** the `BOT_API_TOKEN` the backend uses for
   `SteamTradeBotService` (see backend section below). Generate a strong value:
-  `openssl rand -hex 32`.
+  `openssl rand -hex 32`. Re-running `setup-steam-bot.ps1` keeps the token already in `.env`.
+- **Quote the password if it contains `#`** (or spaces): `STEAM_BOT_PASSWORD='pa#ss'`.
+  Node's `--env-file` reads an unquoted `#` as the start of a comment and silently cuts the
+  password there; Steam then answers `InvalidPassword` and the bot stops retrying. Use
+  double quotes instead if the password contains a `'`.
+- `BOT_HOST` must be `127.0.0.1`, `::1` or `localhost`. The sidecar refuses to start on any
+  other address unless `BOT_ALLOW_REMOTE=yes` is also set (only for a private network).
+- `STEAM_BOT_STATE_FILE` (optional, default `steam-bot/data/state.json`, gitignored) is where
+  the bot keeps the offers it sent and the ones still awaiting its mobile confirmation, so a
+  restart does not strand them. It holds offer, asset and Steam ids only.
 
-### 6. Install + run
+### 6. Sync the clock, install + run
+**Keep the bot PC's clock synced** (Windows: Settings > Time & language > Date & time >
+"Set time automatically" on, then **Sync now**; Linux: `timedatectl set-ntp true`). Steam
+Guard codes are time-based. The bot reads Steam's own clock at login
+(`SteamTotp.getTimeOffset`) and logs a warning if the PC is 10 s or more off, and when Steam
+rejects a code it waits for the next 30 s window instead of re-sending it. It never prompts
+on the console for a code; an email-code request or repeated rejections stop the login with
+the reason in `/health` `lastError`.
+
+Requires **Node.js 20.6 or newer** (`--env-file` first appeared in 20.6; current LTS is fine).
 ```bash
 npm install
 node --env-file=.env index.js   # Node 20.6+; plain `npm start` does NOT read .env
@@ -150,7 +169,16 @@ Verify:
 ```bash
 curl -s http://127.0.0.1:4000/health | jq
 ```
-You should see `"ready": true`.
+You should see `"ready": true`. That does **not** prove the token: `/health` takes none.
+Check it with any token-protected GET, using the exact `BOT_API_TOKEN` the backend has:
+```bash
+curl -s -H "Authorization: Bearer $BOT_API_TOKEN" http://127.0.0.1:4000/inventory | jq '.ok, .count'
+# Windows PowerShell:
+#   curl.exe -s -H "Authorization: Bearer <token>" http://127.0.0.1:4000/inventory
+```
+`"ok": true` means the token matches. `{"ok":false,"error":"unauthorized","retryable":false,...}`
+(HTTP 401) means the two `BOT_API_TOKEN` values differ; the backend sees the same 401 on every
+call and, because it is marked `retryable:false`, will not keep retrying it.
 
 ### 7. Wire the backend
 Set these on the Spring Boot app (env or `application.yml`):
@@ -209,12 +237,17 @@ parsing Steam's prose:
 ```json
 { "ok": false, "error": "RATE_LIMITED", "message": "..." }
 ```
-Codes: `RATE_LIMITED` (HTTP 429), `ESCROW_HOLD`, `BAD_TRADE_URL` (400), `INVENTORY_ERROR`,
+Codes: `RATE_LIMITED` (HTTP 429, eresult 84 or a throttle message), `LIMIT_EXCEEDED`
+(502, eresult 25: too many offers outstanding or the partner's inventory is full; retryable),
+`ESCROW_HOLD`, `BAD_TRADE_URL` (400), `INVENTORY_ERROR` (final only for eresult 26, the asset
+is gone; retryable when known only from the message text),
 `NOT_READY` (HTTP 503 — not logged in / cookies not set yet), `STEAM_UNAVAILABLE` (503),
 `TRADE_BANNED_OR_UNTRADABLE`, `ASSET_COMMITTED` (409), `GIVES_ITEMS` (409),
-`OFFER_NOT_ACTIVE` (409), `NOTHING_TO_RECEIVE` (409), `BAD_REQUEST` (400), `ERROR` (502).
-Failures also carry `retryable: true/false`. Steam's numeric `eresult` decides the code
-before the message text does.
+`OFFER_NOT_ACTIVE` (409), `NOTHING_TO_RECEIVE` (409), `BAD_REQUEST` (400), `ERROR` (502),
+and `unauthorized` (401, `retryable:false`, `configError:true`: the bearer token is wrong).
+Failures also carry `retryable: true/false`. steam-tradeoffer-manager's `err.cause`
+(`TradeBan`, `TargetCannotTrade`, `OfferLimitExceeded`, `ItemServerUnavailable`) decides
+first, then Steam's numeric `eresult`, then the message text.
 
 - **Trade holds / escrow**: a sent offer the buyer accepts but that Steam puts on hold
   reports status `in_escrow` from `GET /offers/:id`. The backend should treat `in_escrow`
@@ -222,7 +255,11 @@ before the message text does.
 - **Mobile confirmation**: outgoing offers that come back `pending` are confirmed with
   `identity_secret`; `/offers/send` returns `confirmed: true/false` and `status: sent` once
   confirmed. A failed confirmation is retried every `STEAM_BOT_CONFIRM_RETRY_MS` for that
-  offer only, and given up after an hour (`/health` shows `pendingConfirmations`). The bot
+  offer only for the first hour, then on a doubling delay (1 min up to 30 min) until the offer
+  leaves `needs_confirmation`, and given up only after a week (`/health` shows
+  `pendingConfirmations`). The list is saved to `STEAM_BOT_STATE_FILE` on every change and
+  reloaded at boot, so a restart neither forgets an offer awaiting confirmation nor sends a
+  second offer for it. The bot
   never runs steamcommunity's confirmation poller with the secret, because that confirms
   **every** pending trade on the account, including one created with a stolen web session.
 - **Retried sends**: the backend times out at 15 s and re-sends, and Steam plus a
@@ -239,7 +276,9 @@ before the message text does.
   are removed. `GET /offers/:id` returns the `message` Steam holds.
 - **Re-login**: after a fatal Steam error the bot logs in again after 30 s, doubling up to
   15 min (30 min on Steam's login throttle). A wrong password is never retried, so the account
-  is not locked; fix `STEAM_BOT_PASSWORD` and restart. An expired web session is renewed.
+  is not locked; fix `STEAM_BOT_PASSWORD` and restart. An expired web session is renewed. If
+  setting up the trade session fails (`/health` `lastError: setCookies: ...`), the bot asks
+  for a new web session after 60 s, doubling up to 15 min, instead of staying `NOT_READY`.
 - **Rate limits**: Steam throttles trade APIs. The backend's poller uses a modest interval;
   on `RATE_LIMITED` it should back off and retry on the next poll tick (it does not crash a
   trade on a transient throttle).
@@ -247,8 +286,8 @@ before the message text does.
 ---
 
 ## Security notes
-- Bind to `127.0.0.1` (default) or a private network only. Do **not** expose this port to
-  the internet.
+- Bind to `127.0.0.1` (default). The sidecar refuses any non-loopback `BOT_HOST` unless
+  `BOT_ALLOW_REMOTE=yes`. Do **not** expose this port to the internet.
 - Every credential is env-only. `.env` is gitignored; only `.env.example` is tracked.
 - Requests are checked before Steam is called: trade URLs must be
   `https://steamcommunity.com/tradeoffer/new/?partner=N&token=T`, asset and offer ids must be

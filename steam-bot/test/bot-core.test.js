@@ -150,7 +150,7 @@ test('a failed confirmation is retried for the bot\'s own offer only', async () 
   assert.strictEqual(steam.offers.get(sent.offerId).state, S.Active);
 });
 
-test('a confirmation stuck for an hour is given up; a settled one is dropped', async () => {
+test('a confirmation stuck past an hour keeps being retried; a settled one is dropped', async () => {
   let clock = 0;
   const { steam, core } = setup({ now: () => clock });
   steam.knobs.confirmFails = 5;
@@ -159,8 +159,9 @@ test('a confirmation stuck for an hour is given up; a settled one is dropped', a
   steam.settle(b.offerId, S.Canceled);
   clock = 61 * 60 * 1000;
   const out = await core.retryConfirmations();
-  assert.deepStrictEqual(out.dropped.sort(), [a.offerId, b.offerId].sort());
-  assert.deepStrictEqual(core.pendingConfirmations(), []);
+  assert.deepStrictEqual(out.dropped, [b.offerId]);
+  assert.deepStrictEqual(out.failed, [a.offerId], 'still tried after the first hour');
+  assert.deepStrictEqual(core.pendingConfirmations(), [a.offerId]);
 });
 
 test('when Steam cannot be asked about live offers, nothing is sent', async () => {
@@ -174,10 +175,11 @@ test('when Steam cannot be asked about live offers, nothing is sent', async () =
 
 test('a send Steam rejects is reported with a stable code and can be retried', async () => {
   const { steam, core } = setup();
-  steam.knobs.sendError = Object.assign(new Error('There was an error sending your trade offer.'), { eresult: 25 });
+  steam.knobs.sendError = Object.assign(new Error('There was an error sending your trade offer.'), { eresult: 84 });
   const [st, body] = await core.send({ partnerTradeUrl: BUYER_URL, assetIds: ['700'] });
   assert.strictEqual(st, 429);
   assert.strictEqual(body.error, 'RATE_LIMITED');
+  assert.strictEqual(body.retryable, true);
   const [ok] = await core.send({ partnerTradeUrl: BUYER_URL, assetIds: ['700'] });
   assert.strictEqual(ok, 200);
 });
@@ -247,6 +249,7 @@ test('index.js never hands the identity secret to the confirm-everything poller'
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8')
     .replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(!/startConfirmationChecker\s*\(/.test(src), 'startConfirmationChecker confirms every trade on the account');
-  assert.ok(/tokenMatches\(/.test(src), 'API token is compared in constant time');
+  // guards.requireToken wraps the constant-time tokenMatches (tested in hardening.test.js).
+  assert.ok(/app\.use\(guards\.requireToken\(CONFIG\.apiToken\)\)/.test(src), 'API token is compared in constant time');
   assert.ok(/createBotCore\(/.test(src), 'routes go through the tested core');
 });

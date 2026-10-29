@@ -115,7 +115,11 @@ if ($foundIn) {
 
 Step 6 "Validate the secrets"
 if ($shared) {
-  $probe = Join-Path $env:TEMP "steam_totp_probe.js"
+  # The probe MUST live in the bot folder. Node resolves a bare require() from
+  # the requiring SCRIPT's folder, not the current directory, so a probe in
+  # %TEMP% never found steam-totp (Push-Location did not help), printed
+  # "Cannot find module", and the script then wrote a BLANK shared secret.
+  $probe = Join-Path $BotDir ".totp-probe.js"
   # NOTE: generateAuthCode() returns a plausible 5-char code for ANY input --
   # including garbage and an empty string. Measured. So a code alone proves
   # NOTHING. Structure is what can actually be checked here: a real Steam
@@ -169,11 +173,34 @@ else {
   $pwSec = Read-Host "  STEAM_BOT_PASSWORD" -AsSecureString
   $pw = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
           [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pwSec))
-  # 32 bytes from the OS crypto generator. Get-Random is not one, and this
-  # token is the only thing keeping other local processes off the bot's API.
-  $tokBytes = New-Object byte[] 32
-  [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($tokBytes)
-  $token = -join ($tokBytes | ForEach-Object { '{0:x2}' -f $_ })
+  # Keep the BOT_API_TOKEN an existing .env already has: the Spring app holds a
+  # copy, and a fresh token on every re-run silently broke every backend call
+  # with 401 until someone copied the new one across.
+  $token = $null
+  if (Test-Path $EnvFile) {
+    $prev = Get-Content $EnvFile | Where-Object { $_ -match '^\s*BOT_API_TOKEN\s*=' } | Select-Object -Last 1
+    if ($prev) {
+      $prevVal = ($prev -replace '^\s*BOT_API_TOKEN\s*=\s*', '').Trim().Trim("'", '"')
+      if ($prevVal -and $prevVal -ne 'change_me_long_random_shared_token') { $token = $prevVal }
+    }
+  }
+  $tokenIsNew = -not $token
+  if ($tokenIsNew) {
+    # 32 bytes from the OS crypto generator. Get-Random is not one, and this
+    # token is the only thing keeping other local processes off the bot's API.
+    $tokBytes = New-Object byte[] 32
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($tokBytes)
+    $token = -join ($tokBytes | ForEach-Object { '{0:x2}' -f $_ })
+  }
+
+  # Quote the password: Node's --env-file reads an unquoted # as the start of a
+  # comment and cuts the password there (Steam then says InvalidPassword).
+  if ($pw -notmatch "'") { $pwLine = "STEAM_BOT_PASSWORD='$pw'" }
+  elseif ($pw -notmatch '"') { $pwLine = "STEAM_BOT_PASSWORD=""$pw""" }
+  else {
+    $pwLine = "STEAM_BOT_PASSWORD='$pw'"
+    Warn "the password contains both ' and "" - .env cannot quote it safely. Change the bot password to one without both."
+  }
 
   if (Test-Path $EnvFile) {
     $bak = "$EnvFile.bak-$(Get-Date -Format yyyyMMddHHmmss)"
@@ -185,7 +212,7 @@ else {
     "# Change to yes only once the owner has said go live.",
     "STEAM_BOT_LIVE=no",
     "STEAM_BOT_USERNAME=$user",
-    "STEAM_BOT_PASSWORD=$pw",
+    $pwLine,
     "STEAM_BOT_SHARED_SECRET=$shared",
     "STEAM_BOT_IDENTITY_SECRET=$identity",
     "BOT_API_TOKEN=$token",
@@ -193,9 +220,13 @@ else {
   )
   Set-Content -Path $EnvFile -Value $lines -Encoding utf8
   Ok ".env written ($($lines.Count) lines)"
-  Say "     A random BOT_API_TOKEN was written to .env (not shown here, so it never"
-  Say "     lands in a screenshot or console log). Copy it from .env into the"
-  Say "     Spring app's BOT_API_TOKEN; the two must be the same value."
+  if ($tokenIsNew) {
+    Say "     A random BOT_API_TOKEN was written to .env (not shown here, so it never"
+    Say "     lands in a screenshot or console log). Copy it from .env into the"
+    Say "     Spring app's BOT_API_TOKEN; the two must be the same value."
+  } else {
+    Ok "kept the existing BOT_API_TOKEN, so the Spring app's copy still matches"
+  }
 }
 
 Step 8 "Start it the RIGHT way"
