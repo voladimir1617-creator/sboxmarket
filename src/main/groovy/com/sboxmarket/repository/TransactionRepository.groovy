@@ -255,6 +255,9 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
      * AND fired a misleading "your deposit expired" notification on top
      * of the wallet credit.
      */
+    // The 4-hourly sweeper calls this outside any transaction; an UPDATE
+    // query needs one, so the method opens its own.
+    @org.springframework.transaction.annotation.Transactional
     @Modifying
     @Query("""
         UPDATE Transaction t
