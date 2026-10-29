@@ -79,4 +79,27 @@ class BuyOrderPauseResumeDbSpec extends Specification {
         // Resume restarts the 30-day clock, so a long pause can't expire it on the spot.
         !(o.id in buyOrderRepo.findStaleActive(System.currentTimeMillis() - 60_000L)*.id)
     }
+
+    def "the demand count is buyers, not orders: one buyer with three orders counts once"() {
+        given:
+        def tail = uniq.reverse().take(9).reverse()
+        def a = userRepo.save(new SteamUser(steamId64: '7656118' + tail.padLeft(10, '0'),
+            displayName: "DemandA-${uniq}", role: 'USER'))
+        def b = userRepo.save(new SteamUser(steamId64: '7656117' + tail.padLeft(10, '0'),
+            displayName: "DemandB-${uniq}", role: 'USER'))
+        def item = itemRepo.save(new Item(name: "Demand ${uniq}", category: 'Accessories', rarity: 'Standard',
+            supply: 1, totalSold: 0, lowestPrice: new BigDecimal('10'), isListed: true, iconEmoji: '🎩'))
+        def now = System.currentTimeMillis()
+        ['5', '6', '7'].each { p ->
+            buyOrderRepo.save(new BuyOrder(buyerUserId: a.id, buyerName: 'a', itemId: item.id, itemName: item.name,
+                maxPrice: new BigDecimal(p), quantity: 1, originalQuantity: 1, status: 'ACTIVE', createdAt: now, updatedAt: now))
+        }
+        buyOrderRepo.save(new BuyOrder(buyerUserId: b.id, buyerName: 'b', itemId: item.id, itemName: item.name,
+            maxPrice: new BigDecimal('4'), quantity: 1, originalQuantity: 1, status: 'ACTIVE', createdAt: now, updatedAt: now))
+
+        expect:
+        buyOrderRepo.countActiveForItem(item.id) == 2L
+        buyOrderController.countForItem(item.id).body.count == 2L
+        buyOrderController.countBulk(String.valueOf(item.id)).body[item.id].count == 2L
+    }
 }

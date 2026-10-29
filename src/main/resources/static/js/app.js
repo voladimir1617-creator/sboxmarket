@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=347'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=348'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -5276,7 +5276,12 @@ export function App() {
   // logout
   const doLogout = async () => {
     await logoutSteam();
-    setMe(null);
+    // Commit the signed-out state before navigate() below. navigate()
+    // fires a popstate, which React renders at a higher priority than this
+    // update, so /market used to mount with the old user still set; its
+    // cards then asked for that user's bids, got a 401, and replaced the
+    // sign-out toast with a red "Sign in with Steam to continue".
+    ReactDOM.flushSync(() => setMe(null));
     setMenuOpen(false);
     loadWallet();
     // Cart + watchlist are per-user signals: the next user to sign in on
@@ -5675,6 +5680,14 @@ export function App() {
     }, 30_000);
     return () => clearInterval(id);
   }, [routeName, load]);
+
+  // A block or unblock changes which sellers the grid may show; reload it
+  // now rather than let the next silent poll call the hidden rows "sold".
+  useEffect(() => {
+    const onBlocks = () => load();
+    window.addEventListener('sb:blocks-changed', onBlocks);
+    return () => window.removeEventListener('sb:blocks-changed', onBlocks);
+  }, [load]);
 
   // open item detail. We push `/item/{id}` onto the URL so the detail view
   // is shareable and back/forward navigation works. The actual fetch happens

@@ -769,9 +769,10 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     // Quantity guard. The backend enforces @Positive + @Max(100) on
     // CreateBuyOrderRequest.quantity, so a typed `-3` / `0` / `250` / a
     // bare `2.5` would bounce back as a generic HTTP 400. Validate here
-    // for a friendly inline message instead. parseInt floors decimals.
-    const qtyN = parseInt(qty || '1', 10);
-    if (!Number.isFinite(qtyN) || qtyN < 1) {
+    // for a friendly inline message instead. A typed 1.5 is refused, not
+    // floored to 1 behind the buyer's back.
+    const qtyN = Number(String(qty || '1').trim());
+    if (!Number.isInteger(qtyN) || qtyN < 1) {
       setErr('Quantity must be a whole number of 1 or more.');
       return;
     }
@@ -1367,6 +1368,15 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     })();
     return () => { alive = false; };
   }, [loadoutId, deepRetry]);
+  // Name the browser tab after the open loadout, like item and stall pages
+  // do. The route-level title is a generic "Loadout · SkinBox", which
+  // replaced the loadout's name the server put in the page title.
+  const viewingName = tab === 'view' && viewing && !viewing.__redirectedFrom ? viewing.loadout?.name : null;
+  useEffect(() => {
+    if (!viewingName) return;
+    const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
+    document.title = currentPrefix + `${viewingName} · ${BRAND.name} Loadout`;
+  }, [viewingName]);
 
   // Race-condition guard — rapid tab switches (discover → mine →
   // favorites) used to fire overlapping requests with no ordering; a
@@ -3393,7 +3403,11 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       const parts = [`Bid ${fmt(a)}`];
       if (name) parts.push(`on "${name}"`);
       if (cap && cap > a) parts.push(`(auto-raise cap ${fmt(cap)})`);
-      toast(parts.join(' ') + ' placed.', 'ok');
+      // Your own auto-bid can out-raise the previous leader's cap on the
+      // spot; the server answers with that higher row. Say where you stand.
+      const standing = parseFloat(res.amount);
+      const raised = standing > a ? ` Your auto-bid raised you to ${fmt(standing)} to stay on top.` : '';
+      toast(parts.join(' ') + ' placed.' + raised, 'ok');
       load();
       onPlaced && onPlaced();
     } finally { setBusy(false); }

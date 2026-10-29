@@ -1853,23 +1853,29 @@ export async function fetchBlockedUsers() {
   return (data && typeof data === 'object') ? data : null;
 }
 /** Block another user — non-destructive, silent to the blocked user. */
+// The market grid refetches on this. Left to its 30s poll, it dropped the
+// blocked seller's rows as "N listings just sold".
+function blocksChanged(res) {
+  if (!(res && (res.error || res.code))) window.dispatchEvent(new Event('sb:blocks-changed'));
+  return res;
+}
 export async function blockUser(userId) {
-  return writeJson(`${API}/profile/blocks/${userId}`, {
+  return blocksChanged(await writeJson(`${API}/profile/blocks/${userId}`, {
     method: 'POST', credentials: 'same-origin'
-  });
+  }));
 }
 /** Reverse: remove a block. Idempotent — 0 rows deleted for an
  *  already-unblocked pair is not an error. */
 export async function unblockUser(userId) {
-  return writeJson(`${API}/profile/blocks/${userId}`, {
+  return blocksChanged(await writeJson(`${API}/profile/blocks/${userId}`, {
     method: 'DELETE', credentials: 'same-origin'
-  });
+  }));
 }
 /** Bulk-unblock — clears the caller's entire block list. Batch 355. */
 export async function unblockAllUsers() {
-  return writeJson(`${API}/profile/blocks`, {
+  return blocksChanged(await writeJson(`${API}/profile/blocks`, {
     method: 'DELETE', credentials: 'same-origin'
-  });
+  }));
 }
 /** Seller posts a public reply (or clears with empty string) on one of
  *  their own received reviews. Only the review's toUserId can call this. */
