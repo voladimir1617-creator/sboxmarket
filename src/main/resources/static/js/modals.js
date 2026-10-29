@@ -14073,6 +14073,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   const [held, setHeld] = useState([]);
   // Skins the bot holds for this seller and ones on their way back to Steam.
   const [botCustody, setBotCustody] = useState({ heldListingIds: [], returning: [] });
+  // Listings whose cancel request is still out. The ✕ gave no sign of it on
+  // a slow line, so a seller clicked again, confirmed again and got a red
+  // "not active" error for every extra click after the first one landed.
+  const cancellingRef = useRef(new Set());
+  const [cancellingIds, setCancellingIds] = useState([]);
   // Active-stall fetch failure (vs a genuinely-empty stall) so the modal can
   // show a retry card instead of spinning forever / claiming the seller's live
   // listings vanished — sibling of soldErr. (audit P2)
@@ -14388,14 +14393,22 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     const confirmMsg = inBot
       ? `Withdraw ${label}? Our bot takes it off sale and sends it back to your Steam with a trade offer.`
       : itemName ? `Remove the listing for "${itemName}"?` : 'Remove this listing?';
+    if (cancellingRef.current.has(id)) return;
     if (!confirm(confirmMsg)) return;
-    const res = await cancelListing(id);
-    if (res && res.error) { toast(res.error, 'err'); load(); return; }
-    load();
-    onRefresh && onRefresh();
-    toast(inBot
-      ? `${itemName ? `"${itemName}"` : 'Your item'} is on its way back. Accept our bot's trade offer in Steam to get it.`
-      : itemName ? `Listing for "${itemName}" removed.` : 'Listing removed.', 'ok');
+    cancellingRef.current.add(id);
+    setCancellingIds(Array.from(cancellingRef.current));
+    try {
+      const res = await cancelListing(id);
+      if (res && res.error) { toast(res.error, 'err'); load(); return; }
+      load();
+      onRefresh && onRefresh();
+      toast(inBot
+        ? `${itemName ? `"${itemName}"` : 'Your item'} is on its way back. Accept our bot's trade offer in Steam to get it.`
+        : itemName ? `Listing for "${itemName}" removed.` : 'Listing removed.', 'ok');
+    } finally {
+      cancellingRef.current.delete(id);
+      setCancellingIds(Array.from(cancellingRef.current));
+    }
   };
 
   const startEdit = (l) => {
@@ -15206,7 +15219,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           ),
           h('div', { className: 'bot-offer-side' },
             e.securityCode && h(BotSecurityCode, { code: e.securityCode }),
-            h('button', { className: 'btn btn-ghost bot-offer-cancel', onClick: () => doCancel(l) }, 'Cancel')
+            h('button', { className: 'btn btn-ghost bot-offer-cancel', disabled: cancellingIds.includes(l.id), onClick: () => doCancel(l) }, 'Cancel')
           )
         );
       })
@@ -15976,6 +15989,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
                         title: 'Take it off sale and send it back to your Steam',
                         'aria-label': 'Withdraw to Steam',
+                        disabled: cancellingIds.includes(l.id),
                         onClick: () => doCancel(l)
                       }, 'Withdraw')
                     : h('button', {
@@ -15983,6 +15997,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
                         title: 'Cancel listing',
                         'aria-label': `Cancel listing for ${l.item?.name || 'listing #' + l.id}`,
+                        disabled: cancellingIds.includes(l.id),
                         onClick: () => doCancel(l)
                       }, '✕')
                 )
