@@ -294,7 +294,8 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
     // padding box is the picture's, so the same top/right land in the
     // same place), and on phones it becomes a full-width "Add to cart"
     // bar under the price, which it could not do from inside the picture.
-    !isAuction && onAddToCart && h('button', {
+    // Not on the viewer's own listing: addToCart refuses it with an error toast.
+    !isAuction && onAddToCart && !(meId != null && listing.sellerUserId === meId) && h('button', {
       className: `grid-cart-btn ${inCart ? 'in' : ''}`,
       onClick: e => { e.preventDefault(); e.stopPropagation(); if (!inCart) onAddToCart(listing); },
       title: inCart ? 'Already in cart' : 'Add to cart',

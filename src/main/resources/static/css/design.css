@@ -13604,3 +13604,7 @@ html body nav.nav:has(#user-menu-panel), html body nav.nav:has(#notif-dropdown-p
 }
 /* Account menu: the icon-font glyphs (.mi) missed the 16px icon spacing the svg/material-icons rule gives, so every label sat flush against its icon. */
 body #user-menu-panel .user-menu-item > .mi { margin-right: 16px !important; flex-shrink: 0 !important; }
+/* Phones with the cart tray up: the Filters FAB is lifted above the tray, and Back to top sat on the same spot. Stack it above both. */
+@media (max-width: 720px) {
+  html body:has(.cart-tray) .app-back-to-top { bottom: calc(146px + 52px + 14px + env(safe-area-inset-bottom, 0px)) !important; }
+}
