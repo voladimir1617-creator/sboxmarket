@@ -1069,9 +1069,10 @@ class TradeServiceSpec extends Specification {
         // No REFUND transaction from this cancel — the protection claim
         // already booked the buyer payout.
         0 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
-        // The cover is already CLAIMED — cancel still calls expire() but
-        // it is a correct no-op on a non-ACTIVE protection.
-        1 * tradeProtectionService.expire(1L)
+        // The arbiter consumed the cover under the row lock. cancel() must
+        // NOT call expire(): that REQUIRES_NEW tx would block on the lock
+        // this tx holds (self-deadlock).
+        0 * tradeProtectionService.expire(_)
     }
 
     def "cancel of a protected trade whose protection is still ACTIVE refunds the buyer normally (changed-mind cancel)"() {
@@ -1103,7 +1104,9 @@ class TradeServiceSpec extends Specification {
         t.state == 'CANCELLED'
         buyerWallet.balance == new BigDecimal('50.00')
         1 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' && tx.amount == new BigDecimal('50.00') })
-        1 * tradeProtectionService.expire(1L)
+        // ACTIVE was flipped to EXPIRED by the arbiter under the lock; no
+        // trailing expire() (it would self-deadlock on that lock).
+        0 * tradeProtectionService.expire(_)
     }
 
     def "cancel of an unprotected trade still refunds the buyer when the protection service is wired"() {

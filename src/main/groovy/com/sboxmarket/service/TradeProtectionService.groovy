@@ -76,6 +76,11 @@ class TradeProtectionService {
      *  rise on a charge nobody can decline. See {@link TradeService#FEE_RATE}. */
     static final BigDecimal MIN_FEE = new BigDecimal('0.25')
 
+    /** Trade states in which a buyer may still buy cover: before the seller
+     *  has sent the item. See the PROTECTION_WINDOW_CLOSED gate in enable(). */
+    static final List<String> PROTECTABLE_STATES =
+        ['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND'].asImmutable()
+
     @Autowired TradeProtectionRepository tradeProtectionRepository
     @Autowired TradeRepository tradeRepository
     @Autowired WalletRepository walletRepository
@@ -161,6 +166,16 @@ class TradeProtectionService {
             throw new BadRequestException("TRADE_NOT_PROTECTABLE",
                 "Protection can only be added while the trade is still in escrow.")
         }
+        // Cover can only be bought before the seller has sent the item.
+        // From PENDING_BUYER_CONFIRM on, the item may already be in the
+        // buyer's Steam inventory: buying cover then and disputing pays the
+        // full price out at once (autoClaim), so the buyer would keep the
+        // item and the money. PENDING_SELLER_ACCEPT / PENDING_SELLER_SEND
+        // are the only states before markSent / the bot delivery.
+        if (!(trade.state in PROTECTABLE_STATES)) {
+            throw new BadRequestException("PROTECTION_WINDOW_CLOSED",
+                "Protection can only be added before the seller sends the item.")
+        }
         if (tradeProtectionRepository.existsByTradeId(tradeId)) {
             throw new BadRequestException("PROTECTION_EXISTS",
                 "This trade is already protected.")
@@ -201,6 +216,14 @@ class TradeProtectionService {
                     "dispute${disputed == 1 ? '' : 's'} on file. It'll resume once the chargeback " +
                     "closes or staff clear the hold.")
             }
+        }
+        // Claim hold: an unresolved claim payout must stay in the wallet so
+        // reverseClaim can take it back in full. See
+        // TradeProtectionRepository.countClaimedOnDisputedTrades.
+        long claimHolds = tradeProtectionRepository.countClaimedOnDisputedTrades(buyerUserId)
+        if (claimHolds > 0L) {
+            throw new BadRequestException("PURCHASE_CLAIM_HOLD",
+                "Trade Protection is paused while a protection claim of yours is waiting for support to resolve it.")
         }
         if (wallet.balance < fee) {
             throw new BadRequestException("INSUFFICIENT_BALANCE",
@@ -435,19 +458,18 @@ class TradeProtectionService {
      * No-op when the trade is unprotected or the protection is not in
      * CLAIMED state — safe to call from the release path unconditionally.
      *
-     * REQUIRES_NEW propagation is LOAD-BEARING — TradeService.release
-     * wraps this call in try/catch with explicit "Best-effort: a
-     * protection hiccup must not roll back the seller credit + VERIFIED
-     * transition above". With default REQUIRED propagation an inner
-     * wallet.save() failure would JOIN the release tx and Spring's
-     * proxy would mark it rollback-only — the seller credit, the
-     * VERIFIED state flip, and the auto-release email would all roll
-     * back while the call appears to succeed. REQUIRES_NEW isolates
-     * the protection clawback in its own tx so it can fail without
-     * poisoning the parent release. Mirrors the
-     * WatchlistAlertService.sweepForItem fix (d3a3df7).
+     * REQUIRED propagation is LOAD-BEARING — TradeService.release calls
+     * this right after lockAndExpireIfActiveOrReportClaimed, which has
+     * already taken the PESSIMISTIC_WRITE lock on this protection row in
+     * release's transaction. A REQUIRES_NEW tx here would open a second
+     * connection, block on that row lock, and wait forever for an outer
+     * tx that cannot commit until this call returns (a self-deadlock the
+     * database cannot detect). Joining the caller's tx re-enters the lock
+     * it already holds. It also makes the clawback atomic with the seller
+     * credit: if the clawback fails, the release rolls back with it,
+     * rather than paying the seller while the buyer keeps the cover.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     TradeProtection reverseClaim(Long tradeId, String reason) {
         // PESSIMISTIC_WRITE lock, mirroring autoClaim/lockAndExpireIfActiveOrReportClaimed.
         // reverseClaim is check-then-act (read status == CLAIMED, then debit the
@@ -545,9 +567,12 @@ class TradeProtectionService {
      * No-op when the trade has no protection or the protection has
      * already left ACTIVE. Best-effort, like {@code autoClaim}.
      *
-     * REQUIRES_NEW propagation is LOAD-BEARING — every caller
-     * (TradeService.release, TradeService.cancel,
-     * autoCancelStaleSellerTrade, autoCancelBannedSellerTrade) wraps
+     * Never call this from a transaction that already holds the row lock
+     * from {@link #lockAndExpireIfActiveOrReportClaimed}: this REQUIRES_NEW
+     * tx would block on that lock forever. TradeService's cancel, release
+     * and auto-cancel paths consume the cover through that arbiter instead.
+     *
+     * REQUIRES_NEW propagation is LOAD-BEARING — a caller is expected to wrap
      * this in try/catch with explicit "Best-effort so a protection
      * hiccup can't roll back the refund/CANCELLED/VERIFIED transition
      * above". With default REQUIRED propagation a failing

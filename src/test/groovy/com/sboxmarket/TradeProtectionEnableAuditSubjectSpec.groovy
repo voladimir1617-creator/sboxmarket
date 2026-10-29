@@ -111,7 +111,7 @@ class TradeProtectionEnableAuditSubjectSpec extends Specification {
             buyerWalletId:  900L,
             sellerUserId:   222L,
             price:          new BigDecimal('100.00'),
-            state:          'PENDING_BUYER_CONFIRM'
+            state:          'PENDING_SELLER_SEND'
         )
         def wallet = new Wallet(id: 900L, balance: new BigDecimal('20.00'), currency: 'USD')
         tradeRepository.findById(42L) >> Optional.of(trade)

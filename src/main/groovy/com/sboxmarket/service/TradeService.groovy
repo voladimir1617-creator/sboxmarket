@@ -1385,20 +1385,10 @@ class TradeService {
         // from THEIR perspective.
         fireTradeCancelledEmail(t, cleanReason, 'buyer')
         fireTradeCancelledEmail(t, cleanReason, 'seller')
-        // Trade Protection — the buyer is whole either way: this cancel
-        // refunded the escrowed item price via refundBuyer() above
-        // (unprotected / unclaimed trades), OR the protection already
-        // paid out at dispute time (the alreadyPaidByProtection branch).
-        // So the protection must NOT pay out again — expire the cover.
-        // expire() is a correct no-op on an already-CLAIMED protection
-        // (status != ACTIVE → returns early), so this single call is
-        // safe for both paths. Best-effort so a protection hiccup can't
-        // roll back the refund + CANCELLED transition.
-        try {
-            tradeProtectionService?.expire(t.id)
-        } catch (Exception e) {
-            log.warn("Protection expire failed for cancelled trade ${t.id}: ${e.message}")
-        }
+        // Trade Protection cover is consumed by the arbiter at the top of
+        // this method (ACTIVE → EXPIRED under the row lock), exactly like
+        // the two auto-cancel paths. No separate expire() here: it runs in
+        // REQUIRES_NEW and would block forever on the row lock this tx holds.
         t
     }
 

@@ -21,11 +21,11 @@ import { h, useState, useEffect, useRef, fmt, toast } from './utils.js';
 import { MaterialIcon } from './primitives.js';
 import { fetchTradeProtectionQuote, fetchTradeProtection, enableTradeProtection } from './api.js';
 
-// Escrow states in which a buyer can still opt into protection. Mirrors
-// the `openStates` list the trades tab uses for its "open" filter — a
-// trade that has already verified / cancelled / disputed is past the
-// point where cover can be added.
-const PROTECTABLE_STATES = ['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND', 'PENDING_BUYER_CONFIRM'];
+// States in which a buyer can still opt into protection: before the
+// seller has sent the item. Mirrors TradeProtectionService.PROTECTABLE_STATES;
+// once the trade reaches PENDING_BUYER_CONFIRM the server refuses with
+// PROTECTION_WINDOW_CLOSED, so the opt-in panel is hidden from then on.
+const PROTECTABLE_STATES = ['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND'];
 
 // Fee = 2% of the trade price, floored at $0.25. Used as a client-side
 // fallback when the public quote endpoint is unreachable so the opt-in
@@ -58,6 +58,8 @@ function friendlyError(res) {
       return 'This trade is already protected.';
     case 'TRADE_NOT_PROTECTABLE':
       return 'This trade can no longer be protected.';
+    case 'PROTECTION_WINDOW_CLOSED':
+      return 'Protection can only be added before the seller sends the item.';
     default:
       return (res && (res.message || res.error)) || 'Couldn’t enable protection — please try again.';
   }

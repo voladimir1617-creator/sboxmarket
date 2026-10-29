@@ -49,6 +49,7 @@ class PurchaseService {
     @Autowired(required = false) ListingFloorRefreshService listingFloorRefreshService
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) EmailService emailService
+    @Autowired(required = false) com.sboxmarket.repository.TradeProtectionRepository tradeProtectionRepository
     /** Optional so unit tests that build the service with `new
      *  PurchaseService(...)` (no Spring context) still work — in that case
      *  there is never an active transaction and {@link #deferOrRun} runs
@@ -141,6 +142,17 @@ class PurchaseService {
                 "Purchases are paused while you have ${disputed} unresolved deposit " +
                 "dispute${disputed == 1 ? '' : 's'} on file. Once your bank closes the " +
                 "chargeback (or staff clears the hold), purchases will resume.")
+        }
+        // Trade Protection claim hold. A dispute on a protected trade pays the
+        // cover into this wallet before staff rule on it; if staff then
+        // release the trade to the seller, reverseClaim can only take back
+        // what is still here. Withdraw already refuses while a claim is
+        // unresolved; buy is the other way out (cart, offer accept and
+        // buy-order fills all land here too), so it refuses as well.
+        long claimHolds = tradeProtectionRepository?.countClaimedOnDisputedTrades(buyerUserId) ?: 0L
+        if (claimHolds > 0L) {
+            throw new BadRequestException("PURCHASE_CLAIM_HOLD",
+                "Purchases are paused while a protection claim of yours is waiting for support to resolve it.")
         }
         def listing = listingRepository.findById(listingId)
                 .orElseThrow { new NotFoundException("Listing", listingId) }

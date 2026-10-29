@@ -97,6 +97,7 @@ class BidService {
     @Autowired SteamUserRepository steamUserRepository
     @Autowired NotificationService notificationService
     @Autowired(required = false) EmailService emailService
+    @Autowired(required = false) com.sboxmarket.repository.TradeProtectionRepository tradeProtectionRepository
     @Autowired(required = false) TradeService tradeService
     @Autowired(required = false) com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository
     @Autowired(required = false) PriceHistoryService priceHistoryService
@@ -304,6 +305,11 @@ class BidService {
                             "Bidding is paused while you have ${disputed} unresolved deposit " +
                             "dispute${disputed == 1 ? '' : 's'} on file.")
                     }
+                }
+                // Trade Protection claim hold (see PurchaseService.buy).
+                if ((tradeProtectionRepository?.countClaimedOnDisputedTrades(bidderUserId) ?: 0L) > 0L) {
+                    throw new BadRequestException("PURCHASE_CLAIM_HOLD",
+                        "Bidding is paused while a protection claim of yours is waiting for support to resolve it.")
                 }
                 def requiredBalance = (maxAmount != null && maxAmount > amount) ? maxAmount : amount
                 if (bidderWallet.balance == null || bidderWallet.balance < requiredBalance) {
@@ -872,6 +878,11 @@ class BidService {
                             "Purchases are paused while you have ${disputed} unresolved deposit " +
                             "dispute${disputed == 1 ? '' : 's'} on file.")
                     }
+                }
+                // Trade Protection claim hold (see PurchaseService.buy).
+                if ((tradeProtectionRepository?.countClaimedOnDisputedTrades(buyerUserId) ?: 0L) > 0L) {
+                    throw new BadRequestException("PURCHASE_CLAIM_HOLD",
+                        "Purchases are paused while a protection claim of yours is waiting for support to resolve it.")
                 }
             }
             if (buyerWallet == null || buyerWallet.balance == null ||
