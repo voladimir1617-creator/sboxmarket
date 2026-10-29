@@ -10232,6 +10232,8 @@ html body .trade-list > .trade-row .trade-phase-label { display: none !important
 .db-table--list.db-table tbody tr.db-row > td.db-rank { display: none !important; }
 .db-table--list.db-table tbody tr.db-row > td.db-rank + td, .db-table--list.db-table tbody tr.db-row > td:first-child:not(.db-rank) { font-size: 13px !important; font-weight: 600 !important; color: var(--ink) !important; margin-bottom: 1px !important; }
 .db-table--list.db-table tbody tr.db-row > td::before, .db-table--list.db-table tbody tr.db-row > td::after { content: none !important; }
+.db-table--list.db-table tbody tr.db-row > td[data-label] { text-align: left !important; justify-self: auto !important; font-family: inherit !important; }
+.db-table--list.db-table tbody tr.db-row > td[data-label]::before { content: attr(data-label) " · " !important; font-family: inherit !important; font-weight: 400 !important; color: var(--ink-3) !important; }
 .db-table--list.db-table tbody tr.db-row > td .db-item-cell { display: flex !important; align-items: center !important; gap: 8px !important; }
 }
 @media (max-width: 560px) { html body .loadout-tabs, html body .full-page-mode .info-modal-body .loadout-tabs { flex-wrap: wrap !important; height: auto !important; gap: 2px !important; }

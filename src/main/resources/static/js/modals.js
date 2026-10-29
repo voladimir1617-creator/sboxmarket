@@ -7920,9 +7920,9 @@ function ProfileAutoBidsTab() {
                 }
               }, statusStyle.label)
             ),
-            h('td', { className: 'right db-mono' }, fmt(b.amount)),
-            h('td', { className: 'right db-mono' }, b.listingCurrentBid != null ? fmt(b.listingCurrentBid) : '—'),
-            h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } },
+            h('td', { className: 'right db-mono', 'data-label': 'Your bid' }, fmt(b.amount)),
+            h('td', { className: 'right db-mono', 'data-label': 'Final' }, b.listingCurrentBid != null ? fmt(b.listingCurrentBid) : '—'),
+            h('td', { className: 'right', 'data-label': 'Bid at', style: { fontSize: 11, color: 'var(--text-muted)' } },
               timeAgo(b.createdAt))
           );
         }))
@@ -8065,17 +8065,19 @@ function ProfileAutoBidsTab() {
             }
           }, 'AUTO')
         ),
-        h('td', { className: 'right db-mono accent' }, fmt(b.amount)),
+        h('td', { className: 'right db-mono accent', 'data-label': 'Your bid' }, fmt(b.amount)),
         h('td', {
           className: 'right db-mono',
+          'data-label': 'Current',
           style: { color: b.status === 'WINNING' ? 'var(--text-primary)' : 'var(--red)' },
           title: b.status === 'WINNING'
             ? "You're the current top bid"
             : `Top bid is ahead by ${fmt((parseFloat(b.listingCurrentBid) || 0) - (parseFloat(b.amount) || 0))}`
         }, b.listingCurrentBid != null ? fmt(b.listingCurrentBid) : fmt(b.amount)),
-        h('td', { className: 'right db-mono' }, fmt(b.maxAmount || b.amount)),
+        h('td', { className: 'right db-mono', 'data-label': 'Max' }, fmt(b.maxAmount || b.amount)),
         h('td', {
           className: 'right',
+          'data-label': 'Ends',
           style: { fontSize: 11, color: 'var(--text-muted)' },
           title: b.listingExpiresAt ? `Auction closes ${new Date(b.listingExpiresAt).toLocaleString()}` : 'Unknown end time'
         },

@@ -3394,7 +3394,11 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       const parts = [`Bid ${fmt(a)}`];
       if (name) parts.push(`on "${name}"`);
       if (cap && cap > a) parts.push(`(auto-raise cap ${fmt(cap)})`);
-      toast(parts.join(' ') + ' placed.', 'ok');
+      // Your own auto-bid can out-raise the previous leader's cap on the
+      // spot; the server answers with that higher row. Say where you stand.
+      const standing = parseFloat(res.amount);
+      const raised = standing > a ? ` Your auto-bid raised you to ${fmt(standing)} to stay on top.` : '';
+      toast(parts.join(' ') + ' placed.' + raised, 'ok');
       load();
       onPlaced && onPlaced();
     } finally { setBusy(false); }
