@@ -263,6 +263,22 @@ class ProdConfigValidator implements EnvironmentPostProcessor, Ordered {
                 'simulated fallback. (The value is not shown here because it may be a real secret.)'.toString())
         }
 
+        // The checks above read the STRIPE_SECRET_KEY variable, but StripeService
+        // reads the resolved `stripe.secret-key` PROPERTY, and anything above
+        // the yml in Spring's order (a --stripe.secret-key= argument,
+        // SPRING_APPLICATION_JSON, a mounted config file) replaces it. A clean
+        // live variable plus a placeholder override booted prod in simulated
+        // mode, and with SBOX_DEV_CREDIT_ENABLED set it credited deposits
+        // against no payment. Ask the value the app will actually use.
+        String resolvedKey = safeProperty('stripe.secret-key')
+        if (resolvedKey && MoneyMode.ofKey(resolvedKey) != MoneyMode.LIVE) {
+            violations.add('stripe.secret-key resolves to a value that is not a LIVE Stripe key ' +
+                "(MoneyMode.ofKey → ${MoneyMode.ofKey(resolvedKey)}) — refusing to start. Something overrides " +
+                'STRIPE_SECRET_KEY (a --stripe.secret-key argument, SPRING_APPLICATION_JSON or a config file); ' +
+                'the app would run on that value, not the variable. ' +
+                '(The value is not shown here because it may be a real secret.)'.toString())
+        }
+
         String publishableKey = environment.getProperty('STRIPE_PUBLISHABLE_KEY')
         if (publishableKey != null && !publishableKey.trim().isEmpty() &&
             !wellFormedStripeValue(publishableKey, [STRIPE_LIVE_PUBLISHABLE_PREFIX], STRIPE_MIN_BODY_CHARS)) {

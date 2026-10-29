@@ -642,7 +642,17 @@ class StripeService {
      * the three can no longer disagree about what "live" means.
      */
     com.sboxmarket.config.MoneyMode moneyMode() {
-        com.sboxmarket.config.MoneyMode.ofKey(secretKey)
+        def byKey = com.sboxmarket.config.MoneyMode.ofKey(secretKey)
+        // Under the prod profile only LIVE is an answer, the same rule
+        // MoneyMode.of(env) applies. ofKey alone let a prod box whose
+        // resolved key was a placeholder run the simulated deposit.
+        // An Environment that cannot be read leaves the key's answer as it was;
+        // DevCreditGate refuses the simulated credit on that same Environment.
+        boolean prod = false
+        try {
+            prod = environment?.activeProfiles?.toList()?.contains(com.sboxmarket.config.MoneyMode.PROD_PROFILE)
+        } catch (Exception ignored) { }
+        (prod && byKey != com.sboxmarket.config.MoneyMode.LIVE) ? com.sboxmarket.config.MoneyMode.INDETERMINATE : byKey
     }
 
     /**

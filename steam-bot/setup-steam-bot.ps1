@@ -169,7 +169,11 @@ else {
   $pwSec = Read-Host "  STEAM_BOT_PASSWORD" -AsSecureString
   $pw = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
           [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pwSec))
-  $token = -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
+  # 32 bytes from the OS crypto generator. Get-Random is not one, and this
+  # token is the only thing keeping other local processes off the bot's API.
+  $tokBytes = New-Object byte[] 32
+  [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($tokBytes)
+  $token = -join ($tokBytes | ForEach-Object { '{0:x2}' -f $_ })
 
   if (Test-Path $EnvFile) {
     $bak = "$EnvFile.bak-$(Get-Date -Format yyyyMMddHHmmss)"
@@ -185,12 +189,13 @@ else {
     "STEAM_BOT_SHARED_SECRET=$shared",
     "STEAM_BOT_IDENTITY_SECRET=$identity",
     "BOT_API_TOKEN=$token",
-    "BOT_PORT=3001"
+    "BOT_PORT=4000"
   )
   Set-Content -Path $EnvFile -Value $lines -Encoding utf8
   Ok ".env written ($($lines.Count) lines)"
-  Say "     BOT_API_TOKEN was generated for you: $token"
-  Say "     Put that SAME value in the Spring app's BOT_API_TOKEN."
+  Say "     A random BOT_API_TOKEN was written to .env (not shown here, so it never"
+  Say "     lands in a screenshot or console log). Copy it from .env into the"
+  Say "     Spring app's BOT_API_TOKEN; the two must be the same value."
 }
 
 Step 8 "Start it the RIGHT way"
@@ -200,6 +205,6 @@ Warn "NOT 'npm start' and NOT 'node index.js' - neither reads .env, and the bot"
 Say  "   will report every variable as missing even though the file is right there."
 Say ""
 Say "If it boots, it prints its listening port and logs in to Steam."
-Say "Then set STEAM_BOT_BASE_URL in the Spring app to http://localhost:3001"
+Say "Then set STEAM_BOT_BASE_URL in the Spring app to http://127.0.0.1:4000"
 Say ""
 Ok "Done. Steps 1-3 are yours; everything else above is finished."
