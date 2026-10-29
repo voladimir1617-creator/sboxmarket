@@ -1049,7 +1049,11 @@ class OfferService {
         ] : null
         try {
             NotificationService.withActionBells(buyerBell ? [(offer.buyerUserId): buyerBell] : [:]) {
-                purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId, null, botSkinChecked)
+                if (botSkinChecked) {
+                    purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId, null, true)
+                } else {
+                    purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId)
+                }
             }
         } catch (Exception e) {
             // Restore price if purchase fails
