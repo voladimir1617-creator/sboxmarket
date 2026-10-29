@@ -4764,6 +4764,19 @@ export function App() {
           showToast(`Bought ${ok} item${ok === 1 ? '' : 's'}${fail > 0 ? ` · ${fail} failed` : ''}`, fail > 0 ? 'err' : 'ok');
         }
         setCart(c => c.filter(x => failedIds.has(x.id)));
+        // The freshness probe only re-runs when the cart's ids change, and a
+        // PRICE_CHANGED row stays in the cart — so the row kept showing the
+        // old price and every retry sent it again and failed again. Take the
+        // server's current price from the failure so the cart shows it and
+        // the next Confirm is checked against it.
+        const moved = failedRows.filter(r => r.code === 'PRICE_CHANGED' && r.actual != null);
+        if (moved.length > 0) {
+          setCartFreshness(prev => {
+            const next = { ...prev };
+            moved.forEach(r => { next[r.listingId] = { ...(next[r.listingId] || {}), id: r.listingId, active: true, price: r.actual }; });
+            return next;
+          });
+        }
         setCartConfirmOpen(false);
         await loadWallet();
         load();
