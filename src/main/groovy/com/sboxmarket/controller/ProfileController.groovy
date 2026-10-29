@@ -32,7 +32,10 @@ import java.security.SecureRandom
 class ProfileController {
 
     private static final SecureRandom RNG = new SecureRandom()
-    private static final java.util.regex.Pattern EMAIL_RE = ~/^[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9.\-]{1,253}\.[A-Za-z]{2,24}$/
+    // No leading, trailing or doubled dot in the name, and every domain label
+    // starts and ends with a letter or digit: "john@gmail..com" or
+    // ".john@x.com" used to pass, got "Verification email sent" and bounced.
+    private static final java.util.regex.Pattern EMAIL_RE = ~/^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+\-]{1,64}(?<!\.)@(?=.{4,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}$/
     private static final java.util.regex.Pattern TRADE_URL_RE = ~/^https:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d{1,10}&token=[A-Za-z0-9_-]{1,16}$/
 
     /** Per-user verification-email send cooldown (batch 602). Prevents a UI
