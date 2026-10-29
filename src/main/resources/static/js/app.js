@@ -5910,6 +5910,23 @@ export function App() {
       window.removeEventListener('sb:service-restored', up);
     };
   }, []);
+  // On desktop, full-page routes (/sell, /profile, /offers…) scroll inside a
+  // fixed layer pinned to the top of the viewport. Any banner rendered above
+  // the nav (this outage notice, the suspended-account notice, staff
+  // announcements) was painted UNDER that layer: the banner never showed,
+  // the nav slid down by its height, and page content showed through the gap
+  // above the nav. Publish how far the nav sits from the top so the CSS can
+  // start that layer below the banners.
+  useEffect(() => {
+    const root = document.querySelector('.site-root');
+    const nav = root && root.querySelector(':scope > nav.nav');
+    if (!root || !nav || typeof ResizeObserver === 'undefined') return;
+    const set = () => document.documentElement.style.setProperty('--pre-nav-h', nav.offsetTop + 'px');
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, []);
 
   // buy flow — errors now come as {code, message} from GlobalExceptionHandler.
   // expectedPrice (optional) pins what the user saw in the modal / card so

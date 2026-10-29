@@ -13712,3 +13712,7 @@ html body .stall-review-cta-row { grid-template-columns: minmax(0, 1fr) auto !im
    full-page rule made that backdrop static too: the dialog sat in the page flow under the trade list, off screen. */
 html body .site-root.full-page-mode .modal-backdrop .modal-backdrop { position: fixed !important; inset: 0 !important; z-index: 200 !important; display: grid !important; place-items: center !important; padding: 4vh 16px !important; overflow-y: auto !important; background: rgba(0, 0, 0, 0.55) !important; }
 html body .site-root.full-page-mode .modal-backdrop .modal-backdrop > .modal { width: 100% !important; max-width: 480px !important; }
+/* Desktop full-page routes scroll inside a fixed layer pinned at top 0, which painted over any banner above the nav
+   (outage notice, suspended account, announcements): the banner never showed and content showed through above the nav.
+   Start the layer below those banners; --pre-nav-h is the nav's offset, set from app.js. */
+@media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop { top: var(--pre-nav-h, 0px) !important; } }
