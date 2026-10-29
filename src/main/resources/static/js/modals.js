@@ -8839,7 +8839,7 @@ function ProfileTradesTab({ me, privacy }) {
         style: { borderColor: 'rgba(96,165,250,0.35)' },
         title: `Total charged to your wallet across every VERIFIED buy. Pending / disputed / cancelled trades are excluded.`
       },
-        h('span', { className: 'trade-summary-num', style: { color: '#60a5fa' } }, fmt(dollars.spent)),
+        h('span', { className: 'trade-summary-num', style: { color: '#60a5fa' } }, privacy ? '$•••••' : fmt(dollars.spent)),
         h('span', { className: 'trade-summary-label' }, 'spent')
       ),
       dollars.earned > 0 && h('div', {
@@ -8847,7 +8847,7 @@ function ProfileTradesTab({ me, privacy }) {
         style: { borderColor: 'rgba(34,197,94,0.35)' },
         title: `Total credited to your wallet across every VERIFIED sell, net of the 2% platform fee. Pending / disputed / cancelled trades are excluded.`
       },
-        h('span', { className: 'trade-summary-num', style: { color: 'var(--green)' } }, fmt(dollars.earned)),
+        h('span', { className: 'trade-summary-num', style: { color: 'var(--green)' } }, privacy ? '$•••••' : fmt(dollars.earned)),
         h('span', { className: 'trade-summary-label' }, 'earned')
       )
     ),
