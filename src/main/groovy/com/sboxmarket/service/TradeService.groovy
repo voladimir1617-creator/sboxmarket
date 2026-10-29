@@ -684,7 +684,13 @@ class TradeService {
             state:          sellerUserId == null ? 'PENDING_BUYER_CONFIRM'
                             : (botHeld ? 'PENDING_SELLER_SEND' : 'PENDING_SELLER_ACCEPT')
         )
-        tradeRepository.save(trade)
+        // Keep the saved row: Trade's @Version starts at 0, so Spring Data
+        // treats it as existing and merges into a copy. The `trade` built
+        // above never got its id, so both bells below carried a null refId
+        // (no highlighted row on the Trades tab) and the new-sale email
+        // dropped its "(trade #N)".
+        def savedTrade = tradeRepository.save(trade)
+        if (savedTrade != null) trade = savedTrade
 
         // Notification bodies enriched with counterparty name + price
         // (batch 421). Previously the buyer just saw "Waiting for seller
