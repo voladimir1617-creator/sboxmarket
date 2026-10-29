@@ -4619,6 +4619,14 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   const statAmt = (val) => privacy ? '$•••••' : (profile ? fmt(val || 0) : '—');
   const netVal = parseFloat(profile?.stats?.net || 0);
   const netClass = profile ? (netVal >= 0 ? 'green' : 'red') : '';
+  // One spelling for the Net figure in both the earnings card and the stat
+  // strip below it: the wallet's "−$12.00" (true minus, no gap). They used
+  // to read "− $12.00" and "-$12.00" side by side on the same screen.
+  const netAmt = () => {
+    if (privacy || !profile) return statAmt(0);
+    const s = fmt(netVal);
+    return s.startsWith('-') ? '−' + s.slice(1) : s;
+  };
 
   const runSync = async () => {
     if (syncBusyRef.current) return;
@@ -4841,9 +4849,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         h('span', { className: 'profile-earnings-label' }, 'Net'),
         h('span', {
           className: `profile-earnings-val ${netClass}`
-        }, privacy || !profile
-              ? statAmt(0)
-              : (netVal < 0 ? '− ' : '') + fmt(Math.abs(netVal)))
+        }, netAmt())
       )
     )
     ),
@@ -4872,7 +4878,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         h('div', { className: 'profile-stat-label' }, 'Net'),
         h('div', {
           className: `profile-stat-val ${netClass}`
-        }, statAmt(profile?.stats?.net))
+        }, netAmt())
       )
     ),
 
