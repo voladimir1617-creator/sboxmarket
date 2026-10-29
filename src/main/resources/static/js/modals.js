@@ -13033,7 +13033,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             type: 'number', min: '0', max: '50', step: '1',
             inputMode: 'numeric',
             'aria-label': 'Auto-accept discount percent',
-            placeholder: 'e.g. 10 → accept offers ≥ 90% of ask',
+            placeholder: 'e.g. 10',
             value: sellAutoPct,
             onChange: e => setSellAutoPct(e.target.value),
             style: { flex: 1 }
@@ -15297,8 +15297,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
                   row.imageUrl && h('img', { src: row.imageUrl, alt: '', style: { width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' } }),
-                  h('div', { style: { minWidth: 0, overflow: 'hidden' } },
-                    h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, row.itemName || `#${row.itemId}`),
+                  h('div', { style: { minWidth: 0, overflow: 'hidden', textAlign: 'left' } },
+                    // Name wraps: on a phone the column is ~80px and an ellipsis left
+                    // "Scienti…" for both Scientist Gloves and Scientist Respirator.
+                    h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflowWrap: 'break-word', hyphens: 'auto' } }, row.itemName || `#${row.itemId}`),
                     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600 } }, fmt(row.price)),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
