@@ -3684,10 +3684,10 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
   const [err, setErr]       = useState('');
-  // The trade stores "reason + blank line + details" in a 500-character
+  // The trade stores "reason — details" in a 500-character
   // note. The box used to allow 1500, and everything past ~450 was cut off
   // without a word, so staff lost the evidence. Cap it at what fits.
-  const detailsMax = Math.max(0, 500 - reason.length - 2);
+  const detailsMax = Math.max(0, 500 - reason.length - 3);
   // Synchronous re-entrancy latch — filing a dispute freezes escrow + opens an
   // irreversible DISPUTED state + notifies staff; a double-click must not file
   // twice. Async `busy` alone leaves a window; gate on a ref. Synced each render.
@@ -3702,8 +3702,11 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
       // dispute endpoint takes a single `reason` field). Use a
       // structured prefix so staff can grep the audit log later.
       const trimmed = (note || '').trim().slice(0, detailsMax);
+      // " — " rather than a blank line: the server collapses whitespace in
+      // the note, so "\n\n" ran the reason into the details ("Item not
+      // received Seller marked…") on the trade row, staff queue and emails.
       const composed = trimmed.length > 0
-        ? `${reason}\n\n${trimmed}`
+        ? `${reason} — ${trimmed}`
         : reason;
       const { tradeDispute } = await import('./api.js');
       const res = await tradeDispute(trade.id, composed);
@@ -8763,8 +8766,12 @@ function ProfileTradesTab({ me, privacy }) {
     busyRef.current = true;
     setBusy(true);
     try {
-      const res = await tradeCancel(id, 'User cancelled');
+      // The reason lands in the counterparty's notification and email
+      // ("Reason: …"); a bare "User cancelled" didn't say which side ended it.
+      const res = await tradeCancel(id, iAmBuyer ? 'Cancelled by the buyer' : 'Cancelled by the seller');
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); return; }
+      // The refund moved the buyer's balance; refresh the header figure.
+      try { window.dispatchEvent(new Event('sb:wallet-changed')); } catch (_) {}
       await load();
       const label = t?.itemName ? `"${t.itemName}"` : `trade #${id}`;
       const priceBit = t?.price != null ? ` — ${fmt(t.price)} refunded to ${iAmBuyer ? 'your wallet' : 'the buyer'}` : '';
@@ -9695,7 +9702,7 @@ function ProfileTradesTab({ me, privacy }) {
                       t.state === 'CANCELLED'
                         ? 'This trade was cancelled, so the chat is read-only.'
                         : 'This trade is complete, so the chat is read-only.')
-                  : h('div', { style: { display: 'flex', gap: 6 } },
+                  : h('div', { className: 'inline-cta-row', style: { display: 'flex', gap: 6 } },
                   h('input', {
                     className: 'chat-input',
                     style: { flex: 1 },
@@ -10000,6 +10007,9 @@ function ProfileTradesTab({ me, privacy }) {
         // "staff will review".
         const label = disputeTrade.itemName ? `"${disputeTrade.itemName}"` : `trade #${disputeTrade.id}`;
         setDisputeTrade(null);
+        // A protected buyer's dispute pays the cover out at once; refresh the
+        // header balance so it doesn't show the pre-payout figure.
+        try { window.dispatchEvent(new Event('sb:wallet-changed')); } catch (_) {}
         await load();
         toast(`Dispute filed on ${label}. Staff will respond as soon as they can.`, 'ok');
       }
@@ -11818,7 +11828,7 @@ function ProfileDevelopersTab() {
       h('a', {
         href: '/help?q=API', style: { color: 'var(--accent)', marginLeft: 6 }
       }, 'How to use the API →')),
-    h('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
+    h('div', { className: 'inline-cta-row', style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
       // Named for screen readers like the scope select; 80 is where
       // ApiKeyService cuts the label.
       h('input', { className: 'price-input', 'aria-label': 'API key label', maxLength: 80, placeholder: 'Label (e.g. my-bot)', style: { flex: 1, minWidth: 180 }, value: label, onChange: e => setLabel(e.target.value),
@@ -11938,8 +11948,8 @@ function ProfileDevelopersTab() {
                   color: k.scope === 'RO' ? 'var(--green, #22c55e)' : 'var(--yellow, #facc15)'
                 }
               }, k.scope || 'RW')),
-              h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, new Date(k.createdAt).toLocaleDateString()),
-              h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, k.lastUsedAt ? timeAgo(k.lastUsedAt) : 'Never'),
+              h('td', { 'data-label': 'Created', style: { fontSize: 11, color: 'var(--text-muted)' } }, new Date(k.createdAt).toLocaleDateString()),
+              h('td', { 'data-label': 'Last used', style: { fontSize: 11, color: 'var(--text-muted)' } }, k.lastUsedAt ? timeAgo(k.lastUsedAt) : 'Never'),
               h('td', { className: 'right' },
                 k.revoked
                   ? h('span', { style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, 'REVOKED')
@@ -12030,6 +12040,16 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // claiming "Platform inventory empty". (fetch-swallow bug class)
   const [internalErr, setInternalErr] = useState(false);
   const [picking, setPicking]     = useState(null);    // { kind: 'steam'|'internal', item: {...} }
+  // On the /sell page the form replaces the grid in place, so a pick made
+  // far down the grid opened the form scrolled to its bottom (or past it,
+  // into the footer, on a phone). Open the form at its top and put the
+  // seller back where he was in the grid when he presses Back.
+  const gridScrollRef = useRef(null);
+  useEffect(() => {
+    if (gridScrollRef.current == null) return;   // first render: leave the router's scroll alone
+    if (!document.querySelector('.site-root.full-page-mode')) return;
+    window.scrollTo({ top: picking ? 0 : gridScrollRef.current, behavior: 'instant' });
+  }, [!!picking]);
   const [price, setPrice]         = useState('');
   const [busy, setBusy]           = useState(false);
   // Sync re-entrancy latch — submit() calls setBusy AFTER its await (list/relist),
@@ -12432,6 +12452,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   };
   const startPickSteam = (si) => {
     resetSellFormFields();
+    gridScrollRef.current = window.scrollY;
     setPicking({ kind: 'steam', item: si });
     // Seed the field from a price we actually HAVE. The old line was
     // `setPrice(parseFloat(si.suggestedPrice || 0).toFixed(2))`, which
@@ -12455,6 +12476,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   };
   const startPickInternal = (l) => {
     resetSellFormFields();
+    gridScrollRef.current = window.scrollY;
     setPicking({ kind: 'internal', item: l.item, listingId: l.id });
     // Floor may be null for an item with no other live listings (first
     // seller back on a freshly-spawned skin). parseFloat(null) is NaN
@@ -13011,7 +13033,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             type: 'number', min: '0', max: '50', step: '1',
             inputMode: 'numeric',
             'aria-label': 'Auto-accept discount percent',
-            placeholder: 'e.g. 10 → accept offers ≥ 90% of ask',
+            placeholder: 'e.g. 10',
             value: sellAutoPct,
             onChange: e => setSellAutoPct(e.target.value),
             style: { flex: 1 }
@@ -13475,6 +13497,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         // to every selected item as a flat BUY_NOW listing. Hidden when
         // nothing is selected so the form stays clean for single-item use.
         bulkSelected.size > 0 && h('div', {
+          className: 'sell-bulk-bar inline-cta-row',
           style: {
             position: 'sticky', top: 0, zIndex: 5,
             display: 'flex', alignItems: 'center', gap: 10,
@@ -13631,9 +13654,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // with the bulk-select checkbox (top-left) or the NEW badge
           // (which the existing CSS positions). Hidden for singletons
           // so single-copy items look identical to the pre-stacking UI.
+          // Below the NEW badge when both show; they used to sit on top of
+          // each other in the same corner.
           (Number(si.quantity) || 1) > 1 && h('div', {
             style: {
-              position: 'absolute', top: 4, right: 4,
+              position: 'absolute', top: si.catalogueId ? 4 : 38, right: 4,
               padding: '2px 8px', borderRadius: 999,
               background: 'rgba(11,15,26,0.92)',
               border: '1px solid var(--accent-border)',
@@ -14956,6 +14981,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         title: 'Pick a date when your stall should auto-resume'
       }, 'Schedule return'),
       pickingAwayUntil && h('span', {
+        className: 'inline-cta-row',
         style: { marginLeft: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }
       },
         h('input', {
@@ -15275,8 +15301,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
                   row.imageUrl && h('img', { src: row.imageUrl, alt: '', style: { width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' } }),
-                  h('div', { style: { minWidth: 0, overflow: 'hidden' } },
-                    h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, row.itemName || `#${row.itemId}`),
+                  h('div', { style: { minWidth: 0, overflow: 'hidden', textAlign: 'left' } },
+                    // Name wraps: on a phone the column is ~80px and an ellipsis left
+                    // "Scienti…" for both Scientist Gloves and Scientist Respirator.
+                    h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflowWrap: 'break-word', hyphens: 'auto' } }, row.itemName || `#${row.itemId}`),
                     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600 } }, fmt(row.price)),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
@@ -16164,12 +16192,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         // visually reads as a quote, not an attribute. Renders for both
         // incoming (seller perspective) and outgoing (buyer's own draft
         // echoed back) so both sides see the same context.
+        // Wraps rather than ellipsing: the title tooltip never shows on a
+        // phone, so a cut note could not be read there at all.
         offer.message && h('div', {
           style: {
             fontSize: 12, color: 'var(--text-secondary)',
             fontStyle: 'italic', marginTop: 2,
-            overflow: 'hidden', textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap', maxWidth: 320
+            overflowWrap: 'anywhere', maxWidth: 320
           },
           title: offer.message
         }, '“', offer.message, '”'),

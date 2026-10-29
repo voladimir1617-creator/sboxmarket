@@ -111,7 +111,7 @@ test.describe('defect pass 84 · admin', () => {
 
   test('admin reports tab: each row.s Dismiss / Remove button names its listing', async ({ page }) => {
     await asAdmin(page);
-    await page.route('**/api/admin/listings/reported', (r) => r.fulfill(json(REPORTED)));
+    await page.route('**/api/admin/listings/reported*', (r) => r.fulfill(json(REPORTED)));
     await page.goto('/admin?tab=reported');
     await expect(page.getByText('Blue Jacket')).toBeVisible();
     await expect(page.getByRole('button', { name: /Dismiss.*#41/ })).toHaveCount(1);

@@ -660,7 +660,10 @@ function AdminReportedTab() {
   }
   return h('div', { className: 'profile-panel' },
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 } },
-      `${rows.length} listing${rows.length === 1 ? '' : 's'} with active user reports. Sorted highest-report-count-first. Clicking a row expands the recent report notes.`),
+      // The server returns at most 200 rows, so a full page is the top 200, not the total.
+      (rows.length >= 200
+        ? 'The 200 most-reported listings with active user reports (more are queued behind them).'
+        : `${rows.length} listing${rows.length === 1 ? '' : 's'} with active user reports.`) + ` Sorted highest-report-count-first. Clicking a row expands the recent report notes.`),
     h('table', { className: 'db-table' },
       h('thead', null, h('tr', null,
         h('th', null, 'Listing'),
@@ -692,19 +695,20 @@ function AdminReportedTab() {
             h('div', { className: 'db-name' }, r.itemName || '—'),
             h('div', { className: 'db-sub' }, '#' + r.id)
           ),
-          h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.sellerName || '#' + (r.sellerUserId || '?')),
+          h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, r.sellerName || '#' + (r.sellerUserId || '?')),
           h('td', { className: 'right db-mono accent' }, fmt(r.price)),
           h('td', { className: 'right' },
             h('span', {
               style: {
-                padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 800,
+                padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap',
                 background: r.reportCount >= 3 ? 'rgba(248,113,113,0.15)' : 'rgba(251,191,36,0.15)',
                 color:      r.reportCount >= 3 ? 'var(--red)'               : '#fbbf24'
               }
             }, '🚩 ' + r.reportCount + (r.distinctReporters > 1 ? ` · ${r.distinctReporters}👤` : ''))
           ),
           h('td', { style: { fontSize: 11, color: 'var(--text-secondary)' } },
-            (r.topReasons || []).slice(0, 2).join(' · ')
+            // Two reporters picking the same reason read as "SCAM · SCAM".
+            [...new Set(r.topReasons || [])].slice(0, 2).join(' · ')
           ),
           h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } },
             r.lastReportedAt ? timeAgo(r.lastReportedAt) : '—'
@@ -747,12 +751,15 @@ function AdminReportedTab() {
         ),
         expanded[r.id] && (r.recentNotes || []).length > 0 && h('tr', { key: r.id + '-notes' },
           h('td', { colSpan: 7, style: { padding: 10, background: 'var(--bg-elevated)' } },
+            // Pinned to the visible part of the sideways-scrolling table on a
+            // phone, like the staff trade chat, so long notes wrap in view.
+            h('div', { style: { position: 'sticky', left: 0, maxWidth: 'calc(100vw - 80px)' } },
             h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Recent reports'),
             (r.recentNotes || []).map((n, i) => h('div', { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)' } },
               h('strong', { style: { color: 'var(--text-primary)' } }, n.reason),
               n.note && h('span', { style: { color: 'var(--text-secondary)', marginLeft: 8 } }, '— ' + n.note),
               h('span', { style: { color: 'var(--text-muted)', marginLeft: 8, fontSize: 11 } }, '· ' + timeAgo(n.at))
-            ))
+            )))
           )
         )
       ]).flat())
@@ -1828,14 +1835,18 @@ function AdminTradesTab() {
             h('tbody', null, display.map(r => [
               h('tr', { key: r.id, className: 'db-row' },
                 h('td', { className: 'db-rank' }, '#' + r.id),
-                h('td', null, r.itemName || '—'),
+                // The dispute reason (the trade note) came back on every row
+                // but was never shown, so staff resolved disputes without
+                // seeing what was claimed.
+                h('td', null, r.itemName || '—',
+                  r.note && h('div', { style: { fontSize: 10, marginTop: 2, color: 'var(--text-muted)', maxWidth: 260, whiteSpace: 'normal', wordBreak: 'break-word' } }, r.note)),
                 // Buyer + seller cells (batch 526). Now show name and
                 // inline risk chips — chargeback count (red), fresh
                 // account (amber), banned (red). Clicking a name row
                 // still drops into the chat thread via the existing
                 // row-click handler below.
                 h('td', null,
-                  h('div', { className: 'db-mono', style: { fontSize: 11 } }, r.buyerName || ('#' + (r.buyerUserId || '?'))),
+                  h('div', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, r.buyerName || ('#' + (r.buyerUserId || '?'))),
                   h('div', { style: { fontSize: 10, marginTop: 2, whiteSpace: 'nowrap' } },
                     (() => {
                       const chips = [];
@@ -1850,7 +1861,7 @@ function AdminTradesTab() {
                   )
                 ),
                 h('td', null,
-                  h('div', { className: 'db-mono', style: { fontSize: 11 } }, r.sellerName || (r.sellerUserId ? '#' + r.sellerUserId : 'system')),
+                  h('div', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, r.sellerName || (r.sellerUserId ? '#' + r.sellerUserId : 'system')),
                   h('div', { style: { fontSize: 10, marginTop: 2, whiteSpace: 'nowrap' } },
                     (() => {
                       const chips = [];
@@ -1917,6 +1928,10 @@ function AdminTradesTab() {
               ),
               openChat === r.id && h('tr', { key: r.id + '-chat' },
                 h('td', { colSpan: 8, style: { padding: 12, background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' } },
+                  // On a phone the table scrolls sideways and this cell spans all
+                  // of it, so the chat sat off-screen (centred in ~830px). Keep
+                  // it pinned to the visible part of the table.
+                  h('div', { style: { position: 'sticky', left: 0, maxWidth: 'calc(100vw - 84px)' } },
                   // `undefined` = fetch still in flight; `[]` = loaded-empty.
                   // Distinguishing the two stops the panel flashing "No
                   // messages in this trade." before the request resolves.
@@ -1940,8 +1955,10 @@ function AdminTradesTab() {
                             fontSize: 12
                           }
                         },
+                          // Name the side, not just the id: staff reading a
+                          // dispute thread had to map "#3" to buyer/seller.
                           h('div', { style: { minWidth: 70, fontSize: 10, color: 'var(--text-muted)' } },
-                            '#' + m.senderUserId),
+                            (m.senderUserId === r.buyerUserId ? 'Buyer ' : m.senderUserId === r.sellerUserId ? 'Seller ' : '') + '#' + m.senderUserId),
                           // Redacted rows show the placeholder to staff too —
                           // the original text is gone post-redaction (body column
                           // cleared on soft-redact, batch 349). If staff wants
@@ -1968,6 +1985,7 @@ function AdminTradesTab() {
                           }, 'Redact')
                         ))
                       )
+                  )
                 )
               )
             ]).flat())
@@ -1984,7 +2002,7 @@ function AdminTradesTab() {
           ? `Force-release trade #${actionDraft.row.id}${actionDraft.row.itemName ? ' — ' + actionDraft.row.itemName : ''}`
           : `Force-cancel trade #${actionDraft.row.id}${actionDraft.row.itemName ? ' — ' + actionDraft.row.itemName : ''}`,
         hint: actionDraft.kind === 'release'
-          ? 'Seller gets paid; buyer receives a notification with this reason. Logged in the audit trail.'
+          ? 'Seller gets paid; this reason is shown on the trade to both parties. Logged in the audit trail.'
           : 'Buyer is refunded; both parties receive a notification with this reason. Logged in the audit trail.',
         initial: '',
         cta: actionDraft.kind === 'release' ? 'Force-release trade' : 'Force-cancel trade',
@@ -2152,7 +2170,7 @@ function AdminAuditTab() {
               h('td', { className: 'db-rank' }, timeAgo(r.createdAt)),
               h('td', { style: { fontSize: 10, fontWeight: 700, color: 'var(--accent)' } }, r.eventType),
               h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.actorName || (r.actorUserId ? '#' + r.actorUserId : 'system')),
-              h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.subjectName || (r.subjectUserId ? '#' + r.subjectUserId : '—')),
+              h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, r.subjectName || (r.subjectUserId ? '#' + r.subjectUserId : '—')),
               h('td', { style: { fontSize: 11, color: 'var(--text-secondary)', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis' } }, r.summary || '—'),
               h('td', { className: 'db-mono', style: { fontSize: 10, color: 'var(--text-muted)' } }, r.ipAddress || '—')
             )))
@@ -2224,7 +2242,8 @@ function AdminDashboardTab({ onNavTab }) {
     const p = parseFloat(prior) || 0;
     if (p === 0 && c === 0) return null;
     if (p === 0) return { pct: null, direction: 'up', label: 'new' };
-    const pct = ((c - p) / p) * 100;
+    // Round before picking the arrow: a -0.3% dip read as a red "▼ -0%".
+    const pct = Math.round(((c - p) / p) * 100) || 0;
     return { pct, direction: pct >= 0 ? 'up' : 'down' };
   };
   const Stat = (label, val, cls, dlt, navTarget) =>
@@ -3058,7 +3077,9 @@ function AdminUsersTab({ me }) {
           // those chips disabled themselves. Clicking re-fetches with
           // the new filter, which is the actual source of truth.
           onClick: () => setRoleFilter(opt.id)
-        }, roleFilter === opt.id ? `${opt.label} · ${rows.length}` : opt.label))
+        // The server returns the newest 200 users at most, so a full page
+        // is "200+", not the user count.
+        }, roleFilter === opt.id ? `${opt.label} · ${rows.length >= 200 ? '200+' : rows.length}` : opt.label))
       );
     })(),
     (() => {
@@ -3186,7 +3207,7 @@ function AdminUsersTab({ me }) {
             ? h('img', { src: detailUser.avatarUrl, alt: '', style: { width: 56, height: 56, borderRadius: '50%' } })
             : h('div', { className: 'db-thumb', style: { width: 56, height: 56, fontSize: 18 } }, (detailUser.displayName || 'U').substring(0, 2).toUpperCase()),
           h('div', { style: { flex: '1 1 260px', minWidth: 0 } },
-            h('div', { className: 'cart-confirm-title', id: 'admin-user-detail-title' }, detailUser.displayName || 'Player'),
+            h('div', { className: 'cart-confirm-title', id: 'admin-user-detail-title', style: { overflowWrap: 'anywhere' } }, detailUser.displayName || 'Player'),
             h('div', { className: 'cart-confirm-sub' },
               `Steam ID ${detailUser.steamId64} · #${detailUser.id} · role ${detailUser.role || 'USER'}`)
           ),
@@ -3838,8 +3859,8 @@ function AdminTicketsTab() {
               }
             },
               h('td', { className: 'db-rank' }, '#' + t.id),
-              h('td', null, t.subject),
-              h('td', { className: 'db-mono', style: { fontSize: 11 } }, t.username || '#' + t.userId),
+              h('td', { style: { overflowWrap: 'anywhere', minWidth: 160 } }, t.subject),
+              h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, t.username || '#' + t.userId),
               // Fraud-signal chips on tickets (batch 525). Lets support
               // spot the "3 chargebacks + fresh account + unverified email"
               // pattern at a glance instead of opening every ticket.
@@ -4487,8 +4508,8 @@ function CsrTicketsTab() {
                 }
               },
                 h('td', { className: 'db-rank' }, '#' + t.id),
-                h('td', null, t.subject),
-                h('td', { className: 'db-mono', style: { fontSize: 11 } }, t.username || '#' + t.userId),
+                h('td', { style: { overflowWrap: 'anywhere', minWidth: 160 } }, t.subject),
+                h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, t.username || '#' + t.userId),
                 // Fraud-signal chips on CSR tickets (batch 527). Same
                 // shape as the admin Tickets tab (batch 525).
                 h('td', { style: { fontSize: 11, whiteSpace: 'nowrap' } }, (() => {

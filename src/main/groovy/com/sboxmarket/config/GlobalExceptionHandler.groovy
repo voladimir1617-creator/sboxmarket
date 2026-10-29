@@ -262,6 +262,19 @@ class GlobalExceptionHandler {
     ResponseEntity<ErrorResponse> handleOptimisticLock(ObjectOptimisticLockingFailureException ex,
                                                        HttpServletRequest req) {
         log.info("Optimistic lock conflict at ${req.method} ${req.requestURI}: ${ex.message}")
+        // A trade action (cancel, dispute, accept, staff release/cancel) that
+        // loses the race to another action on the same trade is not a sold
+        // listing: "someone else bought it first" told a buyer cancelling
+        // while the seller accepted that their purchase had vanished.
+        if ((req?.requestURI ?: '') ==~ /^\/api\/(admin\/)?trades\/.*/) {
+            def tradeBody = new ErrorResponse(
+                code         : 'TRADE_CHANGED',
+                message      : 'This trade was just updated — refresh to see where it stands.',
+                path         : verboseErrors ? req.requestURI : null,
+                correlationId: MDC.get("cid")
+            )
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(tradeBody)
+        }
         def body = new ErrorResponse(
             code         : 'LISTING_NOT_AVAILABLE',
             message      : 'This listing is no longer available — someone else bought it first',

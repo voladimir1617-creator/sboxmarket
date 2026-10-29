@@ -132,7 +132,7 @@ test.describe('defect pass 88 · staff', () => {
     await page.route('**/api/admin/stats', (r) => r.fulfill(json({})));
     let dismissed = false;
     const row = (id) => ({ id, itemId: id, itemName: 'Hat ' + id, sellerName: 's', price: 3, reportCount: 2, distinctReporters: 2, topReasons: ['Scam'], lastReportedAt: Date.now(), recentNotes: [] });
-    await page.route('**/api/admin/listings/reported', (r) => r.fulfill(json(dismissed ? [row(2)] : [row(1), row(2)])));
+    await page.route('**/api/admin/listings/reported*', (r) => r.fulfill(json(dismissed ? [row(2)] : [row(1), row(2)])));
     await page.route('**/api/admin/listings/*/dismiss-reports', (r) => { dismissed = true; return slow({ ok: true }, 300)(r); });
     await page.goto('/admin?tab=reported');
     const dismiss = page.getByRole('button', { name: /Dismiss reports on listing #1/ });

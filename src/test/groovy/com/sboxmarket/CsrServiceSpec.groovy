@@ -65,6 +65,25 @@ class CsrServiceSpec extends Specification {
         textSanitizer.clean(_, _)   >> { args -> args[0] }
     }
 
+    // ── listTickets ───────────────────────────────────────────────
+
+    def "listTickets reads a user's wallet signals once, not once per ticket"() {
+        given:
+        supportTicketRepository.findForAdmin('') >> (1..3).collect {
+            new SupportTicket(id: it as Long, userId: 10L, subject: 's', status: 'OPEN', updatedAt: 1L)
+        }
+        steamUserRepository.findAllById(_) >> [new SteamUser(id: 10L, steamId64: '111')]
+
+        when:
+        def rows = service.listTickets(null, null)
+
+        then:
+        1 * walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, username: 'steam_111', frozen: true)
+        1 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [new Transaction(type: 'DEPOSIT', status: 'DISPUTED')]
+        rows*.walletFrozen == [true, true, true]
+        rows*.lifetimeDisputes == [1L, 1L, 1L]
+    }
+
     // ── requireCsr ────────────────────────────────────────────────
 
     def "requireCsr passes for role=CSR"() {

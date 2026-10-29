@@ -6305,6 +6305,8 @@ html body .auction-status-icon { flex-shrink: 0 !important; width: 16px !importa
 html body .auction-status-banner.losing .auction-status-icon { color: #f87171 !important; }
 html body .auction-status-banner.winning .auction-status-icon { color: #4ade80 !important; }
 html body .auction-history .modal-section-title { display: flex !important; align-items: center !important; gap: 8px !important; font-size: 10.5px !important; font-weight: 600 !important; letter-spacing: 0.13em !important; text-transform: uppercase !important; color: rgb(158, 167, 177) !important; margin: 14px 0 10px !important; padding: 0 !important; }
+/* "Bid History (N)" sat flush on the box's left border; indent it like the bid rows under it. */
+html body .auction-history > .modal-section-title { padding: 0 14px !important; }
 html body .auction-history .modal-section-title .section-title-dot { width: 4px !important; height: 4px !important; border-radius: 50% !important; background: var(--up, #4ade80) !important; flex-shrink: 0 !important; box-shadow: 0 0 6px color-mix(in oklab, var(--up, #4ade80) 60%, transparent) !important; }
 html body .auction-history > button.btn.btn-ghost { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 32px !important; margin-top: 0 !important; padding: 0 12px !important; font-size: 11px !important; font-weight: 500 !important; letter-spacing: 0.04em !important; border: 0 !important; border-top: 1px solid rgba(255,255,255,0.05) !important; border-radius: 0 !important; background: rgba(255,255,255,0.015) !important; color: rgb(158, 167, 177) !important; cursor: pointer !important; transition: background 120ms ease, color 120ms ease !important; }
 html body .auction-history > button.btn.btn-ghost:hover { background: rgba(255,255,255,0.04) !important; color: #ffffff !important; }
@@ -8234,6 +8236,8 @@ body .full-page-mode .buyorder-list > .buyorder-row.filled:hover, body .full-pag
 body .cart-confirm-panel, body .trade-confirm-modal { background: rgb(31, 31, 31) !important; border: 0 none !important; border-radius: 4px !important; max-width: 560px !important; min-width: 280px !important; box-shadow: 0 11px 15px -7px rgba(0, 0, 0, 0.20), 0 24px 38px 3px rgba(0, 0, 0, 0.14), 0 9px 46px 8px rgba(0, 0, 0, 0.12) !important; }
 body .cart-confirm-title, body .trade-confirm-title { font-family: Roboto, Inter, "Helvetica Neue", system-ui, sans-serif !important; font-size: 20px !important; font-weight: 500 !important; line-height: 32px !important; letter-spacing: 0.25px !important; color: rgb(255, 255, 255) !important; font-variation-settings: normal !important; padding: 24px 24px 9px !important; border-bottom: 0 none !important; margin: 0 !important; display: block !important; }
 body .cart-confirm-sub, body .trade-confirm-sub { font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; letter-spacing: 0.25px !important; color: rgb(158, 167, 177) !important; padding: 0 24px 20px !important; margin: 0 !important; border-bottom: 0 none !important; }
+/* The cart checkout's delivery note is a .cart-confirm-sub box placed straight in the panel; the rule above stripped its own padding and margin, so it ran edge to edge with its text touching the top border. */
+body .cart-confirm-panel > .cart-confirm-sub[data-testid^="delivery-expectation"] { margin: 0 24px 16px !important; padding: 9px 12px !important; }
 body .cart-confirm-actions, body .trade-confirm-actions { display: flex !important; justify-content: flex-end !important; align-items: center !important; gap: 8px !important; padding: 8px !important; min-height: 52px !important; background: transparent !important; border-top: 0 none !important; }
 body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions .btn-accent, body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions button:last-child:not(.btn-ghost) { background: rgb(235, 75, 75) !important; border-color: rgb(235, 75, 75) !important; color: rgb(255, 255, 255) !important; box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.20), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12) !important; }
 body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions .btn-accent:hover:not(:disabled), body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions button:last-child:not(.btn-ghost):hover:not(:disabled) { background: rgb(239, 95, 95) !important; border-color: rgb(239, 95, 95) !important; box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.20), 0 4px 5px 0 rgba(0, 0, 0, 0.14), 0 1px 10px 0 rgba(0, 0, 0, 0.12) !important; }
@@ -8942,7 +8946,7 @@ html body .profile-tabs > button.profile-tab:hover, html body .profile-tabs > .p
 html body .profile-tabs > button.profile-tab.active, html body .profile-tabs > .profile-tab.active, html body .profile-tabs > button.profile-tab[aria-selected="true"], html body .profile-tabs > .profile-tab[aria-selected="true"] { background: rgba(193, 206, 255, 0.04) !important; background-color: rgba(193, 206, 255, 0.04) !important; color: rgb(255, 255, 255) !important; border-bottom: 0 !important; font-weight: 400 !important; }
 html body .profile-tabs > button.profile-tab.active::after, html body .profile-tabs > .profile-tab.active::after, html body .profile-tabs > button.profile-tab::after { display: none !important; content: none !important; }
 body .stall-row .price-input { width: 100% !important; max-width: 159px !important; height: 40px !important; min-height: 40px !important; padding: 0 10px 0 28px !important; background-color: rgba(193, 206, 255, 0.04) !important; background-image: none !important; border: 0 !important; border-radius: 6px !important; box-shadow: none !important; color: rgb(255, 255, 255) !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 16px !important; font-weight: 400 !important; line-height: 24px !important; letter-spacing: normal !important; outline: none !important; transition: background-color 100ms cubic-bezier(0.4, 0, 0.2, 1) !important; position: relative !important; }
-body .stall-row .price-input[aria-label^="Listing description"] { max-width: none !important; min-width: 120px !important; }
+body .stall-row .price-input[aria-label^="Listing description"] { max-width: none !important; min-width: 200px !important; }
 body .stall-row .price-input:hover { background-color: rgba(193, 206, 255, 0.06) !important; }
 body .stall-row .price-input:focus { background-color: rgba(193, 206, 255, 0.08) !important; border: 0 !important; box-shadow: inset 0 -1px 0 0 rgb(35, 123, 255) !important; }
 body .stall-row .price-input::placeholder { color: rgb(158, 167, 177) !important; opacity: 1 !important; }
@@ -9079,7 +9083,17 @@ body .grid-card:hover.rarity-Off-Market .grid-thumb, body .grid-card:hover[data-
 body .grid-card:hover.rarity-Standard .grid-thumb, body .grid-card:hover[data-rarity="Standard"] .grid-thumb, body .grid-card:hover:has(.rarity-Standard) .grid-thumb, body .grid-card:hover:has(.grid-rarity.standard) .grid-thumb { box-shadow: inset 0 -3px 0 0 color-mix(in oklab, var(--rare-std) 90%, var(--ink-3)), inset 0 -160px 120px -100px color-mix(in oklab, var(--rare-std) 34%, transparent) !important; }
 html body .full-page-mode .profile-panel:has(.buyorder-list), html body.full-page-mode .profile-panel:has(.buyorder-list) { background: rgb(27, 29, 36) !important; border: 0 !important; border-radius: 12px !important; padding: 30px !important; box-shadow: none !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; color: rgb(255, 255, 255) !important; }
 html body .full-page-mode .buyorder-list { background: transparent !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; color: rgb(255, 255, 255) !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; letter-spacing: normal !important; display: flex !important; flex-direction: column !important; gap: 0 !important; }
-html body .full-page-mode .buyorder-list > .buyorder-row, html body .full-page-mode .buyorder-list > .buy-order-row, html body .full-page-mode .buyorder-list > .bo-row { display: flex !important; flex-direction: row !important; align-items: center !important; min-height: 52px !important; padding: 0 !important; margin: 0 !important; background: transparent !important; border: 0 !important; border-bottom: 0 !important; border-radius: 0 !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; color: rgb(255, 255, 255) !important; letter-spacing: normal !important; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
+html body .full-page-mode .buyorder-list > .buyorder-row, html body .full-page-mode .buyorder-list > .buy-order-row, html body .full-page-mode .buyorder-list > .bo-row { display: flex !important; flex-direction: row !important; align-items: center !important; min-height: 52px !important; padding: 8px 0 !important; margin: 0 !important; background: transparent !important; border: 0 !important; border-bottom: 0 !important; border-radius: 0 !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; color: rgb(255, 255, 255) !important; letter-spacing: normal !important; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
+/* On a phone the /buy-orders row squeezed the item name to "Vintage D…" beside its two buttons; the buttons now drop to a line of their own. */
+@media (max-width: 480px) {
+  html body .full-page-mode .buyorder-list > .buyorder-row:has(> button) { flex-wrap: wrap !important; row-gap: 8px !important; }
+  html body .full-page-mode .buyorder-list > .buyorder-row:has(> button) > div:first-child { flex: 1 1 55% !important; }
+  html body .full-page-mode .buyorder-list > .buyorder-row:has(> button) > button:first-of-type { margin-left: auto !important; }
+  /* Same squeeze on Profile > Buy Orders, where price, status and Edit/Pause/Cancel share one right-hand column: the name gets its own line. */
+  html body .full-page-mode .buyorder-list > .buyorder-row:not(:has(> button)) { flex-wrap: wrap !important; row-gap: 4px !important; }
+  html body .full-page-mode .buyorder-list > .buyorder-row:not(:has(> button)) > div:first-child { flex: 1 1 100% !important; }
+  html body .full-page-mode .buyorder-list > .buyorder-row:not(:has(> button)) > div:nth-child(2) { margin-left: auto !important; }
+}
 /* The info-modal body centres its text; the order rows are a left-aligned list, so an item name no longer floats mid-row. */
 html body .full-page-mode .buyorder-list { text-align: left !important; }
 html body .full-page-mode .buyorder-list > .buyorder-row:hover, html body .full-page-mode .buyorder-list > .buy-order-row:hover, html body .full-page-mode .buyorder-list > .bo-row:hover { background: rgba(255, 255, 255, 0.04) !important; }
@@ -9582,6 +9596,8 @@ body .auction-panel .auction-bid-form::before { top: 50px !important; }
 body .auction-bid-form > .price-suggest-row { margin-top: 8px !important; margin-bottom: 4px !important; }
 body .auction-bid-form .btn.btn-accent, body .auction-bid-form button.btn.btn-accent { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 36px !important; min-height: 36px !important; padding: 0 16px !important; margin-top: 12px !important; background: rgb(35, 123, 255) !important; color: rgb(255, 255, 255) !important; border: 0 !important; border-radius: 4px !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; line-height: 36px !important; letter-spacing: 0.0892857143em !important; text-transform: none !important; box-shadow: none !important; cursor: pointer !important; }
 body .auction-bid-form .btn.btn-accent:not([disabled]) { background: rgb(35, 123, 255) !important; }
+/* On a phone Place Bid is the panel's main tap; 36px was shorter than the 44px Buy now beside it. */
+@media (max-width: 480px) { body .auction-bid-form .btn.btn-accent, body .auction-bid-form button.btn.btn-accent { height: 44px !important; min-height: 44px !important; } }
 body .auction-bid-form .btn.btn-accent:hover:not([disabled]), body .auction-bid-form button.btn.btn-accent:hover:not([disabled]) { background: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)), rgb(35, 123, 255) !important; box-shadow: none !important; }
 body .auction-bid-form .btn.btn-accent:active:not([disabled]), body .auction-bid-form button.btn.btn-accent:active:not([disabled]) { background: linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)), rgb(35, 123, 255) !important; }
 body .auction-bid-form .btn.btn-accent[disabled], body .auction-bid-form button.btn.btn-accent[disabled], body .auction-bid-form .btn.btn-accent:disabled, body .auction-bid-form button.btn.btn-accent:disabled { background: rgba(255, 255, 255, 0.12) !important; color: rgba(255, 255, 255, 0.3) !important; cursor: not-allowed !important; box-shadow: none !important; }
@@ -12878,6 +12894,10 @@ html body main.layout div.grid-card .grid-body .grid-footer > .gc-card-meta { ma
    cell can't ellipsis bare text. Let a long value wrap to a second line
    inside its cell instead. */
 html body .modal.item-page .modal-demand-chip { flex-wrap: wrap !important; column-gap: 4px !important; row-gap: 0 !important; height: auto !important; min-height: 32px !important; padding: 6px 10px !important; white-space: normal !important; line-height: 1.35 !important; }
+/* The "N buyers want this right now" toggle is a button: on a phone that
+   wrap broke it into a lone count, a centred sentence and an orphan arrow.
+   Keep count, words and arrow on one row and let the words wrap. */
+html body .modal.item-page button.modal-demand-chip { flex-wrap: nowrap !important; text-align: left !important; }
 
 /* Look pass 2026-10-08: cart
    The cart page sits in a centred modal, so every row inherited
@@ -13043,6 +13063,9 @@ html body .stall-toolbar > .btn { font-size: 12px !important; height: 34px !impo
   html body .stall-toolbar > div:empty { display: none !important; }
   html body .stall-toolbar > .btn, html body .stall-toolbar > span:nth-child(4) { flex: 1 1 calc(50% - 4px) !important; min-width: 0 !important; }
   html body .stall-toolbar > span:nth-child(4) { display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 34px !important; }
+  /* Away mode's return-date picker can land at nth-child(4) too; it needs a
+     whole line or its Cancel button runs off the screen. */
+  html body .stall-toolbar > span.inline-cta-row { flex: 1 1 100% !important; height: auto !important; justify-content: flex-start !important; }
 }
 /* Loadout Lab: the page title sat 24px left of everything under it, card
    names were centred over left-aligned rows with a 60px hole under the
@@ -13386,6 +13409,16 @@ html.reduce-motion, html.reduce-motion *, html.reduce-motion *::before, html.red
    card's edge. Give row buttons back the 32px row-button size they are
    styled with everywhere else in the profile. */
 html body .info-modal .info-modal-body .profile-row-value > div > button.btn.btn-accent { width: auto !important; max-width: 100% !important; margin: 0 !important; height: 32px !important; padding: 0 14px !important; border-radius: 6px !important; font-size: 12px !important; font-weight: 500 !important; letter-spacing: 0.0892857143em !important; display: inline-flex !important; box-shadow: none !important; }
+/* A CTA sitting in a row beside its input (trade chat Send, API key + New Key):
+   the page-wide info-modal CTA rule made it 320px wide with an 18px top margin,
+   squeezing the trade-chat message box to ~30px on a phone and dropping
+   + New Key below its label field. */
+html body .info-modal .info-modal-body .inline-cta-row > button.btn.btn-accent { width: auto !important; max-width: none !important; margin: 0 !important; height: auto !important; min-height: 40px !important; }
+/* Sell bulk-list bar: keep its compact price / % boxes. The sell form's big
+   22px price-box rule squeezed the price box to ~70px on a phone, too narrow
+   to show a typed price. */
+html body .info-modal .info-modal-body .sell-bulk-bar input.wallet-amount-input[aria-label] { width: 110px !important; font-size: 15px !important; padding: 8px 10px !important; }
+html body .info-modal .info-modal-body .sell-bulk-bar input.wallet-amount-input[aria-label="Bulk auto-accept percent"] { width: 70px !important; }
 /* Sell grid: the bulk-select box is a real (visually hidden) checkbox now;
    show where keyboard focus is. */
 .sell-bulk-check:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -13541,6 +13574,15 @@ html:root body .modal-preview > img.item-img { max-height: 92% !important; width
 @media (max-width: 1099px) {
   html:root body main.layout > aside.sidebar.mobile-drawer-open { top: auto !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important; max-width: none !important; min-width: 0 !important; height: auto !important; max-height: 80vh !important; padding: 8px 16px calc(84px + env(safe-area-inset-bottom)) !important; border-radius: 15px 15px 0 0 !important; }
 }
+/* The drawer's last rows (the price presets) stayed under the round close
+   button, and with items in the cart under the cart tray too, even when
+   scrolled to the end. Its bottom padding now clears both. */
+@media (max-width: 480px) {
+  html:root body main.layout > aside.sidebar.mobile-drawer-open { padding-bottom: calc(150px + env(safe-area-inset-bottom)) !important; }
+}
+@media (max-width: 720px) {
+  html:root body:has(.cart-tray) main.layout > aside.sidebar.mobile-drawer-open { padding-bottom: calc(210px + env(safe-area-inset-bottom)) !important; }
+}
 /* Small grey text that fell under a 4.5:1 contrast ratio: the item page's
    empty Buy offers panel (3.6:1 on its raised panel), card "Listed" ages,
    ticker seller names and Help's group labels (4.1-4.5:1). */
@@ -13660,3 +13702,7 @@ html body .stall-review-cta-row { grid-template-columns: minmax(0, 1fr) auto !im
 .csr-tx-row { grid-template-columns: auto minmax(0, 1fr) auto; }
 /* Staff banner on phones: the bold "ADMIN MODE" label stood as its own narrow column beside the sentence. */
 @media (max-width: 600px) { html body .staff-banner, html body .staff-banner.csr { display: block !important; text-align: center !important; } }
+/* Profile > Trades opens Confirm receipt and Leave review in their own backdrop inside the full-page profile, and the
+   full-page rule made that backdrop static too: the dialog sat in the page flow under the trade list, off screen. */
+html body .site-root.full-page-mode .modal-backdrop .modal-backdrop { position: fixed !important; inset: 0 !important; z-index: 200 !important; display: grid !important; place-items: center !important; padding: 4vh 16px !important; overflow-y: auto !important; background: rgba(0, 0, 0, 0.55) !important; }
+html body .site-root.full-page-mode .modal-backdrop .modal-backdrop > .modal { width: 100% !important; max-width: 480px !important; }

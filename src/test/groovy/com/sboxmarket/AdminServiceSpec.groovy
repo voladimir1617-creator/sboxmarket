@@ -1166,6 +1166,43 @@ class AdminServiceSpec extends Specification {
         result[0].walletUsername == 'steam_111'
     }
 
+    def "listWithdrawals counts a wallet's disputes once, not once per queued withdrawal"() {
+        given:
+        def rows = (1..3).collect { new Transaction(id: it as Long, walletId: 500L, type: 'WITHDRAW', status: 'PENDING',
+            amount: new BigDecimal("10"), currency: 'USD', createdAt: 1000L) }
+        transactionRepository.findByTypeAndStatusPaged('WITHDRAW', 'PENDING', _) >> rows
+        walletRepository.findAllById([500L]) >> [new Wallet(id: 500L, username: 'steam_111')]
+
+        when:
+        def result = service.listWithdrawals(null)
+
+        then:
+        1 * transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+        1 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [
+            new Transaction(type: 'DEPOSIT', status: 'DISPUTED'),
+            new Transaction(type: 'DEPOSIT', status: 'COMPLETED', description: 'x DISPUTE_CLEARED')
+        ]
+        result*.activeDisputes == [1L, 1L, 1L]
+        result*.lifetimeDisputes == [2L, 2L, 2L]
+    }
+
+    def "listAllTickets reads a user's wallet signals once, not once per ticket"() {
+        given:
+        supportTicketRepository.findForAdmin('') >> (1..3).collect {
+            new com.sboxmarket.model.SupportTicket(id: it as Long, userId: 10L, subject: 's', status: 'OPEN', updatedAt: 1L)
+        }
+        steamUserRepository.findAllById(_) >> [new SteamUser(id: 10L, steamId64: '111')]
+
+        when:
+        def rows = service.listAllTickets(null, null)
+
+        then:
+        1 * walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, username: 'steam_111', frozen: true)
+        1 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [new Transaction(type: 'DEPOSIT', status: 'DISPUTED')]
+        rows*.walletFrozen == [true, true, true]
+        rows*.lifetimeDisputes == [1L, 1L, 1L]
+    }
+
     def "listWithdrawals respects an explicit status filter"() {
         when:
         def result = service.listWithdrawals('completed')
