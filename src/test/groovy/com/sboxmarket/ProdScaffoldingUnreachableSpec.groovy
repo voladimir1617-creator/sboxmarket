@@ -271,6 +271,7 @@ class ProdScaffoldingUnreachableSpec extends Specification {
             STEAM_RETURN_URL:           'https://skinbox.market/api/auth/steam/return',
             APP_UNSUBSCRIBE_SECRET:     'a-real-random-prod-secret-9912ff',
             APP_PUBLIC_URL:             'https://skinbox.market',
+            SMTP_HOST:                  'smtp.example.net',
         ] as Map<String, Object>
     }
 

@@ -705,6 +705,41 @@ class SteamInventoryControllerSpec extends Specification {
         e.code == 'BUY_NOW_TOO_HIGH'
     }
 
+    @spock.lang.Timeout(value = 1, unit = java.util.concurrent.TimeUnit.SECONDS)
+    def "list refuses a huge-exponent auction buyNowPrice fast, before setScale"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when: "buyNowPrice was parsed and setScale(2)'d with no prior bound"
+        controller.listFromSteam([assetId: '1001', price: '10',
+            listingType: 'AUCTION', durationHours: '24', buyNowPrice: '1e-100000000'], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'INVALID_BUY_NOW'
+        0 * listingService.createListing(_)
+    }
+
+    @spock.lang.Timeout(value = 1, unit = java.util.concurrent.TimeUnit.SECONDS)
+    def "list refuses a zero maxDiscount carrying a huge scale fast"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '10', maxDiscount: '0e-100000000'], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'INVALID_DISCOUNT'
+        0 * listingService.createListing(_)
+    }
+
     // ── /list: description + maxDiscount validation ───────────────
 
     def "list rejects a description longer than 500 chars"() {

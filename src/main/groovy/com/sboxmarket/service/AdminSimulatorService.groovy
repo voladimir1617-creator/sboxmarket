@@ -1,6 +1,8 @@
 package com.sboxmarket.service
 
+import com.sboxmarket.config.LiveMoneyGuard
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
 import com.sboxmarket.repository.ItemRepository
@@ -8,6 +10,7 @@ import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.service.security.AdminAuthorization
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -30,6 +33,42 @@ class AdminSimulatorService {
     @Autowired ListingRepository listingRepository
     @Autowired AdminAuthorization adminAuthorization
     @Autowired(required = false) AuditService auditService
+    /** Read by {@link #refusalReason()}. Null counts as real money
+     *  (MoneyMode.of fails closed), so a context-less caller is refused. */
+    @Autowired(required = false) Environment environment
+
+    static final String REFUSAL_REAL_MONEY =
+        'simulator disabled: real-money deployment (prod profile or live Stripe key)'
+
+    /**
+     * Why the simulator must not run here, or null when it may.
+     *
+     * Simulated rows are seller-less (`sellerUserId: null`), which
+     * PurchaseService treats as house listings: a real buyer's real balance
+     * is debited and nothing real is delivered. `clearSimulated` hard-deletes
+     * by a sellerName / description LIKE, which can also hit a buyer's SOLD
+     * row or a real listing whose text happens to match. So on any deployment
+     * that can move real money — `prod` profile, a live Stripe key, or an
+     * unclassifiable one (LiveMoneyGuard / MoneyMode) — both are refused.
+     * Same gate the demo seeder and dev-login use.
+     */
+    String refusalReason() {
+        boolean realMoney
+        try {
+            realMoney = LiveMoneyGuard.isRealMoney(environment)
+        } catch (Throwable unreadable) {
+            realMoney = true
+        }
+        realMoney ? REFUSAL_REAL_MONEY : null
+    }
+
+    private void assertSimulatorAllowed(Long adminUserId, String action) {
+        String refusal = refusalReason()
+        if (refusal != null) {
+            log.warn("Admin ${adminUserId} ${action} refused — ${refusal} (profiles=${environment?.activeProfiles})")
+            throw new ForbiddenException('SIMULATOR_DISABLED', refusal)
+        }
+    }
 
     /** Random pool of plausible seller handles so the grid doesn't look copy-pasted. */
     private static final List<String> HANDLES = [
@@ -56,6 +95,7 @@ class AdminSimulatorService {
     @Transactional
     Map simulateListings(Long adminUserId, int count) {
         adminAuthorization.requireAdmin(adminUserId)
+        assertSimulatorAllowed(adminUserId, 'simulate')
         if (count <= 0 || count > 100) {
             throw new BadRequestException("INVALID_COUNT", "count must be between 1 and 100")
         }
@@ -133,6 +173,7 @@ class AdminSimulatorService {
     @Transactional
     Map clearSimulated(Long adminUserId) {
         adminAuthorization.requireAdmin(adminUserId)
+        assertSimulatorAllowed(adminUserId, 'clear-simulated')
         def all = listingRepository.findSimulated()
         def removed = all.size()
         listingRepository.deleteAll(all)

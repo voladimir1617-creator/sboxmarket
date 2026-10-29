@@ -255,6 +255,14 @@ class SellService {
         // Mirrors the offer/deposit/withdraw/bid boundary-normalization pattern
         // (the DTO intentionally caps magnitude but not scale). maxDiscount is a
         // percent, not a money amount, so it is left untouched.
+        // Scale/precision guard first: the DTO's @DecimalMin("0.00") on
+        // maxDiscount lets a Jackson-bound "0e-100000000" through (zero with a
+        // 1e8 scale), and setScale/arithmetic on such a value pins a thread.
+        // Price fields are bounded by @DecimalMin(0.01)/@DecimalMax on the
+        // DTO, but this method also has non-HTTP callers.
+        com.sboxmarket.util.MoneyParse.requireSane(newPrice, 'price', 'INVALID_PRICE')
+        com.sboxmarket.util.MoneyParse.requireSane(buyNowPrice, 'buyNowPrice', 'INVALID_BUY_NOW')
+        com.sboxmarket.util.MoneyParse.requireSane(maxDiscount, 'maxDiscount', 'INVALID_DISCOUNT')
         if (newPrice != null)    newPrice    = newPrice.setScale(2, java.math.RoundingMode.HALF_UP)
         if (buyNowPrice != null) buyNowPrice = buyNowPrice.setScale(2, java.math.RoundingMode.HALF_UP)
         // Defensive: validation belongs in the DTO but we keep it here too for

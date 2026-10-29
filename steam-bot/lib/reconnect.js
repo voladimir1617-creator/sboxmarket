@@ -65,4 +65,15 @@ function createReconnector(opts) {
   return { onLoggedOn, onFatalError, isStopped: () => stopped, failures: () => failures };
 }
 
-module.exports = { createReconnector, BASE_DELAY_MS, MAX_DELAY_MS, THROTTLED_DELAY_MS };
+// After a failed setCookies (no web session usable for trading), ask steam-user
+// for a new web session: 60 s, doubling, capped at 15 min.
+const WEB_RETRY_BASE_MS = 60 * 1000;
+
+/** Delay before the n-th (1-based) webLogOn retry. */
+function webSessionRetryDelayMs(n) {
+  return Math.min(MAX_DELAY_MS, WEB_RETRY_BASE_MS * 2 ** Math.max(0, n - 1));
+}
+
+module.exports = {
+  createReconnector, webSessionRetryDelayMs, BASE_DELAY_MS, MAX_DELAY_MS, THROTTLED_DELAY_MS,
+};

@@ -297,6 +297,8 @@ class SteamEscrowHoldSpec extends Specification {
 
         then: "the pre-existing, correct behaviour is preserved — giving up here costs nobody an item"
         1 * escrowRepository.findStalePendingDeposits(_ as Long, _) >> [stale]
+        // ...once Steam confirms the old offer can no longer be accepted.
+        1 * bot.cancelOffer('444') >> SteamBotResult.success([ok: true, offerId: '444', status: 'canceled', cancelled: true])
         1 * escrowRepository.claimTimeoutPendingDeposit(9L, _, _ as Long) >> 1
         1 * listingRepository.findById(11L) >> Optional.of(held)
         1 * listingRepository.save({ Listing l -> l.status == SteamEscrowService.STATUS_CANCELLED })

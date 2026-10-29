@@ -266,7 +266,47 @@ class TradeProtectionServiceSpec extends Specification {
         protection.status == TradeProtection.ACTIVE
 
         where:
-        state << ['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND', 'PENDING_BUYER_CONFIRM']
+        state << ['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND']
+    }
+
+    def "enable refuses once the seller has sent the item (PENDING_BUYER_CONFIRM) with PROTECTION_WINDOW_CLOSED"() {
+        given: "the item may already be in the buyer's inventory — cover bought now could be claimed at once"
+        def trade  = tradeIn('PENDING_BUYER_CONFIRM', buyer: 10L, buyerWallet: 500L, price: new BigDecimal('500.00'))
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('100.00'), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        tradeProtectionRepository.existsByTradeId(1L) >> false
+        walletRepository.findById(500L) >> Optional.of(wallet)
+
+        when:
+        service.enable(10L, 1L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PROTECTION_WINDOW_CLOSED'
+        wallet.balance == new BigDecimal('100.00')
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+        0 * tradeProtectionRepository.save(_)
+    }
+
+    def "enable refuses while the buyer has an unresolved protection claim payout (PURCHASE_CLAIM_HOLD)"() {
+        given:
+        def trade  = tradeIn('PENDING_SELLER_SEND', buyer: 10L, buyerWallet: 500L, price: new BigDecimal('50.00'))
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('100.00'), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        tradeProtectionRepository.existsByTradeId(1L) >> false
+        tradeProtectionRepository.countClaimedOnDisputedTrades(10L) >> 1L
+        walletRepository.findById(500L) >> Optional.of(wallet)
+
+        when:
+        service.enable(10L, 1L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PURCHASE_CLAIM_HOLD'
+        wallet.balance == new BigDecimal('100.00')
+        0 * walletRepository.save(_)
+        0 * tradeProtectionRepository.save(_)
     }
 
     def "enable rejects a double-enable with PROTECTION_EXISTS"() {
@@ -512,7 +552,7 @@ class TradeProtectionServiceSpec extends Specification {
 
     def "enable freezes coverage at the full item price and the fee equals quote(price)"() {
         given: "the protection row's cover must be the FULL price, fee the quoted 2%"
-        def trade  = tradeIn('PENDING_BUYER_CONFIRM', buyer: 10L, buyerWallet: 500L,
+        def trade  = tradeIn('PENDING_SELLER_SEND', buyer: 10L, buyerWallet: 500L,
             price: new BigDecimal('250.00'))
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('500.00'), currency: 'USD')
         tradeRepository.findById(1L) >> Optional.of(trade)
@@ -1422,14 +1462,17 @@ class TradeProtectionServiceSpec extends Specification {
         txn.propagation() == org.springframework.transaction.annotation.Propagation.REQUIRES_NEW
     }
 
-    def "reverseClaim is @Transactional(REQUIRES_NEW) so a clawback failure can't poison TradeService.release"() {
-        given:
+    def "reverseClaim is @Transactional(REQUIRED) so it re-enters the row lock TradeService.release already holds"() {
+        given: "release() locks the protection row via lockAndExpireIfActiveOrReportClaimed, then calls " +
+               "reverseClaim. A REQUIRES_NEW reverseClaim would open a second connection and block on that " +
+               "lock forever (self-deadlock, see ProtectedTradeSettleNoSelfLockSpec). Joining the caller's " +
+               "tx also makes the clawback atomic with the seller credit."
         def m = TradeProtectionService.getDeclaredMethod('reverseClaim', Long, String)
         def txn = m.getAnnotation(org.springframework.transaction.annotation.Transactional)
 
         expect:
         txn != null
-        txn.propagation() == org.springframework.transaction.annotation.Propagation.REQUIRES_NEW
+        txn.propagation() == org.springframework.transaction.annotation.Propagation.REQUIRED
     }
 
     def "expire is @Transactional(REQUIRES_NEW) so a status-flip failure can't poison release/cancel"() {

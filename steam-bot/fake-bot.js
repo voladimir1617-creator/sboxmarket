@@ -4,7 +4,8 @@
  * Fake Steam for the sboxmarket bot sidecar.
  *
  * Speaks exactly the HTTP API index.js speaks (/health, /offers/send,
- * /offers/request, /offers/:id, /offers/incoming/:id/accept, /inventory), but
+ * /offers/request, /offers/:id, /offers/:id/cancel, /offers/incoming/:id/accept,
+ * /inventory), but
  * against in-memory inventories instead of Steam. Nothing here logs in, holds a
  * secret, or opens a connection to Steam; it needs no npm install.
  *
@@ -35,11 +36,12 @@
  */
 
 const http = require('http');
-const { parseTradeUrl, validateOfferBody, isValidOfferId, tokenMatches } = require('./lib/guards');
+const {
+  parseTradeUrl, validateOfferBody, isValidOfferId, tokenMatches, UNAUTHORIZED_BODY, LOOPBACK_HOSTS: LOOPBACK,
+} = require('./lib/guards');
 
 const BOT_STEAM_ID = '76561190000000001';
 const DEFAULT_ITEMS = ['Fake Wizard Hat', 'Fake Leather Jacket', 'Fake Aviator Glasses'];
-const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 
 /** steamid64 from a trade URL's partner= (a 32-bit account id), or null. */
 function partnerSteamId(tradeUrl) {
@@ -142,6 +144,26 @@ function createFakeBot(opts = {}) {
       partner: offer.partner, message: offer.message || null, escrowEndsUnix: null, tradeId: offer.state === 'accepted' ? `T${offer.id}` : null }];
   }
 
+  /** Same answers as bot-core cancelOffer: 200 cancelled (now or already
+   *  dead), 409 ALREADY_ACCEPTED once the partner took it. */
+  function cancelOffer(id) {
+    const offer = offers.get(id);
+    if (!offer) return [404, { ok: false, error: 'ERROR', message: 'no matching offer' }];
+    // A partner whose auto-accept time has passed has accepted by now.
+    if (offer.state === 'active' && acceptAfterMs >= 0 && now() - offer.createdAt >= acceptAfterMs) {
+      settle(offer, 'accepted');
+    }
+    if (offer.state === 'accepted') {
+      return [409, { ok: false, error: 'ALREADY_ACCEPTED', retryable: false, offerId: offer.id,
+        status: offer.state, message: 'offer #' + offer.id + ' was already accepted' }];
+    }
+    if (offer.state !== 'active') {
+      return [200, { ok: true, offerId: offer.id, status: offer.state, cancelled: true, alreadyFinal: true }];
+    }
+    offer.state = 'canceled';
+    return [200, { ok: true, offerId: offer.id, status: 'canceled', cancelled: true, alreadyFinal: false }];
+  }
+
   function isTradable(it) { return !it || !it.tradableAt || now() >= it.tradableAt; }
 
   /** Steam Community's public inventory JSON for one user. */
@@ -173,13 +195,17 @@ function createFakeBot(opts = {}) {
       if (m[2] !== appId) return [200, { assets: [], descriptions: [], total_inventory_count: 0, success: 1 }];
       return [200, steamInventoryJson(m[1])];
     }
-    if (!tokenMatches(auth, apiToken)) return [401, { ok: false, error: 'unauthorized' }];
+    if (!tokenMatches(auth, apiToken)) return [401, Object.assign({}, UNAUTHORIZED_BODY)];
 
     if (method === 'POST' && path === '/offers/send') return createOffer('give', body);
     if (method === 'POST' && path === '/offers/request') return createOffer('receive', body);
     if (method === 'GET' && (m = path.match(/^\/offers\/([^/]+)$/))) {
       if (!isValidOfferId(m[1])) return [400, { ok: false, error: 'BAD_REQUEST', message: 'offer id must be digits' }];
       return offerStatus(m[1]);
+    }
+    if (method === 'POST' && (m = path.match(/^\/offers\/([^/]+)\/cancel$/))) {
+      if (!isValidOfferId(m[1])) return [400, { ok: false, error: 'BAD_REQUEST', message: 'offer id must be digits' }];
+      return cancelOffer(m[1]);
     }
     if (method === 'POST' && /^\/offers\/incoming\/\d+\/accept$/.test(path)) {
       return [404, { ok: false, error: 'ERROR', message: 'no matching incoming offer' }];

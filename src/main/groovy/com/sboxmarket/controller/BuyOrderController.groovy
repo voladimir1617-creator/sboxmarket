@@ -283,11 +283,9 @@ class BuyOrderController {
         def uid = requireUser(req)
         BigDecimal newMax = null
         if (body?.maxPrice != null) {
-            try { newMax = new BigDecimal(body.maxPrice.toString()) }
-            catch (NumberFormatException ignored) {
-                throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE",
-                    "maxPrice must be a valid number")
-            }
+            // Bounded parse: an unbounded "1e-100000000" reached
+            // BuyOrderService.centsOrReject's setScale(2) and pinned a thread.
+            newMax = com.sboxmarket.util.MoneyParse.parse(body.maxPrice, 'maxPrice', 'INVALID_PRICE')
         }
         Integer newQty = null
         if (body?.quantity != null) {

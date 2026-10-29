@@ -100,11 +100,8 @@ class CsrController {
         if (body?.amount == null) {
             throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount is required")
         }
-        BigDecimal amount
-        try { amount = new BigDecimal(body.amount.toString()) }
-        catch (NumberFormatException ignored) {
-            throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be a valid number")
-        }
+        // Bounded parse (length + scale/precision): see MoneyParse.
+        BigDecimal amount = com.sboxmarket.util.MoneyParse.parse(body.amount, 'amount', 'INVALID_AMOUNT')
         // Upstream cap on the audit note — CsrService.issueGoodwillCredit
         // runs note through textSanitizer.medium (500-char truncation)
         // and requires it. Reject obviously oversized notes at the door

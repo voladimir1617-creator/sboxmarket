@@ -96,8 +96,8 @@ class DelayedPaymentDepositSpec extends Specification {
         def abandoned = new Transaction(id: 8L, walletId: 500L, type: 'DEPOSIT', status: 'PENDING',
             amount: new BigDecimal('20.00'), stripeReference: 'cs_abandoned')
         transactionRepository.findStalePending('DEPOSIT', _, _) >> [settling, abandoned]
-        service.depositAwaitingAsyncPayment(settling) >> true
-        service.depositAwaitingAsyncPayment(abandoned) >> false
+        service.depositSweepVerdict(settling) >> StripeService.SWEEP_KEEP
+        service.depositSweepVerdict(abandoned) >> StripeService.SWEEP_EXPIRE
 
         when:
         service.sweepStalePendingDeposits()

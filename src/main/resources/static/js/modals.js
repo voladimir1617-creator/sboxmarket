@@ -586,7 +586,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
     try {
       const { fetchBuyOrders } = await import('./api.js');
       const rows = await fetchBuyOrders();
-      const mine = (rows || []).find(o => o.itemId === item.id && o.status === 'ACTIVE');
+      // A buyer can hold several orders on one item; show the one next in
+      // line (highest max), not whichever was placed last.
+      const mine = (rows || [])
+        .filter(o => o.itemId === item.id && o.status === 'ACTIVE')
+        .sort((a, b) => parseFloat(b.maxPrice) - parseFloat(a.maxPrice) || (a.createdAt || 0) - (b.createdAt || 0))[0];
       setMyBuyOrder(mine || null);
     } catch (_) { setMyBuyOrder(null); }
   }, [me?.id, item?.id]);
@@ -7264,9 +7268,10 @@ function ProfileBuyOrdersTab() {
   const saveEdit = async (o) => {
     if (busyRef.current) return;
     const maxPrice = parseFloat(editMax);
-    const quantity = parseInt(editQty, 10);
+    // Number, not parseInt: a typed 1.5 must be refused, not saved as 1.
+    const quantity = Number(String(editQty).trim());
     if (!(maxPrice > 0)) { toast('Max price must be positive', 'err'); return; }
-    if (!(quantity >= 1)) { toast('Quantity must be at least 1', 'err'); return; }
+    if (!Number.isInteger(quantity) || quantity < 1) { toast('Quantity must be a whole number of 1 or more', 'err'); return; }
     busyRef.current = true;
     setBusy(true);
     try {
@@ -7915,9 +7920,9 @@ function ProfileAutoBidsTab() {
                 }
               }, statusStyle.label)
             ),
-            h('td', { className: 'right db-mono' }, fmt(b.amount)),
-            h('td', { className: 'right db-mono' }, b.listingCurrentBid != null ? fmt(b.listingCurrentBid) : '—'),
-            h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } },
+            h('td', { className: 'right db-mono', 'data-label': 'Your bid' }, fmt(b.amount)),
+            h('td', { className: 'right db-mono', 'data-label': 'Final' }, b.listingCurrentBid != null ? fmt(b.listingCurrentBid) : '—'),
+            h('td', { className: 'right', 'data-label': 'Bid at', style: { fontSize: 11, color: 'var(--text-muted)' } },
               timeAgo(b.createdAt))
           );
         }))
@@ -8060,17 +8065,19 @@ function ProfileAutoBidsTab() {
             }
           }, 'AUTO')
         ),
-        h('td', { className: 'right db-mono accent' }, fmt(b.amount)),
+        h('td', { className: 'right db-mono accent', 'data-label': 'Your bid' }, fmt(b.amount)),
         h('td', {
           className: 'right db-mono',
+          'data-label': 'Current',
           style: { color: b.status === 'WINNING' ? 'var(--text-primary)' : 'var(--red)' },
           title: b.status === 'WINNING'
             ? "You're the current top bid"
             : `Top bid is ahead by ${fmt((parseFloat(b.listingCurrentBid) || 0) - (parseFloat(b.amount) || 0))}`
         }, b.listingCurrentBid != null ? fmt(b.listingCurrentBid) : fmt(b.amount)),
-        h('td', { className: 'right db-mono' }, fmt(b.maxAmount || b.amount)),
+        h('td', { className: 'right db-mono', 'data-label': 'Max' }, fmt(b.maxAmount || b.amount)),
         h('td', {
           className: 'right',
+          'data-label': 'Ends',
           style: { fontSize: 11, color: 'var(--text-muted)' },
           title: b.listingExpiresAt ? `Auction closes ${new Date(b.listingExpiresAt).toLocaleString()}` : 'Unknown end time'
         },
@@ -8832,7 +8839,7 @@ function ProfileTradesTab({ me, privacy }) {
         style: { borderColor: 'rgba(96,165,250,0.35)' },
         title: `Total charged to your wallet across every VERIFIED buy. Pending / disputed / cancelled trades are excluded.`
       },
-        h('span', { className: 'trade-summary-num', style: { color: '#60a5fa' } }, fmt(dollars.spent)),
+        h('span', { className: 'trade-summary-num', style: { color: '#60a5fa' } }, privacy ? '$•••••' : fmt(dollars.spent)),
         h('span', { className: 'trade-summary-label' }, 'spent')
       ),
       dollars.earned > 0 && h('div', {
@@ -8840,7 +8847,7 @@ function ProfileTradesTab({ me, privacy }) {
         style: { borderColor: 'rgba(34,197,94,0.35)' },
         title: `Total credited to your wallet across every VERIFIED sell, net of the 2% platform fee. Pending / disputed / cancelled trades are excluded.`
       },
-        h('span', { className: 'trade-summary-num', style: { color: 'var(--green)' } }, fmt(dollars.earned)),
+        h('span', { className: 'trade-summary-num', style: { color: 'var(--green)' } }, privacy ? '$•••••' : fmt(dollars.earned)),
         h('span', { className: 'trade-summary-label' }, 'earned')
       )
     ),
@@ -11378,7 +11385,10 @@ function ProfileSupportTab() {
     const id = lastOpenedTicketRef.current;
     if (id == null) return;
     const row = document.querySelector(`tr[data-ticket-id="${id}"]`);
+    // A ticket resolved in the thread drops out of the Open filter, so its
+    // row is gone; land on New Ticket instead of losing focus to <body>.
     if (row) row.focus();
+    else newTicketBtnRef.current?.focus();
   }, [viewingId]);
   // Only the newest open commits: a slow answer for a ticket clicked
   // earlier used to land last and swap the thread (or reopen it after Back).
@@ -11560,7 +11570,7 @@ function ProfileSupportTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; setViewing(null); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; setViewing(null); load(); } }, '← Tickets'),
         h('div', { style: { flex: '1 1 200px', minWidth: 0 } },
           h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none', overflowWrap: 'anywhere' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))
@@ -17437,7 +17447,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                   tabIndex: showDropsOnly ? 0 : -1,
                   onKeyDown: onKey,
                   onClick: () => { setShowDropsOnly(true); navigate('/watchlist/drops'); }
-                }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0).length))
+                }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0 || r.alertHit).length))
               ];
             })(),
             // Sort select — defaults to "Added" (newest-first) so the
@@ -17464,7 +17474,11 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             // in the cart. Only shown when there's at least one
             // add-able row + a signed-in user (backend gates checkout).
             onAddToCart && (() => {
+              // Auctions are won by bidding (checkout refuses them) and the
+              // user's own listing can't be bought, so neither is counted.
               const addable = rows.filter(r => !r.listing.__noListing &&
+                r.listing.listingType !== 'AUCTION' &&
+                !(me?.id != null && r.listing.sellerUserId === me.id) &&
                 !(cartHas && cartHas(r.listing.id)));
               if (addable.length === 0) return null;
               return h('button', {
@@ -17560,7 +17574,6 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                     style: {
                       background: 'rgba(15, 20, 36, 0.85)',
                       color: 'var(--text-muted)',
-                      top: 12, left: 12,
                       letterSpacing: '0.04em',
                       fontWeight: 700,
                       padding: '4px 8px',

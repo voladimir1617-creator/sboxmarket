@@ -782,13 +782,9 @@ class ListingController {
             throw new com.sboxmarket.exception.BadRequestException("INVALID_PERCENT",
                 "percent is required (e.g. -5 for a 5% discount)")
         }
-        BigDecimal pct
-        try {
-            pct = new BigDecimal(rawPct.toString())
-        } catch (NumberFormatException ignored) {
-            throw new com.sboxmarket.exception.BadRequestException("INVALID_PERCENT",
-                "percent must be a number (e.g. -5 for a 5% discount)")
-        }
+        // Bounded parse: bulkAdjustPrices multiplies every listing price by
+        // this and rounds to cents — an unbounded exponent would pin a thread.
+        BigDecimal pct = com.sboxmarket.util.MoneyParse.parse(rawPct, 'percent', 'INVALID_PERCENT')
         if (pct.abs() > new BigDecimal('50')) {
             throw new com.sboxmarket.exception.BadRequestException("PERCENT_TOO_LARGE",
                 "Single adjustment capped at ±50% — split larger changes across multiple passes")
@@ -1279,11 +1275,7 @@ class ListingController {
         // the wallet isn't debited at a surprise price.
         BigDecimal expected = null
         if (body?.expectedPrice != null) {
-            try { expected = new BigDecimal(body.expectedPrice.toString()) }
-            catch (NumberFormatException ignored) {
-                throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE",
-                    "expectedPrice must be a valid number")
-            }
+            expected = com.sboxmarket.util.MoneyParse.parse(body.expectedPrice, 'expectedPrice', 'INVALID_PRICE')
             def lOpt = listingService.findById(id)
             if (lOpt != null && lOpt.price != null && lOpt.price.compareTo(expected) != 0) {
                 throw new com.sboxmarket.exception.BadRequestException("PRICE_CHANGED",
@@ -1376,11 +1368,8 @@ class ListingController {
             if (raw == null) {
                 throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "Price is required")
             }
-            BigDecimal p
-            try { p = new BigDecimal(raw.toString()) }
-            catch (NumberFormatException ignored) {
-                throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "Price must be a valid number")
-            }
+            // Bounded parse before the setScale below (exponent DoS).
+            BigDecimal p = com.sboxmarket.util.MoneyParse.parse(raw, 'price', 'INVALID_PRICE')
             // Normalize to cents up-front, then floor at $0.01 — mirrors the
             // list-creation paths (SellService.relist + the Steam-list
             // endpoints). Without setScale, a sub-cent price like 0.004 cleared
@@ -1444,11 +1433,7 @@ class ListingController {
             if (raw == null) {
                 listing.maxDiscount = null
             } else {
-                BigDecimal md
-                try { md = new BigDecimal(raw.toString()) }
-                catch (NumberFormatException ignored) {
-                    throw new com.sboxmarket.exception.BadRequestException("INVALID_DISCOUNT", "maxDiscount must be a valid number")
-                }
+                BigDecimal md = com.sboxmarket.util.MoneyParse.parse(raw, 'maxDiscount', 'INVALID_DISCOUNT')
                 // Reject maxDiscount >= 1.0 — a 100%-off auto-accept would
                 // let a $0.01 offer instantly buy the item. Matches
                 // SellService.relist's `>= ONE` guard so the edit path is

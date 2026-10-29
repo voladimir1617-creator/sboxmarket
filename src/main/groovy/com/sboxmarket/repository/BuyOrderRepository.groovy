@@ -61,9 +61,10 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
      *  social-proof signal that there's active demand. Joins
      *  SteamUser + filters banned buyers so the public demand signal
      *  isn't inflated by accounts that can't actually transact
-     *  (batch 317, matches the `findMatching` filter). */
+     *  (batch 317, matches the `findMatching` filter). Counts buyers,
+     *  not orders: one buyer with three orders is one buyer. */
     @Query("""
-        SELECT COUNT(b) FROM BuyOrder b, SteamUser u
+        SELECT COUNT(DISTINCT b.buyerUserId) FROM BuyOrder b, SteamUser u
         WHERE b.status = 'ACTIVE'
           AND b.itemId = :itemId
           AND b.buyerUserId = u.id
@@ -91,7 +92,7 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
      *  MyStall page can render a "N want · best $X" chip per listing
      *  without N+1 round-trips. Banned buyers filtered on the join. */
     @Query("""
-        SELECT b.itemId, COUNT(b), COALESCE(MAX(b.maxPrice), 0)
+        SELECT b.itemId, COUNT(DISTINCT b.buyerUserId), COALESCE(MAX(b.maxPrice), 0)
           FROM BuyOrder b, SteamUser u
          WHERE b.status = 'ACTIVE'
            AND b.quantity > 0

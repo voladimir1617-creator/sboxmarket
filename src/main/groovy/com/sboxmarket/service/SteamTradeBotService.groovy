@@ -20,6 +20,7 @@ import java.time.Duration
  *   - {@link #sendOffer(String, List, String)}      -> POST /offers/send
  *   - {@link #getOfferStatus(String)}               -> GET  /offers/:id
  *   - {@link #acceptIncoming(String)}               -> POST /offers/incoming/:id/accept
+ *   - {@link #cancelOffer(String)}                  -> POST /offers/:id/cancel
  *   - {@link #fetchBotInventory()}                  -> GET  /inventory
  *
  * Configuration via @Value:
@@ -126,6 +127,26 @@ class SteamTradeBotService {
             return SteamBotResult.error('BAD_REQUEST', 'offerId is required')
         }
         return request('POST', '/offers/incoming/' + enc(offerId) + '/accept', null)
+    }
+
+    /**
+     * Cancel an offer the bot SENT (deposit request, delivery or return), so
+     * the partner can no longer accept it. Read the answer with
+     * {@link SteamBotResult#isOfferCancelled()} (dead now: safe to give up on
+     * it / refund), {@link SteamBotResult#isOfferAlreadyAccepted()} (the item
+     * moved, or is moving under a Steam hold: do NOT refund / fail) and
+     * anything else (not cancelled; the offer may still be live, retry).
+     */
+    SteamBotResult cancelOffer(String offerId) {
+        if (!enabled) return SteamBotResult.disabled()
+        if (offerId == null || offerId.trim().isEmpty()) {
+            return SteamBotResult.error('BAD_REQUEST', 'offerId is required')
+        }
+        SteamBotResult r = request('POST', '/offers/' + enc(offerId.trim()) + '/cancel', null)
+        if (!r.ok && r.errorCode == SteamBotResult.ALREADY_ACCEPTED && r.raw != null && r.raw['status'] != null) {
+            r.status = String.valueOf(r.raw['status'])
+        }
+        return r
     }
 
     /** Fetch the bot's own app-590830 inventory. */

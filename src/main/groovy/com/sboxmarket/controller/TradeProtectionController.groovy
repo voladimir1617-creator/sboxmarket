@@ -44,16 +44,15 @@ class TradeProtectionController {
      */
     @GetMapping('/api/trade-protection/quote')
     ResponseEntity<Map> quote(@RequestParam String price) {
-        BigDecimal parsed
-        try {
-            // Length cap before parsing: BigDecimal accepts exponents like
-            // 1e3000000, and the fee arithmetic on one burns seconds of CPU
-            // on an unauthenticated endpoint.
-            if (price == null || price.length() > 20) throw new NumberFormatException()
-            parsed = new BigDecimal(price.trim())
-        } catch (NumberFormatException e) {
+        // Bounded parse: BigDecimal accepts exponents like 1e3000000, and the
+        // fee arithmetic on one burns seconds of CPU on an unauthenticated
+        // endpoint. The old 20-char length cap alone still let the 12-char
+        // "1e-100000000" through (positive, under $100k) into setScale(2);
+        // MoneyParse also bounds scale/precision.
+        if (price == null || price.length() > 20) {
             throw new BadRequestException('INVALID_PRICE', 'price must be a number')
         }
+        BigDecimal parsed = com.sboxmarket.util.MoneyParse.parse(price, 'price', 'INVALID_PRICE')
         // Same bounds a listing price has; a quote for -5 or 1e9 covers
         // nothing anyone can buy.
         if (parsed <= BigDecimal.ZERO || parsed > new BigDecimal('100000')) {

@@ -7167,6 +7167,8 @@ body .cart-confirm-total-amt { font-size: 20px !important; font-weight: 700 !imp
 .watchlist-delta { position: absolute !important; top: 12px !important; right: 12px !important; z-index: 3 !important; display: inline-flex !important; align-items: center !important; height: 24px !important; padding: 0 8px !important; border-radius: 6px !important; background: rgba(15, 20, 36, 0.72) !important; border: 1px solid rgba(255, 255, 255, 0.10) !important; -webkit-backdrop-filter: blur(6px) !important; backdrop-filter: blur(6px) !important; font-family: 'Roboto Mono', "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important; font-size: 11px !important; font-weight: 700 !important; line-height: 1 !important; letter-spacing: 0.02em !important; color: rgb(188, 196, 206) !important; white-space: nowrap !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important; }
 .watchlist-delta.drop, .watchlist-delta.down { background: rgba(34, 197, 94, 0.16) !important; border-color: rgba(34, 197, 94, 0.45) !important; color: rgb(74, 222, 128) !important; }
 .watchlist-delta.rise, .watchlist-delta.up { background: rgba(239, 68, 68, 0.16) !important; border-color: rgba(239, 68, 68, 0.45) !important; color: rgb(248, 113, 113) !important; }
+/* The heart that unstars a card sits in the same top-right corner (44px tall on phones), so the badge drops below it instead of covering it. */
+#watchlist-results .watchlist-delta { top: 56px !important; }
 .info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label, .info-modal:has(.offer-tab[title*="Auction"]) .form-label, .info-modal:has(.offer-tab[title*="Auction"]) .input-label { font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 11px !important; font-weight: 600 !important; line-height: 14px !important; color: rgb(158, 167, 177) !important; letter-spacing: 0.4em !important; text-transform: uppercase !important; margin: 0 0 8px 0 !important; display: block !important; }
 .info-modal:has(.offer-tab[title*="Auction"]) .offer-tab, .info-modal:has(.offer-tab[title*="flat price"]) .offer-tab { height: 36px !important; min-height: 36px !important; padding: 0 14px !important; font-size: 13px !important; font-weight: 600 !important; line-height: 36px !important; letter-spacing: 0.18px !important; border: 1px solid rgba(255, 255, 255, 0.10) !important; border-radius: 8px !important; background: rgba(255, 255, 255, 0.03) !important; color: rgb(158, 167, 177) !important; margin-bottom: 0 !important; transition: background 140ms ease, color 140ms ease, border-color 140ms ease !important; }
 .info-modal:has(.offer-tab[title*="Auction"]) .offer-tab:hover, .info-modal:has(.offer-tab[title*="flat price"]) .offer-tab:hover { background: rgba(255, 255, 255, 0.06) !important; color: rgb(188, 196, 206) !important; border-color: rgba(255, 255, 255, 0.16) !important; }
@@ -9078,6 +9080,8 @@ body .grid-card:hover.rarity-Standard .grid-thumb, body .grid-card:hover[data-ra
 html body .full-page-mode .profile-panel:has(.buyorder-list), html body.full-page-mode .profile-panel:has(.buyorder-list) { background: rgb(27, 29, 36) !important; border: 0 !important; border-radius: 12px !important; padding: 30px !important; box-shadow: none !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; color: rgb(255, 255, 255) !important; }
 html body .full-page-mode .buyorder-list { background: transparent !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; color: rgb(255, 255, 255) !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; letter-spacing: normal !important; display: flex !important; flex-direction: column !important; gap: 0 !important; }
 html body .full-page-mode .buyorder-list > .buyorder-row, html body .full-page-mode .buyorder-list > .buy-order-row, html body .full-page-mode .buyorder-list > .bo-row { display: flex !important; flex-direction: row !important; align-items: center !important; min-height: 52px !important; padding: 0 !important; margin: 0 !important; background: transparent !important; border: 0 !important; border-bottom: 0 !important; border-radius: 0 !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; color: rgb(255, 255, 255) !important; letter-spacing: normal !important; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
+/* The info-modal body centres its text; the order rows are a left-aligned list, so an item name no longer floats mid-row. */
+html body .full-page-mode .buyorder-list { text-align: left !important; }
 html body .full-page-mode .buyorder-list > .buyorder-row:hover, html body .full-page-mode .buyorder-list > .buy-order-row:hover, html body .full-page-mode .buyorder-list > .bo-row:hover { background: rgba(255, 255, 255, 0.04) !important; }
 html body .full-page-mode .buyorder-list > .buyorder-row .buyorder-title { font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; color: rgb(255, 255, 255) !important; letter-spacing: normal !important; margin: 0 !important; }
 html body .full-page-mode .buyorder-list > .buyorder-row .buyorder-sub { font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 12px !important; font-weight: 400 !important; line-height: 16px !important; color: rgb(158, 167, 177) !important; letter-spacing: normal !important; margin: 2px 0 0 0 !important; }
@@ -10232,6 +10236,8 @@ html body .trade-list > .trade-row .trade-phase-label { display: none !important
 .db-table--list.db-table tbody tr.db-row > td.db-rank { display: none !important; }
 .db-table--list.db-table tbody tr.db-row > td.db-rank + td, .db-table--list.db-table tbody tr.db-row > td:first-child:not(.db-rank) { font-size: 13px !important; font-weight: 600 !important; color: var(--ink) !important; margin-bottom: 1px !important; }
 .db-table--list.db-table tbody tr.db-row > td::before, .db-table--list.db-table tbody tr.db-row > td::after { content: none !important; }
+.db-table--list.db-table tbody tr.db-row > td[data-label] { text-align: left !important; justify-self: auto !important; font-family: inherit !important; }
+.db-table--list.db-table tbody tr.db-row > td[data-label]::before { content: attr(data-label) " · " !important; font-family: inherit !important; font-weight: 400 !important; color: var(--ink-3) !important; }
 .db-table--list.db-table tbody tr.db-row > td .db-item-cell { display: flex !important; align-items: center !important; gap: 8px !important; }
 }
 @media (max-width: 560px) { html body .loadout-tabs, html body .full-page-mode .info-modal-body .loadout-tabs { flex-wrap: wrap !important; height: auto !important; gap: 2px !important; }
@@ -12104,8 +12110,9 @@ html body .site-root.full-page-mode .wallet-modal > .modal-close { display: none
 
 /* Stall hero, signed in: the five action buttons shared one flex row with the
    stats and squeezed every stat into a 200px column. Stats take the row
-   beside the avatar; the actions wrap underneath. */
-html body .stall-hero { flex-wrap: wrap !important; row-gap: 16px; }
+   beside the avatar; the actions wrap underneath. The base rule unsets both
+   gaps with !important, which left the stats touching the avatar. */
+html body .stall-hero { flex-wrap: wrap !important; row-gap: 16px !important; column-gap: 16px !important; }
 html body .stall-hero > div:not(.stall-avatar) { flex: 1 1 calc(100% - 120px) !important; min-width: 0 !important; }
 
 /* Profile tabs: nine tabs plus a count badge ran past the card and cut
@@ -13626,3 +13633,20 @@ html body .cart-confirm-backdrop > .cart-confirm-panel { max-height: calc(100dvh
   html body .cart-confirm-panel .cart-confirm-actions { flex-wrap: wrap !important; }
   html body .cart-confirm-panel .cart-confirm-actions > .btn { flex: 1 1 auto !important; }
 }
+/* Desktop full-page routes (profile, db, cart, stall, offers...) scroll inside a fixed backdrop padded for a nav at the
+   very top. With the email-confirm or a site announcement banner above the nav, the backdrop hid the banner and the
+   nav sat over each page's heading. Let those pages flow under the banner and nav instead. */
+@media (min-width: 901px) {
+  html body .site-root.full-page-mode:has(> .announce-banner) .modal-backdrop { position: static !important; padding: 0 0 36px !important; }
+}
+/* Stall recent sales carry the item name as a fourth cell. The three-column sales-log grid pushed the time onto a
+   second line that spilled over the next row. */
+html body .stall-recent-sales .recent-sales-list .recent-sales-row { grid-template-columns: 76px minmax(0, 1fr) auto auto !important; }
+/* Stall section heads hold only a dot and a title; space-between threw the title to the far right. */
+html body .stall-reviews-head, html body .stall-review-cta-head { justify-content: flex-start !important; gap: 8px !important; }
+/* Stall "Leave a review": the comment box shares the review-body class (no box, no width) and sat as a two-line
+   sliver beside 14px stars; the two-cell trade rows sat in a three-column grid that squeezed the item name to 40px. */
+.stall-review-form { display: flex; flex-direction: column; gap: 8px; }
+html body .stall-review-form textarea.stall-review-text { width: 100% !important; min-height: 88px; box-sizing: border-box; padding: 10px 12px !important; margin: 0 !important; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; color: var(--ink); font: inherit; resize: vertical; }
+html body .stall-review-form .stall-review-stars-picker button { font-size: 22px !important; }
+html body .stall-review-cta-row { grid-template-columns: minmax(0, 1fr) auto !important; }
