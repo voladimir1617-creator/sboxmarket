@@ -150,6 +150,21 @@ class RateLimitFilterSpec extends Specification {
         resp.contentAsString.contains('"code":"RATE_LIMITED"')
     }
 
+    def "Retry-After never names a moment when the caller is still blocked"() {
+        given: "a burnt bucket with 9.9s of its window left"
+        (1..40).each { filter.doFilter(get('/api/items/99'), new MockHttpServletResponse(), chain) }
+        filter.@buckets.values().each { it.windowStart = System.currentTimeMillis() - 100L }
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(get('/api/items/99'), resp, chain)
+
+        then: "rounded past the reset, not down to 9s (a retry at 9s would 429 again)"
+        resp.status == 429
+        resp.getHeader('Retry-After') == '10'
+        resp.getHeader('X-RateLimit-Reset') == '10'
+    }
+
     def "guarded 2xx responses carry X-RateLimit-* header trio (batch 545)"() {
         given:
         def resp = new MockHttpServletResponse()
