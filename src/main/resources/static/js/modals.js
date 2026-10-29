@@ -12632,7 +12632,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         );
       }
       await onRefresh();
-      onClose();
+      // A held listing is not on the market yet, so closing to /market left
+      // the seller looking for an item that is not there. My Stall shows it
+      // under "Waiting for your item" with the code the bot's offer carries.
+      if (held) navigate('/me/stall');
+      else onClose();
     } finally { setBusy(false); }
   };
 

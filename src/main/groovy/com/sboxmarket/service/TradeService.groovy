@@ -805,7 +805,14 @@ class TradeService {
                 t.tradeOfferUrl = clean
             }
         }
+        // On a bot-delivered sale the offer comes from SkinBox's bot, and
+        // SteamDeliveryService tells the buyer so itself. The seller-sent bell
+        // and email below would add a second notice telling them to accept an
+        // offer "from" the seller and to click Confirm Receipt by hand.
+        boolean botDelivered = t.listingId != null && steamEscrowService != null &&
+                steamEscrowService.botDeliveredListingIds([t.listingId]).contains(t.listingId)
         transitionTo(t, 'PENDING_BUYER_CONFIRM')
+        if (botDelivered) return t
         notificationService?.safePush(t.buyerUserId, 'TRADE_SENT',
             "Steam trade offer sent · ${t.itemName}",
             "Confirm the trade on Steam and then click Confirm Receipt.", t.id, '/profile?tab=trades')
@@ -988,7 +995,9 @@ class TradeService {
             notificationService?.safePush(t.buyerUserId, 'REVIEW_REMINDER',
                 "How did the trade go?",
                 "Leave a review for the seller — takes 10 seconds.",
-                t.id, "/stall/${t.sellerUserId}".toString())
+                // ?leaveReview opens the stall's review form on this trade; the
+                // bare stall URL left the form below the seller's whole grid.
+                t.id, "/stall/${t.sellerUserId}?leaveReview=${t.id}".toString())
         }
         // Audit actor: on the MANUAL buyer-confirm path the buyer is the
         // actor (they clicked Confirm Receipt). On the AUTO-release sweep
@@ -1780,7 +1789,7 @@ class TradeService {
                 notificationService?.push(trade.buyerUserId, 'REVIEW_REMINDER',
                     "How was your trade with ${trade.itemName ?: 'the seller'}?",
                     "Two days since it cleared — leave a quick review while it's fresh. Takes 10 seconds.",
-                    trade.id, "/stall/${trade.sellerUserId}".toString())
+                    trade.id, "/stall/${trade.sellerUserId}?leaveReview=${trade.id}".toString())
             } catch (Exception e) {
                 log.warn("Review-nudge push failed on trade ${trade.id}: ${e.message}")
             }
