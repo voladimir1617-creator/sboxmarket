@@ -410,6 +410,19 @@ class StripeService {
      * unit-testable: the surrounding path calls the static
      * {@code Transfer.create}, which no unit test can drive to success.
      */
+    /** True when Stripe refused a Transfer because the platform's AVAILABLE
+     *  balance cannot cover it (error code {@code balance_insufficient}). */
+    static boolean isInsufficientPlatformBalance(Throwable e) {
+        for (Throwable t = e; t != null; t = t.cause) {
+            if (t instanceof com.stripe.exception.StripeException &&
+                    'balance_insufficient' == ((com.stripe.exception.StripeException) t).code) {
+                return true
+            }
+            if (t.cause == t) break
+        }
+        false
+    }
+
     protected void assertTransferNotAlreadyRecorded(String transferId, Long walletId, String idemKey) {
         if (transferId == null) return
         def prior = transactionRepository.findByStripeReference(transferId)
@@ -2027,6 +2040,25 @@ class StripeService {
                 // Transfer failed — let it propagate so the @Transactional
                 // rolls back the wallet debit (no money left, no orphan
                 // row). The controller surfaces a retryable error.
+                //
+                // balance_insufficient is the expected failure on a new
+                // live account: card deposits sit in the platform's PENDING
+                // balance for days before Stripe makes them available, and a
+                // Transfer can only spend the AVAILABLE balance. The first
+                // seller cash-out after the first real sale lands exactly
+                // there. "Stripe error, try again" sent them into a retry
+                // loop that cannot succeed until the funds clear, so it gets
+                // its own code, a message that says what is going on, and a
+                // log line staff can search for.
+                if (isInsufficientPlatformBalance(e)) {
+                    log.error("PAYOUT_FUNDS_PENDING: Stripe Connect transfer for wallet ${walletId} " +
+                              "(\$${netPayout} → ${wallet.stripeConnectAccountId}) refused: the platform's " +
+                              "available Stripe balance is too low. Deposits are still clearing. " +
+                              "The wallet debit was rolled back.")
+                    throw new com.sboxmarket.exception.BadRequestException("PAYOUT_FUNDS_PENDING",
+                        "Payouts are paused for a short while because recent card payments are still clearing " +
+                        "with our payment processor. Your balance was not charged. Please try again in a day or two.")
+                }
                 log.error("Stripe Connect transfer FAILED for wallet ${walletId} (\$${amount} → ${wallet.stripeConnectAccountId}): ${e.message}")
                 throw new IllegalStateException("Payout could not be created — Stripe error. Your balance was not charged; try again.", e)
             }

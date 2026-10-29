@@ -1,7 +1,7 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
 import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=19';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -2464,6 +2464,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               width: '100%', padding: '6px 12px', fontSize: 11,
               border: '1px dashed var(--border)', color: 'var(--text-secondary)'
             },
+            'aria-expanded': showAllListings,
             onClick: () => setShowAllListings(v => !v),
             title: showAllListings
               ? `Collapse back to the cheapest 6 listings`
@@ -3233,7 +3234,9 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   const panelRef = useRef(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
-  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  // Escape must not close the drawer mid-submit, same as the Cancel button.
+  const busyRef = useRef(false);
+  const stableCancel = useCallback(() => { if (!busyRef.current) onCancelRef.current && onCancelRef.current(); }, []);
   useDialogA11y(panelRef, stableCancel);
   // 2026-05-20 — seed `reason` from the first server-supplied reason
   // rather than a hard-coded string. The <select> options come from the
@@ -3246,6 +3249,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
     (Array.isArray(reasons) && reasons.length > 0) ? reasons[0] : 'Suspicious pricing');
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
+  busyRef.current = busy;
   const [err, setErr]       = useState('');
   const [done, setDone]     = useState('');
   const MAX_NOTE = 500;
@@ -3281,7 +3285,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   }, []);
   const submit = async () => {
     if (!reason) { setErr('Pick a reason first'); return; }
-    setErr(''); setBusy(true);
+    setErr(''); setBusy(true); busyRef.current = true;
     try {
       const res = await reportListing(listing.id, reason, note);
       if (res && (res.error || res.code)) {
@@ -3299,7 +3303,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   };
   return h('div', {
     className: 'cart-confirm-backdrop',
-    onClick: onCancel,
+    onClick: () => !busy && onCancel(),
     style: { zIndex: 100 }
   },
     h('div', {
@@ -3354,7 +3358,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
               },
               disabled: busy
             }),
-            err && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, err),
+            err && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, err),
             h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
               h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: onCancel }, 'Cancel'),
               h('button', { className: 'btn btn-accent', disabled: busy, onClick: submit },
@@ -3487,7 +3491,7 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
             : trimmed.length > 200
               ? 'That URL is too long — the limit is 200 characters.'
               : 'Must start with https://steamcommunity.com/tradeoffer/...'),
-      err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
+      err && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, err),
       h('div', { style: { display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' } },
         h('button', {
           className: 'btn btn-ghost',
@@ -3528,7 +3532,8 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
   const panelRef = useRef(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
-  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  // Escape must not close the drawer mid-submit, same as the backdrop.
+  const stableCancel = useCallback(() => { if (!busyRef.current) onCancelRef.current && onCancelRef.current(); }, []);
   useDialogA11y(panelRef, stableCancel);
   const REASONS = ['Scam attempt','Harassment in chat','Impersonation','Other'];
   const [reason, setReason] = useState(REASONS[0]);
@@ -3618,7 +3623,7 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
       h('div', {
         style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, textAlign: 'right' }
       }, note.length, ' / 1000'),
-      err && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, err),
+      err && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, err),
       h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
         h('button', {
           className: 'btn btn-ghost',
@@ -3909,6 +3914,7 @@ export function FaqModal({ onClose }) {
     catch { return ''; }
   })();
   const [q, setQ] = useState(initialQ);
+  const searchRef = useRef(null);
   const ENTRIES = [
     [`What is ${BRAND.name}?`,
       `${BRAND.name} is a peer-to-peer marketplace for s&box cosmetic items. Every listing comes from a real seller who sets their own price — we're the middle layer that makes transactions safe, fast, and cheaper than going through the Steam store.`],
@@ -3949,8 +3955,11 @@ export function FaqModal({ onClose }) {
     ['I found a bug / my purchase is stuck',
       "Head to the Support tab in your profile (or click the Support link in the user menu) and open a ticket. Include the transaction id from your Trades tab and we'll refund or retry as needed."]
   ];
+  // Re-render once /api/version answers; live sites drop the test-mode line.
+  useTestMode();
+  const entries = ENTRIES.map(([qq, aa]) => [qq, testModeCopy(aa)]);
   const t = q.trim().toLowerCase();
-  const filtered = t ? ENTRIES.filter(([qq, aa]) => (qq + ' ' + aa).toLowerCase().includes(t)) : ENTRIES;
+  const filtered = t ? entries.filter(([qq, aa]) => (qq + ' ' + aa).toLowerCase().includes(t)) : entries;
   return h(InfoModal, { title: 'FAQ', onClose },
     // Boss QA F1 — slim 48px-tall single-line banner so the FAQ
     // questions sit above the fold. The previous block was a wrapping
@@ -3968,6 +3977,7 @@ export function FaqModal({ onClose }) {
       style: { width: '100%', fontSize: 13, marginBottom: 18 },
       placeholder: 'Search FAQs…',
       value: q,
+      ref: searchRef,
       onChange: e => setQ(e.target.value),
       'aria-label': 'Search FAQ'
     }),
@@ -4014,7 +4024,8 @@ export function FaqModal({ onClose }) {
             h('button', {
               className: 'btn btn-ghost',
               style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12 },
-              onClick: () => setQ('')
+              // The button goes away with the no-match state; keep focus in the search box.
+              onClick: () => { setQ(''); searchRef.current?.focus(); }
             }, 'Clear search'),
             h('a', {
               href: '/support',
@@ -4253,7 +4264,6 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '3px 10px', fontSize: 11 },
           title: 'Play the notification ding once (bypasses the mute toggle).',
-          'aria-label': 'Send a test notification ding',
           onClick: async () => {
             try {
               const { playNotifyDing } = await import('./nav-widgets.js');
@@ -4391,6 +4401,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   // undefined until /profile/me answers (null if it failed), so the page
   // can hold the Account Standing card's place while it loads.
   const [profile, setProfile]     = useState(undefined);
+  const [profileErr, setProfileErr] = useState(false);
+  const [profileRetry, setProfileRetry] = useState(0);
   const [privacy, setPrivacy]     = useState(() => localStorage.getItem('sb_privacy') === '1');
   const [syncing, setSyncing]     = useState(false);
   // Double-click latch: the syncing state lags a re-render, so a quick second click ran a second Steam sync.
@@ -4449,6 +4461,16 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     const el = profileTabsRef.current;
     if (el) requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'start' }); } catch (_) { /* old browser: stay put */ } });
   }, [profile, initialTab]);
+  // On a phone the tab strip scrolls sideways: keep the selected tab in view.
+  useEffect(() => {
+    // Sideways only, so the page itself never jumps.
+    const strip = profileTabsRef.current;
+    const sel = strip?.querySelector('[aria-selected="true"]');
+    if (!sel) return;
+    const left = sel.offsetLeft - strip.offsetLeft;
+    if (left < strip.scrollLeft) strip.scrollLeft = left;
+    else if (left + sel.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = left + sel.offsetWidth - strip.clientWidth;
+  }, [tab, profile]);
 
   useEffect(() => {
     if (!me) return;
@@ -4459,9 +4481,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     // user's profile with the previous user's data. The sibling effect
     // below (3384) uses the same pattern.
     let alive = true;
-    fetchProfile().then(p => { if (alive) setProfile(p); });
+    setProfileErr(false);
+    fetchProfile().then(p => { if (!alive) return; if (p) setProfile(p); else setProfileErr(true); });
     return () => { alive = false; };
-  }, [me]);
+  }, [me, profileRetry]);
 
   useEffect(() => {
     if (!me) return;
@@ -4997,7 +5020,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       id: 'profile-panel-' + tab,
       'aria-labelledby': 'profile-tab-' + tab
     },
-      tab === 'personal' && h(ProfilePersonalTab, {
+      tab === 'personal' && profileErr && h('div', { className: 'empty-inline', role: 'alert' },
+        h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Couldn’t load your profile details.'),
+        h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => setProfileRetry(n => n + 1) }, 'Retry')),
+      tab === 'personal' && !profileErr && h(ProfilePersonalTab, {
         me, profile, syncing, onSync: runSync, transactions, privacy,
         // Batch 929 — lightweight profile refresh for actions that need
         // to pick up the new `profile.user.deletionRequestedAt` state
@@ -5085,6 +5111,9 @@ function EmailBucketMutes() {
   const [available, setAvailable] = useState([]);
   const [muted, setMuted] = useState(new Set());
   const [busy, setBusy] = useState(false);
+  // A failed load used to hide the whole category list without a word.
+  const [loadErr, setLoadErr] = useState(false);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -5095,10 +5124,11 @@ function EmailBucketMutes() {
         setAvailable(Array.isArray(data.available) ? data.available : []);
         setMuted(new Set(Array.isArray(data.muted) ? data.muted : []));
       }
+      setLoadErr(!data);
       setLoaded(true);
     })();
     return () => { alive = false; };
-  }, []);
+  }, [retry]);
   const toggle = async (bucket) => {
     if (busy) return;
     const next = new Set(muted);
@@ -5116,6 +5146,8 @@ function EmailBucketMutes() {
     } finally { setBusy(false); }
   };
   if (!loaded) return h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Loading categories…');
+  if (loadErr) return h('div', { className: 'wallet-error', role: 'alert', style: { fontSize: 11 } }, 'Email categories failed to load. ',
+    h('button', { className: 'btn btn-sm', onClick: () => { setLoaded(false); setRetry(n => n + 1); } }, 'Retry'));
   if (available.length === 0) return null;
   const LABELS = {
     TRADES:    { name: 'Trade activity',          hint: 'New sales to send, trade updates and disputes, offers and counters, buy-order fills, and payouts. Muting it also mutes "you sold an item" emails.' },
@@ -5143,7 +5175,9 @@ function EmailBucketMutes() {
           type: 'checkbox',
           checked: !off,
           onChange: () => toggle(b),
-          disabled: busy,
+          // aria-disabled, not disabled: disabling the focused box dropped
+          // keyboard focus to the page. toggle() already ignores busy clicks.
+          'aria-disabled': busy || undefined,
           style: { accentColor: 'var(--accent)' }
         }),
         h('div', { style: { flex: 1, minWidth: 0 } },
@@ -5194,6 +5228,18 @@ function FollowingListRow() {
   // Per-row double-click latch: the row stays until the DELETE lands,
   // so a second click sent a second DELETE and a second toast.
   const unfollowBusyRef = useRef(new Set());
+  // The unfollowed row (and the focused ✕ with it) unmounts; move focus to
+  // the ✕ now in its place, or the last one, instead of dropping to <body>.
+  const followListRef = useRef(null);
+  const refocusUnfollowRef = useRef(null);
+  useEffect(() => {
+    const idx = refocusUnfollowRef.current;
+    if (idx == null) return;
+    refocusUnfollowRef.current = null;
+    const btns = followListRef.current?.querySelectorAll('[data-unfollow]') || [];
+    const next = btns[Math.min(idx, btns.length - 1)];
+    if (next) next.focus();
+  }, [rows]);
   const doUnfollow = async (sellerId) => {
     if (unfollowBusyRef.current.has(sellerId)) return;
     unfollowBusyRef.current.add(sellerId);
@@ -5207,6 +5253,9 @@ function FollowingListRow() {
         toast(res.message || res.error || 'Could not unfollow', 'err');
         return;
       }
+      const shown = showAllFollows ? (rows || []) : (rows || []).slice(0, 10);
+      const at = shown.findIndex(r => r.sellerUserId === sellerId);
+      if (at >= 0 && followListRef.current?.contains(document.activeElement)) refocusUnfollowRef.current = at;
       setRows(rs => (rs || []).filter(r => r.sellerUserId !== sellerId));
       toast(who ? `Unfollowed @${who}.` : 'Unfollowed.', 'ok');
     } finally { unfollowBusyRef.current.delete(sellerId); }
@@ -5299,7 +5348,7 @@ function FollowingListRow() {
         'aria-label': 'Unfollow all sellers'
       }, '✕ all')
     ),
-    h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
+    h('div', { ref: followListRef, className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
       (showAllFollows ? rows : rows.slice(0, 10)).map(r => {
        // Every row's buttons otherwise read the same to a screen reader.
        const who = names[r.sellerUserId] || ('Seller #' + r.sellerUserId);
@@ -5331,6 +5380,7 @@ function FollowingListRow() {
           className: 'btn btn-ghost',
           style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
           onClick: () => doUnfollow(r.sellerUserId),
+          'data-unfollow': '',
           title: 'Unfollow this seller',
           'aria-label': `Unfollow ${who}`
         }, '✕')
@@ -5364,6 +5414,18 @@ function BlockedListRow() {
   useEffect(() => { loadRows(); }, [loadRows]);
   // Per-row double-click latch, as on the Following list.
   const unblockBusyRef = useRef(new Set());
+  // The unblocked row (and its focused Unblock) unmounts; move focus to the
+  // Unblock now in its place, or the last one, as the Following list does.
+  const blockListRef = useRef(null);
+  const refocusUnblockRef = useRef(null);
+  useEffect(() => {
+    const idx = refocusUnblockRef.current;
+    if (idx == null) return;
+    refocusUnblockRef.current = null;
+    const btns = blockListRef.current?.querySelectorAll('[data-unblock]') || [];
+    const next = btns[Math.min(idx, btns.length - 1)];
+    if (next) next.focus();
+  }, [rows]);
   const doUnblock = async (userId) => {
     const key = Number(userId);
     if (unblockBusyRef.current.has(key)) return;
@@ -5380,6 +5442,9 @@ function BlockedListRow() {
         toast(res.message || res.error || 'Could not unblock', 'err');
         return;
       }
+      const shown = showAll ? (rows || []) : (rows || []).slice(0, 10);
+      const at = shown.findIndex(x => Number(x.blockedUserId) === key);
+      if (at >= 0 && blockListRef.current?.contains(document.activeElement)) refocusUnblockRef.current = at;
       setRows(rs => (rs || []).filter(r => Number(r.blockedUserId) !== key));
       toast(who ? `Unblocked @${who} — their listings are visible again.` : 'Unblocked.', 'ok');
     } finally { unblockBusyRef.current.delete(key); }
@@ -5422,7 +5487,7 @@ function BlockedListRow() {
         'aria-label': 'Unblock all users'
       }, '✕ all')
     ),
-    h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
+    h('div', { ref: blockListRef, className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
       (showAll ? rows : rows.slice(0, 10)).map(r => h('div', {
         key: r.blockedUserId,
         style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }
@@ -5436,6 +5501,7 @@ function BlockedListRow() {
           className: 'btn btn-ghost',
           style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
           onClick: () => doUnblock(r.blockedUserId),
+          'data-unblock': '',
           title: 'Remove this block',
           'aria-label': `Unblock ${r.displayName || ('User #' + r.blockedUserId)}`
         }, 'Unblock')
@@ -5462,9 +5528,13 @@ function SignInHistoryRow() {
   const [rows, setRows] = useState(null);
   const loaded = useRef(false);
   const toggle = async () => {
-    setOpen(v => !v);
-    if (loaded.current) return;
+    // Load on Show only, and clear a failed attempt's error while the
+    // retry is in flight instead of showing it over the new request.
+    const opening = !open;
+    setOpen(opening);
+    if (!opening || loaded.current) return;
     loaded.current = true;
+    setRows(null);
     let data = null;
     try {
       const { fetchSignInHistory } = await import('./api.js');
@@ -5493,6 +5563,7 @@ function SignInHistoryRow() {
       h('button', {
         className: 'btn btn-ghost',
         style: { padding: '5px 12px', fontSize: 11, border: '1px solid var(--border)' },
+        'aria-expanded': open,
         onClick: toggle
       }, open ? 'Hide' : 'Show last 20 sign-ins'),
       open && (rows === null
@@ -5534,9 +5605,13 @@ function SecurityActivityRow() {
   const [rows, setRows] = useState(null);
   const loaded = useRef(false);
   const toggle = async () => {
-    setOpen(v => !v);
-    if (loaded.current) return;
+    // Load on Show only, and clear a failed attempt's error while the
+    // retry is in flight instead of showing it over the new request.
+    const opening = !open;
+    setOpen(opening);
+    if (!opening || loaded.current) return;
     loaded.current = true;
+    setRows(null);
     let data = null;
     try {
       const { fetchSecurityActivity } = await import('./api.js');
@@ -5580,6 +5655,7 @@ function SecurityActivityRow() {
       h('button', {
         className: 'btn btn-ghost',
         style: { padding: '5px 12px', fontSize: 11, border: '1px solid var(--border)' },
+        'aria-expanded': open,
         onClick: toggle,
         title: 'Shows 2FA resets, API key mints / revocations, admin actions, withdrawals, and disputes on your account.'
       }, open ? 'Hide' : 'Show recent security events'),
@@ -5672,6 +5748,17 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   // returns plaintext codes except in the response that mints them.
   const [backupCodes, setBackupCodes] = useState(null);
   const [recoveryStatus, setRecoveryStatus] = useState(null);
+  // Closing a 2FA drawer (Cancel, Escape, success) or the backup-codes panel
+  // unmounts the focused control; hand focus back to the button that opened it.
+  const disable2faBtnRef = useRef(null);
+  const regenBtnRef = useRef(null);
+  const twofaPanelsWereOpen = useRef({ disable: false, regen: false, codes: false });
+  useEffect(() => {
+    const was = twofaPanelsWereOpen.current;
+    if (was.disable && !disableDrawerOpen) disable2faBtnRef.current?.focus();
+    if ((was.regen && !regenDrawerOpen) || (was.codes && !backupCodes)) regenBtnRef.current?.focus();
+    twofaPanelsWereOpen.current = { disable: disableDrawerOpen, regen: regenDrawerOpen, codes: !!backupCodes };
+  }, [disableDrawerOpen, regenDrawerOpen, backupCodes]);
   const refreshRecoveryStatus = useCallback(async () => {
     try {
       const s = await fetch2faRecoveryStatus();
@@ -5693,6 +5780,17 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   const [tradeUrlDraft, setTradeUrlDraft]     = useState('');
   const [tradeUrlErr, setTradeUrlErr]         = useState('');
   const [tradeUrlBusy, setTradeUrlBusy]       = useState(false);
+  // Leaving an inline editor (Save, Cancel, Escape) unmounts the focused
+  // input; hand focus back to the row's Edit button instead of the page.
+  const tradeUrlEditRef = useRef(null);
+  const emailEditRef = useRef(null);
+  const editorsWereOpen = useRef({ trade: false, email: false });
+  useEffect(() => {
+    const was = editorsWereOpen.current;
+    if (was.trade && !editingTradeUrl) tradeUrlEditRef.current?.focus();
+    if (was.email && !editingEmail) emailEditRef.current?.focus();
+    editorsWereOpen.current = { trade: editingTradeUrl, email: editingEmail };
+  }, [editingTradeUrl, editingEmail]);
   const hasTradeUrl = !!profile?.user?.tradeUrl;
   const saveTradeUrl = async (raw) => {
     setTradeUrlBusy(true); setTradeUrlErr('');
@@ -6069,6 +6167,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
+            ref: emailEditRef,
             onClick: () => { setEditingEmail(true); setEmailDraft(profile?.user?.email || ''); },
             'aria-label': 'Edit email address'
           }, 'Edit')
@@ -6089,11 +6188,12 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             value: emailDraft, onChange: e => setEmailDraft(e.target.value),
             onKeyDown: e => {
               if (e.key === 'Enter') { e.preventDefault(); saveEmail(); }
-              else if (e.key === 'Escape') { e.preventDefault(); setEditingEmail(false); }
+              // A save in flight keeps the box: closing it lost the draft the error is about.
+              else if (e.key === 'Escape') { e.preventDefault(); if (!emailBusyRef.current) setEditingEmail(false); }
             }
           }),
           h('button', { className: 'buy-btn', onClick: saveEmail }, 'Save'),
-          h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => setEditingEmail(false), 'aria-label': 'Cancel email edit' }, '✕')
+          h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => { if (!emailBusyRef.current) setEditingEmail(false); }, 'aria-label': 'Cancel email edit' }, '✕')
         ),
         // Mail was sent (no token comes back when real mail is on): say so,
         // otherwise Save and Resend look like they did nothing.
@@ -6112,7 +6212,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           )
         ),
         emailResult?.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } }, 'Email verified'),
-        emailResult?.err && h('div', { className: 'wallet-error' }, emailResult.err),
+        emailResult?.err && h('div', { className: 'wallet-error', role: 'alert' }, emailResult.err),
         // Resend verification link — only meaningful when email is set but
         // not yet verified. Regenerates the token and re-delivers via
         // EmailService (or logs it in dev mode).
@@ -6151,6 +6251,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+            ref: tradeUrlEditRef,
             onClick: () => { setTradeUrlDraft(profile?.user?.tradeUrl || ''); setEditingTradeUrl(true); setTradeUrlErr(''); },
             'aria-label': hasTradeUrl ? 'Edit Steam trade URL' : 'Add Steam trade URL'
           }, hasTradeUrl ? 'Edit' : 'Add'),
@@ -6210,7 +6311,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           }, 'Steam → Trade offers → Who can send me offers'),
           '.'
         ),
-        tradeUrlErr && h('div', { className: 'wallet-error' }, tradeUrlErr)
+        tradeUrlErr && h('div', { className: 'wallet-error', role: 'alert' }, tradeUrlErr)
       )
     ),
 
@@ -6222,6 +6323,9 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, 'Disabled'),
           h('button', { className: 'btn btn-accent', style: { padding: '6px 14px', fontSize: 11 }, disabled: twofaBusy, onClick: startEnroll }, 'Enable 2FA')
         ),
+        // A failed enroll start set twofaErr, but it only rendered inside the
+        // enrolling panel, so the click did nothing visible.
+        !enrolling && !has2fa && twofaErr && h('div', { className: 'wallet-error', role: 'alert' }, twofaErr),
         !enrolling && has2fa && h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10 } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
             h('span', { style: { fontSize: 12, color: 'var(--green)', fontWeight: 700 } }, 'Enabled'),
@@ -6244,8 +6348,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               recoveryStatus.remainingCodes <= 3 ? '⚠ ' : '',
               recoveryStatus.remainingCodes, ' backup code', recoveryStatus.remainingCodes === 1 ? '' : 's', ' left'
             ),
-            h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 }, onClick: regenerateBackupCodes, title: 'Mint a fresh set of backup codes. The current set becomes invalid.' }, 'Regenerate codes'),
-            h('button', { className: 'btn btn-ghost', style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 }, onClick: disableTwofa }, 'Disable')
+            h('button', { ref: regenBtnRef, className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 }, onClick: regenerateBackupCodes, title: 'Mint a fresh set of backup codes. The current set becomes invalid.' }, 'Regenerate codes'),
+            h('button', { ref: disable2faBtnRef, className: 'btn btn-ghost', style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 }, onClick: disableTwofa }, 'Disable')
           ),
           // Batch 814 — inline drawer: Disable 2FA. Replaces window.prompt()
           // so the TOTP input gets password-manager autofill, visible
@@ -6273,6 +6377,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               spellCheck: false,
               maxLength: 32,
               'aria-label': '6-digit authenticator code or backup code',
+              autoFocus: true,
               placeholder: '000000 or backup code',
               value: disableCode,
               onChange: (e) => {
@@ -6287,7 +6392,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 else if (e.key === 'Escape' && !disableBusy) { e.preventDefault(); setDisableDrawerOpen(false); setDisableCode(''); setDisableErr(''); }
               }
             }),
-            disableErr && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, disableErr),
+            disableErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, disableErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
               h('button', {
                 className: 'btn btn-ghost',
@@ -6329,6 +6434,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               maxLength: 6,
               'aria-label': '6-digit authenticator code',
               placeholder: '000000',
+              autoFocus: true,
               value: regenCode,
               onChange: (e) => {
                 const v = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -6340,7 +6446,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 else if (e.key === 'Escape' && !regenBusy) { e.preventDefault(); setRegenDrawerOpen(false); setRegenCode(''); setRegenErr(''); }
               }
             }),
-            regenErr && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, regenErr),
+            regenErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, regenErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
               h('button', {
                 className: 'btn btn-ghost',
@@ -6475,7 +6581,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               }
             }
           }),
-          twofaErr && h('div', { className: 'wallet-error' }, twofaErr),
+          twofaErr && h('div', { className: 'wallet-error', role: 'alert' }, twofaErr),
           h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
             h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: async () => {
               // Tell the server to drop the staged secret — else email verify/resend
@@ -6535,7 +6641,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       h('div', { className: 'profile-row-label' }, 'Last Steam Sync'),
       h('div', { className: 'profile-row-value' },
         profile?.user?.lastSyncedAt ? timeAgo(profile.user.lastSyncedAt) : 'Never',
-        h('button', { className: 'btn btn-ghost', style: { marginLeft: 12, padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: syncing, onClick: onSync },
+        h('button', { className: 'btn btn-ghost', style: { marginLeft: 12, padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, 'aria-disabled': syncing || undefined, onClick: onSync },
           syncing ? 'Syncing…' : 'Sync Now')
       )
     ),
@@ -6792,7 +6898,7 @@ function ProfileListingsTab({ me }) {
   // Error card — recoverable, mirrors the "Retry" affordance used by
   // other self-fetching panels. Distinct from the empty state so a
   // network blip never reads as "you have no listings".
-  if (err) return h('div', { className: 'empty-inline' },
+  if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your listings'),
@@ -7138,6 +7244,16 @@ function ProfileBuyOrdersTab() {
     setEditQty(o.quantity != null ? String(o.quantity) : '');
   };
   const cancelEdit = () => { setEditing(null); setEditMax(''); setEditQty(''); };
+  // Closing the editor (Escape, ✕, Save) unmounts the focused input; hand
+  // focus back to that row's Edit button instead of dropping it on the page.
+  const editBtnRefs = useRef({});
+  const lastEditRef = useRef(null);
+  useEffect(() => {
+    if (editing != null) { lastEditRef.current = editing; return; }
+    const id = lastEditRef.current;
+    lastEditRef.current = null;
+    if (id != null) editBtnRefs.current[id]?.focus();
+  }, [editing]);
   const saveEdit = async (o) => {
     if (busyRef.current) return;
     const maxPrice = parseFloat(editMax);
@@ -7149,7 +7265,7 @@ function ProfileBuyOrdersTab() {
     try {
       const { updateBuyOrder } = await import('./api.js');
       const res = await updateBuyOrder(o.id, { maxPrice, quantity });
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not update buy order', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not update buy order', 'err'); load(); return; }
       cancelEdit();
       load();
       // Batch 910 — name the item + the new max + quantity so the user
@@ -7209,6 +7325,7 @@ function ProfileBuyOrdersTab() {
       const res = resuming ? await resumeBuyOrder(o.id) : await pauseBuyOrder(o.id);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || (resuming ? 'Could not resume buy order' : 'Could not pause buy order'), 'err');
+        load();
         return;
       }
       load();
@@ -7231,7 +7348,7 @@ function ProfileBuyOrdersTab() {
     setBusy(true);
     try {
       const res = await deleteBuyOrder(o.id);
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel buy order', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel buy order', 'err'); load(); return; }
       load();
       // Batch 910 — toast names the item + max price + remaining qty so
       // the user sees the exact order the row referenced (important
@@ -7244,7 +7361,7 @@ function ProfileBuyOrdersTab() {
         'ok');
     } finally { busyRef.current = false; setBusy(false); }
   };
-  if (err) return h('div', { className: 'empty-inline' },
+  if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your buy orders'),
@@ -7477,10 +7594,11 @@ function ProfileBuyOrdersTab() {
                   // Buy orders are priced in USD (like the offer forms), so
                   // say so: the row beside it may read in another currency.
                   'aria-label': 'New max price per item in USD',
+                  autoFocus: true,
                   value: editMax, onChange: e => setEditMax(e.target.value),
                   onKeyDown: e => {
                     if (e.key === 'Enter') { e.preventDefault(); if (!busy) saveEdit(o); }
-                    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                    else if (e.key === 'Escape') { e.preventDefault(); if (!busyRef.current) cancelEdit(); }
                   },
                   placeholder: 'Max USD',
                   title: 'New max price per item, in USD'
@@ -7494,13 +7612,13 @@ function ProfileBuyOrdersTab() {
                   value: editQty, onChange: e => setEditQty(e.target.value),
                   onKeyDown: e => {
                     if (e.key === 'Enter') { e.preventDefault(); if (!busy) saveEdit(o); }
-                    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                    else if (e.key === 'Escape') { e.preventDefault(); if (!busyRef.current) cancelEdit(); }
                   },
                   placeholder: 'Qty',
                   title: "Remaining quantity (can't exceed what's still unfilled)"
                 }),
                 h('button', { className: 'buy-btn', style: { padding: '4px 10px', fontSize: 11 }, disabled: busy, onClick: () => saveEdit(o) }, 'Save'),
-                h('button', { className: 'btn btn-ghost', style: { padding: '4px 8px', fontSize: 11 }, onClick: cancelEdit, 'aria-label': 'Cancel edit' }, '✕')
+                h('button', { className: 'btn btn-ghost', style: { padding: '4px 8px', fontSize: 11 }, disabled: busy, onClick: cancelEdit, 'aria-label': 'Cancel edit' }, '✕')
               ),
               // Edit + Bump + Cancel buttons — only shown while the order
               // still has remaining fillable quantity AND no edit is
@@ -7533,6 +7651,7 @@ function ProfileBuyOrdersTab() {
                         const res = await bumpBuyOrder(o.id);
                         if (res && (res.error || res.code)) {
                           toast(res.message || res.error || 'Could not bump buy order', 'err');
+                          load();
                           return;
                         }
                         load();
@@ -7547,13 +7666,19 @@ function ProfileBuyOrdersTab() {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
+                  ref: (el) => { if (el) editBtnRefs.current[o.id] = el; else delete editBtnRefs.current[o.id]; },
                   disabled: busy, onClick: () => startEdit(o),
+                  // Every row's buttons otherwise read the same to a screen reader.
+                  'aria-label': `Edit buy order for ${o.itemName || 'item'}`,
                   title: 'Adjust your max price or remaining quantity'
                 }, '✎ Edit'),
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
-                  disabled: busy, onClick: () => togglePause(o),
+                  // aria-disabled keeps focus on the button while it saves;
+                  // togglePause's busyRef latch already ignores repeat clicks.
+                  'aria-disabled': busy ? 'true' : undefined, onClick: () => togglePause(o),
+                  'aria-label': `${o.status === 'PAUSED' ? 'Resume' : 'Pause'} buy order for ${o.itemName || 'item'}`,
                   title: o.status === 'PAUSED'
                     ? 'Turn this order back on. It can buy right away if a listing is already at or under your max.'
                     : 'Stop this order from buying without deleting it. Resume it any time.'
@@ -7562,6 +7687,7 @@ function ProfileBuyOrdersTab() {
                   className: 'btn btn-ghost',
                   style: { padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
                   disabled: busy,
+                  'aria-label': `Cancel buy order for ${o.itemName || 'item'}`,
                   onClick: () => cancelOrder(o)
                 }, '✕ Cancel')
               )
@@ -8059,6 +8185,14 @@ function ProfileTradesTab({ me, privacy }) {
   const [chatDraft, setChatDraft] = useState('');
   const [chatSending, setChatSending] = useState(false);
   const [chatErrors, setChatErrors] = useState({});
+  // The thread lists oldest first in a 200px scroller: keep it pinned to
+  // the newest message when it opens and when a message arrives.
+  const chatScrollRef = useRef(null);
+  const openChatLen = openChat != null ? (chatThreads[openChat] || []).length : 0;
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [openChat, openChatLen]);
   const loadChat = async (tradeId) => {
     const rows = await fetchTradeMessagesOrNull(tradeId);
     // A failed load is not an empty thread, and the server marked
@@ -8408,7 +8542,7 @@ function ProfileTradesTab({ me, privacy }) {
   useDialogA11y(confirmPanelRef, confirmClose, !!confirmTrade);
 
   if (!me) return h(SignInNeededEmptyState, { what: 'your trades' });
-  if (err) return h('div', { className: 'empty-inline' },
+  if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your trades'),
@@ -9426,6 +9560,7 @@ function ProfileTradesTab({ me, privacy }) {
                 }
               },
                 h('div', {
+                  ref: chatScrollRef,
                   style: { maxHeight: 200, overflowY: 'auto', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }
                 },
                   chatErrors[t.id] && (chatThreads[t.id] || []).length === 0
@@ -9543,7 +9678,8 @@ function ProfileTradesTab({ me, privacy }) {
                   h('button', {
                     className: 'btn btn-accent',
                     style: { padding: '6px 14px', fontSize: 12 },
-                    disabled: chatSending || !chatDraft.trim(),
+                    // aria-disabled keeps focus on Send while the message posts; sendChat ignores empty or in-flight sends.
+                    'aria-disabled': (chatSending || !chatDraft.trim()) || undefined,
                     onClick: () => sendChat(t.id)
                   }, chatSending ? '…' : 'Send')
                 )
@@ -9659,6 +9795,7 @@ function ProfileTradesTab({ me, privacy }) {
           ),
 
           reviewErr && h('div', {
+            role: 'alert',
             style: {
               padding: '10px 12px',
               background: 'var(--red-dim)',
@@ -10016,7 +10153,7 @@ function ProfileOffersTab() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [silentRefresh]);
 
-  if (err) return h('div', { className: 'empty-inline' },
+  if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your offers'),
@@ -10047,7 +10184,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await acceptOffer(id);
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Accept failed', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Accept failed', 'err'); silentRefresh(); return; }
       await load();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       // The server may charge less than the offer (the ask dropped below it).
@@ -10069,7 +10206,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await rejectOffer(id);
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reject failed', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reject failed', 'err'); silentRefresh(); return; }
       await load();
       toast(ownCounter ? `Counter on ${label} withdrawn.` : `Offer on ${label} rejected.`, 'ok');
     } finally { busyRef.current = false; setBusy(false); }
@@ -10085,7 +10222,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await cancelOffer(id);
-      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); return; }
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); silentRefresh(); return; }
       await load();
       toast(`Your offer on ${label} was cancelled.`, 'ok');
     } finally { busyRef.current = false; setBusy(false); }
@@ -10099,7 +10236,7 @@ function ProfileOffersTab() {
     setBusy(true);
     try {
       const res = await counterOffer(id, amt);
-      if (res.code || res.error) { toast(res.message || res.error || 'Counter failed', 'err'); return; }
+      if (res.code || res.error) { toast(res.message || res.error || 'Counter failed', 'err'); setCounterFor(null); silentRefresh(); return; }
       setCounterFor(null); setCounterAmt('');
       await load();
       // Batch 910 — name the item + counter amount so the user sees the
@@ -10119,7 +10256,7 @@ function ProfileOffersTab() {
     try {
       const { raiseOffer } = await import('./api.js');
       const res = await raiseOffer(id, amt);
-      if (res.code || res.error) { toast(res.message || res.error || 'Raise failed', 'err'); return; }
+      if (res.code || res.error) { toast(res.message || res.error || 'Raise failed', 'err'); setCounterFor(null); silentRefresh(); return; }
       setCounterFor(null); setCounterAmt('');
       await load();
       // Batch 910 — name the item + new offer amount + original so the
@@ -10486,8 +10623,9 @@ function ProfileOffersTab() {
             onKeyDown: onKey
           }, 'Outgoing', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, outgoingPending))
         ];
-      })(),
-      h('div', { style: { flex: 1 } }),
+      })()
+    ),
+    h('div', { className: 'offer-toolbar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 12 } },
       // Batch 645 — sort dropdown. Only rendered when there's enough
       // volume for the sort to matter (>1 row) so a user with a single
       // offer doesn't see noise.
@@ -10647,6 +10785,8 @@ function ProfileReviewsTab({ me }) {
   const [editId, setEditId]   = useState(null);
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
+  // The review being deleted, so only its button reads "Deleting…".
+  const [deletingId, setDeletingId] = useState(null);
   const replyBusyRef = useRef(false);
   // Batch 750 — Given-tab inline edit state. Separate from the
   // Received-tab reply-edit fields so a user mid-edit on one side
@@ -10695,7 +10835,9 @@ function ProfileReviewsTab({ me }) {
   const loadPending = useCallback(async () => {
     if (!me) return;
     const data = await fetchPendingReviews();
-    setPending(Array.isArray(data?.items) ? data.items : []);
+    // false = the check failed (an alert with Retry), not "no pending reviews".
+    // A failed re-check keeps the list already shown (the Pending view reads it).
+    setPending(prev => Array.isArray(data?.items) ? data.items : (Array.isArray(prev) ? prev : false));
   }, [me?.id]);
   useEffect(() => { loadReceived(); }, [loadReceived]);
   // Pending is the one query we want the badge from, so load it on mount
@@ -10728,8 +10870,11 @@ function ProfileReviewsTab({ me }) {
         e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
       }
     });
+    // The tab strip sits in a Fragment, as in the main branch's tabList, so
+    // React keeps the same tab buttons when the view switches and the
+    // focused tab isn't remounted (focus fell to the page on Pending).
     return h('div', null,
-      h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
+      h(React.Fragment, null, h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
         h('button', {
           className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
           onClick: () => setMode('received'),
@@ -10746,7 +10891,7 @@ function ProfileReviewsTab({ me }) {
           title: 'Trades you settled but never reviewed',
           ...pTab('pending')
         }, 'Pending', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, pending.length))
-      ),
+      )),
       pending.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -10785,18 +10930,19 @@ function ProfileReviewsTab({ me }) {
   }
 
   const rows = mode === 'received' ? received : given;
-  if (mode === 'received' && reviewsErr) return h('div', { className: 'empty-inline', style: { padding: '24px 16px' } },
+  // Failure cards render under the tab strip (built below): returning them
+  // alone removed the tabs, so a failed Given load left no way back.
+  const loadErrCard = (mode === 'received' && reviewsErr) ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '24px 16px' } },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load your reviews"),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
       'Something went wrong fetching your reviews — your reputation is safe; check your connection and retry.'),
     h('button', { className: 'btn btn-accent', onClick: loadReceived }, 'Retry')
-  );
-  if (mode === 'given' && givenErr) return h('div', { className: 'empty-inline', style: { padding: '24px 16px' } },
+  ) : (mode === 'given' && givenErr) ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '24px 16px' } },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load the reviews you've written"),
     h('button', { className: 'btn btn-accent', onClick: loadGiven }, 'Retry')
-  );
+  ) : null;
   // Built before the loading return so the tabs stay put (and keep focus)
   // while a lazily loaded tab fetches.
   const tabList = (() => {
@@ -10820,7 +10966,7 @@ function ProfileReviewsTab({ me }) {
       tabIndex: mode === id ? 0 : -1,
       onKeyDown: onKey
     });
-    return h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
+    return h(React.Fragment, null, h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
       h('button', Object.assign({
         className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
         onClick: () => setMode('received')
@@ -10838,8 +10984,12 @@ function ProfileReviewsTab({ me }) {
         className: 'filter-count',
         style: { marginLeft: 6, background: 'rgba(30,165,255,0.15)', color: 'var(--accent)', fontWeight: 700 }
       }, pending.length))
-    );
+    ),
+    pending === false && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 14 } },
+      "Couldn't check for trades waiting on a review. ",
+      h('button', { className: 'btn btn-sm', onClick: () => { setPending(null); loadPending(); } }, 'Retry')));
   })();
+  if (loadErrCard) return h('div', null, tabList, loadErrCard);
   if (rows === null) return h('div', null, tabList, h('div', { className: 'spinner' }));
 
   const filtered = starFilter > 0 ? rows.filter(r => r.rating === starFilter) : rows;
@@ -10873,6 +11023,7 @@ function ProfileReviewsTab({ me }) {
     // the `given` list.
     const r = (given || []).find(x => x.id === reviewId);
     setBusy(true);
+    setDeletingId(reviewId);
     try {
       const res = await deleteReview(reviewId);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Delete failed', 'err'); return; }
@@ -10881,7 +11032,7 @@ function ProfileReviewsTab({ me }) {
       await Promise.all([loadGiven(), loadPending()]);
       const who = r?.toUserName || r?.sellerName || null;
       toast(who ? `Review for @${who} deleted.` : 'Review deleted.', 'ok');
-    } finally { bulkInFlight.delete('review-delete:' + reviewId); setBusy(false); }
+    } finally { bulkInFlight.delete('review-delete:' + reviewId); setBusy(false); setDeletingId(null); }
   };
   // Batch 750 — inline edit for a review the signed-in user authored.
   // Reuses /api/reviews POST (leaveReview) which the service-layer has
@@ -11147,7 +11298,7 @@ function ProfileReviewsTab({ me }) {
                       disabled: busy,
                       onClick: () => deleteMine(r.id),
                       title: 'Permanently delete your review'
-                    }, busy ? 'Deleting…' : 'Delete')
+                    }, deletingId === r.id ? 'Deleting…' : 'Delete')
                   )
           ))
         )
@@ -11196,6 +11347,15 @@ function ProfileSupportTab() {
   // heading on open, and back to the ticket's row on "← Tickets".
   const threadHeadRef = useRef(null);
   const lastOpenedTicketRef = useRef(null);
+  // Closing the new-ticket form can unmount the button that was clicked
+  // (with no tickets, Cancel swaps back to the empty state's button), so
+  // hand focus to whichever New Ticket button is now on screen.
+  const newTicketBtnRef = useRef(null);
+  const wasCreatingRef = useRef(false);
+  useEffect(() => {
+    if (wasCreatingRef.current && !creating) newTicketBtnRef.current?.focus();
+    wasCreatingRef.current = creating;
+  }, [creating]);
   const viewingId = viewing?.ticket?.id ?? null;
   useEffect(() => {
     if (viewingId != null) {
@@ -11207,8 +11367,13 @@ function ProfileSupportTab() {
     const row = document.querySelector(`tr[data-ticket-id="${id}"]`);
     if (row) row.focus();
   }, [viewingId]);
+  // Only the newest open commits: a slow answer for a ticket clicked
+  // earlier used to land last and swap the thread (or reopen it after Back).
+  const showSeqRef = useRef(0);
   const showTicket = async (id) => {
+    const seq = ++showSeqRef.current;
     const t = await fetchSupportTicket(id);
+    if (seq !== showSeqRef.current) return false;
     if (t && t.ticket) { setViewing(t); return true; }
     toast('Could not load that ticket — try again.', 'err');
     return false;
@@ -11321,6 +11486,9 @@ function ProfileSupportTab() {
       if (res && res.error) { toast(res.error, 'err'); return; }
       setReply('');
       await showTicket(viewing.ticket.id);
+      // A reply moves the ticket to "Waiting staff"; refresh the list too
+      // so "← Tickets" doesn't show the old status.
+      load();
       // Batch 898 — subtle reply-sent toast so a user who sends a
       // reply and immediately scrolls up in the thread (long tickets
       // have 20+ messages) knows their reply landed. Also serves as
@@ -11343,6 +11511,8 @@ function ProfileSupportTab() {
     try {
       const res = await resolveSupportTicket(t.id);
       if (res && res.error) { toast(res.error, 'err'); return; }
+      // Mark Resolved swaps for Reopen; keep focus in the thread.
+      threadHeadRef.current?.focus?.();
       await showTicket(t.id);
       load();
       const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
@@ -11364,6 +11534,8 @@ function ProfileSupportTab() {
         toast(res.message || res.error || 'Could not reopen', 'err');
         return;
       }
+      // Reopen swaps for Mark Resolved; keep focus in the thread.
+      threadHeadRef.current?.focus?.();
       await showTicket(viewing.ticket.id);
       load();
       toast('Ticket reopened — staff will pick it back up.', 'ok');
@@ -11372,10 +11544,10 @@ function ProfileSupportTab() {
 
   if (viewing) {
     return h('div', { className: 'profile-panel' },
-      h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => setViewing(null) }, '← Tickets'),
-        h('div', { style: { flex: 1 } },
-          h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
+      h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } },
+        h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; setViewing(null); } }, '← Tickets'),
+        h('div', { style: { flex: 1, minWidth: 0 } },
+          h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none', overflowWrap: 'anywhere' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))
         ),
         viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, disabled: busy, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
@@ -11416,7 +11588,10 @@ function ProfileSupportTab() {
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', 'aria-label': 'Reply to support', value: reply, maxLength: 2000, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
-        h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: submitReply }, 'Send')
+        // btn-primary: the panel's full-width btn-accent rule squeezed the
+        // reply box to a sliver on a phone.
+        // aria-disabled keeps focus on Send while the reply posts; submitReply ignores empty or in-flight sends.
+        h('button', { className: 'btn btn-primary', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: submitReply }, 'Send')
       )
     );
   }
@@ -11425,7 +11600,7 @@ function ProfileSupportTab() {
   // like the other profile tabs, instead of a lone button above it.
   const noTickets = Array.isArray(tickets) && tickets.length === 0;
   return h('div', { className: 'profile-panel' },
-    (creating || !noTickets) && h('button', { className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => setCreating(c => !c) },
+    (creating || !noTickets) && h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => setCreating(c => !c) },
       creating ? 'Cancel' : '+ New Ticket'),
     creating && h('div', { className: 'buyorder-form' },
       // Batch 683 — SLA commitment banner. Sets user expectations up
@@ -11462,7 +11637,8 @@ function ProfileSupportTab() {
       h('button', { className: 'btn btn-accent wallet-submit', disabled: busy, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
     (() => {
-      if (tickets === null && ticketsErr) return h('div', { className: 'empty-inline', role: 'alert' },
+      // Also after a refresh fails: the old list (or "No tickets yet") is stale.
+      if (ticketsErr) return h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your support tickets.'),
           h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setTicketsErr(false); load(); } }, 'Retry'));
       if (tickets === null) return h('div', { className: 'spinner' });
@@ -11472,7 +11648,7 @@ function ProfileSupportTab() {
             'No support tickets yet'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
             'Open a ticket if something goes wrong with a trade, a payment or your account.'),
-          h('button', { className: 'btn btn-accent', onClick: () => setCreating(true) }, '+ New Ticket'));
+          h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', onClick: () => setCreating(true) }, '+ New Ticket'));
       const filtered = statusFilter === 'ALL'
         ? tickets
         : statusFilter === 'OPEN'
@@ -11540,6 +11716,8 @@ function ProfileDevelopersTab() {
   const [scope, setScope] = useState('RW');
   const [newKey, setNewKey] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Dismiss unmounts the one-time token panel; return focus to New Key.
+  const newKeyBtnRef = useRef(null);
 
   const [keysErr, setKeysErr] = useState(false);
   const load = useCallback(async () => {
@@ -11583,6 +11761,8 @@ function ProfileDevelopersTab() {
     const k = (keys || []).find(x => x.id === id);
     const res = await revokeApiKey(id);
     if (res && res.error) { toast(res.error, 'err'); return; }
+    // A revoked key's one-time token panel would otherwise stay up.
+    if (newKey?.id === id) setNewKey(null);
     load();
     toast(k?.label
       ? `API key "${k.label}" revoked — calls using it will 401.`
@@ -11615,7 +11795,9 @@ function ProfileDevelopersTab() {
         h('option', { value: 'RW' }, 'RW · full'),
         h('option', { value: 'RO' }, 'RO · read-only')
       ),
-      h('button', { className: 'btn btn-accent', disabled: busy, onClick: mint }, busy ? 'Minting…' : '+ New Key')
+      // aria-disabled, not disabled: a disabled button drops keyboard focus to
+      // the page, and mint() already ignores clicks while one is in flight.
+      h('button', { ref: newKeyBtnRef, className: 'btn btn-accent', 'aria-disabled': busy ? 'true' : undefined, onClick: mint }, busy ? 'Minting…' : '+ New Key')
     ),
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: -6, marginBottom: 14 } },
       scope === 'RO'
@@ -11626,7 +11808,7 @@ function ProfileDevelopersTab() {
       h('div', { style: { fontSize: 11, color: 'var(--yellow)', fontWeight: 700, marginBottom: 6, letterSpacing: 0.4 } },
         'COPY THIS NOW — it will not be shown again'),
       h('div', { className: 'api-key-token' }, newKey.token),
-      h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
+      h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
         h('button', {
           className: 'btn btn-accent',
           style: { padding: '6px 14px', fontSize: 11 },
@@ -11655,11 +11837,12 @@ function ProfileDevelopersTab() {
         h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
-          onClick: () => setNewKey(null)
+          onClick: () => { setNewKey(null); newKeyBtnRef.current?.focus(); }
         }, 'Dismiss')
       )
     ),
-    keysErr && keys === null
+    // Also after a refresh fails, so a stale list or "No API keys yet" never shows.
+    keysErr
       ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your API keys.'),
           h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setKeysErr(false); load(); } }, 'Retry'))
@@ -11688,6 +11871,9 @@ function ProfileDevelopersTab() {
                   try { res = await revokeAllApiKeys(); } finally { revokeInFlight.delete('all'); }
                   if (res && (res.error || res.code)) { toast(res.message || res.error || 'Bulk revoke failed', 'err'); return; }
                   toast(`Revoked ${res.revoked || 0} API key${res.revoked === 1 ? '' : 's'}.`, 'ok');
+                  // This button goes away with the keys; keep focus on + New Key.
+                  newKeyBtnRef.current?.focus();
+                  setNewKey(null);
                   load();
                 },
                 title: 'Security panic button — revokes every active API key on your account in one click.'
@@ -12820,7 +13006,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           style: { fontFamily: 'inherit', fontSize: 13, lineHeight: 1.4, resize: 'vertical' }
         })
       ),
-      error && h('div', { className: 'wallet-error' }, error),
+      error && h('div', { className: 'wallet-error', role: 'alert' }, error),
       h('div', { style: { display: 'flex', gap: 10, marginTop: 20 } },
         h('button', { className: 'btn btn-ghost', style: { flex: 1, border: '1px solid var(--border)', justifyContent: 'center', padding: 13 }, onClick: () => setPicking(null) }, 'Back'),
         h('button', {
@@ -12930,7 +13116,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           height: 32, padding: '0 12px', fontSize: 11, lineHeight: 1,
           border: '1px solid var(--border)', boxSizing: 'border-box'
         },
-        disabled: syncing,
+        // aria-disabled keeps keyboard focus here while it syncs; resync's latch ignores clicks.
+        'aria-disabled': syncing || undefined,
         onClick: resync
       },
         h(MaterialIcon, { name: syncing ? 'hourglass_top' : 'refresh', size: 14 }),
@@ -13040,7 +13227,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         h('button', {
           className: 'btn btn-accent',
-          disabled: syncing,
+          'aria-disabled': syncing || undefined,
           onClick: resync,
           style: {
             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -13266,7 +13453,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         // Filter bar — rarity chips + free-text search. Hides when the
         // inventory has <=6 items because the chips add noise for free.
-        steamList.length > 6 && h('div', { className: 'sell-filter-bar' },
+        // Also while a filter is on (a /sell?q= deep link, or a chip picked on
+        // the other tab), or its Clear button is gone and the items stay hidden.
+        (steamList.length > 6 || sellRarityFilter !== 'All' || sellSearch) && h('div', { className: 'sell-filter-bar' },
           h('button', {
             className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === 'All',
@@ -13580,7 +13769,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             title: `${intLiquidCount} item${intLiquidCount === 1 ? ' has' : 's have'} a standing buy order — the total is the exact wallet credit if every row were Quick Sold right now (before the 2% platform fee).`
           }, '⚡ ', h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(intLiquidValue)), ' liquid now')
         ),
-        (rarities.length > 1 || internalList.length > 6) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
+        (rarities.length > 1 || internalList.length > 6 || sellRarityFilter !== 'All' || sellSearch) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
           h('button', {
             className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === 'All',
@@ -13816,6 +14005,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // accept (listing.maxDiscount stays null).
   const [editAutoPct, setEditAutoPct] = useState('');
   const [away, setAway] = useState(false);
+  // True when the away-mode lookup failed: the switch then can't say which
+  // way it is set, so it says so instead of "listings visible".
+  const [awayErr, setAwayErr] = useState(false);
   // Vacation-mode resume timestamp — null = no scheduled return. Read
   // from /api/listings/away on mount so a returning seller sees the
   // chip without flipping the toggle. Updated optimistically when the
@@ -13943,7 +14135,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       try {
         const { fetchAwayMode } = await import('./api.js');
         const data = await fetchAwayMode();
-        if (!alive || !data) return;
+        if (!alive) return;
+        if (!data) { setAwayErr(true); return; }
+        setAwayErr(false);
         setAway(!!data.hidden);
         setAwayUntil(data.until || null);
       } catch (_) {}
@@ -14006,7 +14200,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   if (!me) return h(InfoModal, { title: 'My Stall', onClose },
     h(SignInNeededEmptyState, { what: 'your stall' }));
   if (stallErr) return h(InfoModal, { title: 'My Stall', onClose },
-    h('div', { className: 'empty-inline' },
+    h('div', { className: 'empty-inline', role: 'alert' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
         "Couldn't load your stall"),
@@ -14032,7 +14226,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       : itemName ? `Remove the listing for "${itemName}"?` : 'Remove this listing?';
     if (!confirm(confirmMsg)) return;
     const res = await cancelListing(id);
-    if (res && res.error) { toast(res.error, 'err'); return; }
+    if (res && res.error) { toast(res.error, 'err'); load(); return; }
     load();
     onRefresh && onRefresh();
     toast(inBot
@@ -14107,7 +14301,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       toast('Could not update the listing — network error. Please try again.', 'err');
       return;
     } finally { savingEditRef.current = false; }
-    if (res && res.error) { toast(res.error, 'err'); return; }
+    if (res && res.error) { toast(res.error, 'err'); load(); return; }
     setEditing(null);
     load();
     onRefresh && onRefresh();
@@ -14129,7 +14323,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     let res;
     try { res = await updateStallListing(l.id, { hidden: !l.hidden }); }
     finally { bulkInFlight.delete('hide:' + l.id); }
-    if (res && res.error) { toast(res.error, 'err'); return; }
+    if (res && res.error) { toast(res.error, 'err'); load(); return; }
     load();
     // Batch 919 — confirm toast so the seller sees what flipped.
     // Hiding removes the listing from public grids + stall page
@@ -14396,7 +14590,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       ' by ', h('strong', null, Math.abs(pctNum) + '%'), '.');
                   })()
                 : 'Pick a chip or type a non-zero percentage from -50 to +50.'),
-          bulkAdjustErr && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, bulkAdjustErr),
+          bulkAdjustErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, bulkAdjustErr),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
             h('button', {
               className: 'btn btn-ghost',
@@ -14580,10 +14774,13 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         'aria-checked': away,
         'aria-label': 'Away mode (hide all listings)',
         style: { display: 'inline-block', verticalAlign: 'middle', marginRight: 10 },
+        disabled: awayErr,
         onClick: toggleAway
       }),
       h('span', { style: { fontSize: 12, color: 'var(--text-secondary)' } },
-        'Away Mode — ', away ? 'all listings hidden' : 'listings visible'
+        'Away Mode — ', awayErr
+          ? "couldn't load whether it is on. Reload the page to try again."
+          : (away ? 'all listings hidden' : 'listings visible')
       ),
       // Share-stall quick link (batch 406). Tries the native Web Share
       // API first (native share sheet on mobile + desktop Chrome/Safari)
@@ -14668,6 +14865,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         h('input', {
           type: 'date',
           'aria-label': 'Stall return date',
+          autoFocus: true,
           value: awayDraftDate,
           min: localYmd(new Date()),
           max: localYmd(new Date(Date.now() + 90 * 86400_000)),
@@ -14987,7 +15185,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     ),
     tab === 'sold' && (
       soldErr
-        ? h('div', { className: 'empty-inline' },
+        ? h('div', { className: 'empty-inline', role: 'alert' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               "Couldn't load your sold history"),
@@ -15513,7 +15711,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         disabled: true,
                         title: "Auctions with bids are locked — they settle when the timer ends"
                       }, 'Price locked')
-                    : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l) }, '✎ Edit'),
+                    : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l), 'aria-label': `Edit price of ${l.item?.name || 'listing #' + l.id}` }, '✎ Edit'),
                   // Match-top-bid quick-action (batch 416). Renders only
                   // when a standing buy order exists on this item at a
                   // price BELOW the seller's current ask — one click
@@ -15556,6 +15754,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 },
                       disabled: lockedHide,
                       title: lockedHide ? 'Auctions with bids stay visible until they settle' : undefined,
+                      // Every row's buttons otherwise read the same to a screen reader.
+                      'aria-label': `${l.hidden ? 'Show' : 'Hide'} ${l.item?.name || 'listing #' + l.id}`,
                       onClick: () => toggleHidden(l)
                     }, l.hidden ? 'Show' : 'Hide');
                   })(),
@@ -15567,6 +15767,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     className: 'btn btn-ghost',
                     style: { padding: '7px 10px', fontSize: 11 },
                     title: 'Copy a link to this listing',
+                    'aria-label': `Copy a link to ${l.item?.name || 'listing #' + l.id}`,
                     onClick: async () => {
                       const url = `${window.location.origin}/item/${l.item.id}`;
                       try {
@@ -15607,7 +15808,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         className: 'btn btn-ghost',
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
                         title: 'Cancel listing',
-                        'aria-label': 'Cancel listing',
+                        'aria-label': `Cancel listing for ${l.item?.name || 'listing #' + l.id}`,
                         onClick: () => doCancel(l)
                       }, '✕')
                 )
@@ -15723,7 +15924,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     setBusy(true);
     try {
       const res = await acceptOffer(id);
-      if (res.code || res.error) { toast(res.message || res.error || 'Could not accept offer', 'err'); return; }
+      if (res.code || res.error) { toast(res.message || res.error || 'Could not accept offer', 'err'); load(); return; }
       await load();
       onRefresh && onRefresh();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
@@ -15750,6 +15951,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       const res = await rejectOffer(id, rejectReply);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || 'Could not reject offer', 'err');
+        // The offer may no longer be pending; show its real state.
+        load();
         return;
       }
       setRejectFor(null); setRejectReply('');
@@ -15776,6 +15979,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       const res = await cancelOffer(id);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || 'Could not cancel offer', 'err');
+        await load();
         return;
       }
       await load();
@@ -15799,7 +16003,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       const res = mode === 'raise'
         ? await raiseOffer(id, amt, counterMsg)
         : await counterOffer(id, amt, counterMsg);
-      if (res.code || res.error) { toast(res.message || res.error || 'Action failed', 'err'); return; }
+      if (res.code || res.error) {
+        toast(res.message || res.error || 'Action failed', 'err');
+        // The offer may have moved on (accepted, cancelled): show its real state.
+        setCounterFor(null);
+        await load();
+        return;
+      }
       setCounterFor(null); setCounterAmt(''); setCounterMsg('');
       await load();
       const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
@@ -16263,7 +16473,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     loadErr
       // Load-failure branch — replaces the old never-ending spinner with a
       // retryable message so a transient network error is recoverable.
-      ? h('div', { className: 'empty-inline' },
+      ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             "Couldn't load your offers"),
@@ -17009,7 +17219,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
               !me
                 ? 'Sign in with Steam, then tap the ♡ on any item card to track price drops here.'
-                : 'Click the ♡ on any item card and it will show up here with its live price change. For a notification when it drops, use Set Price Alert on the item.'),
+                : 'Click the ♡ on any item card and it will show up here so you can watch its price. Use its Set price alert button to get notified when it drops.'),
             !me
               ? h('button', {
                   className: 'btn btn-accent',

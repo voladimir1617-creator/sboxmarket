@@ -72,7 +72,7 @@ test.describe('defect pass 52', () => {
       return r.fulfill(json({ id: 5201, price: 4 }));
     });
     await page.goto('/me/stall');
-    await page.getByRole('button', { name: '✎ Edit' }).first().click({ timeout: 20_000 });
+    await page.getByRole('button', { name: /^Edit price of / }).first().click({ timeout: 20_000 });
     const price = page.getByRole('textbox', { name: 'Price in US dollars' });
     await price.fill('4');
     await price.press('Enter');
@@ -88,7 +88,7 @@ test.describe('defect pass 52', () => {
       { id: 5202, price: 3, status: 'ACTIVE', listingType: 'BUY_NOW', listedAt: Date.now(), item, itemId: 22, sellerUserId: 1 },
     ])));
     await page.goto('/me/stall');
-    await page.getByRole('button', { name: '✎ Edit' }).first().click({ timeout: 20_000 });
+    await page.getByRole('button', { name: /^Edit price of / }).first().click({ timeout: 20_000 });
     await expect(page.getByRole('textbox', { name: /Auto-accept offers at this % below ask/ })).toBeVisible();
   });
 });

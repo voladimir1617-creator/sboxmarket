@@ -1,7 +1,7 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
 import { BRAND } from './brand.js';
-import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy, useTestMode } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=319'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=343'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -232,7 +232,9 @@ function PendingTradeReminder({ me }) {
     ),
     h('a', {
       className: 'pending-trade-nudge-cta',
-      href: '/profile/trades',
+      // ?highlight= makes the Trades tab clear a saved role / status filter
+      // that would hide this trade, and scroll it into view.
+      href: '/profile/trades?highlight=' + t.id,
       onClick: () => dismiss(t.id)
     }, 'Open trade'),
     h('button', {
@@ -431,7 +433,11 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       (helpfulCount > 0 || canVote) && h('button', {
         className: 'stall-review-helpful',
         onClick: toggleHelpful,
-        disabled: !canVote || voteBusy,
+        // The label reads the same either way, so say whether it is voted;
+        // aria-disabled (not disabled) keeps focus here while the vote saves.
+        disabled: !canVote,
+        'aria-pressed': canVote ? hasVoted : undefined,
+        'aria-disabled': voteBusy || undefined,
         style: {
           marginLeft: 8, padding: '2px 8px', fontSize: 12, fontWeight: 700,
           borderRadius: 8, border: '1px solid var(--border)',
@@ -592,7 +598,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
     ),
     // Shown to everyone who can act on the row: a failed admin remove or
     // reply removal used to set this and show nothing.
-    !editing && err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
+    !editing && err && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, err),
     isOwner && editing && h('div', { className: 'stall-review-reply-edit' },
       h('textarea', {
         value: draft,
@@ -607,7 +613,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditing(false); setDraft(''); setErr(''); } }, 'Cancel'),
         h('button', { className: 'btn btn-accent', disabled: busy || !draft.trim(), onClick: () => submit(false) }, busy ? 'Saving…' : 'Post reply')
       ),
-      err && h('div', { className: 'wallet-error' }, err)
+      err && h('div', { className: 'wallet-error', role: 'alert' }, err)
     )
   );
 }
@@ -631,6 +637,7 @@ function EmailVerifyNag({ me }) {
   // verification email without navigating to Profile. Flashes "✓ sent"
   // for 4s on success so the user knows to check their inbox.
   const [resendState, setResendState] = useState(''); // '' | 'busy' | 'sent' | 'err'
+  const resendBusyRef = useRef(false);
   if (!me) return null;
   if (me.emailVerified) return null;
   if (!me.email) return null;
@@ -641,6 +648,8 @@ function EmailVerifyNag({ me }) {
     setDismissedAt(Date.now());
   };
   const doResend = async () => {
+    if (resendBusyRef.current) return;
+    resendBusyRef.current = true;
     setResendState('busy');
     try {
       const { resendEmailVerification } = await import('./api.js');
@@ -655,7 +664,7 @@ function EmailVerifyNag({ me }) {
     } catch (_) {
       setResendState('err');
       setTimeout(() => setResendState(''), 4000);
-    }
+    } finally { resendBusyRef.current = false; }
   };
   return h('div', { className: 'announce-banner sev-warn', role: 'status' },
     h('span', { className: 'announce-banner-icon' }, '✉'),
@@ -670,7 +679,8 @@ function EmailVerifyNag({ me }) {
         marginLeft: 10, padding: '4px 10px', fontSize: 11,
         border: '1px solid currentColor', opacity: resendState === 'busy' ? 0.6 : 1
       },
-      disabled: resendState === 'busy',
+      // aria-disabled keeps keyboard focus here while it sends; doResend's latch ignores clicks.
+      'aria-disabled': resendState === 'busy' || undefined,
       onClick: doResend,
       title: 'Re-send the verification email to ' + me.email
     },
@@ -989,7 +999,21 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
-  return h('div', { className: 'nav-picker' + (open ? ' open' : ''), ref },
+  // A role=listbox promises arrow keys, as on SortPicker: Up/Down step
+  // through the enabled options (from the chip too), Home/End jump to the ends.
+  const onListKey = (e) => {
+    if (!open || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const opts = Array.from(e.currentTarget.querySelectorAll('[role="option"]:not([disabled])'));
+    if (!opts.length) return;
+    e.preventDefault();
+    const i = opts.indexOf(document.activeElement);
+    const next = e.key === 'Home' ? 0
+      : e.key === 'End' ? opts.length - 1
+      : e.key === 'ArrowDown' ? (i + 1) % opts.length
+      : (i <= 0 ? opts.length - 1 : i - 1);
+    opts[next].focus();
+  };
+  return h('div', { className: 'nav-picker' + (open ? ' open' : ''), ref, onKeyDown: onListKey },
     h('button', {
       type: 'button',
       className: 'nav-picker-chip',
@@ -1102,7 +1126,21 @@ function SortPicker({ value, options, onChange }) {
     };
   }, [open]);
   const active = options.find(o => o.value === value) || options[0];
-  return h('div', { className: 'sort-picker' + (open ? ' open' : ''), ref },
+  // A role=listbox promises arrow keys: Up/Down step through the options
+  // (from the chip too), Home/End jump to the ends.
+  const onListKey = (e) => {
+    if (!open || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const opts = Array.from(e.currentTarget.querySelectorAll('[role="option"]'));
+    if (!opts.length) return;
+    e.preventDefault();
+    const i = opts.indexOf(document.activeElement);
+    const next = e.key === 'Home' ? 0
+      : e.key === 'End' ? opts.length - 1
+      : e.key === 'ArrowDown' ? (i + 1) % opts.length
+      : (i <= 0 ? opts.length - 1 : i - 1);
+    opts[next].focus();
+  };
+  return h('div', { className: 'sort-picker' + (open ? ' open' : ''), ref, onKeyDown: onListKey },
     h('button', {
       type: 'button',
       className: 'sort-picker-chip',
@@ -1600,8 +1638,21 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
-  const startEdit = () => { setDraft(bio || ''); setEditing(true); setErr(''); };
-  const cancel = () => { setEditing(false); setDraft(''); setErr(''); };
+  // Set by a successful save: the editor unmounts the focused Save button,
+  // and the stall refetch swaps "+ Add a bio" for "Edit", so focus follows
+  // whichever bio button is drawn once the new bio arrives.
+  const refocusRef = useRef(false);
+  const startEdit = () => { refocusRef.current = false; setDraft(bio || ''); setEditing(true); setErr(''); };
+  // The editor unmounts the focused textarea / Cancel; land focus back on
+  // the Edit (or Add a bio) button instead of <body>.
+  const editBtnRef = useRef(null);
+  useEffect(() => {
+    if (refocusRef.current && !editing) editBtnRef.current?.focus();
+  }, [editing, bio]);
+  const cancel = () => {
+    setEditing(false); setDraft(''); setErr('');
+    requestAnimationFrame(() => editBtnRef.current?.focus());
+  };
   // Double-click latch: the busy state lags a re-render, so a quick second click saved the bio twice.
   const bioBusyRef = useRef(false);
   const save = async () => {
@@ -1618,6 +1669,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         setErr(res.message || res.error || 'Could not save');
         return;
       }
+      refocusRef.current = true;
       setEditing(false);
       onSaved && onSaved();
       // Batch 923 — surface save success. Previously the block collapsed
@@ -1676,7 +1728,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       h('div', { style: { display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' } },
         h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
           `${draft.length} / ${CAP}`),
-        err && h('span', { style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, err),
+        err && h('span', { role: 'alert', style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, err),
         h('div', { style: { flex: 1 } }),
         h('button', {
           className: 'btn btn-ghost',
@@ -1698,6 +1750,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       h('button', {
         className: 'btn btn-ghost',
         style: { border: '1px dashed var(--border)', padding: '6px 12px', fontSize: 11, opacity: 0.7 },
+        ref: editBtnRef,
         onClick: startEdit,
         title: 'Add a short bio for buyers visiting your stall'
       }, '+ Add a bio')
@@ -1718,6 +1771,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
     canEdit && h('button', {
       className: 'btn btn-ghost',
       style: { flexShrink: 0, padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)' },
+      ref: editBtnRef,
       onClick: startEdit,
       title: 'Edit your stall bio'
     }, '✎ Edit')
@@ -2181,7 +2235,7 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
         return;
       }
       setBlocked(!blocked);
-      onChanged && onChanged();
+      onChanged && onChanged(!blocked);
       // Batch 918 — name the seller in the toast so a user bouncing
       // between stalls sees exactly which one they just flipped.
       const who = sellerName ? `@${sellerName}` : 'Seller';
@@ -2199,7 +2253,8 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
     style: blocked
       ? { border: '1px solid var(--red)', color: 'var(--red)', opacity: 0.9 }
       : { border: '1px solid var(--border)', opacity: 0.7 },
-    disabled: busy,
+    // aria-disabled keeps keyboard focus on the button while it saves; the latch ignores clicks.
+    'aria-disabled': busy || undefined,
     onClick: toggle,
     title: blocked
       ? 'You have blocked this seller. Click to unblock.'
@@ -2280,7 +2335,8 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
     ? { border: '1px solid var(--border)', opacity: 0.75 }
     : { border: '1px solid var(--accent-border)', color: 'var(--accent)' };
   return h('button', {
-    className: cls, style, disabled: busy, onClick: toggle,
+    // aria-disabled keeps keyboard focus on the button while it saves; the latch ignores clicks.
+    className: cls, style, 'aria-disabled': busy || undefined, onClick: toggle,
     title: status.following ? 'Click to unfollow' : 'Get notified when this seller lists something new'
   },
     h('span', { className: 'stall-share-icon' }, status.following ? '✓' : '+'),
@@ -2305,6 +2361,10 @@ function ContactSellerButton({ seller }) {
   const [body, setBody]       = useState('');
   const [busy, setBusy]       = useState(false);
   const textareaRef           = useRef(null);
+  // Closing unmounts the focused textarea or button; hand focus back to
+  // Contact instead of dropping it on <body>.
+  const triggerRef            = useRef(null);
+  const close = () => { setOpen(false); requestAnimationFrame(() => triggerRef.current?.focus()); };
   // The server keeps 2000 characters of the ticket body, and the stall
   // link below is prepended to it, so the box allows only what fits.
   const stallPrefix = `Seller stall: /stall/${seller.id}\n\n`;
@@ -2315,7 +2375,7 @@ function ContactSellerButton({ seller }) {
       if (textareaRef.current) textareaRef.current.focus({ preventScroll: true });
     });
     const onKey = (e) => {
-      if (e.key === 'Escape' && !busy) { e.stopPropagation(); setOpen(false); }
+      if (e.key === 'Escape' && !busy) { e.stopPropagation(); close(); }
     };
     document.addEventListener('keydown', onKey);
     return () => {
@@ -2352,12 +2412,13 @@ function ContactSellerButton({ seller }) {
           kind: 'ok'
         }}));
       } catch (_) {}
-      setOpen(false);
+      close();
       setBody('');
     } finally { contactInFlight.delete(seller.id); setBusy(false); }
   };
   return h(React.Fragment, null,
     h('button', {
+      ref: triggerRef,
       className: 'stall-share-btn',
       onClick: () => setOpen(v => !v),
       'aria-haspopup': 'dialog',
@@ -2411,7 +2472,7 @@ function ContactSellerButton({ seller }) {
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '6px 14px', fontSize: 12 },
-            onClick: () => { setOpen(false); setBody(''); },
+            onClick: () => { close(); setBody(''); },
             disabled: busy
           }, 'Cancel'),
           h('button', {
@@ -3036,6 +3097,7 @@ export function SiteFooter() {
   // buyers know the floor prices haven't drifted from Steam for hours.
   const [lastSync, setLastSync] = useState(0);
   const [version, setVersion]   = useState('');
+  const testMode = useTestMode();
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -3185,9 +3247,10 @@ export function SiteFooter() {
         h('span', { className: 'dot' }, '·'),
         // No processor is wired until go-live: deposits, purchases and
         // payouts are test-mode simulations, so the footer says so instead
-        // of naming a payment processor that is not connected.
-        h('span', null, 'Test mode: no real money moves'),
-        h('span', { className: 'dot' }, '·'),
+        // of naming a payment processor that is not connected. The line
+        // goes away by itself once the server reports a live Stripe key.
+        testMode && h('span', null, 'Test mode: no real money moves'),
+        testMode && h('span', { className: 'dot' }, '·'),
         h('span', null, 'Steam OpenID auth'),
         lastSync > 0 && h('span', { className: 'dot' }, '·'),
         lastSync > 0 && h('span', { className: 'footer-sync-badge', title: `Last catalogue sync: ${new Date(lastSync).toLocaleString()}` },
@@ -3332,13 +3395,19 @@ function SaveSearchDrawer({ initial, onCancel, onSave }) {
   const [name, setName] = useState(initial || '');
   const inputRef = useRef(null);
   useEffect(() => {
+    // The drawer unmounts on Cancel, Escape or Save; hand focus back to the
+    // Save search button that opened it instead of dropping it to <body>.
+    const opener = document.activeElement;
     const id = requestAnimationFrame(() => {
       if (inputRef.current) {
         inputRef.current.focus({ preventScroll: true });
         try { inputRef.current.select(); } catch (_) {}
       }
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(id);
+      if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+    };
   }, []);
   useEffect(() => {
     const onKey = (e) => {
@@ -4189,6 +4258,7 @@ export function App() {
   // the whole rarity bucket. Client-side filter on the already-fetched
   // stall payload so typing is instant and doesn't hit the API.
   const [stallSearch, setStallSearch] = useState('');
+  const stallSearchRef = useRef(null);
   const stallLoadedIdRef = useRef(null);
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
@@ -4282,6 +4352,13 @@ export function App() {
 
   // Inline review form state (lives on the stall page).
   const [reviewTradeId, setReviewTradeId] = useState(null);
+  // Closing the review form unmounts the focused Cancel / textarea; hand
+  // focus back to that trade's "Write review" button.
+  const closeReviewForm = () => {
+    const id = reviewTradeId;
+    setReviewTradeId(null);
+    requestAnimationFrame(() => document.querySelector(`.stall-review-cta-row[data-trade-id="${id}"] button`)?.focus());
+  };
   const [reviewStars, setReviewStars]     = useState(5);
   const [reviewText, setReviewText]       = useState('');
   const [reviewBusy, setReviewBusy]       = useState(false);
@@ -6427,6 +6504,20 @@ export function App() {
                 pendingActions && pendingActions.total > 0 ? ` · ${pendingActions.total} ${pendingActions.total === 1 ? 'action needs' : 'actions need'} attention` : ''
               }`,
               onKeyDown: (e) => {
+                // A role=menu promises arrow keys: Up/Down step through the
+                // items (from the chip too), Home/End jump to the ends.
+                if (menuOpen && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+                  const items = Array.from(e.currentTarget.querySelectorAll('#user-menu-panel [role="menuitem"]'));
+                  if (!items.length) return;
+                  e.preventDefault();
+                  const i = items.indexOf(document.activeElement);
+                  const next = e.key === 'Home' ? 0
+                    : e.key === 'End' ? items.length - 1
+                    : e.key === 'ArrowDown' ? (i + 1) % items.length
+                    : (i <= 0 ? items.length - 1 : i - 1);
+                  items[next].focus();
+                  return;
+                }
                 // Keys pressed on a menu item bubble up here; leave them to
                 // the item, or Enter on "Deposit" just closed the menu.
                 if (e.target !== e.currentTarget) return;
@@ -7138,6 +7229,27 @@ export function App() {
         )
       )
     ),
+    /* Day one of a live market has no listings, and the preview strip
+       below hides itself, leaving the first visitor nothing to do. Show the
+       same empty state /market uses, with its Sell Items button, so the
+       first seller has a way in from the front page. */
+    routeName === 'home' && !loading && homeTotalListings === 0 && homeFeatured.length === 0 && listings.length === 0 &&
+      h('section', { className: 'csfloat-home-preview', 'aria-label': 'Marketplace is empty' },
+        h('div', { className: 'csfloat-home-preview-inner' },
+          h('div', { className: 'empty-state' },
+            h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'inventory_2', size: 42 })),
+            h('div', { className: 'empty-state-title', 'data-testid': 'home-market-empty' }, 'Marketplace is empty'),
+            h('div', { className: 'empty-state-sub' },
+              me ? 'Be the first to list an item — put one of your skins up for grabs.'
+                 : 'Be the first to list an item — sign in through Steam, then put one of your skins up for grabs.'),
+            h('div', { className: 'empty-state-actions' },
+              me
+                ? h('a', { className: 'btn btn-accent', href: paths.sell(), onClick: (e) => { e.preventDefault(); navigate(paths.sell()); } }, 'Sell Items')
+                : h('button', { className: 'btn btn-accent', onClick: () => signInWithSteam() }, 'Sign in through Steam')
+            )
+          )
+        )
+      ),
     /* CSFloat-1:1 home preview strip — 5-card horizontal scroller that
        sits between the featured rail and the category subnav on `/`.
        Mirrors csfloat's home preview band: a small selection of items
@@ -7643,7 +7755,12 @@ export function App() {
             }),
             searchInput && h('button', {
               className: 'search-clear',
-              onClick: () => { setSearchInput(''); setSearch(''); setSuggestOpen(false); },
+              onClick: (e) => {
+                // The button unmounts once the box is empty; keep focus in the box.
+                // Focus first so the input's onFocus does not reopen the dropdown.
+                e.currentTarget.parentElement?.querySelector('.search-input')?.focus();
+                setSearchInput(''); setSearch(''); setSuggestOpen(false);
+              },
               title: 'Clear search',
               'aria-label': 'Clear search'
             }, '✕'),
@@ -7670,6 +7787,8 @@ export function App() {
                   className: 'search-suggest-forget',
                   onClick: (e) => {
                     e.stopPropagation();
+                    // The list unmounts with its last row; keep focus in the search box.
+                    e.currentTarget.closest('.search-wrap')?.querySelector('.search-input')?.focus();
                     setRecentSearches([]);
                     try { localStorage.removeItem('sb_recent_searches'); } catch (_) {}
                   },
@@ -7691,6 +7810,8 @@ export function App() {
                   className: 'search-suggest-forget',
                   onClick: (e) => {
                     e.stopPropagation();
+                    // This row (and the list, if it was the last) unmounts; keep focus in the search box.
+                    e.currentTarget.closest('.search-wrap')?.querySelector('.search-input')?.focus();
                     const next = recentSearches.filter(x => x !== q);
                     setRecentSearches(next);
                     try { localStorage.setItem('sb_recent_searches', JSON.stringify(next)); } catch (_) {}
@@ -7924,7 +8045,8 @@ export function App() {
               try { await load(false); } finally { refreshInFlight.delete('market'); }
               showToast('Listings refreshed.', 'ok');
             },
-            disabled: loading,
+            // aria-disabled keeps focus on the button while it reloads; the click handler ignores it meanwhile.
+            'aria-disabled': loading || undefined,
             'aria-label': loading ? 'Refreshing listings' : 'Refresh listings',
             'aria-busy': loading ? 'true' : undefined,
             title: loading ? 'Refreshing…' : 'Refresh listings'
@@ -8144,7 +8266,7 @@ export function App() {
                   sub   = 'Be the first to list an item — head to Sell to put one of your skins up for grabs.';
                 }
                 const showClear = !isError && (hasQueryFilters || hasClientFilters || onlyTypeFilter);
-                return h('div', { className: 'empty-state' },
+                return h('div', { className: 'empty-state', role: isError ? 'alert' : undefined },
                   h('div', { className: 'empty-state-icon' },
                     h(MaterialIcon, { name: isError ? 'cloud_off' : (listingTypeFilter === 'AUCTION' ? 'gavel' : 'inventory_2'), size: 42 })
                   ),
@@ -8169,6 +8291,9 @@ export function App() {
                         clearFilters();
                         setListingTypeFilter('ALL');
                         setDealsOnly(false); setNewOnly(false); setAffordableOnly(false);
+                        // This button goes away with the empty state; land on
+                        // the category strip's "All" tab instead of <body>.
+                        document.querySelector('.csfloat-subnav-tab')?.focus();
                       }
                     }, 'Clear Filters'),
                     // Same link the empty buy-orders tab uses. The buy-order
@@ -8278,7 +8403,8 @@ export function App() {
                       opacity: loadingMore ? 0.6 : 1,
                       cursor: loadingMore ? 'wait' : 'pointer'
                     },
-                    disabled: loadingMore,
+                    // aria-disabled keeps focus on the button while the page loads; loadMore ignores repeat clicks.
+                    'aria-disabled': loadingMore || undefined,
                     onClick: loadMore,
                     title: `Load the next 100 listings after the current ${listings.length}`
                   }, loadingMore ? 'Loading…' : `↓ Load more (${listings.length} listings loaded)`)
@@ -8451,7 +8577,7 @@ export function App() {
           // Distinct from __notFound: a genuine fetch error (500/network) must NOT
           // tell a visitor a real seller "doesn't exist" — show a recoverable error
           // with Retry instead of the dead-end not-found copy.
-          ? h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
+          ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '32px 16px' } },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
               h('h2', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' } }, "Couldn't load this stall"),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
@@ -8534,7 +8660,9 @@ export function App() {
                     // Refresh stall so the banner disappears and the
                     // blockedByViewer flag flips back to false.
                     const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
+                    // The unblock landed even if the refetch failed; drop the banner anyway.
                     if (fresh && !fresh.__error) setStallData(fresh);
+                    else setStallData(s => s ? Object.assign({}, s, { blockedByViewer: false }) : s);
                     showToast('Unblocked.', 'ok');
                   } finally { btn.disabled = false; }
                 }
@@ -8800,9 +8928,11 @@ export function App() {
                 h(BlockSellerButton, {
                   sellerId: stallData.seller.id, sellerName: stallData.seller.displayName || stallData.seller.name, showToast,
                   blockedByViewer: stallData.blockedByViewer,
-                  onChanged: async () => {
+                  onChanged: async (nowBlocked) => {
                     const fresh = await fetchPublicStall(stallData.seller.id, { fresh: true });
                     if (fresh && !fresh.__error) setStallData(fresh);
+                    // A failed refetch must not leave the banner disagreeing with the button.
+                    else setStallData(d => d ? Object.assign({}, d, { blockedByViewer: !!nowBlocked }) : d);
                   }
                 }),
               // Report button opens a FRAUD-category support ticket with the
@@ -8929,6 +9059,7 @@ export function App() {
                         className: 'price-input',
                         type: 'search',
                         placeholder: 'Filter by name…',
+                        ref: stallSearchRef,
                         value: stallSearch,
                         onChange: e => setStallSearch(e.target.value),
                         style: { minWidth: 160, maxWidth: 220 },
@@ -8949,13 +9080,18 @@ export function App() {
                     rows.length === 0
                       ? h('div', { className: 'empty-inline' },
                           h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: search ? 8 : 0 } },
+                            // Under a rarity chip the search only looked at that
+                            // rarity, so "in this stall" was not true.
                             search
-                              ? `No listings match "${stallSearch}" in this stall.`
+                              ? (stallRarity !== 'All'
+                                  ? `No ${stallRarity === 'Off-Market' ? 'Scarce' : stallRarity} listings match "${stallSearch}".`
+                                  : `No listings match "${stallSearch}" in this stall.`)
                               : 'No listings match this filter.'),
                           search && h('button', {
                             className: 'btn btn-ghost',
                             style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-                            onClick: () => setStallSearch('')
+                            // The button goes away with the no-match state; keep focus in the search box.
+                            onClick: () => { setStallSearch(''); stallSearchRef.current?.focus(); }
                           }, 'Clear search'))
                       : h('div', { className: 'listing-grid' },
                           rows.map(l => h(GridCard, {
@@ -9078,6 +9214,7 @@ export function App() {
                   width: '100%', marginTop: 8, padding: '8px 12px', fontSize: 12,
                   border: '1px dashed var(--border)', color: 'var(--text-secondary)'
                 },
+                'aria-expanded': stallSoldExpanded,
                 onClick: () => setStallSoldExpanded(v => !v)
               }, stallSoldExpanded
                    ? '↑ Collapse to 10 most recent'
@@ -9096,7 +9233,7 @@ export function App() {
                 // Unreviewed trades first so a seventh-newest trade still waiting
                 // for its review is not hidden behind six already reviewed.
                 [...eligibleTrades.filter(t => !t.reviewed), ...eligibleTrades.filter(t => t.reviewed)]
-                  .slice(0, 6).map(t => h('div', { key: t.tradeId, className: 'stall-review-cta-row' },
+                  .slice(0, 6).map(t => h('div', { key: t.tradeId, className: 'stall-review-cta-row', 'data-trade-id': t.tradeId },
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { className: 'stall-review-cta-item' }, t.itemName || 'Trade'),
                     h('div', { className: 'stall-review-cta-sub' },
@@ -9132,13 +9269,13 @@ export function App() {
                   // a stable accessible name throughout the input cycle.
                   'aria-label': 'Review comment (optional)',
                   autoFocus: true,
-                  onKeyDown: (e) => { if (e.key === 'Escape' && !reviewBusy) { e.preventDefault(); setReviewTradeId(null); } },
+                  onKeyDown: (e) => { if (e.key === 'Escape' && !reviewBusy) { e.preventDefault(); closeReviewForm(); } },
                   onChange: (e) => setReviewText(e.target.value)
                 }),
                 h('div', { className: 'stall-review-actions' },
                   h('button', {
                     className: 'btn btn-ghost',
-                    onClick: () => setReviewTradeId(null),
+                    onClick: closeReviewForm,
                     disabled: reviewBusy
                   }, 'Cancel'),
                   h('button', {
@@ -9248,12 +9385,26 @@ export function App() {
                     width: '100%', marginTop: 8, padding: '8px 12px', fontSize: 12,
                     border: '1px dashed var(--border)', color: 'var(--text-secondary)'
                   },
+                  'aria-expanded': stallReviewsExpanded,
                   onClick: () => setStallReviewsExpanded(v => !v)
                 }, stallReviewsExpanded
                      ? '↑ Collapse to 10 most relevant'
                      : `↓ Show all ${displayReviews.length} reviews`)
               );
             })(),
+            // A failed reviews load (null once the stall is in) used to drop the
+            // whole section silently under a "· 12 reviews" header.
+            stallReviews === null && stallData && !stallData.__notFound && !stallData.__error && h('div', {
+              className: 'wallet-error', role: 'alert', style: { margin: '14px 0' }
+            }, "Couldn't load this seller's reviews. ",
+              h('button', {
+                className: 'btn btn-sm',
+                onClick: async () => {
+                  const fresh = await fetchReviewsForUser(stallData.seller.id, { fresh: true });
+                  if (Array.isArray(fresh)) setStallReviews(fresh);
+                  else showToast("Couldn't load reviews — try again.", 'err');
+                }
+              }, 'Retry')),
             // S1 Boss-QA — trust + discovery panel that fills the empty
             // bottom of the page even when the seller has only 1
             // listing / 0 reviews / 1 sold. Replaces the huge dead
@@ -9831,7 +9982,7 @@ export function App() {
           },
           disabled: reportSellerBusy
         }),
-        reportSellerErr && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, reportSellerErr),
+        reportSellerErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, reportSellerErr),
         h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
           h('button', {
             className: 'btn btn-ghost',
@@ -10133,7 +10284,7 @@ export function App() {
       cartHas: (id) => cart.some(c => c.id === id),
       initialTab: route.params?.tab
     }),
-    routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); }, me }),
+    routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); }, me, onWatchlistIds: setWatchlist }),
     routeName === 'buyorders'     && h(BuyOrdersModal,     { onClose: () => { setPreselectedBuyItem(null); navigate(paths.market()); }, me, wallet, preselectedItem: preselectedBuyItem }),
     routeName === 'loadouts'      && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, meLoaded }),
     routeName === 'loadout'       && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, meLoaded, loadoutId: route.params?.id }),
@@ -10191,7 +10342,7 @@ export function App() {
             'data-testid': itemLoadError ? 'item-load-error' : 'item-not-found',
             style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }
           }, itemLoadError ? "Couldn't load this item" : 'Item not found'),
-          h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
+          h('div', { role: itemLoadError ? 'alert' : undefined, style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
             itemLoadError
               ? "We couldn't reach the marketplace to look this item up, so we can't tell you whether it's still for sale. This is usually temporary — try again in a moment."
               : 'This item has been removed or the link is wrong. Search the market for it, or go back to the marketplace.'),

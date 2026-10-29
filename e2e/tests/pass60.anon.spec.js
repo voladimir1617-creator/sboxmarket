@@ -47,7 +47,7 @@ test.describe('defect pass 60', () => {
       items: [{ id: 3, name: 'Plain Cap', category: 'Hats', rarity: 'Standard', lowestPrice: null }], total: 1, indexed: 1,
     })));
     await page.goto('/loadout/55');
-    await page.locator('.loadout-slot', { hasText: 'Hats' }).getByRole('button', { name: '+ Add' }).click({ timeout: 20_000 });
+    await page.locator('.loadout-slot', { hasText: 'Hats' }).getByRole('button', { name: 'Add an item to the Hats slot' }).click({ timeout: 20_000 });
     await expect(page.locator('.loadout-picker-item').first()).toHaveAttribute('aria-label', 'Add Plain Cap to the Hats slot (no listings)');
   });
 
@@ -106,7 +106,7 @@ test.describe('defect pass 60', () => {
     await buyOrders(page, order());
     const deletes = await countSlow(page, '**/api/buy-orders/3', 'DELETE');
     await page.goto('/profile/buyorders');
-    const btn = page.getByRole('button', { name: '✕ Cancel', exact: true });
+    const btn = page.getByRole('button', { name: /Cancel buy order for/ });
     await btn.waitFor({ timeout: 20_000 });
     await doubleClick(btn);
     await page.waitForTimeout(800);

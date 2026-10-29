@@ -1357,12 +1357,14 @@ export async function fetchFavoriteLoadouts() {
   return Array.isArray(data) ? data : [];
 }
 
-export async function fetchLoadout(id) {
+export async function fetchLoadout(id, { strict = false } = {}) {
   // Endpoint returns 200 with `{notFound: true}` for missing OR private-
   // from-this-viewer loadouts (keeps Chrome's fetch 404 out of console).
   // Translate to null so the LoadoutLabModal's existing `__notFound`
   // sentinel branch still fires from `data || { __notFound: true }`.
-  const data = await safeJson(`${API}/loadouts/${id}`, undefined, { expect: [404] });
+  // strict: a 404 still returns null, any other failure throws, so the
+  // page can tell "doesn't exist" from "couldn't load".
+  const data = await safeJson(`${API}/loadouts/${id}`, undefined, { expect: [404], throwOnFailure: strict });
   if (data && data.notFound) return null;
   return data;
 }
@@ -1504,7 +1506,8 @@ export async function adminUsers(opts) {
   if (opts.banned === false) params.set('banned', 'false');
   const qs = params.toString();
   const data = await safeJson(`${API}/admin/users${qs ? '?' + qs : ''}`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the Users tab must not read that as "no users".
+  return Array.isArray(data) ? data : null;
 }
 /** Consolidated per-user staff summary (batch 549) — wallet + dispute
  *  + 2FA + email-verified state in one round-trip. Returns null if the
@@ -1678,7 +1681,8 @@ export async function adminCloseTicket(id) {
 }
 export async function adminTrades(state = 'ALL') {
   const data = await safeJson(`${API}/admin/trades?state=${encodeURIComponent(state)}`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the Trades tab must not read that as an empty queue.
+  return Array.isArray(data) ? data : null;
 }
 export async function adminReleaseTrade(id, reason) {
   return writeJson(`${API}/admin/trades/${id}/release`, {
@@ -1704,7 +1708,8 @@ export async function adminAudit(params = {}) {
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => { if (v) q.append(k, v); });
   const data = await safeJson(`${API}/admin/audit?${q}`);
-  return Array.isArray(data) ? data : [];
+  // null = the load failed; the Audit tab must not read that as "no entries".
+  return Array.isArray(data) ? data : null;
 }
 /** Fraud-signal rollup — multiple IPs per user, shared IPs across accounts,
  *  rapid withdraw-after-deposit, high-velocity purchases. Rolls up the
@@ -1722,7 +1727,8 @@ export async function adminApiKeyLookup(prefix) {
   const p = (prefix || '').trim();
   if (p.length < 3) return [];
   const data = await safeJson(`${API}/admin/api-keys/lookup?prefix=${encodeURIComponent(p)}`);
-  return Array.isArray(data) ? data : [];
+  // null = the lookup failed; it must not read as "no matching keys".
+  return Array.isArray(data) ? data : null;
 }
 
 /** Admin chargeback queue (batch 462) — every DEPOSIT transaction in
@@ -1766,7 +1772,8 @@ export async function adminClearSimulated() {
   });
 }
 export async function adminCountSimulated() {
-  return (await safeJson(`${API}/admin/simulate/count`)) || { count: 0 };
+  // null = the count failed to load; it must not read as "0 simulated".
+  return safeJson(`${API}/admin/simulate/count`);
 }
 export async function adminSyncScmm() {
   try {
@@ -1830,7 +1837,8 @@ export async function fetchEligibleReviews(sellerUserId) {
  *  Returns { count: 0, items: [] } for anonymous viewers. */
 export async function fetchPendingReviews() {
   const data = await safeJson(`${API}/reviews/pending`);
-  return (data && typeof data === 'object') ? data : { count: 0, items: [] };
+  // null = the load failed, so it is never read as "nothing to review".
+  return (data && typeof data === 'object') ? data : null;
 }
 
 /** Users the signed-in caller has blocked. Auth-gated — returns

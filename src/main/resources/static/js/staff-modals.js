@@ -13,7 +13,7 @@ import {
   adminCreditWallet, adminFreezeWallet, adminUnfreezeWallet, adminRemoveListing, adminReportedListings, adminDismissReports, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals, adminApiKeyLookup,
-  adminTrades, adminReleaseTrade, adminCancelTrade, adminDeleteTradeMessage, fetchTradeMessages,
+  adminTrades, adminReleaseTrade, adminCancelTrade, adminDeleteTradeMessage, fetchTradeMessagesOrNull,
   adminSimulateListings, adminClearSimulated, adminCountSimulated, adminSyncScmm,
   adminSyncSteamPrices,
   csrStats, csrLookup, csrTickets, csrTicket, csrTicketReply, csrCloseTicket,
@@ -28,6 +28,8 @@ function usdAmount(v) {
   return '$' + (Number(v) || 0).toFixed(2) + ' USD';
 }
 
+const ADMIN_TAB_IDS = ['dashboard', 'withdrawals', 'trades', 'users', 'tickets', 'refunds', 'catalogue',
+  'simulator', 'fraud', 'disputes', 'reported', 'deletions', 'announce', 'health', 'audit'];
 export function AdminModal({ onClose, me }) {
   // Deep-link via `?tab=<id>` (batch 463) — lets a notification like
   // CHARGEBACK_OPENED route the admin straight to /admin?tab=disputes
@@ -36,17 +38,27 @@ export function AdminModal({ onClose, me }) {
   const initialTab = (() => {
     try {
       const t = new URLSearchParams(window.location.search).get('tab');
-      return t || 'dashboard';
+      return ADMIN_TAB_IDS.includes(t) ? t : 'dashboard';
     } catch { return 'dashboard'; }
   })();
   const [tab, setTab] = useState(initialTab);
+  // Dashboard tiles switch tabs too; mirror them into the URL like a tab click.
+  const selectTab = (id) => {
+    setTab(id);
+    // The tile that was clicked unmounts with the dashboard; focus the tab.
+    requestAnimationFrame(() => document.getElementById('admin-tab-' + id)?.focus());
+    try {
+      const next = id === 'dashboard' ? '/admin' : '/admin?tab=' + id;
+      if (window.location.pathname + window.location.search !== next) window.history.replaceState({}, '', next);
+    } catch (_) {}
+  };
   // A bell link to another ?tab= while the panel is already open changes
   // only the URL; follow it instead of staying on the current tab.
   const searchNow = window.location.search;
   useEffect(() => {
     try {
       const t = new URLSearchParams(searchNow).get('tab');
-      if (t) setTab(t);
+      if (t && ADMIN_TAB_IDS.includes(t)) setTab(t);
     } catch (_) { /* keep the current tab */ }
   }, [searchNow]);
   // Priority-tab badge counts (batch 487). Polls dashboardStats every
@@ -163,7 +175,7 @@ export function AdminModal({ onClose, me }) {
     // tracks the active tab button so screen readers announce the right
     // section name. One stable id is fine since only one tab renders at a time.
     h('div', { role: 'tabpanel', id: 'admin-tabpanel', 'aria-labelledby': `admin-tab-${tab}` },
-      tab === 'dashboard'   && h(AdminDashboardTab, { onNavTab: setTab }),
+      tab === 'dashboard'   && h(AdminDashboardTab, { onNavTab: selectTab }),
       tab === 'withdrawals' && h(AdminWithdrawalsTab, null),
       tab === 'trades'      && h(AdminTradesTab, null),
       tab === 'users'       && h(AdminUsersTab, { me }),
@@ -211,7 +223,9 @@ function AdminHealthTab() {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
-  if (err) return h('div', { className: 'admin-tab-content' }, h('div', { className: 'wallet-error' }, err));
+  // A failed poll keeps the last reading (and the SMTP / price-sync rows
+  // below, with whatever was typed in them) and says the figures are stale.
+  if (err && !data) return h('div', { className: 'admin-tab-content' }, h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load server health (", err, '). Retrying every 5 seconds.'));
   if (!data) return h('div', { className: 'admin-tab-content' }, h('div', { className: 'spinner' }));
 
   const uptimeH = Math.floor((data.uptimeMs || 0) / 3_600_000);
@@ -230,6 +244,8 @@ function AdminHealthTab() {
   );
 
   return h('div', { className: 'admin-tab-content' },
+    err && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 12 } },
+      "Couldn't refresh server health (", err, '). Showing the last reading; retrying every 5 seconds.'),
     h('div', { className: 'health-grid' },
       card('Uptime', `${uptimeH}h ${uptimeM}m`,
            `Started ${new Date(data.startedAt).toLocaleString()}`),
@@ -326,7 +342,10 @@ function AdminHealthTab() {
 function ForcePriceSyncRow({ priceSync }) {
   const [busy, setBusy]  = useState(false);
   const [result, setRes] = useState(null);
+  const busyRef = React.useRef(false);
   const submit = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true); setRes(null);
     try {
       const res = await adminSyncSteamPrices();
@@ -337,7 +356,7 @@ function ForcePriceSyncRow({ priceSync }) {
       }
     } catch (e) {
       setRes({ ok: false, msg: String(e) });
-    } finally { setBusy(false); }
+    } finally { busyRef.current = false; setBusy(false); }
   };
   return h('div', {
     style: {
@@ -406,10 +425,12 @@ function ForcePriceSyncRow({ priceSync }) {
     })(),
     h('button', {
       className: 'btn btn-accent',
-      disabled: busy,
+      // aria-disabled keeps keyboard focus here while it starts; submit's latch ignores clicks.
+      'aria-disabled': busy || undefined,
       onClick: submit
     }, busy ? 'Starting…' : 'Run sync now'),
     result && h('div', {
+      role: result.ok ? 'status' : 'alert',
       style: {
         marginTop: 10, padding: 8, borderRadius: 6,
         background: result.ok ? 'rgba(34,197,94,0.1)' : 'var(--red-dim)',
@@ -425,8 +446,11 @@ function SmtpTestRow() {
   const [to, setTo]       = useState('');
   const [busy, setBusy]   = useState(false);
   const [result, setRes]  = useState(null);
+  const busyRef = React.useRef(false);
   const submit = async () => {
+    if (busyRef.current) return;
     if (!to.trim()) { toast('Enter a destination address', 'err'); return; }
+    busyRef.current = true;
     setBusy(true); setRes(null);
     try {
       const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
@@ -441,9 +465,10 @@ function SmtpTestRow() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setRes({ ok: false, msg: j.message || j.error || `HTTP ${r.status}` }); return; }
       setRes({ ok: true, msg: `Sent to ${j.to || to.trim()}. Check the inbox (or the server log in dev).` });
-    } catch (e) {
-      setRes({ ok: false, msg: String(e) });
-    } finally { setBusy(false); }
+    } catch (_) {
+      // A dropped request used to print the raw "TypeError: Failed to fetch".
+      setRes({ ok: false, msg: 'Could not reach the server — check your connection and try again.' });
+    } finally { busyRef.current = false; setBusy(false); }
   };
   return h('div', {
     style: {
@@ -462,17 +487,21 @@ function SmtpTestRow() {
         className: 'price-input',
         style: { flex: 1, minWidth: 240 },
         type: 'email',
+        'aria-label': 'SMTP test email address',
         placeholder: 'ops@example.com',
         value: to,
         onChange: e => setTo(e.target.value)
       }),
       h('button', {
         className: 'btn btn-accent',
-        disabled: busy || !to.trim(),
+        // aria-disabled while sending keeps keyboard focus here; submit's latch ignores clicks.
+        disabled: !busy && !to.trim(),
+        'aria-disabled': busy || undefined,
         onClick: submit
       }, busy ? 'Sending…' : 'Send test')
     ),
     result && h('div', {
+      role: result.ok ? 'status' : 'alert',
       style: {
         marginTop: 10, padding: 8, borderRadius: 6,
         background: result.ok ? 'rgba(34,197,94,0.1)' : 'var(--red-dim)',
@@ -601,6 +630,12 @@ function AdminReportedTab() {
       }
       setActionDraft(null);
       await load();
+      // The reload swaps the table for a spinner, so the drawer could not hand
+      // focus back to its row button; land on the first remaining row instead.
+      requestAnimationFrame(() => {
+        (document.querySelector('#admin-tabpanel tr[role="button"]') ||
+          document.getElementById('admin-tab-reported'))?.focus();
+      });
     } finally { setBusy(false); }
   };
   if (rows === null) return h('div', { className: 'spinner' });
@@ -682,6 +717,8 @@ function AdminReportedTab() {
                   actionDraft && actionDraft.kind === 'dismiss' && actionDraft.row.id === r.id
                     ? null
                     : { kind: 'dismiss', row: r }),
+                // Every row's buttons otherwise read the same to a screen reader.
+                'aria-label': `Dismiss reports on listing #${r.id} — ${r.itemName || 'unknown item'}`,
                 title: 'Mark reviewed — keep the listing, clear the reports'
               }, 'Dismiss'),
               h('button', {
@@ -693,7 +730,8 @@ function AdminReportedTab() {
                 onClick: () => setActionDraft(
                   actionDraft && actionDraft.kind === 'remove' && actionDraft.row.id === r.id
                     ? null
-                    : { kind: 'remove', row: r })
+                    : { kind: 'remove', row: r }),
+                'aria-label': `Remove listing #${r.id} — ${r.itemName || 'unknown item'}`
               }, 'Remove')
             )
           )
@@ -737,7 +775,9 @@ function AdminReportedTab() {
 }
 
 function AdminAnnouncementsTab() {
-  const [rows, setRows]       = useState([]);
+  // null until the first load answers, so the history doesn't read
+  // "No announcements yet." while it is still loading.
+  const [rows, setRows]       = useState(null);
   const [message, setMessage] = useState('');
   const [severity, setSeverity] = useState('INFO');
   const [hours, setHours]     = useState('');
@@ -749,14 +789,33 @@ function AdminAnnouncementsTab() {
   const [bcPath, setBcPath]   = useState('');
   const [bcBusy, setBcBusy]   = useState(false);
   const [bcMsg, setBcMsg]     = useState('');
+  // A failed load is not "No announcements yet." — a live banner may exist.
+  const [loadErr, setLoadErr] = useState(false);
+  // Banner ids with a Stop in flight (double-click latch).
+  const stopBusyRef = React.useRef(new Set());
+  // A stopped banner's row (and the focused Stop with it) leaves LIVE NOW;
+  // focus then moves to the next Stop, or the message box.
+  const liveListRef = React.useRef(null);
+  const messageRef = React.useRef(null);
+  const refocusStopRef = React.useRef(false);
+  useEffect(() => {
+    if (!refocusStopRef.current) return;
+    refocusStopRef.current = false;
+    const a = document.activeElement;
+    if (a && a !== document.body && a.isConnected) return;
+    (liveListRef.current?.querySelector('button') || messageRef.current)?.focus();
+  }, [rows]);
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/admin/announcements', { credentials: 'same-origin' });
-      if (r.ok) setRows(await r.json());
-    } catch (_) {}
+      if (r.ok) { setRows(await r.json()); setLoadErr(false); } else setLoadErr(true);
+    } catch (_) { setLoadErr(true); }
   }, []);
   useEffect(() => { load(); }, [load]);
   const create = async () => {
+    // Post banner stays focusable while posting (aria-disabled), so ignore
+    // clicks while busy or with no message here.
+    if (busy || !message.trim()) return;
     setErr(''); setBusy(true);
     try {
       const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
@@ -790,6 +849,12 @@ function AdminAnnouncementsTab() {
     } finally { setBusy(false); }
   };
   const deactivate = async (id) => {
+    if (stopBusyRef.current.has(id)) return;
+    stopBusyRef.current.add(id);
+    refocusStopRef.current = true;
+    try { await deactivateOnce(id); } finally { stopBusyRef.current.delete(id); }
+  };
+  const deactivateOnce = async (id) => {
     const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
     try {
       const r = await fetch(`/api/admin/announcements/${id}`, {
@@ -827,11 +892,12 @@ function AdminAnnouncementsTab() {
     }
     await load();
   };
-  const live = rows.filter(r => r.active && (!r.expiresAt || r.expiresAt > Date.now()));
+  const live = (rows || []).filter(r => r.active && (!r.expiresAt || r.expiresAt > Date.now()));
   return h('div', { className: 'admin-tab-content' },
     h('div', { style: { padding: 16, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 18 } },
       h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 10 } }, 'Post sitewide banner'),
       h('textarea', {
+        ref: messageRef,
         value: message,
         onChange: e => setMessage(e.target.value),
         maxLength: 500,
@@ -860,11 +926,13 @@ function AdminAnnouncementsTab() {
         }),
         h('button', {
           className: 'btn btn-accent',
-          disabled: busy || !message.trim(),
+          // aria-disabled, not disabled: disabling the focused button while
+          // posting (and once the box clears) dropped focus to the page.
+          'aria-disabled': (busy || !message.trim()) || undefined,
           onClick: create
         }, busy ? 'Posting…' : 'Post banner')
       ),
-      err && h('div', { className: 'wallet-error' }, err)
+      err && h('div', { className: 'wallet-error', role: 'alert' }, err)
     ),
     // Batch 566 — broadcast notification form. Fan-out: one bell-row per
     // active user. Distinct from banner (which is a site-wide static
@@ -901,8 +969,11 @@ function AdminAnnouncementsTab() {
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
         h('button', {
           className: 'btn btn-accent',
-          disabled: bcBusy || !bcTitle.trim(),
+          // aria-disabled keeps focus on the button while it sends and once
+          // the form clears; the click is ignored while busy or untitled.
+          'aria-disabled': (bcBusy || !bcTitle.trim()) || undefined,
           onClick: async () => {
+            if (bcBusy || !bcTitle.trim()) return;
             if (!confirm(`Send "${bcTitle.trim()}" to every active user? This fans out one notification per user and can't be undone.`)) return;
             setBcBusy(true); setBcMsg('');
             try {
@@ -918,11 +989,12 @@ function AdminAnnouncementsTab() {
           }
         }, bcBusy ? 'Broadcasting…' : '📢 Send broadcast'),
         bcMsg && h('span', {
+          role: bcMsg.startsWith('✓') ? 'status' : 'alert',
           style: { fontSize: 11, color: bcMsg.startsWith('✓') ? 'var(--green)' : 'var(--red)' }
         }, bcMsg)
       )
     ),
-    live.length > 0 && h('div', { style: { padding: 12, background: 'var(--bg-card)', border: '1px solid var(--accent-border)', borderRadius: 8, marginBottom: 16 } },
+    live.length > 0 && h('div', { ref: liveListRef, style: { padding: 12, background: 'var(--bg-card)', border: '1px solid var(--accent-border)', borderRadius: 8, marginBottom: 16 } },
       h('div', { style: { fontSize: 11, color: 'var(--accent)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 } }, 'LIVE NOW'),
       live.map(r => h('div', { key: r.id, style: { display: 'flex', gap: 12, padding: 6, alignItems: 'center' } },
         h(SeverityChip, { severity: r.severity }),
@@ -935,11 +1007,16 @@ function AdminAnnouncementsTab() {
           const hh = Math.floor(d / 3600000), mm = Math.floor((d % 3600000) / 60000);
           return hh > 0 ? `ends in ${hh}h ${mm}m` : `ends in ${mm}m`;
         })()),
-        h('button', { className: 'btn btn-ghost', style: { padding: '4px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, onClick: () => deactivate(r.id) }, 'Stop')
+        h('button', { className: 'btn btn-ghost', style: { padding: '4px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, 'aria-label': `Stop banner: ${r.message}`, onClick: () => deactivate(r.id) }, 'Stop')
       ))
     ),
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '10px 0 6px' } }, 'History'),
-    rows.length === 0
+    loadErr
+      ? h('div', { className: 'wallet-error', role: 'alert' }, 'Couldn’t load announcements. ',
+          h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
+      : rows === null
+      ? h('div', { className: 'spinner' })
+      : rows.length === 0
       ? h('div', { style: { fontSize: 13, color: 'var(--text-muted)', padding: 20, textAlign: 'center' } }, 'No announcements yet.')
       : rows.map(r => h('div', {
           key: r.id,
@@ -991,12 +1068,14 @@ function ApiKeyLookupPanel() {
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [lookupErr, setLookupErr] = useState(false);
   const doLookup = async () => {
     const prefix = (q || '').trim();
     if (prefix.length < 3) return;
     setBusy(true);
     try {
       const data = await adminApiKeyLookup(prefix);
+      setLookupErr(data == null);
       setRows(data || []);
       setSearched(true);
     } finally { setBusy(false); }
@@ -1012,6 +1091,7 @@ function ApiKeyLookupPanel() {
         className: 'price-input',
         style: { flex: 1, minWidth: 240, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12 },
         placeholder: 'sbx_live_…',
+        'aria-label': 'API key prefix',
         value: q,
         onChange: e => setQ(e.target.value),
         onKeyDown: e => { if (e.key === 'Enter') doLookup(); }
@@ -1019,11 +1099,16 @@ function ApiKeyLookupPanel() {
       h('button', {
         className: 'btn btn-accent',
         style: { padding: '6px 14px' },
-        onClick: doLookup,
-        disabled: busy || (q || '').trim().length < 3
+        // aria-disabled keeps focus on the button while it searches; the click is ignored while busy.
+        onClick: () => { if (!busy) doLookup(); },
+        'aria-disabled': busy || undefined,
+        disabled: (q || '').trim().length < 3
       }, busy ? 'Searching…' : 'Lookup')
     ),
-    searched && rows.length === 0 && h('div', {
+    searched && lookupErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 10 } },
+      "Lookup failed, so we can't say whether a key matches. ",
+      h('button', { className: 'btn btn-sm', 'aria-disabled': busy || undefined, onClick: () => { if (!busy) doLookup(); } }, 'Retry')),
+    searched && !lookupErr && rows.length === 0 && h('div', {
       style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }
     }, 'No matching API keys. Check the prefix — search requires ≥ 3 chars.'),
     rows.length > 0 && h('table', { className: 'db-table', style: { marginTop: 10 } },
@@ -1179,7 +1264,8 @@ function AdminFraudTab() {
         h('button', {
           className: 'btn btn-ghost',
           style: { padding: '6px 14px' },
-          onClick: load, disabled: loading
+          // aria-disabled keeps focus on the button while it reloads; the click is ignored meanwhile.
+          onClick: () => { if (!loading) load(); }, 'aria-disabled': loading || undefined
         }, loading ? 'Loading…' : 'Refresh'),
         // Batch 588 — CSV export for quarterly reporting / ops archive.
         // Same as the withdrawals/trades/tickets CSVs pattern. Signals
@@ -1208,7 +1294,7 @@ function AdminFraudTab() {
           onClick: () => setShowReviewed(v => !v)
         }, showReviewed ? 'Hide reviewed' : `Show ${hiddenCount} reviewed`)
       ),
-      error && h('div', { className: 'admin-error' }, error),
+      error && h('div', { className: 'admin-error', role: 'alert' }, error),
       !loading && !error && rows.length === 0 && h('div', { className: 'empty-inline' },
         '✨ No suspicious patterns detected in the last 24 hours.'),
       !loading && rows.length > 0 && visible.length === 0 && h('div', { className: 'empty-inline' },
@@ -1247,7 +1333,18 @@ function AdminFraudTab() {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { marginTop: 6, padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
-                onClick: () => markReviewed(r),
+                onClick: (e) => {
+                  // Marking hides the row (and its button); move focus to the next
+                  // row's button, or to the "Show N reviewed" chip when none is left.
+                  const hides = !showReviewed && !isReviewed;
+                  const list = e.currentTarget.closest('.fraud-list');
+                  const card = list && list.closest('.admin-card');
+                  markReviewed(r);
+                  if (hides) requestAnimationFrame(() => {
+                    const btns = list && list.isConnected ? list.querySelectorAll('.fraud-time button') : [];
+                    (btns[Math.min(i, btns.length - 1)] || card?.querySelector('.wallet-tx-filter-chip'))?.focus();
+                  });
+                },
                 title: isReviewed ? 'Move back to queue' : 'Mark reviewed (hides from your queue)'
               }, isReviewed ? '↺ Reopen' : '✓ Reviewed')
             )
@@ -1316,7 +1413,8 @@ function AdminDisputesTab() {
       h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
         h('button', {
           className: 'btn btn-ghost', style: { padding: '6px 14px' },
-          onClick: load, disabled: loading
+          // aria-disabled keeps focus on the button while it reloads; clicks are ignored meanwhile.
+          onClick: () => { if (!loading) load(); }, 'aria-disabled': loading || undefined
         }, loading ? 'Loading…' : 'Refresh'),
         // Batch 578 — CSV export of the dispute queue for quarterly
         // reconciliation against Stripe dashboard exports.
@@ -1327,7 +1425,7 @@ function AdminDisputesTab() {
           title: 'Export the active-disputes queue as CSV'
         }, '⇣ CSV')
       ),
-      err && h('div', { className: 'admin-error' }, err),
+      err && h('div', { className: 'admin-error', role: 'alert' }, err),
       !loading && !err && rows.length === 0 && h('div', { className: 'empty-inline' },
         '✓ No active chargebacks. The webhook will populate this list when one fires.'),
       rows.length > 0 && h('table', { className: 'db-table', style: { marginTop: 14 } },
@@ -1475,14 +1573,19 @@ function AdminDisputesTab() {
 function AdminSimulatorTab() {
   const [count, setCount]     = useState(0);
   const [busy, setBusy]       = useState(false);
-  const [spawnN, setSpawnN]   = useState(20);
+  // '' while the admin has cleared the field to type a new number; snapping
+  // straight back to 20 turned Backspace-then-5 into "205" (clamped to 100).
+  const [spawnInput, setSpawnN] = useState(20);
+  const spawnN = spawnInput === '' ? 20 : spawnInput;
   const [toast, setToast]     = useState('');
+  // The count failed to load: say so instead of "0 simulated" with Clear off.
+  const [countErr, setCountErr] = useState(false);
 
   const reload = useCallback(async () => {
-    try {
-      const res = await adminCountSimulated();
-      if (res && typeof res.count === 'number') setCount(res.count);
-    } catch (e) {}
+    let res = null;
+    try { res = await adminCountSimulated(); } catch (e) {}
+    if (res && typeof res.count === 'number') { setCount(res.count); setCountErr(false); }
+    else setCountErr(true);
   }, []);
   useEffect(() => { reload(); }, [reload]);
 
@@ -1519,17 +1622,21 @@ function AdminSimulatorTab() {
   return h('div', { className: 'admin-panel' },
     h('div', { className: 'admin-card' },
       h('div', { className: 'admin-card-title' }, 'Marketplace Simulator'),
-      h('div', { className: 'admin-card-sub' },
-        `${count} simulated listing${count === 1 ? '' : 's'} currently live. Real listings are never touched.`
-      ),
+      countErr
+        ? h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load the simulated-listing count. ",
+            h('button', { className: 'btn btn-sm', onClick: reload }, 'Retry'))
+        : h('div', { className: 'admin-card-sub' },
+            `${count} simulated listing${count === 1 ? '' : 's'} currently live. Real listings are never touched.`
+          ),
       h('div', { className: 'admin-card-body' },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
           h('label', { style: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 } }, 'Count:'),
           h('input', {
             type: 'number', min: 1, max: 100, step: 1,
             'aria-label': 'Count',
-            value: spawnN,
-            onChange: e => setSpawnN(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 20))),
+            value: spawnInput,
+            onChange: e => setSpawnN(e.target.value === '' ? '' : Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 20))),
+            onBlur: () => { if (spawnInput === '') setSpawnN(20); },
             style: {
               width: 80, padding: '8px 12px', fontSize: 13, fontWeight: 700,
               background: 'var(--bg-input)', border: '1px solid var(--border)',
@@ -1543,10 +1650,10 @@ function AdminSimulatorTab() {
           }, busy ? 'Working…' : `Spawn ${spawnN} listing${spawnN === 1 ? '' : 's'}`),
           h('button', {
             className: 'btn btn-ghost',
-            disabled: busy || count === 0,
+            disabled: busy || countErr || count === 0,
             style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
             onClick: runClear
-          }, `Clear ${count} simulated`),
+          }, countErr ? 'Clear simulated' : `Clear ${count} simulated`),
           h('button', {
             className: 'btn btn-ghost',
             disabled: busy,
@@ -1555,6 +1662,7 @@ function AdminSimulatorTab() {
           }, '↻ Re-sync SCMM catalogue')
         ),
         toast && h('div', {
+          role: toast.startsWith('Error') ? 'alert' : 'status',
           style: {
             marginTop: 14, padding: '10px 14px',
             background: toast.startsWith('Error') ? 'var(--red-dim)' : 'var(--accent-dim)',
@@ -1593,25 +1701,39 @@ function AdminTradesTab() {
   // is logged to audit AND surfaced to the user via notification, so
   // the drawer is the right UX for composing it.
   const [actionDraft, setActionDraft] = useState(null);  // { kind: 'release'|'cancel', row }
+  // null = the chat failed to load (shown as an error with Retry, never as
+  // "No messages in this trade.").
+  const loadChat = async (tradeId) => {
+    setChatThreads(prev => ({ ...prev, [tradeId]: undefined }));
+    const msgs = await fetchTradeMessagesOrNull(tradeId);
+    setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+  };
   const toggleChat = async (tradeId) => {
     if (openChat === tradeId) { setOpenChat(null); return; }
     setOpenChat(tradeId);
-    const msgs = await fetchTradeMessages(tradeId);
-    setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+    await loadChat(tradeId);
   };
   const redactMessage = async (tradeId, msgId) => {
     if (!confirm(`Redact message ${msgId}? Its text is removed and both parties see "Message removed by moderators" in its place. The text can't be recovered.`)) return;
     const res = await adminDeleteTradeMessage(msgId);
     if (res && (res.error || res.code)) { toast(res.message || res.error, 'err'); return; }
-    const msgs = await fetchTradeMessages(tradeId);
-    setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+    const msgs = await fetchTradeMessagesOrNull(tradeId);
+    if (msgs) setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
     // Pre-fix: silent on success — staff saw the row vanish from chat but
     // had no confirmation that the audit-log write landed. Surface a toast
     // so admin actions consistently report outcome.
     toast(`Message #${msgId} redacted from trade #${tradeId}.`, 'ok');
   };
 
-  const load = useCallback(async () => { setRows(null); setRows(await adminTrades(filter)); }, [filter]);
+  // Only the newest filter's reply may land; false = the load failed.
+  const tradesReqId = React.useRef(0);
+  const load = useCallback(async () => {
+    const reqId = ++tradesReqId.current;
+    setRows(null);
+    const data = await adminTrades(filter);
+    if (reqId !== tradesReqId.current) return;
+    setRows(Array.isArray(data) ? data : false);
+  }, [filter]);
   useEffect(() => { load(); }, [load]);
 
   const submitTradeAction = async (reason) => {
@@ -1638,13 +1760,14 @@ function AdminTradesTab() {
   // Effective rows — optionally reverse newest-first ordering. The
   // backend returns rows sorted by updatedAt DESC; flipping here gives
   // ops a "fix the oldest trade first" view.
-  const display = rows ? (oldestFirst ? [...rows].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0)) : rows) : null;
+  const display = rows === false ? false : rows ? (oldestFirst ? [...rows].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0)) : rows) : null;
 
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
       STATES.map(s => h('button', {
         key: s,
         className: `offer-tab ${filter === s ? 'active' : ''}`,
+        'aria-pressed': filter === s,
         onClick: () => setFilter(s)
       }, s.replace(/_/g, ' ').toLowerCase())),
       h('div', { style: { flex: 1 } }),
@@ -1666,6 +1789,9 @@ function AdminTradesTab() {
     ),
     display === null
       ? h('div', { className: 'spinner' })
+      : display === false
+        ? h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load trades. ",
+            h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
       : display.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'swap_horiz', size: 26 })),
@@ -1777,6 +1903,9 @@ function AdminTradesTab() {
                   // messages in this trade." before the request resolves.
                   chatThreads[r.id] === undefined
                     ? h('div', { className: 'spinner' })
+                    : chatThreads[r.id] === null
+                    ? h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load this chat. ",
+                        h('button', { className: 'btn btn-sm', onClick: () => loadChat(r.id) }, 'Retry'))
                     : (chatThreads[r.id] || []).length === 0
                     ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
                         'No messages in this trade.')
@@ -1890,7 +2019,7 @@ function AdminAuditTab() {
       since:   sinceMs || null
     });
     if (reqId !== auditReqId.current) return;
-    setRows(result);
+    setRows(Array.isArray(result) ? result : false);
   }, [filter]);
   useEffect(() => { load(); }, [load]);
 
@@ -1922,7 +2051,7 @@ function AdminAuditTab() {
   // Apply the client-side free-text filter against whatever the backend
   // returned. Case-insensitive on summary + the pre-resolved display names.
   const displayRows = (() => {
-    if (!rows) return null;
+    if (!Array.isArray(rows)) return rows;
     const q = textSearch.trim().toLowerCase();
     if (q.length === 0) return rows;
     return rows.filter(r => {
@@ -1938,8 +2067,8 @@ function AdminAuditTab() {
       h('select', { className: 'sort-select', 'aria-label': 'Filter by audit event', value: filter.event, onChange: e => setFilter(f => ({ ...f, event: e.target.value })) },
         EVENTS.map(ev => h('option', { key: ev || 'all', value: ev }, ev || 'All events'))
       ),
-      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', value: filter.actor, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, actor: e.target.value.replace(/\D/g, '') })) }),
-      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Subject user #id', value: filter.subject, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, subject: e.target.value.replace(/\D/g, '') })) }),
+      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', 'aria-label': 'Actor user #id', value: filter.actor, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, actor: e.target.value.replace(/\D/g, '') })) }),
+      h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Subject user #id', 'aria-label': 'Subject user #id', value: filter.subject, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, subject: e.target.value.replace(/\D/g, '') })) }),
       // Batch 556 — date-horizon chips. Each chip stores its hours-ago
       // value; the load() callback translates to a wall-clock floor at
       // fetch time. "All time" clears the bound so the server returns
@@ -1956,7 +2085,7 @@ function AdminAuditTab() {
           title: opt.id ? `Only events in the last ${opt.label}` : 'Full 500-row recent window'
         }, opt.label))
       ),
-      h('input', { className: 'price-input', style: { flex: 1, minWidth: 140 }, placeholder: '🔎 Search summary / names…', value: textSearch, onChange: e => setTextSearch(e.target.value) }),
+      h('input', { className: 'price-input', style: { flex: 1, minWidth: 140 }, placeholder: '🔎 Search summary / names…', 'aria-label': 'Search summary / names', value: textSearch, onChange: e => setTextSearch(e.target.value) }),
       h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: load }, 'Refresh'),
       // CSV export — honors the current filter selection so the download
       // matches what the admin is looking at.
@@ -1983,6 +2112,9 @@ function AdminAuditTab() {
     ),
     displayRows === null
       ? h('div', { className: 'spinner' })
+      : displayRows === false
+        ? h('div', { className: 'wallet-error', role: 'alert' }, 'Couldn’t load the audit log. ',
+            h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'))
       : displayRows.length === 0
         ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'receipt_long', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
@@ -2010,6 +2142,9 @@ function AdminAuditTab() {
 
 function AdminDashboardTab({ onNavTab }) {
   const [stats, setStats] = useState(null);
+  // A failed first load used to spin forever; say so and offer Retry.
+  const [statsErr, setStatsErr] = useState(false);
+  const [statsRetry, setStatsRetry] = useState(0);
   // Recent activity — last 10 audit rows surfaced as a mini feed so the
   // admin landing page shows ops pulse at a glance. Refetched every 30s
   // while the tab is open; no new endpoint — reuses /api/admin/audit.
@@ -2024,8 +2159,9 @@ function AdminDashboardTab({ onNavTab }) {
       try {
         const s = await adminStats();
         // A failed poll keeps the last good numbers instead of zeroing them.
-        if (alive && s) setStats(s);
-      } catch (_) {}
+        if (!alive) return;
+        if (s) { setStats(s); setStatsErr(false); } else setStatsErr(true);
+      } catch (_) { if (alive) setStatsErr(true); }
     };
     load();
     // Batch 806 — visibility-aware poll.
@@ -2036,7 +2172,7 @@ function AdminDashboardTab({ onNavTab }) {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, []);
+  }, [statsRetry]);
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -2055,7 +2191,11 @@ function AdminDashboardTab({ onNavTab }) {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
-  if (!stats) return h('div', { className: 'spinner' });
+  if (!stats) return statsErr
+    ? h('div', { className: 'profile-panel' },
+        h('div', { className: 'wallet-error', role: 'alert' }, 'Dashboard stats failed to load. ',
+          h('button', { className: 'btn btn-sm', onClick: () => { setStatsErr(false); setStatsRetry(n => n + 1); } }, 'Retry')))
+    : h('div', { className: 'spinner' });
   // Compute a % delta vs the prior 24h window. When the prior bucket
   // is 0 we render either "+new" (current has volume) or no delta
   // (both zero — nothing interesting to compare).
@@ -2358,20 +2498,44 @@ function AdminCatalogueTab() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [draft, setDraft] = useState({});
+  // A failed search used to read as "No items match."; say it failed instead.
+  const [searchErr, setSearchErr] = useState(false);
+  const [searchRetry, setSearchRetry] = useState(0);
   useEffect(() => {
     const qs = (q || '').trim();
-    if (qs.length < 2) { setResults([]); return; }
+    if (qs.length < 2) { setResults([]); setSearchErr(false); return; }
     let alive = true;
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`/api/items?q=${encodeURIComponent(qs)}`, { credentials: 'same-origin' });
-        if (!r.ok) return;
+        if (!r.ok) { if (alive) { setResults([]); setSearchErr(true); } return; }
         const j = await r.json();
-        if (alive) setResults(Array.isArray(j) ? j.slice(0, 30) : []);
-      } catch (_) {}
+        if (alive) { setResults(Array.isArray(j) ? j.slice(0, 30) : []); setSearchErr(false); }
+      } catch (_) { if (alive) { setResults([]); setSearchErr(true); } }
     }, 220);
     return () => { alive = false; clearTimeout(t); };
-  }, [q]);
+  }, [q, searchRetry]);
+  // Escape closes the edit drawer (the admin panel leaves Escape to it).
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (e) => { if (e.key === 'Escape' && !busy) { e.stopPropagation(); setEditing(null); } };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [editing, busy]);
+  // The drawer is modal: move focus into it on open and back to the row's
+  // Edit button on close, instead of leaving it behind the backdrop.
+  useEffect(() => {
+    if (!editing) return;
+    const prev = document.activeElement;
+    const id = requestAnimationFrame(() => {
+      const panel = document.getElementById('catalogue-edit-title')?.closest('[role="dialog"]');
+      panel?.querySelector('input, select, textarea, button')?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      try { if (prev && document.contains(prev)) prev.focus(); } catch (_) {}
+    };
+  }, [editing?.id]);
   const edit = (it) => {
     setEditing(it);
     setDraft({
@@ -2416,6 +2580,7 @@ function AdminCatalogueTab() {
       h('input', {
         className: 'price-input',
         placeholder: 'Search items by name…',
+        'aria-label': 'Search items by name',
         value: q,
         onChange: e => setQ(e.target.value),
         style: { flex: 1 }
@@ -2423,7 +2588,9 @@ function AdminCatalogueTab() {
     ),
     q.trim().length < 2 && h('div', { style: { fontSize: 12, color: 'var(--text-muted)', padding: 16 } },
       'Type at least 2 letters to search the catalogue. Edit steamPrice / rarity / imageUrl / accentColor inline; updates apply without waiting for the next SCMM sync.'),
-    q.trim().length >= 2 && results.length === 0 && h('div', { className: 'empty-inline' },
+    q.trim().length >= 2 && searchErr && h('div', { className: 'wallet-error', role: 'alert' }, 'Couldn’t search the catalogue. ',
+      h('button', { className: 'btn btn-sm', onClick: () => setSearchRetry(n => n + 1) }, 'Retry')),
+    q.trim().length >= 2 && !searchErr && results.length === 0 && h('div', { className: 'empty-inline' },
       h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No items match.')),
     results.length > 0 && h('table', { className: 'db-table', style: { marginTop: 8 } },
       h('thead', null, h('tr', null,
@@ -2457,8 +2624,9 @@ function AdminCatalogueTab() {
     ),
     // Edit drawer — partial PUT, validates on the server.
     editing && h('div', { className: 'cart-confirm-backdrop', onClick: () => !busy && setEditing(null) },
-      h('div', { className: 'cart-confirm-panel', style: { maxWidth: 520 }, onClick: e => e.stopPropagation() },
-        h('div', { className: 'cart-confirm-title' }, '✎ Edit ' + editing.name),
+      h('div', { className: 'cart-confirm-panel', style: { maxWidth: 520 }, onClick: e => e.stopPropagation(),
+        role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'catalogue-edit-title' },
+        h('div', { className: 'cart-confirm-title', id: 'catalogue-edit-title' }, '✎ Edit ' + editing.name),
         h('div', { className: 'cart-confirm-sub' },
           `ID #${editing.id} — partial edits apply immediately. Clear a field to restore the SCMM default on the next sync.`),
         h('div', { style: { marginTop: 14, display: 'grid', gap: 10 } },
@@ -2504,7 +2672,7 @@ function AdminCatalogueTab() {
             })
           )
         ),
-        err && h('div', { className: 'wallet-error' }, err),
+        err && h('div', { className: 'wallet-error', role: 'alert' }, err),
         h('div', { className: 'cart-confirm-actions' },
           h('button', {
             className: 'btn btn-ghost',
@@ -2601,6 +2769,7 @@ function AdminUsersTab({ me }) {
   // path on the service keeps the cold open snappy). BANNED is a
   // special case — it's a status filter, not a role — so we map it
   // to `banned=true` without constraining role.
+  const usersReqId = React.useRef(0);
   const load = useCallback(async () => {
     const opts = { search };
     if (roleFilter === 'BANNED') {
@@ -2609,7 +2778,12 @@ function AdminUsersTab({ me }) {
       opts.role = roleFilter;
       opts.banned = false;  // role chips mean "active of this role" — hide banned
     }
-    setRows(await adminUsers(opts));
+    // Search fires per keystroke: only the newest reply may land, or a slow
+    // "al" could finish over "alice". false = the load failed.
+    const reqId = ++usersReqId.current;
+    const data = await adminUsers(opts);
+    if (reqId !== usersReqId.current) return;
+    setRows(Array.isArray(data) ? data : false);
   }, [search, roleFilter]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -2649,6 +2823,23 @@ function AdminUsersTab({ me }) {
       } catch (_) {}
     })();
     return () => { alive = false; };
+  }, [detailUser?.id]);
+  // Escape closes the detail drawer (the admin panel leaves Escape to a
+  // .cart-confirm-backdrop), and focus goes back to the row's 🔎 button.
+  useEffect(() => {
+    if (!detailUser) return;
+    const opener = document.activeElement;
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setDetailUser(null); } };
+    document.addEventListener('keydown', onKey);
+    // Move focus into the drawer, as the catalogue Edit drawer does.
+    const raf = requestAnimationFrame(() => {
+      document.getElementById('admin-user-detail-title')?.closest('[role="dialog"]')?.focus({ preventScroll: true });
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('keydown', onKey);
+      if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus();
+    };
   }, [detailUser?.id]);
 
   // Ban-reason templates surface from the prompt dialog — admins can
@@ -2779,6 +2970,7 @@ function AdminUsersTab({ me }) {
       h('input', {
         className: 'price-input', style: { flex: 1 },
         placeholder: 'Search by name, Steam ID…',
+        'aria-label': 'Search by name, Steam ID',
         value: search,
         onChange: e => setSearch(e.target.value),
         onKeyDown: e => { if (e.key === 'Enter') load(); }
@@ -2805,7 +2997,7 @@ function AdminUsersTab({ me }) {
     // runs server-side, so the loaded rows only describe the active chip:
     // only that chip carries a count, and the row stays up on an empty
     // result so "All" is always there to go back to.
-    rows !== null && (() => {
+    Array.isArray(rows) && (() => {
       return h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 } },
         [
           { id: 'ALL',    label: 'All' },
@@ -2833,6 +3025,10 @@ function AdminUsersTab({ me }) {
       // represents the filter result. Keep the variable for readability
       // below + defensive re-filter in case role goes stale between a
       // refetch and a chip click.
+      if (rows === false) {
+        return h('div', { className: 'wallet-error', role: 'alert' }, "Couldn't load users. ",
+          h('button', { className: 'btn btn-sm', onClick: load }, 'Retry'));
+      }
       const visibleRows = rows === null ? null : (roleFilter === 'ALL'
         ? rows
         : roleFilter === 'BANNED' ? rows.filter(r => r.banned)
@@ -2886,13 +3082,13 @@ function AdminUsersTab({ me }) {
                   }, '🔎'),
                   h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u) }, '$'),
                   u.role === 'USER'
-                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role' }, '+CSR')
+                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role', 'aria-label': `Grant CSR role to ${u.displayName || ('user #' + u.id)}` }, '+CSR')
                     : u.role === 'CSR'
-                      ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevokeCsr(u), title: 'Revoke CSR role' }, '−CSR')
+                      ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevokeCsr(u), title: 'Revoke CSR role', 'aria-label': `Revoke CSR role from ${u.displayName || ('user #' + u.id)}` }, '−CSR')
                       : null,
                   u.role !== 'ADMIN'
-                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u) }, '+Admin')
-                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevoke(u) }, '−Admin')),
+                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u), 'aria-label': `Grant admin role to ${u.displayName || ('user #' + u.id)}` }, '+Admin')
+                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevoke(u), 'aria-label': `Revoke admin role from ${u.displayName || ('user #' + u.id)}` }, '−Admin')),
                   u.banned
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(74,222,128,0.3)', color: 'var(--green)' }, disabled: busy, onClick: () => doUnban(u) }, 'Unban')
                     // Hide Ban on self — banning your own admin account
@@ -2909,7 +3105,9 @@ function AdminUsersTab({ me }) {
                     className: 'btn btn-ghost',
                     style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
                     disabled: busy, onClick: () => doForceLogout(u),
-                    title: 'Revoke every live session (does not ban)'
+                    title: 'Revoke every live session (does not ban)',
+                    // Every row's buttons otherwise read the same to a screen reader.
+                    'aria-label': `Force logout ${u.displayName || ('user #' + u.id)}`
                   }, 'Force logout')
                 )
               )
@@ -2937,14 +3135,17 @@ function AdminUsersTab({ me }) {
       h('div', {
         className: 'cart-confirm-panel',
         style: { maxWidth: 640 },
-        onClick: e => e.stopPropagation()
+        onClick: e => e.stopPropagation(),
+        // A modal over the Users table: name it after the user and take focus.
+        role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'admin-user-detail-title',
+        tabIndex: -1
       },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 } },
           detailUser.avatarUrl
             ? h('img', { src: detailUser.avatarUrl, alt: '', style: { width: 56, height: 56, borderRadius: '50%' } })
             : h('div', { className: 'db-thumb', style: { width: 56, height: 56, fontSize: 18 } }, (detailUser.displayName || 'U').substring(0, 2).toUpperCase()),
           h('div', { style: { flex: 1, minWidth: 0 } },
-            h('div', { className: 'cart-confirm-title' }, detailUser.displayName || 'Player'),
+            h('div', { className: 'cart-confirm-title', id: 'admin-user-detail-title' }, detailUser.displayName || 'Player'),
             h('div', { className: 'cart-confirm-sub' },
               `Steam ID ${detailUser.steamId64} · #${detailUser.id} · role ${detailUser.role || 'USER'}`)
           ),
@@ -3258,6 +3459,7 @@ function AdminUsersTab({ me }) {
                   className: 'price-input',
                   style: { width: '100%', minHeight: 70, resize: 'vertical', fontFamily: 'inherit', fontSize: 12 },
                   placeholder: 'Internal context — ops observations, prior incidents, handoff notes between CSRs.',
+                  'aria-label': 'Staff notes (not visible to user)',
                   value: notesDraft,
                   maxLength: 4000,
                   onChange: e => setNotesDraft(e.target.value)
@@ -3266,8 +3468,10 @@ function AdminUsersTab({ me }) {
                   h('button', {
                     className: 'btn btn-accent',
                     style: { padding: '5px 14px', fontSize: 11 },
-                    disabled: notesSaving,
+                    // aria-disabled keeps focus on the button while it saves; repeat clicks are ignored meanwhile.
+                    'aria-disabled': notesSaving || undefined,
                     onClick: async () => {
+                      if (notesSaving) return;
                       setNotesSaving(true);
                       try {
                         const res = await adminWriteNotes(detailUser.id, notesDraft);
@@ -3399,8 +3603,13 @@ function AdminTicketsTab() {
   const [search, setSearch] = useState('');
   const [busy, setBusy]     = useState(false);
 
+  // Only the newest request commits: a slow answer for an older search or
+  // filter used to land last and replace the list for the current one.
+  const loadSeqRef = React.useRef(0);
   const load = useCallback(async () => {
-    setList(await adminTickets(filter, search));
+    const seq = ++loadSeqRef.current;
+    const res = await adminTickets(filter, search);
+    if (seq === loadSeqRef.current) setList(res);
   }, [filter, search]);
   useEffect(() => {
     const h = setTimeout(() => { load(); }, search ? 300 : 0);
@@ -3410,13 +3619,32 @@ function AdminTicketsTab() {
   // Guard against a null return (safeJson yields null on 404/5xx) — an
   // unguarded setView(null) made a row click a silent no-op. Also guard
   // a missing `ticket` field so the detail view never renders half-data.
+  // Only the ticket clicked last opens: a slow answer for an earlier row
+  // used to land afterwards and swap the thread (or reopen one after Back).
+  const openSeqRef = React.useRef(0);
   const open = async (id) => {
+    const seq = ++openSeqRef.current;
     const t = await adminTicket(id);
+    if (seq !== openSeqRef.current) return;
     if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
     // A draft belongs to the ticket it was written on.
     setReply('');
     setView(t);
   };
+  // ← Tickets unmounts the thread; hand focus back to the row that opened it
+  // instead of dropping it on the page.
+  const backFocusRef = React.useRef(null);
+  // Opening a ticket unmounts the row that had focus; move it to the
+  // thread heading so keyboard focus doesn't fall to <body>.
+  const threadHeadRef = React.useRef(null);
+  const viewingId = viewing?.ticket?.id ?? null;
+  useEffect(() => { if (viewingId != null) threadHeadRef.current?.focus(); }, [viewingId]);
+  useEffect(() => {
+    if (viewing || backFocusRef.current == null) return;
+    const id = backFocusRef.current;
+    backFocusRef.current = null;
+    document.querySelector(`tr[data-ticket-row="${id}"]`)?.focus();
+  }, [viewing]);
   // Enter auto-repeat (or Enter then a click) re-entered this before the
   // async busy state landed and posted the reply twice; a ref latches now.
   const sendingRef = React.useRef(false);
@@ -3442,10 +3670,16 @@ function AdminTicketsTab() {
     } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
-    if (!viewing?.ticket) return;
+    // Latched like sendReply: a double-click used to close the ticket twice.
+    if (!viewing?.ticket || sendingRef.current) return;
     const t = viewing.ticket;
+    sendingRef.current = true;
+    setBusy(true);
+    try {
     const res = await adminCloseTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
+    // The Close button goes away once the ticket is resolved.
+    threadHeadRef.current?.focus();
     // Guard the refetch — same reasoning as sendReply: the close already
     // succeeded server-side, so a failed refresh shouldn't blank the view.
     const fresh = await adminTicket(t.id);
@@ -3455,18 +3689,19 @@ function AdminTicketsTab() {
     // many tickets back-to-back knows which one just closed.
     const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
     toast(`Ticket #${t.id}${subjStr} closed. User can reopen from the thread.`, 'ok');
+    } finally { sendingRef.current = false; setBusy(false); }
   };
 
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { setView(null); setReply(''); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; backFocusRef.current = viewing.ticket.id; setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
-          h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
+          h('div', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
             viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))
         ),
-        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close Ticket')
+        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', disabled: busy, onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close Ticket')
       ),
       h('div', { className: 'support-thread' },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
@@ -3494,8 +3729,9 @@ function AdminTicketsTab() {
         }, tpl.label))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Staff reply…', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
-        h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: sendReply }, 'Send')
+        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Staff reply…', 'aria-label': 'Staff reply', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
+        // aria-disabled keeps focus on Send while the reply posts; sendReply ignores empty or in-flight sends.
+        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: sendReply }, 'Send')
       )
     );
   }
@@ -3503,7 +3739,7 @@ function AdminTicketsTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' } },
       [['',  'All'],['WAITING_STAFF','Waiting on us'],['WAITING_USER','Waiting on user'],['RESOLVED','Resolved']].map(([v, l]) =>
-        h('button', { key: v || 'all', className: `offer-tab ${filter === v ? 'active' : ''}`, onClick: () => setFilter(v) }, l)
+        h('button', { key: v || 'all', className: `offer-tab ${filter === v ? 'active' : ''}`, 'aria-pressed': filter === v, onClick: () => setFilter(v) }, l)
       ),
       // Batch 576 — free-text search across subject / username /
       // category. Debounced client-side (see load()) so typing doesn't
@@ -3549,6 +3785,7 @@ function AdminTicketsTab() {
               h('th', { className: 'right' }, 'Updated'))),
             h('tbody', null, list.map(t => h('tr', {
               key: t.id, className: 'db-row',
+              'data-ticket-row': t.id,
               onClick: () => open(t.id),
               role: 'button',
               tabIndex: 0,
@@ -3686,12 +3923,14 @@ function AdminRefundsTab() {
 }
 
 // ── CSR PANEL ───────────────────────────────────────────────────
+const CSR_TAB_IDS = ['dashboard', 'lookup', 'tickets', 'flag'];
 export function CsrModal({ onClose, me }) {
   // Deep-link via `?tab=<id>` (batch 464). Same pattern as AdminModal.
   const initialTab = (() => {
     try {
       const t = new URLSearchParams(window.location.search).get('tab');
-      return t || 'dashboard';
+      // An unknown id selected no tab and left the panel blank.
+      return CSR_TAB_IDS.includes(t) ? t : 'dashboard';
     } catch { return 'dashboard'; }
   })();
   const [tab, setTab] = useState(initialTab);
@@ -3701,7 +3940,7 @@ export function CsrModal({ onClose, me }) {
   useEffect(() => {
     try {
       const t = new URLSearchParams(searchNow).get('tab');
-      if (t) setTab(t);
+      if (t && CSR_TAB_IDS.includes(t)) setTab(t);
     } catch (_) { /* keep the current tab */ }
   }, [searchNow]);
   const TABS = [
@@ -3775,6 +4014,7 @@ function CsrFlagTab() {
   const [note, setNote]    = useState('');
   const [busy, setBusy]    = useState(false);
   const [result, setResult]= useState(null);
+  const idRef = React.useRef(null);
   const REASONS = [
     'Suspicious pricing',
     'Suspected duplicate / scam',
@@ -3796,7 +4036,12 @@ function CsrFlagTab() {
         setResult({ ok: true, msg: 'Listing #' + res.id + ' added to the admin review queue' });
         setId(''); setReason(''); setNote('');
       }
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+      // The button is disabled while flagging (and stays so once the form
+      // clears); hand focus back to the Listing ID box instead of the page.
+      requestAnimationFrame(() => idRef.current?.focus());
+    }
   };
   return h('div', { className: 'profile-panel' },
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 } },
@@ -3806,6 +4051,8 @@ function CsrFlagTab() {
         className: 'price-input',
         style: { width: 140 },
         placeholder: 'Listing ID',
+        'aria-label': 'Listing ID',
+        ref: idRef,
         value: id,
         inputMode: 'numeric',
         // Clear the prior result so a stale "Flag note appended to #5"
@@ -3839,6 +4086,7 @@ function CsrFlagTab() {
       onClick: submit
     }, busy ? 'Flagging…' : '🚩 Flag listing'),
     result && h('div', {
+      role: result.ok ? 'status' : 'alert',
       style: {
         marginTop: 12, padding: 10, borderRadius: 6,
         background: result.ok ? 'rgba(34,197,94,0.1)' : 'var(--red-dim)',
@@ -3853,6 +4101,7 @@ function CsrFlagTab() {
 function CsrDashboardTab() {
   const [stats, setStats] = useState(null);
   const [err, setErr]     = useState('');
+  const [retry, setRetry] = useState(0);
   // Pre-fix: bare `.then(setStats)` — no cleanup (setState fired after
   // the modal closed) and no `.catch` (a rejected csrStats() left the
   // spinner up forever). Guard with an `alive` flag + surface the error.
@@ -3862,8 +4111,9 @@ function CsrDashboardTab() {
       .then(s => { if (alive) setStats(s); })
       .catch(e => { if (alive) setErr(e?.message || 'Failed to load queue stats'); });
     return () => { alive = false; };
-  }, []);
-  if (err) return h('div', { className: 'profile-panel' }, h('div', { className: 'wallet-error' }, err));
+  }, [retry]);
+  if (err) return h('div', { className: 'profile-panel' }, h('div', { className: 'wallet-error', role: 'alert' }, err, '. ',
+    h('button', { className: 'btn btn-sm', onClick: () => { setErr(''); setRetry(n => n + 1); } }, 'Retry')));
   if (!stats) return h('div', { className: 'spinner' });
   const waitMs = stats.oldestWaitingAgeMs || 0;
   const waitingHours = Math.floor(waitMs / 3_600_000);
@@ -3895,10 +4145,17 @@ function CsrLookupTab() {
   const [q, setQ] = useState('');
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Only the latest search may paint: Enter while a slow lookup is in
+  // flight used to let the older answer land last and replace the new one.
+  const lookupSeqRef = React.useRef(0);
   const search = async () => {
     if (!q.trim()) return;
+    const seq = ++lookupSeqRef.current;
     setBusy(true);
-    try { setData(await csrLookup(q)); } finally { setBusy(false); }
+    try {
+      const res = await csrLookup(q);
+      if (seq === lookupSeqRef.current) setData(res);
+    } finally { if (seq === lookupSeqRef.current) setBusy(false); }
   };
   const giveCredit = async (u) => {
     const label = u.displayName || u.steamId64;
@@ -3931,11 +4188,12 @@ function CsrLookupTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
       h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Steam ID / display name / user #id', 'aria-label': 'Look up a user by Steam ID, display name or user id', value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') search(); } }),
-      h('button', { className: 'btn btn-accent', disabled: busy, onClick: search }, busy ? '…' : 'Search')
+      // aria-disabled keeps focus on the button while it searches; the click is ignored while busy.
+      h('button', { className: 'btn btn-accent', 'aria-disabled': busy || undefined, onClick: () => { if (!busy) search(); } }, busy ? '…' : 'Search')
     ),
     data && (data.error
       ? h('div', { className: 'wallet-error', role: 'alert' }, 'Lookup failed, so we can\'t say whether this user exists. ',
-          h('button', { className: 'btn btn-sm', disabled: busy, onClick: search }, 'Retry'))
+          h('button', { className: 'btn btn-sm', 'aria-disabled': busy || undefined, onClick: () => { if (!busy) search(); } }, 'Retry'))
       : (data.matches || []).length === 0
       ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search', size: 26 })),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No matches.'))
@@ -4011,19 +4269,44 @@ function CsrTicketsTab() {
   const [search, setSearch] = useState('');
   const [busy, setBusy]     = useState(false);
 
-  const load = useCallback(async () => { setList(await csrTickets(filter, search)); }, [filter, search]);
+  // Newest request wins, as on the admin Tickets tab.
+  const loadSeqRef = React.useRef(0);
+  const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
+    const res = await csrTickets(filter, search);
+    if (seq === loadSeqRef.current) setList(res);
+  }, [filter, search]);
   useEffect(() => {
     const h = setTimeout(() => { load(); }, search ? 300 : 0);
     return () => clearTimeout(h);
   }, [load, search]);
   // Guard a null/empty return — matches AdminTicketsTab.open.
+  // Only the ticket clicked last opens: a slow answer for an earlier row
+  // used to land afterwards and swap the thread (or reopen one after Back).
+  const openSeqRef = React.useRef(0);
   const open = async (id) => {
+    const seq = ++openSeqRef.current;
     const t = await csrTicket(id);
+    if (seq !== openSeqRef.current) return;
     if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
     // A draft belongs to the ticket it was written on.
     setReply('');
     setView(t);
   };
+  // ← Tickets unmounts the thread; hand focus back to the row that opened it
+  // instead of dropping it on the page.
+  const backFocusRef = React.useRef(null);
+  // Opening a ticket unmounts the row that had focus; move it to the
+  // thread heading so keyboard focus doesn't fall to <body>.
+  const threadHeadRef = React.useRef(null);
+  const viewingId = viewing?.ticket?.id ?? null;
+  useEffect(() => { if (viewingId != null) threadHeadRef.current?.focus(); }, [viewingId]);
+  useEffect(() => {
+    if (viewing || backFocusRef.current == null) return;
+    const id = backFocusRef.current;
+    backFocusRef.current = null;
+    document.querySelector(`tr[data-ticket-row="${id}"]`)?.focus();
+  }, [viewing]);
   // Enter auto-repeat (or Enter then a click) re-entered this before the
   // async busy state landed and posted the reply twice; a ref latches now.
   const sendingRef = React.useRef(false);
@@ -4049,10 +4332,16 @@ function CsrTicketsTab() {
     } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
-    if (!viewing?.ticket) return;
+    // Latched like sendReply: a double-click used to close the ticket twice.
+    if (!viewing?.ticket || sendingRef.current) return;
     const t = viewing.ticket;
+    sendingRef.current = true;
+    setBusy(true);
+    try {
     const res = await csrCloseTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
+    // The Close button goes away once the ticket is resolved.
+    threadHeadRef.current?.focus();
     // Guard the refetch — the close already succeeded; a failed refresh
     // shouldn't blank the ticket view out from under the CSR.
     const fresh = await csrTicket(t.id);
@@ -4062,17 +4351,18 @@ function CsrTicketsTab() {
     // + admin paths feel consistent.
     const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
     toast(`Ticket #${t.id}${subjStr} closed. User can reopen from the thread.`, 'ok');
+    } finally { sendingRef.current = false; setBusy(false); }
   };
 
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { setView(null); setReply(''); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { openSeqRef.current++; backFocusRef.current = viewing.ticket.id; setView(null); setReply(''); } }, '← Tickets'),
         h('div', { style: { flex: 1 } },
-          h('div', { style: { fontSize: 14, fontWeight: 700 } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
+          h('div', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, outline: 'none' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, viewing.ticket.category + ' · ' + viewing.ticket.status + ' · ' + (viewing.ticket.username || '#' + viewing.ticket.userId))
         ),
-        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close')
+        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', disabled: busy, onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close')
       ),
       h('div', { className: 'support-thread' },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
@@ -4098,7 +4388,8 @@ function CsrTicketsTab() {
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply as CSR…', 'aria-label': 'Reply as CSR', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
-        h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: sendReply }, 'Send')
+        // aria-disabled keeps focus on Send while the reply posts; sendReply ignores empty or in-flight sends.
+        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: sendReply }, 'Send')
       )
     );
   }
@@ -4106,7 +4397,7 @@ function CsrTicketsTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' } },
       [['WAITING_STAFF','Waiting on us'],['WAITING_USER','Waiting on user'],['','All']].map(([v, l]) =>
-        h('button', { key: v || 'all', className: `offer-tab ${filter === v ? 'active' : ''}`, onClick: () => setFilter(v) }, l)
+        h('button', { key: v || 'all', className: `offer-tab ${filter === v ? 'active' : ''}`, 'aria-pressed': filter === v, onClick: () => setFilter(v) }, l)
       ),
       // Batch 581 — free-text search mirrors the admin-tickets tab.
       h('input', {
@@ -4141,6 +4432,7 @@ function CsrTicketsTab() {
               return h('tr', {
                 key: t.id,
                 className: `db-row${urgent ? ' urgent-row' : ''}`,
+                'data-ticket-row': t.id,
                 onClick: () => open(t.id),
                 // Keyboard access parity with the admin Tickets tab — the
                 // CSR rows were mouse-only (no role/tabIndex/onKeyDown).

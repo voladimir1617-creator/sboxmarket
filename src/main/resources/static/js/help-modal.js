@@ -1,7 +1,7 @@
 // Standalone Help Center — FAQ accordion, getting started guide, keyboard
 // shortcut reference, and a Contact Support CTA. Lives on its own route
 // `/help`, but also accepts being opened from any button via the same shell.
-import { h, useState, useEffect, highlightMatch } from './utils.js';
+import { h, useState, useEffect, useRef, highlightMatch, useTestMode, testModeCopy } from './utils.js';
 import { InfoModal } from './info-modal.js';
 import { MaterialIcon } from './primitives.js';
 import { navigate, paths } from './router.js';
@@ -209,10 +209,14 @@ export function HelpModal({ onClose }) {
   })();
   const [openIdx, setOpenIdx] = useState(0);
   const [search, setSearch]   = useState(initialQ);
+  const searchRef = useRef(null);
   const q = search.trim().toLowerCase();
+  // Re-render once /api/version answers; live sites drop the test-mode line.
+  useTestMode();
+  const faq = FAQ.map(item => ({ ...item, a: testModeCopy(item.a) }));
   const filteredFaq = q.length === 0
-    ? FAQ.map((item, origIdx) => ({ ...item, origIdx }))
-    : FAQ.map((item, origIdx) => ({ ...item, origIdx }))
+    ? faq.map((item, origIdx) => ({ ...item, origIdx }))
+    : faq.map((item, origIdx) => ({ ...item, origIdx }))
          .filter(item => item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q));
   // Batch 708 — auto-expand the first match on a query-prefilled open
   // so a deep-linker lands on the answer, not a collapsed list. Only
@@ -245,7 +249,7 @@ export function HelpModal({ onClose }) {
         h('div', { className: 'help-step-num' }, i + 1),
         h(MaterialIcon, { name: s.icon, size: 28 }),
         h('div', { className: 'help-step-title' }, s.title),
-        h('div', { className: 'help-step-body' }, s.body)
+        h('div', { className: 'help-step-body' }, testModeCopy(s.body))
       ))
     ),
 
@@ -256,7 +260,7 @@ export function HelpModal({ onClose }) {
     // leaving the section visually empty until the user clicked. Each
     // preview row, when clicked, expands the full accordion entry
     // below + scrolls it into view.
-    !q && h('div', { className: 'help-faq-preview', 'aria-label': 'Top FAQ questions' },
+    !q && h('div', { className: 'help-faq-preview', role: 'group', 'aria-label': 'Top FAQ questions' },
       FAQ.slice(0, 3).map((item, i) => h('button', {
         key: 'preview-' + i,
         type: 'button',
@@ -284,6 +288,7 @@ export function HelpModal({ onClose }) {
       style: { width: '100%', marginBottom: 10, fontSize: 13 },
       placeholder: 'Search FAQs…',
       value: search,
+      ref: searchRef,
       onChange: e => setSearch(e.target.value)
     }),
     filteredFaq.length === 0
@@ -305,7 +310,8 @@ export function HelpModal({ onClose }) {
             h('button', {
               className: 'btn btn-ghost',
               style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12 },
-              onClick: () => setSearch('')
+              // The button goes away with the no-match state; keep focus in the search box.
+              onClick: () => { setSearch(''); searchRef.current?.focus(); }
             }, 'Clear search'),
             h('a', {
               className: 'btn btn-accent',

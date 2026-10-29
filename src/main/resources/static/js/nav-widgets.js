@@ -649,7 +649,7 @@ export function NotificationBell({ me }) {
       ),
       items.length === 0
         ? (me
-            ? h('div', { className: 'notif-empty' },
+            ? h('div', { className: 'notif-empty', role: fullState === 'error' ? 'alert' : undefined },
                 fullState === 'ok' ? "You're all caught up." : fullState === 'error' ? "Couldn't load notifications." : 'Loading…')
             : h('div', { className: 'notif-empty', style: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', padding: '14px 12px' } },
                 h('div', { style: { fontSize: 12, color: 'var(--text-secondary)' } },

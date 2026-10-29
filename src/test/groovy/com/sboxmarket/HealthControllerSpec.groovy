@@ -219,6 +219,30 @@ class HealthControllerSpec extends Specification {
         !resp.body.containsKey('startupAt')
     }
 
+    def "version() reports testMode from the money mode, so the test-mode copy drops itself at go-live"() {
+        given:
+        def env = new org.springframework.mock.env.MockEnvironment()
+        if (key != null) env.setProperty('stripe.secret-key', key)
+        if (prod) env.setActiveProfiles('prod')
+        controller.environment = env
+
+        expect:
+        controller.version().body.testMode == testMode
+
+        where:
+        key                                   | prod  || testMode
+        null                                  | false || true
+        'sk_test_replace_me'                  | false || true
+        'sk_' + 'test_unit_fake_not_a_key'   | false || true
+        'sk_' + 'live_unit_fake_not_a_key'   | true  || false
+        'sk_' + 'test_unit_fake_not_a_key'   | true  || true
+    }
+
+    def "version() keeps testMode on when there is no Environment to ask"() {
+        expect:
+        controller.version().body.testMode == true
+    }
+
     def "version() exposes startupAt to ops when verbose detail is opted in"() {
         given: 'SECURITY_VERBOSE_ERRORS=true — incident-debug / non-prod posture'
         controller.verboseDetails = true

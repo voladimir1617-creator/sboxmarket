@@ -26,7 +26,7 @@ const fmtUsd = (v) => '$' + (Math.round((Number(v) || 0) * 100) / 100).toLocaleS
 const suggestedMax = (it) => { const f = parseFloat(it?.lowestPrice) || 0; return f > 0 ? (f * 0.9).toFixed(2) : ''; };
 
 // ── Database ────────────────────────────────────────────────────
-export function DatabaseModal({ onClose, onPickItem, me }) {
+export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   const [data, setData]       = useState({ items: [], total: 0, indexed: 0 });
   // False until the first page lands, so the heading and result line don't
   // print the placeholder zeros as if they were real counts.
@@ -72,6 +72,8 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         });
         toast(res.message || res.error || 'Could not update watchlist', 'err');
       } else {
+        // Hand the server's list to App so /watchlist and the nav badge agree.
+        if (Array.isArray(res?.ids)) onWatchlistIds && onWatchlistIds(res.ids);
         toast(isStarred ? 'Removed from watchlist' : 'Added to watchlist', 'ok');
       }
     } catch (_) {
@@ -119,6 +121,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
   })();
   const [searchInput, setSearchInput] = useState(initialQ);
   const [search, setSearch]   = useState(initialQ);
+  const searchRef = useRef(null);
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
@@ -136,9 +139,18 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
     } catch (_) { /* history unavailable */ }
   }, [search]);
-  const [category, setCat]    = useState('All');
-  const [rarity, setRar]      = useState('All');
-  const [sort, setSort]       = useState('rarest');
+  // Seeded from the URL (kept in step below) so Back from an item page
+  // lands on the same category, rarity, sort and page.
+  const urlParam = (k, allowed, dflt) => {
+    try {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return dflt;
+      const v = new URLSearchParams(window.location.search).get(k);
+      return allowed.includes(v) ? v : dflt;
+    } catch (_) { return dflt; }
+  };
+  const [category, setCat]    = useState(() => urlParam('category', ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'], 'All'));
+  const [rarity, setRar]      = useState(() => urlParam('rarity', ['Limited','Off-Market','Standard'], 'All'));
+  const [sort, setSort]       = useState(() => urlParam('sort', ['most_traded','most_viewed','price_desc','price_asc','newest'], 'rarest'));
   // "Listed only" — hides catalogue rows with no active listings. CSFloat
   // parity: browsing the database, a buyer usually only cares about
   // items they can actually buy right now. Persisted in localStorage so
@@ -156,7 +168,13 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
   useEffect(() => {
     try { localStorage.setItem('sb_db_listed_only', listedOnly ? '1' : '0'); } catch (_) {}
   }, [listedOnly]);
-  const [page, setPage]       = useState(0);
+  const [page, setPage]       = useState(() => {
+    try {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return 0;
+      const n = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10);
+      return Number.isFinite(n) && n > 1 && n <= 1000 ? n - 1 : 0;
+    } catch (_) { return 0; }
+  });
   const PAGE_SIZE = 30;
 
   // Race-condition guard — bump a monotonic request id on every load()
@@ -191,7 +209,13 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       // exactly as the NotificationsModal consumer below reads it. Detect
       // that explicitly: the catch beneath is a backstop, not the mechanism.
       if (res && res.error) setLoadErr(true);
-      else { setData(res); setLoaded(true); }
+      else {
+        setData(res); setLoaded(true);
+        // A ?page= past the end (an old link, or rows that sold since) came
+        // back empty under "N results"; go to the last page that has rows.
+        const last = Math.ceil(Number(res?.total || 0) / PAGE_SIZE) - 1;
+        if (page > 0 && last >= 0 && page > last) setPage(last);
+      }
     } catch (_) {
       // Backstop only — an unexpected throw (a future refactor, a bug in
       // the helper) must not fall through to the "Catalogue is empty" copy.
@@ -201,7 +225,30 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
     }
   }, [search, category, rarity, sort, listedOnly, minPrice, maxPrice, page]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(0); }, [search, category, rarity, sort, listedOnly, minPrice, maxPrice]);
+  // Back to page 1 when a filter changes — not on mount, which would drop
+  // the page the URL asked for.
+  const filterKey = [search, category, rarity, sort, listedOnly, minPrice, maxPrice].join('|');
+  const filterKeyRef = useRef(filterKey);
+  useEffect(() => {
+    if (filterKeyRef.current === filterKey) return;
+    filterKeyRef.current = filterKey;
+    setPage(0);
+  }, [filterKey]);
+  // Keep category / rarity / sort / page in the URL (replaceState, like ?q=).
+  useEffect(() => {
+    try {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return;
+      const params = new URLSearchParams(window.location.search);
+      const put = (k, v, dflt) => { if (v !== dflt) params.set(k, String(v)); else params.delete(k); };
+      put('category', category, 'All');
+      put('rarity', rarity, 'All');
+      put('sort', sort, 'rarest');
+      put('page', page + 1, 1);
+      const qs = params.toString();
+      if (qs === window.location.search.replace(/^\?/, '')) return;
+      window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
+    } catch (_) { /* history unavailable */ }
+  }, [category, rarity, sort, page]);
 
   const CATS = ['All','Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
   const RARS = ['All','Limited','Off-Market','Standard'];
@@ -220,6 +267,16 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
   ];
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
+  // Reaching the first or last page disables the arrow that was pressed,
+  // which drops keyboard focus to <body>; move it to the other arrow.
+  const pagerRef = useRef(null);
+  const pagerEdgeRef = useRef(null);
+  useEffect(() => {
+    const which = pagerEdgeRef.current;
+    if (!which) return;
+    pagerEdgeRef.current = null;
+    pagerRef.current?.querySelectorAll('button')[which === 'prev' ? 0 : 1]?.focus();
+  }, [page]);
 
   // The header must not assert a catalogue size we could not read.
   // "Database · 0 indexed" was the FIRST thing the walk saw under a forced
@@ -239,6 +296,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       h('input', {
         className: 'price-input', style: { flex: 1, minWidth: 180 },
         placeholder: 'Search items…', value: searchInput,
+        ref: searchRef,
         onChange: e => setSearchInput(e.target.value),
         type: 'search', enterKeyHint: 'search',
         'aria-label': 'Search items in catalogue'
@@ -424,6 +482,8 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
                   setSearchInput(''); setSearch('');
                   setCat('All'); setRar('All');
                   setListedOnly(false); setMinPrice(''); setMaxPrice('');
+                  // The button goes away with the empty state; keep focus in the search box.
+                  searchRef.current?.focus();
                 }
               }, 'Clear Filters')
             )
@@ -535,10 +595,10 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
        is intentionally NOT a condition here: keeping the pager mounted
        through a page-to-page fetch avoids it flickering out and back on
        every Next/Prev click (totalPages stays stable across the fetch). */
-    !loadErr && totalPages > 1 && h('div', { className: 'db-pager' },
-      h('button', { className: 'btn btn-ghost', disabled: page === 0, onClick: () => setPage(p => Math.max(0, p - 1)) }, '← Prev'),
+    !loadErr && totalPages > 1 && h('div', { className: 'db-pager', ref: pagerRef },
+      h('button', { className: 'btn btn-ghost', disabled: page === 0, onClick: () => { if (page <= 1) pagerEdgeRef.current = 'next'; setPage(p => Math.max(0, p - 1)); } }, '← Prev'),
       h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, `${page + 1} of ${totalPages}`),
-      h('button', { className: 'btn btn-ghost', disabled: page + 1 >= totalPages, onClick: () => setPage(p => p + 1) }, 'Next →')
+      h('button', { className: 'btn btn-ghost', disabled: page + 1 >= totalPages, onClick: () => { if (page + 2 >= totalPages) pagerEdgeRef.current = 'prev'; setPage(p => p + 1); } }, 'Next →')
     )
   );
 }
@@ -774,7 +834,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     cancelInFlight.add(id);
     try {
       const res = await deleteBuyOrder(id);
-      if (res && res.error) { toast(res.error, 'err'); return; }
+      if (res && res.error) { toast(res.error, 'err'); load(); return; }
       load();
       const priceStr = o?.maxPrice != null ? fmt(parseFloat(o.maxPrice)) : '';
       // BuyOrder.quantity is ALREADY the remaining (un-filled) count — it's
@@ -800,6 +860,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       const res = resuming ? await resumeBuyOrder(o.id) : await pauseBuyOrder(o.id);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || (resuming ? 'Could not resume buy order' : 'Could not pause buy order'), 'err');
+        load();
         return;
       }
       load();
@@ -1145,6 +1206,8 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)', padding: '7px 14px', fontSize: 12, marginRight: 6 },
                 onClick: () => togglePause(o),
+                // Every row's buttons otherwise read the same to a screen reader.
+                'aria-label': `${o.status === 'PAUSED' ? 'Resume' : 'Pause'} buy order for ${o.itemName || 'item'}`,
                 title: o.status === 'PAUSED'
                   ? 'Turn this order back on. It can buy right away if a listing is already at or under your max.'
                   : 'Stop this order from buying without deleting it. Resume it any time.'
@@ -1152,6 +1215,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
               (o.status === 'ACTIVE' || o.status === 'PAUSED') && h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 14px', fontSize: 12 },
+                'aria-label': `Cancel buy order for ${o.itemName || 'item'}`,
                 onClick: () => cancel(o.id)
               }, 'Cancel')
             )));
@@ -1191,6 +1255,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+  const discoverSearchRef = useRef(null);
+  // The empty-state "Browse" buttons go away with the tab they sit on; move
+  // focus to the Discover tab they switch to instead of dropping it.
+  const focusDiscoverTab = () => {
+    setTab('discover');
+    document.querySelector('.loadout-tabs [role="tab"]')?.focus();
+  };
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   // `null` = not loaded yet (spinner), `{ __notFound }` = real 404 so
@@ -1210,6 +1281,21 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // Shared by the rename button and Enter: the busy state lags a
   // re-render, so a quick second press sent the rename twice.
   const renameBusyRef = useRef(false);
+  // The rename and create boxes unmount on close (Escape, Cancel, Save),
+  // which dropped keyboard focus to <body>; hand it back to the button
+  // that opened them.
+  const renameBtnRef = useRef(null);
+  const createBtnRef = useRef(null);
+  const wasRenamingRef = useRef(false);
+  const wasCreatingRef = useRef(false);
+  useEffect(() => {
+    if (wasRenamingRef.current && !renaming) renameBtnRef.current?.focus();
+    wasRenamingRef.current = renaming;
+  }, [renaming]);
+  useEffect(() => {
+    if (wasCreatingRef.current && !creating) createBtnRef.current?.focus();
+    wasCreatingRef.current = creating;
+  }, [creating]);
 
   // Deep-link: /loadout/:id lands here with `loadoutId` set. Jump
   // straight to the view tab with the right row loaded instead of
@@ -1219,6 +1305,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // "not found" panel. Boss test path /loadout/1 always renders
   // SOMETHING valuable now, even on an installation where ids 1
   // and 2 were taken by deleted user loadouts.
+  const [deepRetry, setDeepRetry] = useState(0);
   useEffect(() => {
     if (!loadoutId) return;
     let alive = true;
@@ -1229,7 +1316,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
      // through to the __notFound sentinel, which renders a friendly
      // panel with a "Browse public loadouts" escape.
      try {
-      const data = await fetchLoadout(loadoutId);
+      const data = await fetchLoadout(loadoutId, { strict: true });
       if (!alive) return;
       if (data) {
         // Backend now serves a server-side fallback for missing/private
@@ -1273,14 +1360,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       setViewing({ __notFound: true });
       setTab('view');
      } catch (_) {
-      // Audit fix — any un-handled reject above (first fetchLoadout)
-      // lands here. Show the same friendly not-found panel instead of
-      // leaving `viewing` null and the modal spinning forever.
-      if (alive) { setViewing({ __notFound: true }); setTab('view'); }
+      // The first fetchLoadout throws only when the load failed (a real
+      // 404 returns null), so say that rather than "doesn't exist".
+      if (alive) { setViewing({ __error: true }); setTab('view'); }
      }
     })();
     return () => { alive = false; };
-  }, [loadoutId]);
+  }, [loadoutId, deepRetry]);
 
   // Race-condition guard — rapid tab switches (discover → mine →
   // favorites) used to fire overlapping requests with no ordering; a
@@ -1333,20 +1419,21 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   }, []);
 
   const openLoadout = async (id) => {
-    // Guard the fetch — fetchLoadout returns null on a 404 and REJECTS on
-    // a network error / non-404 5xx. Either way, leaving `viewing` null
-    // while tab==='view' renders an indefinite spinner. Coerce both to
-    // the `__notFound` sentinel so the friendly not-found panel shows,
-    // mirroring the deep-link effect's recovery.
+    // strict: fetchLoadout returns null on a 404 and throws on any other
+    // failure, which is not "not found", so stay put and say so.
     let data;
     try {
-      data = await fetchLoadout(id);
+      data = await fetchLoadout(id, { strict: true });
     } catch (_) {
-      data = null;
+      toast("Couldn't load that loadout. Try again.", 'err');
+      return;
     }
     setViewing(data || { __notFound: true });
     setTab('view');
   };
+  // A card opens its own /loadout/:id URL so Back returns to the list;
+  // navigate() is a no-op on the current path, so reopen in place then.
+  const goLoadout = (id) => (String(loadoutId) === String(id) ? openLoadout(id) : navigate(paths.loadout(id)));
 
   // A double click used to create two loadouts with the same name.
   const createBusyRef = useRef(false);
@@ -1366,7 +1453,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     }
     setNewName('');
     setCreating(false);
-    if (created && created.id) openLoadout(created.id);
+    if (created && created.id) goLoadout(created.id);
     // Pre-fix: success path was silent — the modal switched to the new
     // loadout view but a screen-reader user got no announcement, and
     // even sighted users seeing a slot grid full of "Empty slot" rows
@@ -1391,8 +1478,17 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     const fresh = await fetchLoadout(viewing.loadout.id);
     // A failed reload must not blank the open loadout into a spinner.
     if (!fresh) { toast('Saved, but the loadout did not reload. Refresh to see the change.', 'err'); return; }
+    // Clearing a slot unmounts its ✕ button; hand focus to the slot's + Add.
+    if (itemId == null) clearedSlotRef.current = slot;
     setViewing(fresh);
   };
+  const clearedSlotRef = useRef(null);
+  useEffect(() => {
+    const slot = clearedSlotRef.current;
+    if (slot == null) return;
+    clearedSlotRef.current = null;
+    document.querySelector(`.loadout-add-btn[aria-label="Add an item to the ${slot} slot"]`)?.focus();
+  }, [viewing]);
 
   const handleLockSlot = async (slot) => {
     if (!viewing) return;
@@ -1500,6 +1596,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     }
     setViewing(null);
     setTab('mine');
+    // Opened at /loadout/:id: leave that URL, or a reload lands on a deleted loadout.
+    if (loadoutId) navigate(paths.loadouts());
     load();
     // Batch 920 — name the deleted loadout in the toast so a user
     // deleting multiple in a row sees which one just went.
@@ -1511,6 +1609,16 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // viewing.loadout.ownerUserId on the sentinel object.
   if (tab === 'view' && !viewing) {
     return h(InfoModal, { title: 'Loadout Lab', onClose }, h('div', { className: 'spinner' }));
+  }
+  if (tab === 'view' && viewing && viewing.__error) {
+    return h(InfoModal, { title: 'Loadout', onClose },
+      h('div', { className: 'empty-inline', role: 'alert', style: { padding: '32px 16px' } },
+        h('h2', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' } }, "Couldn't load this loadout"),
+        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+          'Check your connection and try again.'),
+        h('button', { className: 'btn btn-accent', onClick: () => { setViewing(null); setDeepRetry(n => n + 1); } }, 'Retry')
+      )
+    );
   }
   if (tab === 'view' && viewing && viewing.__notFound) {
     // Reflect the not-found state in the page title too so browser tab +
@@ -1561,7 +1669,11 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         }, 'Browse all public loadouts →')
       ),
       h('div', { className: 'loadout-action-row', style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { setViewing(null); setTab(isOwner ? 'mine' : 'discover'); } }, '← Back'),
+        h('button', { className: 'btn btn-ghost', onClick: () => {
+          setViewing(null); setTab(isOwner ? 'mine' : 'discover');
+          // A loadout opened at /loadout/:id: leave its URL too, or a reload reopens it.
+          if (loadoutId) navigate(paths.loadouts());
+        } }, '← Back'),
         h('div', { className: 'loadout-action-spacer', style: { flex: 1, minWidth: 0 } }),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap' } },
           'By ', h('strong', { style: { color: 'var(--text-secondary)' } }, viewing.loadout.ownerName || 'anon'),
@@ -1580,7 +1692,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not clone loadout', 'err'); return; }
             toast(`Cloned to "${res?.name || 'your loadouts'}".`, 'ok');
             // Re-open the copy so the user lands directly on the new loadout.
-            if (res?.id) openLoadout(res.id);
+            if (res?.id) goLoadout(res.id);
             else load();
           }
         }, '⎘ Clone'),
@@ -1595,7 +1707,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         !isOwner && me && h('button', {
           className: `btn ${viewing.favorited ? 'btn-accent' : 'btn-ghost'}`,
           'aria-pressed': !!viewing.favorited,
-          disabled: favBusy,
+          // aria-disabled keeps keyboard focus here while it saves; the latch ignores clicks.
+          'aria-disabled': favBusy || undefined,
           title: viewing.favorited
             ? 'Remove from your Favorites tab'
             : 'Save to your Favorites tab so you can re-find it later',
@@ -1634,6 +1747,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         }, '♡ Favorite'),
         isOwner && h('button', {
           className: 'btn btn-ghost',
+          ref: renameBtnRef,
           title: 'Rename this loadout',
           // Batch 833 — open the inline rename drawer instead of
           // window.prompt. The drawer renders below the toolbar and
@@ -1649,7 +1763,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           title: viewing.loadout.visibility === 'PUBLIC'
             ? 'Make PRIVATE — hide from Discover. Only you can view it; its link stops working for everyone else.'
             : 'Make PUBLIC — show in Discover so others can favorite + clone.',
-          disabled: visBusy,
+          // aria-disabled keeps keyboard focus here while it saves; the latch ignores clicks.
+          'aria-disabled': visBusy || undefined,
           onClick: async () => {
             // Double-click latch, as on Favorite: two clicks sent two PUTs
             // and stacked two "Loadout is now X" toasts.
@@ -1716,6 +1831,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               setAdminRemoveDraft(null);
               setViewing(null);
               setTab('discover');
+              if (loadoutId) navigate(paths.loadouts());
               load();
             } catch (_) {
               toast('Network error removing loadout', 'err');
@@ -1741,7 +1857,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         h('button', {
           className: 'btn btn-accent',
           onClick: handleGenerate,
-          disabled: generatingLoadout,
+          // aria-disabled, not disabled, so keyboard focus stays on the button
+          // while it runs; handleGenerate already returns early mid-run.
+          'aria-disabled': generatingLoadout ? 'true' : undefined,
           title: 'Auto-fill unlocked slots with the cheapest active listing per category, capped at the budget. Locked slots are preserved.'
         }, generatingLoadout ? '…' : 'Generate'),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, marginLeft: 'auto' } },
@@ -1795,7 +1913,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               } finally { renameBusyRef.current = false; setRenameBusy(false); }
             } else if (e.key === 'Escape') {
               e.preventDefault();
-              setRenaming(false);
+              // Cancel is disabled while saving; Escape waits too, so a failed
+              // rename leaves the draft in the box.
+              if (!renameBusyRef.current) setRenaming(false);
             }
           },
           style: { flex: 1, minWidth: 200 },
@@ -1953,7 +2073,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           onKeyDown: onKey
         }, labels[id])),
         h('div', { style: { flex: 1 } }),
-        me && h('button', { className: 'btn btn-accent', onClick: () => setCreating(c => !c) }, creating ? 'Cancel' : '+ Create')
+        me && h('button', { className: 'btn btn-accent', ref: createBtnRef, onClick: () => setCreating(c => !c) }, creating ? 'Cancel' : '+ Create')
       );
     })(),
     creating && h('div', { style: { marginBottom: 14, display: 'flex', gap: 10 } },
@@ -1971,6 +2091,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       h('button', { className: 'btn btn-accent', onClick: handleCreate, disabled: !newName.trim() }, 'Create')
     ),
     tab === 'discover' && h('input', {
+      ref: discoverSearchRef,
       className: 'price-input',
       placeholder: 'Search loadouts…',
       'aria-label': 'Search public loadouts',
@@ -2009,7 +2130,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid var(--border)' },
-                  onClick: () => { setSearchInput(''); setSearch(''); }
+                  // The button goes away with the no-match state; keep focus in the search box.
+                  onClick: () => { setSearchInput(''); setSearch(''); discoverSearchRef.current?.focus(); }
                 }, 'Clear search'));
             }
             // Batch 915 — per-tab empty state with concrete CTAs.
@@ -2033,7 +2155,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', padding: '10px 18px' },
-                    onClick: () => setTab('discover'),
+                    onClick: focusDiscoverTab,
                     title: 'See what other builders have shared — good inspiration for your first loadout.'
                   }, 'Browse Discover')
                 )
@@ -2049,7 +2171,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 h('button', {
                   className: 'btn btn-accent',
                   style: { padding: '10px 18px', fontWeight: 700 },
-                  onClick: () => setTab('discover')
+                  onClick: focusDiscoverTab
                 }, 'Browse public loadouts →')
               );
             }
@@ -2084,7 +2206,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               // Mouse convenience only. Keyboard and screen readers open the
               // card through the name link below; a role=button card could
               // not contain the Copy link button as a separate control.
-              onClick: () => openLoadout(l.id)
+              onClick: () => goLoadout(l.id)
             },
               h('div', { className: 'loadout-card-name' },
                 h('a', {
@@ -2095,7 +2217,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) { e.stopPropagation(); return; }
                     e.preventDefault();
                     e.stopPropagation();
-                    openLoadout(l.id);
+                    goLoadout(l.id);
                   }
                 }, highlightMatch(l.name || '', search))),
               h('div', { className: 'loadout-card-meta' },
@@ -2175,6 +2297,14 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
 function SlotPicker({ slot, allItems, poolErr, onPick }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
+  // Cancel and Escape unmount the picker; hand focus back to its + Add
+  // button instead of dropping it to <body>.
+  const addBtnRef = useRef(null);
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (wasOpenRef.current && !open) addBtnRef.current?.focus();
+    wasOpenRef.current = open;
+  }, [open]);
   const filtered = useMemo(() => {
     let pool = allItems;
     if (slot !== 'Wild') pool = pool.filter(i => i.category === slot);
@@ -2183,7 +2313,8 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
   }, [allItems, slot, q]);
 
   if (!open) {
-    return h('button', { className: 'loadout-add-btn', onClick: () => setOpen(true) }, '+ Add');
+    // Every empty slot has one; name the slot so they don't all read "+ Add".
+    return h('button', { className: 'loadout-add-btn', ref: addBtnRef, 'aria-label': `Add an item to the ${slot} slot`, onClick: () => setOpen(true) }, '+ Add');
   }
   return h('div', { className: 'loadout-picker' },
     // Audit fix — aria-label was a stale "Filter loadouts" copy-paste
@@ -2241,6 +2372,12 @@ export function NotificationsModal({ onClose, me }) {
   const [filter, setFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  // Where focus goes when the control that had it unmounts (the empty
+  // states' buttons, Clear read once nothing read is left).
+  const searchRef = useRef(null);
+  const allBtnRef = useRef(null);
+  const allChipRef = useRef(null);
+  const markAllRef = useRef(null);
   // Audit fix — `load()` had no try/catch, and `data` starts as an
   // empty {items:[],unread:0}, so a rejected fetchNotifications() left
   // the modal showing the "You're all caught up / Quiet so far" empty
@@ -2290,6 +2427,15 @@ export function NotificationsModal({ onClose, me }) {
   // Per-row latch for Mark as unread / Delete: the row stays until the
   // reload lands, so a double-click sent the request twice.
   const rowBusyRef = useRef(new Set());
+  // A row action that removes its own button sets this; it runs once the
+  // reloaded list has rendered.
+  const pendingFocusRef = useRef(null);
+  useEffect(() => {
+    const f = pendingFocusRef.current;
+    if (!f) return;
+    pendingFocusRef.current = null;
+    f();
+  }, [data]);
   const clear = async () => {
     if (clearBusyRef.current) return;
     clearBusyRef.current = true;
@@ -2346,7 +2492,18 @@ export function NotificationsModal({ onClose, me }) {
   // itself is the safeguard (the user can see exactly which rows
   // will go away). Full-view still gets the confirm — deleting every
   // read row across every bucket is a bigger commitment.
-  const clearRead = async () => {
+  // Same latch as Mark all read: the filtered branch has no confirm, so a
+  // double-click posted delete-batch twice and stacked two toasts.
+  const clearReadBusyRef = useRef(false);
+  const clearRead = async (e) => {
+    if (clearReadBusyRef.current) return;
+    clearReadBusyRef.current = true;
+    // Clear read hides itself once no read row is left; keep focus in the toolbar.
+    const btn = e && e.currentTarget;
+    pendingFocusRef.current = () => { if (btn && !btn.isConnected) (markAllRef.current || allBtnRef.current)?.focus(); };
+    try { await clearReadOnce(); } finally { clearReadBusyRef.current = false; }
+  };
+  const clearReadOnce = async () => {
     const filterActive = (filter === 'UNREAD') || (typeFilter !== 'ALL') || (search.trim().length > 0) || mutedSet.size > 0;
     if (filterActive) {
       const ids = groups.flatMap(g => g.items).filter(n => n.read).map(n => n.id);
@@ -2506,10 +2663,10 @@ export function NotificationsModal({ onClose, me }) {
       }, 'Manage →')
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
-      h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, 'aria-pressed': filter === 'ALL', onClick: () => setFilter('ALL') },
-        'All ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length)),
+      h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, 'aria-pressed': filter === 'ALL', ref: allBtnRef, onClick: () => setFilter('ALL') },
+        'All ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length)),
       h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, 'aria-pressed': filter === 'UNREAD', onClick: () => setFilter('UNREAD') },
-        'Unread ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownUnread)),
+        'Unread ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownUnread)),
       h('div', { style: { flex: 1 } }),
       data.items.length > 0 && (() => {
         // Batch 635 — dynamic label: when a filter is active, show the
@@ -2519,6 +2676,7 @@ export function NotificationsModal({ onClose, me }) {
         return h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+          ref: markAllRef,
           onClick: clear,
           title: filterActive
             ? 'Only the notifications currently visible on the page will be marked read. Clear filters to mark everything.'
@@ -2547,17 +2705,20 @@ export function NotificationsModal({ onClose, me }) {
           : 'Clear read');
       })()
     ),
-    data.items.length > 5 && h('div', { style: { marginBottom: 12 } },
+    // Kept while a search is on, so a delete that drops the list to 5 rows
+    // doesn't hide the box that is still filtering it.
+    (data.items.length > 5 || search) && h('div', { style: { marginBottom: 12 } },
       h('input', {
         className: 'price-input',
         style: { width: '100%', fontSize: 12 },
         'aria-label': 'Search notifications',
         placeholder: 'Search notifications…',
         value: search,
+        ref: searchRef,
         onChange: e => setSearch(e.target.value)
       })
     ),
-    data.items.length > 3 && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
+    (data.items.length > 3 || typeFilter !== 'ALL') && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
       [
         { id: 'ALL',      label: 'All' },
         { id: 'TRADES',   label: 'Trades' },
@@ -2574,6 +2735,7 @@ export function NotificationsModal({ onClose, me }) {
           key: opt.id,
           className: `wallet-tx-filter-chip ${typeFilter === opt.id ? 'active' : ''}`,
           'aria-pressed': typeFilter === opt.id,
+          ref: opt.id === 'ALL' ? allChipRef : undefined,
           onClick: () => setTypeFilter(opt.id),
           disabled: c === 0 && opt.id !== 'ALL'
         }, `${opt.label} · ${c}`);
@@ -2629,7 +2791,9 @@ export function NotificationsModal({ onClose, me }) {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
-                onClick: () => setSearch('')
+                // The button goes away with this state; keep focus in the
+                // search box (or on the All filter if the box goes too).
+                onClick: () => { setSearch(''); (data.items.length > 5 ? searchRef : allBtnRef).current?.focus(); }
               }, 'Clear search'));
           }
           if (filter === 'UNREAD') {
@@ -2640,7 +2804,7 @@ export function NotificationsModal({ onClose, me }) {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
-                onClick: () => setFilter('ALL')
+                onClick: () => { setFilter('ALL'); allBtnRef.current?.focus(); }
               }, 'Show all'));
           }
           if (typeFilter !== 'ALL') {
@@ -2651,7 +2815,7 @@ export function NotificationsModal({ onClose, me }) {
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
-                onClick: () => setTypeFilter('ALL')
+                onClick: () => { setTypeFilter('ALL'); (data.items.length > 3 ? allChipRef : allBtnRef).current?.focus(); }
               }, 'Clear type filter'));
           }
           return h('div', { className: 'empty-inline' },
@@ -2708,7 +2872,8 @@ export function NotificationsModal({ onClose, me }) {
                   border: '1px solid transparent', marginLeft: 4
                 },
                 title: 'Mark as unread',
-                'aria-label': 'Mark as unread',
+                // Name the row: every row's buttons otherwise read the same.
+                'aria-label': `Mark as unread: ${n.title || 'notification'}`,
                 onClick: async (e) => {
                   e.stopPropagation();
                   // Pre-fix: errors here were swallowed and `load()` re-fetched
@@ -2717,12 +2882,17 @@ export function NotificationsModal({ onClose, me }) {
                   const key = 'unread:' + n.id;
                   if (rowBusyRef.current.has(key)) return;
                   rowBusyRef.current.add(key);
+                  // This button only exists on read rows; once the row is
+                  // unread, keep focus on the row's open control.
+                  const btn = e.currentTarget;
+                  const row = btn.closest('.notif-feed-row');
                   try {
                     try {
                       const { markNotificationUnread } = await import('./api.js');
                       const r = await markNotificationUnread(n.id);
                       if (r && r.ok === false) toast('Could not mark unread — try again.', 'err');
                     } catch (_) { toast('Could not mark unread — try again.', 'err'); }
+                    pendingFocusRef.current = () => { if (!btn.isConnected) row?.querySelector('[role="button"]')?.focus(); };
                     await load();
                   } finally { rowBusyRef.current.delete(key); }
                 }
@@ -2737,7 +2907,7 @@ export function NotificationsModal({ onClose, me }) {
                   border: '1px solid transparent', marginLeft: 4
                 },
                 title: 'Delete this notification',
-                'aria-label': 'Delete this notification',
+                'aria-label': `Delete this notification: ${n.title || 'notification'}`,
                 onClick: async (e) => {
                   e.stopPropagation();
                   // Pre-fix: errors swallowed; failed deletes silently no-oped
@@ -2745,11 +2915,18 @@ export function NotificationsModal({ onClose, me }) {
                   const key = 'delete:' + n.id;
                   if (rowBusyRef.current.has(key)) return;
                   rowBusyRef.current.add(key);
+                  // The row goes away with its buttons; hand focus to the
+                  // next row (or the previous one at the end of the list).
+                  const btn = e.currentTarget;
+                  const allRows = [...document.querySelectorAll('.notif-feed-row')];
+                  const at = allRows.indexOf(btn.closest('.notif-feed-row'));
+                  const neighbours = [allRows[at + 1], allRows[at - 1]];
                   try {
                     try {
                       const r = await deleteNotification(n.id);
                       if (r && r.ok === false) toast('Could not delete notification — try again.', 'err');
                     } catch (_) { toast('Could not delete notification — try again.', 'err'); }
+                    pendingFocusRef.current = () => { if (!btn.isConnected) neighbours.find(r => r && r.isConnected)?.querySelector('[role="button"]')?.focus(); };
                     await load();
                   } finally { rowBusyRef.current.delete(key); }
                 }

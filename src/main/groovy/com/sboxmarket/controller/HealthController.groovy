@@ -149,6 +149,12 @@ class HealthController {
         // flip SECURITY_VERBOSE_ERRORS=true for an incident-debug
         // session, at which point startupAt reappears here.
         def body = [version: appVersion] as LinkedHashMap
+        // Whether real money moves here. The footer and help copy carry a
+        // "Test mode: no real money moves" line that must disappear the
+        // moment a live Stripe key is in, with no code change at go-live.
+        // Only LIVE turns it off: TEST, SIMULATED and INDETERMINATE all move
+        // no real money, so the line stays true for them.
+        body.testMode = com.sboxmarket.config.MoneyMode.of(environment) != com.sboxmarket.config.MoneyMode.LIVE
         if (verboseDetails) {
             body.startupAt = STARTUP_AT
         }
