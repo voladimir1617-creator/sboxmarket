@@ -1022,6 +1022,37 @@ class BidServiceSpec extends Specification {
         buyerOwnBid.status == 'WON'
     }
 
+    def "the auction-won bell links a house auction's winner to their Platform Inventory, not the empty Trades tab"() {
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('6'), currentBidderId: 10L, bidCount: 1)
+        listing.sellerUserId = seller
+        bidRepository.findByListing(100L) >> [new Bid(id: 5L, listingId: 100L, bidderUserId: 10L,
+            bidderName: 'Alice', amount: new BigDecimal('6'), status: 'WINNING')]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10', displayName: 'Alice', banned: false))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'))
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        steamUserRepository.findById(99L) >> Optional.of(new SteamUser(id: 99L, steamId64: 'seller'))
+        walletRepository.findByUsername('steam_seller') >> new com.sboxmarket.model.Wallet(
+            id: 78L, username: 'steam_seller', balance: BigDecimal.ZERO)
+
+        when:
+        service.settle(listing)
+
+        then:
+        listing.status == 'SOLD'
+        1 * notificationService.push(10L, 'AUCTION_WON', 'You won · Wizard Hat', _, 100L, path)
+
+        where:
+        seller | path
+        null   | '/sell'
+        99L    | '/profile?tab=trades'
+    }
+
     def "buyNowAuction settles cleanly when the buyer never bid (no winner bid row)"() {
         // The common Buy-Now path: a buyer who hits Buy Now without ever
         // having placed a bid has no Bid row. settle() must still mark the

@@ -111,6 +111,31 @@ class TradeServiceSpec extends Specification {
         1 * notificationService.safePush(20L, 'TRADE_REQUESTED', _, _, _, _)
     }
 
+    def "open uses the saved trade's id on both bells and the new-sale email"() {
+        given: 'save returns a merged copy, as Spring Data does for a Trade whose @Version starts at 0'
+        tradeRepository.save(_) >> { Trade t ->
+            new Trade(id: 77L, listingId: t.listingId, itemId: t.itemId, itemName: t.itemName,
+                buyerUserId: t.buyerUserId, buyerWalletId: t.buyerWalletId,
+                sellerUserId: t.sellerUserId, sellerWalletId: t.sellerWalletId,
+                price: t.price, feeAmount: t.feeAmount, state: t.state)
+        }
+        def seller = new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: true)
+        steamUserRepository.findById(10L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 10L, displayName: 'Alice'))
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+
+        when:
+        def trade = service.open(100L, 1L, 'Wizard Hat', 10L, 500L, 20L, 600L, new BigDecimal("50"))
+
+        then:
+        trade.id == 77L
+        1 * notificationService.safePush(10L, 'TRADE_OPENED', _, _, 77L, '/profile?tab=trades')
+        1 * notificationService.safePush(20L, 'TRADE_REQUESTED', _, _, 77L, '/profile?tab=trades')
+        1 * emailService.sendTradeOpened('bob@example.com', 'Bob', 'Wizard Hat', 'Alice', new BigDecimal("50"), 77L, 3L)
+    }
+
     def "open skips seller-accept and goes to PENDING_BUYER_CONFIRM when there is no seller"() {
         given:
         tradeRepository.save(_) >> { Trade t -> t.id = 1L; t }

@@ -473,7 +473,9 @@ class EmailServiceSpec extends Specification {
             f.subject.contains('#42') &&
             f.subject.contains('Withdrawal stuck') &&
             f.text.contains('We refunded the pending row') &&
-            f.text.contains('/support')
+            // Deep-links the ticket itself, like the bell entry does;
+            // bare /support landed on the ticket list.
+            f.text.contains('http://localhost:8080/support?ticket=42\n')
         })
     }
 

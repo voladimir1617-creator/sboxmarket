@@ -433,6 +433,29 @@ class SteamEscrowHoldSpec extends Specification {
         view[10L].message.contains('Waiting for you to accept')
     }
 
+    def "custody view: an unsent deposit names the bot's real refusal, not always the trade URL"() {
+        given:
+        bot.enabled >> true
+        def e = custody(listingId: 10L, custodyState: EscrowedItem.PENDING_DEPOSIT, depositOfferId: null)
+        e.lastError = lastError
+
+        when:
+        def view = service.custodyViewForListings([10L])
+
+        then:
+        1 * escrowRepository.findByListingIds([10L]) >> [e]
+        !view[10L].offerSent
+        view[10L].message.contains(expected)
+
+        where:
+        lastError                                                                  || expected
+        'INVENTORY_ERROR: an item in this offer is not in the inventory it should come from' || 'couldn\'t find this item in your Steam inventory'
+        're-request INVENTORY_ERROR: not in inventory'                             || 'couldn\'t find this item in your Steam inventory'
+        'BOT_NOT_READY: bot is not logged in'                                      || 'We\'ll keep trying'
+        'seller has no Steam trade URL — set one in Profile to deposit'            || 'Check that your Steam trade URL is set'
+        null                                                                       || 'Check that your Steam trade URL is set'
+    }
+
     def "custody view: never throws — a lookup failure degrades to an empty explanation"() {
         given:
         bot.enabled >> true

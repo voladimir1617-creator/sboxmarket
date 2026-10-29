@@ -152,7 +152,23 @@ class CartController {
             } catch (ListingNotAvailableException e) {
                 results << [listingId: id, status: 'FAILED', code: 'LISTING_NOT_AVAILABLE', error: 'Listing is no longer available']
             } catch (ObjectOptimisticLockingFailureException e) {
-                results << [listingId: id, status: 'FAILED', code: 'LISTING_NOT_AVAILABLE', error: 'Listing is no longer available']
+                // Lost a lock race (rolled back, nothing charged). The row
+                // that moved may be a seller edit rather than a sale: if the
+                // listing is still for sale, say so instead of "no longer
+                // available", and hand back the new price when it moved.
+                def now = null
+                try { now = listingRepository.findById(id)?.orElse(null) } catch (Exception ignored) { }
+                def expected = expectedPrices[id]
+                if (now?.status == 'ACTIVE' && expected != null && now.price != null && now.price.compareTo(expected) != 0) {
+                    results << [listingId: id, status: 'FAILED', code: 'PRICE_CHANGED',
+                                error: "Price moved from \$${expected} to \$${now.price} — refresh and retry",
+                                expected: expected, actual: now.price]
+                } else if (now?.status == 'ACTIVE') {
+                    results << [listingId: id, status: 'FAILED', code: 'LISTING_CHANGED',
+                                error: 'This listing changed while you were buying it — try again']
+                } else {
+                    results << [listingId: id, status: 'FAILED', code: 'LISTING_NOT_AVAILABLE', error: 'Listing is no longer available']
+                }
             } catch (NotFoundException e) {
                 results << [listingId: id, status: 'FAILED', code: 'NOT_FOUND', error: 'Listing not found']
             } catch (ForbiddenException e) {

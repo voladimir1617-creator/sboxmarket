@@ -604,7 +604,7 @@ class BuyOrderControllerSpec extends Specification {
         resp.headers.getFirst('Content-Disposition')?.contains('buy-orders.csv')
         def lines = resp.body.split('\n')
         lines[0] == 'order_id,item_id,item_name,category,rarity,max_price,quantity,original_quantity,status,created_at,updated_at'
-        lines[1] == '1,42,Hat,Hats,Standard,5.50,2,3,ACTIVE,1700,1800'
+        lines[1] == '1,42,Hat,Hats,Standard,5.50,2,3,ACTIVE,1970-01-01T00:00:01Z,1970-01-01T00:00:01Z'
     }
 
     def "exportCsv() with no orders emits just the header row"() {

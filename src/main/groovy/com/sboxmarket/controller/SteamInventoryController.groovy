@@ -444,7 +444,9 @@ class SteamInventoryController {
         def inv = steamInventoryService.fetchInventory(user.steamId64)
         def steamItem = inv.find { (it.assetId as String) == assetId }
         if (steamItem == null) {
-            throw new BadRequestException("NOT_IN_INVENTORY", "Asset $assetId was not found in your Steam inventory. Try /api/steam/sync first.")
+            // Shown verbatim on the sell form: name the button, not the endpoint.
+            throw new BadRequestException("NOT_IN_INVENTORY",
+                "This item is no longer in your Steam inventory. Press Sync Steam to refresh the list.")
         }
         if (!steamItem.tradable) {
             throw new BadRequestException("NOT_TRADABLE", "This item is not tradable on Steam right now.")
@@ -593,8 +595,9 @@ class SteamInventoryController {
         // the listing stays ACTIVE/buyable the legacy way. Best-effort — a
         // deposit-request hiccup must not 500 the list call; the listing is
         // already persisted and the deposit poller / re-list can recover.
+        def deposit = null
         try {
-            steamEscrowService?.requestDepositForListing(saved, assetId, name)
+            deposit = steamEscrowService?.requestDepositForListing(saved, assetId, name)
         } catch (Exception e) {
             log.warn("Escrow deposit request failed for listing ${saved.id}: ${e.message}")
         }
@@ -607,6 +610,10 @@ class SteamInventoryController {
             price:        saved.price,
             status:       saved.status,
             escrowPending: (steamEscrowService?.escrowEnabled ?: false),
+            // False when the bot could not send the deposit offer (e.g. the
+            // skin had already left his Steam inventory), so the seller is not
+            // told to accept an offer that does not exist. Null with no bot.
+            depositOfferSent: deposit == null ? null : (deposit.depositOfferId != null),
             listingType:  saved.listingType,
             expiresAt:    saved.expiresAt,
             buyNowPrice:  saved.buyNowPrice

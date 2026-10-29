@@ -1706,6 +1706,23 @@ class AdminServiceSpec extends Specification {
         1 * emailService.sendWalletUnfrozen('alice@example.com', 'Alice')
     }
 
+    def "unfreezeWallet refuses an admin lifting a freeze on their own wallet"() {
+        given:
+        def self = new SteamUser(id: 1L, steamId64: '111', displayName: 'Admin')
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: new BigDecimal("50.00"), frozen: true)
+        steamUserRepository.findById(1L) >> Optional.of(self)
+        walletRepository.findByUsername('steam_111') >> wallet
+
+        when:
+        service.unfreezeWallet(1L, 1L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'CANT_UNFREEZE_SELF'
+        wallet.frozen
+        0 * walletRepository.save(_)
+    }
+
     // ── sendDirectMessage (batch 580) ───────────────────────────────
 
     def "sendDirectMessage requires an admin"() {

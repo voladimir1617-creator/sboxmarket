@@ -167,11 +167,11 @@ class AdminController {
         rows.each { r ->
             sb.append(r.id ?: '').append(',')
               .append(esc(r.status)).append(',')
-              .append(r.amount ?: '').append(',')
+              .append(r.amount != null ? r.amount : '').append(',')
               .append(esc(r.currency)).append(',')
               .append(esc(r.destination)).append(',')
               .append(esc(r.description)).append(',')
-              .append(r.walletBalance ?: '').append(',')
+              .append(r.walletBalance != null ? r.walletBalance : '').append(',')
               .append(r.ownerUserId ?: '').append(',')
               .append(esc(r.ownerDisplayName)).append(',')
               .append(r.ownerEmailVerified ? 'true' : 'false').append(',')
@@ -898,10 +898,22 @@ class AdminController {
                                     @RequestParam(required = false) Long actor,
                                     @RequestParam(required = false) Long subject,
                                     @RequestParam(required = false) Long since,
+                                    @RequestParam(required = false) String q,
                                     HttpServletRequest req) {
         requireAdmin(req)
         Long sinceMs = (since != null && since > 0L && since <= System.currentTimeMillis()) ? since : null
         def rows = auditRows(event, actor, subject, sinceMs)
+        // The audit tab's free-text box (summary / actor / subject names)
+        // narrows the rows on screen; without it here the "current view"
+        // download also carried every row that search had hidden.
+        def needle = (q ?: '').trim().toLowerCase()
+        if (needle) {
+            rows = (rows ?: []).findAll { r ->
+                ((r.summary ?: '') as String).toLowerCase().contains(needle) ||
+                ((r.actorName ?: '') as String).toLowerCase().contains(needle) ||
+                ((r.subjectName ?: '') as String).toLowerCase().contains(needle)
+            }
+        }
         // Cap at 5000 rows (batch 493) — matches the trades CSV cap.
         // A long-running site's audit table is unbounded; without this
         // cap the CSV response could OOM the JVM on a download click.
@@ -1024,10 +1036,10 @@ class AdminController {
                   'userEmailVerified,userBanned,walletFrozen,lifetimeDisputes,createdAt,updatedAt\n')
         rows.each { r ->
             sb.append(r.id ?: '').append(',')
-              .append(r.amount ?: '').append(',')
+              .append(r.amount != null ? r.amount : '').append(',')
               .append(esc(r.currency)).append(',')
               .append(esc(r.description)).append(',')
-              .append(r.walletBalance ?: '').append(',')
+              .append(r.walletBalance != null ? r.walletBalance : '').append(',')
               .append(r.userId ?: '').append(',')
               .append(esc(r.userDisplayName)).append(',')
               .append(r.userEmailVerified ? 'true' : 'false').append(',')
@@ -1140,7 +1152,7 @@ class AdminController {
             sb.append(r.id ?: '').append(',')
               .append(esc(r.state)).append(',')
               .append(r.price ?: '').append(',')
-              .append(r.feeAmount ?: '').append(',')
+              .append(r.feeAmount != null ? r.feeAmount : '').append(',')
               .append(r.buyerUserId ?: '').append(',')
               .append(esc(r.buyerName)).append(',')
               .append(r.sellerUserId ?: '').append(',')

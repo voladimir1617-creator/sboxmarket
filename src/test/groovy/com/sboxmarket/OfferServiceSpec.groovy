@@ -1024,6 +1024,10 @@ class OfferServiceSpec extends Specification {
 
         then:
         result.status == 'REJECTED'
+        // Same word as the body, the email subject and every sibling
+        // ping ("auto-declined", "Buyer declined your counter").
+        1 * notificationService.push(10L, 'OFFER_REJECTED', { it.startsWith('Offer declined · ') },
+            { it.startsWith('The seller declined your') }, 1L, '/offers/outgoing')
     }
 
     def "rejectOffer forbids non-seller callers"() {
@@ -1716,7 +1720,7 @@ class OfferServiceSpec extends Specification {
         own.status == 'REJECTED'
         1 * notificationService.push(10L, 'OFFER_REJECTED', 'Counter withdrawn · Hat',
             { it.contains('withdrew their $45') }, 2L, '/offers/outgoing')
-        0 * notificationService.push(10L, _, { it.startsWith('Offer rejected') }, _, _, _)
+        0 * notificationService.push(10L, _, { it.startsWith('Offer declined') }, _, _, _)
     }
 
     def "incomingWithExpiry carries the buyer's note and the seller's reply"() {

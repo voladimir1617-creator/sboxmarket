@@ -1448,9 +1448,19 @@ class SteamEscrowService {
                           "goes live automatically once it arrives."
                     break
                 case EscrowedItem.PENDING_DEPOSIT:
+                    // With no offer out, say why from the bot's own refusal.
+                    // Every unsent deposit used to blame the trade URL, so a
+                    // seller whose skin had left his Steam inventory (listed
+                    // from a minute-old inventory read) was sent to check a
+                    // trade URL that was already set.
+                    String err = e.lastError ?: ''
                     message = e.depositOfferId != null
                         ? 'Waiting for you to accept our bot\'s Steam trade offer — your listing goes live the moment we receive the item.'
-                        : 'We haven\'t been able to send you a trade offer yet. Check that your Steam trade URL is set in Profile.'
+                        : err.contains('INVENTORY_ERROR')
+                        ? 'Our bot couldn\'t find this item in your Steam inventory, so no trade offer was sent. If you traded or moved it, cancel this listing; otherwise we\'ll keep trying.'
+                        : (!err || err.contains('trade URL'))
+                        ? 'We haven\'t been able to send you a trade offer yet. Check that your Steam trade URL is set in Profile.'
+                        : 'Our bot couldn\'t send you a trade offer yet. We\'ll keep trying; there is nothing for you to accept until it does.'
                     break
                 case EscrowedItem.IN_TRADE_PROTECTION:
                     message = protectedOn != null

@@ -1523,7 +1523,10 @@ class BidService {
         notificationService.push(winnerId, 'AUCTION_WON',
             "You won · ${listing.item?.name}",
             "Final bid \$${listing.currentBid.toPlainString()}", listing.id,
-            '/profile?tab=trades')
+            // A house auction (no seller) opens no trade: the item lands in
+            // the winner's Platform Inventory, same as PurchaseService's
+            // ITEM_PURCHASED for a house listing. The Trades tab was empty.
+            listing.sellerUserId != null ? '/profile?tab=trades' : '/sell')
         // Ping the seller too (batch 397). Previously the auction closing
         // successfully was a silent event on the seller side — they'd
         // discover it only by noticing a new row on their Trades tab. The

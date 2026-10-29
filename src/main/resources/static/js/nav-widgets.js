@@ -535,7 +535,20 @@ export function NotificationBell({ me }) {
     // counted toast either way.
     const before = unread;
     try {
-      const res = await markAllNotificationsRead();
+      // With mutes on, the dropdown and its badge show only unmuted rows,
+      // so "Mark all read" marks those (the Notifications page's "Mark
+      // visible read"). Read-all also flipped the hidden muted pings, so
+      // unmuting later showed them already read, and the toast undercounted.
+      const visibleUnreadIds = readMuted().size > 0
+        ? items.filter(n => !n.read).map(n => n.id)
+        : null;
+      const res = visibleUnreadIds
+        ? await markNotificationsReadBatch(visibleUnreadIds)
+        : await markAllNotificationsRead();
+      if (visibleUnreadIds && res && (res.error || res.code)) {
+        toast('Could not mark notifications read — try again.', 'err');
+        return;
+      }
       // markAllNotificationsRead returns the raw fetch Response (not
       // parsed JSON), so check `res.ok === false` — same pattern used
       // by NotificationsModal's filter-aware bulk handler at
