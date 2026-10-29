@@ -13497,6 +13497,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         // to every selected item as a flat BUY_NOW listing. Hidden when
         // nothing is selected so the form stays clean for single-item use.
         bulkSelected.size > 0 && h('div', {
+          className: 'sell-bulk-bar inline-cta-row',
           style: {
             position: 'sticky', top: 0, zIndex: 5,
             display: 'flex', alignItems: 'center', gap: 10,
@@ -13653,9 +13654,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // with the bulk-select checkbox (top-left) or the NEW badge
           // (which the existing CSS positions). Hidden for singletons
           // so single-copy items look identical to the pre-stacking UI.
+          // Below the NEW badge when both show; they used to sit on top of
+          // each other in the same corner.
           (Number(si.quantity) || 1) > 1 && h('div', {
             style: {
-              position: 'absolute', top: 4, right: 4,
+              position: 'absolute', top: si.catalogueId ? 4 : 38, right: 4,
               padding: '2px 8px', borderRadius: 999,
               background: 'rgba(11,15,26,0.92)',
               border: '1px solid var(--accent-border)',

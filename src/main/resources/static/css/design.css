@@ -13414,6 +13414,11 @@ html body .info-modal .info-modal-body .profile-row-value > div > button.btn.btn
    squeezing the trade-chat message box to ~30px on a phone and dropping
    + New Key below its label field. */
 html body .info-modal .info-modal-body .inline-cta-row > button.btn.btn-accent { width: auto !important; max-width: none !important; margin: 0 !important; height: auto !important; min-height: 40px !important; }
+/* Sell bulk-list bar: keep its compact price / % boxes. The sell form's big
+   22px price-box rule squeezed the price box to ~70px on a phone, too narrow
+   to show a typed price. */
+html body .info-modal .info-modal-body .sell-bulk-bar input.wallet-amount-input[aria-label] { width: 110px !important; font-size: 15px !important; padding: 8px 10px !important; }
+html body .info-modal .info-modal-body .sell-bulk-bar input.wallet-amount-input[aria-label="Bulk auto-accept percent"] { width: 70px !important; }
 /* Sell grid: the bulk-select box is a real (visually hidden) checkbox now;
    show where keyboard focus is. */
 .sell-bulk-check:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
