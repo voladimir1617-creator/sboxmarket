@@ -183,6 +183,53 @@ export function useCustodyCopy() {
   return custodyCopy(mode);
 }
 
+// ── Test-mode copy ────────────────────────────────────────────────
+// Until a live Stripe key is in, no real money moves, and the footer plus
+// ten help/FAQ answers say so. /api/version reports `testMode` from the
+// server's money mode, so that copy drops itself the moment the site goes
+// live, with no code change. Unknown (not answered yet, or the call failed)
+// counts as test mode: the line is true until the server says otherwise.
+export const TEST_MODE_SENTENCE = ' Test mode: no real money moves yet.';
+let _testMode = null;
+let _testModePromise = null;
+const _testModeListeners = new Set();
+
+export function loadTestMode() {
+  if (_testModePromise) return _testModePromise;
+  _testModePromise = fetch('/api/version', { credentials: 'same-origin' })
+    .then(r => (r.ok ? r.json() : null))
+    .then(j => {
+      if (j && typeof j.testMode === 'boolean') {
+        _testMode = j.testMode;
+        _testModeListeners.forEach(fn => { try { fn(_testMode); } catch { /* keep notifying */ } });
+      }
+      return _testMode;
+    })
+    .catch(() => null);
+  return _testModePromise;
+}
+
+/** True unless the server has said real money moves here. */
+export const isTestMode = () => _testMode !== false;
+
+/** Drop the test-mode sentence from a help answer once the site is live. */
+export const testModeCopy = (text) =>
+  (isTestMode() || typeof text !== 'string') ? text : text.split(TEST_MODE_SENTENCE).join('');
+
+/** React hook: whether to show test-mode copy, re-rendering once the server answers. */
+export function useTestMode() {
+  const [mode, setMode] = useState(_testMode);
+  useEffect(() => {
+    if (_testMode !== null) { setMode(_testMode); return; }
+    let alive = true;
+    const listener = (m) => { if (alive) setMode(m); };
+    _testModeListeners.add(listener);
+    loadTestMode();
+    return () => { alive = false; _testModeListeners.delete(listener); };
+  }, []);
+  return mode !== false;
+}
+
 // ── Platform fee / seller payout — ONE source of truth ────────────
 // MIRROR OF THE SERVER. `TradeService.FEE_RATE` is `new BigDecimal('0.02')`
 // and `TradeService.open()` stores

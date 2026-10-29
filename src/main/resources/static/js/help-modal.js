@@ -1,7 +1,7 @@
 // Standalone Help Center — FAQ accordion, getting started guide, keyboard
 // shortcut reference, and a Contact Support CTA. Lives on its own route
 // `/help`, but also accepts being opened from any button via the same shell.
-import { h, useState, useEffect, useRef, highlightMatch } from './utils.js';
+import { h, useState, useEffect, useRef, highlightMatch, useTestMode, testModeCopy } from './utils.js';
 import { InfoModal } from './info-modal.js';
 import { MaterialIcon } from './primitives.js';
 import { navigate, paths } from './router.js';
@@ -211,9 +211,12 @@ export function HelpModal({ onClose }) {
   const [search, setSearch]   = useState(initialQ);
   const searchRef = useRef(null);
   const q = search.trim().toLowerCase();
+  // Re-render once /api/version answers; live sites drop the test-mode line.
+  useTestMode();
+  const faq = FAQ.map(item => ({ ...item, a: testModeCopy(item.a) }));
   const filteredFaq = q.length === 0
-    ? FAQ.map((item, origIdx) => ({ ...item, origIdx }))
-    : FAQ.map((item, origIdx) => ({ ...item, origIdx }))
+    ? faq.map((item, origIdx) => ({ ...item, origIdx }))
+    : faq.map((item, origIdx) => ({ ...item, origIdx }))
          .filter(item => item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q));
   // Batch 708 — auto-expand the first match on a query-prefilled open
   // so a deep-linker lands on the answer, not a collapsed list. Only
@@ -246,7 +249,7 @@ export function HelpModal({ onClose }) {
         h('div', { className: 'help-step-num' }, i + 1),
         h(MaterialIcon, { name: s.icon, size: 28 }),
         h('div', { className: 'help-step-title' }, s.title),
-        h('div', { className: 'help-step-body' }, s.body)
+        h('div', { className: 'help-step-body' }, testModeCopy(s.body))
       ))
     ),
 
