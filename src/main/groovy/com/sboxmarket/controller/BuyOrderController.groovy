@@ -334,8 +334,10 @@ class BuyOrderController {
               .append(o.quantity ?: 0).append(',')
               .append(o.originalQuantity ?: 0).append(',')
               .append(esc(o.status ?: '')).append(',')
-              .append(o.createdAt ?: '').append(',')
-              .append(o.updatedAt ?: '')
+              // ISO-8601 UTC like every other CSV here (wallet, sold,
+              // trades); raw epoch millis read as 1793286520939 in Excel.
+              .append(ListingController.csvDate(o.createdAt as Long)).append(',')
+              .append(ListingController.csvDate(o.updatedAt as Long))
               .append('\n')
         }
         // Cache-Control: CorrelationIdFilter already applies
