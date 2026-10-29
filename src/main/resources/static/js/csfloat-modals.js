@@ -1368,6 +1368,15 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     })();
     return () => { alive = false; };
   }, [loadoutId, deepRetry]);
+  // Name the browser tab after the open loadout, like item and stall pages
+  // do. The route-level title is a generic "Loadout · SkinBox", which
+  // replaced the loadout's name the server put in the page title.
+  const viewingName = tab === 'view' && viewing && !viewing.__redirectedFrom ? viewing.loadout?.name : null;
+  useEffect(() => {
+    if (!viewingName) return;
+    const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
+    document.title = currentPrefix + `${viewingName} · ${BRAND.name} Loadout`;
+  }, [viewingName]);
 
   // Race-condition guard — rapid tab switches (discover → mine →
   // favorites) used to fire overlapping requests with no ordering; a
