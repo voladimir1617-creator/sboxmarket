@@ -14139,6 +14139,19 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     fetchMyStallEarnings().then(e => setEarnings(e || null)).catch(() => {});
   }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
+  // A deposit offer the seller still has to accept in Steam.
+  const heldAwaitingSeller = held.some(r => r?.escrow?.custodyState !== 'FAILED' && !r?.escrow?.itemLeftSeller);
+  // While a bot trade is in flight (he accepts in Steam, then the bot
+  // receives it), re-read the stall so the steps and the new live listing
+  // show up without a manual reload.
+  const botTradeMoving = heldAwaitingSeller
+    || held.some(r => r?.escrow?.custodyState === 'IN_ESCROW_HOLD')
+    || botCustody.returning.some(r => r.state !== 'BACK');
+  useEffect(() => {
+    if (!me || !botTradeMoving) return;
+    const t = setInterval(() => { if (!document.hidden) load(); }, 20000);
+    return () => clearInterval(t);
+  }, [me, botTradeMoving, load]);
   // Fetch the same `/api/listings/stall/{me.id}` payload the public
   // stall page uses — cheap, already cached, single extra round trip.
   // Read only the response-stats block; everything else is redundant
@@ -15078,13 +15091,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       h('div', { className: 'bot-offer-head' },
         h(BotPanelIcon, { kind: 'lock' }),
         h('div', { className: 'bot-offer-title' }, 'Waiting for your item', h('span', { className: 'bot-offer-count' }, held.length)),
-        h('a', {
+        // Once every skin here has left his Steam there is no offer left
+        // for him to accept, so don't send him to his trade offers.
+        heldAwaitingSeller && h('a', {
           className: 'btn btn-ghost bot-offer-link',
           href: 'https://steamcommunity.com/my/tradeoffers/',
           target: '_blank', rel: 'noopener noreferrer'
         }, 'Open Steam trade offers ↗')
       ),
-      h('div', { className: 'bot-offer-tip' },
+      heldAwaitingSeller && h('div', { className: 'bot-offer-tip' },
         'Our deposit offer asks for this one item and gives nothing back. Accept it only if its message shows the code next to the item here.'),
       held.map(row => {
         const l = row.listing || {};
