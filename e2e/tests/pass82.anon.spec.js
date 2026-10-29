@@ -61,7 +61,7 @@ test.describe('defect pass 82 · trade-report', () => {
     await page.route('**/api/support/report-user/9', report);
     await page.route('**/api/trades', (r) => r.fulfill(json([TRADE])));
     await page.goto('/profile/trades');
-    await page.getByRole('button', { name: 'Report', exact: true }).click();
+    await page.getByRole('button', { name: /^Report bob on / }).click();
     return page.getByRole('dialog', { name: 'Report counterparty' });
   }
 

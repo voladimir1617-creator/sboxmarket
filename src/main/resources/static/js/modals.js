@@ -8608,6 +8608,18 @@ function ProfileTradesTab({ me, privacy }) {
     setConfirmTrade(null);
   }, []);
   useDialogA11y(confirmPanelRef, confirmClose, !!confirmTrade);
+  // Accept and Mark sent swap the button that was pressed for the next
+  // step's, so focus fell to the page. Once the reloaded row is drawn and
+  // no longer busy, land on its next action, or on its new state line.
+  const focusRowRef = useRef(null);
+  useEffect(() => {
+    const id = focusRowRef.current;
+    if (id == null || busy) return;
+    focusRowRef.current = null;
+    const row = document.getElementById('trade-' + id);
+    const next = row && (row.querySelector('.trade-actions .buy-btn') || row.querySelector('.trade-state'));
+    if (next) { try { next.focus({ preventScroll: true }); } catch (_) {} }
+  }, [trades, busy]);
 
   if (!me) return h(SignInNeededEmptyState, { what: 'your trades' });
   if (err) return h('div', { className: 'empty-inline', role: 'alert' },
@@ -8687,6 +8699,7 @@ function ProfileTradesTab({ me, privacy }) {
     try {
       const res = await tradeAccept(id);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Accept failed', 'err'); return; }
+      focusRowRef.current = id;
       await load();
       const label = t?.itemName ? `"${t.itemName}"` : `trade #${id}`;
       toast(`Accepted ${label}. Send the Steam trade offer next.`, 'ok');
@@ -8726,6 +8739,7 @@ function ProfileTradesTab({ me, privacy }) {
         return; // keep drawer open
       }
       setMarkSentTrade(null);
+      focusRowRef.current = id;
       await load();
       // Pre-fix: silent on success — the seller pasted a Steam offer
       // URL, hit Send, the drawer closed, and the only feedback that
@@ -9062,6 +9076,9 @@ function ProfileTradesTab({ me, privacy }) {
             // falsy and the existing manual flow is used unchanged. When true,
             // the seller is NEVER asked to send a Steam offer by hand.
             const automated = t.botManaged === true || !!t.botDeliveryState;
+            // Names the row's buttons: with several trades open, a list of
+            // bare "Accept" / "Chat" buttons said nothing about which trade.
+            const rowName = `${t.itemName || 'trade'} (trade #${t.id})`;
             // Item thumbnail (decorative — the item name beside it is the
             // actionable text, so aria-hidden). 44px square, object-fit
             // contain, rounded, accentColor at ~10% as backdrop. Falls
@@ -9178,7 +9195,7 @@ function ProfileTradesTab({ me, privacy }) {
                       : h('span', common, body);
                   })()
                 ),
-                h('div', { className: 'trade-state', style: { color: meta.color } },
+                h('div', { className: 'trade-state', tabIndex: -1, style: { color: meta.color } },
                   // Automated delivery relabels the seller-send / buyer-confirm
                   // states so neither side reads them as "a human must act".
                   automated && t.state === 'PENDING_SELLER_SEND' ? 'Delivering automatically'
@@ -9491,16 +9508,18 @@ function ProfileTradesTab({ me, privacy }) {
               ),
               h('div', { className: 'trade-actions' },
                 isSeller && t.state === 'PENDING_SELLER_ACCEPT' &&
-                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => onAccept(t.id) }, 'Accept'),
+                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => onAccept(t.id), 'aria-label': `Accept trade for ${rowName}` }, 'Accept'),
                 // Automated: bot delivers — no "Mark Sent" button. Calm status
                 // pill instead so the seller knows nothing is required of them.
                 isSeller && t.state === 'PENDING_SELLER_SEND' && automated &&
                   h('span', { className: 'trade-auto-status' }, '🔒 Delivering automatically'),
                 // Manual fallback: seller marks the Steam offer as sent.
                 isSeller && t.state === 'PENDING_SELLER_SEND' && !automated &&
-                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => onSent(t.id) }, 'Mark Sent'),
+                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => onSent(t.id), 'aria-label': `Mark Sent for ${rowName}` }, 'Mark Sent'),
                 isBuyer && t.state === 'PENDING_BUYER_CONFIRM' &&
-                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => onConfirm(t) }, 'Confirm'),
+                  // "Confirm receipt" is what the bell, the email and the
+                  // Inbox tip beside this row tell the buyer to click.
+                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => onConfirm(t), 'aria-label': `Confirm receipt for ${rowName}` }, 'Confirm receipt'),
                 !['VERIFIED','CANCELLED','DISPUTED'].includes(t.state) &&
                   h('button', {
                     className: 'btn btn-ghost',
@@ -9521,7 +9540,8 @@ function ProfileTradesTab({ me, privacy }) {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11 },
                     disabled: busy,
-                    onClick: () => openReview(t)
+                    onClick: () => openReview(t),
+                    'aria-label': (myReviews[t.id] ? 'Edit Review for ' : 'Leave Review for ') + rowName
                   }, myReviews[t.id] ? 'Edit Review' : 'Leave Review'),
                 // Request refund — opens a support ticket pre-filled with
                 // the trade metadata (id, item, price, date). Buyer-only on
@@ -9548,6 +9568,7 @@ function ProfileTradesTab({ me, privacy }) {
                     style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11, opacity: 0.7 },
                     disabled: busy,
                     title: 'Report the other party to support (scam / harassment)',
+                    'aria-label': `Report ${t.counterpartyName || (isSeller ? 'the buyer' : 'the seller')} on ${rowName}`,
                     // Batch 817 — opens a drawer instead of the legacy
                     // two-step window.prompt. Drawer state lives at the
                     // TradesTab level so a dismissed trade row doesn't
@@ -9574,6 +9595,8 @@ function ProfileTradesTab({ me, privacy }) {
                       fontWeight: t.unreadCount > 0 ? 700 : 600
                     },
                     onClick: () => toggleChat(t.id),
+                    'aria-label': (openChat === t.id ? 'Hide chat for ' : 'Chat about ') + rowName
+                      + (t.unreadCount > 0 && openChat !== t.id ? ` (${t.unreadCount} unread)` : ''),
                     title: t.unreadCount > 0
                       ? `${t.unreadCount} unread message${t.unreadCount === 1 ? '' : 's'} from the counterparty`
                       : 'Private chat with the other trade participant'
@@ -13389,7 +13412,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             ? "We couldn't read your inventory from Steam, so we don't yet know what you own. This is not the same as owning nothing — please try again."
             : "Either your Steam inventory is set to Private, or there are no s&box cosmetics in it. If the inventory is public and you still see this, the sync cache may be stale — try again.";
 
-      return h('div', { className: 'empty-inline' },
+      // A failed read is an error, not an empty state: announce it.
+      return h('div', { className: 'empty-inline', role: couldNotRead ? 'alert' : undefined },
       h('div', { className: 'empty-icon' },
         h(MaterialIcon, { name: icon, size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
