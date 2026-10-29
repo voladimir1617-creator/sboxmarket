@@ -4749,6 +4749,11 @@ export function App() {
   // latch still prevents a real double-submit of the Confirm action.
   const closeCartConfirm = React.useCallback(() => { setCartConfirmOpen(false); }, []);
   useDialogA11y(cartConfirmPanelRef, closeCartConfirm, cartConfirmOpen);
+  // Signed out with the confirm open (session expired, signed out in another
+  // tab): close it. Left open it said "You have $0.00 — add $X" with a
+  // Deposit button, though the wallet was fine; the cart behind it offers
+  // "Sign in to checkout" and keeps every row.
+  useEffect(() => { if (!me) setCartConfirmOpen(false); }, [me]);
   const doCheckout = async () => {
     if (cart.length === 0) return;
     // Synchronous in-flight latch — a rapid double-click on Confirm must not fire

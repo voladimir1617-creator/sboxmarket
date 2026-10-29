@@ -11358,8 +11358,14 @@ const ticketCategoryLabel = (c) => TICKET_CATEGORY_LABEL[c] || c;
 function ProfileSupportTab() {
   const [tickets, setTickets] = useState(null);
   const [viewing, setViewing] = useState(null);
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ subject: '', category: 'OTHER', body: '' });
+  // A ticket whose submit hit an expired session is kept for this tab, so
+  // signing back in reopens the form with the message still typed (the
+  // signed-out Support page unmounts the form and the text was lost).
+  const savedTicket = (() => {
+    try { return JSON.parse(sessionStorage.getItem('sb_ticket_unsent') || 'null'); } catch (_) { return null; }
+  })();
+  const [creating, setCreating] = useState(!!savedTicket);
+  const [form, setForm] = useState(savedTicket || { subject: '', category: 'OTHER', body: '' });
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
   // Batch 1078 — synchronous re-entrancy latch shared by submitCreate +
@@ -11511,7 +11517,11 @@ function ProfileSupportTab() {
     setBusy(true);
     try {
       const res = await createSupportTicket(form);
+      if (res && res.code === 'SESSION_EXPIRED') {
+        try { sessionStorage.setItem('sb_ticket_unsent', JSON.stringify(form)); } catch (_) {}
+      }
       if (res && res.error) { toast(res.error, 'err'); return; }
+      try { sessionStorage.removeItem('sb_ticket_unsent'); } catch (_) {}
       setCreating(false);
       const ticketId = res?.id;
       setForm({ subject: '', category: 'OTHER', body: '' });
@@ -11649,7 +11659,10 @@ function ProfileSupportTab() {
   // like the other profile tabs, instead of a lone button above it.
   const noTickets = Array.isArray(tickets) && tickets.length === 0;
   return h('div', { className: 'profile-panel' },
-    (creating || !noTickets) && h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => setCreating(c => !c) },
+    (creating || !noTickets) && h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => {
+      if (creating) { try { sessionStorage.removeItem('sb_ticket_unsent'); } catch (_) {} }
+      setCreating(c => !c);
+    } },
       creating ? 'Cancel' : '+ New Ticket'),
     creating && h('div', { className: 'buyorder-form' },
       // Batch 683 — SLA commitment banner. Sets user expectations up
