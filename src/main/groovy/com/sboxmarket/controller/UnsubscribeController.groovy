@@ -219,8 +219,10 @@ class UnsubscribeController {
             .replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             .replace('"', '&quot;')
         def icon = ok ? '✓' : '⚠'
-        // Title uses Fraunces serif; body + buttons use Geist to match the
-        // editorial system on the main app. Entire page is stand-alone
+        // No web-font <link>: the site CSP (style-src 'self') blocked the
+        // Google Fonts stylesheet with a console error on every visit, and
+        // it told Google who opened an unsubscribe link. The font stacks
+        // below fall back to system fonts. Entire page is stand-alone
         // (no design.css import — this endpoint must render even if the
         // SPA static bundle is unavailable) but mirrors the tokens.
         def body = """<!DOCTYPE html>
@@ -230,9 +232,6 @@ class UnsubscribeController {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Unsubscribe · SkinBox</title>
   <meta name="robots" content="noindex, nofollow">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Fraunces:opsz,wght@9..144,360;9..144,500&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg:   oklch(0.17 0.008 260);

@@ -86,6 +86,16 @@ class UnsubscribeControllerSpec extends Specification {
         resp.body.contains('value="good-token"')
     }
 
+    def "the page loads nothing from another host, which the site CSP would block"() {
+        when:
+        def resp = controller.unsubscribe('alice@example.com', 'good-token')
+
+        then: 'style-src is self only, so a Google Fonts link was a console error on every visit'
+        1 * emailService.verifyUnsubscribeToken('alice@example.com', 'good-token') >> true
+        !resp.body.contains('fonts.googleapis.com')
+        !resp.body.contains('fonts.gstatic.com')
+    }
+
     def "the confirm button's POST flips the flag and shows the result card"() {
         given:
         def u = new SteamUser(id: 42L, email: 'alice@example.com', emailNotificationsEnabled: true)
