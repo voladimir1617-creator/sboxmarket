@@ -1,7 +1,7 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
 import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=19';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -3955,8 +3955,11 @@ export function FaqModal({ onClose }) {
     ['I found a bug / my purchase is stuck',
       "Head to the Support tab in your profile (or click the Support link in the user menu) and open a ticket. Include the transaction id from your Trades tab and we'll refund or retry as needed."]
   ];
+  // Re-render once /api/version answers; live sites drop the test-mode line.
+  useTestMode();
+  const entries = ENTRIES.map(([qq, aa]) => [qq, testModeCopy(aa)]);
   const t = q.trim().toLowerCase();
-  const filtered = t ? ENTRIES.filter(([qq, aa]) => (qq + ' ' + aa).toLowerCase().includes(t)) : ENTRIES;
+  const filtered = t ? entries.filter(([qq, aa]) => (qq + ' ' + aa).toLowerCase().includes(t)) : entries;
   return h(InfoModal, { title: 'FAQ', onClose },
     // Boss QA F1 — slim 48px-tall single-line banner so the FAQ
     // questions sit above the fold. The previous block was a wrapping

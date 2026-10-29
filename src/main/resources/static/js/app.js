@@ -1,7 +1,7 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
 import { BRAND } from './brand.js';
-import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy, useTestMode } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=340'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=341'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -3097,6 +3097,7 @@ export function SiteFooter() {
   // buyers know the floor prices haven't drifted from Steam for hours.
   const [lastSync, setLastSync] = useState(0);
   const [version, setVersion]   = useState('');
+  const testMode = useTestMode();
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -3246,9 +3247,10 @@ export function SiteFooter() {
         h('span', { className: 'dot' }, '·'),
         // No processor is wired until go-live: deposits, purchases and
         // payouts are test-mode simulations, so the footer says so instead
-        // of naming a payment processor that is not connected.
-        h('span', null, 'Test mode: no real money moves'),
-        h('span', { className: 'dot' }, '·'),
+        // of naming a payment processor that is not connected. The line
+        // goes away by itself once the server reports a live Stripe key.
+        testMode && h('span', null, 'Test mode: no real money moves'),
+        testMode && h('span', { className: 'dot' }, '·'),
         h('span', null, 'Steam OpenID auth'),
         lastSync > 0 && h('span', { className: 'dot' }, '·'),
         lastSync > 0 && h('span', { className: 'footer-sync-badge', title: `Last catalogue sync: ${new Date(lastSync).toLocaleString()}` },
@@ -7226,6 +7228,27 @@ export function App() {
         )
       )
     ),
+    /* Day one of a live market has no listings, and the preview strip
+       below hides itself, leaving the first visitor nothing to do. Show the
+       same empty state /market uses, with its Sell Items button, so the
+       first seller has a way in from the front page. */
+    routeName === 'home' && !loading && homeTotalListings === 0 && homeFeatured.length === 0 && listings.length === 0 &&
+      h('section', { className: 'csfloat-home-preview', 'aria-label': 'Marketplace is empty' },
+        h('div', { className: 'csfloat-home-preview-inner' },
+          h('div', { className: 'empty-state' },
+            h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'inventory_2', size: 42 })),
+            h('div', { className: 'empty-state-title', 'data-testid': 'home-market-empty' }, 'Marketplace is empty'),
+            h('div', { className: 'empty-state-sub' },
+              me ? 'Be the first to list an item — put one of your skins up for grabs.'
+                 : 'Be the first to list an item — sign in through Steam, then put one of your skins up for grabs.'),
+            h('div', { className: 'empty-state-actions' },
+              me
+                ? h('a', { className: 'btn btn-accent', href: paths.sell(), onClick: (e) => { e.preventDefault(); navigate(paths.sell()); } }, 'Sell Items')
+                : h('button', { className: 'btn btn-accent', onClick: () => signInWithSteam() }, 'Sign in through Steam')
+            )
+          )
+        )
+      ),
     /* CSFloat-1:1 home preview strip — 5-card horizontal scroller that
        sits between the featured rail and the category subnav on `/`.
        Mirrors csfloat's home preview band: a small selection of items
