@@ -10330,7 +10330,10 @@ function ProfileOffersTab() {
           : h('span', null, '—')),
       h('div', { className: 'offer-body' },
         // Tiny thread chain indicator if this row is a counter or was countered
-        o.parentOfferId && h('div', { className: 'offer-thread-tag', style: { alignSelf: 'flex-start' } }, '↳ counter to #' + o.parentOfferId),
+        // A buyer's raise is threaded to their earlier offer the same way a
+        // seller counter is, so only SELLER rows are counters.
+        o.parentOfferId && h('div', { className: 'offer-thread-tag', style: { alignSelf: 'flex-start' } },
+          (o.author === 'SELLER' ? '↳ counter to #' : '↳ raise of #') + o.parentOfferId),
         h('div', { className: 'offer-title' }, o.itemName || ('Listing #' + o.listingId)),
         h('div', { className: 'offer-sub' },
           fromLabel, ' · ', timeAgo(o.createdAt),
