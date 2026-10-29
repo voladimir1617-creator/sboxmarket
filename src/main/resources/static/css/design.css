@@ -12106,8 +12106,9 @@ html body .site-root.full-page-mode .wallet-modal > .modal-close { display: none
 
 /* Stall hero, signed in: the five action buttons shared one flex row with the
    stats and squeezed every stat into a 200px column. Stats take the row
-   beside the avatar; the actions wrap underneath. */
-html body .stall-hero { flex-wrap: wrap !important; row-gap: 16px; }
+   beside the avatar; the actions wrap underneath. The base rule unsets both
+   gaps with !important, which left the stats touching the avatar. */
+html body .stall-hero { flex-wrap: wrap !important; row-gap: 16px !important; column-gap: 16px !important; }
 html body .stall-hero > div:not(.stall-avatar) { flex: 1 1 calc(100% - 120px) !important; min-width: 0 !important; }
 
 /* Profile tabs: nine tabs plus a count badge ran past the card and cut

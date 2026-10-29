@@ -5676,6 +5676,14 @@ export function App() {
     return () => clearInterval(id);
   }, [routeName, load]);
 
+  // A block or unblock changes which sellers the grid may show; reload it
+  // now rather than let the next silent poll call the hidden rows "sold".
+  useEffect(() => {
+    const onBlocks = () => load();
+    window.addEventListener('sb:blocks-changed', onBlocks);
+    return () => window.removeEventListener('sb:blocks-changed', onBlocks);
+  }, [load]);
+
   // open item detail. We push `/item/{id}` onto the URL so the detail view
   // is shareable and back/forward navigation works. The actual fetch happens
   // in the effect below that reacts to `route.name === 'item'`.
