@@ -608,7 +608,7 @@ class ListingController {
               .append(esc(l.item?.rarity ?: '')).append(',')
               .append(esc(l.listingType ?: 'BUY_NOW')).append(',')
               .append(ItemController.salePrice(l)?.toPlainString() ?: '').append(',')
-              .append(l.soldAt ?: '').append(',')
+              .append(csvDate(l.soldAt)).append(',')
               .append(l.buyerUserId != null ? ("user_" + l.buyerUserId) : '')
               .append('\n')
         }
@@ -674,7 +674,7 @@ class ListingController {
               .append(item?.viewCount ?: 0).append(',')
               .append(item?.supply ?: 0).append(',')
               .append(itemSales30d).append(',')
-              .append(l.listedAt ?: '')
+              .append(csvDate(l.listedAt))
               .append('\n')
         }
         // Cache-Control: applied by CorrelationIdFilter via isMyStall.
@@ -708,8 +708,8 @@ class ListingController {
               .append(esc(l.item?.rarity ?: '')).append(',')
               .append(esc(l.listingType ?: 'BUY_NOW')).append(',')
               .append(l.price?.toPlainString() ?: '').append(',')
-              .append(l.listedAt ?: '').append(',')
-              .append(l.expiresAt ?: '').append(',')
+              .append(csvDate(l.listedAt)).append(',')
+              .append(csvDate(l.expiresAt)).append(',')
               .append(Boolean.TRUE.equals(l.hidden) ? 'true' : 'false').append(',')
               .append(l.bidCount ?: 0).append(',')
               .append(esc(l.description ?: ''))
@@ -843,6 +843,14 @@ class ListingController {
      * anyone skip the filter entirely — a single session lookup +
      * one repo probe per request.
      */
+    /** A My Stall CSV date cell: UTC ISO-8601 to the second, the same shape
+     *  as the trades and wallet exports, so a spreadsheet reads a date
+     *  instead of a 13-digit epoch-millis number. Empty when unset. */
+    static String csvDate(Long ms) {
+        ms == null ? '' : java.time.Instant.ofEpochMilli(ms)
+            .truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString()
+    }
+
     /** Escape SQL LIKE special characters so a user-typed `_` / `%` / `\`
      *  is matched literally instead of as a wildcard. Backslash first so
      *  the escapes we add aren't themselves re-escaped. Pairs with the

@@ -661,6 +661,12 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
           t.selectionEnd   = t.value.length;
         } catch (_) {}
       }
+      // The drawer renders inline, often under a long staff table: bring it
+      // up when it opened below the fold (or under the phone tab bar).
+      try {
+        const r = panelRef.current?.getBoundingClientRect();
+        if (r && r.bottom > window.innerHeight - 80) panelRef.current.scrollIntoView({ block: 'center' });
+      } catch (_) {}
     });
     const onKey = (e) => {
       if (e.key === 'Escape' && !busyRef.current) { e.stopPropagation(); onCancelRef.current && onCancelRef.current(); return; }

@@ -173,7 +173,9 @@ export function AdminModal({ onClose, me }) {
           style: {
             marginLeft: 6, background: 'var(--red)', color: '#0b0f1a',
             fontWeight: 800, padding: '1px 6px', borderRadius: 10,
-            fontSize: 10, minWidth: 16, textAlign: 'center'
+            fontSize: 10, minWidth: 16, textAlign: 'center',
+            // The tab's 32px line-height made the pill a tall oval.
+            lineHeight: '16px'
           }
         }, t.badge > 99 ? '99+' : t.badge)
       ))
@@ -266,7 +268,7 @@ function AdminHealthTab() {
         : card('DB pool', '—', 'Not reporting'),
       card('System load', (data.systemLoad >= 0 ? data.systemLoad.toFixed(2) : 'n/a'),
            `${data.memory?.processorCount || 0} cores`),
-      card('Schema version', `V${data.db?.schemaVersion || '—'}`,
+      card('Schema version', data.db?.schemaVersion ? `V${data.db.schemaVersion}` : '—',
            `${data.jvm?.name || 'JVM'} ${data.jvm?.version || ''}`.trim()),
       // Stripe webhook telemetry (batch 471). Lets ops spot silent
       // outages — webhook secret rotated, Stripe dashboard pointed
@@ -2064,7 +2066,8 @@ function AdminAuditTab() {
                   'TRADE_PROTECTION_ENABLED','TRADE_PROTECTION_CLAIMED',
                   'TRADE_PROTECTION_CLAIM_REFUSED','TRADE_PROTECTION_REVERSED',
                   'REVIEW_SPAM_BLOCKED','ADMIN_SIMULATE_LISTINGS',
-                  'ADMIN_SYNC_PRICES','ADMIN_SYNC_SCMM','ADMIN_TEST_EMAIL'];
+                  'ADMIN_SYNC_PRICES','ADMIN_SYNC_SCMM','ADMIN_TEST_EMAIL',
+                  'STEAM_BOT_INVENTORY_CHECK'];
   // Apply the client-side free-text filter against whatever the backend
   // returned. Case-insensitive on summary + the pre-resolved display names.
   const displayRows = (() => {
@@ -2081,7 +2084,7 @@ function AdminAuditTab() {
 
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
-      h('select', { className: 'sort-select', 'aria-label': 'Filter by audit event', value: filter.event, onChange: e => setFilter(f => ({ ...f, event: e.target.value })) },
+      h('select', { className: 'sort-select', style: { maxWidth: '100%' }, 'aria-label': 'Filter by audit event', value: filter.event, onChange: e => setFilter(f => ({ ...f, event: e.target.value })) },
         EVENTS.map(ev => h('option', { key: ev || 'all', value: ev }, ev || 'All events'))
       ),
       h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', 'aria-label': 'Actor user #id', value: filter.actor, inputMode: 'numeric', onChange: e => setFilter(f => ({ ...f, actor: e.target.value.replace(/\D/g, '') })) }),
@@ -2384,7 +2387,7 @@ function AdminWithdrawalsTab() {
   };
 
   return h('div', { className: 'profile-panel' },
-    h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
+    h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
       ['PENDING','COMPLETED','FAILED'].map(f =>
         h('button', { key: f, className: `offer-tab ${filter === f ? 'active' : ''}`, onClick: () => setFilter(f) }, f)
       ),
@@ -3178,11 +3181,11 @@ function AdminUsersTab({ me }) {
         role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'admin-user-detail-title',
         tabIndex: -1
       },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' } },
           detailUser.avatarUrl
             ? h('img', { src: detailUser.avatarUrl, alt: '', style: { width: 56, height: 56, borderRadius: '50%' } })
             : h('div', { className: 'db-thumb', style: { width: 56, height: 56, fontSize: 18 } }, (detailUser.displayName || 'U').substring(0, 2).toUpperCase()),
-          h('div', { style: { flex: 1, minWidth: 0 } },
+          h('div', { style: { flex: '1 1 260px', minWidth: 0 } },
             h('div', { className: 'cart-confirm-title', id: 'admin-user-detail-title' }, detailUser.displayName || 'Player'),
             h('div', { className: 'cart-confirm-sub' },
               `Steam ID ${detailUser.steamId64} · #${detailUser.id} · role ${detailUser.role || 'USER'}`)
@@ -4238,11 +4241,11 @@ function CsrLookupTab() {
       ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search', size: 26 })),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No matches.'))
       : (data.matches || []).map(u => h('div', { key: u.id, className: 'csr-user-card' },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' } },
             u.avatarUrl
               ? h('img', { src: u.avatarUrl, alt: u.displayName, style: { width: 44, height: 44, borderRadius: 8 } })
               : h('div', { className: 'db-thumb', style: { width: 44, height: 44 } }, (u.displayName || 'U').substring(0,2).toUpperCase()),
-            h('div', { style: { flex: 1 } },
+            h('div', { style: { flex: '1 1 160px', minWidth: 0, overflowWrap: 'anywhere' } },
               h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, u.displayName || 'Player'),
               h('div', { style: { fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, u.steamId64 + ' · ' + u.role + (u.banned ? ' · 🚫 BANNED' : '')),
               // Rating chip (batch 489). Single-glance trust signal

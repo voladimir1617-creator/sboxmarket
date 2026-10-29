@@ -10239,6 +10239,8 @@ html body .trade-list > .trade-row .trade-phase-label { display: none !important
 .db-table--list.db-table tbody tr.db-row > td[data-label] { text-align: left !important; justify-self: auto !important; font-family: inherit !important; }
 .db-table--list.db-table tbody tr.db-row > td[data-label]::before { content: attr(data-label) " · " !important; font-family: inherit !important; font-weight: 400 !important; color: var(--ink-3) !important; }
 .db-table--list.db-table tbody tr.db-row > td .db-item-cell { display: flex !important; align-items: center !important; gap: 8px !important; }
+.db-table--list.db-table, .db-table--list.db-table tbody { display: block !important; width: 100% !important; }
+.db-table--list.db-table thead { display: none !important; }
 }
 @media (max-width: 560px) { html body .loadout-tabs, html body .full-page-mode .info-modal-body .loadout-tabs { flex-wrap: wrap !important; height: auto !important; gap: 2px !important; }
 html body .loadout-tabs .offer-tab, html body .full-page-mode .info-modal-body .loadout-tabs .offer-tab { padding: 0 10px !important; }
@@ -13650,3 +13652,11 @@ html body .stall-reviews-head, html body .stall-review-cta-head { justify-conten
 html body .stall-review-form textarea.stall-review-text { width: 100% !important; min-height: 88px; box-sizing: border-box; padding: 10px 12px !important; margin: 0 !important; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; color: var(--ink); font: inherit; resize: vertical; }
 html body .stall-review-form .stall-review-stars-picker button { font-size: 22px !important; }
 html body .stall-review-cta-row { grid-template-columns: minmax(0, 1fr) auto !important; }
+/* Staff panels: the modal-wide CTA rule (full width, 320px, 18px top margin) also caught the buttons that sit in a
+   row beside an input (Users/CSR search, ticket Send, Goodwill) and squeezed the input to a 22px sliver on phones. */
+.info-modal:has(.staff-banner) .info-modal-body [style*="display: flex"] > .btn.btn-accent { width: auto !important; max-width: none !important; margin: 0 !important; flex: 0 0 auto; }
+/* CSR lookup card stacks its sections; the three-column grid put the whole header row into a 56px column. */
+.csr-user-card { display: block; }
+.csr-tx-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+/* Staff banner on phones: the bold "ADMIN MODE" label stood as its own narrow column beside the sentence. */
+@media (max-width: 600px) { html body .staff-banner, html body .staff-banner.csr { display: block !important; text-align: center !important; } }

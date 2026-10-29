@@ -632,6 +632,23 @@ class CsrServiceSpec extends Specification {
         0 * auditService.log(*_)
     }
 
+    def "flagListing refuses a listing that is no longer active (the admin queue only shows active ones)"() {
+        given:
+        def listing = new Listing(id: 100L, sellerUserId: 77L, status: 'SOLD')
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        listingRepository.findById(100L) >> Optional.of(listing)
+
+        when:
+        service.flagListing(5L, 100L, 'suspect pricing')
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'NOT_ACTIVE'
+        0 * listingRepository.save(_)
+        0 * auditService.log(*_)
+        (listing.reportCount ?: 0) == 0
+    }
+
     def "flagListing is gated on the CSR role"() {
         given:
         steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, role: 'USER'))

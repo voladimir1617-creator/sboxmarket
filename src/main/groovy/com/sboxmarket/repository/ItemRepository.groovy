@@ -25,7 +25,11 @@ interface ItemRepository extends JpaRepository<Item, Long> {
      *  internal catalogue row. Uses the `idx_items_name` functional index
      *  on `LOWER(name)` from V1 baseline — O(log N) instead of the O(N)
      *  full-table scan the old `findAll().find { equalsIgnoreCase }` did. */
-    @Query("SELECT i FROM Item i WHERE LOWER(i.name) = LOWER(:name)")
+    // The oldest row of that name, not "the" row: two first listings of a
+    // brand-new skin racing each other (a double-clicked List) each create a
+    // catalogue row, and a single-result query then threw on every later
+    // listing of that skin, for every seller.
+    @Query("SELECT i FROM Item i WHERE i.id = (SELECT MIN(j.id) FROM Item j WHERE LOWER(j.name) = LOWER(:name))")
     Item findByNameIgnoreCase(@Param("name") String name)
 
     /** Bulk version of `findByNameIgnoreCase` — used by

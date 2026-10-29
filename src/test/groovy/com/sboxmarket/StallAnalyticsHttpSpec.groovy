@@ -194,5 +194,10 @@ class StallAnalyticsHttpSpec extends Specification {
         cols[9] == '42'
         cols[10] == '1000'
         cols[11] == '0'
+
+        and: "listed_at is a readable UTC date, not raw epoch millis"
+        cols[12] == java.time.Instant.ofEpochMilli(listingRepository.findById(listing.id).get().listedAt)
+            .truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString()
+        cols[12] ==~ /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/
     }
 }

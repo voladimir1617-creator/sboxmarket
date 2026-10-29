@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=349'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=350'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -728,7 +728,8 @@ function AnnouncementBanner() {
     setDismissedId(ann.id);
   };
   const sev = (ann.severity || 'INFO').toLowerCase();
-  return h('div', { className: `announce-banner sev-${sev}`, role: 'status' },
+  // The stylesheet styles sev-warn and sev-error; CRITICAL is the red one.
+  return h('div', { className: `announce-banner sev-${sev === 'critical' ? 'error' : sev}`, role: 'status' },
     h('span', { className: 'announce-banner-icon' },
       sev === 'critical' ? '⚠' : sev === 'warn' ? '⚠' : 'ℹ'),
     h('div', { className: 'announce-banner-text' }, ann.message),
@@ -5730,6 +5731,12 @@ export function App() {
           // has to reach the outer catch to become a visible error state.
           item = await fetchItem(route.params.id);
           if (!alive) return;
+        } else {
+          // GET /api/items/{id} is what counts an item-page view (the
+          // seller's Analytics "Views", the item's demand chip). An item
+          // with listings never reached it, so every view count sat at 0.
+          // Fire-and-forget: the page already has what it needs.
+          fetchItem(route.params.id).catch(() => {});
         }
         if (item) {
           setSelected({ item, listings: itemListings, history: history || [], historyFailed: history === null });
@@ -6339,7 +6346,7 @@ export function App() {
         h('strong', null, 'Your account is suspended — read-only access.'),
         ' Listings, bids, offers, trades, deposits, and withdrawals are all disabled. ',
         me.banReason
-          ? h('span', null, 'Reason: ', h('em', null, me.banReason), '. ')
+          ? h('span', null, 'Reason: ', h('em', null, me.banReason), /[.!?]\s*$/.test(me.banReason) ? ' ' : '. ')
           : null,
         'Contact support if you want to appeal.'
       ),

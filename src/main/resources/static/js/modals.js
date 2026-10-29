@@ -3944,13 +3944,13 @@ export function FaqModal({ onClose }) {
     ['What are Offers?',
       "A buyer can offer less than your asking price; you get a notification and can accept, counter or reject it from the Offers tab. An accepted offer is a purchase: the buyer's wallet is charged the offer price at that moment and the trade opens, exactly as with Buy now. If the buyer no longer has the balance when you accept, the offer lapses."],
     ['Are there bulk actions for cleaning up my account?',
-      "Yes — heavy users can reset each list in one click: Profile → Buy Orders has Cancel all active, Profile → Offers → Outgoing has Cancel all pending, Profile → Active Bids has Stop all auto-raises, Profile → Personal → Following has ✕ all and 🔔/🔕 all, and the Watchlist page has Clear all. Each asks to confirm first."],
+      "Yes — heavy users can reset each list in one click: Profile → Buy Orders has Cancel all active, Profile → Offers → Outgoing has Cancel all pending, Profile → Active Bids has Stop all auto-raises, Profile → Personal Info → Following has ✕ all and 🔕 Mute all / 🔔 Unmute all, and the Watchlist page has Clear all. Each one that cancels or removes something asks to confirm first."],
     ['Is my money safe?',
       "Deposits go through Stripe, the same processor used by millions of websites. We never store card details — only the amount and a Stripe reference. When you buy from another player your payment is held in escrow until you confirm the item arrived, and a trade the seller does not send in time is refunded automatically. Every withdrawal is logged and paid to the Stripe cash-out account you set up. All balances are held in USD. Test mode: no real money moves yet."],
     ['What happens if I dispute a deposit with my bank?',
       "Stripe notifies us within seconds. We freeze the disputed amount, pause your withdrawals while the dispute is open, and review the case. If your bank rules in your favour we lose the deposit and you keep the items / balance. If we win the dispute we credit you again and lift the hold. Filing a chargeback for a deposit you actually received counts as friendly fraud and can get your account banned permanently. Test mode: no real money moves yet."],
     ['What are Auctions and how do they work?',
-      "Some listings are auctions instead of Buy Now — they carry a countdown clock and a current bid. Place a bid (the first bid must meet the starting price, then each bid must beat the current top by one increment — the increment scales with price, from $0.05 on cheap items up to $100 from $5,000), and if you're winning when the clock hits zero you pay your winning bid from your wallet. Anti-snipe: a bid placed in the last 30 seconds moves the close to 30 seconds after that bid, up to 20 times per auction, so sniping is blunted. You can set an auto-raise cap (we'll outbid rivals up to your max) and cancel the cap any time — your current bid stays live, we just stop auto-raising. Use the \"Ending soonest\" marketplace sort to find last-call auctions."],
+      "Some listings are auctions instead of Buy Now — they carry a countdown clock and a current bid. Place a bid (the first bid must meet the starting price, then each bid must beat the current top by one increment — the increment scales with price, from $0.05 on cheap items up to $100 from $5,000), and if you're winning when the clock hits zero you pay your winning bid from your wallet. Anti-snipe: a bid placed in the last 30 seconds moves the close to 30 seconds after that bid, up to 20 times per auction, so sniping is blunted. You can set an auto-raise cap (we'll outbid rivals up to your max) and cancel the cap any time — your current bid stays live, we just stop auto-raising. Use the \"Auctions ending soonest\" marketplace sort to find last-call auctions."],
     ['What are Buy Orders?',
       "A standing \"I'll pay up to $X for this item\" request. When a seller lists (or drops their price to) at-or-below your max, our matcher auto-buys and opens an escrowed trade — no action needed on your side. Great for items you keep missing on drops. Cap: 200 active orders per account. Projected queue position shows up in the form so you know if you'd be #1 or stuck at #8 under current demand."],
     ['What is the Watchlist and what are Price Alerts?',
@@ -8525,6 +8525,17 @@ function ProfileTradesTab({ me, privacy }) {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
+  // Exception to the no-polling rule above: a trade our bot is delivering
+  // moves on when the buyer accepts in Steam, with nothing pressed here, so
+  // "Delivering automatically" stayed up after the trade was verified. Poll
+  // only while such a trade is open, and only in a visible tab.
+  const botInFlight = (trades || []).some(t => t && t.botManaged
+    && ['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND', 'PENDING_BUYER_CONFIRM'].includes(t.state));
+  useEffect(() => {
+    if (!botInFlight) return;
+    const id = setInterval(() => { if (document.visibilityState === 'visible') load(); }, 30_000);
+    return () => clearInterval(id);
+  }, [botInFlight, load]);
 
   // React rules-of-hooks: every hook must run on every render in the same
   // order. Previously `markSentTrade`, `confirmTrade`, and `disputeTrade`
@@ -9265,7 +9276,10 @@ function ProfileTradesTab({ me, privacy }) {
                 !automated && t.counterpartyTradeUrl && !['VERIFIED','CANCELLED'].includes(t.state) &&
                   h('div', { className: 'trade-counterparty-url' },
                     h('span', { className: 'trade-counterparty-label' },
-                      isSeller ? 'Send Steam offer to buyer' : 'Seller Steam URL'),
+                      // Once he has marked it sent, there is no offer left to send.
+                      isSeller
+                        ? (['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND'].includes(t.state) ? 'Send Steam offer to buyer' : 'Buyer Steam URL')
+                        : 'Seller Steam URL'),
                     h('a', {
                       className: 'trade-counterparty-link',
                       href: t.counterpartyTradeUrl,
@@ -14123,6 +14137,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // Analytics read the same listings; drop them so a price edit,
     // cancel or hide refetches instead of showing stale rows.
     setAnalytics(null);
+    // Same for the sale history: a reload that drops a listing that just
+    // sold (or a Match that fills a buy order) has to show that sale on
+    // the Sold tab too, not the list cached from its first open while the
+    // earnings strip above already counts it.
+    setSold(null);
     fetchMyStallWithTotal().then(({ items, total, error }) => {
       if (error) { setStallErr(true); return; }  // retry card, not a permanent spinner / false-empty
       setStallErr(false);
@@ -14136,6 +14155,19 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     fetchMyStallEarnings().then(e => setEarnings(e || null)).catch(() => {});
   }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
+  // A deposit offer the seller still has to accept in Steam.
+  const heldAwaitingSeller = held.some(r => r?.escrow?.custodyState !== 'FAILED' && !r?.escrow?.itemLeftSeller);
+  // While a bot trade is in flight (he accepts in Steam, then the bot
+  // receives it), re-read the stall so the steps and the new live listing
+  // show up without a manual reload.
+  const botTradeMoving = heldAwaitingSeller
+    || held.some(r => r?.escrow?.custodyState === 'IN_ESCROW_HOLD')
+    || botCustody.returning.some(r => r.state !== 'BACK');
+  useEffect(() => {
+    if (!me || !botTradeMoving) return;
+    const t = setInterval(() => { if (!document.hidden) load(); }, 20000);
+    return () => clearInterval(t);
+  }, [me, botTradeMoving, load]);
   // Fetch the same `/api/listings/stall/{me.id}` payload the public
   // stall page uses — cheap, already cached, single extra round trip.
   // Read only the response-stats block; everything else is redundant
@@ -14280,7 +14312,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     const itemName = typeof listing === 'object' ? listing?.item?.name : null;
     // A skin the bot holds goes back to the seller's Steam when its listing
     // is cancelled, so say that instead of a bare "remove".
-    const inBot = botCustody.heldListingIds.includes(id);
+    // A held listing whose deposit the seller already accepted (Steam hold,
+    // Trade Protection) has left their Steam too, and comes back the same way.
+    const inBot = botCustody.heldListingIds.includes(id)
+      || held.some(r => r?.listing?.id === id && r?.escrow?.itemLeftSeller);
     const label = itemName ? `"${itemName}"` : 'this item';
     const confirmMsg = inBot
       ? `Withdraw ${label}? Our bot takes it off sale and sends it back to your Steam with a trade offer.`
@@ -15075,13 +15110,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       h('div', { className: 'bot-offer-head' },
         h(BotPanelIcon, { kind: 'lock' }),
         h('div', { className: 'bot-offer-title' }, 'Waiting for your item', h('span', { className: 'bot-offer-count' }, held.length)),
-        h('a', {
+        // Once every skin here has left his Steam there is no offer left
+        // for him to accept, so don't send him to his trade offers.
+        heldAwaitingSeller && h('a', {
           className: 'btn btn-ghost bot-offer-link',
           href: 'https://steamcommunity.com/my/tradeoffers/',
           target: '_blank', rel: 'noopener noreferrer'
         }, 'Open Steam trade offers ↗')
       ),
-      h('div', { className: 'bot-offer-tip' },
+      heldAwaitingSeller && h('div', { className: 'bot-offer-tip' },
         'Our deposit offer asks for this one item and gives nothing back. Accept it only if its message shows the code next to the item here.'),
       held.map(row => {
         const l = row.listing || {};
@@ -15221,27 +15258,32 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                   title: 'Download the per-listing analytics for every active listing in your stall (capped at 500 rows) as CSV — useful for offline rank-sorting / pivot-table work in Excel.'
                 }, '⇣ CSV')
               ),
-              h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
-                h('div', null, 'Item'),
+              // One grid for the header and every row (each a subgrid), so an
+              // `auto` column is as wide in the header as in the rows. With a
+              // grid per row the headings drifted off their numbers and a
+              // seller read the price under "vs Floor".
+              h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', columnGap: 10 } },
+              h('div', { style: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'subgrid', padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
+                h('div', { style: { textAlign: 'left' } }, 'Item'),
                 h('div', { style: { textAlign: 'right' } }, 'My Price'),
                 h('div', { style: { textAlign: 'right' } }, 'vs Floor'),
                 h('div', { style: { textAlign: 'right' } }, 'Views'),
                 h('div', { style: { textAlign: 'right' } }, '30d Sold')),
               analytics.map(row => h('div', {
                 key: row.listingId,
-                style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
+                style: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'subgrid', padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
               },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
                   row.imageUrl && h('img', { src: row.imageUrl, alt: '', style: { width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' } }),
                   h('div', { style: { minWidth: 0, overflow: 'hidden' } },
                     h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, row.itemName || `#${row.itemId}`),
-                    h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
+                    h('div', { style: { fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600 } }, fmt(row.price)),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
                   row.floorDelta == null ? '—' : (parseFloat(row.floorDelta) >= 0 ? '+' : '') + fmt(row.floorDelta)),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-secondary)' } }, Number(row.viewCount || 0).toLocaleString()),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? row.itemSales30d : '—')
-              ))
+              )))
             )
     ),
     tab === 'sold' && (

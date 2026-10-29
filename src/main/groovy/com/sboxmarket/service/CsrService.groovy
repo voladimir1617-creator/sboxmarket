@@ -532,6 +532,13 @@ class CsrService {
         requireCsr(csrUserId)
         def listing = listingRepository.findById(listingId)
             .orElseThrow { new NotFoundException("Listing", listingId) }
+        // The admin queue lists ACTIVE listings only: flagging a sold or
+        // cancelled one answered "added to the admin review queue" and no
+        // admin ever saw it.
+        if (listing.status != 'ACTIVE') {
+            throw new BadRequestException("NOT_ACTIVE",
+                "Listing #${listingId} is no longer active, so there is nothing for admins to review.".toString())
+        }
         // The flag goes into the admin "Reported listings" queue as a report
         // row. It used to be appended to listing.description, which is the
         // seller's public text: every buyer saw the CSR's name and the
