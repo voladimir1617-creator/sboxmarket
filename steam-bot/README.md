@@ -124,8 +124,8 @@ authenticator:
 
 ### 4. Get a Steam Web API key (optional)
 - Visit <https://steamcommunity.com/dev/apikey> while logged in as the bot and create a key.
-- Put it in `STEAM_BOT_API_KEY`. If you leave it blank, `steam-tradeoffer-manager` will
-  obtain/derive one automatically after the first web login.
+- Not needed: the sidecar ignores `STEAM_BOT_API_KEY` (index.js logs that it is unused);
+  `steam-tradeoffer-manager` obtains its own key after the first web login. Leave it blank.
 
 ### 5. Configure environment
 ```bash
@@ -140,7 +140,7 @@ cp .env.example .env
 ### 6. Install + run
 ```bash
 npm install
-npm start
+node --env-file=.env index.js   # Node 20.6+; plain `npm start` does NOT read .env
 # -> [bot] Logging in as <user> ...
 # -> [bot] Logged on. SteamID=...
 # -> [bot] Trade manager ready (cookies set).
@@ -167,7 +167,7 @@ When `STEAM_BOT_BASE_URL` is **unset**, the backend's `SteamTradeBotService` run
 
 This sidecar reads only `process.env` and does **not** auto-load `.env` (to avoid a
 dependency). Use one of:
-- `node --env-file=.env index.js` (Node 20+), or
+- `node --env-file=.env index.js` (Node 20.6+), or
 - a process manager that injects env (systemd `EnvironmentFile=`, Docker `--env-file`,
   pm2 ecosystem file), or
 - `export $(grep -v '^#' .env | xargs)` before `npm start` (POSIX shells).
