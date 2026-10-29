@@ -67,6 +67,29 @@ class ProdConfigValidatorSpec extends Specification {
         validator.findViolations().isEmpty()
     }
 
+    def "a stripe.secret-key override that is not live (#override) is refused even with a live STRIPE_SECRET_KEY"() {
+        given: 'the variable is clean, but an argument or SPRING_APPLICATION_JSON replaces the property the app reads'
+        Map<String, String> env = validEnv()
+        env['stripe.secret-key'] = override
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().any { it.startsWith('stripe.secret-key resolves to a value that is not a LIVE Stripe key') }
+
+        where:
+        override << ['sk_test_replace_me', 'sk_' + 'test_unit_fake_not_a_key', 'changeme']
+    }
+
+    def "a stripe.secret-key that resolves to the same live key passes"() {
+        given:
+        Map<String, String> env = validEnv()
+        env['stripe.secret-key'] = env.STRIPE_SECRET_KEY
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().isEmpty()
+    }
+
     def "a missing required var (#missing) → a single violation naming it"() {
         given: 'one required var blanked out'
         Map<String, String> env = validEnv()
