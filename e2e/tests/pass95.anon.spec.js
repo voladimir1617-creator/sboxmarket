@@ -117,8 +117,7 @@ test.describe('defect pass 95 · a11y', () => {
         : r.fulfill(json([])));
       await page.goto('/item/4901');
       await page.getByTestId('listing-offer-btn').first().click({ timeout: 20_000 });
-      const input = page.getByRole('spinbutton', { name: 'Offer amount in USD' })
-        .or(page.getByRole('textbox', { name: 'Offer amount in USD' }));
+      const input = page.getByRole('textbox', { name: 'Offer amount in USD' });
       await input.fill('1.50');
       await input.press('Enter');
       await expect(page.getByText('Seller is not taking offers right now')).toBeVisible();

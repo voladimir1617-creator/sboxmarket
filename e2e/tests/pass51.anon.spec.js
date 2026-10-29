@@ -72,7 +72,7 @@ test.describe('defect pass 51', () => {
     });
     await page.goto('/profile/buyorders');
     await page.getByRole('button', { name: /Edit/ }).first().click({ timeout: 20_000 });
-    const max = page.getByRole('spinbutton', { name: 'New max price per item in USD' });
+    const max = page.getByRole('textbox', { name: 'New max price per item in USD' });
     await max.press('Escape');
     await expect(max).toHaveCount(0);
     await page.getByRole('button', { name: /Edit/ }).first().click();

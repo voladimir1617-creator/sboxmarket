@@ -58,7 +58,7 @@ test.describe('defect pass 81 · buyorders', () => {
       const edit = page.getByRole('button', { name: /Edit/ }).first();
       await edit.scrollIntoViewIfNeeded();
       await edit.click();
-      const box = page.getByRole('spinbutton', { name: 'New max price per item in USD' });
+      const box = page.getByRole('textbox', { name: 'New max price per item in USD' });
       await expect(box).toBeFocused();
       if (how === 'Escape') await box.press('Escape');
       else await page.getByRole('button', { name: 'Cancel edit' }).click();

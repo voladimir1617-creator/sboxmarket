@@ -36,7 +36,7 @@ test.describe('defect pass 56', () => {
     await cad(page);
     await itemPage(page);
     await page.getByRole('button', { name: /Set Price Alert/ }).first().click({ timeout: 20_000 });
-    const box = page.getByRole('spinbutton', { name: 'Price alert target (USD)' }).or(page.getByRole('textbox', { name: 'Price alert target (USD)' }));
+    const box = page.getByRole('textbox', { name: 'Price alert target (USD)' });
     await box.fill('4.25');
     await expect(page.getByText('Current floor $5.00', { exact: false })).toBeVisible();
     await expect(page.getByText("We'll ping you when any listing on this item drops to $4.25 or lower.")).toBeVisible();

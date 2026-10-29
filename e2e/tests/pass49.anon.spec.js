@@ -40,8 +40,7 @@ test.describe('defect pass 49', () => {
     });
     await page.goto('/item/4901');
     await page.getByTestId('listing-offer-btn').first().click({ timeout: 20_000 });
-    const input = page.getByRole('spinbutton', { name: 'Offer amount in USD' })
-      .or(page.getByRole('textbox', { name: 'Offer amount in USD' }));
+    const input = page.getByRole('textbox', { name: 'Offer amount in USD' });
     await input.fill('1.50');
     await input.press('Enter');
     await expect.poll(() => posted).not.toBeNull();
@@ -62,7 +61,7 @@ test.describe('defect pass 49', () => {
     });
     await page.goto('/profile/offers');
     await page.getByRole('button', { name: 'Counter offer' }).click({ timeout: 20_000 });
-    const box = page.getByRole('spinbutton', { name: 'Counter price in USD' });
+    const box = page.getByRole('textbox', { name: 'Counter price in USD' });
     await expect(box).toBeFocused();
     await box.fill('2.50');
     await box.press('Enter');

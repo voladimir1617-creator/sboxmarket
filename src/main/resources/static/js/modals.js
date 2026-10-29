@@ -1,7 +1,7 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
 import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=21';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -1073,7 +1073,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
     // $ currency affordance, and a live preview sentence so the
     // buyer knows exactly what they're signing up for.
     const floor = parseFloat(item.lowestPrice) || 0;
-    const typed = parseFloat(alertTarget);
+    const typed = parseMoneyInput(alertTarget);
     const valid = Number.isFinite(typed) && typed > 0 && typed <= 100000;
     // The sweep fires when floor <= target, so a target equal to the
     // floor fires right away too.
@@ -1146,7 +1146,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               flex: 1, background: 'transparent', border: 'none',
               padding: '8px 0', fontSize: 14, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace"
             },
-            type: 'number', step: '0.01', min: '0.01', max: '100000',
+            type: 'text', step: '0.01', min: '0.01', max: '100000',
             inputMode: 'decimal',
             enterKeyHint: 'done',
             'aria-label': 'Price alert target (USD)',
@@ -1181,7 +1181,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           'data-alert-save': '',
           onClick: async () => {
             setAlertErr('');
-            if (!valid) { setAlertErr('Enter a positive dollar amount (≤ $100,000)'); return; }
+            if (!valid) { setAlertErr(moneyInputError(alertTarget) || 'Enter a positive dollar amount (≤ $100,000)'); return; }
             if (bulkInFlight.has('alert-save:' + item.id)) return;
             bulkInFlight.add('alert-save:' + item.id);
             setAlertBusy(true);
@@ -1219,7 +1219,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           ? (aboveFloor
               ? 'This target is already at or above the current floor — the alert will fire on the next price check, within a few minutes.'
               : `We'll ping you when any listing on this item drops to ${fmtUsd(typed)} or lower.`)
-          : 'Enter a positive dollar amount.'
+          : (moneyInputError(alertTarget) || 'Enter a positive dollar amount.')
       ),
       alertErr && h('div', {
         style: { color: 'var(--red)', fontSize: 12, marginTop: 6 }
@@ -2699,7 +2699,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // listing — that's the listing the offer targets and what the
         // server will charge if accepted.
         const ask = offerTarget ? parseFloat(offerTarget.price) || 0 : 0;
-        const amt = parseFloat(offerAmt) || 0;
+        const amtErr = moneyInputError(offerAmt);
+        const amt = parseMoneyInput(offerAmt) || 0;
         const maxDisc = offerTarget ? parseFloat(offerTarget.maxDiscount) || 0 : 0;
         const belowAskPct = (ask > 0 && amt > 0) ? ((ask - amt) / ask * 100) : null;
         const savings     = (ask > 0 && amt > 0 && amt < ask) ? (ask - amt) : 0;
@@ -2759,7 +2760,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           ask > 0 && h('span', { className: 'offer-drawer-ask' }, ' · must be below the ' + fmtUsd(ask) + ' asking price')),
         h('input', {
           className: 'wallet-amount-input',
-          type: 'number', min: '0.01', step: '0.01',
+          type: 'text', min: '0.01', step: '0.01',
           // Batch 923 — mobile decimal keyboard hint (see wallet-amount
           // input elsewhere). Matches iOS/Android's expected keypad for
           // price-entry fields.
@@ -2875,6 +2876,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 ? 'You already have an active offer on this listing.'
                 : !offerAmt
                   ? 'Enter an amount below ' + fmtUsd(ask) + '.'
+                  : amtErr ? amtErr
                   : atOrAboveAsk
                     ? 'Offers must be below the asking price.'
                     : undefined;
@@ -2890,13 +2892,14 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 // input does NOT block free-typed/pasted values like -5, and the
                 // disabled-state covers atOrAboveAsk only — so guard both bounds
                 // here (a sub-cent offer would also round to $0.00 server-side).
+                if (amtErr) { setOfferErr(amtErr); return; }
                 if (!Number.isFinite(amt) || amt < 0.01) { setOfferErr('Enter an offer of at least $0.01.'); return; }
                 if (amt >= ask) { setOfferErr('Offer must be below the asking price.'); return; }
                 if (offerBusyRef.current) return;   // synchronous double-submit guard
                 offerBusyRef.current = true;
                 setOfferBusy(true);
                 try {
-                  const res = await onMakeOffer(offerTarget?.id, parseFloat(offerAmt), offerMsg);
+                  const res = await onMakeOffer(offerTarget?.id, amt, offerMsg);
                   if (res && res.error) { setOfferErr(res.message || res.error); return; }
                   setOfferOpen(false);
                   setOfferAmt('');
@@ -7290,7 +7293,9 @@ function ProfileBuyOrdersTab() {
   }, [editing]);
   const saveEdit = async (o) => {
     if (busyRef.current) return;
-    const maxPrice = parseFloat(editMax);
+    const maxErr = moneyInputError(editMax);
+    if (maxErr) { toast(maxErr, 'err'); return; }
+    const maxPrice = parseMoneyInput(editMax);
     // Number, not parseInt: a typed 1.5 must be refused, not saved as 1.
     const quantity = Number(String(editQty).trim());
     if (!(maxPrice > 0)) { toast('Max price must be positive', 'err'); return; }
@@ -7624,7 +7629,7 @@ function ProfileBuyOrdersTab() {
                 h('input', {
                   className: 'price-input',
                   style: { width: 80, padding: '4px 6px', fontSize: 11 },
-                  type: 'number', step: '0.01', min: '0.01',
+                  type: 'text', step: '0.01', min: '0.01',
                   inputMode: 'decimal',
                   // Buy orders are priced in USD (like the offer forms), so
                   // say so: the row beside it may read in another currency.
@@ -10310,7 +10315,8 @@ function ProfileOffersTab() {
     } finally { busyRef.current = false; setBusy(false); }
   };
   const doCounter = async (id) => {
-    const amt = parseFloat(counterAmt);
+    if (moneyInputError(counterAmt)) { toast(moneyInputError(counterAmt), 'err'); return; }
+    const amt = parseMoneyInput(counterAmt);
     if (!amt || amt <= 0) return;
     if (busyRef.current) return;
     busyRef.current = true;
@@ -10329,7 +10335,8 @@ function ProfileOffersTab() {
     } finally { setBusy(false); }
   };
   const doRaise = async (id) => {
-    const amt = parseFloat(counterAmt);
+    if (moneyInputError(counterAmt)) { toast(moneyInputError(counterAmt), 'err'); return; }
+    const amt = parseMoneyInput(counterAmt);
     if (!amt || amt <= 0) return;
     if (busyRef.current) return;
     busyRef.current = true;
@@ -10518,7 +10525,7 @@ function ProfileOffersTab() {
       isCountering && h('div', { className: 'offer-counter-form', style: { gridColumn: '1 / -1' } },
         h('input', {
           className: 'price-input',
-          type: 'number', step: '0.01', min: '0.01',
+          type: 'text', step: '0.01', min: '0.01',
           inputMode: 'decimal', enterKeyHint: 'send',
           // Offers are priced in USD; chips and tips below say so too, so a
           // viewer on another display currency doesn't type euros here.
@@ -10578,16 +10585,18 @@ function ProfileOffersTab() {
         // a server round-trip + toast on the obvious "≥ ask" mistake.
         (() => {
           const usd = (v => '$' + (Number(v) || 0).toFixed(2));
-          const amt = parseFloat(counterAmt);
+          const amt = parseMoneyInput(counterAmt);
           const offer = parseFloat(o.amount) || 0;
           const ask = parseFloat(o.askingPrice) || 0;
+          const amtErr = moneyInputError(counterAmt);
           const empty = !counterAmt || !Number.isFinite(amt) || amt <= 0;
           const tooLow  = !empty && ask > 0 && amt <= offer;
           // The server takes a seller counter equal to the ask, but a buyer
           // raise must stay below it (at the ask they just buy).
           const tooHigh = !empty && ask > 0 && (isIncoming ? amt > ask : amt >= ask);
           const bad = empty || tooLow || tooHigh;
-          const tip = empty   ? 'Enter an amount above the offer and below the ask'
+          const tip = amtErr  ? amtErr
+                    : empty   ? 'Enter an amount above the offer and below the ask'
                     : tooLow  ? `Must be above the current ${isIncoming ? 'offer' : 'offer'} of ${usd(offer)}`
                     : tooHigh ? (isIncoming ? `Can't be above the asking price of ${usd(ask)}` : `Must be below the asking price of ${usd(ask)}`)
                               : undefined;
@@ -12620,7 +12629,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     setError('');
     // Whole cents, so the price we send is exactly what the breakdown and the
     // toast show (the server would otherwise round "1.005" up to $1.01).
-    const p = Math.round(parseFloat(price) * 100) / 100;
+    if (moneyInputError(price)) { setError(moneyInputError(price)); return; }
+    const p = Math.round(parseMoneyInput(price) * 100) / 100;
     // Floor at $0.01 — matches the relist DTO @DecimalMin("0.01") and the
     // server PRICE_TOO_LOW guard. Without this a sub-cent price (e.g. 0.004)
     // passed `<= 0` and rounded to $0.00 in NUMERIC(10,2) → a free, instantly
@@ -12650,7 +12660,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       // Optional Buy-Now ceiling (batch 371).
       const bn = (sellBuyNow || '').trim();
       if (bn) {
-        const bnVal = parseFloat(bn);
+        if (moneyInputError(bn)) { setError(moneyInputError(bn)); return; }
+        const bnVal = parseMoneyInput(bn);
         if (!Number.isFinite(bnVal) || bnVal <= 0) {
           setError('Buy-Now price must be a positive number.');
           return;
@@ -12944,7 +12955,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           h('span', { style: { color: 'var(--text-muted)', fontWeight: 700 } }, '$'),
           h('input', {
             className: 'wallet-amount-input',
-            type: 'number', min: '0', max: '100000', step: '0.01',
+            type: 'text', min: '0', max: '100000', step: '0.01',
             inputMode: 'decimal',
             'aria-label': 'Buy Now price',
             placeholder: 'Leave blank for no Buy Now',
@@ -12960,7 +12971,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         sellType === 'AUCTION' ? 'Starting bid (USD)' : 'Your asking price (USD)'),
       h('input', {
         className: 'wallet-amount-input',
-        type: 'number', min: '0.01', step: '0.01',
+        type: 'text', min: '0.01', step: '0.01',
         inputMode: 'decimal', enterKeyHint: 'done',
         'aria-label': sellType === 'AUCTION' ? 'Starting bid' : 'Asking price',
         // Empty when we have no anchor: a placeholder of "0.00" reads as a
@@ -13028,7 +13039,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         })()
       ),
       (() => {
-        const p = Math.round((parseFloat(price) || 0) * 100) / 100;
+        const p = Math.round((parseMoneyInput(price) || 0) * 100) / 100;
         const isAuction = sellType === 'AUCTION';
         if (p <= 0) return h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 8 } },
           'A 2% platform fee is deducted when the item sells.');
@@ -13103,7 +13114,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         policy: tradePolicy,
         custody,
         isAuction: sellType === 'AUCTION',
-        net: sellerPayout(parseFloat(price) || 0)
+        net: sellerPayout(parseMoneyInput(price) || 0)
       }),
       // Batch 646 — Auto-accept offers (BUY_NOW only). Sellers who
       // don't want to babysit incoming offers can let the server
@@ -13131,7 +13142,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         (() => {
           const pct = parseFloat(sellAutoPct);
-          const p = parseFloat(price) || 0;
+          const p = parseMoneyInput(price) || 0;
           if (!Number.isFinite(pct) || pct <= 0 || p <= 0) {
             return h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 6 } },
               'Leave blank to manually review every offer. Set a percent to instantly accept offers within that discount of your ask.');
@@ -13196,7 +13207,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const submitBulk = async () => {
     const ids = Array.from(bulkSelected);
     if (ids.length === 0) return;
-    const p = parseFloat(bulkPrice);
+    if (moneyInputError(bulkPrice)) { toast(moneyInputError(bulkPrice), 'err'); return; }
+    const p = parseMoneyInput(bulkPrice);
     if (!p || p < 0.01) { toast('Price must be at least $0.01.', 'err'); return; }
     if (p > 100000) { toast('Price must not exceed $100,000.', 'err'); return; }
     // Optional auto-accept percent, same 1..50 range as the single-list
@@ -13606,7 +13618,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           h('input', {
             className: 'wallet-amount-input',
             style: { width: 100, fontSize: 13 },
-            type: 'number', min: '0', max: '100000', step: '0.01',
+            type: 'text', min: '0', max: '100000', step: '0.01',
             inputMode: 'decimal',
             'aria-label': 'Bulk list price in USD',
             placeholder: '0.00',
@@ -13632,7 +13644,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             style: { padding: '6px 14px', fontSize: 12, fontWeight: 700 },
             disabled: bulkBusy || !bulkPrice,
             onClick: submitBulk
-          }, bulkBusy ? 'Listing…' : `List ${bulkSelected.size} @ ${fmtUsd(parseFloat(bulkPrice || 0))}`),
+          }, bulkBusy ? 'Listing…' : `List ${bulkSelected.size} @ ${fmtUsd(parseMoneyInput(bulkPrice) || 0)}`),
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
@@ -14491,13 +14503,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // Validate the price as typed. parseFloat('1,250') is 1 and
     // parseFloat('$12') is NaN, so a comma or a currency sign used to
     // reprice a $1,250 listing to $1.00 (where any buy order could fill
-    // it at once) or send a null price.
-    const priceStr = String(editPrice || '').trim();
-    if (!/^\d+(\.\d{1,2})?$/.test(priceStr)) {
-      toast('Enter the price as a plain number with up to 2 decimals, e.g. 1250 or 12.50 (no commas or $).', 'err');
+    // it at once) or send a null price. "12,50" is a decimal comma;
+    // "1,250" is refused rather than guessed.
+    const priceErr = moneyInputError(editPrice);
+    if (priceErr) { toast(priceErr, 'err'); return; }
+    const priceNum = parseMoneyInput(editPrice);
+    if (/[.,]\d{3,}$/.test(String(editPrice).trim())) {
+      toast('Enter the price with up to 2 decimals, e.g. 1250 or 12.50.', 'err');
       return;
     }
-    const priceNum = parseFloat(priceStr);
     if (!(priceNum >= 0.01 && priceNum <= 100000)) {
       toast('Price must be between $0.01 and $100,000.', 'err');
       return;
@@ -14699,7 +14713,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // rejected (non-numeric / >50%) submit doesn't leave the latch stuck.
     if (bulkAdjustBusyRef.current) return;
     setBulkAdjustErr('');
-    const pct = parseFloat(bulkAdjustPct);
+    if (moneyInputError(bulkAdjustPct)) { setBulkAdjustErr(moneyInputError(bulkAdjustPct)); return; }
+    const pct = parseMoneyInput(bulkAdjustPct);
     if (!isFinite(pct) || pct === 0) {
       setBulkAdjustErr('Enter a non-zero percentage');
       return;
@@ -14770,7 +14785,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       // Buy Now listing, hidden or not.
       const buyNowCount = (stall || []).filter(l => l && l.listingType !== 'AUCTION').length;
       const setChip = (n) => { setBulkAdjustPct(String(n)); setBulkAdjustErr(''); };
-      const pctNum = parseFloat(bulkAdjustPct);
+      const pctNum = parseMoneyInput(bulkAdjustPct);
       const previewValid = isFinite(pctNum) && pctNum !== 0 && Math.abs(pctNum) <= 50;
       return h('div', {
         className: 'cart-confirm-backdrop',
@@ -14811,7 +14826,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 } },
             h('input', {
               className: 'wallet-amount-input',
-              type: 'number', step: '0.5', min: '-50', max: '50',
+              type: 'text', step: '0.5', min: '-50', max: '50',
               inputMode: 'decimal',
               'aria-label': 'Bulk adjust percent',
               style: { flex: 1 },
@@ -15804,6 +15819,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       h('span', { style: { alignSelf: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' } }, 'USD'),
                       h('input', {
                         className: 'price-input',
+                        inputMode: 'decimal',
                         value: editPrice,
                         onChange: e => setEditPrice(e.target.value),
                         onKeyDown: (e) => {
@@ -15850,7 +15866,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     // what the threshold resolves to before saving.
                     (() => {
                       const pct = parseFloat(editAutoPct);
-                      const newP = parseFloat(editPrice) || parseFloat(l.price) || 0;
+                      const newP = parseMoneyInput(editPrice) || parseFloat(l.price) || 0;
                       if (!Number.isFinite(pct) || pct <= 0 || newP <= 0) return null;
                       if (pct > 50 || !Number.isInteger(pct)) return h('div', { style: { fontSize: 11, color: 'var(--red)', marginTop: 6, fontWeight: 700 } },
                         'Auto-accept % must be a whole number from 1 to 50. Fix it before saving.');
@@ -15864,7 +15880,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     // the wallet (gross − 2% platform fee). Silent when
                     // the price hasn't changed (no decision to make).
                     (() => {
-                      const newP = parseFloat(editPrice);
+                      const newP = parseMoneyInput(editPrice);
                       const oldP = parseFloat(l.price) || 0;
                       if (!Number.isFinite(newP) || newP <= 0) return null;
                       if (Math.abs(newP - oldP) < 0.005) return null;
@@ -16246,7 +16262,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   };
   const handleCounter = async (id, mode) => {
     if (busyRef.current) return;
-    const amt = parseFloat(counterAmt);
+    if (moneyInputError(counterAmt)) { toast(moneyInputError(counterAmt), 'err'); return; }
+    const amt = parseMoneyInput(counterAmt);
     if (!Number.isFinite(amt) || amt <= 0) { toast('Enter an amount above $0', 'err'); return; }
     const o = findOffer(id);
     busyRef.current = true;
@@ -16436,7 +16453,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                   h('input', {
                     className: 'wallet-amount-input',
                     style: { width: 90, padding: '6px 8px', fontSize: 12 },
-                    type: 'number', step: '0.01', min: '0.01',
+                    type: 'text', step: '0.01', min: '0.01',
                     inputMode: 'decimal', enterKeyHint: 'send',
                     'aria-label': isIncoming ? 'Counter-offer amount' : 'Raise offer to',
                     placeholder: isIncoming ? 'Counter $' : 'Raise to',
@@ -16928,7 +16945,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     setServerAlertDraft(parseFloat(a.targetPrice) >= 99999 ? '' : String(a.targetPrice));
   };
   const saveEditServerAlert = async (a) => {
-    const n = parseFloat(serverAlertDraft);
+    if (moneyInputError(serverAlertDraft)) { toast(moneyInputError(serverAlertDraft), 'err'); return; }
+    const n = parseMoneyInput(serverAlertDraft);
     if (!isFinite(n) || n <= 0) {
       toast('Enter a positive dollar amount', 'err');
       return;
@@ -16959,7 +16977,9 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     } finally { alertCancelInFlight.delete('edit:' + a.id); setServerAlertBusy(false); }
   };
   const saveAlert = (itemId, value) => {
-    const n = parseFloat(value);
+    // Unreadable text ("1,700") keeps the editor open instead of clearing the alert.
+    if (moneyInputError(value)) { toast(moneyInputError(value), 'err'); return; }
+    const n = parseMoneyInput(value);
     const next = { ...alerts };
     const cleared = !isFinite(n) || n <= 0;
     if (cleared) delete next[itemId];
@@ -17376,7 +17396,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
               ? h('span', { style: { display: 'inline-flex', gap: 4, alignItems: 'center' } },
                   h('input', {
                     className: 'price-input',
-                    type: 'number', min: '0.01', step: '0.01',
+                    type: 'text', min: '0.01', step: '0.01',
                     inputMode: 'decimal', enterKeyHint: 'done',
                     'aria-label': 'New alert target price',
                     style: { width: 72, padding: '1px 6px', fontSize: 10, height: 22 },
@@ -17790,7 +17810,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                     editingAlert === r.listing.item.id
                       ? h('div', { className: 'watchlist-alert-edit' },
                           h('input', {
-                            type: 'number',
+                            type: 'text',
                             step: '0.01',
                             min: '0',
                             inputMode: 'decimal',
@@ -17997,7 +18017,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   //
   // The authoritative figures still come back on the /deposit and
   // /withdraw responses; this is the pre-commit estimate.
-  const amt = parseFloat(amount) || 0;
+  const amt = parseMoneyInput(amount) || 0;
   const feeSchedule = (wallet && wallet.feeSchedule) || null;
   const feesActive = !!(feeSchedule && feeSchedule.active);
   // FLOOR, mirroring PlatformLedgerService.feeCharged, which uses
@@ -18052,7 +18072,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   const submit = async () => {
     if (submittingRef.current) return;
     setError('');
-    const num = parseFloat(amount);
+    if (moneyInputError(amount)) { setError(moneyInputError(amount)); return; }
+    const num = parseMoneyInput(amount);
     if (!num || num <= 0) { setError('Enter a valid amount'); return; }
     // Mirror the server's minimum so a too-small amount gets an actionable
     // inline message instead of a generic "Request body failed validation"
@@ -18910,7 +18931,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                         h('span', { className: 'wallet-amount-prefix' }, '$'),
                         h('input', {
                           className: 'wallet-amount-input-v2',
-                          type: 'number', min: '0', max: '10000', step: '0.01',
+                          type: 'text', min: '0', max: '10000', step: '0.01',
                           // Batch 923 — inputMode hint so mobile browsers
                           // surface the decimal-key keyboard (period key
                           // instead of a comma, no QWERTY). iOS Safari
@@ -19164,7 +19185,9 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                     error && h('div', { className: 'wallet-error' }, error),
                     h('button', {
                       className: 'btn btn-accent wallet-submit',
-                      disabled: busy || !amt,
+                      // Unreadable text ("1,700") keeps the button live so a
+                      // press says why instead of sitting greyed out.
+                      disabled: busy || (!amt && !moneyInputError(amount)),
                       onClick: submit
                     }, busy ? 'Processing…' :
                        tab === 'deposit'

@@ -36,13 +36,13 @@ test.describe('defect pass 55', () => {
     await page.addInitScript(() => localStorage.setItem('sb_currency', 'EUR'));
     await buyOrderPicker(page, '10.00');
     await expect(page.locator('.buyorder-picked')).toContainText('Floor · $10.00');
-    await expect(page.getByRole('spinbutton', { name: 'Maximum price per item' })).toHaveValue('9.00');
+    await expect(page.getByRole('textbox', { name: 'Maximum price per item' })).toHaveValue('9.00');
   });
 
   test('picking an unlisted item leaves the max price empty instead of 0.00', async ({ page }) => {
     await buyOrderPicker(page, '0');
     await expect(page.locator('.buyorder-picked')).toContainText('no active listings');
-    await expect(page.getByRole('spinbutton', { name: 'Maximum price per item' })).toHaveValue('');
+    await expect(page.getByRole('textbox', { name: 'Maximum price per item' })).toHaveValue('');
   });
 
   test('double-clicking Reopen on a resolved ticket sends one request', async ({ page }) => {
@@ -104,7 +104,7 @@ test.describe('defect pass 55', () => {
     ])));
     await page.goto('/sell');
     await page.locator('.inventory-item').first().click({ timeout: 20_000 });
-    await page.getByRole('spinbutton', { name: 'Asking price' }).fill('12.00');
+    await page.getByRole('textbox', { name: 'Asking price' }).fill('12.00');
     await expect(page.getByText(/other seller · floor \$10\.00/)).toBeVisible();
     await expect(page.getByText('above the Steam market price ($9.00)', { exact: false })).toBeVisible();
   });

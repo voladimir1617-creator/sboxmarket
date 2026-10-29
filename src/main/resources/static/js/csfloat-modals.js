@@ -4,7 +4,7 @@
 // Every modal follows the same pattern as ./modals.js — narrow prop surface,
 // uses InfoModal as the shell, calls into ./api.js for I/O.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol, fxToUsd } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol, fxToUsd, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths, followInternalLink } from './router.js';
@@ -200,7 +200,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       // types. Blank / NaN / negative / > $100k is dropped.
       // The boxes are labelled in the viewer's currency; the API takes USD.
       const parseB = (s) => {
-        const n = fxToUsd(parseFloat(s));
+        const n = fxToUsd(parseMoneyInput(s));
         return (n != null && Number.isFinite(n) && n >= 0 && n <= 100000) ? Math.round(n * 100) / 100 : null;
       };
       const res = await fetchDatabase({
@@ -338,7 +338,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       // alongside the other filters without stealing row width.
       h('input', {
         className: 'price-input', style: { width: 90 },
-        type: 'number', min: '0', max: '100000', step: '0.01',
+        type: 'text', min: '0', max: '100000', step: '0.01',
         inputMode: 'decimal',
         // Currency-aware placeholder so a CAD/EUR/etc. user sees
         // "CA$ Min" / "€ Min" — matches the marketplace price-range
@@ -350,7 +350,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       }),
       h('input', {
         className: 'price-input', style: { width: 90 },
-        type: 'number', min: '0', max: '100000', step: '0.01',
+        type: 'text', min: '0', max: '100000', step: '0.01',
         inputMode: 'decimal',
         placeholder: `${currencySymbol()} Max`, value: maxPrice,
         onChange: e => setMaxPrice(e.target.value),
@@ -677,10 +677,11 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   // max price so the chip updates as they tune the number.
   const [projectedPos, setProjectedPos] = useState(null);
   useEffect(() => {
-    if (!picked?.id || !(parseFloat(maxPrice) > 0)) { setProjectedPos(null); return; }
+    const maxNum = parseMoneyInput(maxPrice);
+    if (!picked?.id || !(maxNum > 0)) { setProjectedPos(null); return; }
     let alive = true;
     const t = setTimeout(async () => {
-      const n = await fetchBuyOrderProjectedPosition(picked.id, maxPrice);
+      const n = await fetchBuyOrderProjectedPosition(picked.id, maxNum);
       if (alive) setProjectedPos(n);
     }, 400);
     return () => { alive = false; clearTimeout(t); };
@@ -747,7 +748,8 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   const submit = async () => {
     setErr('');
     if (!picked) { setErr('Pick an item first'); return; }
-    const max = parseFloat(maxPrice);
+    if (moneyInputError(maxPrice)) { setErr(moneyInputError(maxPrice)); return; }
+    const max = parseMoneyInput(maxPrice);
     if (!max || max <= 0) { setErr('Enter a max price above zero'); return; }
     // Parse the floor BEFORE truthiness-testing it. lowestPrice can come
     // back as the string "0" for an item with no live listings — a
@@ -988,7 +990,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
           }, 'Change')
         ),
         h('div', { className: 'wallet-input-label' }, 'Maximum Price per Item (USD)'),
-        h('input', { className: 'wallet-amount-input', type: 'number', step: '0.01', min: '0.01',
+        h('input', { className: 'wallet-amount-input', type: 'text', step: '0.01', min: '0.01',
           inputMode: 'decimal', enterKeyHint: 'done',
           'aria-label': 'Maximum price per item',
           value: maxPrice, onChange: e => setMaxPrice(e.target.value),
@@ -1041,7 +1043,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
         // fills. Hidden when wallet or price is unavailable.
         (() => {
           if (!wallet) return null;
-          const max = parseFloat(maxPrice);
+          const max = parseMoneyInput(maxPrice);
           const q   = parseInt(qty, 10);
           if (!(max > 0) || !(q > 0)) return null;
           const need = max * q;
@@ -1539,12 +1541,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   const visBusyRef = useRef(false);
   const handleGenerate = async () => {
     if (!viewing || generatingLoadout) return;
-    // Tolerant parse — strip `$`, commas, currency code prefixes so a user
-    // who types `$50`, `1,200.00`, or `USD 75` doesn't get a silent NaN.
-    // The backend mirrors this sanitization, but parsing here lets us
-    // short-circuit a round-trip on truly empty input.
-    const cleaned = String(budget || '').replace(/[^0-9.\-]/g, '');
-    const parsed = cleaned ? parseFloat(cleaned) : NaN;
+    // Tolerant of `$50` / `USD 75`: currency signs and codes are dropped,
+    // then the shared money reader takes "12,50" as a decimal comma and
+    // refuses "1,200" / "1.200,00" (thousands or cents?) instead of
+    // stripping the comma and generating against a budget 100x too big.
+    const cleaned = String(budget || '').replace(/[^0-9.,\-]/g, '');
+    if (moneyInputError(cleaned)) { toast(moneyInputError(cleaned), 'err'); return; }
+    const parsed = cleaned ? parseMoneyInput(cleaned) : NaN;
     // The box shows its default via `fmt` (the display currency), so a
     // typed figure is in that currency too; the API takes USD.
     const b = Number.isFinite(parsed) && parsed > 0 ? (fxToUsd(parsed) || parsed) : 10000;
@@ -1863,11 +1866,10 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           value: budget,
           onChange: e => setBudget(e.target.value),
           style: { width: 170 },
-          // inputMode/title clarifies USD intent — typed `$` and commas are
-          // stripped before parse so the user can paste a price chip from
-          // /wallet without a NaN.
+          // inputMode/title clarifies the currency — a typed `$` is stripped
+          // before parse so the user can paste a price chip from /wallet.
           inputMode: 'decimal',
-          title: `Cap on Generate, in ${currencySymbol()}. Defaults to ${fmt(10000)} if blank. Currency signs and commas are accepted.`,
+          title: `Cap on Generate, in ${currencySymbol()}. Defaults to ${fmt(10000)} if blank. Currency signs are accepted; use one dot or comma for cents.`,
           'aria-label': 'Max budget for Generate',
           onKeyDown: e => { if (e.key === 'Enter' && !generatingLoadout) { e.preventDefault(); handleGenerate(); } }
         }),
@@ -3379,7 +3381,8 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   const submit = async () => {
     setErr('');
     if (!me) { setErr('Sign in to bid'); return; }
-    const a = parseFloat(amount);
+    if (moneyInputError(amount)) { setErr(moneyInputError(amount)); return; }
+    const a = parseMoneyInput(amount);
     // Bids are typed and sent in USD (the inputs say so); the converted
     // figure is shown alongside for a viewer browsing in another currency.
     if (!a || a < parseFloat(minNext)) {
@@ -3391,8 +3394,10 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     // otherwise it silently downgrades to a plain MANUAL bid and the
     // typed cap is discarded. Catch the nonsensical "cap ≤ bid" here so
     // the bidder isn't surprised their proxy-bidder never engages.
+    const capNum = maxAmount && String(maxAmount).trim() ? parseMoneyInput(maxAmount) : null;
     if (maxAmount && String(maxAmount).trim()) {
-      const cap = parseFloat(maxAmount);
+      if (moneyInputError(maxAmount)) { setErr(moneyInputError(maxAmount)); return; }
+      const cap = capNum;
       if (!(cap > 0)) { setErr('Auto-bid cap must be a positive amount, or leave it blank.'); return; }
       if (cap <= a) { setErr(`Your auto-bid cap (${fmt(cap)}) must be above your bid (${fmt(a)}) — that's the ceiling the proxy-bidder raises toward.`); return; }
     }
@@ -3400,7 +3405,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     busyRef.current = true;
     setBusy(true);
     try {
-      const res = await placeBid(listing.id, a, maxAmount ? parseFloat(maxAmount) : null);
+      const res = await placeBid(listing.id, a, capNum);
       if (res.code || res.error) {
         setErr(res.message || res.error);
         // Lost a same-instant race: show the bid that beat this one.
@@ -3420,7 +3425,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       // state change couldn't tell the click actually landed. Now a
       // toast confirms with the exact amount + auto-bid cap if set,
       // matching the buy-success personalisation pattern.
-      const cap = maxAmount ? parseFloat(maxAmount) : null;
+      const cap = capNum;
       const name = listing?.item?.name;
       const parts = [`Bid ${fmt(a)}`];
       if (name) parts.push(`on "${name}"`);
@@ -3813,13 +3818,13 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     ),
     // No bid form on your own auction — the server refuses seller bids.
     !ended && (!me || me.id !== view.sellerUserId) && h('div', { className: 'auction-bid-form' },
-      h('input', { className: 'wallet-amount-input', type: 'number', step: '0.05', min: minNext,
+      h('input', { className: 'wallet-amount-input', type: 'text', step: '0.05', min: minNext,
         inputMode: 'decimal', enterKeyHint: 'send',
         'aria-label': 'Bid amount in US dollars',
         // The field takes USD. It showed the converted minimum ("Min ¥2,980")
         // and then sent the typed number as dollars.
         placeholder: `Min $${minNext} USD`, value: amount, onChange: e => setAmount(e.target.value) }),
-      h('input', { className: 'wallet-amount-input', type: 'number', step: '0.05',
+      h('input', { className: 'wallet-amount-input', type: 'text', step: '0.05',
         inputMode: 'decimal', enterKeyHint: 'done',
         'aria-label': 'Auto-bid maximum cap in US dollars',
         placeholder: 'Auto-bid cap, USD (optional)', value: maxAmount, onChange: e => setMax(e.target.value) }),
@@ -3861,8 +3866,8 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       // auto-bid cap is set (server checks whichever is higher).
       (() => {
         if (!me || !wallet) return null;
-        const bid = parseFloat(amount) || 0;
-        const cap = parseFloat(maxAmount) || 0;
+        const bid = parseMoneyInput(amount) || 0;
+        const cap = parseMoneyInput(maxAmount) || 0;
         const commit = Math.max(bid, cap);
         const bal = parseFloat(wallet.balance) || 0;
         if (!(commit > 0) || bal >= commit) return null;

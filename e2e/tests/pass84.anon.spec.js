@@ -52,7 +52,7 @@ test.describe('defect pass 84 · buyorders', () => {
       ? later(r, json({ message: 'Max price is above the floor' }, 400)) : r.fulfill(json(ORDERS[0])));
     await page.goto('/profile/buyorders');
     await page.getByRole('button', { name: /Edit/ }).first().click();
-    const max = page.getByRole('spinbutton', { name: 'New max price per item in USD' });
+    const max = page.getByRole('textbox', { name: 'New max price per item in USD' });
     await max.fill('9.99');
     await max.press('Enter');
     await max.press('Escape');
