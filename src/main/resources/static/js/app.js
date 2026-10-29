@@ -5276,7 +5276,12 @@ export function App() {
   // logout
   const doLogout = async () => {
     await logoutSteam();
-    setMe(null);
+    // Commit the signed-out state before navigate() below. navigate()
+    // fires a popstate, which React renders at a higher priority than this
+    // update, so /market used to mount with the old user still set; its
+    // cards then asked for that user's bids, got a 401, and replaced the
+    // sign-out toast with a red "Sign in with Steam to continue".
+    ReactDOM.flushSync(() => setMe(null));
     setMenuOpen(false);
     loadWallet();
     // Cart + watchlist are per-user signals: the next user to sign in on
