@@ -85,9 +85,13 @@ export function AdminModal({ onClose, me }) {
     const id = setInterval(() => { if (!document.hidden) load(); }, 60_000);
     const onVis = () => { if (!document.hidden) load(); };
     document.addEventListener('visibilitychange', onVis);
+    // A tab that changes a counted queue (e.g. closing a ticket) asks for a
+    // fresh count instead of leaving the badge stale until the next poll.
+    window.addEventListener('sb:admin-counts', load);
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('sb:admin-counts', load);
     };
   }, []);
   const TABS = [
@@ -3681,6 +3685,7 @@ function AdminTicketsTab() {
       const fresh = await adminTicket(t.id);
       if (fresh && fresh.ticket) setView(fresh);
       load();
+      window.dispatchEvent(new Event('sb:admin-counts'));
       // Batch 917 — confirm toast on admin-side reply. Matches the
       // CSR-side toast so both staff flows feel consistent. Previously
       // the flow succeeded silently.
@@ -3703,6 +3708,7 @@ function AdminTicketsTab() {
     const fresh = await adminTicket(t.id);
     if (fresh && fresh.ticket) setView(fresh);
     load();
+    window.dispatchEvent(new Event('sb:admin-counts'));
     // Batch 917 — cite the id + truncated subject so admin closing
     // many tickets back-to-back knows which one just closed.
     const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';
