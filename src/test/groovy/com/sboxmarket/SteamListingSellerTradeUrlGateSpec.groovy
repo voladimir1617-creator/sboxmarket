@@ -182,4 +182,27 @@ class SteamListingSellerTradeUrlGateSpec extends Specification {
         and:
         1 * steamInventoryService.fetchInventory('76561190000000001') >> []
     }
+
+    def "escrow live: the reply says whether the bot actually sent the deposit offer"() {
+        given: 'the inventory read was a minute old, and the skin has since left his Steam'
+        steamEscrowService.escrowEnabled >> true
+        seller('https://steamcommunity.com/tradeoffer/new/?partner=1&token=xyz')
+        steamInventoryService.fetchInventory(_) >> [[assetId: '555', name: 'Wizard Hat', tradable: true]]
+        itemRepository.findByNameIgnoreCase('Wizard Hat') >> new com.sboxmarket.model.Item(id: 3L, name: 'Wizard Hat')
+        listingService.createListing(_) >> { args -> def l = args[0]; l.id = 9L; l }
+        steamEscrowService.requestDepositForListing(_, '555', 'Wizard Hat') >> new com.sboxmarket.model.EscrowedItem(
+            listingId: 9L, depositOfferId: offerId, lastError: offerId ? null : 'INVENTORY_ERROR: not in inventory')
+
+        when:
+        def body = controller.listFromSteam([assetId: '555', price: 10.00], req).body
+
+        then: 'the sell form must not tell him to accept an offer that was never sent'
+        body.escrowPending == true
+        body.depositOfferSent == sent
+
+        where:
+        offerId   || sent
+        '9000001' || true
+        null      || false
+    }
 }

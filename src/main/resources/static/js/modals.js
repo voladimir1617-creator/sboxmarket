@@ -12576,7 +12576,13 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       const itemName = row?.name || row?.item?.name;
       // Under bot escrow the listing is held until the seller sends the item.
       const held = res.status === 'PENDING_ESCROW' || res.escrowPending === true;
-      if (held) toast(
+      // No offer went out (e.g. the skin already left his Steam): don't send
+      // him looking for one. My Stall says why.
+      if (held && res.depositOfferSent === false) toast(
+        `${itemName ? `"${itemName}"` : 'Your item'} is reserved at ${fmt(price)}, but our bot couldn't send you a trade offer for it yet. My Stall shows why.`,
+        'warn'
+      );
+      else if (held) toast(
         `${itemName ? `"${itemName}"` : 'Your item'} is reserved at ${fmt(price)} — accept the Steam trade offer from our bot to send us the item, and it goes live the moment we receive it.`,
         'warn'
       );
@@ -12699,7 +12705,13 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         try { await onRefresh(); } catch (_) {}
         return;
       }
-      if (res.code || res.error) { setError(res.message || res.error); return; }
+      if (res.code || res.error) {
+        setError(res.message || res.error);
+        // The grid behind the form still offers this row; re-read it so Back
+        // shows the item gone (or already listed) instead of the stale copy.
+        if (picking.kind === 'steam' && ['NOT_IN_INVENTORY', 'ALREADY_LISTED', 'NOT_TRADABLE'].includes(res.code)) loadSteam();
+        return;
+      }
       // Batch 884 — success toast. Previous flow closed silently: user
       // clicked List, modal went away, and their only feedback that
       // anything happened was the stall refresh behind the modal. Now
@@ -12719,7 +12731,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       // Report what actually happened, and name the action they have to take.
       const held = res?.status === 'PENDING_ESCROW' || res?.escrowPending === true;
       const label = itemName ? `"${itemName}"` : 'your item';
-      if (held) {
+      if (held && res.depositOfferSent === false) {
+        // The listing exists but the bot's deposit offer did not go out (the
+        // skin had already left his Steam, say). Asking him to accept an
+        // offer that does not exist sent him hunting through Steam for it.
+        toast(`${label} is reserved at ${fmt(p)}, but our bot couldn't send you a trade offer for it yet. My Stall shows why.`, 'warn');
+      } else if (held) {
         // 'warn', not 'ok' and not a bare default. utils.toast only knows
         // ok / warn / err — an unknown kind silently renders as ok, i.e.
         // pixel-identical to the success toast, which would leave this
@@ -13225,10 +13242,10 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           style: { marginLeft: 6 },
           title: steamData.blocked
             ? 'Count unavailable — Steam rate-limited our request'
-            : steamData.error
-              ? "Count unavailable — couldn't reach the inventory service"
+            : (steamData.error || steamData.unreadable)
+              ? "Count unavailable — couldn't read your Steam inventory"
               : null
-        }, (steamData.blocked || steamData.error) && steamList.length === 0 ? '—' : steamList.length)),
+        }, (steamData.blocked || steamData.error || steamData.unreadable) && steamList.length === 0 ? '—' : steamList.length)),
       h('button', { className: `offer-tab ${source === 'internal' ? 'active' : ''}`, 'aria-pressed': source === 'internal', onClick: () => setSource('internal') },
         'Platform Inventory', internal && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, internalList.length)),
       h('div', { style: { flex: 1 } }),
@@ -13366,7 +13383,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         // Privacy-settings link is only relevant to the "private inventory"
         // empty state — hide it on a connection error, where it would
         // misdirect the user away from the real fix (Re-sync / retry).
-        !steamData?.error && h('a', {
+        // Nor on a Steam outage, a throttle or an unreadable reply.
+        !steamData?.error && (isPrivate || !couldNotRead) && !isThrottled && h('a', {
           className: 'btn btn-ghost',
           href: 'https://steamcommunity.com/my/edit/settings',
           target: '_blank',
@@ -14258,6 +14276,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   useEffect(() => { if (me) load(); }, [me, load]);
   // A deposit offer the seller still has to accept in Steam.
   const heldAwaitingSeller = held.some(r => r?.escrow?.custodyState !== 'FAILED' && !r?.escrow?.itemLeftSeller);
+  // An offer he can actually go and accept: not one the bot never sent.
+  const heldOfferToAccept = held.some(r => r?.escrow?.custodyState !== 'FAILED' && !r?.escrow?.itemLeftSeller && r?.escrow?.offerSent !== false);
   // While a bot trade is in flight (he accepts in Steam, then the bot
   // receives it), re-read the stall so the steps and the new live listing
   // show up without a manual reload.
@@ -15222,13 +15242,13 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         h('div', { className: 'bot-offer-title' }, 'Waiting for your item', h('span', { className: 'bot-offer-count' }, held.length)),
         // Once every skin here has left his Steam there is no offer left
         // for him to accept, so don't send him to his trade offers.
-        heldAwaitingSeller && h('a', {
+        heldOfferToAccept && h('a', {
           className: 'btn btn-ghost bot-offer-link',
           href: 'https://steamcommunity.com/my/tradeoffers/',
           target: '_blank', rel: 'noopener noreferrer'
         }, 'Open Steam trade offers ↗')
       ),
-      heldAwaitingSeller && h('div', { className: 'bot-offer-tip' },
+      heldOfferToAccept && h('div', { className: 'bot-offer-tip' },
         'Our deposit offer asks for this one item and gives nothing back. Accept it only if its message shows the code next to the item here.'),
       held.map(row => {
         const l = row.listing || {};
