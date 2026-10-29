@@ -100,6 +100,21 @@ class SitemapController {
         try {
             def items = itemRepository.findAllForSitemap(
                 org.springframework.data.domain.PageRequest.of(0, 10_000))
+            // lastmod = the item's last real market change (a listing posted or
+            // sold), falling back to its catalogue date. Google only trusts
+            // lastmod while it stays accurate, and createdAt never moves.
+            Map<Long, Long> lastActivity = [:]
+            if (listingRepository != null) {
+                try {
+                    (listingRepository.latestActivityByItem() ?: []).each { Object[] row ->
+                        if (row == null || row[0] == null) return
+                        Long latest = [row[1], row[2]].findAll { it != null }.collect { it as Long }.max()
+                        if (latest != null) lastActivity[row[0] as Long] = latest
+                    }
+                } catch (Exception e) {
+                    log.debug("Sitemap listing-activity lookup failed: ${e.message}")
+                }
+            }
             items.each { item ->
                 // View-count driven priority (batch 420). Items with real
                 // interest bubble up the sitemap so search engines crawl
@@ -112,7 +127,9 @@ class SitemapController {
                              :                '0.7'
                 sb.append('  <url>\n')
                   .append('    <loc>').append(base).append('/item/').append(item.id).append('</loc>\n')
-                appendLastmod(sb, item.createdAt)
+                Long activity = lastActivity[item.id as Long]
+                appendLastmod(sb, activity != null && (item.createdAt == null || activity > item.createdAt)
+                    ? activity : item.createdAt)
                 sb.append('    <changefreq>daily</changefreq>\n')
                   .append('    <priority>').append(priority).append('</priority>\n')
                   .append('  </url>\n')
