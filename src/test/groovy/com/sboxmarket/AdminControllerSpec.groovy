@@ -591,4 +591,25 @@ class AdminControllerSpec extends Specification {
         withdrawals[6] == '0'
         trades[3] == '0'
     }
+
+    // The audit tab's free-text search hides rows on screen; the "export
+    // the current audit view" CSV ignored it and shipped every row.
+    def "auditCsv() applies the same free-text search as the audit tab"() {
+        given:
+        adminSession(100L)
+        def audit = Mock(com.sboxmarket.service.AuditService)
+        controller.auditService = audit
+        1 * audit.recent(null) >> [
+            new com.sboxmarket.model.AuditLog(id: 1L, eventType: 'USER_BANNED', actorName: 'BoneTender',
+                subjectName: 'AtlasTrades', summary: 'Banned for fraud', createdAt: 1L),
+            new com.sboxmarket.model.AuditLog(id: 2L, eventType: 'LISTING_PURCHASED', actorName: 'EmberWolf',
+                subjectName: 'GhostlyDeals', summary: 'Bought Wizard Hat', createdAt: 1L)]
+
+        when:
+        def lines = controller.auditCsv(null, null, null, null, ' atlas ', req).body.split('\n')
+
+        then:
+        lines.size() == 2
+        lines[1].startsWith('1,')
+    }
 }

@@ -898,10 +898,22 @@ class AdminController {
                                     @RequestParam(required = false) Long actor,
                                     @RequestParam(required = false) Long subject,
                                     @RequestParam(required = false) Long since,
+                                    @RequestParam(required = false) String q,
                                     HttpServletRequest req) {
         requireAdmin(req)
         Long sinceMs = (since != null && since > 0L && since <= System.currentTimeMillis()) ? since : null
         def rows = auditRows(event, actor, subject, sinceMs)
+        // The audit tab's free-text box (summary / actor / subject names)
+        // narrows the rows on screen; without it here the "current view"
+        // download also carried every row that search had hidden.
+        def needle = (q ?: '').trim().toLowerCase()
+        if (needle) {
+            rows = (rows ?: []).findAll { r ->
+                ((r.summary ?: '') as String).toLowerCase().contains(needle) ||
+                ((r.actorName ?: '') as String).toLowerCase().contains(needle) ||
+                ((r.subjectName ?: '') as String).toLowerCase().contains(needle)
+            }
+        }
         // Cap at 5000 rows (batch 493) — matches the trades CSV cap.
         // A long-running site's audit table is unbounded; without this
         // cap the CSV response could OOM the JVM on a download click.
