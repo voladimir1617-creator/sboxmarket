@@ -90,6 +90,22 @@ class SellerMarketSignalsDbSpec extends Specification {
         adminService.dashboardStats().containsKey('zeroResultSearches')
     }
 
+    def "an empty page under a category, rarity, price or type filter is not counted as nobody selling it"() {
+        given:
+        def term = "filtered-out-${uniq}"
+        def req = new MockHttpServletRequest()
+        req.remoteAddr = '10.0.0.10'
+
+        when:
+        listingController.getListings('price_asc', 'Hats', 'All', null, null, term, null, 'All', 100, 0, req)
+        listingController.getListings('price_asc', 'All', 'Standard', null, null, term, null, 'All', 100, 0, req)
+        listingController.getListings('price_asc', 'All', 'All', null, '0.01', term, null, 'All', 100, 0, req)
+        listingController.getListings('price_asc', 'All', 'All', null, null, term, null, 'AUCTION', 100, 0, req)
+
+        then:
+        tracker.top(ZeroResultSearchTracker.MAX_TERMS).find { it.term == term } == null
+    }
+
     def "seller revenue queries rank by revenue and sum only VERIFIED trades in the window"() {
         given:
         // Settled far in the future so no other spec's trades fall in the window.
