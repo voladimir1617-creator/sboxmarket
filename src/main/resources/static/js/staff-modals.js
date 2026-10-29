@@ -793,6 +793,18 @@ function AdminAnnouncementsTab() {
   const [loadErr, setLoadErr] = useState(false);
   // Banner ids with a Stop in flight (double-click latch).
   const stopBusyRef = React.useRef(new Set());
+  // A stopped banner's row (and the focused Stop with it) leaves LIVE NOW;
+  // focus then moves to the next Stop, or the message box.
+  const liveListRef = React.useRef(null);
+  const messageRef = React.useRef(null);
+  const refocusStopRef = React.useRef(false);
+  useEffect(() => {
+    if (!refocusStopRef.current) return;
+    refocusStopRef.current = false;
+    const a = document.activeElement;
+    if (a && a !== document.body && a.isConnected) return;
+    (liveListRef.current?.querySelector('button') || messageRef.current)?.focus();
+  }, [rows]);
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/admin/announcements', { credentials: 'same-origin' });
@@ -801,6 +813,9 @@ function AdminAnnouncementsTab() {
   }, []);
   useEffect(() => { load(); }, [load]);
   const create = async () => {
+    // Post banner stays focusable while posting (aria-disabled), so ignore
+    // clicks while busy or with no message here.
+    if (busy || !message.trim()) return;
     setErr(''); setBusy(true);
     try {
       const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
@@ -836,6 +851,7 @@ function AdminAnnouncementsTab() {
   const deactivate = async (id) => {
     if (stopBusyRef.current.has(id)) return;
     stopBusyRef.current.add(id);
+    refocusStopRef.current = true;
     try { await deactivateOnce(id); } finally { stopBusyRef.current.delete(id); }
   };
   const deactivateOnce = async (id) => {
@@ -881,6 +897,7 @@ function AdminAnnouncementsTab() {
     h('div', { style: { padding: 16, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 18 } },
       h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 10 } }, 'Post sitewide banner'),
       h('textarea', {
+        ref: messageRef,
         value: message,
         onChange: e => setMessage(e.target.value),
         maxLength: 500,
@@ -909,7 +926,9 @@ function AdminAnnouncementsTab() {
         }),
         h('button', {
           className: 'btn btn-accent',
-          disabled: busy || !message.trim(),
+          // aria-disabled, not disabled: disabling the focused button while
+          // posting (and once the box clears) dropped focus to the page.
+          'aria-disabled': (busy || !message.trim()) || undefined,
           onClick: create
         }, busy ? 'Posting…' : 'Post banner')
       ),
@@ -950,8 +969,11 @@ function AdminAnnouncementsTab() {
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
         h('button', {
           className: 'btn btn-accent',
-          disabled: bcBusy || !bcTitle.trim(),
+          // aria-disabled keeps focus on the button while it sends and once
+          // the form clears; the click is ignored while busy or untitled.
+          'aria-disabled': (bcBusy || !bcTitle.trim()) || undefined,
           onClick: async () => {
+            if (bcBusy || !bcTitle.trim()) return;
             if (!confirm(`Send "${bcTitle.trim()}" to every active user? This fans out one notification per user and can't be undone.`)) return;
             setBcBusy(true); setBcMsg('');
             try {
@@ -972,7 +994,7 @@ function AdminAnnouncementsTab() {
         }, bcMsg)
       )
     ),
-    live.length > 0 && h('div', { style: { padding: 12, background: 'var(--bg-card)', border: '1px solid var(--accent-border)', borderRadius: 8, marginBottom: 16 } },
+    live.length > 0 && h('div', { ref: liveListRef, style: { padding: 12, background: 'var(--bg-card)', border: '1px solid var(--accent-border)', borderRadius: 8, marginBottom: 16 } },
       h('div', { style: { fontSize: 11, color: 'var(--accent)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 } }, 'LIVE NOW'),
       live.map(r => h('div', { key: r.id, style: { display: 'flex', gap: 12, padding: 6, alignItems: 'center' } },
         h(SeverityChip, { severity: r.severity }),

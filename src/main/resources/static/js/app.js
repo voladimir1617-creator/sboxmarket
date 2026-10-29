@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=340'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=341'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4256,6 +4256,7 @@ export function App() {
   // the whole rarity bucket. Client-side filter on the already-fetched
   // stall payload so typing is instant and doesn't hit the API.
   const [stallSearch, setStallSearch] = useState('');
+  const stallSearchRef = useRef(null);
   const stallLoadedIdRef = useRef(null);
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
@@ -9035,6 +9036,7 @@ export function App() {
                         className: 'price-input',
                         type: 'search',
                         placeholder: 'Filter by name…',
+                        ref: stallSearchRef,
                         value: stallSearch,
                         onChange: e => setStallSearch(e.target.value),
                         style: { minWidth: 160, maxWidth: 220 },
@@ -9065,7 +9067,8 @@ export function App() {
                           search && h('button', {
                             className: 'btn btn-ghost',
                             style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-                            onClick: () => setStallSearch('')
+                            // The button goes away with the no-match state; keep focus in the search box.
+                            onClick: () => { setStallSearch(''); stallSearchRef.current?.focus(); }
                           }, 'Clear search'))
                       : h('div', { className: 'listing-grid' },
                           rows.map(l => h(GridCard, {
