@@ -74,7 +74,7 @@ test.describe('defect pass 60', () => {
 
   test('an admin report row with one report says "(1 report)"', async ({ page }) => {
     await admin(page);
-    await page.route('**/api/admin/listings/reported', (r) => r.fulfill(json([
+    await page.route('**/api/admin/listings/reported*', (r) => r.fulfill(json([
       { id: 77, itemName: 'Red Hat', reportCount: 1, reports: [], price: 5, status: 'ACTIVE' },
     ])));
     await page.goto('/admin?tab=reported');

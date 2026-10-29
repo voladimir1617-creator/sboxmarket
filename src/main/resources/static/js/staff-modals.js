@@ -660,7 +660,10 @@ function AdminReportedTab() {
   }
   return h('div', { className: 'profile-panel' },
     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 } },
-      `${rows.length} listing${rows.length === 1 ? '' : 's'} with active user reports. Sorted highest-report-count-first. Clicking a row expands the recent report notes.`),
+      // The server returns at most 200 rows, so a full page is the top 200, not the total.
+      (rows.length >= 200
+        ? 'The 200 most-reported listings with active user reports (more are queued behind them).'
+        : `${rows.length} listing${rows.length === 1 ? '' : 's'} with active user reports.`) + ` Sorted highest-report-count-first. Clicking a row expands the recent report notes.`),
     h('table', { className: 'db-table' },
       h('thead', null, h('tr', null,
         h('th', null, 'Listing'),
@@ -692,19 +695,20 @@ function AdminReportedTab() {
             h('div', { className: 'db-name' }, r.itemName || '—'),
             h('div', { className: 'db-sub' }, '#' + r.id)
           ),
-          h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.sellerName || '#' + (r.sellerUserId || '?')),
+          h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, r.sellerName || '#' + (r.sellerUserId || '?')),
           h('td', { className: 'right db-mono accent' }, fmt(r.price)),
           h('td', { className: 'right' },
             h('span', {
               style: {
-                padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 800,
+                padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap',
                 background: r.reportCount >= 3 ? 'rgba(248,113,113,0.15)' : 'rgba(251,191,36,0.15)',
                 color:      r.reportCount >= 3 ? 'var(--red)'               : '#fbbf24'
               }
             }, '🚩 ' + r.reportCount + (r.distinctReporters > 1 ? ` · ${r.distinctReporters}👤` : ''))
           ),
           h('td', { style: { fontSize: 11, color: 'var(--text-secondary)' } },
-            (r.topReasons || []).slice(0, 2).join(' · ')
+            // Two reporters picking the same reason read as "SCAM · SCAM".
+            [...new Set(r.topReasons || [])].slice(0, 2).join(' · ')
           ),
           h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } },
             r.lastReportedAt ? timeAgo(r.lastReportedAt) : '—'
@@ -1835,7 +1839,7 @@ function AdminTradesTab() {
                 // still drops into the chat thread via the existing
                 // row-click handler below.
                 h('td', null,
-                  h('div', { className: 'db-mono', style: { fontSize: 11 } }, r.buyerName || ('#' + (r.buyerUserId || '?'))),
+                  h('div', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, r.buyerName || ('#' + (r.buyerUserId || '?'))),
                   h('div', { style: { fontSize: 10, marginTop: 2, whiteSpace: 'nowrap' } },
                     (() => {
                       const chips = [];
@@ -1850,7 +1854,7 @@ function AdminTradesTab() {
                   )
                 ),
                 h('td', null,
-                  h('div', { className: 'db-mono', style: { fontSize: 11 } }, r.sellerName || (r.sellerUserId ? '#' + r.sellerUserId : 'system')),
+                  h('div', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, r.sellerName || (r.sellerUserId ? '#' + r.sellerUserId : 'system')),
                   h('div', { style: { fontSize: 10, marginTop: 2, whiteSpace: 'nowrap' } },
                     (() => {
                       const chips = [];
@@ -2152,7 +2156,7 @@ function AdminAuditTab() {
               h('td', { className: 'db-rank' }, timeAgo(r.createdAt)),
               h('td', { style: { fontSize: 10, fontWeight: 700, color: 'var(--accent)' } }, r.eventType),
               h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.actorName || (r.actorUserId ? '#' + r.actorUserId : 'system')),
-              h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.subjectName || (r.subjectUserId ? '#' + r.subjectUserId : '—')),
+              h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, r.subjectName || (r.subjectUserId ? '#' + r.subjectUserId : '—')),
               h('td', { style: { fontSize: 11, color: 'var(--text-secondary)', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis' } }, r.summary || '—'),
               h('td', { className: 'db-mono', style: { fontSize: 10, color: 'var(--text-muted)' } }, r.ipAddress || '—')
             )))
@@ -2224,7 +2228,8 @@ function AdminDashboardTab({ onNavTab }) {
     const p = parseFloat(prior) || 0;
     if (p === 0 && c === 0) return null;
     if (p === 0) return { pct: null, direction: 'up', label: 'new' };
-    const pct = ((c - p) / p) * 100;
+    // Round before picking the arrow: a -0.3% dip read as a red "▼ -0%".
+    const pct = Math.round(((c - p) / p) * 100) || 0;
     return { pct, direction: pct >= 0 ? 'up' : 'down' };
   };
   const Stat = (label, val, cls, dlt, navTarget) =>
@@ -3058,7 +3063,9 @@ function AdminUsersTab({ me }) {
           // those chips disabled themselves. Clicking re-fetches with
           // the new filter, which is the actual source of truth.
           onClick: () => setRoleFilter(opt.id)
-        }, roleFilter === opt.id ? `${opt.label} · ${rows.length}` : opt.label))
+        // The server returns the newest 200 users at most, so a full page
+        // is "200+", not the user count.
+        }, roleFilter === opt.id ? `${opt.label} · ${rows.length >= 200 ? '200+' : rows.length}` : opt.label))
       );
     })(),
     (() => {
@@ -3186,7 +3193,7 @@ function AdminUsersTab({ me }) {
             ? h('img', { src: detailUser.avatarUrl, alt: '', style: { width: 56, height: 56, borderRadius: '50%' } })
             : h('div', { className: 'db-thumb', style: { width: 56, height: 56, fontSize: 18 } }, (detailUser.displayName || 'U').substring(0, 2).toUpperCase()),
           h('div', { style: { flex: '1 1 260px', minWidth: 0 } },
-            h('div', { className: 'cart-confirm-title', id: 'admin-user-detail-title' }, detailUser.displayName || 'Player'),
+            h('div', { className: 'cart-confirm-title', id: 'admin-user-detail-title', style: { overflowWrap: 'anywhere' } }, detailUser.displayName || 'Player'),
             h('div', { className: 'cart-confirm-sub' },
               `Steam ID ${detailUser.steamId64} · #${detailUser.id} · role ${detailUser.role || 'USER'}`)
           ),
@@ -3838,8 +3845,8 @@ function AdminTicketsTab() {
               }
             },
               h('td', { className: 'db-rank' }, '#' + t.id),
-              h('td', null, t.subject),
-              h('td', { className: 'db-mono', style: { fontSize: 11 } }, t.username || '#' + t.userId),
+              h('td', { style: { overflowWrap: 'anywhere', minWidth: 160 } }, t.subject),
+              h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, t.username || '#' + t.userId),
               // Fraud-signal chips on tickets (batch 525). Lets support
               // spot the "3 chargebacks + fresh account + unverified email"
               // pattern at a glance instead of opening every ticket.
@@ -4487,8 +4494,8 @@ function CsrTicketsTab() {
                 }
               },
                 h('td', { className: 'db-rank' }, '#' + t.id),
-                h('td', null, t.subject),
-                h('td', { className: 'db-mono', style: { fontSize: 11 } }, t.username || '#' + t.userId),
+                h('td', { style: { overflowWrap: 'anywhere', minWidth: 160 } }, t.subject),
+                h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, t.username || '#' + t.userId),
                 // Fraud-signal chips on CSR tickets (batch 527). Same
                 // shape as the admin Tickets tab (batch 525).
                 h('td', { style: { fontSize: 11, whiteSpace: 'nowrap' } }, (() => {

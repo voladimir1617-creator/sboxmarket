@@ -1645,7 +1645,9 @@ export async function adminRemoveListing(id, reason) {
   });
 }
 export async function adminReportedListings() {
-  const data = await safeJson(`${API}/admin/listings/reported`);
+  // The server defaults to 50 rows; ask for its 200-row maximum so the queue
+  // past the 50th listing is not silently hidden.
+  const data = await safeJson(`${API}/admin/listings/reported?limit=200`);
   // null = the load failed; the queue must not read that as empty.
   return Array.isArray(data) ? data : null;
 }
