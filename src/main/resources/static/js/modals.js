@@ -9263,7 +9263,10 @@ function ProfileTradesTab({ me, privacy }) {
                 !automated && t.counterpartyTradeUrl && !['VERIFIED','CANCELLED'].includes(t.state) &&
                   h('div', { className: 'trade-counterparty-url' },
                     h('span', { className: 'trade-counterparty-label' },
-                      isSeller ? 'Send Steam offer to buyer' : 'Seller Steam URL'),
+                      // Once he has marked it sent, there is no offer left to send.
+                      isSeller
+                        ? (['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND'].includes(t.state) ? 'Send Steam offer to buyer' : 'Buyer Steam URL')
+                        : 'Seller Steam URL'),
                     h('a', {
                       className: 'trade-counterparty-link',
                       href: t.counterpartyTradeUrl,
