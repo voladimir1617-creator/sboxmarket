@@ -5414,6 +5414,18 @@ function BlockedListRow() {
   useEffect(() => { loadRows(); }, [loadRows]);
   // Per-row double-click latch, as on the Following list.
   const unblockBusyRef = useRef(new Set());
+  // The unblocked row (and its focused Unblock) unmounts; move focus to the
+  // Unblock now in its place, or the last one, as the Following list does.
+  const blockListRef = useRef(null);
+  const refocusUnblockRef = useRef(null);
+  useEffect(() => {
+    const idx = refocusUnblockRef.current;
+    if (idx == null) return;
+    refocusUnblockRef.current = null;
+    const btns = blockListRef.current?.querySelectorAll('[data-unblock]') || [];
+    const next = btns[Math.min(idx, btns.length - 1)];
+    if (next) next.focus();
+  }, [rows]);
   const doUnblock = async (userId) => {
     const key = Number(userId);
     if (unblockBusyRef.current.has(key)) return;
@@ -5430,6 +5442,9 @@ function BlockedListRow() {
         toast(res.message || res.error || 'Could not unblock', 'err');
         return;
       }
+      const shown = showAll ? (rows || []) : (rows || []).slice(0, 10);
+      const at = shown.findIndex(x => Number(x.blockedUserId) === key);
+      if (at >= 0 && blockListRef.current?.contains(document.activeElement)) refocusUnblockRef.current = at;
       setRows(rs => (rs || []).filter(r => Number(r.blockedUserId) !== key));
       toast(who ? `Unblocked @${who} — their listings are visible again.` : 'Unblocked.', 'ok');
     } finally { unblockBusyRef.current.delete(key); }
@@ -5472,7 +5487,7 @@ function BlockedListRow() {
         'aria-label': 'Unblock all users'
       }, '✕ all')
     ),
-    h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
+    h('div', { ref: blockListRef, className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
       (showAll ? rows : rows.slice(0, 10)).map(r => h('div', {
         key: r.blockedUserId,
         style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }
@@ -5486,6 +5501,7 @@ function BlockedListRow() {
           className: 'btn btn-ghost',
           style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
           onClick: () => doUnblock(r.blockedUserId),
+          'data-unblock': '',
           title: 'Remove this block',
           'aria-label': `Unblock ${r.displayName || ('User #' + r.blockedUserId)}`
         }, 'Unblock')
@@ -10854,8 +10870,11 @@ function ProfileReviewsTab({ me }) {
         e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
       }
     });
+    // The tab strip sits in a Fragment, as in the main branch's tabList, so
+    // React keeps the same tab buttons when the view switches and the
+    // focused tab isn't remounted (focus fell to the page on Pending).
     return h('div', null,
-      h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
+      h(React.Fragment, null, h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
         h('button', {
           className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
           onClick: () => setMode('received'),
@@ -10872,7 +10891,7 @@ function ProfileReviewsTab({ me }) {
           title: 'Trades you settled but never reviewed',
           ...pTab('pending')
         }, 'Pending', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, pending.length))
-      ),
+      )),
       pending.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
