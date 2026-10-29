@@ -12915,6 +12915,10 @@ html body .modal.item-page button.modal-demand-chip { flex-wrap: nowrap !importa
    message at full width. */
 html body .cart-list, html body .cart-list .cart-info, html body .cart-notice { text-align: left !important; }
 html body .cart-list .cart-info { align-items: flex-start !important; }
+/* flex-start lets the name grow to its content: on a phone a "NO LONGER AVAILABLE" /
+   "PRICE NOW" pill ran over the price. Hold it to the column and let the pill wrap. */
+html body .cart-list .cart-info > .cart-name { max-width: 100% !important; white-space: normal !important; }
+html body .cart-list .cart-info > .cart-name > span { display: inline-block !important; white-space: nowrap !important; }
 html body div.cart-notice.cart-notice > a.btn.btn-accent { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; padding: 8px 16px !important; font-size: 12px !important; }
 @media (max-width: 720px) {
   html body .cart-notice { flex-wrap: wrap !important; }
