@@ -4581,6 +4581,13 @@ export function App() {
     () => cart.some(it => cartFreshness[it.id] && !cartFreshness[it.id].active),
     [cart, cartFreshness]
   );
+  // The trade URL is only needed when a person ships a row by Steam
+  // trade. SkinBox's own listings (sellerUserId === null) resolve
+  // in-platform and the server skips the check for them
+  // (PurchaseService), so a cart of only those must not be blocked.
+  // A row not yet filled in (undefined) may be a person's: it counts.
+  const cartTradeUrlMissing = cart.some(it => it.sellerUserId !== null) &&
+    !(me && me.tradeUrl && String(me.tradeUrl).trim());
   const removeStaleCartRows = () => {
     const stale = cart.filter(it => cartFreshness[it.id] && !cartFreshness[it.id].active).map(it => it.id);
     setCart(c => c.filter(it => {
@@ -9734,7 +9741,7 @@ export function App() {
             // fires when the profile data is still loading (me == null
             // on anon is handled earlier; this is authenticated-but-
             // no-URL case).
-            me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+            me && cartTradeUrlMissing && h('div', {
               className: 'cart-notice',
               style: {
                 padding: 10, marginBottom: 12, borderRadius: 8,
@@ -10215,7 +10222,7 @@ export function App() {
         // a user cart-checks-out, every row succeeds money-side but the
         // seller can't fulfil — they'd have to cancel. Surface the
         // missing URL before the button click rather than after.
-        me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+        me && cartTradeUrlMissing && h('div', {
           style: {
             margin: '0 0 14px', padding: '10px 14px',
             background: 'rgba(250,204,21,0.1)',
@@ -10292,10 +10299,10 @@ export function App() {
             // checkout (the server rejects it per-row, but the "checkout
             // is paused until you remove them" promise would be broken).
             disabled: cartBusy || cart.length === 0 || cartTotal > parseFloat(wallet?.balance || 0) ||
-              !(me && me.tradeUrl && String(me.tradeUrl).trim()) || cartHasStale,
+              !me || cartTradeUrlMissing || cartHasStale,
             title: cartHasStale
               ? 'Remove the unavailable rows flagged above before checking out'
-              : !(me && me.tradeUrl && String(me.tradeUrl).trim())
+              : cartTradeUrlMissing
                 ? 'Add your Steam trade URL in Profile before checking out'
                 : undefined
           }, cartBusy ? 'Placing order…' : `Confirm · ${fmt(cartTotal)}`)
