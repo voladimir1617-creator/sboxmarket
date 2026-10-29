@@ -185,7 +185,7 @@ class ItemController {
         // closes the "refresh to inflate" abuse path while still
         // tracking genuine interest.
         try {
-            if (shouldBumpView(req, id)) {
+            if (!isCrawler(req) && shouldBumpView(req, id)) {
                 itemRepository.incrementViewCount(id)
             }
         } catch (Exception ignore) { /* best effort */ }
@@ -208,6 +208,18 @@ class ItemController {
      *  attacks trying to enumerate ids. Always returns true when the
      *  IP resolver can't identify the caller (best-effort, avoids
      *  penalising legitimate proxy-stripped traffic). */
+    /** Search-engine and link-preview bots that load item pages. Their loads
+     *  are not buyer interest, and the view count feeds the item's view chip
+     *  and the sitemap priority. */
+    private static final java.util.regex.Pattern CRAWLER_UA = java.util.regex.Pattern.compile(
+        '(?i)bot\\b|crawler|spider|slurp|bingpreview|facebookexternalhit|embedly|' +
+        'curl/|wget/|python-requests|httpclient|go-http-client')
+
+    static boolean isCrawler(HttpServletRequest req) {
+        def ua = req?.getHeader('User-Agent')
+        ua != null && CRAWLER_UA.matcher(ua).find()
+    }
+
     private boolean shouldBumpView(HttpServletRequest req, Long itemId) {
         def ip = clientIp(req)
         if (!ip || !itemId) return true

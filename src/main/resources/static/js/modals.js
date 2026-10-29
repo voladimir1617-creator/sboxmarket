@@ -13143,6 +13143,32 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         syncing ? 'Syncing…' : 'Sync Steam'
       )
     ),
+    // With the bot on, a Steam listing needs the seller's trade URL (the
+    // server refuses with TRADE_URL_MISSING). Say so before he picks and
+    // prices, with the buy side's banner and the server's own sentence.
+    source === 'steam' && custody.known && custody.shortLabel === 'escrow-protected' &&
+        me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+      'data-testid': 'sell-trade-url-needed',
+      style: {
+        margin: '0 0 14px', padding: '10px 14px',
+        background: 'rgba(250,204,21,0.08)',
+        border: '1px solid rgba(250,204,21,0.35)',
+        borderRadius: 8, color: '#fde68a',
+        fontSize: 13, lineHeight: 1.5,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap'
+      }
+    },
+      h('span', null,
+        h('strong', null, 'Steam trade URL needed.'),
+        ' Set your Steam trade URL in Profile before listing — our bot needs it to collect the item from you.'),
+      h('a', {
+        href: '/profile',
+        className: 'btn btn-accent',
+        style: { padding: '6px 14px', fontSize: 12, textDecoration: 'none' },
+        onClick: (e) => { e.stopPropagation(); onClose && onClose(); }
+      }, 'Open Profile')
+    ),
     // With the bot on, listing from Steam is a deposit: say how it works
     // before he picks anything, in the same box the sell form uses for what
     // happens after it sells.
