@@ -944,7 +944,8 @@ function NavOffersBadge() {
     const load = async () => {
       try {
         const d = await fetchOfferCounts();
-        if (alive) setCount(Number(d?.incomingPending || 0));
+        // Seller counters wait on this user as buyer, so they count too.
+        if (alive) setCount(Number(d?.incomingPending || 0) + Number(d?.countersAwaiting || 0));
       } catch (_) {}
     };
     load();
@@ -4156,9 +4157,13 @@ export function App() {
     const id = setInterval(() => { if (!document.hidden) load(); }, 60_000);
     const onVis = () => { if (!document.hidden) load(); };
     document.addEventListener('visibilitychange', onVis);
+    // An accept / counter / reject on /offers changes the offer count in
+    // this badge; without this it kept the old number until the next poll.
+    window.addEventListener('sb:offers-changed', load);
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('sb:offers-changed', load);
     };
   }, [me?.id]);
   // Pre-signin ToS + email modal state. Opens on the "Sign in through
@@ -6568,7 +6573,9 @@ export function App() {
                     if (seller) parts.push(`${seller} seller action${seller === 1 ? '' : 's'}`);
                     if (buyer)  parts.push(`${buyer} buyer action${buyer === 1 ? '' : 's'}`);
                     if (dispt)  parts.push(`${dispt} disputed trade${dispt === 1 ? '' : 's'}`);
+                    const ctrs   = (pendingActions.offerCounters || 0);
                     if (offers) parts.push(`${offers} incoming offer${offers === 1 ? '' : 's'}`);
+                    if (ctrs)   parts.push(`${ctrs} counter-offer${ctrs === 1 ? '' : 's'} to answer`);
                     if (chat)   parts.push(`${chat} unread message${chat === 1 ? '' : 's'}`);
                     if (revs)   parts.push(`${revs} trade${revs === 1 ? '' : 's'} to review`);
                     return parts.length > 0
@@ -6617,8 +6624,8 @@ export function App() {
                   // Combined seller+buyer+disputed+unread-chat+pending-reviews
                   // (batches 282, 338) — the number of things on the user's
                   // Profile page that need their attention. Matches the avatar
-                  // badge total minus the incomingOffers count (which has its
-                  // own per-item badge on Offers below).
+                  // badge total minus the incomingOffers + offerCounters counts
+                  // (which have their own per-item badge on Offers below).
                   pendingActions && ((pendingActions.sellerTrades || 0) + (pendingActions.buyerTrades || 0) + (pendingActions.disputedTrades || 0) + (pendingActions.unreadChat || 0) + (pendingActions.pendingReviews || 0)) > 0 &&
                     h('span', {
                       className: 'filter-count',
@@ -6635,12 +6642,13 @@ export function App() {
                 h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.offers(),        onClick: () => setMenuOpen(false) },
                   h(MaterialIcon, { name: 'swap_vert', size: 18, fill: true, color: 'var(--ink-2)' }),
                   'Offers',
-                  // Only incoming offers need the seller to take action — outgoing offers are waiting on the other party.
-                  pendingActions && (pendingActions.incomingOffers || 0) > 0 &&
+                  // Incoming offers and seller counters need this user's answer;
+                  // their own outgoing offers are waiting on the other party.
+                  pendingActions && ((pendingActions.incomingOffers || 0) + (pendingActions.offerCounters || 0)) > 0 &&
                     h('span', {
                       className: 'filter-count',
                       style: { marginLeft: 'auto', background: 'var(--red)', color: '#0b0f1a', fontWeight: 800 }
-                    }, pendingActions.incomingOffers)
+                    }, (pendingActions.incomingOffers || 0) + (pendingActions.offerCounters || 0))
                 ),
                 h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.buyorders(),     onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'bolt', size: 18, fill: true, color: 'var(--ink-2)' }), 'Buy Orders'),
                 h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.watchlist(),     onClick: () => setMenuOpen(false) },

@@ -115,17 +115,18 @@ class OfferControllerSpec extends Specification {
         resp.body.is(payload)
     }
 
-    def "counts() returns {incomingPending, outgoingPending}"() {
+    def "counts() returns {incomingPending, outgoingPending, countersAwaiting}"() {
         given:
         authedSession(100L)
         1 * offerService.countPendingIncoming(100L) >> 5L
         1 * offerService.countPendingOutgoing(100L) >> 2L
+        1 * offerService.countCountersAwaitingBuyer(100L) >> 1L
 
         when:
         def resp = controller.counts(req)
 
         then:
-        resp.body == [incomingPending: 5L, outgoingPending: 2L]
+        resp.body == [incomingPending: 5L, outgoingPending: 2L, countersAwaiting: 1L]
     }
 
     // ── mineForListing anon-tolerant path ──────────────────────

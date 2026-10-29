@@ -89,7 +89,9 @@ class OfferController {
         def uid = requireUser(req)
         ResponseEntity.ok([
             incomingPending: offerService.countPendingIncoming(uid),
-            outgoingPending: offerService.countPendingOutgoing(uid)
+            outgoingPending: offerService.countPendingOutgoing(uid),
+            // Seller counters the caller (as buyer) has to accept or decline.
+            countersAwaiting: offerService.countCountersAwaitingBuyer(uid)
         ])
     }
 
