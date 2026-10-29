@@ -11376,7 +11376,10 @@ function ProfileSupportTab() {
     const id = lastOpenedTicketRef.current;
     if (id == null) return;
     const row = document.querySelector(`tr[data-ticket-id="${id}"]`);
+    // A ticket resolved in the thread drops out of the Open filter, so its
+    // row is gone; land on New Ticket instead of losing focus to <body>.
     if (row) row.focus();
+    else newTicketBtnRef.current?.focus();
   }, [viewingId]);
   // Only the newest open commits: a slow answer for a ticket clicked
   // earlier used to land last and swap the thread (or reopen it after Back).
@@ -11558,7 +11561,7 @@ function ProfileSupportTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; setViewing(null); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; setViewing(null); load(); } }, '← Tickets'),
         h('div', { style: { flex: '1 1 200px', minWidth: 0 } },
           h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none', overflowWrap: 'anywhere' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))

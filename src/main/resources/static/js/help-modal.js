@@ -364,7 +364,9 @@ export function HelpModal({ onClose }) {
                 // across five FAQ rows can see where the match is without
                 // expanding every answer. Case-insensitive; rendered as a
                 // <mark> so screen-readers can optionally announce emphasis.
-                highlightMatch(item.q, q),
+                // One span: the button is a flex row with a gap, so bare
+                // text + <mark> pieces were spaced apart mid-word.
+                h('span', null, highlightMatch(item.q, q)),
                 h(MaterialIcon, { name: isOpen ? 'expand_less' : 'expand_more', size: 20 })
               ),
               // role=region needs a discernible name or axe flags it; point
