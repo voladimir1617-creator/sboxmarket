@@ -652,10 +652,15 @@ class ListingService {
         }
         // Tell other sellers of this item priced above it that they were
         // undercut. Skips itself while the listing waits on its deposit.
-        try {
-            sellerMarketPingService?.notifyUndercut(saved)
-        } catch (Exception e) {
-            log.warn("Undercut ping failed for listing ${saved.id}: ${e.message}")
+        // Deferred AFTER the tryMatch above (registered later, so it runs
+        // later) and reads the row back, so a listing a standing buy order
+        // just filled pings nobody about a copy that is already sold.
+        final Long _pingListingId = saved.id
+        if (sellerMarketPingService != null && _pingListingId != null) {
+            deferOrRun {
+                def current = listingRepository.findById(_pingListingId)?.orElse(null)
+                if (current != null) sellerMarketPingService.notifyUndercut(current)
+            }
         }
         // Fan out LISTING_MATCH to every user with a saved search that
         // matches the new listing (batch 266). Persistent presets become

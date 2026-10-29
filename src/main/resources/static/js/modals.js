@@ -2948,7 +2948,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   : `${belowAskPct.toFixed(1)}% below ask · save ${fmt(savings)}${autoThreshold > 0 ? ` · auto-accept at ${fmt(autoThreshold)}` : ''}`
               )
         ),
-        offerErr && h('div', { style: { color: 'var(--red)', fontSize: 12, marginTop: 6 } }, offerErr)
+        offerErr && h('div', { role: 'alert', style: { color: 'var(--red)', fontSize: 12, marginTop: 6 } }, offerErr)
       );
       })(),
       reportTarget && h(ReportListingDrawer, {
@@ -9245,6 +9245,8 @@ function ProfileTradesTab({ me, privacy }) {
                           return h('div', {
                             key: p.step,
                             className: `trade-phase ${p.step <= meta.step ? 'on' : ''} ${p.step === meta.step ? 'current' : ''} ${p.anchor ? 'anchor' : ''}`,
+                            // The current step was told apart by colour only.
+                            'aria-current': p.step === meta.step ? 'step' : undefined,
                             title: ts ? `${p.short} · ${ts}` : p.short
                           },
                             h('div', { className: 'trade-phase-dot' },

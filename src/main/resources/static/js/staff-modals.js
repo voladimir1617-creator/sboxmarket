@@ -910,6 +910,7 @@ function AdminAnnouncementsTab() {
         value: message,
         onChange: e => setMessage(e.target.value),
         maxLength: 500,
+        'aria-label': 'Banner message',
         placeholder: 'Message (3–500 chars). HTML tags are stripped server-side.',
         style: { width: '100%', minHeight: 72, padding: 10, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13, resize: 'vertical' }
       }),
@@ -928,6 +929,7 @@ function AdminAnnouncementsTab() {
           type: 'number',
           step: '0.5',
           min: '0',
+          'aria-label': 'Auto-expire in hours',
           placeholder: 'Auto-expire in Nh (blank = manual)',
           value: hours,
           onChange: e => setHours(e.target.value),
@@ -955,6 +957,7 @@ function AdminAnnouncementsTab() {
       h('input', {
         className: 'price-input',
         style: { width: '100%', marginBottom: 8 },
+        'aria-label': 'Broadcast title',
         placeholder: 'Title (required, max 120 chars)',
         value: bcTitle,
         maxLength: 120,
@@ -964,12 +967,14 @@ function AdminAnnouncementsTab() {
         value: bcBody,
         onChange: e => setBcBody(e.target.value),
         maxLength: 500,
+        'aria-label': 'Broadcast body',
         placeholder: 'Body (optional, max 500 chars) — shown under the title in the bell dropdown.',
         style: { width: '100%', minHeight: 60, padding: 10, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 12, resize: 'vertical', marginBottom: 8 }
       }),
       h('input', {
         className: 'price-input',
         style: { width: '100%', marginBottom: 10 },
+        'aria-label': 'Deep-link path',
         placeholder: 'Deep-link path (optional, must start with /, e.g. /help)',
         value: bcPath,
         maxLength: 200,
@@ -2668,6 +2673,7 @@ function AdminCatalogueTab() {
             h('input', {
               className: 'wallet-amount-input',
               type: 'number', step: '0.01', min: '0',
+              'aria-label': 'Steam price',
               placeholder: '0.00 (blank = clear)',
               value: draft.steamPrice,
               onChange: e => setDraft(d => ({ ...d, steamPrice: e.target.value }))
@@ -2690,6 +2696,7 @@ function AdminCatalogueTab() {
             h('input', {
               className: 'wallet-amount-input',
               type: 'url',
+              'aria-label': 'Image URL (https)',
               placeholder: 'https://…',
               value: draft.imageUrl,
               onChange: e => setDraft(d => ({ ...d, imageUrl: e.target.value }))
@@ -2699,6 +2706,7 @@ function AdminCatalogueTab() {
             h('div', { className: 'settings-label' }, 'Accent colour (#hex)'),
             h('input', {
               className: 'wallet-amount-input',
+              'aria-label': 'Accent colour (#hex)',
               placeholder: '#1ea5ff',
               value: draft.accentColor,
               onChange: e => setDraft(d => ({ ...d, accentColor: e.target.value }))
