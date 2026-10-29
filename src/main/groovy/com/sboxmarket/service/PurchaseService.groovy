@@ -364,11 +364,18 @@ class PurchaseService {
             // the buyer's Platform Inventory (Sell page). Pointing a system-
             // listing buyer at the empty Trades tab is the same mismatch the
             // success toast had.
-            notificationService.safePush(buyerUserId, 'ITEM_PURCHASED',
-                "Purchased ${listing.item.name}",
-                "Paid \$${listing.price.toPlainString()} from balance",
-                listing.id,
-                listing.sellerUserId != null ? '/profile?tab=trades' : '/sell')
+            // A P2P purchase already rang the buyer's TRADE_OPENED bell in
+            // TradeService.open (trade id + amount + trades link), so this
+            // second "Purchased" bell for the same click is only sent when
+            // no trade was opened (house listing, or no TradeService).
+            if (listing.sellerUserId == null || tradeService == null) {
+                def bell = NotificationService.claimActionBell(buyerUserId)
+                notificationService.safePush(buyerUserId, 'ITEM_PURCHASED',
+                    (bell?.title ?: "Purchased ${listing.item.name}") as String,
+                    (bell?.lead ?: "Paid \$${listing.price.toPlainString()} from balance") as String,
+                    listing.id,
+                    listing.sellerUserId != null ? '/profile?tab=trades' : '/sell')
+            }
             // For P2P trades, the seller notification is sent by
             // TradeService.open() as TRADE_REQUESTED — don't duplicate
             // it here with a premature TRADE_VERIFIED.

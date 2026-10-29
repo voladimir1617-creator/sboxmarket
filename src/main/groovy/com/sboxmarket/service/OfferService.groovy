@@ -1040,11 +1040,16 @@ class OfferService {
         listing.price = chargedPrice
         listingRepository.save(listing)
 
+        // The buyer's trade bell carries the offer wording (one bell for
+        // the acceptance, not "Offer accepted" + "Escrow opened").
+        // Skipped when the buyer accepted the seller's counter: see below.
+        Map buyerBell = (!buyerAcceptingCounter && offer.buyerUserId != null) ? [
+            title: "Offer accepted · ${offer.itemName ?: 'listing'}".toString(),
+            lead : "Your \$${offer.amount.toPlainString()} offer was accepted — a trade has been opened.".toString()
+        ] : null
         try {
-            if (botSkinChecked) {
-                purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId, null, true)
-            } else {
-                purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId)
+            NotificationService.withActionBells(buyerBell ? [(offer.buyerUserId): buyerBell] : [:]) {
+                purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId, null, botSkinChecked)
             }
         } catch (Exception e) {
             // Restore price if purchase fails
@@ -1081,7 +1086,7 @@ class OfferService {
         // Skipped when the buyer accepted the seller's counter: they took
         // the action themselves, and "your offer was accepted" would name
         // the seller's price as theirs.
-        if (!buyerAcceptingCounter && offer.buyerUserId != null && notificationService != null) {
+        if (!buyerAcceptingCounter && offer.buyerUserId != null && notificationService != null && !buyerBell?.used) {
             try {
                 notificationService.push(offer.buyerUserId, 'OFFER_ACCEPTED',
                     "Offer accepted · ${offer.itemName ?: 'listing'}",

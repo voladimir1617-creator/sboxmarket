@@ -710,20 +710,25 @@ class TradeService {
         def priceStr   = "\$${price.toPlainString()}"
         // Batch 631: safePush — a bell failure must not roll back the
         // escrow + money-held step. Both sides get the bell via safePush.
+        // A caller (offer accept, buy-order fill, auction close) may hand in
+        // its own title / lead sentence so each side gets ONE bell for the
+        // action: this one, which carries the trade id and the amount.
+        def buyerBell = notificationService != null ? NotificationService.claimActionBell(buyerUserId) : null
         notificationService?.safePush(buyerUserId, 'TRADE_OPENED',
-            "Escrow opened · ${itemName}",
-            botHeld
+            (buyerBell?.title ?: "Escrow opened · ${itemName}") as String,
+            NotificationService.joinActionBody(buyerBell, (botHeld
                 ? "${priceStr} held in escrow. Our bot is sending you the Steam offer."
                 : sellerUserId != null
                 ? "${priceStr} held in escrow until ${sellerName} sends the Steam offer."
-                : "${priceStr} held in escrow until the trade settles.",
+                : "${priceStr} held in escrow until the trade settles.") as String),
             trade.id, '/profile?tab=trades')
         if (sellerUserId != null) {
+            def sellerBell = notificationService != null ? NotificationService.claimActionBell(sellerUserId) : null
             notificationService?.safePush(sellerUserId, 'TRADE_REQUESTED',
-                "New sale · ${itemName}",
-                botHeld
+                (sellerBell?.title ?: "New sale · ${itemName}") as String,
+                NotificationService.joinActionBody(sellerBell, (botHeld
                     ? "${buyerName} bought it for ${priceStr}. Our bot holds your item and is delivering it; you're paid when the buyer accepts."
-                    : "${buyerName} bought it for ${priceStr}. Accept the trade and send the Steam offer to release funds.",
+                    : "${buyerName} bought it for ${priceStr}. Accept the trade and send the Steam offer to release funds.") as String),
                 trade.id, '/profile?tab=trades')
             // New-sale email (batch 564). The in-app bell push is great for
             // users actively on the site, but most sellers aren't in-app

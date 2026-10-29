@@ -1501,6 +1501,8 @@ class BidService {
             listingId:       listing.id
         ))
 
+        Map winnerBell = null
+        Map sellerBell = null
         // P2P escrow: auction wins go through the same trade flow as
         // BUY_NOW purchases so the seller must deliver before getting paid.
         // Without this, auction sellers were credited immediately with no
@@ -1530,19 +1532,27 @@ class BidService {
                         currency: 'USD'))
                 }
             }
-            tradeService.open(
-                listing.id,
-                listing.item?.id,
-                listing.item?.name,
-                winnerId,
-                wallet.id,
-                listing.sellerUserId,
-                sellerWallet?.id,
-                listing.currentBid
-            )
+            // One bell per side for the close: the trade's own bells (trade
+            // id + amount) carry the auction titles, so the winner no longer
+            // gets "You won" + "Escrow opened" and the seller "Auction sold"
+            // + "New sale".
+            winnerBell = [title: "You won · ${listing.item?.name}".toString()]
+            sellerBell = [title: "Auction sold · ${listing.item?.name ?: 'your auction'}".toString()]
+            NotificationService.withActionBells([(winnerId): winnerBell, (listing.sellerUserId): sellerBell]) {
+                tradeService.open(
+                    listing.id,
+                    listing.item?.id,
+                    listing.item?.name,
+                    winnerId,
+                    wallet.id,
+                    listing.sellerUserId,
+                    sellerWallet?.id,
+                    listing.currentBid
+                )
+            }
         }
 
-        notificationService.push(winnerId, 'AUCTION_WON',
+        if (!winnerBell?.used) notificationService.push(winnerId, 'AUCTION_WON',
             "You won · ${listing.item?.name}",
             "Final bid \$${listing.currentBid.toPlainString()}", listing.id,
             // A house auction (no seller) opens no trade: the item lands in
@@ -1555,7 +1565,7 @@ class BidService {
         // ending-soon push (AUCTION_ENDING) doesn't cover this since it
         // fires BEFORE the close. Deep-links to the trade so the seller
         // can immediately send the Steam offer.
-        if (listing.sellerUserId != null) {
+        if (listing.sellerUserId != null && !sellerBell?.used) {
             try {
                 notificationService.push(listing.sellerUserId, 'AUCTION_SOLD',
                     "Auction sold · ${listing.item?.name ?: 'your auction'}",
