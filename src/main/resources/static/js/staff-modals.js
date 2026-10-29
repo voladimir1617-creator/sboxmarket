@@ -2128,7 +2128,7 @@ function AdminAuditTab() {
               h('th', null, 'Summary'),
               h('th', null, 'IP')
             )),
-            h('tbody', null, displayRows.slice(0, 200).map(r => h('tr', { key: r.id },
+            h('tbody', null, displayRows.slice(0, 200).map(r => h('tr', { key: r.id, className: 'db-row' },
               h('td', { className: 'db-rank' }, timeAgo(r.createdAt)),
               h('td', { style: { fontSize: 10, fontWeight: 700, color: 'var(--accent)' } }, r.eventType),
               h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.actorName || (r.actorUserId ? '#' + r.actorUserId : 'system')),
@@ -2280,8 +2280,7 @@ function AdminDashboardTab({ onNavTab }) {
     // want that nobody lists. In memory only; no user is recorded.
     zeroSearches.length > 0 && h('div', { className: 'admin-activity', style: { marginTop: 20 } },
       h('div', { className: 'admin-activity-head' },
-        h('span', { className: 'section-title-dot' }),
-        'Searches with no results',
+        h('span', { className: 'section-title-dot', style: { marginBottom: 0 } }, 'Searches with no results'),
         h('span', { className: 'admin-activity-hint' }, 'since last restart · top 10')
       ),
       h('div', { className: 'admin-activity-list' },
@@ -2297,8 +2296,7 @@ function AdminDashboardTab({ onNavTab }) {
     // navigation target. Links to the Audit Log tab for drill-down.
     recent.length > 0 && h('div', { className: 'admin-activity', style: { marginTop: 20 } },
       h('div', { className: 'admin-activity-head' },
-        h('span', { className: 'section-title-dot' }),
-        'Recent activity',
+        h('span', { className: 'section-title-dot', style: { marginBottom: 0 } }, 'Recent activity'),
         h('span', { className: 'admin-activity-hint' }, 'live · last 10 events')
       ),
       h('div', { className: 'admin-activity-list' },
@@ -3550,7 +3548,7 @@ function AdminUsersTab({ me }) {
                     )),
                     h('tbody', null, detailData.transactions.map(tx => {
                       const inbound = tx.type === 'DEPOSIT' || tx.type === 'SALE' || tx.type === 'REFUND' || tx.type === 'ADJUSTMENT_CREDIT';
-                      return h('tr', { key: tx.id },
+                      return h('tr', { key: tx.id, className: 'db-row' },
                         h('td', { className: 'db-mono', style: { fontSize: 10, color: 'var(--text-muted)' } },
                           new Date(tx.createdAt).toLocaleString()),
                         h('td', { style: { fontSize: 11 } }, tx.type),
