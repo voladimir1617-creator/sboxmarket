@@ -4490,7 +4490,18 @@ export function App() {
       );
       if (goneIds.size === 0) return;
       setCart(c => c.filter(x => !goneIds.has(x.id)));
-      showToast(`${goneIds.size} item${goneIds.size === 1 ? '' : 's'} removed — sold before checkout`, 'err');
+      // Drop them from the server cart too (as removeStaleCartRows does),
+      // or the sync on the next load put the rows straight back.
+      if (me) {
+        (async () => {
+          try {
+            const { removeCartItem } = await import('./api.js');
+            for (const id of goneIds) await removeCartItem(id);
+          } catch (_) {}
+        })();
+      }
+      // Not "sold": a seller hiding or cancelling the listing lands here too.
+      showToast(`${goneIds.size} item${goneIds.size === 1 ? '' : 's'} removed — no longer available`, 'err');
     })();
     return () => { alive = false; };
   }, [routeName]);
