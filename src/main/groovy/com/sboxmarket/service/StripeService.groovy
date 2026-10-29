@@ -1410,7 +1410,11 @@ class StripeService {
             // The claim flipped the row to REVERSED but we can't find the wallet
             // to credit. Throw so @Transactional rolls the claim back and Stripe
             // retries — never leave a REVERSED row with no matching credit.
-            throw new IllegalStateException("transfer.reversed: wallet ${tx.walletId} not found for tx ${tx.id} — rolling back for retry")
+            // A plain RuntimeException, not IllegalState: the webhook
+            // controller ACKs IllegalState with 200 as a permanent failure,
+            // which would stop the very retry this throw exists to get
+            // (audit 2026-10-29, seller-payouts L1).
+            throw new RuntimeException("transfer.reversed: wallet ${tx.walletId} not found for tx ${tx.id} — rolling back for retry")
         }
         // Re-credit exactly what requestWithdrawal debited — the GROSS
         // `tx.amount`, not the net that was transferred.
@@ -2241,7 +2245,7 @@ class StripeService {
 
         switch (event.type) {
             case "checkout.session.completed":
-                def session = (Session) event.dataObjectDeserializer.object.orElse(null)
+                def session = (Session) webhookDataObject(event)
                 if (session != null) completeDeposit(session.id)
                 break
             // Delayed payment methods (SEPA Debit, ACH, Bacs, ...). For these
@@ -2250,15 +2254,15 @@ class StripeService {
             // and Stripe says so with the async events below. Without these
             // cases a paid deposit was never credited (2026-09-28 review).
             case "checkout.session.async_payment_succeeded":
-                def asyncPaid = (Session) event.dataObjectDeserializer.object.orElse(null)
+                def asyncPaid = (Session) webhookDataObject(event)
                 if (asyncPaid != null) completeDeposit(asyncPaid.id)
                 break
             case "checkout.session.async_payment_failed":
-                def asyncFailed = (Session) event.dataObjectDeserializer.object.orElse(null)
+                def asyncFailed = (Session) webhookDataObject(event)
                 if (asyncFailed != null) failTransaction(asyncFailed.id, "async_payment_failed")
                 break
             case "checkout.session.expired":
-                def session = (Session) event.dataObjectDeserializer.object.orElse(null)
+                def session = (Session) webhookDataObject(event)
                 if (session != null) failTransaction(session.id, "expired")
                 break
             case "payment_intent.succeeded":
@@ -2280,7 +2284,7 @@ class StripeService {
                 // Stripe retries. Re-runs are safe: the per-wallet alert
                 // dedupe (cardTestAlertedAt) in handlePaymentIntentFailed
                 // short-circuits repeat fan-outs within the window.
-                def pi = event.dataObjectDeserializer.object.orElse(null)
+                def pi = webhookDataObject(event)
                 if (pi != null) handlePaymentIntentFailed(pi as com.stripe.model.PaymentIntent)
                 break
             case "refund.created":
@@ -2300,7 +2304,7 @@ class StripeService {
                 // for Stripe retry. handleRefundCreated is idempotent on the
                 // refund id (existing-by-stripeReference check at line 672),
                 // so retries are safe.
-                def refund = (Refund) event.dataObjectDeserializer.object.orElse(null)
+                def refund = (Refund) webhookDataObject(event)
                 if (refund != null) handleRefundCreated(refund)
                 break
             case "charge.refunded":
@@ -2326,7 +2330,7 @@ class StripeService {
             // DISPUTED and admins were never notified. The handler's own
             // isFirstObservation gate (line 872) makes retries safe.
             case "charge.dispute.created":
-                def disputeOpened = (Dispute) event.dataObjectDeserializer.object.orElse(null)
+                def disputeOpened = (Dispute) webhookDataObject(event)
                 if (disputeOpened != null) handleChargebackOpened(disputeOpened)
                 break
             case "charge.dispute.closed":
@@ -2341,7 +2345,7 @@ class StripeService {
                 // wrapper. The WON branch's `tx.status == 'DISPUTED'` gate
                 // (line 1004) and the LOST branch's status check make the
                 // handler idempotent under retry.
-                def disputeClosed = (Dispute) event.dataObjectDeserializer.object.orElse(null)
+                def disputeClosed = (Dispute) webhookDataObject(event)
                 if (disputeClosed != null) handleChargebackClosed(disputeClosed)
                 break
             case "account.updated":
@@ -2354,7 +2358,7 @@ class StripeService {
                 // clears the seller. Idempotent: re-delivery of the same
                 // state is a no-op (handleAccountUpdated only saves on a
                 // real change).
-                def account = (com.stripe.model.Account) event.dataObjectDeserializer.object.orElse(null)
+                def account = (com.stripe.model.Account) webhookDataObject(event)
                 if (account != null) handleAccountUpdated(account)
                 break
             case "transfer.reversed":
@@ -2366,7 +2370,7 @@ class StripeService {
                 // a transient DB failure must propagate to a 500 so Stripe
                 // retries; handleTransferReversed is idempotent via the atomic
                 // COMPLETED→REVERSED claim, so re-delivery is safe.
-                def reversed = (com.stripe.model.Transfer) event.dataObjectDeserializer.object.orElse(null)
+                def reversed = (com.stripe.model.Transfer) webhookDataObject(event)
                 if (reversed != null) handleTransferReversed(reversed)
                 break
             default:
@@ -2394,6 +2398,45 @@ class StripeService {
         // is already cached) kept only to make the success path's intent
         // explicit at the bottom of the switch.
         markProcessed(event.id)
+    }
+
+    /**
+     * The data object of a webhook event we handle, or a throw.
+     *
+     * stripe-java 24.16.0 is pinned to API version 2023-10-16, and
+     * {@code getObject()} returns {@code Optional.empty()} whenever the event
+     * was rendered at any other version, which is the default for an endpoint
+     * created in the Dashboard today (audit 2026-10-29, buyer-deposits H1 /
+     * seller-payouts H1). Every case used to read {@code orElse(null)} and
+     * skip, so the event was claimed, ACKed 200 and never retried: deposits,
+     * Dashboard refunds, disputes and transfer reversals were all dropped
+     * without a trace.
+     *
+     * Falls back to {@code deserializeUnsafe()}, which reads the raw JSON
+     * with the SDK's model regardless of version. If that fails too, throws a
+     * plain RuntimeException (NOT IllegalState/IllegalArgument, which
+     * StripeWebhookController ACKs as permanent) so the controller returns
+     * 500, the @Transactional rolls the processed_stripe_events claim back,
+     * and Stripe retries. Only called from cases we handle, so an unknown
+     * event type still falls through to the 200 default.
+     */
+    private Object webhookDataObject(def event) {
+        def deserializer = event.dataObjectDeserializer
+        def obj = deserializer?.object?.orElse(null)
+        if (obj != null) return obj
+        try {
+            obj = deserializer?.deserializeUnsafe()
+        } catch (Exception e) {
+            log.error("Stripe webhook ${event.id} (${event.type}): deserializeUnsafe failed: ${e.message}")
+        }
+        if (obj == null) {
+            log.error("Stripe webhook ${event.id} (${event.type}): data object unreadable " +
+                      "(event api_version=${event.apiVersion}, SDK=${Stripe.API_VERSION}) — failing for Stripe retry")
+            throw new RuntimeException("Stripe webhook ${event.id} (${event.type}): data object could not be deserialized")
+        }
+        log.warn("Stripe webhook ${event.id} (${event.type}): API version mismatch " +
+                 "(event=${event.apiVersion}, SDK=${Stripe.API_VERSION}) — used deserializeUnsafe; pin the endpoint to the SDK version")
+        obj
     }
 
     /**
@@ -3745,15 +3788,33 @@ class StripeService {
      *  count as "awaiting" so the sweeper retries next tick instead of
      *  expiring a deposit it could not check. */
     protected boolean depositAwaitingAsyncPayment(Transaction tx) {
+        depositSweepVerdict(tx) == SWEEP_KEEP
+    }
+
+    static final String SWEEP_PAID   = 'PAID'
+    static final String SWEEP_KEEP   = 'KEEP'
+    static final String SWEEP_EXPIRE = 'EXPIRE'
+
+    /** What the 48h sweeper may do with a stale PENDING deposit, from one
+     *  Stripe lookup: PAID (Stripe took the money, so credit it, never
+     *  expire), KEEP (a delayed payment still settling, or Stripe could not
+     *  be asked this tick) or EXPIRE (not paid). Before the PAID verdict a
+     *  paid session whose webhook never landed read as "not awaiting" and
+     *  was expired, after which completeDeposit refused it forever (audit
+     *  2026-10-29, buyer-deposits H2). Outside live mode there is no Stripe
+     *  to ask and every row is EXPIRE, as before. */
+    protected String depositSweepVerdict(Transaction tx) {
         String ref = tx?.stripeReference
-        if (!isLive() || ref == null || !ref.startsWith('cs_')) return false
+        if (!isLive() || ref == null || !ref.startsWith('cs_')) return SWEEP_EXPIRE
         try {
             def session = Session.retrieve(ref)
-            return session != null && 'complete'.equalsIgnoreCase(session.status as String) &&
-                   'unpaid'.equalsIgnoreCase(session.paymentStatus as String)
+            if (session == null) return SWEEP_EXPIRE
+            if ('paid'.equalsIgnoreCase(session.paymentStatus as String)) return SWEEP_PAID
+            return ('complete'.equalsIgnoreCase(session.status as String) &&
+                    'unpaid'.equalsIgnoreCase(session.paymentStatus as String)) ? SWEEP_KEEP : SWEEP_EXPIRE
         } catch (Exception e) {
             log.warn("Deposit sweeper: could not check tx=${tx.id} at Stripe, keeping it PENDING this tick: ${e.message}")
-            return true
+            return SWEEP_KEEP
         }
     }
 
@@ -3778,8 +3839,26 @@ class StripeService {
                 // ~14 days. Expiring it here would make the later
                 // async_payment_succeeded webhook a no-op and strand paid
                 // money (2026-09-28 review). Leave it PENDING.
-                if (depositAwaitingAsyncPayment(tx)) {
+                String verdict = depositSweepVerdict(tx)
+                if (verdict == SWEEP_KEEP) {
                     log.info("Deposit sweeper: tx=${tx.id} is a completed checkout awaiting a delayed payment — not expiring")
+                    continue
+                }
+                // Paid at Stripe but never credited (webhook outage, wrong
+                // secret, API-version drop, closed tab). Credit it through
+                // completeDeposit, the same path and guards as the webhook:
+                // it re-verifies the session (paid, wallet, amount, currency)
+                // and only the PENDING→COMPLETED claim winner credits, so a
+                // webhook landing concurrently cannot double-credit. Never
+                // expire a paid row; if the credit is refused it stays
+                // PENDING for a human (2026-10-29 audit, buyer-deposits H2).
+                if (verdict == SWEEP_PAID) {
+                    try {
+                        runIsolated { completeDeposit(tx.stripeReference) }
+                        log.warn("Deposit sweeper: tx=${tx.id} was paid at Stripe but still PENDING — handed to completeDeposit (credits at most once)")
+                    } catch (Exception e) {
+                        log.error("Deposit sweeper: tx=${tx.id} is PAID at Stripe but could not be credited — leaving PENDING: ${e.message}", e)
+                    }
                     continue
                 }
                 // Multi-pod / out-of-band claim. See class-level comment

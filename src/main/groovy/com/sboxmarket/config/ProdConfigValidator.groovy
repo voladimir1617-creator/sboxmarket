@@ -319,6 +319,53 @@ class ProdConfigValidator implements EnvironmentPostProcessor, Ordered {
                 '(email CTAs and Stripe onboarding return URLs would be unreachable localhost links)'.toString())
         }
 
+        // The same localhost mistake on the other public URLs: Steam sign-in
+        // would send every user back to the operator's box, and Stripe would
+        // return buyers there after paying. CORS to localhost locks the real
+        // origin out of every signed-in write.
+        for (String var : ['STEAM_REALM', 'STEAM_RETURN_URL', 'STRIPE_SUCCESS_URL', 'STRIPE_CANCEL_URL', 'CORS_ALLOWED_ORIGINS']) {
+            String v = safeProperty(var)
+            if (v != null && (v.contains('localhost') || v.contains('127.0.0.1'))) {
+                violations.add("${var} points at localhost ('${v}') — refusing to start (set it to the public site address)".toString())
+            }
+        }
+
+        // Template placeholders (deploy/skinbox.env.example ships CHANGE_ME in
+        // each of these). A forgeable unsubscribe secret also forges Steam
+        // delivery codes, a CHANGE_ME admin list leaves the site with no admin,
+        // and a CHANGE_ME password is a published password. Values are not echoed.
+        for (String var : ['APP_UNSUBSCRIBE_SECRET', 'SPRING_DATASOURCE_PASSWORD', 'DB_PASSWORD',
+                           'ADMIN_BOOTSTRAP_STEAM_IDS', 'SMTP_PASSWORD', 'BOT_API_TOKEN']) {
+            String v = safeProperty(var)
+            if (v != null && v.toUpperCase().contains('CHANGE_ME')) {
+                violations.add("${var} still holds the template's CHANGE_ME placeholder — refusing to start (replace it with a real value)".toString())
+            }
+        }
+        String adminIds = safeProperty('ADMIN_BOOTSTRAP_STEAM_IDS')
+        if (adminIds && !adminIds.toUpperCase().contains('CHANGE_ME') &&
+                !adminIds.split(',').collect { it.trim() }.findAll { it }.every { it ==~ /7656119\d{10}/ }) {
+            violations.add('ADMIN_BOOTSTRAP_STEAM_IDS must be a comma-separated list of 17-digit Steam ID64s ' +
+                '(7656119…) — refusing to start (nobody would be made admin)'.toString())
+        }
+
+        // No mail server means every email goes to the server log only, and a
+        // seller cannot withdraw until their email is verified — so on prod no
+        // seller could ever cash out.
+        String smtpHost = safeProperty('spring.mail.host') ?: safeProperty('SMTP_HOST')
+        if (!smtpHost) {
+            violations.add('SMTP_HOST is missing — refusing to start (without a mail server no seller can verify ' +
+                'their email, and withdrawals need a verified email)'.toString())
+        }
+
+        // A bot address with no token boots fine and then fails every deposit,
+        // delivery and return at runtime: the bot refuses unauthenticated calls.
+        String botUrl = safeProperty('steam.bot.base-url') ?: safeProperty('STEAM_BOT_BASE_URL')
+        String botToken = safeProperty('steam.bot.api-token') ?: safeProperty('BOT_API_TOKEN')
+        if (botUrl && !botToken) {
+            violations.add('STEAM_BOT_BASE_URL is set but BOT_API_TOKEN is missing — refusing to start (every ' +
+                'bot call would be refused; use the same token as steam-bot/.env)'.toString())
+        }
+
         // 3) Hardening switches. application-prod.yml defaults each of these to
         //    the safe value; an env override can still turn one off. Each is
         //    checked both as the env var and as the resolved property, so a

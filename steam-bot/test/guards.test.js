@@ -47,7 +47,8 @@ test('the API token check is exact', () => {
 
 test('Steam failures map to stable codes, eresult first', () => {
   const e = (msg, eresult) => Object.assign(new Error(msg), eresult == null ? {} : { eresult });
-  assert.strictEqual(g.classifyError(e('x', 25)).code, 'RATE_LIMITED');
+  assert.strictEqual(g.classifyError(e('x', 25)).code, 'LIMIT_EXCEEDED');
+  assert.strictEqual(g.classifyError(e('x', 84)).code, 'RATE_LIMITED');
   assert.strictEqual(g.classifyError(e('x', 15)).code, 'BAD_TRADE_URL');
   assert.strictEqual(g.classifyError(e('x', 26)).code, 'INVENTORY_ERROR');
   assert.strictEqual(g.classifyError(e('x', 16)).code, 'STEAM_UNAVAILABLE');

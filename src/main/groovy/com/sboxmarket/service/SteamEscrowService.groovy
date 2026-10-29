@@ -444,14 +444,19 @@ class SteamEscrowService {
                 return
             }
             // The item never moved — cancelling costs the seller a listing and
-            // nothing else. Mark FAILED and leave the listing in PENDING_ESCROW
-            // (a separate staff/seller action can cancel it).
+            // nothing else. Mark FAILED and cancel the held listing too: left
+            // PENDING_ESCROW it still counted as live, so the "Re-list to try
+            // again" below was refused with ALREADY_LISTED and the seller was
+            // stuck until they found Cancel in My Stall.
             e.custodyState = EscrowedItem.FAILED
             e.lastError = "deposit offer ${res.status}"
             touch(e)
-            log.warn("SteamEscrow: deposit offer ${e.depositOfferId} for listing ${e.listingId} is terminal (${res.status})")
-            safeNotifySeller(e.sellerUserId, e.listingId,
-                    "Your deposit trade offer was ${res.status}, so your listing didn't go live. Re-list to try again.")
+            cancelHeldListing(e.listingId)
+            log.warn("SteamEscrow: deposit offer ${e.depositOfferId} for listing ${e.listingId} is terminal (${res.status}); listing cancelled")
+            if (e.returnRequestedAt == null) {
+                safeNotifySeller(e.sellerUserId, e.listingId,
+                        "Your deposit trade offer was ${res.status}, so your listing didn't go live. Re-list to try again.")
+            }
             return
         }
 
@@ -513,6 +518,18 @@ class SteamEscrowService {
         e.custodyState = EscrowedItem.IN_CUSTODY
         e.lastError = null
         touch(e)
+        if (e.returnRequestedAt != null) {
+            // The seller cancelled the listing before accepting the deposit
+            // offer (returnToSeller). IN_CUSTODY plus returnRequestedAt is the
+            // return sweep's queue, which sends the skin straight back; the
+            // listing stays cancelled and the seller is not told it is live.
+            log.info("SteamEscrow: listing ${e.listingId} deposit arrived after the seller cancelled; " +
+                    "IN_CUSTODY (held ${held}), queued for return")
+            safeNotifySeller(e.sellerUserId, e.listingId,
+                    "We received your item after you cancelled this listing, so our bot is sending it back to you. " +
+                    "Accept the Steam offer from our bot to receive it.")
+            return
+        }
         // Make the listing buyable: PENDING_ESCROW -> ACTIVE.
         activateListing(e.listingId)
         log.info("SteamEscrow: listing ${e.listingId} item now IN_CUSTODY (held asset ${held}); listing activated")
@@ -587,9 +604,11 @@ class SteamEscrowService {
      * Gated on {@link #escrowSweepEnabled} AND {@link #isEscrowEnabled} exactly
      * like {@link #pollDeposits}, so it is a complete no-op when the Steam bot
      * is unconfigured (STEAM_BOT_BASE_URL unset — dev / test / CI, or prod
-     * before the bot host is live). It touches NO bot network APIs at all (a
-     * timed-out deposit means the asset never reached the bot — there's nothing
-     * to return), only the local custody + listing tables.
+     * before the bot host is live). Its one bot call cancels the row's Steam
+     * deposit offer before the row is failed (see {@link #depositOfferDead}):
+     * the row is failed only once Steam says the offer can no longer be
+     * accepted, and an offer the seller already accepted is confirmed as a
+     * deposit instead.
      *
      * NOT @Transactional — like StripeService.sweepStalePendingDeposits this
      * runs per-row atomic conditional UPDATEs (multi-pod claim) rather than a
@@ -638,6 +657,11 @@ class SteamEscrowService {
                             "holdEnds=${e.escrowEndsAt}). Handled by the escrow-hold sweep instead.")
                     continue
                 }
+                // Kill the Steam offer BEFORE giving up on the row. The bot's
+                // offers stay acceptable for 14 days, so a row failed while its
+                // offer was still open let the seller accept on day 2 and
+                // hand the skin to the bot with nothing tracking it.
+                if (!depositOfferDead(e)) continue
                 // Multi-pod / out-of-band claim. Flips custody
                 // PENDING_DEPOSIT→FAILED only if the row is still
                 // PENDING_DEPOSIT — a sibling pod, or a last-second
@@ -659,12 +683,37 @@ class SteamEscrowService {
                 // already FAILED, so the row won't be re-swept.
                 cancelHeldListing(e.listingId)
                 safeNotifySeller(e.sellerUserId, e.listingId,
-                        "Your listing didn't go live — we never received your item within ${depositTimeoutHours}h, so the listing was cancelled. Re-list and accept the bot's Steam trade offer to try again.")
+                        "Your listing didn't go live — we never received your item within ${depositTimeoutHours}h, so the listing was cancelled and our old Steam trade offer withdrawn. Re-list and accept the new trade offer from our bot to try again.")
             } catch (Exception ex) {
                 log.warn("SteamEscrow: stale-deposit sweep failed on escrow=${e?.id}: ${ex.message}")
             }
         }
         log.info("SteamEscrow: stale-deposit sweep failed ${failed} of ${stale.size()} candidate(s) (rest claimed by sibling pods or deposited last-second)")
+    }
+
+    /**
+     * Before a pending deposit is given up on: make sure its Steam offer can
+     * no longer be accepted. True when there is no offer, or Steam says it is
+     * cancelled (now or already: declined / expired / canceled). False, with
+     * the row left PENDING_DEPOSIT for a later tick, when the cancel failed,
+     * or when the seller had already accepted it: that row is routed down the
+     * ordinary accept path ({@link #confirmDeposit}) instead of being failed.
+     */
+    private boolean depositOfferDead(EscrowedItem e) {
+        String offerId = e.depositOfferId?.trim()
+        if (!offerId) return true
+        SteamBotResult c = steamTradeBotService.cancelOffer(offerId)
+        if (c.offerCancelled) return true
+        if (c.offerAlreadyAccepted) {
+            log.warn("SteamEscrow: escrow=${e.id} listing=${e.listingId} deposit offer ${offerId} was already " +
+                    "${c.status ?: 'accepted'} when we went to cancel it — treating it as received")
+            confirmDeposit(e.id)
+            return false
+        }
+        touchError(e, "deposit offer ${offerId} not cancelled (${c.errorCode}: ${c.message}); retrying")
+        log.warn("SteamEscrow: could not cancel deposit offer ${offerId} for escrow=${e.id} listing=${e.listingId}: " +
+                "${c.errorCode} ${c.message}; row left PENDING_DEPOSIT and retried next sweep")
+        return false
     }
 
     // -----------------------------------------------------------------------
@@ -783,6 +832,16 @@ class SteamEscrowService {
         if (!firstEntry) return
         log.info("SteamEscrow: listing ${e.listingId} skin received, IN_TRADE_PROTECTION " +
                 "(escrow=${e.id} held=${e.heldAssetId} until=${until ?: 'tradable'})")
+        if (e.returnRequestedAt != null) {
+            // Cancelled before the deposit was accepted: the release sweep
+            // hands it to the return sweep, so do not promise a live listing.
+            safeNotifySeller(e.sellerUserId, e.listingId, until != null
+                    ? "We received your item after you cancelled this listing. Steam's Trade Protection stops our bot " +
+                      "sending it until ${until}; it comes straight back to you then."
+                    : "We received your item after you cancelled this listing. It comes straight back to you as soon " +
+                      "as Steam lets our bot send it.")
+            return
+        }
         safeNotifySeller(e.sellerUserId, e.listingId, until != null
                 ? "We've received your item. Steam lets any trade be reversed for a week, so your listing goes live " +
                   "on ${until}, automatically."
@@ -899,6 +958,14 @@ class SteamEscrowService {
         EscrowedItem e = escrowRepository.findByListingId(listingId)
         if (e == null) return false
 
+        // Cancelled before the deposit landed. Doing nothing here left the
+        // bot's offer open in the seller's Steam: accepting it later moved the
+        // skin into the bot against a cancelled listing, told the seller the
+        // listing was live, and nothing ever sent it back.
+        if (e.custodyState == EscrowedItem.PENDING_DEPOSIT) {
+            return abandonPendingDeposit(e, listingId, reason)
+        }
+
         // A deposit inside a Steam trade hold cannot be handed back yet — the
         // bot does not have the item, Steam does, and no trade offer the bot
         // sends can move it before the hold expires. But the seller has asked
@@ -967,6 +1034,55 @@ class SteamEscrowService {
             touch(e)
         }
         return attemptReturn(e, reason)
+    }
+
+    /**
+     * The seller cancelled a listing whose deposit has not landed.
+     *
+     * The return intent ({@code returnRequestedAt}) is stamped first, so
+     * whatever happens next the skin is owed back: if the offer was (or gets)
+     * accepted, confirmDeposit and the Trade Protection release put the row
+     * IN_CUSTODY, where {@link #sweepPendingReturns} sends it back. Then:
+     *   - accepted already ({@code depositAcceptedAt}): nothing more to do;
+     *   - an offer is out: cancel it in Steam. Dead -> FAILED, done. Already
+     *     accepted -> stays PENDING_DEPOSIT for the confirm poller. Cancel
+     *     failed -> stays PENDING_DEPOSIT; the 24h timeout sweep cancels it;
+     *   - no offer yet: FAILED, so the unsent-deposit sweep never sends one.
+     */
+    private boolean abandonPendingDeposit(EscrowedItem e, Long listingId, String reason) {
+        if (e.returnRequestedAt == null) {
+            e.returnRequestedAt = System.currentTimeMillis()
+            touch(e)
+        }
+        if (e.depositAcceptedAt != null) {
+            log.info("SteamEscrow: return requested for listing ${listingId} after its deposit was accepted " +
+                    "(escrow=${e.id}) — queued; it goes back once it lands (${reason})")
+            return false
+        }
+        String offerId = e.depositOfferId?.trim()
+        if (offerId) {
+            SteamBotResult c = steamTradeBotService.cancelOffer(offerId)
+            if (c.offerAlreadyAccepted) {
+                log.info("SteamEscrow: listing ${listingId} cancelled but deposit offer ${offerId} was already " +
+                        "${c.status ?: 'accepted'} — the skin goes back to seller ${e.sellerUserId} once it lands (${reason})")
+                safeNotifySeller(e.sellerUserId, listingId,
+                        "Your listing is cancelled. You had already accepted our bot's trade offer, so we'll send " +
+                        "the item straight back to you once it reaches us — you don't need to do anything.")
+                return false
+            }
+            if (!c.offerCancelled) {
+                touchError(e, "listing cancelled; deposit offer ${offerId} not cancelled yet (${c.errorCode}: ${c.message})")
+                log.warn("SteamEscrow: listing ${listingId} cancelled but deposit offer ${offerId} could not be " +
+                        "cancelled (${c.errorCode} ${c.message}); the timeout sweep retries, and an accept is sent back")
+                return false
+            }
+        }
+        // The offer is dead (or never existed), so no accept can race this.
+        e.custodyState = EscrowedItem.FAILED
+        touchError(e, "listing cancelled before the deposit (${reason})".toString())
+        log.info("SteamEscrow: listing ${listingId} cancelled before deposit; " +
+                "${offerId ? "offer ${offerId} cancelled, " : ''}custody FAILED (escrow=${e.id})")
+        return false
     }
 
     /**
@@ -1215,6 +1331,20 @@ class SteamEscrowService {
                 SteamBotResult res = steamTradeBotService.requestItems(
                         tradeUrl, [(fresh.assetId ?: '').trim()], messageFor(fresh))
                 if (res.ok) {
+                    // The listing may have been cancelled (row FAILED) while
+                    // the bot was sending. Saving `fresh` would put it back to
+                    // PENDING_DEPOSIT; withdraw the offer just sent instead.
+                    EscrowedItem current = escrowRepository.findById(fresh.id).orElse(null)
+                    if (current != null && current.custodyState != EscrowedItem.PENDING_DEPOSIT) {
+                        SteamBotResult c = steamTradeBotService.cancelOffer(res.offerId)
+                        log.warn("SteamEscrow: escrow=${fresh.id} became ${current.custodyState} while its deposit was " +
+                                "re-requested; offer ${res.offerId} cancel: ${c.offerCancelled ? 'cancelled' : (c.status ?: c.errorCode)}")
+                        if (c.offerAlreadyAccepted) {
+                            log.error("SteamEscrow: escrow=${fresh.id} listing=${fresh.listingId} deposit offer " +
+                                    "${res.offerId} was accepted although the listing is gone; check the bot inventory")
+                        }
+                        continue
+                    }
                     fresh.depositOfferId = res.offerId
                     fresh.lastError = null
                     touch(fresh)
@@ -1575,7 +1705,7 @@ class SteamEscrowService {
             if (l != null && l.status == STATUS_PENDING_ESCROW) {
                 l.status = STATUS_CANCELLED
                 listingRepository.save(l)
-                log.info("SteamEscrow: listing ${listingId} reverted PENDING_ESCROW -> CANCELLED (deposit timed out)")
+                log.info("SteamEscrow: listing ${listingId} reverted PENDING_ESCROW -> CANCELLED (deposit never landed)")
             }
         } catch (Exception e) {
             log.warn("SteamEscrow: could not cancel held listing ${listingId}: ${e.message}")

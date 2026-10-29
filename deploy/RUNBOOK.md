@@ -228,7 +228,10 @@ Every `CHANGE_ME` must be replaced. The ones that block boot, and what each must
 | `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` | real credentials |
 | `APP_UNSUBSCRIBE_SECRET` | `openssl rand -base64 48` — never the committed placeholder |
 | `APP_PUBLIC_URL` | `https://skinbox.market` — **must not contain `localhost`** |
-| `CORS_ALLOWED_ORIGINS`, `ADMIN_BOOTSTRAP_STEAM_IDS`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STEAM_REALM`, `STEAM_RETURN_URL` | already correct in the template |
+| `ADMIN_BOOTSTRAP_STEAM_IDS` | the owner's 17-digit Steam ID64 (the template ships `CHANGE_ME`, which is refused) |
+| `SMTP_HOST` / `SMTP_USERNAME` / `SMTP_PASSWORD` | a real mail relay — required: without it no seller can verify an email, so nobody can withdraw |
+| `STEAM_BOT_BASE_URL` / `BOT_API_TOKEN` | only when the bot runs; the token must equal `BOT_API_TOKEN` in `steam-bot/.env` (a URL with no token is refused) |
+| `CORS_ALLOWED_ORIGINS`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STEAM_REALM`, `STEAM_RETURN_URL` | already correct in the template (none may point at localhost) |
 
 **Do not invent a placeholder to "get past" a startup error.** A plausible `sk_live_` value
 flips the service into live mode, where it behaves as though payments work right up until

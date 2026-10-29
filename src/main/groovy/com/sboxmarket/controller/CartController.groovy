@@ -83,7 +83,7 @@ class CartController {
         if (rawExpected instanceof Map) {
             rawExpected.each { k, v ->
                 try {
-                    expectedPrices[Long.valueOf(k.toString())] = new BigDecimal(v.toString())
+                    expectedPrices[Long.valueOf(k.toString())] = com.sboxmarket.util.MoneyParse.parse(v, 'expectedPrice')
                 } catch (Exception ignored) {
                     // Silently drop malformed entries — client freshness
                     // probe is best-effort; a bad token shouldn't 400 the

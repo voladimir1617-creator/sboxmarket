@@ -188,6 +188,9 @@ class TradeService {
     // so a deployment with no bot behaves exactly as it did before.
     @Autowired(required = false) com.sboxmarket.repository.SteamDeliveryAttemptRepository steamDeliveryAttemptRepository
     @Autowired(required = false) SteamTradeBotService steamTradeBotService
+    // Optional — cancels the bot's live Steam delivery offer before any refund,
+    // and refuses the refund when the buyer already accepted it.
+    @Autowired(required = false) BotDeliveryOfferGuard botDeliveryOfferGuard
     // Optional — the Trade Protection add-on. When a trade carries a
     // protection record, the dispute / timeout-loss paths auto-claim it
     // (full item-price refund to the buyer, no support ticket) and the
@@ -1204,6 +1207,12 @@ class TradeService {
                     "Auto-claim refused on buyer-filed dispute: Steam delivery log records " +
                     "offerState='${receivedState}' for trade #${t.id}, i.e. the buyer received the " +
                     "item. Cover left ACTIVE and escrow frozen for staff resolution.")
+            } else if (!deliveryOfferDeadBeforeClaim(t)) {
+                // The bot's offer could still be (or was just) accepted:
+                // paying the cover now would hand the buyer item and money.
+                auditService?.log(AuditService.TRADE_PROTECTION_CLAIM_REFUSED, null, t.buyerUserId, t.id,
+                    "Auto-claim withheld on buyer-filed dispute: our bot's Steam delivery offer for trade " +
+                    "#${t.id} was accepted or could not be cancelled. Cover left ACTIVE for staff resolution.")
             } else {
                 try {
                     tradeProtectionService?.autoClaim(t.id, 'Trade disputed by buyer')
@@ -1300,6 +1309,11 @@ class TradeService {
                 "Our bot has already sent the Steam trade offer for this trade. " +
                 "If something is wrong, open a dispute instead.")
         }
+        // Any actor, any state: a refund must not leave our bot's Steam
+        // delivery offer open for the buyer to accept afterwards. Cancels it
+        // first; throws OFFER_ALREADY_ACCEPTED / OFFER_CANCEL_FAILED instead
+        // of refunding when it was accepted or cannot be cancelled.
+        botDeliveryOfferGuard?.requireNoLiveOfferBeforeRefund(t)
 
         // Anti-double-payout guard. If this trade was disputed first,
         // dispute() already fired Trade Protection's autoClaim — which
@@ -1385,20 +1399,10 @@ class TradeService {
         // from THEIR perspective.
         fireTradeCancelledEmail(t, cleanReason, 'buyer')
         fireTradeCancelledEmail(t, cleanReason, 'seller')
-        // Trade Protection — the buyer is whole either way: this cancel
-        // refunded the escrowed item price via refundBuyer() above
-        // (unprotected / unclaimed trades), OR the protection already
-        // paid out at dispute time (the alreadyPaidByProtection branch).
-        // So the protection must NOT pay out again — expire the cover.
-        // expire() is a correct no-op on an already-CLAIMED protection
-        // (status != ACTIVE → returns early), so this single call is
-        // safe for both paths. Best-effort so a protection hiccup can't
-        // roll back the refund + CANCELLED transition.
-        try {
-            tradeProtectionService?.expire(t.id)
-        } catch (Exception e) {
-            log.warn("Protection expire failed for cancelled trade ${t.id}: ${e.message}")
-        }
+        // Trade Protection cover is consumed by the arbiter at the top of
+        // this method (ACTIVE → EXPIRED under the row lock), exactly like
+        // the two auto-cancel paths. No separate expire() here: it runs in
+        // REQUIRES_NEW and would block forever on the row lock this tx holds.
         t
     }
 
@@ -2147,6 +2151,21 @@ class TradeService {
         }
     }
 
+    /** Before a protection auto-claim pays a disputing buyer: true unless the
+     *  trade has an ACTIVE cover and our bot's delivery offer is accepted or
+     *  could not be cancelled. An unprotected trade's offer is left alone. */
+    private boolean deliveryOfferDeadBeforeClaim(Trade t) {
+        if (botDeliveryOfferGuard == null || tradeProtectionService == null) return true
+        try {
+            if (tradeProtectionService.findForTrade(t.id)?.status != com.sboxmarket.model.TradeProtection.ACTIVE) return true
+        } catch (Exception e) {
+            return true
+        }
+        def r = botDeliveryOfferGuard.cancelLiveOffer(t)
+        if (!r.safeToRefund) log.warn("Trade #{}: protection auto-claim withheld, bot delivery offer {}", t.id, r)
+        return r.safeToRefund
+    }
+
     protected String acceptedDeliveryStateFor(Trade t) {
         try {
             if (t?.id == null) return null
@@ -2344,6 +2363,14 @@ class TradeService {
      *  stays in PENDING_BUYER_CONFIRM for the next tick to refund again. */
     @Transactional
     protected void autoCancelBannedSellerTrade(Trade trade) {
+        // Same rule as cancel(): no refund while the bot's Steam offer could
+        // still be (or was) accepted. Held for staff instead.
+        def offer = botDeliveryOfferGuard?.cancelLiveOffer(trade)
+        if (offer != null && !offer.safeToRefund) {
+            log.warn("Trade #{}: banned-seller refund withheld, bot delivery offer {}", trade.id, offer)
+            parkUndeliveredTrade(trade)
+            return
+        }
         // Trade Protection arbiter (batch 1083) — same fix as
         // autoCancelStaleSellerTrade: hold the protection row lock while
         // deciding refund-vs-skip so a concurrent dispute autoClaim can't

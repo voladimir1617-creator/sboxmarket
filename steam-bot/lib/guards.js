@@ -122,18 +122,55 @@ const ERESULT = {
   RateLimitExceeded: 84, AccountLoginDeniedThrottle: 87, TwoFactorCodeMismatch: 88,
 };
 
+// steam-tradeoffer-manager sets err.cause on a few send failures whose message
+// carries no eresult (lib/helpers.js makeAnError). The cause says more than the
+// eresult or the text, so it is read first.
+const CAUSE_CODES = {
+  TradeBan: 'TRADE_BANNED_OR_UNTRADABLE',          // partner is trade banned: retrying never helps
+  TargetCannotTrade: 'TRADE_BANNED_OR_UNTRADABLE', // partner's account cannot trade
+  OfferLimitExceeded: 'LIMIT_EXCEEDED',            // too many offers outstanding; clears as they settle
+  ItemServerUnavailable: 'STEAM_UNAVAILABLE',
+};
+
+/** Steam's eresult as a number. steamcommunity's inventory reader stores it as
+ *  the regex-captured STRING (users.js: err.eresult = match[2]), which a plain
+ *  typeof-number check dropped, leaving the text fallback to decide. */
+function eresultOf(err) {
+  if (!err) return null;
+  if (typeof err.eresult === 'number') return err.eresult;
+  if (typeof err.eresult === 'string' && /^\d{1,4}$/.test(err.eresult)) return Number(err.eresult);
+  return null;
+}
+
 /**
  * Normalise a Steam/network failure into { code, message, retryable } for the
- * backend. Steam's numeric eresult is trusted before the message text, which
- * changes between library versions.
+ * backend. steam-tradeoffer-manager's err.cause is read first, then Steam's
+ * numeric eresult, then the message text, which changes between library
+ * versions.
+ *
+ * Two mappings the old classifier got wrong:
+ *   - eresult 25 (LimitExceeded) was RATE_LIMITED (HTTP 429). On a trade offer
+ *     the library itself tags it OfferLimitExceeded ("sent too many trade
+ *     offers"), and Steam also uses it for a full partner inventory: neither
+ *     is request throttling. It is LIMIT_EXCEEDED now. It stays retryable,
+ *     because both clear on their own and the backend halts a non-retryable
+ *     delivery until the trade URL or asset changes, stranding a sold item.
+ *   - any message containing "inventory" was INVENTORY_ERROR and FINAL. Only
+ *     eresult 26 (Revoked: the asset is gone) is final now; an inventory
+ *     failure known only from its text (e.g. a Steam 500 while loading the
+ *     inventory) is retryable.
  */
 function classifyError(err) {
   const msg = (err && err.message ? err.message : String(err)) || 'unknown error';
-  const eresult = err && typeof err.eresult === 'number' ? err.eresult : null;
+  const eresult = eresultOf(err);
+  const cause = err && typeof err.cause === 'string' ? err.cause : null;
   let code = 'ERROR';
-  if (eresult === ERESULT.LimitExceeded || eresult === ERESULT.RateLimitExceeded) code = 'RATE_LIMITED';
+  let finalInventory = false;
+  if (cause && CAUSE_CODES[cause]) code = CAUSE_CODES[cause];
+  else if (eresult === ERESULT.LimitExceeded) code = 'LIMIT_EXCEEDED';
+  else if (eresult === ERESULT.RateLimitExceeded) code = 'RATE_LIMITED';
   else if (eresult === ERESULT.AccessDenied) code = 'BAD_TRADE_URL';
-  else if (eresult === ERESULT.Revoked) code = 'INVENTORY_ERROR';
+  else if (eresult === ERESULT.Revoked) { code = 'INVENTORY_ERROR'; finalInventory = true; }
   else if (eresult === ERESULT.Timeout || eresult === ERESULT.ServiceUnavailable || eresult === ERESULT.Busy) code = 'STEAM_UNAVAILABLE';
   else if (eresult === ERESULT.InvalidState) code = 'TRADE_BANNED_OR_UNTRADABLE';
   else if (/rate limit|too many requests|\b429\b/i.test(msg)) code = 'RATE_LIMITED';
@@ -142,8 +179,50 @@ function classifyError(err) {
   else if (/inventory/i.test(msg)) code = 'INVENTORY_ERROR';
   else if (/revoked|not logged|cookies|session/i.test(msg)) code = 'NOT_READY';
   else if (/timed? ?out|ETIMEDOUT|ECONNRESET|EAI_AGAIN|socket hang up|\b5\d\d\b/i.test(msg)) code = 'STEAM_UNAVAILABLE';
-  const retryable = code === 'RATE_LIMITED' || code === 'STEAM_UNAVAILABLE' || code === 'NOT_READY' || code === 'ERROR';
+  const retryable = code === 'RATE_LIMITED' || code === 'STEAM_UNAVAILABLE' || code === 'NOT_READY' ||
+    code === 'ERROR' || code === 'LIMIT_EXCEEDED' || (code === 'INVENTORY_ERROR' && !finalInventory);
   return { code, message: msg, retryable };
+}
+
+// Addresses the HTTP API may bind to without an explicit opt-in. Shared with
+// fake-bot.js, which has refused anything else from the start.
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
+
+/**
+ * null when BOT_HOST is fine, else the problem to report. The trade API has
+ * only the bearer token in front of it, and /health (no token) shows the bot's
+ * SteamID and last error, so a non-loopback bind needs BOT_ALLOW_REMOTE=yes.
+ */
+function bindHostProblem(host, allowRemote) {
+  const h = String(host == null ? '' : host).trim().toLowerCase();
+  if (LOOPBACK_HOSTS.has(h)) return null;
+  if (String(allowRemote == null ? '' : allowRemote).trim() === 'yes') return null;
+  return 'BOT_HOST="' + host + '" is not a loopback address (127.0.0.1, ::1, localhost). The bot ' +
+    'API would be reachable from the network with only BOT_API_TOKEN in front of it, and /health ' +
+    'needs no token at all. Use BOT_HOST=127.0.0.1, or set BOT_ALLOW_REMOTE=yes if a private-' +
+    'network bind is really intended.';
+}
+
+/** Body of the 401 on a bad token. A wrong token is a CONFIGURATION error: the
+ *  same request fails the same way until someone fixes BOT_API_TOKEN on one
+ *  side, so the backend must not retry it (SteamBotResult reads retryable). */
+const UNAUTHORIZED_BODY = Object.freeze({
+  ok: false,
+  error: 'unauthorized',
+  configError: true,
+  retryable: false,
+  message: 'missing or wrong bearer token: BOT_API_TOKEN must be the same value in the app and the bot',
+});
+
+/** Express middleware: bearer token on every route except /health. */
+function requireToken(expected) {
+  return (req, res, next) => {
+    if (req.path === '/health') return next();
+    if (!tokenMatches(req.get('authorization') || '', expected)) {
+      return res.status(401).json(Object.assign({}, UNAUTHORIZED_BODY));
+    }
+    return next();
+  };
 }
 
 /** HTTP status for a classified send/accept failure. */
@@ -170,4 +249,8 @@ module.exports = {
   tokenMatches,
   classifyError,
   httpStatusFor,
+  LOOPBACK_HOSTS,
+  bindHostProblem,
+  UNAUTHORIZED_BODY,
+  requireToken,
 };

@@ -171,18 +171,17 @@ class OfferController {
         if (raw == null) {
             throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount is required")
         }
-        try {
-            def bd = new BigDecimal(raw.toString())
-            if (bd.signum() <= 0) {
-                throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be greater than 0")
-            }
-            if (bd > new BigDecimal("1000000")) {
-                throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount exceeds the \$1,000,000 limit")
-            }
-            return bd
-        } catch (NumberFormatException ignored) {
-            throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be a valid number")
+        // MoneyParse caps length + scale/precision before anything touches
+        // the value: "1e-100000000" passes both range checks below and then
+        // pins a thread in OfferService's setScale(2).
+        def bd = com.sboxmarket.util.MoneyParse.parse(raw, 'amount', 'INVALID_AMOUNT')
+        if (bd.signum() <= 0) {
+            throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be greater than 0")
         }
+        if (bd > new BigDecimal("1000000")) {
+            throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount exceeds the \$1,000,000 limit")
+        }
+        return bd
     }
 
     /**

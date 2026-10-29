@@ -10,6 +10,8 @@
  *     offer that receives the asset and gives nothing (addTheirItem)
  *   - poll the status of an offer (active / accepted / declined / expired / ...)
  *   - accept an incoming offer (alternative deposit path)
+ *   - cancel an offer it sent, so a deposit or delivery the backend gave up on
+ *     can no longer be accepted
  *   - read the bot's own app-590830 inventory (confirm an asset is now held)
  *
  * SECURITY: every credential comes from the environment. Nothing is hardcoded.
@@ -40,7 +42,15 @@ const CONFIG = {
   contextId: process.env.STEAM_BOT_CONTEXT_ID || '2',           // default Steam inventory context
   pollInterval: parseInt(process.env.STEAM_BOT_POLL_INTERVAL_MS || '15000', 10),
   confirmRetryMs: parseInt(process.env.STEAM_BOT_CONFIRM_RETRY_MS || '20000', 10),
+  allowRemote: process.env.BOT_ALLOW_REMOTE,
+  // Offers awaiting confirmation + the sent registry, kept across restarts.
+  stateFile: process.env.STEAM_BOT_STATE_FILE && process.env.STEAM_BOT_STATE_FILE.trim()
+    ? process.env.STEAM_BOT_STATE_FILE.trim()
+    : require('path').join(__dirname, 'data', 'state.json'),
 };
+
+// No dependencies (crypto only), so it is safe to load before validation.
+const guards = require('./lib/guards');
 
 // ---------------------------------------------------------------------------
 // Startup validation
@@ -123,6 +133,10 @@ function validateEnvOrExit() {
     }
   }
 
+  // Loopback only, like fake-bot.js, unless the operator opts in explicitly.
+  const hostProblem = guards.bindHostProblem(CONFIG.host, CONFIG.allowRemote);
+  if (hostProblem) problems.push(hostProblem);
+
   // The go-live gate. This process logs in to a REAL Steam account and moves
   // REAL skins, and the whole marketplace stays in test mode until the owner
   // says "go live". Until then the local loop runs on the fake bot instead
@@ -176,8 +190,9 @@ const SteamCommunity = loadDependency('steamcommunity');
 const TradeOfferManager = loadDependency('steam-tradeoffer-manager');
 const SteamTotp = loadDependency('steam-totp');
 const { createBotCore } = require('./lib/bot-core');
-const { createReconnector } = require('./lib/reconnect');
-const { tokenMatches } = require('./lib/guards');
+const { createReconnector, webSessionRetryDelayMs } = require('./lib/reconnect');
+const { createStateStore } = require('./lib/state-store');
+const { createSteamGuard } = require('./lib/totp');
 
 // ---------------------------------------------------------------------------
 // Steam clients
@@ -194,21 +209,53 @@ const state = {
   cookiesReady: false,
 };
 
+// Login codes from shared_secret on Steam's clock; a rejected code waits for the
+// next 30 s window. See lib/totp.js. Without this listener steam-user prompts
+// on stdin, which hangs a bot run under a service manager.
+const steamGuard = createSteamGuard({
+  SteamTotp,
+  sharedSecret: CONFIG.sharedSecret,
+  onStop: (why) => {
+    state.lastError = why;
+    // eslint-disable-next-line no-console
+    console.error('[bot] ' + why);
+  },
+});
+client.on('steamGuard', steamGuard.onSteamGuard);
+
 function logIn() {
-  const logOnOptions = {
-    accountName: CONFIG.username,
-    password: CONFIG.password,
-    twoFactorCode: SteamTotp.generateAuthCode(CONFIG.sharedSecret),
-  };
-  // eslint-disable-next-line no-console
-  console.log('[bot] Logging in as %s ...', CONFIG.username);
-  client.logOn(logOnOptions);
+  steamGuard.loginCode().then((twoFactorCode) => {
+    // eslint-disable-next-line no-console
+    console.log('[bot] Logging in as %s ...', CONFIG.username);
+    client.logOn({ accountName: CONFIG.username, password: CONFIG.password, twoFactorCode });
+  });
 }
 
 const reconnector = createReconnector({ logIn });
 
+// A failed setCookies used to leave cookiesReady false until the next full
+// re-login, so every endpoint answered 503 NOT_READY indefinitely. Ask for a
+// new web session on a growing delay instead (webSession then retries setCookies).
+const webRetry = { timer: null, attempts: 0 };
+function scheduleWebLogOnRetry() {
+  if (webRetry.timer) return;
+  webRetry.attempts += 1;
+  const delay = webSessionRetryDelayMs(webRetry.attempts);
+  // eslint-disable-next-line no-console
+  console.warn('[bot] Requesting a new web session in %ds (attempt %d).', Math.round(delay / 1000), webRetry.attempts);
+  webRetry.timer = setTimeout(() => {
+    webRetry.timer = null;
+    if (state.loggedIn) client.webLogOn();
+  }, delay);
+}
+function clearWebLogOnRetry(resetAttempts) {
+  if (webRetry.timer) { clearTimeout(webRetry.timer); webRetry.timer = null; }
+  if (resetAttempts) webRetry.attempts = 0;
+}
+
 client.on('loggedOn', () => {
   reconnector.onLoggedOn();
+  steamGuard.onLoggedOn();
   state.loggedIn = true;
   state.steamId = client.steamID ? client.steamID.getSteamID64() : null;
   // eslint-disable-next-line no-console
@@ -230,6 +277,7 @@ client.on('error', (err) => {
 client.on('disconnected', (eresult, msg) => {
   state.loggedIn = false;
   state.cookiesReady = false;
+  clearWebLogOnRetry(false); // a re-login brings a fresh webSession anyway
   // eslint-disable-next-line no-console
   console.warn('[bot] Disconnected (%s): %s', eresult, msg);
 });
@@ -243,6 +291,11 @@ client.on('webSession', (sessionID, cookies) => {
       language: 'en',
       pollInterval: CONFIG.pollInterval,
       cancelTime: 1000 * 60 * 60 * 24 * 14, // auto-cancel our unaccepted sent offers after 14 days
+      // Web API calls authenticate with the session's access token, so no Web
+      // API key is needed (or looked up) at all. steam-tradeoffer-manager 2.13
+      // (the version in package-lock) already defaults this to true; it is set
+      // explicitly so an older 2.11.x resolved from "^2.11.5" behaves the same.
+      useAccessToken: true,
     });
     wireManagerEvents();
   }
@@ -252,8 +305,10 @@ client.on('webSession', (sessionID, cookies) => {
       state.lastError = 'setCookies: ' + (err.message || String(err));
       // eslint-disable-next-line no-console
       console.error('[bot] Failed to set trade cookies:', state.lastError);
+      scheduleWebLogOnRetry();
       return;
     }
+    clearWebLogOnRetry(true);
     state.cookiesReady = true;
     // eslint-disable-next-line no-console
     console.log('[bot] Trade manager ready (cookies set).');
@@ -280,7 +335,7 @@ client.on('webSession', (sessionID, cookies) => {
   manager.setCookies(cookies, finishSetup);
   if (CONFIG.apiKey) {
     console.log('[bot] STEAM_BOT_API_KEY is set but unused — steam-tradeoffer-manager ' +
-      'derives its own Web API key from the login session. Safe to leave blank.');
+      'uses the login session\'s access token (useAccessToken). Safe to leave blank.');
   }
 
   community.setCookies(cookies);
@@ -335,6 +390,10 @@ const core = createBotCore({
   contextId: CONFIG.contextId,
   states: TradeOfferManager.ETradeOfferState,
   isReady: ready,
+  // Offers awaiting the bot's mobile confirmation (and the sent registry the
+  // duplicate check reads) survive a restart. Default steam-bot/data/state.json,
+  // gitignored; override with STEAM_BOT_STATE_FILE.
+  store: createStateStore(CONFIG.stateFile),
 });
 
 // Our own offers whose confirmation failed get another try on this timer.
@@ -351,14 +410,10 @@ setInterval(() => {
 const app = express();
 app.use(express.json({ limit: '256kb' }));
 
-// Bearer-token auth on every route except /health (constant-time compare).
-app.use((req, res, next) => {
-  if (req.path === '/health') return next();
-  if (!tokenMatches(req.get('authorization') || '', CONFIG.apiToken)) {
-    return res.status(401).json({ ok: false, error: 'unauthorized' });
-  }
-  next();
-});
+// Bearer-token auth on every route except /health (constant-time compare). The
+// 401 says retryable:false + configError:true: a token mismatch never fixes
+// itself, so the backend must stop retrying it every 30 s and surface it.
+app.use(guards.requireToken(CONFIG.apiToken));
 
 app.get('/health', (req, res) => {
   res.json({
@@ -380,6 +435,9 @@ app.post('/offers/send', (req, res) => core.send(req.body).then(reply(res)));
 app.post('/offers/request', (req, res) => core.request(req.body).then(reply(res)));
 app.get('/offers/:id', (req, res) => core.getOffer(req.params.id).then(reply(res)));
 app.post('/offers/incoming/:id/accept', (req, res) => core.acceptIncoming(req.params.id).then(reply(res)));
+// Cancel an offer the bot sent (deposit timeout, listing cancel, trade refund).
+// 200 cancelled (or already dead), 409 ALREADY_ACCEPTED when the item moved.
+app.post('/offers/:id/cancel', (req, res) => core.cancelOffer(req.params.id).then(reply(res)));
 app.get('/inventory', (req, res) => core.inventory().then(reply(res)));
 
 // Fallback 404

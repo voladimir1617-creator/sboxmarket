@@ -51,6 +51,7 @@ class ProdConfigValidatorSpec extends Specification {
             STEAM_RETURN_URL:           'https://skinbox.market/auth/steam/return',
             APP_UNSUBSCRIBE_SECRET:     'a-real-random-prod-secret-9912ff',
             APP_PUBLIC_URL:             'https://skinbox.market',
+            SMTP_HOST:                  'smtp.example.net',
         ]
     }
 
@@ -337,6 +338,109 @@ class ProdConfigValidatorSpec extends Specification {
         violations.any { it.contains('STRIPE_WEBHOOK_SECRET') }
     }
 
+
+    // ── go-live audit 2026-10-29: mail, placeholders, other public URLs, bot token ──
+
+    def "no SMTP_HOST → refuse to start (no seller could verify an email, so none could withdraw)"() {
+        given:
+        Map<String, String> env = validEnv()
+        env.remove('SMTP_HOST')
+        stubEnv(env)
+
+        expect:
+        validator.findViolations() == ['SMTP_HOST is missing — refusing to start (without a mail server no seller can verify ' +
+            'their email, and withdrawals need a verified email)']
+    }
+
+    def "the resolved spring.mail.host also satisfies the mail check"() {
+        given:
+        Map<String, String> env = validEnv()
+        env.remove('SMTP_HOST')
+        env['spring.mail.host'] = 'smtp.example.net'
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().isEmpty()
+    }
+
+    @spock.lang.Unroll
+    def "#name left at the template's CHANGE_ME → refuse to start, value not echoed"() {
+        given:
+        Map<String, String> env = validEnv()
+        env[name] = value
+        stubEnv(env)
+
+        when:
+        def violations = validator.findViolations()
+
+        then:
+        violations.any { it.startsWith("${name} still holds the template's CHANGE_ME placeholder") }
+        violations.every { !it.contains(value) }
+
+        where:
+        name                         | value
+        'APP_UNSUBSCRIBE_SECRET'     | 'CHANGE_ME_openssl_rand_base64_48'
+        'SPRING_DATASOURCE_PASSWORD' | 'CHANGE_ME_db_pw'
+        'DB_PASSWORD'                | 'change_me_please'
+        'ADMIN_BOOTSTRAP_STEAM_IDS'  | 'CHANGE_ME_ids'
+        'SMTP_PASSWORD'              | 're_CHANGE_ME'
+    }
+
+    @spock.lang.Unroll
+    def "ADMIN_BOOTSTRAP_STEAM_IDS '#ids' is #verdict"() {
+        given:
+        Map<String, String> env = validEnv()
+        env.ADMIN_BOOTSTRAP_STEAM_IDS = ids
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().any { it.startsWith('ADMIN_BOOTSTRAP_STEAM_IDS must be') } == refused
+
+        where:
+        ids                                       || refused
+        '76561197960287930'                       || false
+        '76561197960287930, 76561198000000001'    || false
+        'vladimir'                                || true
+        '7656119796028793'                        || true
+        '76561197960287930,https://steam/x'       || true
+        verdict = refused ? 'refused' : 'accepted'
+    }
+
+    @spock.lang.Unroll
+    def "#name pointing at localhost → refuse to start"() {
+        given:
+        Map<String, String> env = validEnv()
+        env[name] = value
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().any { it.startsWith("${name} points at localhost") }
+
+        where:
+        name                   | value
+        'STEAM_REALM'          | 'http://localhost:8080/'
+        'STEAM_RETURN_URL'     | 'http://127.0.0.1:8080/api/auth/steam/return'
+        'STRIPE_SUCCESS_URL'   | 'http://localhost:8080/?deposit=success'
+        'STRIPE_CANCEL_URL'    | 'http://localhost:8080/?deposit=cancel'
+        'CORS_ALLOWED_ORIGINS' | 'https://skinbox.market,http://localhost:5173'
+    }
+
+    def "a bot address with no BOT_API_TOKEN → refuse to start; with a token, or with no bot, it boots"() {
+        given:
+        Map<String, String> env = validEnv()
+        if (url) env.STEAM_BOT_BASE_URL = url
+        if (token) env.BOT_API_TOKEN = token
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().any { it.startsWith('STEAM_BOT_BASE_URL is set but BOT_API_TOKEN is missing') } == refused
+
+        where:
+        url                     | token                || refused
+        'http://127.0.0.1:4000' | null                 || true
+        'http://127.0.0.1:4000' | 'a' * 64             || false
+        null                    | null                 || false
+    }
 
     // ── hardening switches (security review 2026-10-15, finding 5) ──
 

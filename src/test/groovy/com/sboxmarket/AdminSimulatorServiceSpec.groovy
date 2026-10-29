@@ -1,12 +1,14 @@
 package com.sboxmarket
 
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.service.AdminSimulatorService
 import com.sboxmarket.service.security.AdminAuthorization
+import org.springframework.mock.env.MockEnvironment
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -30,7 +32,11 @@ class AdminSimulatorServiceSpec extends Specification {
     AdminSimulatorService service = new AdminSimulatorService(
         itemRepository    : itemRepository,
         listingRepository : listingRepository,
-        adminAuthorization: adminAuthorization
+        adminAuthorization: adminAuthorization,
+        // A local/dev deployment: no prod profile, no Stripe key (SIMULATED).
+        // The simulator now refuses on anything that can move real money,
+        // and a missing Environment counts as real money (fail-closed).
+        environment       : new MockEnvironment()
     )
 
     private Item catItem(long id, String name, String cat, BigDecimal price) {
@@ -145,5 +151,93 @@ class AdminSimulatorServiceSpec extends Specification {
 
         then:
         result.count == 0L
+    }
+
+    // ── real-money refusal (audit 2026-10-29 finding 3) ───────────
+    // Simulated rows are seller-less "house" listings a real buyer can pay
+    // real balance for, and clear hard-deletes by a name/description LIKE.
+    // Neither may run where real money moves.
+
+    private AdminSimulatorService serviceWith(MockEnvironment env) {
+        new AdminSimulatorService(
+            itemRepository    : itemRepository,
+            listingRepository : listingRepository,
+            adminAuthorization: adminAuthorization,
+            environment       : env)
+    }
+
+    private static MockEnvironment prodEnv() {
+        def env = new MockEnvironment()
+        env.setActiveProfiles('prod')
+        env
+    }
+
+    private static MockEnvironment liveKeyEnv() {
+        new MockEnvironment().withProperty('stripe.secret-key', 'sk_live_' + ('x' * 24))
+    }
+
+    def "simulateListings is refused under the prod profile and creates nothing"() {
+        given:
+        def svc = serviceWith(env)
+        itemRepository.findAll() >> [catItem(1L, 'Hat', 'Hats', new BigDecimal('10'))]
+
+        when:
+        svc.simulateListings(1L, 5)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        def e = thrown(ForbiddenException)
+        e.code == 'SIMULATOR_DISABLED'
+        0 * listingRepository.save(_)
+
+        where:
+        env << [prodEnv(), liveKeyEnv()]
+    }
+
+    def "clearSimulated is refused under prod / a live key and deletes nothing"() {
+        given:
+        def svc = serviceWith(env)
+
+        when:
+        svc.clearSimulated(1L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        def e = thrown(ForbiddenException)
+        e.code == 'SIMULATOR_DISABLED'
+        0 * listingRepository.findSimulated()
+        0 * listingRepository.deleteAll(_)
+
+        where:
+        env << [prodEnv(), liveKeyEnv()]
+    }
+
+    def "prod with a TEST key is still refused (MoneyMode treats it as INDETERMINATE)"() {
+        given:
+        def env = prodEnv()
+        env.setProperty('stripe.secret-key', 'sk_test_' + ('x' * 24))
+        def svc = serviceWith(env)
+
+        when:
+        svc.clearSimulated(1L)
+
+        then:
+        thrown(ForbiddenException)
+        0 * listingRepository.deleteAll(_)
+    }
+
+    def "a service with no Environment wired fails closed"() {
+        given:
+        def svc = new AdminSimulatorService(
+            itemRepository: itemRepository, listingRepository: listingRepository,
+            adminAuthorization: adminAuthorization)
+
+        expect:
+        svc.refusalReason() == AdminSimulatorService.REFUSAL_REAL_MONEY
+    }
+
+    def "a local SIMULATED deployment (no prod, no key) is allowed"() {
+        expect:
+        service.refusalReason() == null
     }
 }

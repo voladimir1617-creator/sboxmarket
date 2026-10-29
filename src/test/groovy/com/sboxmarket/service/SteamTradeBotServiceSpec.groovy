@@ -109,6 +109,72 @@ class SteamTradeBotServiceSpec extends Specification {
         !r2.ok && r2.errorCode == 'BAD_REQUEST'
     }
 
+    def "cancelOffer posts to /offers/:id/cancel and reads a cancelled offer as dead"() {
+        when:
+        def r = service.cancelOffer('987')
+
+        then:
+        1 * service.doRequest('POST', 'http://localhost:4000/offers/987/cancel', null) >>
+                raw(200, [ok: true, offerId: '987', status: 'canceled', cancelled: true, alreadyFinal: false])
+        r.ok
+        r.offerCancelled
+        !r.offerAlreadyAccepted
+        r.status == 'canceled'
+    }
+
+    def "cancelOffer reads an already-declined offer as dead too (idempotent)"() {
+        when:
+        def r = service.cancelOffer('987')
+
+        then:
+        1 * service.doRequest('POST', _, null) >>
+                raw(200, [ok: true, offerId: '987', status: 'declined', cancelled: true, alreadyFinal: true])
+        r.offerCancelled
+    }
+
+    def "cancelOffer maps 409 ALREADY_ACCEPTED to an accepted answer that keeps Steam's state"() {
+        when:
+        def r = service.cancelOffer('987')
+
+        then:
+        1 * service.doRequest('POST', 'http://localhost:4000/offers/987/cancel', null) >>
+                raw(409, [ok: false, error: 'ALREADY_ACCEPTED', offerId: '987', status: status, retryable: false])
+        !r.ok
+        r.offerAlreadyAccepted
+        !r.offerCancelled
+        r.status == status
+        r.offerId == '987'
+
+        where:
+        status << ['accepted', 'in_escrow']
+    }
+
+    def "cancelOffer failures are neither cancelled nor accepted, and stay retryable"() {
+        when:
+        def r = service.cancelOffer('987')
+
+        then:
+        1 * service.doRequest('POST', _, null) >> { throw new IOException('connection refused') }
+        !r.ok
+        !r.offerCancelled
+        !r.offerAlreadyAccepted
+        r.retryable
+        r.errorCode == 'TRANSPORT_ERROR'
+    }
+
+    def "cancelOffer is a no-op without a bot or an id"() {
+        when:
+        def blank = service.cancelOffer(' ')
+        service.baseUrl = ''
+        def off = service.cancelOffer('987')
+
+        then:
+        0 * service.doRequest(_, _, _)
+        blank.errorCode == 'BAD_REQUEST'
+        off.errorCode == 'DISABLED'
+        !off.offerCancelled && !off.offerAlreadyAccepted
+    }
+
     def "getOfferStatus maps an accepted offer"() {
         when:
         def r = service.getOfferStatus('987')

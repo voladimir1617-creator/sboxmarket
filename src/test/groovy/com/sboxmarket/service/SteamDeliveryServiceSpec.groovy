@@ -105,7 +105,7 @@ class SteamDeliveryServiceSpec extends Specification {
         service.processTrade(7L)
 
         then:
-        1 * tradeRepository.findById(7L) >> Optional.of(t)
+        2 * tradeRepository.findById(7L) >> Optional.of(t)   // load, then the after-send re-check
         // no prior offer row
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> []
         // buyer trade URL resolved once to address the offer
@@ -132,7 +132,7 @@ class SteamDeliveryServiceSpec extends Specification {
         code ==~ /[A-HJKMNP-Z2-9]{4}/
         // keyed by the secret, not guessable from the trade id alone
         code != new SteamDeliveryService(deliveryCodeSecret: 'other-secret').deliveryCodeFor(t)
-        1 * tradeRepository.findById(7L) >> Optional.of(t)
+        2 * tradeRepository.findById(7L) >> Optional.of(t)   // load, then the after-send re-check
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> []
         1 * steamUserRepository.findById(2L) >> Optional.of(buyerWithUrl())
         1 * bot.sendOffer(_, ['555'], "sboxmarket delivery · code ${code}".toString()) >>
@@ -147,7 +147,7 @@ class SteamDeliveryServiceSpec extends Specification {
         service.processTrade(7L)
 
         then:
-        1 * tradeRepository.findById(7L) >> Optional.of(t)
+        2 * tradeRepository.findById(7L) >> Optional.of(t)   // load, then the after-send re-check
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> []
         1 * steamUserRepository.findById(2L) >> Optional.of(buyerWithUrl())
         // Custody holds a concrete asset for this sold listing — it must take

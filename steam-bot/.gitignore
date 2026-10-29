@@ -7,3 +7,11 @@
 # un-ignore real secrets) — the root rules keep every real .env file ignored.
 
 !.env.example
+
+# Restart-safe bot state (lib/state-store.js, default data/state.json). The root
+# .gitignore's `data/` already covers it; stated here so it stays ignored if
+# that rule ever changes.
+data/
+
+# setup-steam-bot.ps1's shared-secret probe (deleted after each run).
+.totp-probe.js

@@ -187,3 +187,42 @@ test('malformed ids and lookalike trade urls are refused', () => withBot({}, asy
   const dup = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: ['1', '1'] });
   assert.strictEqual(dup.status, 400);
 }));
+
+test('a cancelled deposit can no longer be accepted, and cancelling again is ok', () => withBot({}, async (call) => {
+  const asset = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.assets[0];
+  const dep = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [asset.assetid] });
+  assert.strictEqual((await call('POST', `/offers/${dep.body.offerId}/cancel`, null, null)).status, 401);
+  const first = await call('POST', `/offers/${dep.body.offerId}/cancel`);
+  assert.strictEqual(first.status, 200);
+  assert.deepStrictEqual([first.body.cancelled, first.body.alreadyFinal, first.body.status], [true, false, 'canceled']);
+  await call('POST', `/fake/offers/${dep.body.offerId}/accept`); // too late: nothing moves
+  assert.strictEqual((await call('GET', `/offers/${dep.body.offerId}`)).body.status, 'canceled');
+  assert.strictEqual((await call('GET', '/inventory')).body.count, 0);
+  const again = await call('POST', `/offers/${dep.body.offerId}/cancel`);
+  assert.strictEqual(again.status, 200);
+  assert.strictEqual(again.body.alreadyFinal, true);
+}));
+
+test('cancelling an offer the partner already accepted answers 409 ALREADY_ACCEPTED', () => withBot({}, async (call) => {
+  const asset = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.assets[0];
+  const dep = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [asset.assetid] });
+  await call('POST', `/fake/offers/${dep.body.offerId}/accept`);
+  const res = await call('POST', `/offers/${dep.body.offerId}/cancel`);
+  assert.strictEqual(res.status, 409);
+  assert.strictEqual(res.body.error, 'ALREADY_ACCEPTED');
+  assert.strictEqual(res.body.status, 'accepted');
+  assert.strictEqual((await call('POST', '/offers/42/cancel')).status, 404);
+  assert.strictEqual((await call('POST', '/offers/abc/cancel')).status, 400);
+}));
+
+test('a partner past FAKE_ACCEPT_AFTER_MS has accepted by the time a cancel arrives', () => {
+  let t = 0;
+  return withBot({ acceptAfterMs: 1000, now: () => t }, async (call) => {
+    const asset = (await call('GET', `/inventory/${SELLER}/590830/2`)).body.assets[0];
+    const dep = await call('POST', '/offers/request', { partnerTradeUrl: SELLER_URL, assetIds: [asset.assetid] });
+    t = 5000;
+    const res = await call('POST', `/offers/${dep.body.offerId}/cancel`);
+    assert.strictEqual(res.status, 409);
+    assert.strictEqual(res.body.error, 'ALREADY_ACCEPTED');
+  });
+});

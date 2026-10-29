@@ -500,6 +500,9 @@ class OfferService {
     @Transactional
     Offer buyerRaise(Long buyerUserId, Long originalOfferId, BigDecimal amount, String message = null) {
         banGuard.assertNotBanned(buyerUserId)
+        // Scale/precision guard before setScale: a "1e-100000000" amount
+        // would pin the thread computing 10^1e8 (see MoneyParse).
+        com.sboxmarket.util.MoneyParse.requireSane(amount, 'amount', 'INVALID_RAISE')
         // HALF_UP-normalize to whole cents up front (see makeOffer rationale).
         if (amount != null) amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
         if (amount == null || amount < new BigDecimal("0.01")) {
@@ -640,6 +643,8 @@ class OfferService {
      */
     @Transactional
     Offer counterOffer(Long sellerUserId, Long originalOfferId, BigDecimal amount, String message = null) {
+        // Scale/precision guard before setScale (see MoneyParse).
+        com.sboxmarket.util.MoneyParse.requireSane(amount, 'amount', 'INVALID_COUNTER')
         // HALF_UP-normalize to whole cents up front (see makeOffer rationale).
         if (amount != null) amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
         if (amount == null || amount < new BigDecimal("0.01")) {

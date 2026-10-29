@@ -150,7 +150,7 @@ test('a failed confirmation is retried for the bot\'s own offer only', async () 
   assert.strictEqual(steam.offers.get(sent.offerId).state, S.Active);
 });
 
-test('a confirmation stuck for an hour is given up; a settled one is dropped', async () => {
+test('a confirmation stuck past an hour keeps being retried; a settled one is dropped', async () => {
   let clock = 0;
   const { steam, core } = setup({ now: () => clock });
   steam.knobs.confirmFails = 5;
@@ -159,8 +159,9 @@ test('a confirmation stuck for an hour is given up; a settled one is dropped', a
   steam.settle(b.offerId, S.Canceled);
   clock = 61 * 60 * 1000;
   const out = await core.retryConfirmations();
-  assert.deepStrictEqual(out.dropped.sort(), [a.offerId, b.offerId].sort());
-  assert.deepStrictEqual(core.pendingConfirmations(), []);
+  assert.deepStrictEqual(out.dropped, [b.offerId]);
+  assert.deepStrictEqual(out.failed, [a.offerId], 'still tried after the first hour');
+  assert.deepStrictEqual(core.pendingConfirmations(), [a.offerId]);
 });
 
 test('when Steam cannot be asked about live offers, nothing is sent', async () => {
@@ -174,10 +175,11 @@ test('when Steam cannot be asked about live offers, nothing is sent', async () =
 
 test('a send Steam rejects is reported with a stable code and can be retried', async () => {
   const { steam, core } = setup();
-  steam.knobs.sendError = Object.assign(new Error('There was an error sending your trade offer.'), { eresult: 25 });
+  steam.knobs.sendError = Object.assign(new Error('There was an error sending your trade offer.'), { eresult: 84 });
   const [st, body] = await core.send({ partnerTradeUrl: BUYER_URL, assetIds: ['700'] });
   assert.strictEqual(st, 429);
   assert.strictEqual(body.error, 'RATE_LIMITED');
+  assert.strictEqual(body.retryable, true);
   const [ok] = await core.send({ partnerTradeUrl: BUYER_URL, assetIds: ['700'] });
   assert.strictEqual(ok, 200);
 });
@@ -243,10 +245,109 @@ test('the inventory includes trade-protected skins, flagged not tradable', async
   assert.deepStrictEqual(inv.items.map((it) => [it.assetId, it.tradable]), [['111', true], ['112', false]]);
 });
 
+test('cancelling a live offer kills it, so the partner can no longer accept it', async () => {
+  const { steam, core } = setup();
+  const [, sent] = await core.request({ partnerTradeUrl: SELLER_URL, assetIds: ['500'] });
+  const [st, body] = await core.cancelOffer(sent.offerId);
+  assert.strictEqual(st, 200);
+  assert.strictEqual(body.ok, true);
+  assert.strictEqual(body.cancelled, true);
+  assert.strictEqual(body.alreadyFinal, false);
+  assert.strictEqual(body.status, 'canceled');
+  assert.strictEqual(steam.offers.get(sent.offerId).state, S.Canceled);
+  assert.deepStrictEqual(steam.calls.cancel, [sent.offerId]);
+  // A re-listed skin gets a NEW deposit offer, not the cancelled one back.
+  const [, again] = await core.request({ partnerTradeUrl: SELLER_URL, assetIds: ['500'] });
+  assert.notStrictEqual(again.offerId, sent.offerId);
+});
+
+test('a give offer still waiting on our confirmation can be cancelled too', async () => {
+  const { steam, core } = setup();
+  steam.knobs.confirmFails = 1;
+  const [, sent] = await core.send({ partnerTradeUrl: BUYER_URL, assetIds: ['700'] });
+  assert.strictEqual(steam.offers.get(sent.offerId).state, S.CreatedNeedsConfirmation);
+  const [st, body] = await core.cancelOffer(sent.offerId);
+  assert.strictEqual(st, 200);
+  assert.strictEqual(body.cancelled, true);
+  assert.deepStrictEqual(core.pendingConfirmations(), [], 'a cancelled offer is not confirmed later');
+});
+
+test('cancel is idempotent: an offer already dead answers ok without asking Steam to cancel', async () => {
+  const { steam, core } = setup();
+  for (const state of [S.Canceled, S.Declined, S.Expired, S.InvalidItems, S.Countered, S.CanceledBySecondFactor]) {
+    const [, sent] = await core.request({ partnerTradeUrl: SELLER_URL, assetIds: ['500'] });
+    steam.settle(sent.offerId, state);
+    const [st, body] = await core.cancelOffer(sent.offerId);
+    assert.strictEqual(st, 200, 'state ' + state);
+    assert.strictEqual(body.cancelled, true);
+    assert.strictEqual(body.alreadyFinal, true);
+  }
+  assert.deepStrictEqual(steam.calls.cancel, []);
+});
+
+test('an accepted or held offer answers ALREADY_ACCEPTED: the item has moved', async () => {
+  const { steam, core } = setup();
+  for (const [state, name] of [[S.Accepted, 'accepted'], [S.InEscrow, 'in_escrow']]) {
+    const [, sent] = await core.request({ partnerTradeUrl: SELLER_URL, assetIds: ['500'] });
+    steam.settle(sent.offerId, state);
+    const [st, body] = await core.cancelOffer(sent.offerId);
+    assert.strictEqual(st, 409);
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.error, 'ALREADY_ACCEPTED');
+    assert.strictEqual(body.status, name);
+    assert.strictEqual(body.retryable, false);
+    steam.settle(sent.offerId, S.Declined); // free the asset for the next round
+  }
+  assert.deepStrictEqual(steam.calls.cancel, []);
+});
+
+test('a partner who accepts in the instant before the cancel is reported as accepted', async () => {
+  const { steam, core } = setup();
+  const [, sent] = await core.request({ partnerTradeUrl: SELLER_URL, assetIds: ['500'] });
+  steam.knobs.acceptBeforeCancel = true;
+  const [st, body] = await core.cancelOffer(sent.offerId);
+  assert.strictEqual(st, 409);
+  assert.strictEqual(body.error, 'ALREADY_ACCEPTED');
+  assert.strictEqual(body.status, 'accepted');
+});
+
+test('a cancel Steam refuses is reported retryable, and the offer is left as it was', async () => {
+  const { steam, core } = setup();
+  const [, sent] = await core.request({ partnerTradeUrl: SELLER_URL, assetIds: ['500'] });
+  steam.knobs.cancelError = new Error('HTTP error 502');
+  const [st, body] = await core.cancelOffer(sent.offerId);
+  assert.strictEqual(st, 503);
+  assert.strictEqual(body.ok, false);
+  assert.strictEqual(body.error, 'STEAM_UNAVAILABLE');
+  assert.strictEqual(body.retryable, true);
+  assert.strictEqual(steam.offers.get(sent.offerId).state, S.Active);
+});
+
+test('cancel refuses bad ids, unknown offers, incoming offers and a bot that is not ready', async () => {
+  const { steam, core } = setup();
+  assert.strictEqual((await core.cancelOffer('../inventory'))[0], 400);
+  assert.strictEqual((await core.cancelOffer('42'))[0], 404);
+  const incoming = steam.incoming({ fromId64: SELLER, receive: ['900'] });
+  const [st, body] = await core.cancelOffer(incoming.id);
+  assert.strictEqual(st, 400);
+  assert.strictEqual(body.error, 'BAD_REQUEST');
+  assert.strictEqual(incoming.state, S.Active, 'an incoming offer is never declined by the cancel route');
+  const notReady = setup({ isReady: () => false }).core;
+  const [nst, nbody] = await notReady.cancelOffer('1');
+  assert.strictEqual(nst, 503);
+  assert.strictEqual(nbody.error, 'NOT_READY');
+});
+
+test('index.js exposes the cancel route through the tested core', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+  assert.ok(/app\.post\('\/offers\/:id\/cancel',[^\n]*core\.cancelOffer\(/.test(src));
+});
+
 test('index.js never hands the identity secret to the confirm-everything poller', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8')
     .replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(!/startConfirmationChecker\s*\(/.test(src), 'startConfirmationChecker confirms every trade on the account');
-  assert.ok(/tokenMatches\(/.test(src), 'API token is compared in constant time');
+  // guards.requireToken wraps the constant-time tokenMatches (tested in hardening.test.js).
+  assert.ok(/app\.use\(guards\.requireToken\(CONFIG\.apiToken\)\)/.test(src), 'API token is compared in constant time');
   assert.ok(/createBotCore\(/.test(src), 'routes go through the tested core');
 });

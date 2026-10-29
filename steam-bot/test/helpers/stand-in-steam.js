@@ -20,13 +20,16 @@ function steamId(id64) {
 
 function createStandInSteam(opts = {}) {
   const offers = new Map();
-  const calls = { send: 0, confirm: [], accept: [] };
+  const calls = { send: 0, confirm: [], accept: [], cancel: [] };
   let nextId = 5000001;
   const knobs = {
     sendDelayMs: opts.sendDelayMs || 0,
     confirmFails: 0,
     getOffersFails: false,
     sendError: null,
+    cancelError: null,
+    // The partner accepts in the moment between the bot's read and its cancel.
+    acceptBeforeCancel: false,
   };
 
   function makeOffer(partnerId64, isOurOffer) {
@@ -49,6 +52,20 @@ function createStandInSteam(opts = {}) {
           offers.set(this.id, this);
           cb(null, needsConf ? 'pending' : 'sent');
         }, knobs.sendDelayMs);
+      },
+      // As TradeOffer.cancel: only an Active or CreatedNeedsConfirmation offer
+      // can be cancelled; on success the offer reads Canceled.
+      cancel(cb) {
+        setImmediate(() => {
+          calls.cancel.push(this.id);
+          if (knobs.acceptBeforeCancel) { knobs.acceptBeforeCancel = false; this.state = S.Accepted; }
+          if (knobs.cancelError) { const e = knobs.cancelError; knobs.cancelError = null; return cb(e); }
+          if (this.state !== S.Active && this.state !== S.CreatedNeedsConfirmation) {
+            return cb(new Error('Offer #' + this.id + ' is not active, so it may not be cancelled or declined'));
+          }
+          this.state = S.Canceled;
+          cb(null);
+        });
       },
       accept(cb) {
         calls.accept.push(this.id);
