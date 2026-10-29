@@ -1294,9 +1294,14 @@ class ListingController {
         // The early check above gives a fast, friendly refusal; the ceiling
         // passed here is the authoritative one, checked against the row the
         // purchase transaction actually charges (2026-09-28 review).
-        def result = expected != null
-            ? purchaseService.buy(wallet.id, userId, id, expected)
-            : purchaseService.buy(wallet.id, userId, id)
+        def result
+        try {
+            result = expected != null
+                ? purchaseService.buy(wallet.id, userId, id, expected)
+                : purchaseService.buy(wallet.id, userId, id)
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException lost) {
+            throw lostPurchaseRace(id, expected, lost)
+        }
         // Batch 880 — include itemName + price in the response so the
         // frontend can render a personalised success toast ("Bought
         // 'Wizard Hat' for $15.95") instead of a generic "Purchase
@@ -1315,6 +1320,22 @@ class ListingController {
             // the Sell page) instead of always saying "see Trades".
             tradeOpened  : (boughtListing?.sellerUserId != null)
         ])
+    }
+
+    /** A purchase that lost an optimistic-lock race was rolled back (nothing
+     *  charged). The generic handler calls every such loss "someone else
+     *  bought it first", but the row that moved may be the seller's price
+     *  edit or the buyer's own wallet (a second purchase in another tab):
+     *  the listing is still for sale. Re-read it and say what happened. */
+    private RuntimeException lostPurchaseRace(Long id, BigDecimal expected, RuntimeException lost) {
+        def now = listingService.findById(id)
+        if (now == null || now.status != 'ACTIVE') return lost
+        if (expected != null && now.price != null && now.price.compareTo(expected) != 0) {
+            return new com.sboxmarket.exception.BadRequestException("PRICE_CHANGED",
+                "Price moved from \$${expected} to \$${now.price} — refresh and retry")
+        }
+        new com.sboxmarket.exception.ConflictException("LISTING_CHANGED",
+            "This listing changed while you were buying it. Nothing was charged — refresh and try again.")
     }
 
     /** List an owned item back on the market (from inventory). */

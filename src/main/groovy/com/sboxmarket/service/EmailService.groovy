@@ -567,7 +567,7 @@ A SkinBox support agent has replied to your ticket #${ticketId}${subject ? ' (' 
 ${snippet ? '> ' + snippet.take(300).readLines().join('\n> ') : '(reply contents available in the app)'}
 
 Open the ticket to read the full reply and respond:
-${publicUrl}/support
+${publicUrl}/support?ticket=${ticketId}
 
 — The SkinBox team
 """.stripIndent()

@@ -156,4 +156,47 @@ class TradeServiceAutoReleaseAuditActorSpec extends Specification {
         0 * auditService.log(AuditService.TRADE_VERIFIED, 10L, _, _, _)
         1 * auditService.log(AuditService.TRADE_FORCE_RELEASED, 1L, 20L, 11L, _)
     }
+
+    def "staff force-release tells the disputing buyer staff closed it, with the staff note"() {
+        given:
+        def t = pendingConfirm(12L)
+        t.state = 'DISPUTED'
+        t.note = 'Never got it'
+        def sellerWallet = new Wallet(id: 600L, balance: new BigDecimal('0.00'), currency: 'USD')
+        tradeRepository.findById(12L) >> Optional.of(t)
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+
+        when:
+        service.adminRelease(1L, 12L, reason)
+
+        then: 'not "Trade verified" with no body, as if the buyer had confirmed'
+        1 * notificationService.safePush(10L, 'TRADE_VERIFIED',
+            'Trade closed by staff · Wizard Hat', body, 12L, '/profile?tab=trades')
+        0 * notificationService.safePush(10L, 'TRADE_VERIFIED', 'Trade verified · Wizard Hat', _, _, _)
+
+        where: 'with no staff reason the buyer\'s own dispute text is not echoed back as a staff note'
+        reason                         | body
+        'Steam history shows delivery' | 'Staff note: Steam history shows delivery'
+        null                           | 'Staff reviewed this trade and closed it.'
+    }
+
+    def "buyer confirm keeps the plain Trade verified bell"() {
+        given:
+        def t = pendingConfirm(13L)
+        def sellerWallet = new Wallet(id: 600L, balance: new BigDecimal('0.00'), currency: 'USD')
+        tradeRepository.findById(13L) >> Optional.of(t)
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+
+        when:
+        service.buyerConfirm(10L, 13L)
+
+        then:
+        1 * notificationService.safePush(10L, 'TRADE_VERIFIED', 'Trade verified · Wizard Hat', null, 13L, '/profile?tab=trades')
+    }
 }

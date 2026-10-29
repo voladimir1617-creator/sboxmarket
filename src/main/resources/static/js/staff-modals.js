@@ -2132,6 +2132,7 @@ function AdminAuditTab() {
         if (filter.event)   qs.set('event', filter.event);
         if (filter.actor)   qs.set('actor', filter.actor);
         if (filter.subject) qs.set('subject', filter.subject);
+        if (textSearch.trim()) qs.set('q', textSearch.trim());
         // Batch 556 — forward the date horizon to the CSV endpoint so
         // the download matches what's on screen. Compute the millis
         // floor at click time so a stale tab doesn't download a

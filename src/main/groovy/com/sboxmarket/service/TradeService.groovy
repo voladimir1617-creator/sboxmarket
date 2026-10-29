@@ -684,7 +684,13 @@ class TradeService {
             state:          sellerUserId == null ? 'PENDING_BUYER_CONFIRM'
                             : (botHeld ? 'PENDING_SELLER_SEND' : 'PENDING_SELLER_ACCEPT')
         )
-        tradeRepository.save(trade)
+        // Keep the saved row: Trade's @Version starts at 0, so Spring Data
+        // treats it as existing and merges into a copy. The `trade` built
+        // above never got its id, so both bells below carried a null refId
+        // (no highlighted row on the Trades tab) and the new-sale email
+        // dropped its "(trade #N)".
+        def savedTrade = tradeRepository.save(trade)
+        if (savedTrade != null) trade = savedTrade
 
         // Notification bodies enriched with counterparty name + price
         // (batch 421). Previously the buyer just saw "Waiting for seller
@@ -866,10 +872,12 @@ class TradeService {
         adminAuthorization?.requireAdmin(adminUserId)
         def t = get(tradeId)
         require(!(t.state in ['VERIFIED','CANCELLED']), "Trade cannot be released in state ${t.state}")
+        String staffNote = null
         if (reason != null && !reason.trim().isEmpty()) {
             t.note = textSanitizer.medium(reason)
+            staffNote = t.note
         }
-        release(t, false, true)
+        release(t, false, true, staffNote)
         auditService?.log(AuditService.TRADE_FORCE_RELEASED, adminUserId, t.sellerUserId, t.id,
             "Force-released: ${reason ?: '(no reason)'}")
         t
@@ -882,7 +890,7 @@ class TradeService {
      * `forced` marks adminRelease, where no buyer confirmed anything.
      */
     @Transactional
-    protected void release(Trade t, boolean autoRelease = false, boolean forced = false) {
+    protected void release(Trade t, boolean autoRelease = false, boolean forced = false, String staffNote = null) {
         transitionTo(t, 'VERIFIED')
         t.settledAt = System.currentTimeMillis()
         tradeRepository.save(t)
@@ -946,8 +954,15 @@ class TradeService {
         // the state machine (release() refuses a VERIFIED trade) plus Trade's
         // @Version, which is what already stops the seller double-credit.
         platformLedgerService?.postTradeFee(t.feeAmount, t.id, t.listingId, t.itemName)
+        // A staff force-release (usually a dispute ruling) is not the buyer
+        // confirming: say staff closed it and pass on the staff note, the
+        // way a staff cancel's "Admin: <reason>" reaches the buyer. (Not
+        // t.note: with no staff reason it still holds the buyer's own
+        // dispute text.)
         notificationService?.safePush(t.buyerUserId, 'TRADE_VERIFIED',
-            "Trade verified · ${t.itemName}", null, t.id, '/profile?tab=trades')
+            forced ? "Trade closed by staff · ${t.itemName}" : "Trade verified · ${t.itemName}",
+            forced ? (staffNote ? "Staff note: ${staffNote}" : 'Staff reviewed this trade and closed it.') : null,
+            t.id, '/profile?tab=trades')
         // Auto-release email to the buyer (batch 601). Only fires when
         // the 8-day sweeper triggered this release — the manual-confirm
         // path means the buyer is actively on the site and doesn't need

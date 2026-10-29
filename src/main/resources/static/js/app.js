@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=352'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=353'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4817,8 +4817,13 @@ export function App() {
         // Price-changed failures get a distinct toast so users know to
         // refresh instead of wondering what "failed" meant. Falls back
         // to the generic count-toast when the failures are mixed.
+        // Rows another buyer won (or the seller pulled) mid-checkout. Name
+        // the reason: "1 failed" alone left the buyer retrying a dead row.
+        const gone = failedRows.filter(r => r.code === 'LISTING_NOT_AVAILABLE' || r.code === 'NOT_FOUND');
         if (priceChangedCount === fail && fail > 0 && ok === 0) {
           showToast(`Price changed on ${fail} item${fail === 1 ? '' : 's'} — refresh and retry`, 'err');
+        } else if (gone.length > 0 && gone.length === fail) {
+          showToast(`${ok > 0 ? `Bought ${ok} item${ok === 1 ? '' : 's'} · ` : ''}${gone.length === 1 ? '1 item was' : `${gone.length} items were`} sold to someone else or removed. Nothing was charged for ${gone.length === 1 ? 'it' : 'them'}.`, 'err');
         } else {
           showToast(`Bought ${ok} item${ok === 1 ? '' : 's'}${fail > 0 ? ` · ${fail} failed` : ''}`, fail > 0 ? 'err' : 'ok');
         }
@@ -4829,10 +4834,13 @@ export function App() {
         // server's current price from the failure so the cart shows it and
         // the next Confirm is checked against it.
         const moved = failedRows.filter(r => r.code === 'PRICE_CHANGED' && r.actual != null);
-        if (moved.length > 0) {
+        if (moved.length > 0 || gone.length > 0) {
           setCartFreshness(prev => {
             const next = { ...prev };
             moved.forEach(r => { next[r.listingId] = { ...(next[r.listingId] || {}), id: r.listingId, active: true, price: r.actual }; });
+            // Same probe gap for sold rows: mark them unavailable so the row
+            // greys out, Checkout pauses and "Remove unavailable" shows.
+            gone.forEach(r => { next[r.listingId] = { ...(next[r.listingId] || {}), id: r.listingId, active: false }; });
             return next;
           });
         }
@@ -5986,7 +5994,7 @@ export function App() {
         }
         // Stale view (sold / removed / repriced since render): re-load so the
         // dead row and the header balance don't linger.
-        if (res.code === 'LISTING_NOT_AVAILABLE' || res.code === 'PRICE_CHANGED') {
+        if (res.code === 'LISTING_NOT_AVAILABLE' || res.code === 'PRICE_CHANGED' || res.code === 'LISTING_CHANGED') {
           if (routeName === 'item') setItemRetry(n => n + 1);
           load();
           loadWallet();

@@ -2202,6 +2202,12 @@ class AdminService {
     @Transactional
     Map unfreezeWallet(Long adminUserId, Long targetUserId) {
         requireAdmin(adminUserId)
+        // Same separation of duties as CANT_CREDIT_SELF: a freeze another
+        // admin put on your wallet is not yours to lift.
+        if (adminUserId == targetUserId) {
+            throw new BadRequestException("CANT_UNFREEZE_SELF",
+                "You cannot unfreeze your own wallet — ask another admin")
+        }
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
         def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
         if (wallet == null) throw new NotFoundException("Wallet", targetUserId)
