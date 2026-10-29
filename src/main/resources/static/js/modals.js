@@ -14121,6 +14121,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // Analytics read the same listings; drop them so a price edit,
     // cancel or hide refetches instead of showing stale rows.
     setAnalytics(null);
+    // Same for the sale history: a reload that drops a listing that just
+    // sold (or a Match that fills a buy order) has to show that sale on
+    // the Sold tab too, not the list cached from its first open while the
+    // earnings strip above already counts it.
+    setSold(null);
     fetchMyStallWithTotal().then(({ items, total, error }) => {
       if (error) { setStallErr(true); return; }  // retry card, not a permanent spinner / false-empty
       setStallErr(false);
