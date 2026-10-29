@@ -5731,6 +5731,12 @@ export function App() {
           // has to reach the outer catch to become a visible error state.
           item = await fetchItem(route.params.id);
           if (!alive) return;
+        } else {
+          // GET /api/items/{id} is what counts an item-page view (the
+          // seller's Analytics "Views", the item's demand chip). An item
+          // with listings never reached it, so every view count sat at 0.
+          // Fire-and-forget: the page already has what it needs.
+          fetchItem(route.params.id).catch(() => {});
         }
         if (item) {
           setSelected({ item, listings: itemListings, history: history || [], historyFailed: history === null });
