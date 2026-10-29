@@ -8525,6 +8525,17 @@ function ProfileTradesTab({ me, privacy }) {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
+  // Exception to the no-polling rule above: a trade our bot is delivering
+  // moves on when the buyer accepts in Steam, with nothing pressed here, so
+  // "Delivering automatically" stayed up after the trade was verified. Poll
+  // only while such a trade is open, and only in a visible tab.
+  const botInFlight = (trades || []).some(t => t && t.botManaged
+    && ['PENDING_SELLER_ACCEPT', 'PENDING_SELLER_SEND', 'PENDING_BUYER_CONFIRM'].includes(t.state));
+  useEffect(() => {
+    if (!botInFlight) return;
+    const id = setInterval(() => { if (document.visibilityState === 'visible') load(); }, 30_000);
+    return () => clearInterval(id);
+  }, [botInFlight, load]);
 
   // React rules-of-hooks: every hook must run on every render in the same
   // order. Previously `markSentTrade`, `confirmTrade`, and `disputeTrade`
@@ -14299,7 +14310,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     const itemName = typeof listing === 'object' ? listing?.item?.name : null;
     // A skin the bot holds goes back to the seller's Steam when its listing
     // is cancelled, so say that instead of a bare "remove".
-    const inBot = botCustody.heldListingIds.includes(id);
+    // A held listing whose deposit the seller already accepted (Steam hold,
+    // Trade Protection) has left their Steam too, and comes back the same way.
+    const inBot = botCustody.heldListingIds.includes(id)
+      || held.some(r => r?.listing?.id === id && r?.escrow?.itemLeftSeller);
     const label = itemName ? `"${itemName}"` : 'this item';
     const confirmMsg = inBot
       ? `Withdraw ${label}? Our bot takes it off sale and sends it back to your Steam with a trade offer.`

@@ -338,6 +338,21 @@ class SteamEscrowServiceSpec extends Specification {
         0 * listingRepository.save({ Listing l -> l.status == 'ACTIVE' })
     }
 
+    def "confirm: the seller's custody notice links to My Stall, not a trade id on the Trades tab"() {
+        given:
+        bot.enabled >> true
+        def e = new EscrowedItem(id: 5L, listingId: 10L, sellerUserId: 1L, assetId: '555',
+                depositOfferId: '444', custodyState: EscrowedItem.PENDING_DEPOSIT)
+
+        when:
+        service.confirmDeposit(5L, [byAsset: [:], byName: [:]])
+
+        then:
+        1 * escrowRepository.findById(5L) >> Optional.of(e)
+        1 * bot.getOfferStatus('444') >> SteamBotResult.success([ok: true, status: 'declined'])
+        1 * notificationService.safePush(1L, _, _, _, 10L, '/me/stall')
+    }
+
     def "confirm: declined deposit offer marks custody FAILED, listing not activated"() {
         given:
         bot.enabled >> true

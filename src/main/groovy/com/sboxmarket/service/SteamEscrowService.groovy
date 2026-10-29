@@ -1745,8 +1745,12 @@ class SteamEscrowService {
     private void safeNotifySeller(Long sellerUserId, Long listingId, String body) {
         if (sellerUserId == null) return
         try {
+            // My Stall, not the Trades tab: these are about a listing's skin
+            // (deposit, live, coming back), which My Stall shows, and refId is
+            // a listing id, so the bell's ?highlight= on the Trades tab
+            // flashed whichever trade happened to share that number.
             notificationService?.safePush(sellerUserId, 'TRADE_SENT',
-                    'Steam escrow', body, listingId, '/profile?tab=trades')
+                    'Steam escrow', body, listingId, '/me/stall')
         } catch (Exception ignore) { /* best-effort */ }
     }
 }
