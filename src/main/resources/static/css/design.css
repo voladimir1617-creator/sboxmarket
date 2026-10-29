@@ -13623,3 +13623,9 @@ html body .cart-confirm-backdrop > .cart-confirm-panel { max-height: calc(100dvh
   html body .cart-confirm-panel .cart-confirm-actions { flex-wrap: wrap !important; }
   html body .cart-confirm-panel .cart-confirm-actions > .btn { flex: 1 1 auto !important; }
 }
+/* Desktop full-page routes (profile, db, cart, stall, offers...) scroll inside a fixed backdrop padded for a nav at the
+   very top. With the email-confirm or a site announcement banner above the nav, the backdrop hid the banner and the
+   nav sat over each page's heading. Let those pages flow under the banner and nav instead. */
+@media (min-width: 901px) {
+  html body .site-root.full-page-mode:has(> .announce-banner) .modal-backdrop { position: static !important; padding: 0 0 36px !important; }
+}
