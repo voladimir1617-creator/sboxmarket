@@ -1595,15 +1595,17 @@ class SteamEscrowService {
 
     /** Build an index of the bot's inventory keyed by both assetId and
      *  marketHashName → held assetId, so custody-confirm can match an asset
-     *  even when Steam reassigns the asset id on receipt. Empty on failure. */
-    Map fetchBotInventoryIndex() {
+     *  even when Steam reassigns the asset id on receipt. Empty on failure.
+     *  {@code timeoutMs} overrides the bot client's request timeout. */
+    Map fetchBotInventoryIndex(Long timeoutMs = null) {
         def byAsset = [:]
         def byName = [:]
         Set<String> nonTradable = [] as Set
         List<Map> items = []
         boolean ok = false
         try {
-            SteamBotResult inv = steamTradeBotService.fetchBotInventory()
+            SteamBotResult inv = timeoutMs == null ? steamTradeBotService.fetchBotInventory()
+                    : steamTradeBotService.fetchBotInventory(timeoutMs as long)
             if (inv.ok && inv.raw != null && inv.raw['items'] instanceof List) {
                 ok = true
                 (inv.raw['items'] as List).each { it ->

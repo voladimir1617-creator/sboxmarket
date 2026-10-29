@@ -50,6 +50,7 @@ class PurchaseService {
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.TradeProtectionRepository tradeProtectionRepository
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SteamBotReconcileService steamBotReconcileService
     /** Optional so unit tests that build the service with `new
      *  PurchaseService(...)` (no Spring context) still work — in that case
      *  there is never an active transaction and {@link #deferOrRun} runs
@@ -117,6 +118,15 @@ class PurchaseService {
      *  price in between charged the buyer the new price (2026-09-28 review). */
     @Transactional
     Map buy(Long buyerWalletId, Long buyerUserId, Long listingId, BigDecimal maxPrice) {
+        buy(buyerWalletId, buyerUserId, listingId, maxPrice, false)
+    }
+
+    /** {@code botSkinChecked}: the caller already ran
+     *  {@link SteamBotReconcileService#skinGoneFromBot} for this listing
+     *  (offer accept does, before it touches the listing), so the bot is
+     *  asked once per purchase, not twice. */
+    @Transactional
+    Map buy(Long buyerWalletId, Long buyerUserId, Long listingId, BigDecimal maxPrice, boolean botSkinChecked) {
         banGuard.assertNotBanned(buyerUserId)
         def buyerWallet = walletRepository.findById(buyerWalletId)
                 .orElseThrow { new NotFoundException("Wallet", buyerWalletId) }
@@ -191,6 +201,14 @@ class PurchaseService {
         }
         if (buyerWallet.balance < listing.price) {
             throw new InsufficientBalanceException(listing.price, buyerWallet.balance)
+        }
+        // Bot-held listing whose skin has left the bot (reversed, traded out
+        // by hand): the sale would take the money and then fail to deliver on
+        // every retry, while the hourly bot check had not caught it yet. Ask
+        // the bot now, after the cheap gates and before any money moves. A
+        // bot that does not answer lets the sale through, as before.
+        if (!botSkinChecked && steamBotReconcileService?.skinGoneFromBot(listingId)) {
+            throw new ListingNotAvailableException(listingId)
         }
         // P2P sales require the buyer's Steam trade URL — the seller needs
         // it to send the item. Without this guard the purchase completes,
