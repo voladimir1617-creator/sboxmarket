@@ -7,6 +7,8 @@ import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.NotificationRepository
 import com.sboxmarket.repository.SteamUserRepository
+import com.sboxmarket.repository.WalletRepository
+import com.sboxmarket.model.Wallet
 import com.sboxmarket.service.NotificationService
 import com.sboxmarket.service.SellerMarketPingService
 import com.sboxmarket.service.UserBlockService
@@ -104,6 +106,70 @@ class SellerMarketPingServiceSpec extends Specification {
         expect:
         service.notifyBuyOrderPlaced(new BuyOrder(buyerUserId: 1L, itemId: 7L, maxPrice: 5G, quantity: 1, status: 'ACTIVE')) == 0
         service.notifyUndercut(listing(9, 1, '3')) == 0
+    }
+
+    // ── buy order the buyer can't afford (pass 95, claim 3) ─────
+    // The matcher skips an order whose buyer's wallet balance is below the
+    // price (BuyOrderService.tryMatch: wallet == null || balance < price), so
+    // "sell to the buy order" would promise a sale that cannot happen.
+
+    private SellerMarketPingService walletAwareService(WalletRepository walletRepository) {
+        new SellerMarketPingService(
+            listingRepository:      listingRepository,
+            notificationService:    notificationService,
+            notificationRepository: notificationRepository,
+            steamUserRepository:    steamUserRepository,
+            userBlockService:       userBlockService,
+            walletRepository:       walletRepository
+        )
+    }
+
+    def "a buy order whose buyer cannot afford the bid pings no seller"() {
+        given:
+        WalletRepository walletRepository = Mock()
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '765'))
+        walletRepository.findByUsername('steam_765') >> new Wallet(username: 'steam_765', balance: new BigDecimal('4.99'))
+        listingRepository.findActiveForItemIds([7L]) >> [listing(1, 21, '12.00')]
+        def svc = walletAwareService(walletRepository)
+
+        when:
+        int sent = svc.notifyBuyOrderPlaced(new BuyOrder(buyerUserId: 10L, itemId: 7L, maxPrice: new BigDecimal('5.00'), quantity: 1, status: 'ACTIVE'))
+
+        then:
+        sent == 0
+        0 * notificationService.push(*_)
+    }
+
+    def "a buy order whose buyer has no wallet pings no seller"() {
+        given:
+        WalletRepository walletRepository = Mock()
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '765'))
+        walletRepository.findByUsername(_) >> null
+        listingRepository.findActiveForItemIds([7L]) >> [listing(1, 21, '12.00')]
+
+        when:
+        int sent = walletAwareService(walletRepository).notifyBuyOrderPlaced(
+            new BuyOrder(buyerUserId: 10L, itemId: 7L, maxPrice: 5G, quantity: 1, status: 'ACTIVE'))
+
+        then:
+        sent == 0
+        0 * notificationService.push(*_)
+    }
+
+    def "a buy order whose buyer can afford the bid still pings the sellers above it"() {
+        given:
+        WalletRepository walletRepository = Mock()
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '765'))
+        walletRepository.findByUsername('steam_765') >> new Wallet(username: 'steam_765', balance: new BigDecimal('5.00'))
+        listingRepository.findActiveForItemIds([7L]) >> [listing(1, 21, '12.00')]
+
+        when:
+        int sent = walletAwareService(walletRepository).notifyBuyOrderPlaced(
+            new BuyOrder(buyerUserId: 10L, itemId: 7L, maxPrice: new BigDecimal('5.00'), quantity: 1, status: 'ACTIVE'))
+
+        then:
+        sent == 1
+        1 * notificationService.push(21L, 'BUY_ORDER_ON_YOUR_ITEM', *_)
     }
 
     // ── undercut ────────────────────────────────────────────────

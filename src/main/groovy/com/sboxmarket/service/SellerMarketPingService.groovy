@@ -5,6 +5,7 @@ import com.sboxmarket.model.Listing
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.NotificationRepository
 import com.sboxmarket.repository.SteamUserRepository
+import com.sboxmarket.repository.WalletRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -40,12 +41,16 @@ class SellerMarketPingService {
     @Autowired(required = false) NotificationRepository notificationRepository
     @Autowired(required = false) SteamUserRepository steamUserRepository
     @Autowired(required = false) UserBlockService userBlockService
+    @Autowired(required = false) WalletRepository walletRepository
 
     /** Call after a buy order is saved and its first fill attempt ran. */
     int notifyBuyOrderPlaced(BuyOrder order) {
         try {
             if (order?.itemId == null || order.maxPrice == null) return 0
             if (order.status != 'ACTIVE' || (order.quantity ?: 0) <= 0) return 0
+            // A seller who lowers to the bid only sells if the matcher will
+            // take the order, and it skips a buyer short of the price.
+            if (!buyerCanAfford(order)) return 0
             def above = activeBuyNow(order.itemId).findAll {
                 it.price != null && it.price > order.maxPrice && it.sellerUserId != order.buyerUserId
             }
@@ -132,6 +137,21 @@ class SellerMarketPingService {
             log.debug("${kind} dedupe lookup failed: ${e.message}")
             return false
         }
+    }
+
+    /**
+     * Read-only twin of BuyOrderService.tryMatch's wallet gate
+     * (`wallet == null || wallet.balance < listing.price` skips the order,
+     * as does an unknown buyer), applied at the bid itself: the lowest
+     * price a pinged seller would drop to. With no wallet repository wired
+     * the gate can't be read, so it stays open (prior behavior).
+     */
+    private boolean buyerCanAfford(BuyOrder order) {
+        if (walletRepository == null || steamUserRepository == null) return true
+        def user = steamUserRepository.findById(order.buyerUserId)?.orElse(null)
+        if (user == null) return false
+        def wallet = walletRepository.findByUsername("steam_${user.steamId64}".toString())
+        wallet != null && wallet.balance != null && wallet.balance >= order.maxPrice
     }
 
     private boolean blocked(Long blockerId, Long blockedId) {

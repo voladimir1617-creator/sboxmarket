@@ -5,11 +5,13 @@ import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.Trade
+import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.NotificationRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TradeRepository
+import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.AdminService
 import com.sboxmarket.service.BuyOrderService
 import com.sboxmarket.service.ZeroResultSearchTracker
@@ -37,6 +39,7 @@ class SellerMarketSignalsDbSpec extends Specification {
     @Autowired ListingRepository listingRepo
     @Autowired NotificationRepository notificationRepo
     @Autowired TradeRepository tradeRepo
+    @Autowired WalletRepository walletRepo
     @Autowired AdminService adminService
 
     String uniq = String.valueOf(System.nanoTime())
@@ -54,6 +57,9 @@ class SellerMarketSignalsDbSpec extends Specification {
     def "a buy order below every ask pings each seller above it once"() {
         given:
         def buyer = user('buyer')
+        // The matcher only fills for a buyer who can pay, so only a funded
+        // buyer's order is worth telling sellers about.
+        walletRepo.save(new Wallet(username: "steam_${buyer.steamId64}", balance: 10G))
         def s1 = user('s1')
         def s2 = user('s2')
         def item = itemRepo.save(new Item(name: "Ping ${uniq}", category: 'Hats', rarity: 'Standard',
@@ -71,6 +77,24 @@ class SellerMarketSignalsDbSpec extends Specification {
         kinds(s1.id).count('BUY_ORDER_ON_YOUR_ITEM') == 1
         kinds(s2.id).count('BUY_ORDER_ON_YOUR_ITEM') == 1
         !kinds(buyer.id).contains('BUY_ORDER_ON_YOUR_ITEM')
+    }
+
+    def "a buy order the buyer cannot pay for pings no seller"() {
+        given:
+        def buyer = user('broke')
+        walletRepo.save(new Wallet(username: "steam_${buyer.steamId64}", balance: 4.99G))
+        def s1 = user('s3')
+        def item = itemRepo.save(new Item(name: "Broke ${uniq}", category: 'Hats', rarity: 'Standard',
+            supply: 1, totalSold: 0, lowestPrice: 20G, isListed: true, iconEmoji: '🎩'))
+        listingRepo.save(new Listing(item: item, sellerUserId: s1.id, sellerName: s1.displayName,
+            price: 20G, status: 'ACTIVE', listingType: 'BUY_NOW'))
+
+        when:
+        def order = buyOrderService.create(buyer.id, buyer.displayName, item.id, null, null, 5G, 1)
+
+        then: "the order still stands, but nobody is told to sell into it"
+        order.status == 'ACTIVE'
+        !kinds(s1.id).contains('BUY_ORDER_ON_YOUR_ITEM')
     }
 
     def "a first-page search with no results lands in the staff tally and the dashboard"() {

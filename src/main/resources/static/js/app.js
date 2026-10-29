@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=348'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=349'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -257,10 +257,10 @@ function StaffAccessDeniedModal({ what, onClose }) {
     onClose && onClose();
   };
   return h('div', { className: 'modal-backdrop', onClick: handleBackdropClick },
-    h('div', { className: 'modal', onClick: (e) => { e.stopPropagation(); followInternalLink(e); }, style: { maxWidth: 440, textAlign: 'center', padding: '32px 24px' } },
+    h('div', { className: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'staff-denied-title', onClick: (e) => { e.stopPropagation(); followInternalLink(e); }, style: { maxWidth: 440, textAlign: 'center', padding: '32px 24px' } },
       h('div', { style: { marginBottom: 12, display: 'flex', justifyContent: 'center' } },
         h(MaterialIcon, { name: 'lock', size: 40, color: 'var(--text-muted)' })),
-      h('h1', { style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' } }, 'Staff access only'),
+      h('h1', { id: 'staff-denied-title', style: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' } }, 'Staff access only'),
       h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18, lineHeight: 1.55 } },
         'You need a staff role to open ', what, '. If you think this is a mistake, reach out via ',
         h('a', {
@@ -3354,7 +3354,7 @@ export function PreSigninModal({ onClose, onAccept }) {
           )
         ),
 
-        err && h('div', { className: 'presignin-error' }, err),
+        err && h('div', { className: 'presignin-error', role: 'alert' }, err),
 
         h('button', {
           className: 'btn btn-accent presignin-submit',
