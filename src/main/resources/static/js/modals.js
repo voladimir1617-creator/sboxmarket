@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=20';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=21';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -4612,6 +4612,13 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     h(SignInNeededEmptyState, { what: signInWhat, mailto: signInMailto }));
 
   const maskAmount = (val) => privacy ? '$•••••' : fmt(val);
+  // Profile totals: a dash until /profile/me answers (and when it failed).
+  // `|| 0` printed "$0.00 purchases · $0.00 net · $0.00 portfolio" for the
+  // whole of a slow load, and for good on a failed one, which reads as a
+  // real (and wrong) answer about the buyer's money.
+  const statAmt = (val) => privacy ? '$•••••' : (profile ? fmt(val || 0) : '—');
+  const netVal = parseFloat(profile?.stats?.net || 0);
+  const netClass = profile ? (netVal >= 0 ? 'green' : 'red') : '';
 
   const runSync = async () => {
     if (syncBusyRef.current) return;
@@ -4824,19 +4831,19 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       ),
       h('div', { className: 'profile-earnings-row' },
         h('span', { className: 'profile-earnings-label' }, 'Sales'),
-        h('span', { className: 'profile-earnings-val' }, privacy ? '$•••••' : fmt(profile?.stats?.totalSold || 0))
+        h('span', { className: 'profile-earnings-val' }, statAmt(profile?.stats?.totalSold))
       ),
       h('div', { className: 'profile-earnings-row' },
         h('span', { className: 'profile-earnings-label' }, 'Purchases'),
-        h('span', { className: 'profile-earnings-val' }, privacy ? '$•••••' : fmt(profile?.stats?.totalPurchased || 0))
+        h('span', { className: 'profile-earnings-val' }, statAmt(profile?.stats?.totalPurchased))
       ),
       h('div', { className: 'profile-earnings-row total' },
         h('span', { className: 'profile-earnings-label' }, 'Net'),
         h('span', {
-          className: `profile-earnings-val ${parseFloat(profile?.stats?.net || 0) >= 0 ? 'green' : 'red'}`
-        }, privacy
-              ? '$•••••'
-              : (parseFloat(profile?.stats?.net || 0) < 0 ? '− ' : '') + fmt(Math.abs(parseFloat(profile?.stats?.net || 0))))
+          className: `profile-earnings-val ${netClass}`
+        }, privacy || !profile
+              ? statAmt(0)
+              : (netVal < 0 ? '− ' : '') + fmt(Math.abs(netVal)))
       )
     )
     ),
@@ -4851,21 +4858,21 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label', title: 'Items you own at their current market floor, plus your active listings at your asking price.' }, 'Portfolio'),
-        h('div', { className: 'profile-stat-val' }, privacy ? '$•••••' : fmt(profile?.portfolio?.totalValue || 0))
+        h('div', { className: 'profile-stat-val' }, statAmt(profile?.portfolio?.totalValue))
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label' }, 'Total Sold'),
-        h('div', { className: 'profile-stat-val' }, privacy ? '$•••••' : fmt(profile?.stats?.totalSold || 0))
+        h('div', { className: 'profile-stat-val' }, statAmt(profile?.stats?.totalSold))
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label' }, 'Total Purchased'),
-        h('div', { className: 'profile-stat-val' }, privacy ? '$•••••' : fmt(profile?.stats?.totalPurchased || 0))
+        h('div', { className: 'profile-stat-val' }, statAmt(profile?.stats?.totalPurchased))
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label' }, 'Net'),
         h('div', {
-          className: `profile-stat-val ${parseFloat(profile?.stats?.net || 0) >= 0 ? 'green' : 'red'}`
-        }, privacy ? '$•••••' : fmt(profile?.stats?.net || 0))
+          className: `profile-stat-val ${netClass}`
+        }, statAmt(profile?.stats?.net))
       )
     ),
 
@@ -8210,8 +8217,15 @@ function ProfileTradesTab({ me, privacy }) {
     const el = chatScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [openChat, openChatLen]);
+  // Per-trade read generation. The 15s poll answering after the reload that
+  // follows a send put the thread back without the message just sent (and
+  // the draft was already cleared), which read as a lost message.
+  const chatSeqRef = useRef({});
   const loadChat = async (tradeId) => {
+    const seq = (chatSeqRef.current[tradeId] || 0) + 1;
+    chatSeqRef.current[tradeId] = seq;
     const rows = await fetchTradeMessagesOrNull(tradeId);
+    if (chatSeqRef.current[tradeId] !== seq) return;
     // A failed load is not an empty thread, and the server marked
     // nothing read, so the unread badge stays.
     if (rows === null) { setChatErrors(prev => ({ ...prev, [tradeId]: true })); return; }
@@ -8490,7 +8504,12 @@ function ProfileTradesTab({ me, privacy }) {
     } finally { setReviewBusy(false); }
   };
 
+  // Only the newest read may land: a tab-focus refresh still in flight when
+  // the user accepted / marked sent answered after the post-action reload
+  // and put the old step (and its Accept button) back on the row.
+  const loadSeqRef = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setErr(false);
     try {
       // Raw fetch (not fetchTradesWithTotal, which swallows non-2xx into an
@@ -8501,13 +8520,13 @@ function ProfileTradesTab({ me, privacy }) {
       const res = await fetch('/api/trades', { credentials: 'same-origin' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const items = await res.json();
-      if (!aliveRef.current) return;
+      if (!aliveRef.current || seq !== loadSeqRef.current) return;
       const rows = Array.isArray(items) ? items : [];
       const totalHeader = res.headers.get('X-Total-Count');
       const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
       setTrades(rows);
       setTradesTotal(Number.isFinite(parsed) ? parsed : rows.length);
-    } catch (_) { if (aliveRef.current) setErr(true); }
+    } catch (_) { if (aliveRef.current && seq === loadSeqRef.current) setErr(true); }
   }, []);
   useEffect(() => {
     aliveRef.current = true;
@@ -10158,24 +10177,33 @@ function ProfileOffersTab() {
     const [i, o] = await Promise.all([ri.json(), ro.json()]);
     return { incoming: Array.isArray(i) ? markLapsedOffers(i) : [], outgoing: Array.isArray(o) ? markLapsedOffers(o) : [] };
   }, []);
+  // Newest read wins: a tab-focus refresh still in flight when the seller
+  // accepted answered after the post-accept reload and showed the offer as
+  // pending again, Accept button and all.
+  const offersSeqRef = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++offersSeqRef.current;
     setErr(false);
     setData(null);
     try {
       const d = await fetchBoth();
+      if (seq !== offersSeqRef.current) return;
       if (aliveRef.current) setData(d);
       // Accept / reject / counter here reload through this; tell the nav
       // Offers badge too, as the Offers page does.
       window.dispatchEvent(new Event('sb:offers-changed'));
     }
-    catch (_) { if (aliveRef.current) setErr(true); }
+    catch (_) { if (aliveRef.current && seq === offersSeqRef.current) setErr(true); }
   }, [fetchBoth]);
   // Silent refresh — same fetch pair, but doesn't flash the spinner by
   // clearing `data` first. Best-effort: on error it KEEPS the last-good data
   // (no overwrite with [], no error card) since it's a background tab-focus
   // refresh, not a user-initiated load.
   const silentRefresh = useCallback(async () => {
-    try { const d = await fetchBoth(); if (aliveRef.current) setData(d); } catch (_) {}
+    // Reads the generation without bumping it, so a reload started after
+    // this (an accept, a reject) always wins over it.
+    const seq = offersSeqRef.current;
+    try { const d = await fetchBoth(); if (aliveRef.current && seq === offersSeqRef.current) setData(d); } catch (_) {}
   }, [fetchBoth]);
   useEffect(() => {
     aliveRef.current = true;
@@ -11358,8 +11386,14 @@ const ticketCategoryLabel = (c) => TICKET_CATEGORY_LABEL[c] || c;
 function ProfileSupportTab() {
   const [tickets, setTickets] = useState(null);
   const [viewing, setViewing] = useState(null);
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ subject: '', category: 'OTHER', body: '' });
+  // A ticket whose submit hit an expired session is kept for this tab, so
+  // signing back in reopens the form with the message still typed (the
+  // signed-out Support page unmounts the form and the text was lost).
+  const savedTicket = (() => {
+    try { return JSON.parse(sessionStorage.getItem('sb_ticket_unsent') || 'null'); } catch (_) { return null; }
+  })();
+  const [creating, setCreating] = useState(!!savedTicket);
+  const [form, setForm] = useState(savedTicket || { subject: '', category: 'OTHER', body: '' });
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
   // Batch 1078 — synchronous re-entrancy latch shared by submitCreate +
@@ -11511,7 +11545,11 @@ function ProfileSupportTab() {
     setBusy(true);
     try {
       const res = await createSupportTicket(form);
+      if (res && res.code === 'SESSION_EXPIRED') {
+        try { sessionStorage.setItem('sb_ticket_unsent', JSON.stringify(form)); } catch (_) {}
+      }
       if (res && res.error) { toast(res.error, 'err'); return; }
+      try { sessionStorage.removeItem('sb_ticket_unsent'); } catch (_) {}
       setCreating(false);
       const ticketId = res?.id;
       setForm({ subject: '', category: 'OTHER', body: '' });
@@ -11649,7 +11687,10 @@ function ProfileSupportTab() {
   // like the other profile tabs, instead of a lone button above it.
   const noTickets = Array.isArray(tickets) && tickets.length === 0;
   return h('div', { className: 'profile-panel' },
-    (creating || !noTickets) && h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => setCreating(c => !c) },
+    (creating || !noTickets) && h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => {
+      if (creating) { try { sessionStorage.removeItem('sb_ticket_unsent'); } catch (_) {} }
+      setCreating(c => !c);
+    } },
       creating ? 'Cancel' : '+ New Ticket'),
     creating && h('div', { className: 'buyorder-form' },
       // Batch 683 — SLA commitment banner. Sets user expectations up
@@ -12040,6 +12081,22 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // claiming "Platform inventory empty". (fetch-swallow bug class)
   const [internalErr, setInternalErr] = useState(false);
   const [picking, setPicking]     = useState(null);    // { kind: 'steam'|'internal', item: {...} }
+  // Opening the listing form unmounts the "List X for sale" button that had
+  // keyboard focus, and Back unmounts the form, so focus fell to <body>
+  // both ways. Move it to the price field, and back to the same row's
+  // button on the way out.
+  const pickReturnRef = useRef(null);
+  useEffect(() => {
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae.isConnected) return;
+    if (picking) {
+      document.querySelector('input.wallet-amount-input[aria-label="Asking price"], input.wallet-amount-input[aria-label="Starting bid"]')?.focus();
+    } else if (pickReturnRef.current) {
+      const label = pickReturnRef.current;
+      pickReturnRef.current = null;
+      [...document.querySelectorAll('button.inventory-name')].find(b => b.getAttribute('aria-label') === label)?.focus();
+    }
+  }, [picking]);
   // On the /sell page the form replaces the grid in place, so a pick made
   // far down the grid opened the form scrolled to its bottom (or past it,
   // into the footer, on a phone). Open the form at its top and put the
@@ -12453,6 +12510,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const startPickSteam = (si) => {
     resetSellFormFields();
     gridScrollRef.current = window.scrollY;
+    pickReturnRef.current = document.activeElement?.getAttribute?.('aria-label') || null;
     setPicking({ kind: 'steam', item: si });
     // Seed the field from a price we actually HAVE. The old line was
     // `setPrice(parseFloat(si.suggestedPrice || 0).toFixed(2))`, which
@@ -12477,6 +12535,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const startPickInternal = (l) => {
     resetSellFormFields();
     gridScrollRef.current = window.scrollY;
+    pickReturnRef.current = document.activeElement?.getAttribute?.('aria-label') || null;
     setPicking({ kind: 'internal', item: l.item, listingId: l.id });
     // Floor may be null for an item with no other live listings (first
     // seller back on a freshly-spawned skin). parseFloat(null) is NaN
@@ -14042,6 +14101,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   const [held, setHeld] = useState([]);
   // Skins the bot holds for this seller and ones on their way back to Steam.
   const [botCustody, setBotCustody] = useState({ heldListingIds: [], returning: [] });
+  // Listings whose cancel request is still out. The ✕ gave no sign of it on
+  // a slow line, so a seller clicked again, confirmed again and got a red
+  // "not active" error for every extra click after the first one landed.
+  const cancellingRef = useRef(new Set());
+  const [cancellingIds, setCancellingIds] = useState([]);
   // Active-stall fetch failure (vs a genuinely-empty stall) so the modal can
   // show a retry card instead of spinning forever / claiming the seller's live
   // listings vanished — sibling of soldErr. (audit P2)
@@ -14093,6 +14157,18 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     setTab(initialTab === 'sold' || initialTab === 'analytics' ? initialTab : 'active');
   }, [initialTab]);
   const [editing, setEditing] = useState(null); // listing id being edited inline
+  // Closing the inline price editor (Escape, ✕, a save) unmounts the
+  // focused input and dropped keyboard focus to <body>; hand it back to
+  // that row's Edit button.
+  const prevEditingRef = useRef(null);
+  useEffect(() => {
+    const prev = prevEditingRef.current;
+    prevEditingRef.current = editing;
+    if (prev == null || editing != null) return;
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae.isConnected) return;
+    document.querySelector(`[data-edit-listing="${prev}"]`)?.focus();
+  }, [editing]);
   const [editPrice, setEditPrice] = useState('');
   const [editDesc, setEditDesc]   = useState('');
   // Date-range filter for the my-stall Sold CSV export — bounds pass
@@ -14345,14 +14421,22 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     const confirmMsg = inBot
       ? `Withdraw ${label}? Our bot takes it off sale and sends it back to your Steam with a trade offer.`
       : itemName ? `Remove the listing for "${itemName}"?` : 'Remove this listing?';
+    if (cancellingRef.current.has(id)) return;
     if (!confirm(confirmMsg)) return;
-    const res = await cancelListing(id);
-    if (res && res.error) { toast(res.error, 'err'); load(); return; }
-    load();
-    onRefresh && onRefresh();
-    toast(inBot
-      ? `${itemName ? `"${itemName}"` : 'Your item'} is on its way back. Accept our bot's trade offer in Steam to get it.`
-      : itemName ? `Listing for "${itemName}" removed.` : 'Listing removed.', 'ok');
+    cancellingRef.current.add(id);
+    setCancellingIds(Array.from(cancellingRef.current));
+    try {
+      const res = await cancelListing(id);
+      if (res && res.error) { toast(res.error, 'err'); load(); return; }
+      load();
+      onRefresh && onRefresh();
+      toast(inBot
+        ? `${itemName ? `"${itemName}"` : 'Your item'} is on its way back. Accept our bot's trade offer in Steam to get it.`
+        : itemName ? `Listing for "${itemName}" removed.` : 'Listing removed.', 'ok');
+    } finally {
+      cancellingRef.current.delete(id);
+      setCancellingIds(Array.from(cancellingRef.current));
+    }
   };
 
   const startEdit = (l) => {
@@ -15163,7 +15247,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           ),
           h('div', { className: 'bot-offer-side' },
             e.securityCode && h(BotSecurityCode, { code: e.securityCode }),
-            h('button', { className: 'btn btn-ghost bot-offer-cancel', onClick: () => doCancel(l) }, 'Cancel')
+            h('button', { className: 'btn btn-ghost bot-offer-cancel', disabled: cancellingIds.includes(l.id), onClick: () => doCancel(l) }, 'Cancel')
           )
         );
       })
@@ -15842,7 +15926,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         disabled: true,
                         title: "Auctions with bids are locked — they settle when the timer ends"
                       }, 'Price locked')
-                    : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l), 'aria-label': `Edit price of ${l.item?.name || 'listing #' + l.id}` }, '✎ Edit'),
+                    : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l), 'data-edit-listing': l.id, 'aria-label': `Edit price of ${l.item?.name || 'listing #' + l.id}` }, '✎ Edit'),
                   // Match-top-bid quick-action (batch 416). Renders only
                   // when a standing buy order exists on this item at a
                   // price BELOW the seller's current ask — one click
@@ -15933,6 +16017,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
                         title: 'Take it off sale and send it back to your Steam',
                         'aria-label': 'Withdraw to Steam',
+                        disabled: cancellingIds.includes(l.id),
                         onClick: () => doCancel(l)
                       }, 'Withdraw')
                     : h('button', {
@@ -15940,6 +16025,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
                         title: 'Cancel listing',
                         'aria-label': `Cancel listing for ${l.item?.name || 'listing #' + l.id}`,
+                        disabled: cancellingIds.includes(l.id),
                         onClick: () => doCancel(l)
                       }, '✕')
                 )

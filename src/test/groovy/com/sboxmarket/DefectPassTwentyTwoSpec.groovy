@@ -33,6 +33,7 @@ class DefectPassTwentyTwoSpec extends Specification {
     @Autowired SteamUserRepository userRepo
     @Autowired ItemRepository itemRepo
     @Autowired SupportTicketRepository ticketRepo
+    @Autowired com.sboxmarket.repository.AuditLogRepository auditRepo
 
     static int seq = 0
     String uniq = String.valueOf(System.nanoTime())
@@ -94,6 +95,25 @@ class DefectPassTwentyTwoSpec extends Specification {
         then:
         def e = thrown(BadRequestException)
         e.code == 'INVALID_COLOR'
+    }
+
+    def "an admin item edit audits the old and new value of each changed field only"() {
+        given:
+        def admin = user('ADMIN')
+        def itm = item()
+
+        when: 'the price changes, the rarity is resent unchanged, and an ignored key is sent'
+        adminController.updateItem(itm.id,
+            [steamPrice: '12.50', rarity: 'Standard', name: 'renamed'], signedIn(admin.id))
+        def row = auditRepo.byEvent('ITEM_EDITED', org.springframework.data.domain.PageRequest.of(0, 50))
+            .find { it.resourceId == itm.id }
+
+        then:
+        row != null
+        row.actorUserId == admin.id
+        row.summary.contains('steamPrice (none) -> 12.50')
+        !row.summary.contains('rarity')
+        !row.summary.contains('name')
     }
 
     def "the waiting queue keeps its longest-waiting ticket past 500 rows"() {

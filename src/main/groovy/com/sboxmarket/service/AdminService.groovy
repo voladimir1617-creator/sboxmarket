@@ -1004,7 +1004,7 @@ class AdminService {
         // full programmatic access — listing, buying, offers, wallet flows.
         // Silent-fail like the cleanup blocks below. (audit P2)
         try {
-            apiKeyService?.revokeAll(targetUserId)
+            apiKeyService?.revokeAll(targetUserId, adminUserId)
         } catch (Exception e) {
             log.warn("API-key revoke on ban failed for user ${targetUserId}: ${e.message}")
         }
@@ -1219,7 +1219,7 @@ class AdminService {
         // API keys are sessions too: one minted from a hijacked cookie kept
         // working after "Sessions revoked". Same step ban and deletion take.
         try {
-            apiKeyService?.revokeAll(targetUserId)
+            apiKeyService?.revokeAll(targetUserId, adminUserId)
         } catch (Exception e) {
             log.warn("API key revoke on force-logout failed for user ${targetUserId}: ${e.message}")
         }
@@ -1836,7 +1836,7 @@ class AdminService {
         // account must not retain programmatic access; an outstanding sbx_live_…
         // key otherwise keeps authenticating as the erased account. (audit P2)
         try {
-            int revoked = apiKeyService?.revokeAll(targetUserId) ?: 0
+            int revoked = apiKeyService?.revokeAll(targetUserId, adminUserId) ?: 0
             if (revoked > 0) log.info("finalizeDeletion: revoked ${revoked} API key(s) for user ${targetUserId}")
         } catch (Exception e) {
             log.warn("finalizeDeletion: API-key revoke failed for ${targetUserId}: ${e.message}")
@@ -1914,7 +1914,7 @@ class AdminService {
         steamUserRepository.save(target)
         // A compromise recovery: keys minted by whoever held the account go too.
         try {
-            apiKeyService?.revokeAll(targetUserId)
+            apiKeyService?.revokeAll(targetUserId, adminUserId)
         } catch (Exception e) {
             log.warn("API key revoke on 2FA reset failed for user ${targetUserId}: ${e.message}")
         }

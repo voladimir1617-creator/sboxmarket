@@ -126,6 +126,15 @@ class ApiKeyService {
      */
     @Transactional
     int revokeAll(Long userId) {
+        revokeAll(userId, userId)
+    }
+
+    /** Same, done by someone else: staff ban, force-logout, 2FA reset and
+     *  account deletion revoke a user's keys. The audit rows name the staff
+     *  member as actor; they used to name the user, so the trail read as if
+     *  the user had revoked their own keys. */
+    @Transactional
+    int revokeAll(Long userId, Long actorUserId) {
         def live = apiKeyRepository.findByUser(userId).findAll { !Boolean.TRUE.equals(it.revoked) }
         if (live.isEmpty()) return 0
         live.each { k -> k.revoked = true }
@@ -139,8 +148,9 @@ class ApiKeyService {
         apiKeyRepository.saveAll(live)
         live.each { k ->
             try {
-                auditService?.log(AuditService.API_KEY_REVOKED, userId, userId, k.id,
-                    "Bulk-revoked API key ${k.publicPrefix} (${k.label})")
+                auditService?.log(AuditService.API_KEY_REVOKED, actorUserId, userId, k.id,
+                    "Bulk-revoked API key ${k.publicPrefix} (${k.label})" +
+                    (actorUserId != userId ? ' by staff' : ''))
             } catch (Exception ignore) { /* tolerated */ }
         }
         live.size()

@@ -11,7 +11,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=20';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=21';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=351'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=352'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -161,6 +161,13 @@ function cleanPriceParam(raw) {
   const n = parseFloat(t);
   if (!Number.isFinite(n) || n < 0 || n > 10000000) return null;
   return String(Math.round(n * 100) / 100);
+}
+
+// Search-box text -> the query the grid runs. Outer spaces are dropped and
+// inner runs of spaces become one, so "   " is no search at all (it used to
+// show a `search: "   "` chip) and "wizard  hat" finds Wizard Hat.
+function cleanSearchText(raw) {
+  return String(raw || '').trim().replace(/\s+/g, ' ');
 }
 
 function PendingTradeReminder({ me }) {
@@ -790,6 +797,7 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const closeTimer = useRef(null);
+  const refocusRef = useRef(false);
   const total = parseFloat(cartTotal) || 0;
   const fmtMoney = (v) => privacy ? '$•••••' : fmt(v);
   const tip = cartCount === 0
@@ -809,7 +817,15 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
     const onDocClick = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
     };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      // Escape from inside the panel hands focus back to the cart icon
+      // instead of dropping it to <body> when the panel unmounts.
+      const link = wrapRef.current && wrapRef.current.querySelector('a.nav-icon-btn');
+      const inPanel = link && wrapRef.current.contains(document.activeElement) && document.activeElement !== link;
+      setOpen(false);
+      if (inPanel) { refocusRef.current = true; link.focus(); }
+    };
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -823,7 +839,14 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
     className: 'nav-cart-wrap',
     style: { position: 'relative', display: 'inline-block' },
     onMouseEnter: () => { cancelClose(); setOpen(true); },
-    onMouseLeave: scheduleClose
+    onMouseLeave: scheduleClose,
+    // Focus opens the preview, so focus leaving must close it: a keyboard
+    // user tabbing on through the nav otherwise left the panel covering
+    // the page under it. relatedTarget is null for a click on plain text
+    // inside the panel, which must not close it.
+    onBlur: (e) => {
+      if (e.relatedTarget && wrapRef.current && !wrapRef.current.contains(e.relatedTarget)) setOpen(false);
+    }
   },
     h('a', {
       className: 'nav-icon-btn',
@@ -832,7 +855,10 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
       'aria-label': tip,
       'aria-haspopup': 'dialog',
       'aria-expanded': open,
-      onFocus: () => { cancelClose(); setOpen(true); },
+      onFocus: () => {
+        if (refocusRef.current) { refocusRef.current = false; return; }
+        cancelClose(); setOpen(true);
+      },
       onClick: (e) => {
         // Modifier / middle-click → let the browser handle it as a normal
         // anchor (new tab etc). Plain click → close popover then navigate.
@@ -3676,7 +3702,10 @@ export function App() {
   const ALLOWED_SORTS      = ['price_desc','price_asc','newest','rarity','discount','ending_soon','popularity','views'];
   const ALLOWED_CATEGORIES = ['All','Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
   const ALLOWED_RARITIES   = ['All','Limited','Off-Market','Standard'];
-  const __initialQ        = (__urlParams.get('q') || '').slice(0, 80);
+  const __initialQ        = cleanSearchText(__urlParams.get('q')).slice(0, 80);
+  // `?category=hats` names Hats: the listings API matches either case, so
+  // match it here too instead of dropping the filter and showing everything.
+  const canonFilter = (list, v) => list.find(c => c.toLowerCase() === String(v || '').toLowerCase());
   // Marketplace default sort preference (batch 544). If the URL
   // didn't specify a sort, fall back to what the user picked last
   // time. localStorage is per-device so it doesn't sync across
@@ -3690,10 +3719,16 @@ export function App() {
   const __initialSort     = ALLOWED_SORTS.includes(__urlParams.get('sort'))
     ? __urlParams.get('sort')
     : (ALLOWED_SORTS.includes(__storedSort) ? __storedSort : 'price_desc');
-  const __initialCategory = ALLOWED_CATEGORIES.includes(__urlParams.get('category')) ? __urlParams.get('category') : 'All';
-  const __initialRarity   = ALLOWED_RARITIES.includes(__urlParams.get('rarity')) ? __urlParams.get('rarity') : 'All';
-  const __initialMin      = (__urlParams.get('min') || '').slice(0, 16);
-  const __initialMax      = (__urlParams.get('max') || '').slice(0, 16);
+  const __initialCategory = canonFilter(ALLOWED_CATEGORIES, __urlParams.get('category')) || 'All';
+  const __initialRarity   = canonFilter(ALLOWED_RARITIES, __urlParams.get('rarity')) || 'All';
+  // A link's `?min=abc` or `?min=-5` filters nothing (cleanPriceParam drops
+  // it), so leave the box empty rather than show a "≥ $abc" chip.
+  const __priceFromUrl    = (key) => {
+    const raw = (__urlParams.get(key) || '').slice(0, 16);
+    return cleanPriceParam(raw) != null ? raw : '';
+  };
+  const __initialMin      = __priceFromUrl('min');
+  const __initialMax      = __priceFromUrl('max');
   // Batch 651 follow-up — deep-link the min-discount filter so
   // shareable URLs like `/?discount=30` land the viewer on the pool
   // the sharer actually saw. Whitelist [0, 5, 10, 20, 30, 50] — same
@@ -3707,7 +3742,7 @@ export function App() {
   const [searchInput, setSearchInput]   = useState(__initialQ);
   const [search, setSearch]             = useState(__initialQ);
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput), 300);
+    const t = setTimeout(() => setSearch(cleanSearchText(searchInput)), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
   // Autocomplete suggestions — keyboard-navigable dropdown showing up to 8
@@ -4733,6 +4768,11 @@ export function App() {
   // latch still prevents a real double-submit of the Confirm action.
   const closeCartConfirm = React.useCallback(() => { setCartConfirmOpen(false); }, []);
   useDialogA11y(cartConfirmPanelRef, closeCartConfirm, cartConfirmOpen);
+  // Signed out with the confirm open (session expired, signed out in another
+  // tab): close it. Left open it said "You have $0.00 — add $X" with a
+  // Deposit button, though the wallet was fine; the cart behind it offers
+  // "Sign in to checkout" and keeps every row.
+  useEffect(() => { if (!me) setCartConfirmOpen(false); }, [me]);
   const doCheckout = async () => {
     if (cart.length === 0) return;
     // Synchronous in-flight latch — a rapid double-click on Confirm must not fire
@@ -4987,8 +5027,14 @@ export function App() {
     })();
     return () => { alive = false; };
   }, [me?.id]);
+  // Items whose star/unstar request is still in flight. A double-click on a
+  // heart fired POST and DELETE together: on a slow line the second answer to
+  // land won (or the server applied them in the other order), so the heart
+  // could end up the opposite of what the buyer last saw.
+  const starBusyRef = React.useRef(new Set());
   const toggleStar = async (itemId) => {
     if (itemId == null) return;
+    if (me && starBusyRef.current.has(itemId)) return;
     // Optimistic local flip — feels instant and works offline. The
     // server call below reconciles or reverts.
     let willStar = false;
@@ -4998,6 +5044,7 @@ export function App() {
       return has ? w.filter(id => id !== itemId) : [...w, itemId];
     });
     if (!me) return;  // anon: localStorage only
+    starBusyRef.current.add(itemId);
     try {
       const { starItem, unstarItem } = await import('./api.js');
       const res = willStar ? await starItem(itemId) : await unstarItem(itemId);
@@ -5012,6 +5059,8 @@ export function App() {
     } catch (_) {
       // Network error — keep optimistic local change; the next sign-in
       // bridge will reconcile.
+    } finally {
+      starBusyRef.current.delete(itemId);
     }
   };
   // Navigate helper closes the user-menu dropdown in the same click and
@@ -5079,7 +5128,12 @@ export function App() {
   }, [me, meLoaded]);
 
   // wallet load
+  // Only the newest wallet read may land. A tab-focus refresh that was still
+  // in flight when the buyer paid answered after the post-purchase refresh,
+  // and put the pre-purchase balance back in the header.
+  const walletSeqRef = React.useRef(0);
   const loadWallet = useCallback(async () => {
+    const seq = ++walletSeqRef.current;
     // Anon users have no wallet — the endpoints return 401, which
     // fetchWallet swallows to null (not the __error sentinel), so the
     // /wallet route would otherwise spin forever. Skip the guaranteed-401
@@ -5088,10 +5142,12 @@ export function App() {
     if (!me) { setWallet(null); setTransactions([]); return; }
     try {
       const [w, tx] = await Promise.all([fetchWallet(), fetchTransactions()]);
+      if (seq !== walletSeqRef.current) return;
       setWallet(w);
       setTransactions(Array.isArray(tx) ? tx : []);
     } catch (e) {
       console.error('loadWallet failed:', e);
+      if (seq !== walletSeqRef.current) return;
       // Batch 668 — surface fetch failures so the /wallet route can
       // render an error panel with a Retry CTA instead of a blank page.
       // Only flag an error sentinel if we have nothing to show; a prior
@@ -5483,20 +5539,21 @@ export function App() {
       if (!has('sort') && sort !== 'price_desc') setSort('price_desc');
     }
     const urlSort = params.get('sort');
-    const urlCategory = params.get('category');
-    const urlRarity = params.get('rarity');
+    const urlCategory = canonFilter(ALLOWED_CATEGORIES, params.get('category'));
+    const urlRarity = canonFilter(ALLOWED_RARITIES, params.get('rarity'));
     // Accept `min`/`max` (canonical) and `minPrice`/`maxPrice` (common typo /
     // alias) - users + external links use both.
     const urlMin = params.get('min') ?? params.get('minPrice');
     const urlMax = params.get('max') ?? params.get('maxPrice');
-    const urlQ = params.get('q') ?? params.get('search') ?? params.get('query');
+    const urlQ = cleanSearchText(params.get('q') ?? params.get('search') ?? params.get('query'));
     const urlDiscount = parseInt(params.get('discount') || '0', 10);
     const urlType = params.get('type') ?? params.get('listingType');
     if (urlSort && ALLOWED_SORTS.includes(urlSort) && urlSort !== sort) setSort(urlSort);
-    if (urlCategory && ALLOWED_CATEGORIES.includes(urlCategory) && urlCategory !== category) setCategory(urlCategory);
-    if (urlRarity && ALLOWED_RARITIES.includes(urlRarity) && urlRarity !== rarity) setRarity(urlRarity);
-    if (urlMin != null && urlMin !== minPrice) setMinPrice(urlMin);
-    if (urlMax != null && urlMax !== maxPrice) setMaxPrice(urlMax);
+    if (urlCategory && urlCategory !== category) setCategory(urlCategory);
+    if (urlRarity && urlRarity !== rarity) setRarity(urlRarity);
+    const priceOrBlank = (v) => (cleanPriceParam(v) != null ? v : '');
+    if (urlMin != null && priceOrBlank(urlMin) !== minPrice) setMinPrice(priceOrBlank(urlMin));
+    if (urlMax != null && priceOrBlank(urlMax) !== maxPrice) setMaxPrice(priceOrBlank(urlMax));
     if (urlQ && urlQ !== search) { setSearch(urlQ); setSearchInput(urlQ); }
     if ([0, 5, 10, 20, 30, 50].includes(urlDiscount) && urlDiscount !== minDiscountPct) setMinDiscountPct(urlDiscount);
     // Same canonical form as the initial read: "?type=auction" left
@@ -5521,8 +5578,9 @@ export function App() {
     if (sort && sort !== 'price_desc') qs.set('sort', sort);
     if (category && category !== 'All') qs.set('category', category);
     if (rarity && rarity !== 'All')     qs.set('rarity', rarity);
-    if (minPrice)                  qs.set('min', minPrice);
-    if (maxPrice)                  qs.set('max', maxPrice);
+    // Only a bound the grid actually applies goes in a shared link.
+    if (cleanPriceParam(minPrice) != null) qs.set('min', minPrice);
+    if (cleanPriceParam(maxPrice) != null) qs.set('max', maxPrice);
     // Batch 812 — mirror the remaining quick-filter toggles so a
     // shared link like `/?type=AUCTION&deals=1&discount=20&new=1`
     // reconstructs the exact view. Missing params were a real gap
@@ -5867,6 +5925,23 @@ export function App() {
       window.removeEventListener('sb:service-unavailable', down);
       window.removeEventListener('sb:service-restored', up);
     };
+  }, []);
+  // On desktop, full-page routes (/sell, /profile, /offers…) scroll inside a
+  // fixed layer pinned to the top of the viewport. Any banner rendered above
+  // the nav (this outage notice, the suspended-account notice, staff
+  // announcements) was painted UNDER that layer: the banner never showed,
+  // the nav slid down by its height, and page content showed through the gap
+  // above the nav. Publish how far the nav sits from the top so the CSS can
+  // start that layer below the banners.
+  useEffect(() => {
+    const root = document.querySelector('.site-root');
+    const nav = root && root.querySelector(':scope > nav.nav');
+    if (!root || !nav || typeof ResizeObserver === 'undefined') return;
+    const set = () => document.documentElement.style.setProperty('--pre-nav-h', nav.offsetTop + 'px');
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(root);
+    return () => ro.disconnect();
   }, []);
 
   // buy flow — errors now come as {code, message} from GlobalExceptionHandler.
@@ -6379,7 +6454,9 @@ export function App() {
     /* NAV — full-width bar, aligned inner row clamped to content-max */
     h('nav', { className: 'nav', 'aria-label': 'Top' },
       h('div', { className: 'nav-inner' },
-      h('a', { className: 'nav-logo', href: '/' },
+      // The wordmark beside the icon is display:none in this layout and the
+      // icon is aria-hidden, so without a label the link had no name.
+      h('a', { className: 'nav-logo', href: '/', 'aria-label': `${BRAND.name} home` },
         // Batch 1068 — isometric-crate SVG logo per the operator's template
         // (~/Downloads/skinbox_files/chrome.jsx), recolored with a blue
         // fade. Top facet is the lightest blue, right facet mid, left
@@ -6615,6 +6692,11 @@ export function App() {
                   e.preventDefault();
                   setMenuOpen(o => !o);
                 }
+              },
+              // Tabbing out of the menu closes it, as a menu should; it was
+              // left open over the page while focus moved on beneath it.
+              onBlur: (e) => {
+                if (menuOpen && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setMenuOpen(false);
               },
               onClick: () => setMenuOpen(o => !o),
               // Avatar badge tooltip (batch 532). Shows WHICH surface
@@ -8153,7 +8235,9 @@ export function App() {
         // CSFloat-1:1 — the toolbar quick-filters (listing type / Deals /
         // New / Affordable) count too, so the row appears and stays
         // complete when only a toolbar toggle is on.
-        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0 ||
+        // A price box holding "abc" or "-3" filters nothing (cleanPriceParam
+        // drops it), so it gets no chip claiming it does.
+        (search || category !== 'All' || rarity !== 'All' || cleanPriceParam(minPrice) != null || cleanPriceParam(maxPrice) != null || minDiscountPct > 0 ||
          listingTypeFilter !== 'ALL' || dealsOnly || newOnly || affordableOnly) &&
           // a11y: each chip describes a REMOVAL action — without an
           // explicit aria-label a SR user just hears "Hats, X". The
@@ -8166,9 +8250,9 @@ export function App() {
               h('strong', null, category), h('span', { 'aria-hidden': true }, ' ✕')),
             rarity !== 'All' && h('button', { className: 'filter-chip', onClick: () => setRarity('All'), 'aria-label': `Remove rarity filter: ${rarity === 'Off-Market' ? 'Scarce' : rarity}` },
               h('strong', null, rarity === 'Off-Market' ? 'Scarce' : rarity), h('span', { 'aria-hidden': true }, ' ✕')),
-            minPrice && h('button', { className: 'filter-chip', onClick: () => setMinPrice(''), 'aria-label': `Remove minimum price filter $${minPrice}` },
+            cleanPriceParam(minPrice) != null && h('button', { className: 'filter-chip', onClick: () => setMinPrice(''), 'aria-label': `Remove minimum price filter $${minPrice}` },
               '≥ $', h('strong', null, minPrice), h('span', { 'aria-hidden': true }, ' ✕')),
-            maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice(''), 'aria-label': `Remove maximum price filter $${maxPrice}` },
+            cleanPriceParam(maxPrice) != null && h('button', { className: 'filter-chip', onClick: () => setMaxPrice(''), 'aria-label': `Remove maximum price filter $${maxPrice}` },
               '≤ $', h('strong', null, maxPrice), h('span', { 'aria-hidden': true }, ' ✕')),
             // Batch 651 — removable min-discount chip.
             minDiscountPct > 0 && h('button', { className: 'filter-chip', onClick: () => setMinDiscountPct(0), 'aria-label': `Remove minimum discount filter: ${minDiscountPct}% off` },

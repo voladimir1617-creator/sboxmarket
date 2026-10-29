@@ -587,7 +587,14 @@ export function NotificationBell({ me }) {
     else load();
   };
 
-  return h('div', { ref: wrapRef, style: { position: 'relative' } },
+  return h('div', {
+    ref: wrapRef, style: { position: 'relative' },
+    // Tabbing out of the dropdown closes it instead of leaving it open
+    // over the page while focus moves on beneath it.
+    onBlur: (e) => {
+      if (open && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setOpen(false);
+    }
+  },
     h('button', {
       className: 'nav-icon-btn',
       onClick: () => setOpen(v => !v),

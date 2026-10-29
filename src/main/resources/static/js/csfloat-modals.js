@@ -51,10 +51,15 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
     }).catch(() => setStarred(new Set()));
     return () => { alive = false; };
   }, [me]);
+  // A double-click read the same not-yet-updated `starred` twice and sent
+  // two writes for one row; ignore clicks while that row's write is out.
+  const starBusy = useRef(new Set());
   const toggleStar = async (item, e) => {
     e.stopPropagation();
     if (!me) { signInWithSteam(); return; }
     const id = item.id;
+    if (starBusy.current.has(id)) return;
+    starBusy.current.add(id);
     const isStarred = starred && starred.has(id);
     // Optimistic update — revert on error.
     setStarred(prev => {
@@ -87,6 +92,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       // reading as a dead toggle. The API-error branch above already
       // toasts; mirror that on the exception path.
       toast('Could not update watchlist — check your connection and retry.', 'err');
+    } finally {
+      starBusy.current.delete(id);
     }
   };
   const [loading, setLoading] = useState(true);

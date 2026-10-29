@@ -228,6 +228,9 @@ class AdminController {
         def adminUid = requireAdmin(req)
         def item = itemRepository.findById(id)
             .orElseThrow { new com.sboxmarket.exception.NotFoundException("Item", id) }
+        // Kept for the audit row, which records each field's old -> new value.
+        def before = [steamPrice: item.steamPrice, rarity: item.rarity,
+                      imageUrl: item.imageUrl, accentColor: item.accentColor]
         if (body.containsKey('steamPrice')) {
             def raw = body.steamPrice
             if (raw == null || raw.toString().isEmpty()) {
@@ -268,8 +271,13 @@ class AdminController {
             item.accentColor = c.isEmpty() ? null : c
         }
         itemRepository.save(item)
+        // Only the fields that changed, with old and new values. The row used
+        // to list every key sent (fields this endpoint ignores too) and no
+        // values, so a price override left no record of the old price.
+        def changes = before.findAll { k, v -> v != item[k] }
+            .collect { k, v -> "${k} ${v ?: '(none)'} -> ${item[k] ?: '(none)'}".toString() }
         auditService?.log(com.sboxmarket.service.AuditService.ITEM_EDITED, adminUid, null, item.id,
-            "Admin edited ${item.name}: " + body.keySet().join(','))
+            "Admin edited ${item.name}: " + (changes ? changes.join('; ') : 'no changes'))
         ResponseEntity.ok([
             id:          item.id,
             name:        item.name,

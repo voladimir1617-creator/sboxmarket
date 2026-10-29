@@ -1013,9 +1013,12 @@ class TradeService {
         // corrupting the actor-keyed audit trail (`byActor`) and the
         // buyer's own security-activity view. The subject stays
         // sellerUserId either way — the seller is the party who got paid.
+        // A staff force-release is not the buyer either: it named the buyer
+        // as having confirmed a trade they never touched. The staff member
+        // is recorded on the TRADE_FORCE_RELEASED row adminRelease writes.
         auditService?.log(AuditService.TRADE_VERIFIED,
-            autoRelease ? null : t.buyerUserId, t.sellerUserId, t.id,
-            "Verified trade #${t.id} for \$${t.price}")
+            (autoRelease || forced) ? null : t.buyerUserId, t.sellerUserId, t.id,
+            "Verified trade #${t.id} for \$${t.price}" + (forced ? ' (force-released by staff)' : ''))
         // Trade Protection resolution. Normally the trade completed
         // cleanly, so any ACTIVE cover lapses (ACTIVE → EXPIRED) and the
         // fee is kept as revenue. BUT a disputed protected trade was

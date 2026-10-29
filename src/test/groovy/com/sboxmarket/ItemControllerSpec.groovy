@@ -73,6 +73,22 @@ class ItemControllerSpec extends Specification {
         response.body instanceof List
     }
 
+    def "GET /api/items trims the query: blank is no search and padded text still matches"() {
+        given:
+        def item = newItem()
+
+        when:
+        def all     = rest.getForEntity("http://localhost:$port/api/items", List)
+        // java.net.URI so the template expander doesn't re-encode the %20s.
+        def blank   = rest.getForEntity(new URI("http://localhost:$port/api/items?q=%20%20%20"), List)
+        def padded  = rest.getForEntity(new URI("http://localhost:$port/api/items?q=%20%20" + item.name.replace(' ', '%20') + "%20%20"), List)
+
+        then:
+        blank.statusCode == HttpStatus.OK
+        blank.body.size() == all.body.size()
+        padded.body*.name == [item.name]
+    }
+
     def "GET /api/items?category=Hats returns only hat items"() {
         when:
         def response = rest.getForEntity("http://localhost:$port/api/items?category=Hats", List)
