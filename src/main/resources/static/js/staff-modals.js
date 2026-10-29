@@ -43,12 +43,15 @@ export function AdminModal({ onClose, me }) {
   })();
   const [tab, setTab] = useState(initialTab);
   // Dashboard tiles switch tabs too; mirror them into the URL like a tab click.
-  const selectTab = (id) => {
+  // A target may carry a queue filter ('trades:PENDING_SELLER_SEND') so a
+  // dashboard tile opens the rows it counted, not the tab's default view.
+  const selectTab = (target) => {
+    const [id, state] = String(target).split(':');
     setTab(id);
     // The tile that was clicked unmounts with the dashboard; focus the tab.
     requestAnimationFrame(() => document.getElementById('admin-tab-' + id)?.focus());
     try {
-      const next = id === 'dashboard' ? '/admin' : '/admin?tab=' + id;
+      const next = id === 'dashboard' ? '/admin' : '/admin?tab=' + id + (state ? '&state=' + state : '');
       if (window.location.pathname + window.location.search !== next) window.history.replaceState({}, '', next);
     } catch (_) {}
   };
@@ -85,9 +88,13 @@ export function AdminModal({ onClose, me }) {
     const id = setInterval(() => { if (!document.hidden) load(); }, 60_000);
     const onVis = () => { if (!document.hidden) load(); };
     document.addEventListener('visibilitychange', onVis);
+    // A tab that changes a counted queue (e.g. closing a ticket) asks for a
+    // fresh count instead of leaving the badge stale until the next poll.
+    window.addEventListener('sb:admin-counts', load);
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('sb:admin-counts', load);
     };
   }, []);
   const TABS = [
@@ -1685,7 +1692,12 @@ function AdminSimulatorTab() {
 
 function AdminTradesTab() {
   const [rows, setRows]     = useState(null);
-  const [filter, setFilter] = useState('DISPUTED');
+  const [filter, setFilter] = useState(() => {
+    try {
+      const s = new URLSearchParams(window.location.search).get('state');
+      return ['ALL','PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','VERIFIED','DISPUTED','CANCELLED'].includes(s) ? s : 'DISPUTED';
+    } catch { return 'DISPUTED'; }
+  });
   const [busy, setBusy]     = useState(false);
   // Age sort toggle — defaults off (uses backend's newest-first), flips
   // to oldest-first so ops can attack the tail of the queue without
@@ -2128,7 +2140,7 @@ function AdminAuditTab() {
               h('th', null, 'Summary'),
               h('th', null, 'IP')
             )),
-            h('tbody', null, displayRows.slice(0, 200).map(r => h('tr', { key: r.id },
+            h('tbody', null, displayRows.slice(0, 200).map(r => h('tr', { key: r.id, className: 'db-row' },
               h('td', { className: 'db-rank' }, timeAgo(r.createdAt)),
               h('td', { style: { fontSize: 10, fontWeight: 700, color: 'var(--accent)' } }, r.eventType),
               h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.actorName || (r.actorUserId ? '#' + r.actorUserId : 'system')),
@@ -2216,7 +2228,7 @@ function AdminDashboardTab({ onNavTab }) {
       onKeyDown: navTarget && onNavTab
         ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavTab(navTarget); } }
         : null,
-      title: navTarget ? `Click to open the ${navTarget} tab` : null
+      title: navTarget ? `Click to open the ${navTarget.split(':')[0]} tab` : null
     },
       h('div', { className: 'admin-stat-label' }, label),
       h('div', { className: `admin-stat-val ${cls || ''}` }, val),
@@ -2241,7 +2253,7 @@ function AdminDashboardTab({ onNavTab }) {
       Stat('Active Listings',      Number(stats.activeListings || 0).toLocaleString()),
       Stat('Total Escrow',         fmt(stats.totalEscrow || 0), 'accent'),
       Stat('Deposits 24h',         fmt(stats.deposits24h || 0), 'green', depositDelta),
-      Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green', salesDelta, 'trades'),
+      Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green', salesDelta, 'trades:ALL'),
       Stat('Platform fees 24h',    fmt(stats.fees24h || 0), 'accent'),
       Stat('Platform fees 7d',     fmt(stats.fees7d || 0), 'accent'),
       Stat('Platform fees 30d',    fmt(stats.fees30d || 0), 'accent'),
@@ -2254,13 +2266,13 @@ function AdminDashboardTab({ onNavTab }) {
       // sweeper handles it but staff may want to force-release early),
       // seller-side pendings stay neutral.
       Stat('Open Disputes',        Number(stats.disputedTrades || 0),
-           stats.disputedTrades > 0 ? 'red' : '', null, 'trades'),
+           stats.disputedTrades > 0 ? 'red' : '', null, 'trades:DISPUTED'),
       Stat('Escrow · awaiting seller accept', Number(stats.pendingSellerAccept || 0),
-           null, null, 'trades'),
+           null, null, 'trades:PENDING_SELLER_ACCEPT'),
       Stat('Escrow · awaiting seller send',   Number(stats.pendingSellerSend || 0),
-           null, null, 'trades'),
+           null, null, 'trades:PENDING_SELLER_SEND'),
       Stat('Escrow · awaiting buyer confirm', Number(stats.pendingBuyerConfirm || 0),
-           stats.pendingBuyerConfirm > 0 ? 'yellow' : '', null, 'trades'),
+           stats.pendingBuyerConfirm > 0 ? 'yellow' : '', null, 'trades:PENDING_BUYER_CONFIRM'),
       // Active chargebacks (batch 486) — money-at-risk; each row drives
       // a user's withdrawal hold. Click jumps to the Disputes tab.
       Stat('Active Chargebacks',   Number(stats.activeChargebacks || 0),
@@ -2274,14 +2286,13 @@ function AdminDashboardTab({ onNavTab }) {
       // Supply concentration: the top 5 sellers' share of completed sale
       // volume over 30 days. A dash until anything has sold.
       Stat('Top 5 sellers · 30d share', stats.top5Share30d == null ? '—' : `${stats.top5Share30d}%`,
-           stats.top5Share30d >= 80 ? 'yellow' : '', null, 'trades')
+           stats.top5Share30d >= 80 ? 'yellow' : '', null, 'trades:ALL')
     ),
     // Searches that found nothing since the last restart — items buyers
     // want that nobody lists. In memory only; no user is recorded.
     zeroSearches.length > 0 && h('div', { className: 'admin-activity', style: { marginTop: 20 } },
       h('div', { className: 'admin-activity-head' },
-        h('span', { className: 'section-title-dot' }),
-        'Searches with no results',
+        h('span', { className: 'section-title-dot', style: { marginBottom: 0 } }, 'Searches with no results'),
         h('span', { className: 'admin-activity-hint' }, 'since last restart · top 10')
       ),
       h('div', { className: 'admin-activity-list' },
@@ -2297,8 +2308,7 @@ function AdminDashboardTab({ onNavTab }) {
     // navigation target. Links to the Audit Log tab for drill-down.
     recent.length > 0 && h('div', { className: 'admin-activity', style: { marginTop: 20 } },
       h('div', { className: 'admin-activity-head' },
-        h('span', { className: 'section-title-dot' }),
-        'Recent activity',
+        h('span', { className: 'section-title-dot', style: { marginBottom: 0 } }, 'Recent activity'),
         h('span', { className: 'admin-activity-hint' }, 'live · last 10 events')
       ),
       h('div', { className: 'admin-activity-list' },
@@ -3550,7 +3560,7 @@ function AdminUsersTab({ me }) {
                     )),
                     h('tbody', null, detailData.transactions.map(tx => {
                       const inbound = tx.type === 'DEPOSIT' || tx.type === 'SALE' || tx.type === 'REFUND' || tx.type === 'ADJUSTMENT_CREDIT';
-                      return h('tr', { key: tx.id },
+                      return h('tr', { key: tx.id, className: 'db-row' },
                         h('td', { className: 'db-mono', style: { fontSize: 10, color: 'var(--text-muted)' } },
                           new Date(tx.createdAt).toLocaleString()),
                         h('td', { style: { fontSize: 11 } }, tx.type),
@@ -3683,6 +3693,7 @@ function AdminTicketsTab() {
       const fresh = await adminTicket(t.id);
       if (fresh && fresh.ticket) setView(fresh);
       load();
+      window.dispatchEvent(new Event('sb:admin-counts'));
       // Batch 917 — confirm toast on admin-side reply. Matches the
       // CSR-side toast so both staff flows feel consistent. Previously
       // the flow succeeded silently.
@@ -3705,6 +3716,7 @@ function AdminTicketsTab() {
     const fresh = await adminTicket(t.id);
     if (fresh && fresh.ticket) setView(fresh);
     load();
+    window.dispatchEvent(new Event('sb:admin-counts'));
     // Batch 917 — cite the id + truncated subject so admin closing
     // many tickets back-to-back knows which one just closed.
     const subjStr = t.subject ? ` — "${t.subject.length > 40 ? t.subject.slice(0, 40) + '…' : t.subject}"` : '';

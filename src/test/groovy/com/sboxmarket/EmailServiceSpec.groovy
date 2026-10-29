@@ -710,6 +710,25 @@ class EmailServiceSpec extends Specification {
         })
     }
 
+    def "offer emails to the buyer link the Outgoing tab, where their offer lives"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendOfferCountered('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('25'), new BigDecimal('40'), null)
+        svc.sendOfferRejected('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('30'), null)
+        svc.awaitSmtpForTests()
+
+        then:
+        // /offers opens the Incoming tab (offers on your own listings), so
+        // the buyer landed on a list without the counter or decline.
+        2 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('http://localhost:8080/offers/outgoing')
+        })
+    }
+
     def "sendOfferRejected flags the decline and includes the seller reply (batch 591)"() {
         given:
         def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')

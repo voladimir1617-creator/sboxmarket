@@ -1508,6 +1508,27 @@ class TradeServiceSpec extends Specification {
         1 * auditService.log('TRADE_CANCELLED', 20L, 10L, 1L, _)
     }
 
+    def "cancel names the item in both sides' TRADE_CANCELLED titles"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+
+        when:
+        service.cancel(20L, 1L, 'out of stock')
+
+        then:
+        // A bare "Trade cancelled" didn't say which of several trades ended.
+        1 * notificationService.safePush(10L, 'TRADE_CANCELLED',
+            'Trade cancelled · refund issued · Wizard Hat', 'out of stock', 1L, '/profile?tab=trades')
+        1 * notificationService.safePush(20L, 'TRADE_CANCELLED',
+            'Trade cancelled · Wizard Hat', 'out of stock', 1L, '/profile?tab=trades')
+    }
+
     // ── price validation (bug #63) ────────────────────────────────
 
     def "open rejects zero price (bug #63)"() {

@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=19';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=20';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -7123,7 +7123,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
       )
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-      h('div', { className: 'wallet-tx-filter-row', style: { flex: 1, minWidth: 0 } },
+      h('div', { className: 'wallet-tx-filter-row', style: { flex: '1 1 260px', minWidth: 0 } },
         [
           { id: 'ALL',      label: 'All' },
           { id: 'IN',       label: 'Credits' },
@@ -7450,7 +7450,7 @@ function ProfileBuyOrdersTab() {
       )
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-      h('div', { className: 'wallet-tx-filter-row', style: { flex: 1, minWidth: 0 } },
+      h('div', { className: 'wallet-tx-filter-row', style: { flex: '1 1 260px', minWidth: 0 } },
         [
           { id: 'ALL',       label: 'All' },
           { id: 'ACTIVE',    label: 'Active' },
@@ -10330,7 +10330,10 @@ function ProfileOffersTab() {
           : h('span', null, '—')),
       h('div', { className: 'offer-body' },
         // Tiny thread chain indicator if this row is a counter or was countered
-        o.parentOfferId && h('div', { className: 'offer-thread-tag', style: { alignSelf: 'flex-start' } }, '↳ counter to #' + o.parentOfferId),
+        // A buyer's raise is threaded to their earlier offer the same way a
+        // seller counter is, so only SELLER rows are counters.
+        o.parentOfferId && h('div', { className: 'offer-thread-tag', style: { alignSelf: 'flex-start' } },
+          (o.author === 'SELLER' ? '↳ counter to #' : '↳ raise of #') + o.parentOfferId),
         h('div', { className: 'offer-title' }, o.itemName || ('Listing #' + o.listingId)),
         h('div', { className: 'offer-sub' },
           fromLabel, ' · ', timeAgo(o.createdAt),

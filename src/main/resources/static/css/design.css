@@ -778,27 +778,28 @@ body:has(.modal-backdrop), body:has(.cart-confirm-backdrop), body:has(.shortcuts
 .db-mono { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .db-pager { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11px; color: var(--ink-3); background: var(--bg); }
 @media (max-width: 600px) { .db-table-scroll { overflow-x: visible; }
-.db-table { table-layout: fixed; }
-.db-table thead { display: none; }
-.db-table, .db-table tbody, .db-table tbody tr.db-row { display: block; width: 100%; }
-.db-table tbody tr.db-row { height: auto; min-height: 0; padding: 14px 14px 12px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 56px 1fr auto; grid-template-areas: "img main star" "img meta meta" "img kv   price"; column-gap: 12px; row-gap: 6px; align-items: center; }
-.db-table tbody tr.db-row > td { padding: 0; border: 0; display: block; }
-.db-table tbody tr.db-row > td:nth-child(1) { display: none; }
-.db-table tbody tr.db-row > td:nth-child(2) { grid-area: main; min-width: 0; align-self: center; }
-.db-table tbody tr.db-row > td:nth-child(2) .db-item-cell { display: contents; }
-.db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > .db-thumb { grid-area: img; width: 56px; height: 56px; min-width: 56px; align-self: start; }
-.db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > div:not(.db-thumb) { grid-area: main; min-width: 0; }
-.db-table tbody tr.db-row > td:nth-child(2) .db-name { font-size: 14px; font-weight: 600; color: var(--ink); white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
-.db-table tbody tr.db-row > td:nth-child(2) .db-sub { color: var(--ink-4); font-size: 10px; }
-.db-table tbody tr.db-row > td:nth-child(3), .db-table tbody tr.db-row > td:nth-child(4) { grid-area: meta; font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); display: inline-flex; align-items: center; }
-.db-table tbody tr.db-row > td:nth-child(4) { justify-self: end; text-transform: none; letter-spacing: 0; }
-.db-table tbody tr.db-row > td:nth-child(5), .db-table tbody tr.db-row > td:nth-child(6), .db-table tbody tr.db-row > td:nth-child(7) { grid-area: kv; font-size: 11px; color: var(--ink-3); font-family: var(--mono); text-align: left; display: inline; }
-.db-table tbody tr.db-row > td:nth-child(5)::before { content: 'Supply '; color: var(--ink-4); }
-.db-table tbody tr.db-row > td:nth-child(6)::before { content: ' · Sold '; color: var(--ink-4); }
-.db-table tbody tr.db-row > td:nth-child(7)::before { content: ' · '; color: var(--ink-4); }
-.db-table tbody tr.db-row > td:nth-child(7)::after { content: ' views'; color: var(--ink-4); }
-.db-table tbody tr.db-row > td:nth-child(8) { grid-area: price; justify-self: end; text-align: right; font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--ink); }
-.db-table tbody tr.db-row > td:nth-child(9) { grid-area: star; justify-self: end; align-self: start; }
+.db-table-scroll > .db-table { table-layout: fixed; }
+.db-table-scroll > .db-table thead { display: none; }
+.db-table-scroll > .db-table, .db-table-scroll > .db-table tbody, .db-table-scroll > .db-table tbody tr.db-row { display: block; width: 100%; }
+.db-table-scroll > .db-table tbody tr.db-row { height: auto; min-height: 0; padding: 14px 14px 12px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 56px 1fr auto; grid-template-areas: "img main star" "img meta meta" "img kv   price"; column-gap: 12px; row-gap: 6px; align-items: center; }
+.db-table-scroll > .db-table tbody tr.db-row > td { padding: 0; border: 0; display: block; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(1) { display: none; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) { grid-area: main; min-width: 0; align-self: center; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell { display: contents; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > .db-thumb { grid-area: img; width: 56px; height: 56px; min-width: 56px; align-self: start; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > div:not(.db-thumb) { grid-area: main; min-width: 0; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) .db-name { font-size: 14px; font-weight: 600; color: var(--ink); white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) .db-sub { color: var(--ink-4); font-size: 10px; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(3), .db-table-scroll > .db-table tbody tr.db-row > td:nth-child(4) { grid-area: meta; font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); display: inline-flex; align-items: center; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(4) { justify-self: end; text-transform: none; letter-spacing: 0; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(5), .db-table-scroll > .db-table tbody tr.db-row > td:nth-child(6), .db-table-scroll > .db-table tbody tr.db-row > td:nth-child(7) { grid-area: kv; font-size: 11px; color: var(--ink-3); font-family: var(--mono); text-align: left; display: inline; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(5)::before { content: 'Supply '; color: var(--ink-4); }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(6)::before { content: ' · Sold '; color: var(--ink-4); }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(7)::before { content: ' · '; color: var(--ink-4); }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(7)::after { content: ' views'; color: var(--ink-4); }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(8) { grid-area: price; justify-self: end; text-align: right; font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--ink); }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(9) { grid-area: star; justify-self: end; align-self: start; }
+html body .info-modal-body table.db-table:not(.db-table-scroll > .db-table) { display: block; overflow-x: auto !important; }
 .db-pager { padding: 12px 14px; font-size: 11px; }
 }
 .db-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 14px 0; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
@@ -1205,10 +1206,10 @@ body:has(.modal-backdrop), body:has(.cart-confirm-backdrop), body:has(.shortcuts
 .admin-activity-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .admin-activity-hint { font-size: 12px; color: var(--ink-3); }
 .admin-activity-list { max-height: 480px; overflow-y: auto; }
-.admin-activity-row { display: grid; grid-template-columns: 96px 1fr auto; gap: 14px; align-items: center; padding: 10px 18px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.admin-activity-row { display: grid; grid-template-columns: 180px 1fr auto; gap: 14px; align-items: center; padding: 10px 18px; border-bottom: 1px solid var(--line); font-size: 12px; }
 .admin-activity-row:last-child { border-bottom: 0; }
 .admin-activity-time { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); letter-spacing: 0.04em; }
-.admin-activity-event { font-weight: 500; color: var(--ink); }
+.admin-activity-event { font-weight: 500; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .admin-activity-summary { color: var(--ink-3); margin-top: 2px; font-size: 11.5px; }
 .csr-user-card { padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-1); margin-bottom: 12px; display: grid; grid-template-columns: 56px 1fr auto; gap: 14px; align-items: center; }
 .csr-tx-row { display: grid; grid-template-columns: 32px 1fr auto auto; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
@@ -1417,8 +1418,7 @@ nav.nav { padding: 0 12px !important; gap: 8px !important; flex-wrap: wrap; heig
 .auction-history > div { grid-template-columns: 28px 1fr auto; font-size: 12px; }
 .auction-history-kind { display: none; }
 .admin-stats-grid { grid-template-columns: repeat(2, 1fr); }
-.admin-activity-row { grid-template-columns: 72px 1fr; }
-.admin-activity-row > *:nth-child(3) { grid-column: 1 / -1; }
+.admin-activity-row { grid-template-columns: 1fr; gap: 4px; }
 .site-footer { padding: 40px 16px 96px; }
 .site-footer-inner { grid-template-columns: 1fr; gap: 28px; }
 .site-footer-bottom { flex-direction: column; gap: 8px; text-align: center; padding-top: 16px; }
@@ -3892,16 +3892,16 @@ to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
 .csfloat-subnav-tab::after { content: none !important; }
 .csfloat-subnav-tab:focus { outline: none !important; box-shadow: none !important; }
 .csfloat-subnav-tab:focus-visible { outline: 2px solid var(--cta) !important; outline-offset: -2px !important; }
-.db-table { table-layout: fixed; }
-.db-table thead th:nth-child(1), .db-table tbody td:nth-child(1) { width: 48px; }
-.db-table thead th:nth-child(2), .db-table tbody td:nth-child(2) { width: auto; }
-.db-table thead th:nth-child(3), .db-table tbody td:nth-child(3) { width: 100px; }
-.db-table thead th:nth-child(4), .db-table tbody td:nth-child(4) { width: 120px; }
-.db-table thead th:nth-child(5), .db-table tbody td:nth-child(5) { width: 76px; }
-.db-table thead th:nth-child(6), .db-table tbody td:nth-child(6) { width: 64px; }
-.db-table thead th:nth-child(7), .db-table tbody td:nth-child(7) { width: 70px; }
-.db-table thead th:nth-child(8), .db-table tbody td:nth-child(8) { width: 100px; }
-.db-table thead th:nth-child(9), .db-table tbody td:nth-child(9) { width: 48px; text-align: center; }
+.db-table-scroll > .db-table { table-layout: fixed; }
+.db-table-scroll > .db-table thead th:nth-child(1), .db-table-scroll > .db-table tbody td:nth-child(1) { width: 48px; }
+.db-table-scroll > .db-table thead th:nth-child(2), .db-table-scroll > .db-table tbody td:nth-child(2) { width: auto; }
+.db-table-scroll > .db-table thead th:nth-child(3), .db-table-scroll > .db-table tbody td:nth-child(3) { width: 100px; }
+.db-table-scroll > .db-table thead th:nth-child(4), .db-table-scroll > .db-table tbody td:nth-child(4) { width: 120px; }
+.db-table-scroll > .db-table thead th:nth-child(5), .db-table-scroll > .db-table tbody td:nth-child(5) { width: 76px; }
+.db-table-scroll > .db-table thead th:nth-child(6), .db-table-scroll > .db-table tbody td:nth-child(6) { width: 64px; }
+.db-table-scroll > .db-table thead th:nth-child(7), .db-table-scroll > .db-table tbody td:nth-child(7) { width: 70px; }
+.db-table-scroll > .db-table thead th:nth-child(8), .db-table-scroll > .db-table tbody td:nth-child(8) { width: 100px; }
+.db-table-scroll > .db-table thead th:nth-child(9), .db-table-scroll > .db-table tbody td:nth-child(9) { width: 48px; text-align: center; }
 .db-table tbody td { padding: 14px 10px !important; vertical-align: middle; }
 .db-table tbody tr { height: 64px !important; }
 .db-table thead th { padding: 12px 10px !important; }
@@ -5484,20 +5484,20 @@ to { opacity: 1; }
 .db-table tbody td a.db-name:hover { color: #1ea5ff !important; text-decoration: none !important; }
 .db-table tbody td .db-sub { font-family: Roboto Mono, Roboto Mono, ui-monospace, monospace !important; font-size: 10px !important; font-weight: 500 !important; color: #6a7180 !important; letter-spacing: 0.02em !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
 .db-table tbody td.right.db-mono.accent { font-family: Roboto Mono, Roboto Mono, ui-monospace, monospace !important; font-size: 13px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums !important; letter-spacing: -0.01em !important; color: #f3f4f6 !important; text-align: right !important; vertical-align: middle !important; white-space: nowrap !important; padding-right: 14px !important; }
-@media (max-width: 600px) { .db-table thead { display: none !important; }
-.db-table thead th::after { display: none !important; content: none !important; }
-.db-table tbody tr.db-row { display: grid !important; grid-template-columns: 56px 1fr auto !important; gap: 6px 12px !important; padding: 12px 14px !important; align-items: center !important; border-bottom: 1px solid #2a2d34 !important; box-shadow: none !important; }
-.db-table tbody tr.db-row:hover { background: #22262d !important; box-shadow: inset 3px 0 0 0 #1ea5ff !important; }
-.db-table tbody tr.db-row > td:nth-child(1) { display: none !important; }
-.db-table tbody tr.db-row > td:nth-child(2) { grid-column: 1 / 3 !important; grid-row: 1 / 3 !important; padding: 0 !important; border: 0 !important; }
-.db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > .db-thumb { width: 44px !important; height: 44px !important; flex: 0 0 44px !important; }
-.db-table tbody tr.db-row > td:nth-child(2) .db-name { font-size: 13px !important; }
-.db-table tbody tr.db-row > td:nth-child(2) .db-sub { font-size: 10px !important; }
-.db-table tbody tr.db-row > td:nth-child(3), .db-table tbody tr.db-row > td:nth-child(4) { display: none !important; }
-.db-table tbody tr.db-row > td:nth-child(5), .db-table tbody tr.db-row > td:nth-child(6), .db-table tbody tr.db-row > td:nth-child(7) { grid-column: 1 / -1 !important; grid-row: auto !important; font-size: 10px !important; color: #6a7180 !important; padding: 0 !important; border: 0 !important; text-align: left !important; display: inline !important; }
-.db-table tbody tr.db-row > td:nth-child(8) { grid-column: 3 !important; grid-row: 1 !important; padding: 0 !important; border: 0 !important; text-align: right !important; font-size: 13px !important; font-weight: 600 !important; }
-.db-table tbody tr.db-row > td:nth-child(9) { grid-column: 3 !important; grid-row: 2 !important; padding: 0 !important; border: 0 !important; text-align: right !important; }
-.db-table tbody tr.db-row > td:nth-child(9) .db-row-star { width: 36px !important; height: 36px !important; }
+@media (max-width: 600px) { .db-table-scroll > .db-table thead { display: none !important; }
+.db-table-scroll > .db-table thead th::after { display: none !important; content: none !important; }
+.db-table-scroll > .db-table tbody tr.db-row { display: grid !important; grid-template-columns: 56px 1fr auto !important; gap: 6px 12px !important; padding: 12px 14px !important; align-items: center !important; border-bottom: 1px solid #2a2d34 !important; box-shadow: none !important; }
+.db-table-scroll > .db-table tbody tr.db-row:hover { background: #22262d !important; box-shadow: inset 3px 0 0 0 #1ea5ff !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(1) { display: none !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) { grid-column: 1 / 3 !important; grid-row: 1 / 3 !important; padding: 0 !important; border: 0 !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > .db-thumb { width: 44px !important; height: 44px !important; flex: 0 0 44px !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) .db-name { font-size: 13px !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(2) .db-sub { font-size: 10px !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(3), .db-table-scroll > .db-table tbody tr.db-row > td:nth-child(4) { display: none !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(5), .db-table-scroll > .db-table tbody tr.db-row > td:nth-child(6), .db-table-scroll > .db-table tbody tr.db-row > td:nth-child(7) { grid-column: 1 / -1 !important; grid-row: auto !important; font-size: 10px !important; color: #6a7180 !important; padding: 0 !important; border: 0 !important; text-align: left !important; display: inline !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(8) { grid-column: 3 !important; grid-row: 1 !important; padding: 0 !important; border: 0 !important; text-align: right !important; font-size: 13px !important; font-weight: 600 !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(9) { grid-column: 3 !important; grid-row: 2 !important; padding: 0 !important; border: 0 !important; text-align: right !important; }
+.db-table-scroll > .db-table tbody tr.db-row > td:nth-child(9) .db-row-star { width: 36px !important; height: 36px !important; }
 .db-pager { flex-direction: row !important; justify-content: center !important; gap: 10px !important; padding: 16px 8px !important; font-size: 11px !important; }
 .db-pager .btn { height: 32px !important; padding: 0 12px !important; font-size: 11px !important; }
 }
@@ -13598,11 +13598,30 @@ html body nav.nav:has(#user-menu-panel), html body nav.nav:has(#notif-dropdown-p
   html body nav.nav:has(#user-menu-panel) { z-index: 1001 !important; }
   body #user-menu-panel { max-height: calc(100dvh - var(--nav-h, 56px) - 16px) !important; overscroll-behavior: contain; }
   /* Toasts sat on top of the bottom tab bar. The cart-tray and buy-bar offsets are more specific and still win. */
-  html body .toast-stack, html body .sale-toasts { bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important; }
+  html body .toast-stack, html body .sale-toasts, html body .sale-toast.sale-toast { bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+/* Phones: the bell dropdown is position:fixed here, so its desktop `top: calc(100% + 6px)` put it below the screen. */
+@media (max-width: 480px) {
+  html body #notif-dropdown-panel.notif-dropdown { top: 64px !important; max-height: min(480px, calc(100dvh - 64px - 66px - env(safe-area-inset-bottom, 0px))) !important; }
 }
 /* 360px phones: a four-figure balance pushed the avatar chip off the right edge. */
 @media (max-width: 420px) {
   html body nav.nav .nav-logo { margin-right: 0 !important; }
   html body nav.nav .wallet-btn { margin-left: 0 !important; padding-left: 8px !important; padding-right: 8px !important; }
   html body nav.nav .user-chip { margin-left: 0 !important; padding-right: 4px !important; }
+}
+/* Account menu: the icon-font glyphs (.mi) missed the 16px icon spacing the svg/material-icons rule gives, so every label sat flush against its icon. */
+body #user-menu-panel .user-menu-item > .mi { margin-right: 16px !important; flex-shrink: 0 !important; }
+/* Phones with the cart tray up: the Filters FAB is lifted above the tray, and Back to top sat on the same spot. Stack it above both. */
+@media (max-width: 720px) {
+  html body:has(.cart-tray) .app-back-to-top { bottom: calc(146px + 52px + 14px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+/* A confirm panel taller than the screen (the buy confirm on a phone runs ~870px) was cut off top and bottom with no way to scroll
+   to its buttons: the panel is overflow:hidden and the backdrop does not scroll. Cap it to the screen and let it scroll. */
+html body .cart-confirm-backdrop > .cart-confirm-panel { max-height: calc(100dvh - 4vh) !important; overflow-y: auto !important; overscroll-behavior: contain; }
+/* Phones: Cancel + a long primary ("Save trade URL & buy · $0.67") were wider than the panel, and with flex-end the Cancel button
+   was pushed off the left edge. Let the row wrap and the buttons share the width. */
+@media (max-width: 480px) {
+  html body .cart-confirm-panel .cart-confirm-actions { flex-wrap: wrap !important; }
+  html body .cart-confirm-panel .cart-confirm-actions > .btn { flex: 1 1 auto !important; }
 }

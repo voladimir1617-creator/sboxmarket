@@ -30,4 +30,19 @@ class OfferPendingIncomingCountSpec extends Specification {
         expect: 'only the buyer-authored pending offer is waiting on the seller'
         offers.countPendingBySeller(seller) == 1L
     }
+
+    def "a seller's pending counter counts as waiting on the buyer"() {
+        given:
+        long buyer = 890_000_000L + (System.nanoTime() % 1_000_000L)
+        long now = System.currentTimeMillis()
+        def base = [listingId: 1L, buyerUserId: buyer, sellerUserId: 2L,
+                    askingPrice: new BigDecimal('50.00'), createdAt: now, updatedAt: now]
+        offers.save(new Offer(base + [amount: new BigDecimal('30.00'), status: 'COUNTERED', author: 'USER']))
+        offers.save(new Offer(base + [amount: new BigDecimal('40.00'), status: 'PENDING', author: 'SELLER']))
+        offers.save(new Offer(base + [amount: new BigDecimal('35.00'), status: 'PENDING', author: 'USER']))
+        offers.save(new Offer(base + [amount: new BigDecimal('45.00'), status: 'CANCELLED', author: 'SELLER']))
+
+        expect: 'only the live seller counter needs the buyer to answer'
+        offers.countPendingCountersForBuyer(buyer) == 1L
+    }
 }

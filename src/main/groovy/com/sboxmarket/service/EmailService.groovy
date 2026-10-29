@@ -1222,7 +1222,7 @@ The seller came back with a counter-offer.
   · Seller's counter:   \$${sellerCounter.toPlainString()}
 ${noteBlock}
 Accept, counter again, or walk away from:
-${publicUrl}/offers
+${publicUrl}/offers/outgoing
 
 You're getting this because counter-offers are part of your trade
 pipeline. Mute the "Trade activity" bucket in Profile → Email
@@ -1286,7 +1286,7 @@ The seller declined your ${usd(amount)} offer on ${itemName ?: 'their listing'}.
 ${replyBlock}
 ${itemId != null
     ? "If you still want the item, head back to the listing and try a higher\noffer or use Buy Now:\n${absUrl('/item/' + itemId)}"
-    : "If you still want the item, your Offers page links back to the listing:\n${publicUrl}/offers"}
+    : "If you still want the item, your Offers page links back to the listing:\n${publicUrl}/offers/outgoing"}
 
 You're getting this because offers are part of your trade pipeline.
 Mute the "Trade activity" bucket in Profile → Email notifications to

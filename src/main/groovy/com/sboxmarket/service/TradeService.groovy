@@ -1362,12 +1362,16 @@ class TradeService {
         // cancel actually issued one. A protection-claimed trade was
         // already refunded at dispute time, so the cancel ping just
         // confirms closure rather than (falsely) a second refund.
+        // Name the item in both titles: with several trades open, a bare
+        // "Trade cancelled" didn't say which one ended.
+        def cancelledItem = t.itemName ?: 'item'
         notificationService?.safePush(t.buyerUserId, 'TRADE_CANCELLED',
-            alreadyPaidByProtection ? "Trade cancelled" : "Trade cancelled · refund issued",
+            alreadyPaidByProtection ? "Trade cancelled · ${cancelledItem}".toString()
+                                    : "Trade cancelled · refund issued · ${cancelledItem}".toString(),
             cleanReason, t.id, '/profile?tab=trades')
         if (t.sellerUserId != null) {
             notificationService?.safePush(t.sellerUserId, 'TRADE_CANCELLED',
-                "Trade cancelled", cleanReason, t.id, '/profile?tab=trades')
+                "Trade cancelled · ${cancelledItem}".toString(), cleanReason, t.id, '/profile?tab=trades')
         }
         // Log the counterparty as the audit subject
         def cancelSubject = (actorUserId == t.buyerUserId) ? t.sellerUserId :
@@ -1928,7 +1932,7 @@ class TradeService {
         // steps above. The helper handles the swallow + log internally.
         if (trade.buyerUserId != null) {
             notificationService?.safePush(trade.buyerUserId, 'TRADE_CANCELLED',
-                "Trade auto-cancelled · refund issued",
+                "Trade auto-cancelled · refund issued · ${trade.itemName ?: 'item'}".toString(),
                 "The seller did not respond in ${sellerResponseDays} days. Your wallet has been refunded.",
                 trade.id, '/profile?tab=trades')
         }
@@ -2359,7 +2363,7 @@ class TradeService {
         trade.cancelledBy = 'SELLER_BANNED'
         transitionTo(trade, 'CANCELLED')
         notificationService?.safePush(trade.buyerUserId, 'TRADE_CANCELLED',
-            "Trade cancelled · refund issued", trade.note, trade.id, '/profile?tab=trades')
+            "Trade cancelled · refund issued · ${trade.itemName ?: 'item'}".toString(), trade.note, trade.id, '/profile?tab=trades')
         auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
             "Seller banned — auto-cancelled after ${autoReleaseDays}d window")
         // Trade Protection cover is consumed by the arbiter at the top of

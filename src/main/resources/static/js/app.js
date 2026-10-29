@@ -11,7 +11,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=19';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=20';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
@@ -944,7 +944,8 @@ function NavOffersBadge() {
     const load = async () => {
       try {
         const d = await fetchOfferCounts();
-        if (alive) setCount(Number(d?.incomingPending || 0));
+        // Seller counters wait on this user as buyer, so they count too.
+        if (alive) setCount(Number(d?.incomingPending || 0) + Number(d?.countersAwaiting || 0));
       } catch (_) {}
     };
     load();
@@ -4156,9 +4157,13 @@ export function App() {
     const id = setInterval(() => { if (!document.hidden) load(); }, 60_000);
     const onVis = () => { if (!document.hidden) load(); };
     document.addEventListener('visibilitychange', onVis);
+    // An accept / counter / reject on /offers changes the offer count in
+    // this badge; without this it kept the old number until the next poll.
+    window.addEventListener('sb:offers-changed', load);
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('sb:offers-changed', load);
     };
   }, [me?.id]);
   // Pre-signin ToS + email modal state. Opens on the "Sign in through
@@ -4485,7 +4490,18 @@ export function App() {
       );
       if (goneIds.size === 0) return;
       setCart(c => c.filter(x => !goneIds.has(x.id)));
-      showToast(`${goneIds.size} item${goneIds.size === 1 ? '' : 's'} removed — sold before checkout`, 'err');
+      // Drop them from the server cart too (as removeStaleCartRows does),
+      // or the sync on the next load put the rows straight back.
+      if (me) {
+        (async () => {
+          try {
+            const { removeCartItem } = await import('./api.js');
+            for (const id of goneIds) await removeCartItem(id);
+          } catch (_) {}
+        })();
+      }
+      // Not "sold": a seller hiding or cancelling the listing lands here too.
+      showToast(`${goneIds.size} item${goneIds.size === 1 ? '' : 's'} removed — no longer available`, 'err');
     })();
     return () => { alive = false; };
   }, [routeName]);
@@ -4565,6 +4581,13 @@ export function App() {
     () => cart.some(it => cartFreshness[it.id] && !cartFreshness[it.id].active),
     [cart, cartFreshness]
   );
+  // The trade URL is only needed when a person ships a row by Steam
+  // trade. SkinBox's own listings (sellerUserId === null) resolve
+  // in-platform and the server skips the check for them
+  // (PurchaseService), so a cart of only those must not be blocked.
+  // A row not yet filled in (undefined) may be a person's: it counts.
+  const cartTradeUrlMissing = cart.some(it => it.sellerUserId !== null) &&
+    !(me && me.tradeUrl && String(me.tradeUrl).trim());
   const removeStaleCartRows = () => {
     const stale = cart.filter(it => cartFreshness[it.id] && !cartFreshness[it.id].active).map(it => it.id);
     setCart(c => c.filter(it => {
@@ -4759,6 +4782,19 @@ export function App() {
           showToast(`Bought ${ok} item${ok === 1 ? '' : 's'}${fail > 0 ? ` · ${fail} failed` : ''}`, fail > 0 ? 'err' : 'ok');
         }
         setCart(c => c.filter(x => failedIds.has(x.id)));
+        // The freshness probe only re-runs when the cart's ids change, and a
+        // PRICE_CHANGED row stays in the cart — so the row kept showing the
+        // old price and every retry sent it again and failed again. Take the
+        // server's current price from the failure so the cart shows it and
+        // the next Confirm is checked against it.
+        const moved = failedRows.filter(r => r.code === 'PRICE_CHANGED' && r.actual != null);
+        if (moved.length > 0) {
+          setCartFreshness(prev => {
+            const next = { ...prev };
+            moved.forEach(r => { next[r.listingId] = { ...(next[r.listingId] || {}), id: r.listingId, active: true, price: r.actual }; });
+            return next;
+          });
+        }
         setCartConfirmOpen(false);
         await loadWallet();
         load();
@@ -6568,7 +6604,9 @@ export function App() {
                     if (seller) parts.push(`${seller} seller action${seller === 1 ? '' : 's'}`);
                     if (buyer)  parts.push(`${buyer} buyer action${buyer === 1 ? '' : 's'}`);
                     if (dispt)  parts.push(`${dispt} disputed trade${dispt === 1 ? '' : 's'}`);
+                    const ctrs   = (pendingActions.offerCounters || 0);
                     if (offers) parts.push(`${offers} incoming offer${offers === 1 ? '' : 's'}`);
+                    if (ctrs)   parts.push(`${ctrs} counter-offer${ctrs === 1 ? '' : 's'} to answer`);
                     if (chat)   parts.push(`${chat} unread message${chat === 1 ? '' : 's'}`);
                     if (revs)   parts.push(`${revs} trade${revs === 1 ? '' : 's'} to review`);
                     return parts.length > 0
@@ -6617,8 +6655,8 @@ export function App() {
                   // Combined seller+buyer+disputed+unread-chat+pending-reviews
                   // (batches 282, 338) — the number of things on the user's
                   // Profile page that need their attention. Matches the avatar
-                  // badge total minus the incomingOffers count (which has its
-                  // own per-item badge on Offers below).
+                  // badge total minus the incomingOffers + offerCounters counts
+                  // (which have their own per-item badge on Offers below).
                   pendingActions && ((pendingActions.sellerTrades || 0) + (pendingActions.buyerTrades || 0) + (pendingActions.disputedTrades || 0) + (pendingActions.unreadChat || 0) + (pendingActions.pendingReviews || 0)) > 0 &&
                     h('span', {
                       className: 'filter-count',
@@ -6635,12 +6673,13 @@ export function App() {
                 h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.offers(),        onClick: () => setMenuOpen(false) },
                   h(MaterialIcon, { name: 'swap_vert', size: 18, fill: true, color: 'var(--ink-2)' }),
                   'Offers',
-                  // Only incoming offers need the seller to take action — outgoing offers are waiting on the other party.
-                  pendingActions && (pendingActions.incomingOffers || 0) > 0 &&
+                  // Incoming offers and seller counters need this user's answer;
+                  // their own outgoing offers are waiting on the other party.
+                  pendingActions && ((pendingActions.incomingOffers || 0) + (pendingActions.offerCounters || 0)) > 0 &&
                     h('span', {
                       className: 'filter-count',
                       style: { marginLeft: 'auto', background: 'var(--red)', color: '#0b0f1a', fontWeight: 800 }
-                    }, pendingActions.incomingOffers)
+                    }, (pendingActions.incomingOffers || 0) + (pendingActions.offerCounters || 0))
                 ),
                 h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.buyorders(),     onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'bolt', size: 18, fill: true, color: 'var(--ink-2)' }), 'Buy Orders'),
                 h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.watchlist(),     onClick: () => setMenuOpen(false) },
@@ -9702,7 +9741,7 @@ export function App() {
             // fires when the profile data is still loading (me == null
             // on anon is handled earlier; this is authenticated-but-
             // no-URL case).
-            me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+            me && cartTradeUrlMissing && h('div', {
               className: 'cart-notice',
               style: {
                 padding: 10, marginBottom: 12, borderRadius: 8,
@@ -10183,7 +10222,7 @@ export function App() {
         // a user cart-checks-out, every row succeeds money-side but the
         // seller can't fulfil — they'd have to cancel. Surface the
         // missing URL before the button click rather than after.
-        me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+        me && cartTradeUrlMissing && h('div', {
           style: {
             margin: '0 0 14px', padding: '10px 14px',
             background: 'rgba(250,204,21,0.1)',
@@ -10260,10 +10299,10 @@ export function App() {
             // checkout (the server rejects it per-row, but the "checkout
             // is paused until you remove them" promise would be broken).
             disabled: cartBusy || cart.length === 0 || cartTotal > parseFloat(wallet?.balance || 0) ||
-              !(me && me.tradeUrl && String(me.tradeUrl).trim()) || cartHasStale,
+              !me || cartTradeUrlMissing || cartHasStale,
             title: cartHasStale
               ? 'Remove the unavailable rows flagged above before checking out'
-              : !(me && me.tradeUrl && String(me.tradeUrl).trim())
+              : cartTradeUrlMissing
                 ? 'Add your Steam trade URL in Profile before checking out'
                 : undefined
           }, cartBusy ? 'Placing order…' : `Confirm · ${fmt(cartTotal)}`)

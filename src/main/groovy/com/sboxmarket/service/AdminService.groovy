@@ -2689,6 +2689,12 @@ class AdminService {
             lifetimeCache[uid] = total
             return total
         }
+        // Trade rows carry no image; look it up from the catalogue item. Reading
+        // `t.itemImageUrl` threw MissingPropertyException, so the queue 500'd
+        // for every filter that had at least one trade in it.
+        def itemIds = trades*.itemId.findAll { it != null }.unique()
+        def imageByItemId = (itemIds.isEmpty() || itemRepository == null) ? [:] :
+            itemRepository.findAllById(itemIds).collectEntries { [(it.id): it.imageUrl] }
         trades.collect { t ->
             def buyer = userById[t.buyerUserId]
             def seller = userById[t.sellerUserId]
@@ -2697,7 +2703,7 @@ class AdminService {
                 listingId:    t.listingId,
                 itemId:       t.itemId,
                 itemName:     t.itemName,
-                itemImageUrl: t.itemImageUrl,
+                itemImageUrl: imageByItemId[t.itemId],
                 buyerUserId:  t.buyerUserId,
                 sellerUserId: t.sellerUserId,
                 buyerWalletId:  t.buyerWalletId,
