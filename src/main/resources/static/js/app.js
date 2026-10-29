@@ -728,7 +728,8 @@ function AnnouncementBanner() {
     setDismissedId(ann.id);
   };
   const sev = (ann.severity || 'INFO').toLowerCase();
-  return h('div', { className: `announce-banner sev-${sev}`, role: 'status' },
+  // The stylesheet styles sev-warn and sev-error; CRITICAL is the red one.
+  return h('div', { className: `announce-banner sev-${sev === 'critical' ? 'error' : sev}`, role: 'status' },
     h('span', { className: 'announce-banner-icon' },
       sev === 'critical' ? '⚠' : sev === 'warn' ? '⚠' : 'ℹ'),
     h('div', { className: 'announce-banner-text' }, ann.message),
@@ -6339,7 +6340,7 @@ export function App() {
         h('strong', null, 'Your account is suspended — read-only access.'),
         ' Listings, bids, offers, trades, deposits, and withdrawals are all disabled. ',
         me.banReason
-          ? h('span', null, 'Reason: ', h('em', null, me.banReason), '. ')
+          ? h('span', null, 'Reason: ', h('em', null, me.banReason), /[.!?]\s*$/.test(me.banReason) ? ' ' : '. ')
           : null,
         'Contact support if you want to appeal.'
       ),
