@@ -769,9 +769,10 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     // Quantity guard. The backend enforces @Positive + @Max(100) on
     // CreateBuyOrderRequest.quantity, so a typed `-3` / `0` / `250` / a
     // bare `2.5` would bounce back as a generic HTTP 400. Validate here
-    // for a friendly inline message instead. parseInt floors decimals.
-    const qtyN = parseInt(qty || '1', 10);
-    if (!Number.isFinite(qtyN) || qtyN < 1) {
+    // for a friendly inline message instead. A typed 1.5 is refused, not
+    // floored to 1 behind the buyer's back.
+    const qtyN = Number(String(qty || '1').trim());
+    if (!Number.isInteger(qtyN) || qtyN < 1) {
       setErr('Quantity must be a whole number of 1 or more.');
       return;
     }

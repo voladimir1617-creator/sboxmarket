@@ -586,7 +586,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
     try {
       const { fetchBuyOrders } = await import('./api.js');
       const rows = await fetchBuyOrders();
-      const mine = (rows || []).find(o => o.itemId === item.id && o.status === 'ACTIVE');
+      // A buyer can hold several orders on one item; show the one next in
+      // line (highest max), not whichever was placed last.
+      const mine = (rows || [])
+        .filter(o => o.itemId === item.id && o.status === 'ACTIVE')
+        .sort((a, b) => parseFloat(b.maxPrice) - parseFloat(a.maxPrice) || (a.createdAt || 0) - (b.createdAt || 0))[0];
       setMyBuyOrder(mine || null);
     } catch (_) { setMyBuyOrder(null); }
   }, [me?.id, item?.id]);
@@ -7264,9 +7268,10 @@ function ProfileBuyOrdersTab() {
   const saveEdit = async (o) => {
     if (busyRef.current) return;
     const maxPrice = parseFloat(editMax);
-    const quantity = parseInt(editQty, 10);
+    // Number, not parseInt: a typed 1.5 must be refused, not saved as 1.
+    const quantity = Number(String(editQty).trim());
     if (!(maxPrice > 0)) { toast('Max price must be positive', 'err'); return; }
-    if (!(quantity >= 1)) { toast('Quantity must be at least 1', 'err'); return; }
+    if (!Number.isInteger(quantity) || quantity < 1) { toast('Quantity must be a whole number of 1 or more', 'err'); return; }
     busyRef.current = true;
     setBusy(true);
     try {
@@ -17434,7 +17439,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                   tabIndex: showDropsOnly ? 0 : -1,
                   onKeyDown: onKey,
                   onClick: () => { setShowDropsOnly(true); navigate('/watchlist/drops'); }
-                }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0).length))
+                }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0 || r.alertHit).length))
               ];
             })(),
             // Sort select — defaults to "Added" (newest-first) so the
@@ -17461,7 +17466,11 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             // in the cart. Only shown when there's at least one
             // add-able row + a signed-in user (backend gates checkout).
             onAddToCart && (() => {
+              // Auctions are won by bidding (checkout refuses them) and the
+              // user's own listing can't be bought, so neither is counted.
               const addable = rows.filter(r => !r.listing.__noListing &&
+                r.listing.listingType !== 'AUCTION' &&
+                !(me?.id != null && r.listing.sellerUserId === me.id) &&
                 !(cartHas && cartHas(r.listing.id)));
               if (addable.length === 0) return null;
               return h('button', {
@@ -17557,7 +17566,6 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                     style: {
                       background: 'rgba(15, 20, 36, 0.85)',
                       color: 'var(--text-muted)',
-                      top: 12, left: 12,
                       letterSpacing: '0.04em',
                       fontWeight: 700,
                       padding: '4px 8px',
