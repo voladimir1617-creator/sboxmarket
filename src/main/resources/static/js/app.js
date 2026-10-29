@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=352'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=354'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -662,6 +662,14 @@ function EmailVerifyNag({ me }) {
       const { resendEmailVerification } = await import('./api.js');
       const res = await resendEmailVerification();
       if (res && (res.error || res.code)) {
+        // Say why: a bare "Failed" read as a broken mailer when the server
+        // was saying the email had just gone out ("wait 59s ...").
+        try {
+          window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+            text: res.message || res.error || 'Could not resend the verification email.',
+            kind: 'err'
+          }}));
+        } catch (_) {}
         setResendState('err');
         setTimeout(() => setResendState(''), 4000);
         return;

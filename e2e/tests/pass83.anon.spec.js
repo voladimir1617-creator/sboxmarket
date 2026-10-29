@@ -103,7 +103,7 @@ test.describe('defect pass 83 · mark-sent', () => {
     await signedIn(page);
     await page.route(/\/api\/trades(\?.*)?$/, (r) => r.fulfill({ ...json([TRADE]), headers: { 'X-Total-Count': '1' } }));
     await page.goto('/profile/trades');
-    await page.getByRole('button', { name: 'Mark Sent', exact: true }).click();
+    await page.getByRole('button', { name: /^Mark Sent for / }).click();
     const dlg = page.getByRole('dialog', { name: 'Mark trade as sent' });
     await dlg.getByRole('textbox', { name: 'Steam offer URL' }).fill('https://example.com/not-steam');
     await dlg.getByRole('textbox', { name: 'Steam offer URL' }).press('Enter');
@@ -118,7 +118,7 @@ test.describe('defect pass 83 · mark-sent', () => {
     await page.route(/\/api\/reviews$/, (r) => r.request().method() === 'POST'
       ? r.fulfill(json({ error: 'Review service is down' }, 500)) : r.fulfill(json([])));
     await page.goto('/profile/trades');
-    await page.getByRole('button', { name: 'Leave Review', exact: true }).click();
+    await page.getByRole('button', { name: /^Leave Review for / }).click();
     const dlg = page.getByRole('dialog', { name: 'Leave a review' });
     await dlg.getByRole('button', { name: 'Submit review' }).click();
     await expect(dlg.getByText('Review service is down')).toBeVisible();

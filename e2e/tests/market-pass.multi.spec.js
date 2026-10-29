@@ -105,10 +105,10 @@ test('Pixel buys Atlas\'s listing: he pays the price, Atlas is paid only after h
 
   // Atlas: Accept, then Mark Sent (skipping the optional offer link).
   let row = await H.tradeRow(atlas, t.id);
-  await row.getByRole('button', { name: 'Accept', exact: true }).click();
+  await row.getByRole('button', { name: /^Accept trade for / }).click();
   await expect.poll(async () => (await H.trade(atlas, t.id)).state).toBe('PENDING_SELLER_SEND');
   row = await H.tradeRow(atlas, t.id);
-  await row.getByRole('button', { name: 'Mark Sent', exact: true }).click();
+  await row.getByRole('button', { name: /^Mark Sent for / }).click();
   const sent = atlas.page.getByRole('button', { name: 'Mark sent', exact: true });
   await expect(sent).toBeVisible();
   await sent.click();
@@ -117,7 +117,7 @@ test('Pixel buys Atlas\'s listing: he pays the price, Atlas is paid only after h
 
   // Pixel confirms receipt; Atlas is paid price minus the 2% fee, exactly.
   row = await H.tradeRow(pixel, t.id);
-  await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await row.getByRole('button', { name: /^Confirm receipt for / }).click();
   await pixel.page.locator('.trade-confirm-modal').getByRole('button', { name: /Release/ }).click();
   await expect.poll(async () => (await H.trade(pixel, t.id)).state).toBe('VERIFIED');
   expect(await H.balanceCents(atlas)).toBe(a0 + price - H.feeCents(price));

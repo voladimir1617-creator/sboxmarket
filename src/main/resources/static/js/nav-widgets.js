@@ -682,7 +682,10 @@ export function NotificationBell({ me }) {
               // menuitem for SRs to count/announce them correctly.
               role: 'menuitem',
               tabIndex: 0,
-              'aria-label': `${n.read ? '' : 'Unread: '}${n.title}. Opens in new page.`,
+              // The name replaces the row's text, so it carries the body too
+              // (that is where "click Confirm Receipt", "$1.08 credited" and
+              // the item live). The row opens a page in this tab, not a new one.
+              'aria-label': `${n.read ? '' : 'Unread: '}${n.title}${n.body ? '. ' + n.body : ''}`,
               onClick: () => onItemClick(n),
               onKeyDown: (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
