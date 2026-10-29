@@ -13590,7 +13590,11 @@ html body nav.nav:has(#user-menu-panel), html body nav.nav:has(#notif-dropdown-p
   html body nav.nav:has(#user-menu-panel) { z-index: 1001 !important; }
   body #user-menu-panel { max-height: calc(100dvh - var(--nav-h, 56px) - 16px) !important; overscroll-behavior: contain; }
   /* Toasts sat on top of the bottom tab bar. The cart-tray and buy-bar offsets are more specific and still win. */
-  html body .toast-stack, html body .sale-toasts { bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important; }
+  html body .toast-stack, html body .sale-toasts, html body .sale-toast.sale-toast { bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+/* Phones: the bell dropdown is position:fixed here, so its desktop `top: calc(100% + 6px)` put it below the screen. */
+@media (max-width: 480px) {
+  html body #notif-dropdown-panel.notif-dropdown { top: 64px !important; max-height: min(480px, calc(100dvh - 64px - 66px - env(safe-area-inset-bottom, 0px))) !important; }
 }
 /* 360px phones: a four-figure balance pushed the avatar chip off the right edge. */
 @media (max-width: 420px) {
