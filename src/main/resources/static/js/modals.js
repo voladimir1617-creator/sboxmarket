@@ -1436,8 +1436,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 h('button', {
                   className: 'item-rail-actions-cart',
                   onClick: () => onAddToCart && onAddToCart(cheap),
-                  disabled: cartHas && cartHas(cheap.id),
-                  title: cartHas && cartHas(cheap.id) ? 'Already in your cart' : 'Add this listing to your cart'
+                  // Own listing: addToCart refuses it, as Buy now is refused.
+                  disabled: !!youOwn || (cartHas && cartHas(cheap.id)),
+                  title: youOwn ? 'You are the seller of the cheapest listing' : cartHas && cartHas(cheap.id) ? 'Already in your cart' : 'Add this listing to your cart'
                 },
                   h(MaterialIcon, { name: 'shopping_cart', size: 14 }),
                   cartHas && cartHas(cheap.id) ? 'In Cart' : 'Cart'
@@ -2668,7 +2669,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         onAddToCart && cheapestBuyNow && h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)' },
-          disabled: cartHas && cartHas(cheapestBuyNow.id),
+          disabled: (me && cheapestBuyNow.sellerUserId === me.id) || (cartHas && cartHas(cheapestBuyNow.id)),
           onClick: () => onAddToCart(cheapestBuyNow),
           title: 'Add cheapest buy-now listing to cart'
         }, h(MaterialIcon, { name: 'shopping_cart', size: 16 }),
@@ -14264,7 +14265,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
   const maskEarn = (v) => privacy ? '$•••••' : fmt(v);
-  const load = useCallback(() => {
+  // `background`: the 20s bot-trade poll below. It must not blank the Sold
+  // and Analytics tabs to a spinner (and refetch them) every 20 seconds.
+  const load = useCallback((background) => {
+    if (background !== true) {
     // Analytics read the same listings; drop them so a price edit,
     // cancel or hide refetches instead of showing stale rows.
     setAnalytics(null);
@@ -14273,6 +14277,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     // the Sold tab too, not the list cached from its first open while the
     // earnings strip above already counts it.
     setSold(null);
+    }
     fetchMyStallWithTotal().then(({ items, total, error }) => {
       if (error) { setStallErr(true); return; }  // retry card, not a permanent spinner / false-empty
       setStallErr(false);
@@ -14298,7 +14303,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     || botCustody.returning.some(r => r.state !== 'BACK');
   useEffect(() => {
     if (!me || !botTradeMoving) return;
-    const t = setInterval(() => { if (!document.hidden) load(); }, 20000);
+    const t = setInterval(() => { if (!document.hidden) load(true); }, 20000);
     return () => clearInterval(t);
   }, [me, botTradeMoving, load]);
   // Fetch the same `/api/listings/stall/{me.id}` payload the public
