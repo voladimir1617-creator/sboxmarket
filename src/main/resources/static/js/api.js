@@ -964,18 +964,35 @@ export async function connectOnboard() {
 }
 
 // ── Steam auth ──────────────────────────────────────────────────
-export async function fetchMe() {
+// `throwOnFailure`: a 5xx, 429, timeout or dropped connection THROWS instead
+// of returning null, so the session heartbeat can tell "signed out" from
+// "could not ask". Without it a deploy blip or a flaky phone connection
+// signed the user out of the UI with a false "Session expired" toast.
+export async function fetchMe(opts) {
+  const strict = !!(opts && opts.throwOnFailure);
+  let r;
   try {
-    const r = await fetch(`${API}/auth/steam/me`, { credentials: 'same-origin' });
-    // 401 is the legacy anonymous response, retained as a fallback. Newer
-    // backends return 200 with `{ signedIn: false }` for anon to keep the
-    // browser DevTools console clean (no red "401" line on every page load).
-    if (r.status === 401) return null;
-    if (!r.ok) return null;
+    r = await fetchT(`${API}/auth/steam/me`, { credentials: 'same-origin' }, READ_TIMEOUT_MS);
+  } catch (e) {
+    if (strict) throw new ApiUnavailableError(`network failure on /auth/steam/me`, 0);
+    return null;
+  }
+  // 401 is the legacy anonymous response, retained as a fallback. Newer
+  // backends return 200 with `{ signedIn: false }` for anon to keep the
+  // browser DevTools console clean (no red "401" line on every page load).
+  if (r.status === 401) return null;
+  if (!r.ok) {
+    if (strict) throw new ApiUnavailableError(`HTTP ${r.status} from /auth/steam/me`, r.status);
+    return null;
+  }
+  try {
     const data = await r.json();
     if (data && data.signedIn === false) return null;
     return data;
-  } catch { return null; }
+  } catch {
+    if (strict) throw new ApiUnavailableError('unreadable /auth/steam/me response', r.status);
+    return null;
+  }
 }
 
 export async function logoutSteam() {

@@ -5120,7 +5120,12 @@ export function App() {
     if (!meLoaded) return;
     const interval = setInterval(async () => {
       if (!me) return;
-      const fresh = await fetchMe();
+      // Only a real "signed out" answer ends the session here. A failed
+      // check (outage, 429, offline) keeps the user signed in; the next
+      // beat asks again, and a genuinely dead session still surfaces via
+      // the 401 broadcast on their next action.
+      let fresh;
+      try { fresh = await fetchMe({ throwOnFailure: true }); } catch (_) { return; }
       if (!fresh) {
         setMe(null);
         setIsAdmin(false);
