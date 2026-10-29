@@ -17219,7 +17219,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
               !me
                 ? 'Sign in with Steam, then tap the ♡ on any item card to track price drops here.'
-                : 'Click the ♡ on any item card and it will show up here with a live price-drop alert.'),
+                : 'Click the ♡ on any item card and it will show up here so you can watch its price. Use its Set price alert button to get notified when it drops.'),
             !me
               ? h('button', {
                   className: 'btn btn-accent',

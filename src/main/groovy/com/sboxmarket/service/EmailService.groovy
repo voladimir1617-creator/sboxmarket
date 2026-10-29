@@ -1119,7 +1119,7 @@ The funds are held in escrow until the seller sends the Steam trade offer and yo
 Track the trade's status any time:
 ${publicUrl}/profile?tab=trades
 
-If the seller doesn't respond within 3 days, the trade auto-cancels and you'll be fully refunded.
+If the seller doesn't respond within ${sellerResponseDays} day${sellerResponseDays == 1 ? '' : 's'}, the trade auto-cancels and you'll be fully refunded.
 
 — The SkinBox team
 """.stripIndent()
