@@ -10238,6 +10238,8 @@ html body .trade-list > .trade-row .trade-phase-label { display: none !important
 .db-table--list.db-table tbody tr.db-row > td[data-label] { text-align: left !important; justify-self: auto !important; font-family: inherit !important; }
 .db-table--list.db-table tbody tr.db-row > td[data-label]::before { content: attr(data-label) " · " !important; font-family: inherit !important; font-weight: 400 !important; color: var(--ink-3) !important; }
 .db-table--list.db-table tbody tr.db-row > td .db-item-cell { display: flex !important; align-items: center !important; gap: 8px !important; }
+.db-table--list.db-table, .db-table--list.db-table tbody { display: block !important; width: 100% !important; }
+.db-table--list.db-table thead { display: none !important; }
 }
 @media (max-width: 560px) { html body .loadout-tabs, html body .full-page-mode .info-modal-body .loadout-tabs { flex-wrap: wrap !important; height: auto !important; gap: 2px !important; }
 html body .loadout-tabs .offer-tab, html body .full-page-mode .info-modal-body .loadout-tabs .offer-tab { padding: 0 10px !important; }
