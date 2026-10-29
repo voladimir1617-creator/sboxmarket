@@ -1498,7 +1498,13 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               // beside a "Buy now · $0.52" button.
               (() => {
                 const live = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id);
-                const shown = live ? parseFloat(live.price) : parseFloat(item.lowestPrice);
+                // No listings at all (the last copy just sold — e.g. a buyer
+                // who lost the race sees the page refresh): lowestPrice still
+                // holds the sold copy's price until the sweep, so this box
+                // kept "$9.00" beside "Notify When Listed". Same out-of-stock
+                // rule as the alert button.
+                const shown = live ? parseFloat(live.price)
+                  : (listings && listings.length > 0 ? parseFloat(item.lowestPrice) : 0);
                 return shown > 0
                   ? h('div', { className: 'modal-stat-val accent' }, h(Money, { value: shown }))
                   : h('div', { className: 'modal-stat-val', style: { color: 'var(--text-muted)' } }, 'Not listed');
