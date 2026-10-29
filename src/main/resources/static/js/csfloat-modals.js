@@ -1255,6 +1255,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+  const discoverSearchRef = useRef(null);
+  // The empty-state "Browse" buttons go away with the tab they sit on; move
+  // focus to the Discover tab they switch to instead of dropping it.
+  const focusDiscoverTab = () => {
+    setTab('discover');
+    document.querySelector('.loadout-tabs [role="tab"]')?.focus();
+  };
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   // `null` = not loaded yet (spinner), `{ __notFound }` = real 404 so
@@ -2084,6 +2091,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       h('button', { className: 'btn btn-accent', onClick: handleCreate, disabled: !newName.trim() }, 'Create')
     ),
     tab === 'discover' && h('input', {
+      ref: discoverSearchRef,
       className: 'price-input',
       placeholder: 'Search loadouts…',
       'aria-label': 'Search public loadouts',
@@ -2122,7 +2130,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid var(--border)' },
-                  onClick: () => { setSearchInput(''); setSearch(''); }
+                  // The button goes away with the no-match state; keep focus in the search box.
+                  onClick: () => { setSearchInput(''); setSearch(''); discoverSearchRef.current?.focus(); }
                 }, 'Clear search'));
             }
             // Batch 915 — per-tab empty state with concrete CTAs.
@@ -2146,7 +2155,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', padding: '10px 18px' },
-                    onClick: () => setTab('discover'),
+                    onClick: focusDiscoverTab,
                     title: 'See what other builders have shared — good inspiration for your first loadout.'
                   }, 'Browse Discover')
                 )
@@ -2162,7 +2171,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 h('button', {
                   className: 'btn btn-accent',
                   style: { padding: '10px 18px', fontWeight: 700 },
-                  onClick: () => setTab('discover')
+                  onClick: focusDiscoverTab
                 }, 'Browse public loadouts →')
               );
             }
