@@ -8497,7 +8497,12 @@ function ProfileTradesTab({ me, privacy }) {
     } finally { setReviewBusy(false); }
   };
 
+  // Only the newest read may land: a tab-focus refresh still in flight when
+  // the user accepted / marked sent answered after the post-action reload
+  // and put the old step (and its Accept button) back on the row.
+  const loadSeqRef = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setErr(false);
     try {
       // Raw fetch (not fetchTradesWithTotal, which swallows non-2xx into an
@@ -8508,13 +8513,13 @@ function ProfileTradesTab({ me, privacy }) {
       const res = await fetch('/api/trades', { credentials: 'same-origin' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const items = await res.json();
-      if (!aliveRef.current) return;
+      if (!aliveRef.current || seq !== loadSeqRef.current) return;
       const rows = Array.isArray(items) ? items : [];
       const totalHeader = res.headers.get('X-Total-Count');
       const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
       setTrades(rows);
       setTradesTotal(Number.isFinite(parsed) ? parsed : rows.length);
-    } catch (_) { if (aliveRef.current) setErr(true); }
+    } catch (_) { if (aliveRef.current && seq === loadSeqRef.current) setErr(true); }
   }, []);
   useEffect(() => {
     aliveRef.current = true;
@@ -10165,24 +10170,33 @@ function ProfileOffersTab() {
     const [i, o] = await Promise.all([ri.json(), ro.json()]);
     return { incoming: Array.isArray(i) ? markLapsedOffers(i) : [], outgoing: Array.isArray(o) ? markLapsedOffers(o) : [] };
   }, []);
+  // Newest read wins: a tab-focus refresh still in flight when the seller
+  // accepted answered after the post-accept reload and showed the offer as
+  // pending again, Accept button and all.
+  const offersSeqRef = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++offersSeqRef.current;
     setErr(false);
     setData(null);
     try {
       const d = await fetchBoth();
+      if (seq !== offersSeqRef.current) return;
       if (aliveRef.current) setData(d);
       // Accept / reject / counter here reload through this; tell the nav
       // Offers badge too, as the Offers page does.
       window.dispatchEvent(new Event('sb:offers-changed'));
     }
-    catch (_) { if (aliveRef.current) setErr(true); }
+    catch (_) { if (aliveRef.current && seq === offersSeqRef.current) setErr(true); }
   }, [fetchBoth]);
   // Silent refresh — same fetch pair, but doesn't flash the spinner by
   // clearing `data` first. Best-effort: on error it KEEPS the last-good data
   // (no overwrite with [], no error card) since it's a background tab-focus
   // refresh, not a user-initiated load.
   const silentRefresh = useCallback(async () => {
-    try { const d = await fetchBoth(); if (aliveRef.current) setData(d); } catch (_) {}
+    // Reads the generation without bumping it, so a reload started after
+    // this (an accept, a reject) always wins over it.
+    const seq = offersSeqRef.current;
+    try { const d = await fetchBoth(); if (aliveRef.current && seq === offersSeqRef.current) setData(d); } catch (_) {}
   }, [fetchBoth]);
   useEffect(() => {
     aliveRef.current = true;
