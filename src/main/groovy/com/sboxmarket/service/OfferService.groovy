@@ -1213,7 +1213,7 @@ class OfferService {
                 : "The seller declined your \$${offer.amount.toPlainString()} offer."
             try {
                 notificationService.push(offer.buyerUserId, 'OFFER_REJECTED',
-                    "Offer rejected · ${offer.itemName ?: 'listing'}",
+                    "Offer declined · ${offer.itemName ?: 'listing'}",
                     body, offer.id, '/offers/outgoing')
             } catch (Exception e) {
                 log.warn("OFFER_REJECTED push failed for buyer ${offer.buyerUserId}: ${e.message}")
