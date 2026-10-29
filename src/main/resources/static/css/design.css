@@ -13660,3 +13660,7 @@ html body .stall-review-cta-row { grid-template-columns: minmax(0, 1fr) auto !im
 .csr-tx-row { grid-template-columns: auto minmax(0, 1fr) auto; }
 /* Staff banner on phones: the bold "ADMIN MODE" label stood as its own narrow column beside the sentence. */
 @media (max-width: 600px) { html body .staff-banner, html body .staff-banner.csr { display: block !important; text-align: center !important; } }
+/* Profile > Trades opens Confirm receipt and Leave review in their own backdrop inside the full-page profile, and the
+   full-page rule made that backdrop static too: the dialog sat in the page flow under the trade list, off screen. */
+html body .site-root.full-page-mode .modal-backdrop .modal-backdrop { position: fixed !important; inset: 0 !important; z-index: 200 !important; display: grid !important; place-items: center !important; padding: 4vh 16px !important; overflow-y: auto !important; background: rgba(0, 0, 0, 0.55) !important; }
+html body .site-root.full-page-mode .modal-backdrop .modal-backdrop > .modal { width: 100% !important; max-width: 480px !important; }
