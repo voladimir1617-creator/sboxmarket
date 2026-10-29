@@ -9702,7 +9702,7 @@ function ProfileTradesTab({ me, privacy }) {
                       t.state === 'CANCELLED'
                         ? 'This trade was cancelled, so the chat is read-only.'
                         : 'This trade is complete, so the chat is read-only.')
-                  : h('div', { style: { display: 'flex', gap: 6 } },
+                  : h('div', { className: 'trade-chat-compose', style: { display: 'flex', gap: 6 } },
                   h('input', {
                     className: 'chat-input',
                     style: { flex: 1 },
