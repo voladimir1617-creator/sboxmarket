@@ -5128,7 +5128,12 @@ export function App() {
   }, [me, meLoaded]);
 
   // wallet load
+  // Only the newest wallet read may land. A tab-focus refresh that was still
+  // in flight when the buyer paid answered after the post-purchase refresh,
+  // and put the pre-purchase balance back in the header.
+  const walletSeqRef = React.useRef(0);
   const loadWallet = useCallback(async () => {
+    const seq = ++walletSeqRef.current;
     // Anon users have no wallet — the endpoints return 401, which
     // fetchWallet swallows to null (not the __error sentinel), so the
     // /wallet route would otherwise spin forever. Skip the guaranteed-401
@@ -5137,10 +5142,12 @@ export function App() {
     if (!me) { setWallet(null); setTransactions([]); return; }
     try {
       const [w, tx] = await Promise.all([fetchWallet(), fetchTransactions()]);
+      if (seq !== walletSeqRef.current) return;
       setWallet(w);
       setTransactions(Array.isArray(tx) ? tx : []);
     } catch (e) {
       console.error('loadWallet failed:', e);
+      if (seq !== walletSeqRef.current) return;
       // Batch 668 — surface fetch failures so the /wallet route can
       // render an error panel with a Retry CTA instead of a blank page.
       // Only flag an error sentinel if we have nothing to show; a prior
