@@ -9702,7 +9702,7 @@ function ProfileTradesTab({ me, privacy }) {
                       t.state === 'CANCELLED'
                         ? 'This trade was cancelled, so the chat is read-only.'
                         : 'This trade is complete, so the chat is read-only.')
-                  : h('div', { className: 'trade-chat-compose', style: { display: 'flex', gap: 6 } },
+                  : h('div', { className: 'inline-cta-row', style: { display: 'flex', gap: 6 } },
                   h('input', {
                     className: 'chat-input',
                     style: { flex: 1 },
@@ -11828,7 +11828,7 @@ function ProfileDevelopersTab() {
       h('a', {
         href: '/help?q=API', style: { color: 'var(--accent)', marginLeft: 6 }
       }, 'How to use the API →')),
-    h('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
+    h('div', { className: 'inline-cta-row', style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
       // Named for screen readers like the scope select; 80 is where
       // ApiKeyService cuts the label.
       h('input', { className: 'price-input', 'aria-label': 'API key label', maxLength: 80, placeholder: 'Label (e.g. my-bot)', style: { flex: 1, minWidth: 180 }, value: label, onChange: e => setLabel(e.target.value),
@@ -11948,8 +11948,8 @@ function ProfileDevelopersTab() {
                   color: k.scope === 'RO' ? 'var(--green, #22c55e)' : 'var(--yellow, #facc15)'
                 }
               }, k.scope || 'RW')),
-              h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, new Date(k.createdAt).toLocaleDateString()),
-              h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, k.lastUsedAt ? timeAgo(k.lastUsedAt) : 'Never'),
+              h('td', { 'data-label': 'Created', style: { fontSize: 11, color: 'var(--text-muted)' } }, new Date(k.createdAt).toLocaleDateString()),
+              h('td', { 'data-label': 'Last used', style: { fontSize: 11, color: 'var(--text-muted)' } }, k.lastUsedAt ? timeAgo(k.lastUsedAt) : 'Never'),
               h('td', { className: 'right' },
                 k.revoked
                   ? h('span', { style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, 'REVOKED')
