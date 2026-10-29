@@ -396,7 +396,7 @@ class TradeServiceSpec extends Specification {
         // Review-nudge for the buyer — deep-links to the seller's stall so
         // the "Leave a review" CTA is one click away. Only fires when the
         // trade has a real sellerUserId (system listings stay silent).
-        1 * notificationService.safePush(10L, 'REVIEW_REMINDER', _, _, _, '/stall/20')
+        1 * notificationService.safePush(10L, 'REVIEW_REMINDER', _, _, _, { it.toString().startsWith('/stall/20?leaveReview=') })
     }
 
     def "buyerConfirm forbids a non-buyer"() {
@@ -2137,7 +2137,7 @@ class TradeServiceSpec extends Specification {
         // claim is what gates the REVIEW_REMINDER push.
         1 * tradeRepository.claimReviewNudge(7L, _) >> 1
         1 * notificationService.push(10L, 'REVIEW_REMINDER', _, _, 7L,
-            { it as String == '/stall/20' || it.toString() == '/stall/20' })
+            { it.toString() == '/stall/20?leaveReview=7' })
     }
 
     def "sweepReviewNudge is a silent no-op when nothing past the 48h cutoff"() {

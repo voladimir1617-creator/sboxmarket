@@ -1072,7 +1072,7 @@ body:has(.modal-backdrop), body:has(.cart-confirm-backdrop), body:has(.shortcuts
 .stall-review-cta-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .stall-review-cta-sub { font-size: 12px; color: var(--ink-3); }
 .stall-review-cta-rows { display: flex; flex-direction: column; gap: 8px; }
-.stall-review-cta-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.stall-review-cta-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
 .stall-review-cta-item { font-size: 13px; color: var(--ink); }
 .mystall-sold-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-bottom: 18px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
 .mystall-sold-summary > div { padding: 14px 18px; background: var(--bg-1); display: flex; flex-direction: column; gap: 4px; }
@@ -7795,7 +7795,10 @@ html body .recent-sales-row:hover { background-color: rgba(255, 255, 255, 0.03) 
 .stall-review-cta-head { display: flex !important; justify-content: space-between !important; align-items: center !important; gap: 10px !important; margin-bottom: 12px !important; }
 .stall-review-cta-sub { font-size: 12px !important; color: rgb(158, 167, 177) !important; line-height: 1.45 !important; }
 .stall-review-cta-rows { display: flex !important; flex-direction: column !important; gap: 8px !important; }
-.stall-review-cta-row { display: grid !important; grid-template-columns: 40px 1fr auto !important; gap: 12px !important; align-items: center !important; padding: 10px 12px !important; background: rgb(27, 29, 36) !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; border-radius: 8px !important; }
+.stall-review-cta-row { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; gap: 12px !important; align-items: center !important; padding: 10px 12px !important; background: rgb(27, 29, 36) !important; border: 1px solid rgba(255, 255, 255, 0.06) !important; border-radius: 8px !important; }
+/* The review form's comment box had no width rule, so it rendered as a
+   20-column inline textarea beside the stars. */
+html body .stall-review-form .stall-review-text { display: block; width: 100%; min-height: 88px; box-sizing: border-box; }
 .stall-review-cta-item { font-size: 13px !important; color: rgb(232, 234, 237) !important; font-weight: 500 !important; }
 .stall-review-helpful.is-active, .stall-review-helpful.voted, .review-helpful.is-active, .review-helpful-btn.is-active, .review-helpful-btn.voted { color: rgb(35, 123, 255) !important; border-color: rgba(35, 123, 255, 0.4) !important; background: rgba(35, 123, 255, 0.12) !important; }
 .stall-review-helpful.is-active:hover, .stall-review-helpful.voted:hover, .review-helpful.is-active:hover, .review-helpful-btn.is-active:hover, .review-helpful-btn.voted:hover { border-color: rgba(35, 123, 255, 0.55) !important; background: rgba(35, 123, 255, 0.18) !important; color: rgb(35, 123, 255) !important; }
@@ -12632,6 +12635,11 @@ html body .modal-listing-row > .buy-btn { flex: 0 0 auto !important; min-width: 
 /* Recent sales: 44px rows with a 48px type column read as a list of cards;
    the references keep the sales log as a dense table. */
 html body .recent-sales-list .recent-sales-row { display: grid !important; grid-template-columns: 76px minmax(0, 1fr) auto !important; gap: 12px !important; padding: 0 14px !important; height: 36px !important; min-height: 36px !important; font-size: 13px !important; }
+/* The stall's sales rows carry the item name as a 4th cell, and My Stall's Sold
+   rows lead with the item (no type cell); the 3-column item-page grid wrapped
+   the stall's time onto an overlapping line and cut My Stall names to "Scie…". */
+html body .stall-recent-sales .recent-sales-list .recent-sales-row { grid-template-columns: 76px minmax(0, 1fr) auto auto !important; }
+html body .mystall-sold-summary + .recent-sales-list .recent-sales-row { grid-template-columns: minmax(0, 1fr) auto auto !important; }
 html body .recent-sales-list .recent-sales-row:nth-child(even) { background: color-mix(in oklab, var(--bg-2) 45%, transparent) !important; }
 html body .recent-sales-list .recent-sales-price { font-weight: 700 !important; font-variant-numeric: tabular-nums !important; color: var(--ink) !important; }
 html body .recent-sales-list .recent-sales-time { color: var(--ink-3) !important; text-align: right !important; }
