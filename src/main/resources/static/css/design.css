@@ -9084,6 +9084,16 @@ body .grid-card:hover.rarity-Standard .grid-thumb, body .grid-card:hover[data-ra
 html body .full-page-mode .profile-panel:has(.buyorder-list), html body.full-page-mode .profile-panel:has(.buyorder-list) { background: rgb(27, 29, 36) !important; border: 0 !important; border-radius: 12px !important; padding: 30px !important; box-shadow: none !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; color: rgb(255, 255, 255) !important; }
 html body .full-page-mode .buyorder-list { background: transparent !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; color: rgb(255, 255, 255) !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; letter-spacing: normal !important; display: flex !important; flex-direction: column !important; gap: 0 !important; }
 html body .full-page-mode .buyorder-list > .buyorder-row, html body .full-page-mode .buyorder-list > .buy-order-row, html body .full-page-mode .buyorder-list > .bo-row { display: flex !important; flex-direction: row !important; align-items: center !important; min-height: 52px !important; padding: 8px 0 !important; margin: 0 !important; background: transparent !important; border: 0 !important; border-bottom: 0 !important; border-radius: 0 !important; font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 400 !important; line-height: 20px !important; color: rgb(255, 255, 255) !important; letter-spacing: normal !important; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
+/* On a phone the /buy-orders row squeezed the item name to "Vintage D…" beside its two buttons; the buttons now drop to a line of their own. */
+@media (max-width: 480px) {
+  html body .full-page-mode .buyorder-list > .buyorder-row:has(> button) { flex-wrap: wrap !important; row-gap: 8px !important; }
+  html body .full-page-mode .buyorder-list > .buyorder-row:has(> button) > div:first-child { flex: 1 1 55% !important; }
+  html body .full-page-mode .buyorder-list > .buyorder-row:has(> button) > button:first-of-type { margin-left: auto !important; }
+  /* Same squeeze on Profile > Buy Orders, where price, status and Edit/Pause/Cancel share one right-hand column: the name gets its own line. */
+  html body .full-page-mode .buyorder-list > .buyorder-row:not(:has(> button)) { flex-wrap: wrap !important; row-gap: 4px !important; }
+  html body .full-page-mode .buyorder-list > .buyorder-row:not(:has(> button)) > div:first-child { flex: 1 1 100% !important; }
+  html body .full-page-mode .buyorder-list > .buyorder-row:not(:has(> button)) > div:nth-child(2) { margin-left: auto !important; }
+}
 /* The info-modal body centres its text; the order rows are a left-aligned list, so an item name no longer floats mid-row. */
 html body .full-page-mode .buyorder-list { text-align: left !important; }
 html body .full-page-mode .buyorder-list > .buyorder-row:hover, html body .full-page-mode .buyorder-list > .buy-order-row:hover, html body .full-page-mode .buyorder-list > .bo-row:hover { background: rgba(255, 255, 255, 0.04) !important; }
@@ -12884,6 +12894,10 @@ html body main.layout div.grid-card .grid-body .grid-footer > .gc-card-meta { ma
    cell can't ellipsis bare text. Let a long value wrap to a second line
    inside its cell instead. */
 html body .modal.item-page .modal-demand-chip { flex-wrap: wrap !important; column-gap: 4px !important; row-gap: 0 !important; height: auto !important; min-height: 32px !important; padding: 6px 10px !important; white-space: normal !important; line-height: 1.35 !important; }
+/* The "N buyers want this right now" toggle is a button: on a phone that
+   wrap broke it into a lone count, a centred sentence and an orphan arrow.
+   Keep count, words and arrow on one row and let the words wrap. */
+html body .modal.item-page button.modal-demand-chip { flex-wrap: nowrap !important; text-align: left !important; }
 
 /* Look pass 2026-10-08: cart
    The cart page sits in a centred modal, so every row inherited
