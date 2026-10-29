@@ -5027,8 +5027,14 @@ export function App() {
     })();
     return () => { alive = false; };
   }, [me?.id]);
+  // Items whose star/unstar request is still in flight. A double-click on a
+  // heart fired POST and DELETE together: on a slow line the second answer to
+  // land won (or the server applied them in the other order), so the heart
+  // could end up the opposite of what the buyer last saw.
+  const starBusyRef = React.useRef(new Set());
   const toggleStar = async (itemId) => {
     if (itemId == null) return;
+    if (me && starBusyRef.current.has(itemId)) return;
     // Optimistic local flip — feels instant and works offline. The
     // server call below reconciles or reverts.
     let willStar = false;
@@ -5038,6 +5044,7 @@ export function App() {
       return has ? w.filter(id => id !== itemId) : [...w, itemId];
     });
     if (!me) return;  // anon: localStorage only
+    starBusyRef.current.add(itemId);
     try {
       const { starItem, unstarItem } = await import('./api.js');
       const res = willStar ? await starItem(itemId) : await unstarItem(itemId);
@@ -5052,6 +5059,8 @@ export function App() {
     } catch (_) {
       // Network error — keep optimistic local change; the next sign-in
       // bridge will reconcile.
+    } finally {
+      starBusyRef.current.delete(itemId);
     }
   };
   // Navigate helper closes the user-menu dropdown in the same click and
