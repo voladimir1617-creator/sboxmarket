@@ -4612,6 +4612,13 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     h(SignInNeededEmptyState, { what: signInWhat, mailto: signInMailto }));
 
   const maskAmount = (val) => privacy ? '$•••••' : fmt(val);
+  // Profile totals: a dash until /profile/me answers (and when it failed).
+  // `|| 0` printed "$0.00 purchases · $0.00 net · $0.00 portfolio" for the
+  // whole of a slow load, and for good on a failed one, which reads as a
+  // real (and wrong) answer about the buyer's money.
+  const statAmt = (val) => privacy ? '$•••••' : (profile ? fmt(val || 0) : '—');
+  const netVal = parseFloat(profile?.stats?.net || 0);
+  const netClass = profile ? (netVal >= 0 ? 'green' : 'red') : '';
 
   const runSync = async () => {
     if (syncBusyRef.current) return;
@@ -4824,19 +4831,19 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       ),
       h('div', { className: 'profile-earnings-row' },
         h('span', { className: 'profile-earnings-label' }, 'Sales'),
-        h('span', { className: 'profile-earnings-val' }, privacy ? '$•••••' : fmt(profile?.stats?.totalSold || 0))
+        h('span', { className: 'profile-earnings-val' }, statAmt(profile?.stats?.totalSold))
       ),
       h('div', { className: 'profile-earnings-row' },
         h('span', { className: 'profile-earnings-label' }, 'Purchases'),
-        h('span', { className: 'profile-earnings-val' }, privacy ? '$•••••' : fmt(profile?.stats?.totalPurchased || 0))
+        h('span', { className: 'profile-earnings-val' }, statAmt(profile?.stats?.totalPurchased))
       ),
       h('div', { className: 'profile-earnings-row total' },
         h('span', { className: 'profile-earnings-label' }, 'Net'),
         h('span', {
-          className: `profile-earnings-val ${parseFloat(profile?.stats?.net || 0) >= 0 ? 'green' : 'red'}`
-        }, privacy
-              ? '$•••••'
-              : (parseFloat(profile?.stats?.net || 0) < 0 ? '− ' : '') + fmt(Math.abs(parseFloat(profile?.stats?.net || 0))))
+          className: `profile-earnings-val ${netClass}`
+        }, privacy || !profile
+              ? statAmt(0)
+              : (netVal < 0 ? '− ' : '') + fmt(Math.abs(netVal)))
       )
     )
     ),
@@ -4851,21 +4858,21 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label', title: 'Items you own at their current market floor, plus your active listings at your asking price.' }, 'Portfolio'),
-        h('div', { className: 'profile-stat-val' }, privacy ? '$•••••' : fmt(profile?.portfolio?.totalValue || 0))
+        h('div', { className: 'profile-stat-val' }, statAmt(profile?.portfolio?.totalValue))
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label' }, 'Total Sold'),
-        h('div', { className: 'profile-stat-val' }, privacy ? '$•••••' : fmt(profile?.stats?.totalSold || 0))
+        h('div', { className: 'profile-stat-val' }, statAmt(profile?.stats?.totalSold))
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label' }, 'Total Purchased'),
-        h('div', { className: 'profile-stat-val' }, privacy ? '$•••••' : fmt(profile?.stats?.totalPurchased || 0))
+        h('div', { className: 'profile-stat-val' }, statAmt(profile?.stats?.totalPurchased))
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label' }, 'Net'),
         h('div', {
-          className: `profile-stat-val ${parseFloat(profile?.stats?.net || 0) >= 0 ? 'green' : 'red'}`
-        }, privacy ? '$•••••' : fmt(profile?.stats?.net || 0))
+          className: `profile-stat-val ${netClass}`
+        }, statAmt(profile?.stats?.net))
       )
     ),
 
