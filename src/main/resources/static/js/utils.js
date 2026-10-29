@@ -49,6 +49,40 @@ export const fxToUsd = (local) => {
   return Number.isFinite(raw) ? raw / rate : null;
 };
 
+// Typed money text -> number. The one place a price / amount box turns
+// what the user typed into a figure. `<input type=number>` in a
+// decimal-comma locale (de-DE, fr-FR) could hand "1,70" over as 170, so
+// money boxes are text boxes read here instead:
+//   "1.70" / "1,70" / " 12 " / ".5"  -> 1.7 / 1.7 / 12 / 0.5
+//   ""                               -> NaN (blank; callers keep their own "enter an amount" copy)
+//   "1,700" / "1.700" / "1.234,56" / "1,2,3" / "1 700" / "12abc" -> NaN, and
+//   moneyInputError() names the problem so the form can say it.
+// A single "," or "." is the decimal point when 1-2 digits follow it;
+// exactly 3 digits after one separator reads as a thousands group in half
+// the world, so it is refused rather than guessed. Limits, minimums and
+// rounding stay with each caller.
+const MONEY_RE = /^([+-]?)(\d*)(?:([.,])(\d*))?$/;
+export const MONEY_INPUT_ERROR = 'Type the number with one dot or comma for decimals, e.g. 1.70 or 1,70 (no thousands separators).';
+const moneyParts = (raw) => {
+  const t = String(raw ?? '').trim();
+  if (t === '') return { blank: true };
+  const m = MONEY_RE.exec(t);
+  if (!m || (m[2] === '' && !m[4])) return { bad: true };
+  const [, sign, whole, sep, frac = ''] = m;
+  // "1,700" / "1.700": thousands group or decimals? Refuse, don't guess.
+  if (sep && frac.length === 3) return { bad: true };
+  // A comma is only ever a decimal comma (1-2 digits, or a trailing "5,").
+  if (sep === ',' && frac.length > 2) return { bad: true };
+  return { value: Number(sign + (whole || '0') + (sep ? '.' + (frac || '0') : '')) };
+};
+export const parseMoneyInput = (raw) => {
+  const p = moneyParts(raw);
+  return p.value != null && Number.isFinite(p.value) ? p.value : NaN;
+};
+// The refusal message for unreadable money text, or null when the text is
+// blank or readable (blank is each form's own "enter an amount" case).
+export const moneyInputError = (raw) => (moneyParts(raw).bad ? MONEY_INPUT_ERROR : null);
+
 export const fmt = (n) => {
   const code = currentCurrency();
   const rate = FX_RATES[code];

@@ -47,6 +47,17 @@ class SteamBotReconcileService {
     @Value('${steam.escrow.reconcile-enabled:true}')
     boolean reconcileEnabled = true
 
+    /** Request timeout for the purchase-time check in {@link #skinGoneFromBot}.
+     *  Short on purpose: a slow bot must not stall checkout, and a timeout
+     *  lets the sale through exactly as before this check existed. */
+    @Value('${steam.escrow.purchase-check-timeout-ms:3000}')
+    long purchaseCheckTimeoutMs = 3000L
+
+    /** Runs the take-off-sale write for {@link #skinGoneFromBot} off the
+     *  buyer's thread, so it never waits on a lock the purchase transaction
+     *  (or its caller's) still holds. Tests swap in a same-thread executor. */
+    java.util.concurrent.Executor pullExecutor = { Runnable r -> java.util.concurrent.CompletableFuture.runAsync(r) } as java.util.concurrent.Executor
+
     /** The most recent report, for the staff endpoint. Null until a run. */
     volatile Map lastReport
 
@@ -121,6 +132,62 @@ class SteamBotReconcileService {
                       missing: missing, orphans: orphans,
                       listingsPulled: pulled, listingsRestored: restored]
         return lastReport
+    }
+
+    /**
+     * Purchase-time version of the hourly check, for ONE listing: true only
+     * when the bot answered and the skin this listing's custody row holds is
+     * not in its inventory. The buy paths refuse the sale on true, before any
+     * money moves, and the listing is taken off sale the same way
+     * {@link #reconcile} does (so the next run puts it back if the skin
+     * turns up again).
+     *
+     * False, so the sale goes ahead exactly as before, whenever we cannot be
+     * sure: escrow off, no custody row (a P2P or house listing), a row that
+     * is not plainly IN_CUSTODY, or the bot unreachable / slow. An outage
+     * must not stop every bot-held sale. Never throws.
+     */
+    boolean skinGoneFromBot(Long listingId) {
+        try {
+            if (listingId == null || !escrowService.escrowEnabled) return false
+            EscrowedItem e = escrowRepository.findByListingId(listingId)
+            if (e == null || e.custodyState != EscrowedItem.IN_CUSTODY || e.returnRequestedAt != null) return false
+            String held = e.heldAssetId ?: e.assetId
+            if (held == null) return false
+            Map index = escrowService.fetchBotInventoryIndex(purchaseCheckTimeoutMs)
+            if (!index?.ok) return false
+            if (((index.byAsset ?: [:]) as Map).containsKey(held)) return false
+            log.error("SteamBotReconcile: purchase refused, skin MISSING from bot — escrow=${e.id} " +
+                    "listing=${listingId} asset=${held}. Taking the listing off sale.")
+            final Long escrowId = e.id
+            try {
+                pullExecutor.execute({ markMissing(escrowId) } as Runnable)
+            } catch (Exception ex) {
+                log.warn("SteamBotReconcile: could not queue take-off-sale for listing ${listingId}: ${ex.message}")
+            }
+            return true
+        } catch (Exception ex) {
+            log.warn("SteamBotReconcile: purchase-time check for listing ${listingId} failed, allowing sale: ${ex.message}")
+            return false
+        }
+    }
+
+    /** The {@link #reconcile} missing-skin write for one custody row:
+     *  listing ACTIVE -> PENDING_ESCROW and the row stamped missingSince. */
+    private void markMissing(Long escrowId) {
+        try {
+            EscrowedItem e = escrowRepository.findById(escrowId).orElse(null)
+            if (e == null || e.custodyState != EscrowedItem.IN_CUSTODY || e.missingSince != null) return
+            if (pullFromSale(e.listingId)) {
+                long now = System.currentTimeMillis()
+                e.missingSince = now
+                e.lastError = 'skin not in bot inventory; listing taken off sale pending a check'
+                e.updatedAt = now
+                escrowRepository.save(e)
+            }
+        } catch (Exception ex) {
+            log.warn("SteamBotReconcile: take-off-sale for escrow=${escrowId} failed: ${ex.message}")
+        }
     }
 
     /** ACTIVE -> PENDING_ESCROW. True when this call took it off sale. */

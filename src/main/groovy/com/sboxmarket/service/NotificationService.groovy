@@ -120,6 +120,52 @@ class NotificationService {
         }
     }
 
+    /**
+     * One action, one bell per recipient. A purchase, offer acceptance,
+     * buy-order fill or auction close runs through PurchaseService.buy and
+     * TradeService.open, which each ring their own bell, and the calling
+     * service then rang a third ("Offer accepted", "Buy order auto-filled",
+     * "You won", "Auction sold"). The buyer got 2-3 bells for one purchase.
+     *
+     * The caller now hands its wording in here around the inner call; the
+     * inner trade / purchase bell (the one carrying the trade id and the
+     * amount) takes the caller's title and puts the caller's lead sentence
+     * in front of its own body. Each map is marked `used` once claimed, so
+     * the caller still rings its own bell when no inner bell went out.
+     *
+     * Static + ThreadLocal so it also works when the service is a Spock
+     * Mock in unit specs (the closure still runs; nothing is claimed).
+     */
+    private static final ThreadLocal<Map<Long, Map>> ACTION_BELLS = new ThreadLocal<>()
+
+    static <T> T withActionBells(Map<Long, Map> bells, Closure<T> work) {
+        def prev = ACTION_BELLS.get()
+        Map<Long, Map> merged = new HashMap<Long, Map>(prev ?: [:])
+        bells?.each { Long uid, Map bell -> if (uid != null && bell != null) merged.put(uid, bell) }
+        ACTION_BELLS.set(merged)
+        try {
+            return work()
+        } finally {
+            if (prev == null) ACTION_BELLS.remove() else ACTION_BELLS.set(prev)
+        }
+    }
+
+    /** The caller's wording for this recipient's bell, or null. One-shot. */
+    static Map claimActionBell(Long userId) {
+        if (userId == null) return null
+        def bell = ACTION_BELLS.get()?.get(userId)
+        if (bell == null || bell.used) return null
+        bell.used = true
+        bell
+    }
+
+    static String joinActionBody(Map bell, String body) {
+        String lead = bell?.lead as String
+        if (!lead) return body
+        if (!body) return lead
+        (lead ==~ /.*[.!?]$/ ? "${lead} ${body}" : "${lead} · ${body}").toString()
+    }
+
     Notification push(Long userId, String kind, String title, String body = null, Long refId = null, String path = null) {
         if (userId == null) return null
         def n = new Notification(

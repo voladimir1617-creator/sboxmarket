@@ -1,7 +1,7 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
 import { BRAND } from './brand.js';
-import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy, useTestMode } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy, useTestMode, parseMoneyInput } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=354'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=355'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -153,12 +153,11 @@ import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious, f
 // had pasted "$5" / "5,50". Unusable input simply drops the bound.
 function cleanPriceParam(raw) {
   if (raw == null) return null;
-  let t = String(raw).replace(/[$\s]/g, '');
-  // "5,50" is a decimal comma; any other comma is a thousands separator.
-  // Turning every comma into a point read "1,000" as $1.
-  t = /^\d+,\d{1,2}$/.test(t) ? t.replace(',', '.') : t.replace(/,/g, '');
-  if (t === '' || !/^\d*\.?\d*$/.test(t)) return null;
-  const n = parseFloat(t);
+  // "5,50" is a decimal comma; "1,000" / "1.000" could be $1 or $1,000
+  // depending on the viewer's locale, so the shared money reader refuses
+  // it and the bound is dropped rather than guessed.
+  const t = String(raw).replace(/^\s*\$/, '');
+  const n = parseMoneyInput(t);
   if (!Number.isFinite(n) || n < 0 || n > 10000000) return null;
   return String(Math.round(n * 100) / 100);
 }
@@ -5128,7 +5127,12 @@ export function App() {
     if (!meLoaded) return;
     const interval = setInterval(async () => {
       if (!me) return;
-      const fresh = await fetchMe();
+      // Only a real "signed out" answer ends the session here. A failed
+      // check (outage, 429, offline) keeps the user signed in; the next
+      // beat asks again, and a genuinely dead session still surfaces via
+      // the 401 broadcast on their next action.
+      let fresh;
+      try { fresh = await fetchMe({ throwOnFailure: true }); } catch (_) { return; }
       if (!fresh) {
         setMe(null);
         setIsAdmin(false);
@@ -10671,7 +10675,7 @@ export function App() {
             h('label', { title: 'Type the sale amount in your selected currency.' }, `Sale Amount (${currencySymbol()})`),
             h('input', {
               className: 'price-input fee-calc-input',
-              type: 'number', min: '1', step: '0.01',
+              type: 'text', min: '1', step: '0.01',
               inputMode: 'decimal',
               'aria-label': `Sale amount for fee calculator (${currencySymbol()})`,
               value: feeInput,
@@ -10693,7 +10697,7 @@ export function App() {
             // currency: convert to USD (what fees are charged in) before the
             // maths, and `fmt` converts the results back. Treating a typed
             // €100 as $100 quoted a euro take-home of about €90 for €98.
-            const amt = Math.max(0, fxToUsd(parseFloat(feeInput) || 0) || 0);
+            const amt = Math.max(0, fxToUsd(parseMoneyInput(feeInput) || 0) || 0);
             // Shared helper — the server rounds the FEE half-up and subtracts,
             // so deriving the take-home as `amt * 0.98` quoted a cent more than
             // the wallet actually receives on any split-cent price.

@@ -50,6 +50,7 @@ class PurchaseService {
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.TradeProtectionRepository tradeProtectionRepository
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SteamBotReconcileService steamBotReconcileService
     /** Optional so unit tests that build the service with `new
      *  PurchaseService(...)` (no Spring context) still work — in that case
      *  there is never an active transaction and {@link #deferOrRun} runs
@@ -117,6 +118,15 @@ class PurchaseService {
      *  price in between charged the buyer the new price (2026-09-28 review). */
     @Transactional
     Map buy(Long buyerWalletId, Long buyerUserId, Long listingId, BigDecimal maxPrice) {
+        buy(buyerWalletId, buyerUserId, listingId, maxPrice, false)
+    }
+
+    /** {@code botSkinChecked}: the caller already ran
+     *  {@link SteamBotReconcileService#skinGoneFromBot} for this listing
+     *  (offer accept does, before it touches the listing), so the bot is
+     *  asked once per purchase, not twice. */
+    @Transactional
+    Map buy(Long buyerWalletId, Long buyerUserId, Long listingId, BigDecimal maxPrice, boolean botSkinChecked) {
         banGuard.assertNotBanned(buyerUserId)
         def buyerWallet = walletRepository.findById(buyerWalletId)
                 .orElseThrow { new NotFoundException("Wallet", buyerWalletId) }
@@ -191,6 +201,14 @@ class PurchaseService {
         }
         if (buyerWallet.balance < listing.price) {
             throw new InsufficientBalanceException(listing.price, buyerWallet.balance)
+        }
+        // Bot-held listing whose skin has left the bot (reversed, traded out
+        // by hand): the sale would take the money and then fail to deliver on
+        // every retry, while the hourly bot check had not caught it yet. Ask
+        // the bot now, after the cheap gates and before any money moves. A
+        // bot that does not answer lets the sale through, as before.
+        if (!botSkinChecked && steamBotReconcileService?.skinGoneFromBot(listingId)) {
+            throw new ListingNotAvailableException(listingId)
         }
         // P2P sales require the buyer's Steam trade URL — the seller needs
         // it to send the item. Without this guard the purchase completes,
@@ -346,11 +364,18 @@ class PurchaseService {
             // the buyer's Platform Inventory (Sell page). Pointing a system-
             // listing buyer at the empty Trades tab is the same mismatch the
             // success toast had.
-            notificationService.safePush(buyerUserId, 'ITEM_PURCHASED',
-                "Purchased ${listing.item.name}",
-                "Paid \$${listing.price.toPlainString()} from balance",
-                listing.id,
-                listing.sellerUserId != null ? '/profile?tab=trades' : '/sell')
+            // A P2P purchase already rang the buyer's TRADE_OPENED bell in
+            // TradeService.open (trade id + amount + trades link), so this
+            // second "Purchased" bell for the same click is only sent when
+            // no trade was opened (house listing, or no TradeService).
+            if (listing.sellerUserId == null || tradeService == null) {
+                def bell = NotificationService.claimActionBell(buyerUserId)
+                notificationService.safePush(buyerUserId, 'ITEM_PURCHASED',
+                    (bell?.title ?: "Purchased ${listing.item.name}") as String,
+                    (bell?.lead ?: "Paid \$${listing.price.toPlainString()} from balance") as String,
+                    listing.id,
+                    listing.sellerUserId != null ? '/profile?tab=trades' : '/sell')
+            }
             // For P2P trades, the seller notification is sent by
             // TradeService.open() as TRADE_REQUESTED — don't duplicate
             // it here with a premature TRADE_VERIFIED.

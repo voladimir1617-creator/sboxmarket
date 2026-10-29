@@ -52,7 +52,7 @@ test.describe('defect pass 50', () => {
     });
     await page.goto('/item/5050');
     await page.getByRole('button', { name: /Set Price Alert/ }).first().click({ timeout: 20_000 });
-    const box = page.getByRole('spinbutton', { name: 'Price alert target (USD)' });
+    const box = page.getByRole('textbox', { name: 'Price alert target (USD)' });
     await box.fill('1.25');
     await box.press('Enter');
     await expect.poll(() => posted).not.toBeNull();

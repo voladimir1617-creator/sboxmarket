@@ -2,7 +2,7 @@
 // module doesn't pull in staff code paths. Both panels are tabbed, use
 // InfoModal as the shell, and call into api.js for I/O.
 import { BRAND } from './brand.js';
-import { h, React, useState, useEffect, useCallback, fmt, timeAgo, toast, linkifyText } from './utils.js';
+import { h, React, useState, useEffect, useCallback, fmt, timeAgo, toast, linkifyText, parseMoneyInput, moneyInputError } from './utils.js';
 import { InfoModal } from './info-modal.js';
 import { ReasonDrawer, MaterialIcon } from './primitives.js';
 import {
@@ -2175,7 +2175,12 @@ function AdminAuditTab() {
               h('td', { style: { fontSize: 11, color: 'var(--text-secondary)', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis' } }, r.summary || '—'),
               h('td', { className: 'db-mono', style: { fontSize: 10, color: 'var(--text-muted)' } }, r.ipAddress || '—')
             )))
-          )
+          ),
+    // The table renders 200 of the up-to-500 rows loaded; say so instead of
+    // ending as if row 200 were the oldest entry in the window.
+    Array.isArray(displayRows) && displayRows.length > 200 && h('div', {
+      style: { marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }
+    }, `Showing the newest 200 of ${displayRows.length} entries. Narrow by event, user, date or search to see older ones, or export CSV.`)
   );
 }
 
@@ -2606,6 +2611,10 @@ function AdminCatalogueTab() {
   };
   const save = async () => {
     if (!editing) return;
+    // Blank clears the price; "1,70" is sent as 1.7 and "1,700" refused.
+    const sp = String(draft.steamPrice ?? '').trim();
+    if (sp && moneyInputError(sp)) { setErr(moneyInputError(sp)); return; }
+    const body = sp ? { ...draft, steamPrice: String(parseMoneyInput(sp)) } : draft;
     setBusy(true); setErr('');
     try {
       const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
@@ -2616,7 +2625,7 @@ function AdminCatalogueTab() {
           'Content-Type': 'application/json',
           ...(csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {})
         },
-        body: JSON.stringify(draft)
+        body: JSON.stringify(body)
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
@@ -2692,7 +2701,7 @@ function AdminCatalogueTab() {
             h('div', { className: 'settings-label' }, 'Steam price'),
             h('input', {
               className: 'wallet-amount-input',
-              type: 'number', step: '0.01', min: '0',
+              type: 'text', inputMode: 'decimal', step: '0.01', min: '0',
               'aria-label': 'Steam price',
               placeholder: '0.00 (blank = clear)',
               value: draft.steamPrice,
@@ -3002,7 +3011,8 @@ function AdminUsersTab({ me }) {
     const label = u.displayName || u.steamId64;
     const amtStr = prompt(`Adjust wallet for ${label} — positive credits, negative debits ($):`, '');
     if (!amtStr) return;
-    const amt = parseFloat(amtStr);
+    if (moneyInputError(amtStr)) { toast(moneyInputError(amtStr), 'err'); return; }
+    const amt = parseMoneyInput(amtStr);
     if (isNaN(amt)) { toast('Enter a number', 'err'); return; }
     if (amt === 0) { toast('Amount must be non-zero', 'err'); return; }
     const note = prompt('Note (audit trail):', '');
@@ -3946,7 +3956,8 @@ function AdminRefundsTab() {
     if (!Number.isFinite(tx) || tx <= 0) { toast('Enter a valid deposit transaction id', 'err'); return; }
     let amt = null;
     if (amount.trim()) {
-      amt = parseFloat(amount);
+      if (moneyInputError(amount)) { toast(moneyInputError(amount), 'err'); return; }
+      amt = parseMoneyInput(amount);
       if (!Number.isFinite(amt) || amt <= 0) { toast('Refund amount must be a positive number, or blank for a full refund', 'err'); return; }
     }
     // Confirm — the banner warns this hits Stripe with no undo, but the
@@ -3973,7 +3984,7 @@ function AdminRefundsTab() {
     // types #99, which reads as if #99 already processed.
     h('input', { className: 'wallet-amount-input', value: txId, onChange: e => { setTxId(e.target.value); setRes(null); }, placeholder: 'e.g. 42' }),
     h('div', { className: 'wallet-input-label' }, 'Refund amount (blank = full)'),
-    h('input', { className: 'wallet-amount-input', value: amount, onChange: e => { setAmt(e.target.value); setRes(null); }, placeholder: 'Leave blank for full refund' }),
+    h('input', { className: 'wallet-amount-input', inputMode: 'decimal', value: amount, onChange: e => { setAmt(e.target.value); setRes(null); }, placeholder: 'Leave blank for full refund' }),
     h('button', { className: 'btn btn-accent wallet-submit', disabled: busy || !txId, onClick: run }, busy ? 'Processing…' : 'Process Refund'),
     result && h('div', {
       style: { marginTop: 14, padding: 14, borderRadius: 8,
@@ -4228,7 +4239,8 @@ function CsrLookupTab() {
     if (!amt) return;
     // Guard the parse — a non-numeric entry would otherwise post NaN to
     // the goodwill endpoint. Mirrors AdminUsersTab.doCredit.
-    const value = parseFloat(amt);
+    if (moneyInputError(amt)) { toast(moneyInputError(amt), 'err'); return; }
+    const value = parseMoneyInput(amt);
     if (!Number.isFinite(value) || value <= 0) { toast('Enter a positive number', 'err'); return; }
     const note = prompt('Reason / note (required for audit):', '');
     if (!note || !note.trim()) return;

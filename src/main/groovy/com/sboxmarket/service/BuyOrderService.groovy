@@ -318,19 +318,24 @@ class BuyOrderService {
                 // outer commit while the buyer's API response said 201
                 // Created. Running each buy in its own sub-tx isolates the
                 // failure to that one listing.
+                // One bell for the fill: the purchase's own trade bell
+                // (trade id + amount) carries the buy-order wording.
+                Map fillBell = fillBellFor(listing, order.maxPrice)
                 runInIsolatedTx {
-                    purchaseService.buy(wallet.id, order.buyerUserId, listing.id, order.maxPrice)
+                    NotificationService.withActionBells([(order.buyerUserId): fillBell]) {
+                        purchaseService.buy(wallet.id, order.buyerUserId, listing.id, order.maxPrice)
+                    }
                 }
                 available = available - listing.price   // only on a committed fill
                 order.quantity = Math.max(0, order.quantity - 1)
                 order.updatedAt = System.currentTimeMillis()
                 if (order.quantity == 0) order.status = 'FILLED'
                 buyOrderRepository.save(order)
-                notificationService.push(
+                if (!fillBell.used) notificationService.push(
                     order.buyerUserId,
                     'BUY_ORDER_FILLED',
-                    "Buy order auto-filled · ${listing.item?.name}",
-                    "Paid \$${listing.price.toPlainString()} (cap \$${order.maxPrice.toPlainString()})",
+                    fillBell.title as String,
+                    fillBell.lead as String,
                     listing.id,
                     '/profile?tab=buyorders'
                 )
@@ -889,18 +894,21 @@ class BuyOrderService {
                 // so the loop tries the next candidate, but the outer
                 // commit later blows up with UnexpectedRollbackException
                 // and the listing the seller just published vanishes.
+                Map fillBell = fillBellFor(listing, locked.maxPrice)
                 runInIsolatedTx {
-                    purchaseService.buy(wallet.id, locked.buyerUserId, listing.id, locked.maxPrice)
+                    NotificationService.withActionBells([(locked.buyerUserId): fillBell]) {
+                        purchaseService.buy(wallet.id, locked.buyerUserId, listing.id, locked.maxPrice)
+                    }
                 }
                 locked.quantity = Math.max(0, locked.quantity - 1)
                 locked.updatedAt = System.currentTimeMillis()
                 if (locked.quantity == 0) locked.status = 'FILLED'
                 buyOrderRepository.save(locked)
-                notificationService.push(
+                if (!fillBell.used) notificationService.push(
                     locked.buyerUserId,
                     'BUY_ORDER_FILLED',
-                    "Buy order auto-filled · ${listing.item?.name}",
-                    "Paid \$${listing.price.toPlainString()} (cap \$${locked.maxPrice.toPlainString()})",
+                    fillBell.title as String,
+                    fillBell.lead as String,
                     listing.id,
                     '/profile?tab=buyorders'
                 )
@@ -911,6 +919,16 @@ class BuyOrderService {
                 log.warn("Buy order ${order.id} match attempt failed: ${e.message}")
             }
         }
+    }
+
+    /** Wording for the buyer's one fill bell. PurchaseService / TradeService
+     *  claim it for the purchase bell; if neither does, the caller pushes
+     *  BUY_ORDER_FILLED with it. Mutable: claiming sets `used`. */
+    private static Map fillBellFor(com.sboxmarket.model.Listing listing, BigDecimal cap) {
+        [
+            title: "Buy order auto-filled · ${listing.item?.name}".toString(),
+            lead : "Paid \$${listing.price.toPlainString()} (cap \$${cap.toPlainString()})".toString()
+        ]
     }
 
     /** Fire BUY_ORDER_FILLED email to the buyer (batch 574). Shared by

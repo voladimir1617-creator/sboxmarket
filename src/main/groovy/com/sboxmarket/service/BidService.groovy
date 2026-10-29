@@ -109,6 +109,7 @@ class BidService {
     // and required=false so Spock specs that build BidService via property map
     // don't need to stub it.
     @Autowired(required = false) SteamEscrowService steamEscrowService
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SteamBotReconcileService steamBotReconcileService
     /**
      * Spring event publisher — drives AuctionEventBus SSE fan-out after
      * the transaction commits. `required = false` so Spock specs that
@@ -848,6 +849,12 @@ class BidService {
         if (listing.sellerUserId != null && listing.sellerUserId == buyerUserId) {
             throw new ForbiddenException("You can't Buy Now your own auction")
         }
+        // Bot-held skin gone from the bot: same answer as a closed auction,
+        // before anything below touches the listing or the wallet. settle()
+        // is told the bot was already asked.
+        if (steamBotReconcileService?.skinGoneFromBot(listingId)) {
+            throw new BadRequestException("NOT_ACTIVE", "Listing is not active")
+        }
         // Wallet solvency + integrity gates. settle() runs its own balance
         // check as a belt-and-braces second pass, but the freeze + dispute-
         // hold gates need to fire here — settle() does NOT re-check them,
@@ -956,7 +963,7 @@ class BidService {
             status:        'WINNING'
         ))
 
-        settle(listing)
+        settle(listing, true)
 
         // Notify losing bidders — distinct AUCTION_LOST body so they
         // know it was Buy Now, not being outbid by a higher manual bid.
@@ -1256,6 +1263,12 @@ class BidService {
 
     @Transactional
     protected void settle(Listing listing) {
+        settle(listing, false)
+    }
+
+    /** {@code botSkinChecked}: buyNowAuction already asked the bot. */
+    @Transactional
+    protected void settle(Listing listing, boolean botSkinChecked) {
         // Idempotency guard (batch 800). settle is called from
         // sweepExpired AND from buyNowAuction; under concurrent /
         // multi-node sweeper conditions, or if a manual replay ever
@@ -1442,6 +1455,15 @@ class BidService {
             return
         }
 
+        // Bot-held skin gone from the bot: do not charge the winner for a
+        // skin that cannot be delivered. The check takes the listing off
+        // sale (PENDING_ESCROW, as the hourly bot check does), so the sweep
+        // leaves it alone; if the skin comes back the hourly check puts it
+        // back ACTIVE and the next sweep settles it as normal.
+        if (!botSkinChecked && steamBotReconcileService?.skinGoneFromBot(listing.id)) {
+            log.warn("settle deferred — listing ${listing.id}: its skin is not in the bot")
+            return
+        }
         wallet.balance = wallet.balance - listing.currentBid
         walletRepository.save(wallet)
         listing.status = 'SOLD'
@@ -1479,6 +1501,8 @@ class BidService {
             listingId:       listing.id
         ))
 
+        Map winnerBell = null
+        Map sellerBell = null
         // P2P escrow: auction wins go through the same trade flow as
         // BUY_NOW purchases so the seller must deliver before getting paid.
         // Without this, auction sellers were credited immediately with no
@@ -1508,19 +1532,27 @@ class BidService {
                         currency: 'USD'))
                 }
             }
-            tradeService.open(
-                listing.id,
-                listing.item?.id,
-                listing.item?.name,
-                winnerId,
-                wallet.id,
-                listing.sellerUserId,
-                sellerWallet?.id,
-                listing.currentBid
-            )
+            // One bell per side for the close: the trade's own bells (trade
+            // id + amount) carry the auction titles, so the winner no longer
+            // gets "You won" + "Escrow opened" and the seller "Auction sold"
+            // + "New sale".
+            winnerBell = [title: "You won · ${listing.item?.name}".toString()]
+            sellerBell = [title: "Auction sold · ${listing.item?.name ?: 'your auction'}".toString()]
+            NotificationService.withActionBells([(winnerId): winnerBell, (listing.sellerUserId): sellerBell]) {
+                tradeService.open(
+                    listing.id,
+                    listing.item?.id,
+                    listing.item?.name,
+                    winnerId,
+                    wallet.id,
+                    listing.sellerUserId,
+                    sellerWallet?.id,
+                    listing.currentBid
+                )
+            }
         }
 
-        notificationService.push(winnerId, 'AUCTION_WON',
+        if (!winnerBell?.used) notificationService.push(winnerId, 'AUCTION_WON',
             "You won · ${listing.item?.name}",
             "Final bid \$${listing.currentBid.toPlainString()}", listing.id,
             // A house auction (no seller) opens no trade: the item lands in
@@ -1533,7 +1565,7 @@ class BidService {
         // ending-soon push (AUCTION_ENDING) doesn't cover this since it
         // fires BEFORE the close. Deep-links to the trade so the seller
         // can immediately send the Steam offer.
-        if (listing.sellerUserId != null) {
+        if (listing.sellerUserId != null && !sellerBell?.used) {
             try {
                 notificationService.push(listing.sellerUserId, 'AUCTION_SOLD',
                     "Auction sold · ${listing.item?.name ?: 'your auction'}",

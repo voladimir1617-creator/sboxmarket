@@ -39,6 +39,7 @@ class SteamInventoryController {
     @Autowired SteamSyncService steamSyncService
     @Autowired SteamUserRepository steamUserRepository
     @Autowired ItemRepository itemRepository
+    @Autowired(required = false) com.sboxmarket.service.ItemService itemService
     @Autowired ListingRepository listingRepository
     @Autowired ListingService listingService
     @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
@@ -395,6 +396,12 @@ class SteamInventoryController {
         ResponseEntity.ok(steamSyncService.syncNow(requireUser(req)))
     }
 
+    /** The ItemService bean, or one over this controller's repository when
+     *  built without Spring (unit tests); its name locks are shared. */
+    private com.sboxmarket.service.ItemService catalogue() {
+        itemService ?: new com.sboxmarket.service.ItemService(itemRepository: itemRepository)
+    }
+
     @PostMapping("/list")
     ResponseEntity<Map> listFromSteam(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
@@ -468,11 +475,11 @@ class SteamInventoryController {
 
         def name = (steamItem.name ?: '').toString()
         // Indexed lookup via the `idx_items_name` functional index on
-        // `LOWER(name)` — O(log N) instead of the previous full scan.
-        def item = itemRepository.findByNameIgnoreCase(name)
-        if (item == null) {
-            // Auto-create a catalogue entry so brand-new items become listable
-            item = itemRepository.save(new Item(
+        // `LOWER(name)`; a brand-new name gets a catalogue entry so it
+        // becomes listable. findOrCreateByName keeps two first listings of
+        // a new name from each creating a row.
+        def item = catalogue().findOrCreateByName(name.take(255)) {
+            new Item(
                 name:        name.take(255),
                 category:    steamInventoryService.inferCategory(steamItem),
                 rarity:      'Standard',
@@ -483,8 +490,7 @@ class SteamInventoryController {
                 supply:      1,
                 totalSold:   0,
                 trendPercent: 0
-            ))
-            log.info("Auto-created catalogue item \"${item.name}\" from Steam inventory of ${user.steamId64}")
+            )
         }
 
         // Optional auction fields — same shape as the /api/listings/sell
@@ -726,9 +732,8 @@ class SteamInventoryController {
                     return
                 }
                 def name = (steamItem.name ?: '').toString()
-                def item = itemRepository.findByNameIgnoreCase(name)
-                if (item == null) {
-                    item = itemRepository.save(new Item(
+                def item = catalogue().findOrCreateByName(name.take(255)) {
+                    new Item(
                         name:        name.take(255),
                         category:    steamInventoryService.inferCategory(steamItem),
                         rarity:      'Standard',
@@ -739,7 +744,7 @@ class SteamInventoryController {
                         supply:      1,
                         totalSold:   0,
                         trendPercent: 0
-                    ))
+                    )
                 }
                 // PENDING_ESCROW when the bot is live (see single-list note),
                 // plain ACTIVE otherwise.

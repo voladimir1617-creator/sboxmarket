@@ -245,6 +245,43 @@ class ProfileControllerSpec extends Specification {
         1 * emailService.sendVerification('fresh@b.com', _)
     }
 
+    def "setEmail refuses an address with a stray dot or a bad domain label: #email"() {
+        given:
+        authedSession(100L)
+        def user = new SteamUser(id: 100L, steamId64: '1')
+        steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when:
+        controller.setEmail([email: email], req)
+
+        then: 'refused before anything is saved or mailed'
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_EMAIL'
+        0 * steamUserRepository.save(_)
+        0 * emailService.sendVerification(_, _)
+
+        where:
+        email << ['john@gmail..com', '.john@x.com', 'john.@x.com', 'jo..hn@x.com',
+                  'john@.x.com', 'john@-x.com', 'john@x-.com', 'john@x', 'a@b.c']
+    }
+
+    def "setEmail still takes ordinary addresses: #email"() {
+        given:
+        authedSession(100L)
+        def user = new SteamUser(id: 100L, steamId64: '1')
+        steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when:
+        def resp = controller.setEmail([email: email], req)
+
+        then:
+        resp.statusCode.value() == 200
+        user.email == email.toLowerCase()
+
+        where:
+        email << ['john.smith+tag@gmail.com', 'a@b.co', 'x_y-z%1@mail.example.co.uk', 'me@sub-domain.io', 'n@1.2.3.com']
+    }
+
     // ── /2fa/enroll guards ──────────────────────────────────────────
 
     def "enroll2fa refuses when 2FA is already enabled"() {

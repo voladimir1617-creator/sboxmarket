@@ -50,7 +50,7 @@ test('withdraw submits without a destination box and without an empty 2FA code',
   });
   await page.goto('/wallet');
   await page.getByText(/^Withdraw$/).first().click();
-  const amount = page.getByRole('spinbutton', { name: 'Withdrawal amount' });
+  const amount = page.getByRole('textbox', { name: 'Withdrawal amount' });
   await expect(amount).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('input[placeholder*="Stripe Connect ID"]')).toHaveCount(0);
   await amount.fill('0.01');

@@ -467,10 +467,10 @@ class RateLimitFilter extends OncePerRequestFilter {
         if (current > budget) {
             resp.status = 429
             resp.contentType = 'application/json'
-            resp.setHeader('Retry-After', String.valueOf(Math.max(1, ((WINDOW_MS - (now - bucket.windowStart)) / 1000L) as long)))
+            resp.setHeader('Retry-After', String.valueOf(secondsUntilReset(now, bucket.windowStart)))
             resp.setHeader('X-RateLimit-Limit', String.valueOf(budget))
             resp.setHeader('X-RateLimit-Remaining', '0')
-            resp.setHeader('X-RateLimit-Reset', String.valueOf(Math.max(1, ((WINDOW_MS - (now - bucket.windowStart)) / 1000L) as long)))
+            resp.setHeader('X-RateLimit-Reset', String.valueOf(secondsUntilReset(now, bucket.windowStart)))
             resp.writer.write('{"code":"RATE_LIMITED","message":"Too many requests. Please slow down."}')
             // Log only the FIRST breach in this window (count just crossed
             // budget). Logging every over-budget request flooded the WARN
@@ -490,8 +490,18 @@ class RateLimitFilter extends OncePerRequestFilter {
         // 429 wall blind.
         resp.setHeader('X-RateLimit-Limit', String.valueOf(budget))
         resp.setHeader('X-RateLimit-Remaining', String.valueOf(Math.max(0L, budget - current)))
-        resp.setHeader('X-RateLimit-Reset', String.valueOf(Math.max(1, ((WINDOW_MS - (now - bucket.windowStart)) / 1000L) as long)))
+        resp.setHeader('X-RateLimit-Reset', String.valueOf(secondsUntilReset(now, bucket.windowStart)))
         chain.doFilter(req, resp)
+    }
+
+    // Whole seconds after which this bucket's window has rolled over. The
+    // window resets only once MORE than WINDOW_MS has passed, so the answer
+    // must be strictly past the remaining time. Rounding down told a client
+    // to come back while it was still blocked: 9.9s left became
+    // "Retry-After: 9", and the SPA's "Try again in 9s" retry got a second 429.
+    private static long secondsUntilReset(long now, long windowStart) {
+        long remainingMs = Math.max(0L, WINDOW_MS - (now - windowStart))
+        remainingMs.intdiv(1000L) + 1L
     }
 
     private String clientIp(HttpServletRequest req) {

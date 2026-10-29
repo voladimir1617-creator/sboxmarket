@@ -178,7 +178,7 @@ test('Pixel cannot resell what has not arrived; once it has, he lists it and Gho
     const card = page.locator(`.inventory-item[data-listing-id="${listingId}"]`);
     await expect(card).toBeVisible({ timeout: 10_000 });
     await card.click();
-    await page.getByRole('spinbutton', { name: 'Asking price' }).fill(price);
+    await page.getByRole('textbox', { name: 'Asking price' }).fill(price);
     await page.getByRole('button', { name: 'List for Sale' }).click();
   };
   await listFromInventory(open.id, '9.99');
@@ -261,7 +261,7 @@ test('bargaining: Ghost offers, Atlas counters, Ghost takes the counter and pays
   await expect(row).toBeVisible({ timeout: 10_000 });
   await expect(row.locator('.offer-amt')).toHaveText(`$${(offer / 100).toFixed(2)}`);
   await row.getByRole('button', { name: 'Counter offer' }).click();
-  const counterInput = ap.getByRole('spinbutton', { name: 'Counter price' });
+  const counterInput = ap.getByRole('textbox', { name: 'Counter price' });
   const counter = Math.round(Number(await counterInput.inputValue()) * 100);
   expect(counter).toBeGreaterThan(offer);
   expect(counter).toBeLessThan(ask);
@@ -303,8 +303,8 @@ test('auction: Atlas auctions an item, Pixel bids (nothing charged), Ghost buys 
   await ap.locator(`.inventory-item[data-listing-id="${house.id}"]`).click();
   await ap.getByRole('button', { name: 'Auction', exact: true }).click();
   await ap.getByRole('button', { name: '1d', exact: true }).click();
-  await ap.getByRole('spinbutton', { name: 'Starting bid' }).fill((start / 100).toFixed(2));
-  await ap.getByRole('spinbutton', { name: 'Buy Now price' }).fill((buyNow / 100).toFixed(2));
+  await ap.getByRole('textbox', { name: 'Starting bid' }).fill((start / 100).toFixed(2));
+  await ap.getByRole('textbox', { name: 'Buy Now price' }).fill((buyNow / 100).toFixed(2));
   await ap.getByRole('button', { name: 'List for Sale' }).click();
   const findAuction = async () => ((await H.call(atlas, 'GET', '/api/listings/my-stall')).body || [])
     .find((l) => l.listingType === 'AUCTION' && l.status === 'ACTIVE' && itemOf(l) === itemOf(house));
@@ -368,7 +368,7 @@ test('buy order: Ghost posts one, and Pixel\'s new listing at or under it fills 
   await gp.getByRole('button', { name: /Create Buy Order/ }).first().click();
   await gp.getByRole('textbox', { name: 'Search catalogue for buy order target' }).fill(house.item.name);
   await gp.locator('.buyorder-form').getByText(house.item.name, { exact: true }).first().click();
-  await gp.getByRole('spinbutton', { name: 'Maximum price per item' }).fill((orderMax / 100).toFixed(2));
+  await gp.getByRole('textbox', { name: 'Maximum price per item' }).fill((orderMax / 100).toFixed(2));
   await gp.getByRole('spinbutton', { name: /Quantity to buy/ }).fill('1');
   const posted = gp.waitForResponse((r) => r.url().endsWith('/api/buy-orders') && r.request().method() === 'POST');
   await gp.getByRole('button', { name: 'Place Buy Order' }).click();
@@ -414,7 +414,7 @@ test('Atlas cashes out from the payouts card: email first, then the withdrawal l
   await card.getByRole('button', { name: 'Request payout' }).click();
   await expect(ap).toHaveURL(/\/wallet\/withdraw/);
   const amount = 1000;
-  await ap.getByRole('spinbutton', { name: 'Withdrawal amount' }).fill((amount / 100).toFixed(2));
+  await ap.getByRole('textbox', { name: 'Withdrawal amount' }).fill((amount / 100).toFixed(2));
   const sent = ap.waitForResponse((r) => r.url().endsWith('/api/wallet/withdraw') && r.request().method() === 'POST');
   await ap.getByRole('button', { name: `Withdraw $${(amount / 100).toFixed(2)}` }).click();
   const res = await sent;

@@ -29,7 +29,7 @@ test.describe('defect pass 83 · sell', () => {
     await page.route('**/api/steam/list', (r) => r.fulfill(json({ code: 'STEAM_DOWN', message: 'Steam inventory service is unavailable' }, 503)));
     await page.goto('/sell');
     await page.getByText('Red Beanie').first().click();
-    await page.getByRole('spinbutton').first().fill('5');
+    await page.getByRole('textbox', { name: 'Asking price' }).fill('5');
     await page.getByRole('button', { name: 'List for Sale' }).click();
     await expect(page.getByText(/Steam inventory service is unavailable/)).toBeVisible();
     await expect(page.getByRole('alert').filter({ hasText: /Steam inventory service is unavailable/ })).toBeVisible();
@@ -169,7 +169,7 @@ test.describe('defect pass 83 · admin', () => {
     await expect(dlg).toBeVisible();
     await expect(dlg).toHaveAttribute('aria-modal', 'true');
     // Focus moves into the modal, and back to Edit when it closes.
-    await expect(dlg.getByRole('spinbutton')).toBeFocused();
+    await expect(dlg.getByRole('textbox', { name: 'Steam price' })).toBeFocused();
     await dlg.getByRole('button', { name: 'Cancel' }).click();
     await expect(dlg).toHaveCount(0);
     await expect(page.getByRole('button', { name: '✎ Edit' })).toBeFocused();

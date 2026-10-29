@@ -72,7 +72,7 @@ test('the bargain drawer says an accepted offer is charged at once, and why Send
   await page.goto(`/item/${ITEM_ID}`);
   await page.locator('.item-rail-actions-bargain').first().click({ timeout: 15_000 });
 
-  const input = page.getByRole('spinbutton', { name: 'Offer amount in USD' });
+  const input = page.getByRole('textbox', { name: 'Offer amount in USD' });
   await expect(input).toBeVisible();
   // The suggestion is a hint, not a value.
   await expect(input).toHaveValue('');

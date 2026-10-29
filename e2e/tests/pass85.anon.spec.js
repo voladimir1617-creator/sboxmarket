@@ -38,7 +38,7 @@ test.describe('defect pass 85 · mystall', () => {
     await page.goto('/me/stall');
     await page.getByRole('button', { name: /Bulk price adjust/ }).click();
     const dlg = page.getByRole('dialog', { name: /Bulk price adjust/ });
-    await dlg.getByRole('spinbutton', { name: 'Bulk adjust percent' }).fill('-10');
+    await dlg.getByRole('textbox', { name: 'Bulk adjust percent' }).fill('-10');
     await dlg.getByRole('button', { name: /-10% to 2/ }).click();
     await expect(dlg.getByText(/Pricing service is down/)).toBeVisible();
     await expect(dlg.getByRole('alert').filter({ hasText: /Pricing service is down/ })).toBeVisible();

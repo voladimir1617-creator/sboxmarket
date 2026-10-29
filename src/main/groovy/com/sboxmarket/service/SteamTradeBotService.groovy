@@ -155,6 +155,14 @@ class SteamTradeBotService {
         return request('GET', '/inventory', null)
     }
 
+    /** {@link #fetchBotInventory()} with its own, usually shorter, request
+     *  timeout: the purchase-time custody check must not hold a buyer up
+     *  for the full {@code requestTimeoutMs} when the bot is slow. */
+    SteamBotResult fetchBotInventory(long timeoutMs) {
+        if (!enabled) return SteamBotResult.disabled()
+        return request('GET', '/inventory', null, timeoutMs)
+    }
+
     // -----------------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------------
@@ -167,11 +175,12 @@ class SteamTradeBotService {
      * Perform a request and map it to a typed result. Decodes the JSON body and
      * uses the sidecar's {@code ok}/{@code error} convention. Never throws.
      */
-    private SteamBotResult request(String method, String path, Map jsonBody) {
+    private SteamBotResult request(String method, String path, Map jsonBody, Long timeoutMs = null) {
         String url = trimTrailingSlash(baseUrl) + path
         RawResponse resp
         try {
-            resp = doRequest(method, url, jsonBody == null ? null : JsonOutput.toJson(jsonBody))
+            String body = jsonBody == null ? null : JsonOutput.toJson(jsonBody)
+            resp = timeoutMs == null ? doRequest(method, url, body) : doRequest(method, url, body, timeoutMs)
         } catch (java.net.http.HttpConnectTimeoutException e) {
             log.warn("Steam bot connect timeout: {} {}", method, path)
             return SteamBotResult.error('TIMEOUT', 'connect timeout: ' + e.message)
@@ -221,9 +230,14 @@ class SteamTradeBotService {
      * timeouts which {@link #request} maps to typed results.
      */
     protected RawResponse doRequest(String method, String url, String jsonBody) throws Exception {
+        return doRequest(method, url, jsonBody, requestTimeoutMs)
+    }
+
+    /** {@link #doRequest(String, String, String)} with an explicit request timeout. */
+    protected RawResponse doRequest(String method, String url, String jsonBody, long timeoutMs) throws Exception {
         HttpRequest.Builder b = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .timeout(Duration.ofMillis(requestTimeoutMs))
+                .timeout(Duration.ofMillis(timeoutMs))
                 .header('Accept', 'application/json')
                 .header('Authorization', 'Bearer ' + (apiToken ?: ''))
 

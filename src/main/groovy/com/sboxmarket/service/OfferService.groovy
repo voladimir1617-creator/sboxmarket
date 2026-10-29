@@ -56,6 +56,7 @@ class OfferService {
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
     @Autowired(required = false) ReviewService reviewService
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SteamBotReconcileService steamBotReconcileService
     /** Optional in unit specs that build OfferService directly (no Spring
      *  context); wired in production. Used by `tryAutoAccept` to run the
      *  self-invoked `acceptOffer` in a REQUIRES_NEW transaction — see the
@@ -1025,13 +1026,35 @@ class OfferService {
         // price below a pending offer since it was made (the buyer is only
         // pinged about the drop), and accepting must not charge more than
         // the item now costs.
+        // Bot-held skin gone from the bot: refuse before the price write
+        // below, so nothing in this transaction needs undoing. Asked here,
+        // not inside buy(), because a refusal from inside buy() would mark
+        // this whole transaction rollback-only. buy() is told it was asked.
+        boolean botSkinChecked = steamBotReconcileService != null
+        if (botSkinChecked && steamBotReconcileService.skinGoneFromBot(offer.listingId)) {
+            throw new ListingNotAvailableException(offer.listingId)
+        }
+
         def originalPrice = listing.price
         BigDecimal chargedPrice = (originalPrice != null && originalPrice < offer.amount) ? originalPrice : offer.amount
         listing.price = chargedPrice
         listingRepository.save(listing)
 
+        // The buyer's trade bell carries the offer wording (one bell for
+        // the acceptance, not "Offer accepted" + "Escrow opened").
+        // Skipped when the buyer accepted the seller's counter: see below.
+        Map buyerBell = (!buyerAcceptingCounter && offer.buyerUserId != null) ? [
+            title: "Offer accepted · ${offer.itemName ?: 'listing'}".toString(),
+            lead : "Your \$${offer.amount.toPlainString()} offer was accepted — a trade has been opened.".toString()
+        ] : null
         try {
-            purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId)
+            NotificationService.withActionBells(buyerBell ? [(offer.buyerUserId): buyerBell] : [:]) {
+                if (botSkinChecked) {
+                    purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId, null, true)
+                } else {
+                    purchaseService.buy(actualWallet.id, offer.buyerUserId, offer.listingId)
+                }
+            }
         } catch (Exception e) {
             // Restore price if purchase fails
             listing.price = originalPrice
@@ -1067,7 +1090,7 @@ class OfferService {
         // Skipped when the buyer accepted the seller's counter: they took
         // the action themselves, and "your offer was accepted" would name
         // the seller's price as theirs.
-        if (!buyerAcceptingCounter && offer.buyerUserId != null && notificationService != null) {
+        if (!buyerAcceptingCounter && offer.buyerUserId != null && notificationService != null && !buyerBell?.used) {
             try {
                 notificationService.push(offer.buyerUserId, 'OFFER_ACCEPTED',
                     "Offer accepted · ${offer.itemName ?: 'listing'}",
