@@ -13608,3 +13608,12 @@ body #user-menu-panel .user-menu-item > .mi { margin-right: 16px !important; fle
 @media (max-width: 720px) {
   html body:has(.cart-tray) .app-back-to-top { bottom: calc(146px + 52px + 14px + env(safe-area-inset-bottom, 0px)) !important; }
 }
+/* A confirm panel taller than the screen (the buy confirm on a phone runs ~870px) was cut off top and bottom with no way to scroll
+   to its buttons: the panel is overflow:hidden and the backdrop does not scroll. Cap it to the screen and let it scroll. */
+html body .cart-confirm-backdrop > .cart-confirm-panel { max-height: calc(100dvh - 4vh) !important; overflow-y: auto !important; overscroll-behavior: contain; }
+/* Phones: Cancel + a long primary ("Save trade URL & buy · $0.67") were wider than the panel, and with flex-end the Cancel button
+   was pushed off the left edge. Let the row wrap and the buttons share the width. */
+@media (max-width: 480px) {
+  html body .cart-confirm-panel .cart-confirm-actions { flex-wrap: wrap !important; }
+  html body .cart-confirm-panel .cart-confirm-actions > .btn { flex: 1 1 auto !important; }
+}
