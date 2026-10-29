@@ -13630,3 +13630,14 @@ html body .cart-confirm-backdrop > .cart-confirm-panel { max-height: calc(100dvh
 @media (min-width: 901px) {
   html body .site-root.full-page-mode:has(> .announce-banner) .modal-backdrop { position: static !important; padding: 0 0 36px !important; }
 }
+/* Stall recent sales carry the item name as a fourth cell. The three-column sales-log grid pushed the time onto a
+   second line that spilled over the next row. */
+html body .stall-recent-sales .recent-sales-list .recent-sales-row { grid-template-columns: 76px minmax(0, 1fr) auto auto !important; }
+/* Stall section heads hold only a dot and a title; space-between threw the title to the far right. */
+html body .stall-reviews-head, html body .stall-review-cta-head { justify-content: flex-start !important; gap: 8px !important; }
+/* Stall "Leave a review": the comment box shares the review-body class (no box, no width) and sat as a two-line
+   sliver beside 14px stars; the two-cell trade rows sat in a three-column grid that squeezed the item name to 40px. */
+.stall-review-form { display: flex; flex-direction: column; gap: 8px; }
+html body .stall-review-form textarea.stall-review-text { width: 100% !important; min-height: 88px; box-sizing: border-box; padding: 10px 12px !important; margin: 0 !important; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; color: var(--ink); font: inherit; resize: vertical; }
+html body .stall-review-form .stall-review-stars-picker button { font-size: 22px !important; }
+html body .stall-review-cta-row { grid-template-columns: minmax(0, 1fr) auto !important; }
