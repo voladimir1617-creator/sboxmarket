@@ -2980,6 +2980,7 @@ function kindFallbackPath(kind, refId) {
   if (k === 'STEAM_INVENTORY') return paths.sell();
   if (k === 'REVIEW_RECEIVED' || k === 'REVIEW_REPLIED' || k === 'REVIEW_UPDATED' || k === 'REVIEW_DELETED') return '/profile/reviews';
   if (k === 'SELLER_FOLLOWED') return paths.mystall();
+  if (k === 'BUY_ORDER_ON_YOUR_ITEM' || k === 'LISTING_UNDERCUT') return paths.mystall();
   if (k === 'LISTING_REMOVED') return paths.mystall();
   if (k === 'REPORT_ACTIONED' || k === 'REPORT_REVIEWED') return paths.profile();
   if (k === 'WATCHLIST_PRICE_DROP') {
@@ -3045,6 +3046,7 @@ function kindIcon(kind) {
     // Catalogue + misc
     CART_ITEM_SOLD: '$', FRAUD_SIGNAL_HIGH: '⚠',
     SELLER_FOLLOWED: '+',
+    BUY_ORDER_ON_YOUR_ITEM: '↗', LISTING_UNDERCUT: '↓',
     WELCOME: '★', ADMIN_BROADCAST: '!', ADMIN_MESSAGE: '"',
     LOADOUT_DELETED: '✕',
     ACCOUNT_BANNED: '⚠', ACCOUNT_UNBANNED: '↩',

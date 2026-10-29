@@ -99,6 +99,7 @@ class AdminService {
     @Autowired(required = false) com.sboxmarket.repository.UserBlockRepository userBlockRepository
     @Autowired(required = false) com.sboxmarket.repository.SellerFollowRepository sellerFollowRepository
     @Autowired(required = false) com.sboxmarket.repository.SavedSearchRepository savedSearchRepository
+    @Autowired(required = false) ZeroResultSearchTracker zeroResultSearchTracker
     // GDPR PII scrub on account deletion — blank user-authored free text
     // (review comments, trade chat bodies) while keeping the row skeletons. (audit P2)
     @Autowired(required = false) com.sboxmarket.repository.ReviewRepository reviewRepository
@@ -167,6 +168,14 @@ class AdminService {
     }
 
     // ── Dashboard stats ─────────────────────────────────────────────
+
+    /** Percent (1 dp) of `total` that the `totalRevenue` of `rows` makes up; null when total is not positive. */
+    static BigDecimal sharePercent(BigDecimal total, List<Map<String, Object>> rows) {
+        if (total == null || total <= BigDecimal.ZERO) return null
+        BigDecimal part = BigDecimal.ZERO
+        (rows ?: []).each { part += ((it?.totalRevenue ?: BigDecimal.ZERO) as BigDecimal) }
+        (part * 100G).divide(total, 1, java.math.RoundingMode.HALF_UP).min(100G)
+    }
 
     @Transactional(readOnly = true)
     Map dashboardStats() {
@@ -252,6 +261,22 @@ class AdminService {
         // sees, which is how it went unbooked for as long as it did.
         def disputeCost30d      = transactionRepository.sumByTypeSinceCompleted(
                 com.sboxmarket.service.PlatformLedgerService.TYPE_DISPUTE_COST, 'COMPLETED', since30d) ?: BigDecimal.ZERO
+        // Share of the last 30 days' VERIFIED sale volume that the top 5
+        // sellers made. Null when nothing sold, so the tile shows a dash.
+        BigDecimal top5Share30d = null
+        if (tradeRepository != null) {
+            try {
+                def total = tradeRepository.sumVerifiedRevenueSince(since30d)
+                if (total != null && total > BigDecimal.ZERO) {
+                    top5Share30d = sharePercent(total, tradeRepository.findSellerRevenueSince(since30d,
+                        org.springframework.data.domain.PageRequest.of(0, 5)))
+                }
+            } catch (Exception e) {
+                log.warn("Top-seller share failed: ${e.message}")
+            }
+        }
+        def zeroResultSearches = zeroResultSearchTracker != null ? zeroResultSearchTracker.top(10) : []
+
         def netMargin30d = ((feeRevenue30d as BigDecimal) + (protectionRevenue30d as BigDecimal)
                           + (protectionReversal30d as BigDecimal)
                           - (processingCost30d as BigDecimal) - (protectionCost30d as BigDecimal)
@@ -286,7 +311,9 @@ class AdminService {
             processingCost30d:        (processingCost30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             protectionCost30d:        (protectionCost30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             disputeCost30d:           (disputeCost30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
-            netMargin30d:             (netMargin30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP)
+            netMargin30d:             (netMargin30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            top5Share30d:             top5Share30d,
+            zeroResultSearches:       zeroResultSearches
         ]
     }
 

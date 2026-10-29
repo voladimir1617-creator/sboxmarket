@@ -29,6 +29,7 @@ class ListingService {
     @Autowired(required = false) ListingReportRepository listingReportRepository
     @Autowired(required = false) TextSanitizer textSanitizer
     @Autowired(required = false) @Lazy SellerFollowService sellerFollowService
+    @Autowired(required = false) @Lazy SellerMarketPingService sellerMarketPingService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     @Autowired(required = false) @Lazy SavedSearchService savedSearchService
     @Autowired(required = false) com.sboxmarket.repository.WatchlistItemRepository watchlistItemRepository
@@ -648,6 +649,13 @@ class ListingService {
             sellerFollowService?.notifyFollowersOfNewListing(saved)
         } catch (Exception e) {
             log.warn("Follower fanout failed for listing ${saved.id}: ${e.message}")
+        }
+        // Tell other sellers of this item priced above it that they were
+        // undercut. Skips itself while the listing waits on its deposit.
+        try {
+            sellerMarketPingService?.notifyUndercut(saved)
+        } catch (Exception e) {
+            log.warn("Undercut ping failed for listing ${saved.id}: ${e.message}")
         }
         // Fan out LISTING_MATCH to every user with a saved search that
         // matches the new listing (batch 266). Persistent presets become

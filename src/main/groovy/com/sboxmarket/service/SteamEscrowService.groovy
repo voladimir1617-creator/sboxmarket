@@ -73,6 +73,7 @@ class SteamEscrowService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SavedSearchService savedSearchService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SellerFollowService sellerFollowService
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SellerMarketPingService sellerMarketPingService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy ListingService listingService
 
     /** Master switch for the escrow pollers, independent of the bot's own
@@ -1386,8 +1387,11 @@ class SteamEscrowService {
         if (!escrowEnabled || sellerUserId == null) return out
         List<EscrowedItem> rows
         try {
+            // Hold and Trade Protection rows are read too: a seller who cancels
+            // during either has a return queued, and must see it coming back.
             rows = escrowRepository.findBySellerUserIdAndCustodyStateIn(sellerUserId,
-                    [EscrowedItem.IN_CUSTODY, EscrowedItem.RETURNED]) ?: []
+                    [EscrowedItem.IN_CUSTODY, EscrowedItem.RETURNED,
+                     EscrowedItem.IN_ESCROW_HOLD, EscrowedItem.IN_TRADE_PROTECTION]) ?: []
         } catch (Exception ex) {
             log.warn("SteamEscrow: seller custody lookup failed: ${ex.message}")
             return out
@@ -1399,9 +1403,20 @@ class SteamEscrowService {
                 out.heldListingIds << e.listingId
                 continue
             }
+            boolean steamHolding = e.custodyState == EscrowedItem.IN_ESCROW_HOLD ||
+                    e.custodyState == EscrowedItem.IN_TRADE_PROTECTION
+            // Still in a hold with no return asked for: an ordinary pending deposit.
+            if (steamHolding && e.returnRequestedAt == null) continue
             String state
             String message
-            if (e.custodyState == EscrowedItem.IN_CUSTODY) {
+            if (steamHolding) {
+                state = 'WAITING_FOR_STEAM'
+                String until = formatHoldRelease(e.custodyState == EscrowedItem.IN_ESCROW_HOLD
+                        ? e.escrowEndsAt : e.protectedUntil)
+                message = until != null
+                    ? "Steam won't let this item move until ${until}. Our bot sends it back to you then, automatically.".toString()
+                    : "Steam won't let this item move yet. Our bot sends it back to you as soon as Steam allows, automatically."
+            } else if (e.custodyState == EscrowedItem.IN_CUSTODY) {
                 state = 'RESENDING'
                 message = 'Our bot is sending this back to you. If you have no Steam trade URL saved in Profile, add one and it goes out on the next try.'
             } else if (e.returnConfirmedAt == null) {
@@ -1534,6 +1549,9 @@ class SteamEscrowService {
                 // Followers are skipped the same way until now.
                 try { sellerFollowService?.notifyFollowersOfNewListing(saved) }
                 catch (Exception e) { log.warn("SteamEscrow: follower fanout failed for listing ${listingId}: ${e.message}") }
+                // Sellers of the same item priced above this one hear it now too.
+                try { sellerMarketPingService?.notifyUndercut(saved) }
+                catch (Exception e) { log.warn("SteamEscrow: undercut ping failed for listing ${listingId}: ${e.message}") }
                 // Standing buy orders are skipped too (matching only sees
                 // ACTIVE rows), so a deposit at or under someone's max has to
                 // be offered to them now or it never fills them.

@@ -53,6 +53,7 @@ class ListingController {
     // it returned before.
     @Autowired(required = false) com.sboxmarket.service.SteamEscrowService steamEscrowService
     @Autowired(required = false) com.sboxmarket.service.SellerTrustService sellerTrustService
+    @Autowired(required = false) com.sboxmarket.service.ZeroResultSearchTracker zeroResultSearchTracker
 
     // Batch 659 — canonical enum lists + normaliser live in
     // `com.sboxmarket.util.ListingEnums` (shared with ItemController
@@ -168,6 +169,14 @@ class ListingController {
                     l.sellerUserId == null || !blockedSet.contains(l.sellerUserId)
                 }
             }
+        }
+        // A first-page search that finds nothing is a buyer wanting an item
+        // nobody sells. Tallied in memory for the staff dashboard.
+        if (all.isEmpty() && safeOffset == 0 && search && zeroResultSearchTracker != null) {
+            try {
+                def requester = req?.getSession(false)?.id ?: req?.remoteAddr
+                zeroResultSearchTracker.record(search, requester)
+            } catch (Exception ignored) { }
         }
         def page = all.drop(safeOffset).take(safeLimit)
         decorateWithSellerRating(page)

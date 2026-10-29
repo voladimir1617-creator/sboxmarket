@@ -45,6 +45,7 @@ class BuyOrderService {
     // references here, but we are *called from* ListingService which in turn
     // calls PurchaseService. Using @Lazy keeps Spring's graph happy.
     @Autowired @Lazy PurchaseService purchaseService
+    @Autowired(required = false) @Lazy SellerMarketPingService sellerMarketPingService
 
     /** Optional so unit tests that build the service with `new
      *  BuyOrderService(...)` (no Spring context) still work — in that case
@@ -214,6 +215,14 @@ class BuyOrderService {
             tryFillFromExisting(saved)
         } catch (Exception e) {
             log.warn("Buy order ${saved.id} initial fill attempt failed: ${e.message}")
+        }
+        // Whatever is still open on an item order is news to the sellers
+        // priced above it. The fill above reloads the row, so read it back.
+        try {
+            def current = saved.id != null ? (buyOrderRepository.findById(saved.id).orElse(saved) ?: saved) : saved
+            sellerMarketPingService?.notifyBuyOrderPlaced(current)
+        } catch (Exception e) {
+            log.warn("Buy order ${saved.id} seller ping failed: ${e.message}")
         }
         saved
     }

@@ -30,6 +30,7 @@ function fallbackPath(kind, refId) {
   if (k === 'LISTING_REMOVED') return paths.mystall();
   if (k === 'REVIEW_RECEIVED' || k === 'REVIEW_REPLIED' || k === 'REVIEW_UPDATED' || k === 'REVIEW_DELETED') return '/profile/reviews';
   if (k === 'SELLER_FOLLOWED') return paths.mystall();
+  if (k === 'BUY_ORDER_ON_YOUR_ITEM' || k === 'LISTING_UNDERCUT') return paths.mystall();
   // Anything trade-ish (auction/trade/purchase) lands on the trades tab.
   if (k.startsWith('TRADE_') || k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED') {
     return '/profile/trades';
@@ -136,6 +137,8 @@ const KIND_ICONS = {
   CART_ITEM_SOLD:    '$',
   FRAUD_SIGNAL_HIGH: '⚠',
   SELLER_FOLLOWED:   '+',
+  BUY_ORDER_ON_YOUR_ITEM: '↗',
+  LISTING_UNDERCUT:  '↓',
   WELCOME:           '★',
   ADMIN_BROADCAST:   '!',
   ADMIN_MESSAGE:     '"',
