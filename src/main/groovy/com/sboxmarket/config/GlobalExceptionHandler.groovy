@@ -275,6 +275,18 @@ class GlobalExceptionHandler {
             )
             return ResponseEntity.status(HttpStatus.CONFLICT).body(tradeBody)
         }
+        // Two bids on one auction at the same instant: the loser's bid is
+        // rolled back but the auction is still live. "Someone else bought
+        // it first" made bidders think the auction was gone.
+        if ((req?.requestURI ?: '') ==~ /^\/api\/bids\/?$/) {
+            def bidBody = new ErrorResponse(
+                code         : 'BID_CONFLICT',
+                message      : 'Another bid landed at the same moment. Check the new high bid and try again.',
+                path         : verboseErrors ? req.requestURI : null,
+                correlationId: MDC.get("cid")
+            )
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(bidBody)
+        }
         def body = new ErrorResponse(
             code         : 'LISTING_NOT_AVAILABLE',
             message      : 'This listing is no longer available — someone else bought it first',

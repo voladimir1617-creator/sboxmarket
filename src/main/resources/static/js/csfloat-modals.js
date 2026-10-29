@@ -3391,7 +3391,12 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     setBusy(true);
     try {
       const res = await placeBid(listing.id, a, maxAmount ? parseFloat(maxAmount) : null);
-      if (res.code || res.error) { setErr(res.message || res.error); return; }
+      if (res.code || res.error) {
+        setErr(res.message || res.error);
+        // Lost a same-instant race: show the bid that beat this one.
+        if (res.code === 'BID_CONFLICT') load();
+        return;
+      }
       setAmount(''); setMax('');
       // Another bidder's auto-bid cap out-raised this bid on the spot.
       if (res.status === 'OUTBID') {

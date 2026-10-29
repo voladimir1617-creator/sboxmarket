@@ -5986,7 +5986,7 @@ export function App() {
         }
         // Stale view (sold / removed / repriced since render): re-load so the
         // dead row and the header balance don't linger.
-        if (res.code === 'LISTING_NOT_AVAILABLE' || res.code === 'PRICE_CHANGED') {
+        if (res.code === 'LISTING_NOT_AVAILABLE' || res.code === 'PRICE_CHANGED' || res.code === 'LISTING_CHANGED') {
           if (routeName === 'item') setItemRetry(n => n + 1);
           load();
           loadWallet();
