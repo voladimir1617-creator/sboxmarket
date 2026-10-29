@@ -6672,7 +6672,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
 
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Steam Inventory Size'),
-      h('div', { className: 'profile-row-value mono' }, (profile?.user?.steamInventorySize ?? 0) + ((profile?.user?.steamInventorySize ?? 0) === 1 ? ' item' : ' items'))
+      // Null until the first Steam sync: a new seller with skins read "0 items"
+      // next to "Never" and took his inventory for empty or private.
+      h('div', { className: 'profile-row-value mono' }, profile?.user?.steamInventorySize == null ? '—'
+        : profile.user.steamInventorySize + (profile.user.steamInventorySize === 1 ? ' item' : ' items'))
     ),
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Last Steam Sync'),
