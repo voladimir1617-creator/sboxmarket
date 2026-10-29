@@ -1010,8 +1010,10 @@ class TradeService {
             // Distinct kind from TRADE_VERIFIED so a user who muted
             // wallet notifications still gets this one, and the bell
             // icon maps it to a star glyph.
+            // Name the item: a buyer with two finished trades got two identical
+            // "How did the trade go?" rows and could not tell them apart.
             notificationService?.safePush(t.buyerUserId, 'REVIEW_REMINDER',
-                "How did the trade go?",
+                "How did the trade go? · ${t.itemName ?: 'your purchase'}".toString(),
                 "Leave a review for the seller — takes 10 seconds.",
                 // ?leaveReview opens the stall's review form on this trade; the
                 // bare stall URL left the form below the seller's whole grid.
