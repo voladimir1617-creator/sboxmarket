@@ -163,6 +163,13 @@ function cleanPriceParam(raw) {
   return String(Math.round(n * 100) / 100);
 }
 
+// Search-box text -> the query the grid runs. Outer spaces are dropped and
+// inner runs of spaces become one, so "   " is no search at all (it used to
+// show a `search: "   "` chip) and "wizard  hat" finds Wizard Hat.
+function cleanSearchText(raw) {
+  return String(raw || '').trim().replace(/\s+/g, ' ');
+}
+
 function PendingTradeReminder({ me }) {
   const [pending, setPending] = useState([]);
   const [dismissed, setDismissed] = useState(() => {
@@ -3676,7 +3683,10 @@ export function App() {
   const ALLOWED_SORTS      = ['price_desc','price_asc','newest','rarity','discount','ending_soon','popularity','views'];
   const ALLOWED_CATEGORIES = ['All','Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
   const ALLOWED_RARITIES   = ['All','Limited','Off-Market','Standard'];
-  const __initialQ        = (__urlParams.get('q') || '').slice(0, 80);
+  const __initialQ        = cleanSearchText(__urlParams.get('q')).slice(0, 80);
+  // `?category=hats` names Hats: the listings API matches either case, so
+  // match it here too instead of dropping the filter and showing everything.
+  const canonFilter = (list, v) => list.find(c => c.toLowerCase() === String(v || '').toLowerCase());
   // Marketplace default sort preference (batch 544). If the URL
   // didn't specify a sort, fall back to what the user picked last
   // time. localStorage is per-device so it doesn't sync across
@@ -3690,10 +3700,16 @@ export function App() {
   const __initialSort     = ALLOWED_SORTS.includes(__urlParams.get('sort'))
     ? __urlParams.get('sort')
     : (ALLOWED_SORTS.includes(__storedSort) ? __storedSort : 'price_desc');
-  const __initialCategory = ALLOWED_CATEGORIES.includes(__urlParams.get('category')) ? __urlParams.get('category') : 'All';
-  const __initialRarity   = ALLOWED_RARITIES.includes(__urlParams.get('rarity')) ? __urlParams.get('rarity') : 'All';
-  const __initialMin      = (__urlParams.get('min') || '').slice(0, 16);
-  const __initialMax      = (__urlParams.get('max') || '').slice(0, 16);
+  const __initialCategory = canonFilter(ALLOWED_CATEGORIES, __urlParams.get('category')) || 'All';
+  const __initialRarity   = canonFilter(ALLOWED_RARITIES, __urlParams.get('rarity')) || 'All';
+  // A link's `?min=abc` or `?min=-5` filters nothing (cleanPriceParam drops
+  // it), so leave the box empty rather than show a "≥ $abc" chip.
+  const __priceFromUrl    = (key) => {
+    const raw = (__urlParams.get(key) || '').slice(0, 16);
+    return cleanPriceParam(raw) != null ? raw : '';
+  };
+  const __initialMin      = __priceFromUrl('min');
+  const __initialMax      = __priceFromUrl('max');
   // Batch 651 follow-up — deep-link the min-discount filter so
   // shareable URLs like `/?discount=30` land the viewer on the pool
   // the sharer actually saw. Whitelist [0, 5, 10, 20, 30, 50] — same
@@ -3707,7 +3723,7 @@ export function App() {
   const [searchInput, setSearchInput]   = useState(__initialQ);
   const [search, setSearch]             = useState(__initialQ);
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput), 300);
+    const t = setTimeout(() => setSearch(cleanSearchText(searchInput)), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
   // Autocomplete suggestions — keyboard-navigable dropdown showing up to 8
@@ -5483,20 +5499,21 @@ export function App() {
       if (!has('sort') && sort !== 'price_desc') setSort('price_desc');
     }
     const urlSort = params.get('sort');
-    const urlCategory = params.get('category');
-    const urlRarity = params.get('rarity');
+    const urlCategory = canonFilter(ALLOWED_CATEGORIES, params.get('category'));
+    const urlRarity = canonFilter(ALLOWED_RARITIES, params.get('rarity'));
     // Accept `min`/`max` (canonical) and `minPrice`/`maxPrice` (common typo /
     // alias) - users + external links use both.
     const urlMin = params.get('min') ?? params.get('minPrice');
     const urlMax = params.get('max') ?? params.get('maxPrice');
-    const urlQ = params.get('q') ?? params.get('search') ?? params.get('query');
+    const urlQ = cleanSearchText(params.get('q') ?? params.get('search') ?? params.get('query'));
     const urlDiscount = parseInt(params.get('discount') || '0', 10);
     const urlType = params.get('type') ?? params.get('listingType');
     if (urlSort && ALLOWED_SORTS.includes(urlSort) && urlSort !== sort) setSort(urlSort);
-    if (urlCategory && ALLOWED_CATEGORIES.includes(urlCategory) && urlCategory !== category) setCategory(urlCategory);
-    if (urlRarity && ALLOWED_RARITIES.includes(urlRarity) && urlRarity !== rarity) setRarity(urlRarity);
-    if (urlMin != null && urlMin !== minPrice) setMinPrice(urlMin);
-    if (urlMax != null && urlMax !== maxPrice) setMaxPrice(urlMax);
+    if (urlCategory && urlCategory !== category) setCategory(urlCategory);
+    if (urlRarity && urlRarity !== rarity) setRarity(urlRarity);
+    const priceOrBlank = (v) => (cleanPriceParam(v) != null ? v : '');
+    if (urlMin != null && priceOrBlank(urlMin) !== minPrice) setMinPrice(priceOrBlank(urlMin));
+    if (urlMax != null && priceOrBlank(urlMax) !== maxPrice) setMaxPrice(priceOrBlank(urlMax));
     if (urlQ && urlQ !== search) { setSearch(urlQ); setSearchInput(urlQ); }
     if ([0, 5, 10, 20, 30, 50].includes(urlDiscount) && urlDiscount !== minDiscountPct) setMinDiscountPct(urlDiscount);
     // Same canonical form as the initial read: "?type=auction" left
@@ -5521,8 +5538,9 @@ export function App() {
     if (sort && sort !== 'price_desc') qs.set('sort', sort);
     if (category && category !== 'All') qs.set('category', category);
     if (rarity && rarity !== 'All')     qs.set('rarity', rarity);
-    if (minPrice)                  qs.set('min', minPrice);
-    if (maxPrice)                  qs.set('max', maxPrice);
+    // Only a bound the grid actually applies goes in a shared link.
+    if (cleanPriceParam(minPrice) != null) qs.set('min', minPrice);
+    if (cleanPriceParam(maxPrice) != null) qs.set('max', maxPrice);
     // Batch 812 — mirror the remaining quick-filter toggles so a
     // shared link like `/?type=AUCTION&deals=1&discount=20&new=1`
     // reconstructs the exact view. Missing params were a real gap
@@ -8153,7 +8171,9 @@ export function App() {
         // CSFloat-1:1 — the toolbar quick-filters (listing type / Deals /
         // New / Affordable) count too, so the row appears and stays
         // complete when only a toolbar toggle is on.
-        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0 ||
+        // A price box holding "abc" or "-3" filters nothing (cleanPriceParam
+        // drops it), so it gets no chip claiming it does.
+        (search || category !== 'All' || rarity !== 'All' || cleanPriceParam(minPrice) != null || cleanPriceParam(maxPrice) != null || minDiscountPct > 0 ||
          listingTypeFilter !== 'ALL' || dealsOnly || newOnly || affordableOnly) &&
           // a11y: each chip describes a REMOVAL action — without an
           // explicit aria-label a SR user just hears "Hats, X". The
@@ -8166,9 +8186,9 @@ export function App() {
               h('strong', null, category), h('span', { 'aria-hidden': true }, ' ✕')),
             rarity !== 'All' && h('button', { className: 'filter-chip', onClick: () => setRarity('All'), 'aria-label': `Remove rarity filter: ${rarity === 'Off-Market' ? 'Scarce' : rarity}` },
               h('strong', null, rarity === 'Off-Market' ? 'Scarce' : rarity), h('span', { 'aria-hidden': true }, ' ✕')),
-            minPrice && h('button', { className: 'filter-chip', onClick: () => setMinPrice(''), 'aria-label': `Remove minimum price filter $${minPrice}` },
+            cleanPriceParam(minPrice) != null && h('button', { className: 'filter-chip', onClick: () => setMinPrice(''), 'aria-label': `Remove minimum price filter $${minPrice}` },
               '≥ $', h('strong', null, minPrice), h('span', { 'aria-hidden': true }, ' ✕')),
-            maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice(''), 'aria-label': `Remove maximum price filter $${maxPrice}` },
+            cleanPriceParam(maxPrice) != null && h('button', { className: 'filter-chip', onClick: () => setMaxPrice(''), 'aria-label': `Remove maximum price filter $${maxPrice}` },
               '≤ $', h('strong', null, maxPrice), h('span', { 'aria-hidden': true }, ' ✕')),
             // Batch 651 — removable min-discount chip.
             minDiscountPct > 0 && h('button', { className: 'filter-chip', onClick: () => setMinDiscountPct(0), 'aria-label': `Remove minimum discount filter: ${minDiscountPct}% off` },
