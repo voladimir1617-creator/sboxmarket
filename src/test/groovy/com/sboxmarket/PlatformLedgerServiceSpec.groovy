@@ -183,7 +183,7 @@ class PlatformLedgerServiceSpec extends Specification {
 
     def "the treasury username cannot collide with a user wallet"() {
         given: "every wallet-creation path in the app"
-        def userWallet   = "steam_76561199000000001"
+        def userWallet   = "steam_76561202255232729"
         def seedWallet   = "demo"
 
         expect: "no construction can produce the reserved name"

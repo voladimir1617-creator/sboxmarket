@@ -5,7 +5,7 @@ const { test, expect } = require('@playwright/test');
 
 const ME = {
   id: 1,
-  steamId64: '76561199000000001',
+  steamId64: '76561202255232729',
   displayName: 'Pass Tester',
   signedIn: true,
   sessionEpoch: 0,

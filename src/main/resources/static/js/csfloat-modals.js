@@ -2238,7 +2238,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   style: pi.accentColor ? { borderColor: pi.accentColor } : null
                 },
                   pi.imageUrl
-                    ? h('img', { className: 'loadout-card-preview-img', src: pi.imageUrl, alt: '', loading: 'lazy', referrerPolicy: 'no-referrer', onError: (e) => { e.currentTarget.style.display = 'none'; } })
+                    ? h('img', { className: 'loadout-card-preview-img', src: pi.imageUrl, alt: '', loading: 'lazy', referrerPolicy: 'no-referrer', onError: (e) => { e.currentTarget.style.setProperty('display', 'none', 'important'); } })
                     : h('span', { className: 'loadout-card-preview-emoji' }, pi.itemEmoji || '◆')
                 ))
               ),
@@ -3755,7 +3755,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     // already gated on trade URL, but a banner explains WHY so the
     // bidder understands and jumps to fix it. Only shown to signed-in
     // users (not-signed-in sees a Sign-in CTA below instead).
-    !ended && me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+    !ended && me && me.id !== view.sellerUserId && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
       style: {
         marginBottom: 10, padding: '8px 12px', borderRadius: 8,
         background: 'rgba(250,204,21,0.1)',
@@ -3885,7 +3885,9 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
           dayLabel: new Date(b.createdAt).toLocaleDateString(undefined,
             { month: 'short', day: 'numeric' }) + ' · ' + timeAgo(b.createdAt)
         }));
-        return h('div', {
+        // <section>, not <div>: `.auction-history > div` is the bidder-row
+        // grid, which squeezed this chart into a 56px column.
+        return h('section', {
           style: { marginTop: 10, marginBottom: 10, padding: '10px 12px 6px',
             border: '1px solid var(--border)', borderRadius: 8, background: 'rgba(255,255,255,0.02)' }
         },

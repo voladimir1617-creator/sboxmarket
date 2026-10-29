@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=343'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=344'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -885,13 +885,13 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
                         background: 'rgba(255,255,255,0.04)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }
-                    }, it.item && h(ItemImage, { item: it.item, variant: 'mini' })),
+                    }, it.thumb && h(ItemImage, { item: { name: it.name, imageUrl: it.thumb }, variant: 'mini' })),
                     h('span', {
                       style: {
                         fontSize: 13, fontWeight: 500, color: '#fff',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                       }
-                    }, it.item?.name || 'Listing')
+                    }, it.name || 'Listing')
                   ),
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                     h('span', { style: { fontSize: 13, fontWeight: 600, color: '#fff' } }, fmtMoney(it.price)),
@@ -899,7 +899,7 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
                       className: 'remove',
                       onClick: (e) => { e.stopPropagation(); removeFromCart(it.id); },
                       title: 'Remove from cart',
-                      'aria-label': `Remove ${it.item?.name || 'item'} from cart`,
+                      'aria-label': `Remove ${it.name || 'item'} from cart`,
                       style: {
                         background: 'transparent', border: 0, color: 'rgba(255,255,255,0.55)',
                         cursor: 'pointer', padding: 2, fontSize: 14, lineHeight: 1
@@ -4103,6 +4103,9 @@ export function App() {
       window.history.replaceState({}, '', next);
     } catch (_) { /* URL parse failure — silently ignore */ }
   }, [routeName]);
+  // Drop a cart-shortfall prefill once the user leaves /wallet by any route
+  // other than its close button, so the wallet nav button later opens clean.
+  useEffect(() => { if (routeName !== 'wallet') setWalletPrefillAmount(null); }, [routeName]);
 
   // auth
   // `meLoaded` is false until the first fetchMe() resolves. We use this
@@ -4580,6 +4583,10 @@ export function App() {
     }
   };
   const addToCart = (listing) => {
+    if (me && listing.sellerUserId != null && listing.sellerUserId === me.id) {
+      showToast("You can't add your own listing to your cart", 'err');
+      return;
+    }
     let alreadyHad = false;
     let atCap = false;
     setCart(c => {
@@ -4648,7 +4655,7 @@ export function App() {
   }, 0), [cart]);
   // Same fresh-price total as the Subtotal row, so a seller's mid-session
   // price edit can't leave "Savings" quoting the old, cheaper price.
-  const cartSavings = Math.max(0, cartSteamTotal - cartTotal);
+  const cartSavings = Math.max(0, Math.round((cartSteamTotal - cartTotal) * 100) / 100);
   const removeFromCart = (id) => {
     setCart(c => c.filter(x => x.id !== id));
     if (me) {
@@ -5201,7 +5208,7 @@ export function App() {
         // wiped the page content, rendering the "Item not found" fallback even
         // though the URL was perfectly valid. Bounce back to /market instead
         // so the URL matches what the user sees.
-        else if (routeName === 'item') navigate(paths.market());
+        else if (routeName === 'item') closeToPrevious(paths.market());
         else if (selected)        setSelected(null);
         // Full-page-mode routes (/profile, /wallet, /cart, /sell, /db, /loadout,
         // /watchlist, /offers, /buy-orders, /settings, /support, /help, /faq, …)
@@ -5395,6 +5402,13 @@ export function App() {
     // there is nothing to read back (and reading it back mid-edit could undo
     // a filter changed since).
     if (window.location.search === lastSyncedSearchRef.current) return;
+    // A bare `/market` (the Market nav link clicked while already on a
+    // filtered /market) names no filter, so the filters stay on screen; put
+    // them back in the URL or a reload/share shows a different grid.
+    if (routeName === 'market' && !window.location.search && lastSyncedSearchRef.current) {
+      window.history.replaceState({}, '', window.location.pathname + lastSyncedSearchRef.current);
+      return;
+    }
     // A link that names any filter (breadcrumb, rarity chip, home rail)
     // describes the whole view: filters it leaves out go back to their
     // defaults instead of keeping what an earlier search left behind.
@@ -5816,6 +5830,9 @@ export function App() {
             msg = `Top up ${fmt(short)} to complete this purchase.`;
           }
         }
+        if (res.code === 'LISTING_NOT_AVAILABLE') {
+          msg = 'Someone else just bought this listing, or it was removed. The list has been refreshed.';
+        }
         showToast(msg, 'err');
         if (res.code === 'INSUFFICIENT_BALANCE' || /insufficient/i.test(msg || '')) {
           setSelected(null);
@@ -5825,6 +5842,14 @@ export function App() {
           // became a real route). Navigate so back/forward + URL share
           // still work on the deposit nudge.
           navigate(paths.wallet());
+          return;
+        }
+        // Stale view (sold / removed / repriced since render): re-load so the
+        // dead row and the header balance don't linger.
+        if (res.code === 'LISTING_NOT_AVAILABLE' || res.code === 'PRICE_CHANGED') {
+          if (routeName === 'item') setItemRetry(n => n + 1);
+          load();
+          loadWallet();
         }
         return;
       }
@@ -7077,7 +7102,7 @@ export function App() {
                      "StatTrak™ Factory New" line. */
                   h('div', { className: 'csfloat-home-hero-feature-title' },
                     h('div', { className: 'csfloat-home-hero-feature-name top' }, top.item.name),
-                    h('div', { className: 'csfloat-home-hero-feature-wear ' + ((top.item.rarity || '').toLowerCase().replace(/[^a-z]/g, '')) }, top.item.rarity || 'Standard')
+                    h('div', { className: 'csfloat-home-hero-feature-wear ' + ((top.item.rarity || '').toLowerCase().replace(/[^a-z]/g, '')) }, top.item.rarity === 'Off-Market' ? 'Scarce' : (top.item.rarity || 'Standard'))
                   ),
                   h('div', { className: 'csfloat-home-hero-feature-img' },
                     h(ItemImage, { item: top.item, variant: 'card' }),
@@ -9767,7 +9792,7 @@ export function App() {
                     h('div', { className: 'cart-id' },
                       'Listing #' + it.id,
                       it.sellerName && h('span', null,
-                        ' · by ',
+                        '\u00a0· by ',
                         it.sellerUserId
                           ? h('a', {
                               href: paths.stall(it.sellerUserId),

@@ -38,7 +38,7 @@ test('the sell form states the seller\'s side of the trade, with the server\'s o
         rarity: 'Standard', catalogueId: 4243, suggestedPrice: 0, steamPrice: null,
         listedCount: 0, listableQuantity: 1, unlistableReason: null,
       }],
-      count: 1, assetCount: 1, lastSyncedAt: Date.now(), steamId64: '76561199000000001',
+      count: 1, assetCount: 1, lastSyncedAt: Date.now(), steamId64: '76561202255232729',
     }),
   }));
   await stubQuietMarket(page);
@@ -133,7 +133,7 @@ test('a buyer with no trade URL gives it in the confirm, sees why a bad one is r
   await expect(dialog.getByRole('alert')).toHaveText(refusal);
   expect(bought, 'nothing is bought while the trade URL is refused').toBeNull();
 
-  await field.fill('https://steamcommunity.com/tradeoffer/new/?partner=1039734273&token=AbCd1234');
+  await field.fill('https://steamcommunity.com/tradeoffer/new/?partner=4294967001&token=AbCd1234');
   await go.click();
   await expect(dialog).toHaveCount(0);
   expect(bought).not.toBeNull();

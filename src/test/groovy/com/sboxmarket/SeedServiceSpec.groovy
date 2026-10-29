@@ -646,7 +646,7 @@ class SeedServiceSpec extends Specification {
         savedUsers.size() == 6
         // Synthetic-but-VALID demo ids: above the SteamID64 base 76561197960265728
         // so the trade-URL ownership check (partner = steamId64 − base) is positive.
-        savedUsers.every { it.steamId64 != null && it.steamId64.startsWith('765611990000000') }
+        savedUsers.every { it.steamId64 != null && it.steamId64.startsWith('765612022552327') }
         savedUsers.every { Long.parseLong(it.steamId64) > 76561197960265728L }
         savedUsers*.steamId64.unique().size() == 6           // ids are distinct
         savedUsers.every { it.displayName != null && !it.displayName.isEmpty() }

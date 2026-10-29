@@ -48,11 +48,11 @@ class TradeCounterpartySteamProfileUrlSpec extends Specification {
 
     def "counterpartySteamProfileUrl is a plain String, not a GString"() {
         when:
-        def url = invokeTradeToMap('76561199000000002').counterpartySteamProfileUrl
+        def url = invokeTradeToMap('76561202255232730').counterpartySteamProfileUrl
 
         then: 'a real java.lang.String survives Jackson serialization into the untyped map'
         url instanceof String
-        url == 'https://steamcommunity.com/profiles/76561199000000002'
+        url == 'https://steamcommunity.com/profiles/76561202255232730'
     }
 
     def "is null when the counterparty has no resolved Steam id"() {

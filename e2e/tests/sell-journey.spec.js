@@ -49,7 +49,7 @@ async function stubSteamInventory(page, rows) {
     body: JSON.stringify({
       items: rows, count: rows.length,
       assetCount: rows.reduce((a, r) => a + (r.quantity || 1), 0),
-      lastSyncedAt: Date.now(), steamId64: '76561199000000001',
+      lastSyncedAt: Date.now(), steamId64: '76561202255232729',
     }),
   }));
 }

@@ -230,6 +230,11 @@ export function HelpModal({ onClose }) {
       const best = filteredFaq.find(item => item.q.toLowerCase().includes(q)) || filteredFaq[0];
       setOpenIdx(best.origIdx);
       setAutoExpanded(true);
+      // Bring the answer into view: it sits below the six-step guide.
+      requestAnimationFrame(() => {
+        const el = document.getElementById('help-faq-q-' + best.origIdx);
+        if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+      });
     }
   }, [initialQ, filteredFaq, _autoExpanded]);
   return h(InfoModal, { title: 'Help Center', onClose },
