@@ -8,7 +8,10 @@ import com.sboxmarket.repository.PriceHistoryRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Service
 @Slf4j
@@ -16,6 +19,53 @@ class ItemService {
 
     @Autowired ItemRepository itemRepository
     @Autowired PriceHistoryRepository priceHistoryRepository
+    @Autowired(required = false) PlatformTransactionManager transactionManager
+
+    /** Striped locks for {@link #findOrCreateByName}, keyed on the
+     *  lower-cased name. Static so every ItemService instance shares them. */
+    private static final int NAME_LOCK_STRIPES = 64
+    private static final Object[] NAME_LOCKS = (0..<NAME_LOCK_STRIPES).collect { new Object() } as Object[]
+
+    /**
+     * The catalogue row for {@code name} (case-insensitive), creating it with
+     * {@code newItem} when there is none. Two first listings of a brand-new
+     * skin at the same moment (a double-clicked List, two sellers) each found
+     * nothing and each created a row; items has no unique name constraint,
+     * and existing data may already hold such duplicates, so the guard lives
+     * here: creators of one name take turns, and each re-reads under the lock
+     * before creating. The create commits in its own transaction before the
+     * lock is let go, so the next one in line always sees it.
+     * Per-JVM: a second app instance could still race (rare, and
+     * findByNameIgnoreCase already reads the oldest row if it does).
+     */
+    Item findOrCreateByName(String name, Closure<Item> newItem) {
+        Item found = itemRepository.findByNameIgnoreCase(name)
+        if (found != null) return found
+        Object lock = NAME_LOCKS[Math.floorMod((name ?: '').toLowerCase().hashCode(), NAME_LOCK_STRIPES)]
+        Item result
+        synchronized (lock) {
+            Closure<Item> work = {
+                Item again = itemRepository.findByNameIgnoreCase(name)
+                if (again != null) return again
+                Item created = itemRepository.save(newItem())
+                log.info("Auto-created catalogue item \"${created?.name}\"")
+                created
+            }
+            if (transactionManager == null) {
+                result = work()
+            } else {
+                def tt = new TransactionTemplate(transactionManager)
+                tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                result = tt.execute { work() } as Item
+            }
+        }
+        // Hand the caller a row from its own persistence context when it has
+        // one (the create above ran in a separate transaction).
+        if (transactionManager != null && result?.id != null) {
+            result = itemRepository.findById(result.id).orElse(result)
+        }
+        result
+    }
 
     List<Item> getAll() {
         itemRepository.findAll()
