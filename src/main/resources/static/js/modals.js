@@ -12053,6 +12053,22 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // claiming "Platform inventory empty". (fetch-swallow bug class)
   const [internalErr, setInternalErr] = useState(false);
   const [picking, setPicking]     = useState(null);    // { kind: 'steam'|'internal', item: {...} }
+  // Opening the listing form unmounts the "List X for sale" button that had
+  // keyboard focus, and Back unmounts the form, so focus fell to <body>
+  // both ways. Move it to the price field, and back to the same row's
+  // button on the way out.
+  const pickReturnRef = useRef(null);
+  useEffect(() => {
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae.isConnected) return;
+    if (picking) {
+      document.querySelector('input.wallet-amount-input[aria-label="Asking price"], input.wallet-amount-input[aria-label="Starting bid"]')?.focus();
+    } else if (pickReturnRef.current) {
+      const label = pickReturnRef.current;
+      pickReturnRef.current = null;
+      [...document.querySelectorAll('button.inventory-name')].find(b => b.getAttribute('aria-label') === label)?.focus();
+    }
+  }, [picking]);
   // On the /sell page the form replaces the grid in place, so a pick made
   // far down the grid opened the form scrolled to its bottom (or past it,
   // into the footer, on a phone). Open the form at its top and put the
@@ -12466,6 +12482,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const startPickSteam = (si) => {
     resetSellFormFields();
     gridScrollRef.current = window.scrollY;
+    pickReturnRef.current = document.activeElement?.getAttribute?.('aria-label') || null;
     setPicking({ kind: 'steam', item: si });
     // Seed the field from a price we actually HAVE. The old line was
     // `setPrice(parseFloat(si.suggestedPrice || 0).toFixed(2))`, which
@@ -12490,6 +12507,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const startPickInternal = (l) => {
     resetSellFormFields();
     gridScrollRef.current = window.scrollY;
+    pickReturnRef.current = document.activeElement?.getAttribute?.('aria-label') || null;
     setPicking({ kind: 'internal', item: l.item, listingId: l.id });
     // Floor may be null for an item with no other live listings (first
     // seller back on a freshly-spawned skin). parseFloat(null) is NaN
@@ -14106,6 +14124,18 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     setTab(initialTab === 'sold' || initialTab === 'analytics' ? initialTab : 'active');
   }, [initialTab]);
   const [editing, setEditing] = useState(null); // listing id being edited inline
+  // Closing the inline price editor (Escape, ✕, a save) unmounts the
+  // focused input and dropped keyboard focus to <body>; hand it back to
+  // that row's Edit button.
+  const prevEditingRef = useRef(null);
+  useEffect(() => {
+    const prev = prevEditingRef.current;
+    prevEditingRef.current = editing;
+    if (prev == null || editing != null) return;
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae.isConnected) return;
+    document.querySelector(`[data-edit-listing="${prev}"]`)?.focus();
+  }, [editing]);
   const [editPrice, setEditPrice] = useState('');
   const [editDesc, setEditDesc]   = useState('');
   // Date-range filter for the my-stall Sold CSV export — bounds pass
@@ -15855,7 +15885,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         disabled: true,
                         title: "Auctions with bids are locked — they settle when the timer ends"
                       }, 'Price locked')
-                    : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l), 'aria-label': `Edit price of ${l.item?.name || 'listing #' + l.id}` }, '✎ Edit'),
+                    : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l), 'data-edit-listing': l.id, 'aria-label': `Edit price of ${l.item?.name || 'listing #' + l.id}` }, '✎ Edit'),
                   // Match-top-bid quick-action (batch 416). Renders only
                   // when a standing buy order exists on this item at a
                   // price BELOW the seller's current ask — one click

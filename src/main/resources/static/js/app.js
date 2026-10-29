@@ -797,6 +797,7 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const closeTimer = useRef(null);
+  const refocusRef = useRef(false);
   const total = parseFloat(cartTotal) || 0;
   const fmtMoney = (v) => privacy ? '$•••••' : fmt(v);
   const tip = cartCount === 0
@@ -816,7 +817,15 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
     const onDocClick = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
     };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      // Escape from inside the panel hands focus back to the cart icon
+      // instead of dropping it to <body> when the panel unmounts.
+      const link = wrapRef.current && wrapRef.current.querySelector('a.nav-icon-btn');
+      const inPanel = link && wrapRef.current.contains(document.activeElement) && document.activeElement !== link;
+      setOpen(false);
+      if (inPanel) { refocusRef.current = true; link.focus(); }
+    };
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -830,7 +839,14 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
     className: 'nav-cart-wrap',
     style: { position: 'relative', display: 'inline-block' },
     onMouseEnter: () => { cancelClose(); setOpen(true); },
-    onMouseLeave: scheduleClose
+    onMouseLeave: scheduleClose,
+    // Focus opens the preview, so focus leaving must close it: a keyboard
+    // user tabbing on through the nav otherwise left the panel covering
+    // the page under it. relatedTarget is null for a click on plain text
+    // inside the panel, which must not close it.
+    onBlur: (e) => {
+      if (e.relatedTarget && wrapRef.current && !wrapRef.current.contains(e.relatedTarget)) setOpen(false);
+    }
   },
     h('a', {
       className: 'nav-icon-btn',
@@ -839,7 +855,10 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
       'aria-label': tip,
       'aria-haspopup': 'dialog',
       'aria-expanded': open,
-      onFocus: () => { cancelClose(); setOpen(true); },
+      onFocus: () => {
+        if (refocusRef.current) { refocusRef.current = false; return; }
+        cancelClose(); setOpen(true);
+      },
       onClick: (e) => {
         // Modifier / middle-click → let the browser handle it as a normal
         // anchor (new tab etc). Plain click → close popover then navigate.
@@ -6402,7 +6421,9 @@ export function App() {
     /* NAV — full-width bar, aligned inner row clamped to content-max */
     h('nav', { className: 'nav', 'aria-label': 'Top' },
       h('div', { className: 'nav-inner' },
-      h('a', { className: 'nav-logo', href: '/' },
+      // The wordmark beside the icon is display:none in this layout and the
+      // icon is aria-hidden, so without a label the link had no name.
+      h('a', { className: 'nav-logo', href: '/', 'aria-label': `${BRAND.name} home` },
         // Batch 1068 — isometric-crate SVG logo per the operator's template
         // (~/Downloads/skinbox_files/chrome.jsx), recolored with a blue
         // fade. Top facet is the lightest blue, right facet mid, left
@@ -6638,6 +6659,11 @@ export function App() {
                   e.preventDefault();
                   setMenuOpen(o => !o);
                 }
+              },
+              // Tabbing out of the menu closes it, as a menu should; it was
+              // left open over the page while focus moved on beneath it.
+              onBlur: (e) => {
+                if (menuOpen && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setMenuOpen(false);
               },
               onClick: () => setMenuOpen(o => !o),
               // Avatar badge tooltip (batch 532). Shows WHICH surface

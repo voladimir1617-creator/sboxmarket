@@ -306,7 +306,10 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       'aria-label': inCart
         ? `${item?.name || 'Item'} already in cart`
         : `Add ${item?.name || 'item'} to cart`,
-      disabled: inCart
+      // aria-disabled, not disabled: a disabled button drops keyboard focus
+      // to <body> the moment the add lands, so a keyboard user lost their
+      // place in the grid. The click handler already ignores in-cart clicks.
+      'aria-disabled': inCart || undefined
     },
       h('span', { className: 'grid-cart-glyph', 'aria-hidden': 'true' }, inCart ? '✓' : '+'),
       // Shown only on phones, where the button is a full-width bar.
