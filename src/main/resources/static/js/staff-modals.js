@@ -2175,7 +2175,12 @@ function AdminAuditTab() {
               h('td', { style: { fontSize: 11, color: 'var(--text-secondary)', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis' } }, r.summary || '—'),
               h('td', { className: 'db-mono', style: { fontSize: 10, color: 'var(--text-muted)' } }, r.ipAddress || '—')
             )))
-          )
+          ),
+    // The table renders 200 of the up-to-500 rows loaded; say so instead of
+    // ending as if row 200 were the oldest entry in the window.
+    Array.isArray(displayRows) && displayRows.length > 200 && h('div', {
+      style: { marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }
+    }, `Showing the newest 200 of ${displayRows.length} entries. Narrow by event, user, date or search to see older ones, or export CSV.`)
   );
 }
 

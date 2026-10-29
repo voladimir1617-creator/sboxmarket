@@ -2681,7 +2681,7 @@ export function NotificationsModal({ onClose, me }) {
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
       h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, 'aria-pressed': filter === 'ALL', ref: allBtnRef, onClick: () => setFilter('ALL') },
-        'All ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length)),
+        'All ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length + (data.items.length >= 100 ? '+' : ''))),
       h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, 'aria-pressed': filter === 'UNREAD', onClick: () => setFilter('UNREAD') },
         'Unread ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownUnread)),
       h('div', { style: { flex: 1 } }),
@@ -2747,7 +2747,7 @@ export function NotificationsModal({ onClose, me }) {
       ].map(opt => {
         // Count what the list can show: muted types are filtered out of it,
         // so counting them offered a "Matches · 7" chip that opened empty.
-        const c = opt.id === 'ALL' ? shownItems.length : shownItems.filter(n => typeOf(n.kind) === opt.id).length;
+        const c = opt.id === 'ALL' ? shownItems.length + (data.items.length >= 100 ? '+' : '') : shownItems.filter(n => typeOf(n.kind) === opt.id).length;
         return h('button', {
           key: opt.id,
           className: `wallet-tx-filter-chip ${typeFilter === opt.id ? 'active' : ''}`,
@@ -2950,7 +2950,17 @@ export function NotificationsModal({ onClose, me }) {
               }, '✕')
             ))
           ))
-        )
+        ),
+    // The server sends the newest 100 rows and keeps up to 500, so a full
+    // page used to end mid-feed with nothing saying older ones exist.
+    !loadErr && count > 0 && data.items.length >= 100 && h('div', {
+      style: {
+        padding: '8px 12px', marginTop: 12, fontSize: 12,
+        color: 'var(--text-muted)',
+        background: 'var(--bg-elevated, rgba(255,255,255,0.02))',
+        border: '1px solid var(--border)', borderRadius: 6
+      }
+    }, `Showing your ${data.items.length} most recent notifications. Clear or delete read ones to see older ones.`)
   );
 }
 
