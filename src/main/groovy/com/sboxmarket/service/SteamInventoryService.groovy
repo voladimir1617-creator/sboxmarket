@@ -238,6 +238,9 @@ class SteamInventoryService {
 
     List<Map> fetchInventory(String steamId64) {
         if (!steamId64) return []
+        // Demo sellers are not anyone's real account: never ask Steam
+        // Community for their inventory. The local fake Steam may still play it.
+        if (SeedService.isSeedSteamId(steamId64) && inventoryRoot() == STEAM_COMMUNITY) return []
         long now = System.currentTimeMillis()
         // Negative-cache probe — if Steam recently 429'd or 403'd us for
         // this user, serve an empty list straight from memory rather than

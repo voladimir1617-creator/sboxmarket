@@ -39,7 +39,7 @@ async function stubInventory(page, payload) {
       contentType: 'application/json',
       body: JSON.stringify({
         items: [], count: 0, assetCount: 0,
-        lastSyncedAt: null, steamId64: '76561199000000001',
+        lastSyncedAt: null, steamId64: '76561202255232729',
         ...payload,
       }),
     });
@@ -157,7 +157,7 @@ test.describe('Sell page - a capped inventory says so', () => {
             marketable: true, tradable: true, quantity: 1,
           }],
           count: 1, assetCount: 1, lastSyncedAt: null,
-          steamId64: '76561199000000001',
+          steamId64: '76561202255232729',
           truncated: true,
           totalInventoryCount: 1337,
           shownCount: 500,
@@ -188,7 +188,7 @@ test.describe('Sell page - a capped inventory says so', () => {
             marketable: true, tradable: true, quantity: 1,
           }],
           count: 1, assetCount: 1, lastSyncedAt: null,
-          steamId64: '76561199000000001',
+          steamId64: '76561202255232729',
         }),
       });
     });
@@ -220,7 +220,7 @@ test.describe('Sell page - a trade-locked item counts down to Steam\'s own date'
             ...extra,
           }],
           count: 1, assetCount: 1, lastSyncedAt: null,
-          steamId64: '76561199000000001',
+          steamId64: '76561202255232729',
         }),
       });
     });

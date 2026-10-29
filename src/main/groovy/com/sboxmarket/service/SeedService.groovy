@@ -234,31 +234,52 @@ class SeedService {
      * hero's `displayName` agree).
      *
      * Each entry is `[handle, steamId64, avatarUrl]`. The steamId64 values
-     * sit in a synthetic-but-VALID block (76561199000000001 …): each is well
-     * ABOVE the SteamID64 base 76561197960265728, so its Steam ID32 / accountid
-     * (steamId64 − base) is a POSITIVE number. That is load-bearing: the
-     * trade-URL ownership check (ProfileController.setTradeUrl) derives the
-     * expected `partner=` value as steamId64 − base, so a seed account can only
-     * save a trade URL — and therefore complete a P2P buy/bid — if that
-     * subtraction is positive. The previous sub-base ids (7656119000000000…)
-     * were BELOW the base, yielding a negative expected partner, so NO seed
-     * account could ever set a trade URL and every P2P purchase 400'd with
-     * TRADE_URL_NOT_YOURS on localhost. Ids are fixed + stable so a fresh seed
-     * always produces the same stall ids for QA + screenshots.
+     * sit at the very TOP of the 32-bit Steam account-id space
+     * (76561202255232729 …, accountid 4294967001 …). Two properties matter:
+     *
+     *  - The accountid (steamId64 − base 76561197960265728) is POSITIVE, so a
+     *    seed account can save a trade URL and complete a P2P buy/bid on
+     *    localhost (ProfileController.setTradeUrl derives the expected
+     *    `partner=` from it; the old sub-base ids could not).
+     *  - No real person owns them. The previous block (76561199000000001 …)
+     *    was in the middle of the allocated range: those are real people's
+     *    accounts, and a profile Sync on a demo user pulled a stranger's real
+     *    Steam name onto it. Steam hands out account ids in order and is
+     *    nowhere near 4.29 billion, and {@link #isSeedSteamId} additionally
+     *    stops every outbound Steam profile/inventory call for these ids
+     *    (and the old block, which existing demo databases still hold).
+     *
+     * Ids are fixed + stable so a fresh seed always produces the same stall
+     * ids for QA + screenshots. The avatar is Steam's stock default image,
+     * not a picture of anyone.
      */
     private static final List<List<String>> SEED_SELLER_ACCOUNTS = [
-        ['BoneTender',   '76561199000000001', 'https://avatars.fastly.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'],
-        ['AtlasTrades',  '76561199000000002', 'https://avatars.fastly.steamstatic.com/b5bd56c1aa4644a474a2e4972be27ef9e82e517e_full.jpg'],
-        ['PixelPusher',  '76561199000000003', 'https://avatars.fastly.steamstatic.com/c5d4097dde9e95d7e289ddc5a533c95a0e3c4e91_full.jpg'],
-        ['GhostlyDeals', '76561199000000004', 'https://avatars.fastly.steamstatic.com/9f0b9b3b6c3b2c8e1e7d6a5c4b3a2d1e0f9e8d7c_full.jpg'],
-        ['EmberWolf',    '76561199000000005', 'https://avatars.fastly.steamstatic.com/8e7d6c5b4a3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f_full.jpg'],
-        ['TradeHaven',   '76561199000000006', 'https://avatars.fastly.steamstatic.com/7d6c5b4a3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8e_full.jpg']
+        ['BoneTender',   '76561202255232729', 'https://avatars.fastly.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'],
+        ['AtlasTrades',  '76561202255232730', 'https://avatars.fastly.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'],
+        ['PixelPusher',  '76561202255232731', 'https://avatars.fastly.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'],
+        ['GhostlyDeals', '76561202255232732', 'https://avatars.fastly.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'],
+        ['EmberWolf',    '76561202255232733', 'https://avatars.fastly.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'],
+        ['TradeHaven',   '76561202255232734', 'https://avatars.fastly.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg']
     ]
 
     /** Sentinel steamId64 of the FIRST demo seller — used as the idempotency
      *  probe. If this account already exists, the whole demo-seller seed has
      *  already run (or a real BoneTender-equivalent owns the id) so we skip. */
-    private static final String SEED_SELLER_PROBE_STEAMID = '76561199000000001'
+    /** The six demo ids before they moved out of the allocated range (real
+     *  people's accounts). Still recognised so a demo database seeded before
+     *  the move never syncs a stranger's profile onto a demo user. */
+    private static final Set<String> LEGACY_SEED_STEAMIDS =
+        (1..6).collect { '7656119900000000' + it } as Set
+
+    /** True for a demo seller's steamId64 (current or legacy block). Outbound
+     *  Steam profile and inventory lookups skip these: they are not real
+     *  accounts of ours and must never pull anyone's real data. */
+    static boolean isSeedSteamId(String steamId64) {
+        if (!steamId64) return false
+        steamId64 in LEGACY_SEED_STEAMIDS || SEED_SELLER_ACCOUNTS.any { it[1] == steamId64 }
+    }
+
+    private static final String SEED_SELLER_PROBE_STEAMID = '76561202255232729'
 
     /**
      * Day-1 launch seed that makes the public seller-stall pages
@@ -1499,8 +1520,8 @@ class SeedService {
      * Only rows carrying an unambiguous seed marker:
      * <ul>
      *   <li><b>Sellers</b> — the six {@link #SEED_SELLER_ACCOUNTS} steamId64s
-     *       (76561199000000001–006). These are literal fixtures; no Steam
-     *       account can collide with them by accident.</li>
+     *       (76561202255232729–734). These are literal fixtures at the top of
+     *       the account-id space; no Steam account holds them.</li>
      *   <li><b>Their wallets</b> — {@code steam_<steamId64>}, the naming
      *       convention {@code SteamAuthService.upsertUser} uses.</li>
      *   <li><b>Listings</b> — any listing whose {@code sellerUserId} is one of

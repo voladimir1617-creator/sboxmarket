@@ -128,7 +128,7 @@ class SboxMarketApplication {
      * Demo catalogue. NEVER in production.
      *
      * `SeedService` fabricates six sellers with invented Steam IDs
-     * (76561199000000001...), gives them wallets, and lists hundreds of items they do
+     * (76561202255232729...), gives them wallets, and lists hundreds of items they do
      * not own. Every guard inside it is `if (count() > 0) return` — an IDEMPOTENCY
      * probe, not a production gate. On a fresh prod database every count is 0, so all
      * of it runs.

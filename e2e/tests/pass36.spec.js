@@ -9,7 +9,7 @@ test('the sell grid bulk-select checkbox works from the keyboard', async ({ page
     status: 200, contentType: 'application/json',
     body: JSON.stringify({
       items: [{ assetId: 'a1', name: 'Keyboard Hat', tradable: true, unlistableReason: null, listableQuantity: 1, quantity: 1 }],
-      count: 1, assetCount: 1, lastSyncedAt: Date.now(), steamId64: '76561199000000001',
+      count: 1, assetCount: 1, lastSyncedAt: Date.now(), steamId64: '76561202255232729',
     }),
   }));
   await page.goto('/sell');

@@ -15,7 +15,7 @@ async function anon(page) {
   await page.route('**/api/auth/steam/me', (r) => r.fulfill(json({ signedIn: false })));
 }
 
-const ME = { id: 1, steamId64: '76561199000000001', displayName: 'Pass Tester', signedIn: true, sessionEpoch: 0 };
+const ME = { id: 1, steamId64: '76561202255232729', displayName: 'Pass Tester', signedIn: true, sessionEpoch: 0 };
 
 function listing(id, itemId) {
   return {

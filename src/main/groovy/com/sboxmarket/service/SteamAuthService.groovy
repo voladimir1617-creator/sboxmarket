@@ -447,6 +447,9 @@ class SteamAuthService {
      * twelve times.
      */
     protected Map fetchProfileWithRetry(String steamId64) {
+        // Demo sellers carry invented ids: never look them up on Steam, so a
+        // Sync on a demo user can't pull a real person's name or avatar.
+        if (SeedService.isSeedSteamId(steamId64)) return null
         for (int attempt = 0; attempt < 2; attempt++) {
             String kind = 'unknown'
             try {

@@ -5,7 +5,7 @@ const { test, expect } = require('@playwright/test');
 
 const ME = {
   id: 1,
-  steamId64: '76561199000000001',
+  steamId64: '76561202255232729',
   displayName: 'Pass Tester',
   signedIn: true,
   sessionEpoch: 0,
@@ -32,7 +32,7 @@ test.describe('defect pass 53', () => {
         rarity: 'Standard', catalogueId: 4243, suggestedPrice: 0, steamPrice: null,
         listedCount: 0, listableQuantity: 1, unlistableReason: null,
       }],
-      count: 1, assetCount: 1, lastSyncedAt: Date.now(), steamId64: '76561199000000001',
+      count: 1, assetCount: 1, lastSyncedAt: Date.now(), steamId64: '76561202255232729',
     })));
     await page.goto('/sell');
     await page.locator('.inventory-item').first().click({ timeout: 20_000 });

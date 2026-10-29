@@ -73,12 +73,12 @@ class MoneyResetServiceSpec extends Specification {
      */
     private void seedProductionShape() {
         def demo     = w('demo', '250.00')                       // id 1 — seeded, no owner, no rows
-        def seller   = w('steam_76561199000000001', '30373.25')  // id 2
-        def buyer2   = w('steam_76561199000000002', '23.92')     // id 3
-        def buyer3   = w('steam_76561199000000003', '50.00')     // id 4
-        def idle4    = w('steam_76561199000000004', '0.00')      // id 5
-        def salesW   = w('steam_76561199000000005', '0.51')      // id 6
-        def idle6    = w('steam_76561199000000006', '0.00')      // id 7
+        def seller   = w('steam_76561202255232729', '30373.25')  // id 2
+        def buyer2   = w('steam_76561202255232730', '23.92')     // id 3
+        def buyer3   = w('steam_76561202255232731', '50.00')     // id 4
+        def idle4    = w('steam_76561202255232732', '0.00')      // id 5
+        def salesW   = w('steam_76561202255232733', '0.51')      // id 6
+        def idle6    = w('steam_76561202255232734', '0.00')      // id 7
         def owner    = w('steam_76561199839805014', '100.00')    // id 33 — the real account
         def treasury = w('__platform_treasury__', '0.02')        // id 65
 

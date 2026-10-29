@@ -12,6 +12,12 @@ const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8082';
 // Optional: a pre-installed Chromium to launch instead of Playwright's own
 // download (sandboxed CI boxes and cloud containers ship one).
 const CHROMIUM_PATH = process.env.E2E_CHROMIUM_PATH || undefined;
+// Against a local server the browser never reaches an outside site: a guest
+// "Sign in" click 302s to Steam's login page, and route blocking does not
+// catch redirects. Every non-local request goes to a dead proxy instead,
+// the same way CI points the server's JVM at one. Off for a remote BASE_URL.
+const LOCAL_TARGET = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(BASE_URL);
+const OFFLINE_PROXY = LOCAL_TARGET ? { server: 'http://127.0.0.1:9', bypass: 'localhost,127.0.0.1' } : undefined;
 
 module.exports = defineConfig({
   testDir: './tests',
@@ -33,6 +39,7 @@ module.exports = defineConfig({
     screenshot: 'only-on-failure',
     video: 'off',
     launchOptions: CHROMIUM_PATH ? { executablePath: CHROMIUM_PATH } : {},
+    proxy: OFFLINE_PROXY,
   },
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.js/ },

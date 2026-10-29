@@ -9,9 +9,9 @@ const { expect } = require('@playwright/test');
 
 /** Seeded demo accounts (SeedService.SEED_SELLER_ACCOUNTS): id -> steamId64. */
 const STEAM_IDS = {
-  2: '76561199000000002',
-  3: '76561199000000003',
-  4: '76561199000000004',
+  2: '76561202255232730',
+  3: '76561202255232731',
+  4: '76561202255232732',
 };
 
 const FEE_RATE = 0.02; // TradeService.FEE_RATE
