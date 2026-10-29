@@ -14978,6 +14978,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         title: 'Pick a date when your stall should auto-resume'
       }, 'Schedule return'),
       pickingAwayUntil && h('span', {
+        className: 'inline-cta-row',
         style: { marginLeft: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }
       },
         h('input', {

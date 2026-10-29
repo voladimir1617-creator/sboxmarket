@@ -13063,6 +13063,9 @@ html body .stall-toolbar > .btn { font-size: 12px !important; height: 34px !impo
   html body .stall-toolbar > div:empty { display: none !important; }
   html body .stall-toolbar > .btn, html body .stall-toolbar > span:nth-child(4) { flex: 1 1 calc(50% - 4px) !important; min-width: 0 !important; }
   html body .stall-toolbar > span:nth-child(4) { display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 34px !important; }
+  /* Away mode's return-date picker can land at nth-child(4) too; it needs a
+     whole line or its Cancel button runs off the screen. */
+  html body .stall-toolbar > span.inline-cta-row { flex: 1 1 100% !important; height: auto !important; justify-content: flex-start !important; }
 }
 /* Loadout Lab: the page title sat 24px left of everything under it, card
    names were centred over left-aligned rows with a 60px hole under the
