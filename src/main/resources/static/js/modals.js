@@ -11433,7 +11433,9 @@ function ProfileSupportTab() {
         window.history.replaceState({}, '', window.location.pathname + (next ? '?' + next : ''));
       }
     } catch (_) { /* no URLSearchParams or no search — silent */ }
-  }, []);
+    // Re-run on in-app navigation too: the footer's "Report a Bug" link lands
+    // here while /support is already mounted.
+  }, [window.location.search]);
 
   const openTicket = async (id) => { lastOpenedTicketRef.current = id; await showTicket(id); };
   // `/support?ticket=<id>` from a "ticket closed" bell entry: open that
@@ -11546,7 +11548,7 @@ function ProfileSupportTab() {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } },
         h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; setViewing(null); } }, '← Tickets'),
-        h('div', { style: { flex: 1, minWidth: 0 } },
+        h('div', { style: { flex: '1 1 200px', minWidth: 0 } },
           h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none', overflowWrap: 'anywhere' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))
         ),
@@ -17821,7 +17823,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       : parseFloat((feeSchedule && feeSchedule.minDeposit) || 0);
     const bal = parseFloat((wallet && wallet.balance) || 0);
     const isSweep = tab === 'withdraw' && bal > 0 && Math.abs(num - bal) < 0.005;
-    const minAmt = Math.max(0.01, serverMin || 0);
+    const minAmt = Math.max(tab === 'withdraw' ? 0.01 : 1, serverMin || 0);
     if (num < minAmt && !isSweep) {
       setError(tab === 'withdraw'
         ? 'Minimum withdrawal is $' + minAmt.toFixed(2) + ' — or withdraw your full balance in one go.'
@@ -18092,6 +18094,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
         (() => {
           const WALLET_TABS = ['deposit', 'withdraw', 'history'];
           const pickTab = (next) => {
+            // A deposit amount must never ride over as a withdrawal (or back).
+            if (next !== tab) setAmount('');
             setTab(next); setError('');
             // CSFloat-1:1: tab changes also update the URL so /wallet/withdraw
             // is shareable + back-button works between tabs.
@@ -18264,7 +18268,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                         transactions.length === 0
                           ? 'No transactions yet'
                           : q
-                            ? `No transactions match "${q}"`
+                            ? `No transactions match "${txSearch.trim()}"`
                             : txMonth !== 'ALL'
                               ? `No transactions in ${monthLabelOf(txMonth)}`
                               : 'No transactions match this filter')
@@ -18288,7 +18292,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                                 title: new Date(tx.createdAt).toLocaleString()
                               }, '· ', timeAgo(tx.createdAt))
                             ),
-                            h('div', { className: 'wallet-tx-desc' }, tx.description || customerFacingRef(tx.stripeReference)),
+                            h('div', { className: 'wallet-tx-desc', title: tx.description || customerFacingRef(tx.stripeReference) || undefined }, tx.description || customerFacingRef(tx.stripeReference)),
                             // Copyable transaction id — lets users quote the
                             // exact row in a support ticket ("my withdrawal
                             // #1042 is stuck") without screenshots. Small +
@@ -18380,7 +18384,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
               // mysterious. Display amount in the user's currency via
               // fmt() (it's a label, not the input) while the input itself
               // stays USD raw.
-              tab === 'deposit' && prefillAmount != null && parseFloat(prefillAmount) > 0 && h('div', {
+              tab === 'deposit' && prefillAmount != null && parseFloat(prefillAmount) > 0 && amount === String(prefillAmount) && h('div', {
                 className: 'wallet-prefill-source',
                 style: {
                   padding: '10px 14px', marginBottom: 12, borderRadius: 8,
@@ -18656,7 +18660,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                           enterKeyHint: 'done',
                           placeholder: '0.00',
                           value: amount,
-                          onChange: e => setAmount(e.target.value),
+                          onChange: e => { setAmount(e.target.value); setError(''); },
                           'aria-label': tab === 'deposit' ? 'Deposit amount' : 'Withdrawal amount'
                         }),
                         // FX equivalent hint — when the user has selected a
@@ -18686,7 +18690,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                           h('button', {
                             key: a,
                             className: `wallet-preset-btn ${String(a) === amount ? 'active' : ''}`,
-                            onClick: () => setAmount(String(a))
+                            onClick: () => { setAmount(String(a)); setError(''); }
                           }, '$' + Number(a).toFixed(2))
                         ),
                         // Batch 966 — "Max" button on the withdraw tab

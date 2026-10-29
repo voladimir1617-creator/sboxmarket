@@ -4103,6 +4103,9 @@ export function App() {
       window.history.replaceState({}, '', next);
     } catch (_) { /* URL parse failure — silently ignore */ }
   }, [routeName]);
+  // Drop a cart-shortfall prefill once the user leaves /wallet by any route
+  // other than its close button, so the wallet nav button later opens clean.
+  useEffect(() => { if (routeName !== 'wallet') setWalletPrefillAmount(null); }, [routeName]);
 
   // auth
   // `meLoaded` is false until the first fetchMe() resolves. We use this

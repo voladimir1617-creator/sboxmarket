@@ -326,6 +326,10 @@ class GlobalExceptionHandler {
             case 'STRIPE_MODE_INDETERMINATE':
             case 'ADMIN_DAILY_CAP':
             case 'CONNECT_ONBOARDING_REQUIRED':
+            // Daily cap refusals name only the customer's own cap figures and what
+            // is left today; over 140 chars they collapsed to the generic line.
+            case 'DEPOSIT_DAILY_CAP':
+            case 'WITHDRAW_DAILY_CAP':
             // Trade-URL refusals (ProfileController.setTradeUrl). Each tells the
             // buyer exactly what to paste instead, and each is over 140 chars,
             // so a buyer who pasted a friend's trade URL, or the wrong link,
