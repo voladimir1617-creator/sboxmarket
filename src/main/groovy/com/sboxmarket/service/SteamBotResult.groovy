@@ -115,6 +115,18 @@ class SteamBotResult {
     boolean isTerminalFailure() { return ok && TERMINAL_FAILURE_STATES.contains(status) }
     boolean isInEscrow() { return ok && status == 'in_escrow' }
 
+    /** Error code of a cancel the sidecar refused because the partner had
+     *  already accepted the offer (status 'accepted' or 'in_escrow'). */
+    static final String ALREADY_ACCEPTED = 'ALREADY_ACCEPTED'
+
+    /** Cancel answer: the offer can no longer be accepted, because we just
+     *  cancelled it or it was already canceled / declined / expired. */
+    boolean isOfferCancelled() { return ok && raw != null && raw['cancelled'] == true }
+
+    /** Cancel answer: the partner took the item (or Steam is holding it on
+     *  its way to them). Whatever the caller meant to undo has happened. */
+    boolean isOfferAlreadyAccepted() { return !ok && errorCode == ALREADY_ACCEPTED }
+
     @Override
     String toString() {
         return "SteamBotResult(ok=${ok}, status=${status}, offerId=${offerId}, errorCode=${errorCode}, message=${message})"

@@ -27,6 +27,7 @@ Steam credentials.
 | `/offers/send` | POST | Create + send a trade offer **giving** app-590830 assets to a buyer's trade URL, then auto-confirm via identity secret. (Delivery leg.) |
 | `/offers/request` | POST | Create + send a trade offer that **requests** (receives, gives nothing) app-590830 assets **from** a seller's trade URL. Returns the deposit `offerId`. (Deposit / escrow leg — uses `addTheirItem`.) |
 | `/offers/:id` | GET | Normalized offer status: `active` / `accepted` / `declined` / `expired` / `canceled` / `in_escrow` / `needs_confirmation` / ... Used to poll BOTH delivery and deposit offers. |
+| `/offers/:id/cancel` | POST | Cancel an offer the bot sent. Idempotent: `200 {cancelled:true}` when it is dead now (cancelled here, or already canceled / declined / expired), `409 ALREADY_ACCEPTED` (`status` `accepted` or `in_escrow`) when the partner took the item, anything else means not cancelled, retry. The backend calls it before it gives up on a deposit, cancels a held listing or refunds a buyer. |
 | `/offers/incoming/:id/accept` | POST | Accept an incoming offer (alternative deposit path — if a seller initiates the trade) and confirm it. |
 | `/inventory` | GET | The bot's own app-590830 inventory — used to confirm a deposited asset is now genuinely held before the listing is made buyable. |
 

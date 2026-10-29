@@ -91,6 +91,7 @@ class AdminService {
     // by extracting BanGuard into its own bean — TradeService depends only on
     // BanGuard, so AdminService can depend on TradeService eagerly.
     @Autowired(required = false) TradeService tradeService
+    @Autowired(required = false) BotDeliveryOfferGuard botDeliveryOfferGuard
     @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository
@@ -1086,6 +1087,15 @@ class AdminService {
                 def openTrades = tradeRepository.findOpenByParticipant(targetUserId)
                 openTrades.each { trade ->
                     try {
+                        // Cancel the bot's live Steam delivery offer first; an
+                        // accepted one, or one we cannot cancel, is left for
+                        // staff instead of refunded (and a throw from cancel()
+                        // here would poison the whole ban transaction).
+                        def offer = botDeliveryOfferGuard?.cancelLiveOffer(trade)
+                        if (offer != null && !offer.safeToRefund) {
+                            log.warn("Ban-cascade left trade ${trade.id} open for staff: bot delivery offer ${offer}")
+                            return
+                        }
                         tradeService.cancel(adminUserId, trade.id,
                             "Counterparty was banned by staff: ${user.banReason ?: 'no reason given'}")
                     } catch (Exception e) {
@@ -2752,6 +2762,15 @@ class AdminService {
         def t = tradeRepository.findById(tradeId).orElseThrow { new NotFoundException("Trade", tradeId) }
         if (t.state in ['VERIFIED','CANCELLED']) {
             throw new BadRequestException("ALREADY_SETTLED", "Trade is already settled")
+        }
+        // Paying the seller for a bot trade the buyer never accepted leaves
+        // the buyer with nothing and the item in our bot, with no sweep to
+        // send it anywhere. Cancel (refund + return) is the remedy there.
+        String undelivered = botDeliveryOfferGuard?.undeliveredReason(t)
+        if (undelivered != null) {
+            throw new BadRequestException("BOT_OFFER_NOT_ACCEPTED",
+                "Not released: ${undelivered}, so the item is still in our bot. Cancel the trade to refund " +
+                "the buyer and return the item to the seller instead.")
         }
         def released = tradeService.adminRelease(adminUserId, tradeId, reason)
         // Audit row is written inside TradeService.adminRelease (line ~633)

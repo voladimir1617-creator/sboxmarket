@@ -10,6 +10,8 @@
  *     offer that receives the asset and gives nothing (addTheirItem)
  *   - poll the status of an offer (active / accepted / declined / expired / ...)
  *   - accept an incoming offer (alternative deposit path)
+ *   - cancel an offer it sent, so a deposit or delivery the backend gave up on
+ *     can no longer be accepted
  *   - read the bot's own app-590830 inventory (confirm an asset is now held)
  *
  * SECURITY: every credential comes from the environment. Nothing is hardcoded.
@@ -433,6 +435,9 @@ app.post('/offers/send', (req, res) => core.send(req.body).then(reply(res)));
 app.post('/offers/request', (req, res) => core.request(req.body).then(reply(res)));
 app.get('/offers/:id', (req, res) => core.getOffer(req.params.id).then(reply(res)));
 app.post('/offers/incoming/:id/accept', (req, res) => core.acceptIncoming(req.params.id).then(reply(res)));
+// Cancel an offer the bot sent (deposit timeout, listing cancel, trade refund).
+// 200 cancelled (or already dead), 409 ALREADY_ACCEPTED when the item moved.
+app.post('/offers/:id/cancel', (req, res) => core.cancelOffer(req.params.id).then(reply(res)));
 app.get('/inventory', (req, res) => core.inventory().then(reply(res)));
 
 // Fallback 404

@@ -254,6 +254,12 @@ class SteamDeliveryService {
         if (res.ok) {
             recordAttempt(trade.id, res.offerId, res.status ?: 'sent', 'SEND', true, null)
             log.info("SteamDelivery: sent offer ${res.offerId} for trade ${trade.id} (status ${res.status})")
+            // The trade was read before the (slow) send. A cancel that landed
+            // meanwhile saw no offer row, refunded the buyer and closed the
+            // trade, and the poller never looks at a CANCELLED trade again:
+            // the buyer could take the item on top of the refund. Re-read now
+            // that the offer row is written, and withdraw the offer if so.
+            if (withdrawIfClosedDuringSend(trade, res.offerId)) return
             // NOTE: custody is deliberately NOT marked DELIVERED here.
             // `res.ok` means the offer was SENT, not that the buyer took it —
             // the item is still sitting in the bot's inventory and stays
@@ -281,6 +287,33 @@ class SteamDeliveryService {
                     res.retryable ? res.message : SteamBotResult.haltNote(inputKey, res.message))
             log.warn("SteamDelivery: send failed for trade ${trade.id}: ${res.errorCode} ${res.message}${res.retryable ? '' : ' (not retrying until the trade URL or item changes)'}")
         }
+    }
+
+    /** True (and the just-sent offer cancelled in Steam) when the trade left
+     *  PENDING_SELLER_SEND while the bot was sending, e.g. cancelled. */
+    private boolean withdrawIfClosedDuringSend(Trade trade, String offerId) {
+        Trade now
+        try {
+            now = tradeRepository.findById(trade.id).orElse(null)
+        } catch (Exception e) {
+            return false
+        }
+        if (now == null || now.state == STATE_AWAITING_SEND) return false
+        SteamBotResult c = offerId ? steamTradeBotService.cancelOffer(offerId) : null
+        if (c?.offerCancelled) {
+            recordAttempt(trade.id, offerId, c.status ?: 'canceled', 'POLL', true,
+                    "trade became ${now.state} while the offer was being sent; offer cancelled".toString())
+            log.warn("SteamDelivery: trade ${trade.id} became ${now.state} during the send; offer ${offerId} cancelled")
+        } else if (c?.offerAlreadyAccepted) {
+            recordAttempt(trade.id, offerId, c.status ?: 'accepted', 'POLL', true,
+                    "trade became ${now.state} while the offer was being sent; buyer already accepted".toString())
+            log.error("SteamDelivery: trade ${trade.id} is ${now.state} but the buyer already accepted offer ${offerId}: " +
+                    "the buyer may have the item AND a refund — staff must review")
+        } else {
+            log.error("SteamDelivery: trade ${trade.id} became ${now.state} during the send and offer ${offerId} " +
+                    "could not be cancelled (${c?.errorCode} ${c?.message}) — staff must cancel it in Steam")
+        }
+        return true
     }
 
     /** (b)+(c) Poll the outstanding offer and advance on ACCEPTED. */

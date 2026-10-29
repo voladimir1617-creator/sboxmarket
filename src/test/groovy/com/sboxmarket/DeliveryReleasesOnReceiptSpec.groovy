@@ -109,7 +109,7 @@ class DeliveryReleasesOnReceiptSpec extends Specification {
         delivery.processTrade(7L)
 
         then:
-        1 * deliveryTradeRepository.findById(7L) >> Optional.of(t)
+        2 * deliveryTradeRepository.findById(7L) >> Optional.of(t)   // load, then the after-send re-check
         1 * attemptRepo.findLatestWithOffer(7L, _ as Pageable) >> []
         1 * steamUserRepository.findById(2L) >> Optional.of(new SteamUser(id: 2L, tradeUrl: BUYER_URL))
 

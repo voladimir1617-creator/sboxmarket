@@ -348,6 +348,73 @@ function createBotCore(opts) {
     }
   }
 
+  /**
+   * Cancel an offer this bot SENT, so the partner can no longer accept it.
+   * The backend calls this before it gives up on a deposit, cancels a listing
+   * or refunds a buyer: without it the offer stayed acceptable for 14 days.
+   *
+   * Idempotent, and the answer always says where the item is:
+   *   200 { cancelled: true }                 the offer is dead now (we
+   *                                            cancelled it, or it was already
+   *                                            canceled / declined / expired...)
+   *   409 ALREADY_ACCEPTED (status accepted   the partner took it: the item moved
+   *        or in_escrow)                       (or is on its way under a Steam hold)
+   *   anything else                           not cancelled; retry later
+   */
+  async function cancelOffer(id) {
+    if (!isReady()) return notReady();
+    if (!isValidOfferId(id)) return [400, { ok: false, error: 'BAD_REQUEST', message: 'offer id must be digits', retryable: false }];
+    const read = async () => {
+      const [offer] = await p((cb) => getManager().getOffer(id, cb));
+      return offer;
+    };
+    const verdict = (offer, cancelledNow) => {
+      if (offer.state === S.Accepted || offer.state === S.InEscrow) {
+        return [409, { ok: false, error: 'ALREADY_ACCEPTED', retryable: false, offerId: String(offer.id),
+          status: stateName(offer.state), message: 'offer #' + offer.id + ' was already ' + stateName(offer.state) }];
+      }
+      if (!LIVE.has(offer.state)) {
+        sent.delete(String(offer.id));
+        needsConfirm.delete(String(offer.id));
+        return [200, { ok: true, offerId: String(offer.id), status: stateName(offer.state),
+          cancelled: true, alreadyFinal: !cancelledNow }];
+      }
+      return null;
+    };
+    let offer;
+    try {
+      offer = await read();
+    } catch (err) {
+      const e = classifyError(err);
+      return [/no matching|not found/i.test(e.message) ? 404 : httpStatusFor(e.code),
+        { ok: false, error: e.code, message: e.message, retryable: e.retryable }];
+    }
+    if (!offer.isOurOffer) {
+      return [400, { ok: false, error: 'BAD_REQUEST', message: 'offer is incoming, not one the bot sent', retryable: false }];
+    }
+    const settled = verdict(offer, false);
+    if (settled) return settled;
+    try {
+      await p((cb) => offer.cancel(cb));
+      log.log('[bot] cancelled offer #%s', offer.id);
+    } catch (err) {
+      // The partner may have acted between the read and the cancel: read again
+      // and answer with what Steam has now.
+      try {
+        const again = verdict(await read(), false);
+        if (again) return again;
+      } catch (ignore) { /* fall through to the cancel error */ }
+      log.error('[bot] cancel of offer #%s failed: %s', offer.id, err.message || err);
+      return fail(err);
+    }
+    // steam-tradeoffer-manager sets state Canceled on success; trust Steam if
+    // it says otherwise (the partner accepted at the same moment).
+    if (offer.state === S.Accepted || offer.state === S.InEscrow) return verdict(offer, true);
+    sent.delete(String(offer.id));
+    needsConfirm.delete(String(offer.id));
+    return [200, { ok: true, offerId: String(offer.id), status: 'canceled', cancelled: true, alreadyFinal: false }];
+  }
+
   async function inventory() {
     if (!isReady()) return notReady();
     try {
@@ -430,6 +497,7 @@ function createBotCore(opts) {
     request: (body) => createAndSend('receive', body),
     getOffer,
     acceptIncoming,
+    cancelOffer,
     inventory,
     retryConfirmations,
     stateName,
