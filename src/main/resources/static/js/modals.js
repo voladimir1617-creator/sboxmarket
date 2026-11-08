@@ -5805,13 +5805,15 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   // unmounts the focused control; hand focus back to the button that opened it.
   const disable2faBtnRef = useRef(null);
   const regenBtnRef = useRef(null);
-  const twofaPanelsWereOpen = useRef({ disable: false, regen: false, codes: false });
+  const enable2faBtnRef = useRef(null);
+  const twofaPanelsWereOpen = useRef({ disable: false, regen: false, codes: false, enroll: false });
   useEffect(() => {
     const was = twofaPanelsWereOpen.current;
     if (was.disable && !disableDrawerOpen) disable2faBtnRef.current?.focus();
     if ((was.regen && !regenDrawerOpen) || (was.codes && !backupCodes)) regenBtnRef.current?.focus();
-    twofaPanelsWereOpen.current = { disable: disableDrawerOpen, regen: regenDrawerOpen, codes: !!backupCodes };
-  }, [disableDrawerOpen, regenDrawerOpen, backupCodes]);
+    if (was.enroll && !enrolling) enable2faBtnRef.current?.focus();
+    twofaPanelsWereOpen.current = { disable: disableDrawerOpen, regen: regenDrawerOpen, codes: !!backupCodes, enroll: enrolling };
+  }, [disableDrawerOpen, regenDrawerOpen, backupCodes, enrolling]);
   const refreshRecoveryStatus = useCallback(async () => {
     try {
       const s = await fetch2faRecoveryStatus();
@@ -6377,7 +6379,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 } },
         !enrolling && !has2fa && h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
           h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, 'Disabled'),
-          h('button', { className: 'btn btn-accent', style: { padding: '6px 14px', fontSize: 11 }, disabled: twofaBusy, onClick: startEnroll }, 'Enable 2FA')
+          h('button', { ref: enable2faBtnRef, className: 'btn btn-accent', style: { padding: '6px 14px', fontSize: 11 }, disabled: twofaBusy, onClick: startEnroll }, 'Enable 2FA')
         ),
         // A failed enroll start set twofaErr, but it only rendered inside the
         // enrolling panel, so the click did nothing visible.
@@ -6621,6 +6623,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             maxLength: 6,
             placeholder: '000000',
             'aria-label': '6-digit code from your authenticator app',
+            // Enable 2FA unmounts on open; start the keyboard here.
+            autoFocus: true,
             value: twofaCode,
             // Batch 813 — auto-submit the moment 6 digits are in the
             // field. Autofill from iOS Messages / Android pastes the
@@ -11638,10 +11642,13 @@ function ProfileSupportTab() {
       }
       if (res && res.error) { toast(res.error, 'err'); return; }
       try { sessionStorage.removeItem('sb_ticket_unsent'); } catch (_) {}
-      setCreating(false);
       const ticketId = res?.id;
+      // Load the new ticket before closing the form: the first ticket's
+      // empty-state New Ticket button (which took focus) unmounted when the
+      // list arrived, dropping focus to the page.
+      await load();
+      setCreating(false);
       setForm({ subject: '', category: 'OTHER', body: '' });
-      load();
       // Name the ticket. No reply time is promised: SupportService has no
       // deadline, and the form's own banner says "as soon as staff can".
       toast(
@@ -11812,7 +11819,8 @@ function ProfileSupportTab() {
       ),
       h('div', { className: 'wallet-input-label' }, 'Message'),
       h('textarea', { className: 'wallet-amount-input', 'aria-label': 'Ticket message body', style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), maxLength: 2000, placeholder: 'Describe your issue…' }),
-      h('button', { className: 'btn btn-accent wallet-submit', disabled: busy, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
+      // aria-disabled keeps focus on the button; submitCreate ignores in-flight sends.
+      h('button', { className: 'btn btn-accent wallet-submit', 'aria-disabled': busy || undefined, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
     (() => {
       // Also after a refresh fails: the old list (or "No tickets yet") is stale.
@@ -11941,6 +11949,8 @@ function ProfileDevelopersTab() {
     if (res && res.error) { toast(res.error, 'err'); return; }
     // A revoked key's one-time token panel would otherwise stay up.
     if (newKey?.id === id) setNewKey(null);
+    // The row's Revoke button turns into REVOKED; keep focus on + New Key.
+    newKeyBtnRef.current?.focus();
     load();
     toast(k?.label
       ? `API key "${k.label}" revoked — calls using it will 401.`
@@ -12082,7 +12092,7 @@ function ProfileDevelopersTab() {
               h('td', { className: 'right' },
                 k.revoked
                   ? h('span', { style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, 'REVOKED')
-                  : h('button', { className: 'btn btn-ghost', style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 }, onClick: () => revoke(k.id) }, 'Revoke')
+                  : h('button', { className: 'btn btn-ghost', style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 }, 'aria-label': `Revoke API key ${k.label || k.publicPrefix || '#' + k.id}`, onClick: () => revoke(k.id) }, 'Revoke')
               )
             )))
           )
@@ -16045,7 +16055,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         className: 'btn btn-ghost',
                         style: { padding: '7px 10px', fontSize: 11, opacity: 0.5, cursor: 'not-allowed' },
                         disabled: true,
-                        title: "Auctions with bids are locked — they settle when the timer ends"
+                        title: "Auctions with bids are locked — they settle when the timer ends",
+                        // Every row's buttons otherwise read the same to a screen reader.
+                        'aria-label': `Price locked on ${l.item?.name || 'listing #' + l.id}`
                       }, 'Price locked')
                     : h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l), 'data-edit-listing': l.id, 'aria-label': `Edit price of ${l.item?.name || 'listing #' + l.id}` }, '✎ Edit'),
                   // Match-top-bid quick-action (batch 416). Renders only
@@ -16128,7 +16140,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         disabled: true,
                         style: { border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '7px 10px', fontSize: 11, cursor: 'not-allowed', opacity: 0.7 },
                         title: 'This auction has bids and can no longer be cancelled — it settles when it ends.',
-                        'aria-label': 'Auction locked — has active bids'
+                        'aria-label': `Auction locked — ${l.item?.name || 'listing #' + l.id} has active bids`
                       }, '🔒')
                     : botCustody.heldListingIds.includes(l.id)
                     // The bot holds this skin: cancelling sends it back to

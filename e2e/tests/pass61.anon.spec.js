@@ -138,7 +138,7 @@ test.describe('defect pass 61', () => {
     await page.route('**/api/api-keys', (r) => r.fulfill(json([{ id: 7, label: 'bot', scope: 'RW', prefix: 'sbx_live_ab', createdAt: Date.now(), revoked: false }])));
     const deletes = await countSlow(page, '**/api/api-keys/7', 'DELETE');
     await page.goto('/profile/developers');
-    const btn = page.getByRole('button', { name: 'Revoke', exact: true });
+    const btn = page.getByRole('button', { name: 'Revoke API key bot', exact: true });
     await btn.waitFor({ timeout: 20_000 });
     await doubleClick(btn);
     await page.waitForTimeout(800);
