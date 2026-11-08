@@ -9,7 +9,7 @@ import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
 import { TradeProtectionPanel } from './trade-protection.js';
 import { SellerPayoutsCard } from './seller-payouts.js';
-import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
+import { useDialogA11y, useReturnFocus, fmtDelay } from './dialog-a11y.js';
 export { useDialogA11y, fmtDelay };
 import {
   fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyPendingEscrow, fetchMyBotCustody, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
@@ -354,6 +354,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // current bid, so it can sit far below anything buyable.
   const floorPrice = cheapestBuyNow ? parseFloat(cheapestBuyNow.price) : parseFloat(item?.lowestPrice);
   const [offerOpen, setOfferOpen] = useState(false);
+  useReturnFocus(offerOpen);
   // The listing the offer drawer bargains on. null = the cheapest buy-now
   // listing (the rail Bargain and action-bar Make Offer); an Active
   // Listings row's Make offer sets its own id so a buyer can bargain with
@@ -810,6 +811,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // flow — same endpoint, same cap, but renders a proper dialog with a
   // prefilled target, quick ±% adjusters, and a live preview sentence.
   const [alertOpen, setAlertOpen] = useState(false);
+  useReturnFocus(alertOpen);
   const [alertTarget, setAlertTarget] = useState('');
   const [alertBusy, setAlertBusy] = useState(false);
   const [alertErr, setAlertErr]   = useState('');
