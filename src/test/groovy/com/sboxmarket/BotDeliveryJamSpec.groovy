@@ -52,7 +52,8 @@ class BotDeliveryJamSpec extends Specification {
         ['steam.escrow.initial-delay-ms', 'steam.escrow.timeout-initial-delay-ms',
          'steam.escrow.hold-escalation-initial-delay-ms', 'steam.escrow.return-retry-initial-delay-ms',
          'steam.escrow.deposit-retry-initial-delay-ms', 'steam.escrow.return-confirm-initial-delay-ms',
-         'steam.escrow.protection-initial-delay-ms', 'steam.delivery.initial-delay-ms'].each { k -> r.add(k) { '3600000' } }
+         'steam.escrow.protection-initial-delay-ms', 'steam.escrow.decline-recheck-initial-delay-ms',
+         'steam.delivery.initial-delay-ms'].each { k -> r.add(k) { '3600000' } }
         r.add('steam.escrow.deposit-retry-backoff-ms') { '0' }
     }
 

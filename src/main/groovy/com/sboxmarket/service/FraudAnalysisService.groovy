@@ -32,7 +32,15 @@ import org.springframework.transaction.annotation.Transactional
  *      a 10-minute window. Either a reseller script or a compromised
  *      account draining balance fast.
  *
- *   5. **CARD_TO_SKIN_NEW_ACCOUNT** — an account younger than 7 days
+ *   5. **CHARGEBACK_IN_WINDOW** — a Stripe chargeback opened in 24h.
+ *
+ *   6. **DEPOSIT_DECLINED_ITEM_GONE** (HIGH) — a declined deposit whose
+ *      asset then left the seller's inventory without reaching the bot.
+ *
+ *   7. **FAST_DEPOSIT_DECLINES** (MED) — 2+ of a seller's deposit offers
+ *      declined within 5 minutes of being sent, over 7 days.
+ *
+ *   8. **CARD_TO_SKIN_NEW_ACCOUNT** — an account younger than 7 days
  *      (SteamUser.createdAt, measured at the deposit) completes a card
  *      deposit (DEPOSIT_COMPLETE) and buys one or more listings within 60
  *      minutes after it. The stolen-card "cash out into skins" pattern.
@@ -58,6 +66,12 @@ class FraudAnalysisService {
     private static final long  WITHDRAW_AFTER_DEPOSIT_MS = 15L * 60L * 1000L
     private static final int   PURCHASE_VELOCITY_TRIP    = 10
     private static final long  PURCHASE_VELOCITY_WINDOW  = 10L * 60L * 1000L
+    /** Signal 7: a deposit offer declined this soon after it was sent is
+     *  faster than a person reading it, the shape of a script on a stolen
+     *  Steam Web API key. Counted per seller over FAST_DECLINE_WINDOW_MS. */
+    private static final long  FAST_DECLINE_GAP_MS       = 5L * 60L * 1000L
+    private static final long  FAST_DECLINE_WINDOW_MS    = 7L * 24L * 60L * 60L * 1000L
+    private static final long  FAST_DECLINE_TRIP         = 2L
 
     // CARD_TO_SKIN_NEW_ACCOUNT tunables. Unlike the constants above these
     // are @Value so ops can tune them per environment; the field
@@ -74,6 +88,9 @@ class FraudAnalysisService {
     @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
+    /** Optional so unit tests built with `new FraudAnalysisService(...)` keep
+     *  working; the fast-decline signal is then simply absent. */
+    @Autowired(required = false) com.sboxmarket.repository.EscrowedItemRepository escrowedItemRepository
     /** Cluster-wide dedup ledger — wave-112-style multi-pod race claim
      *  for the fraud-signal sweeper. Optional so existing unit tests
      *  that build the service with `new FraudAnalysisService(...)` and
@@ -114,15 +131,21 @@ class FraudAnalysisService {
     List<Map> computeSignals() {
         def since = System.currentTimeMillis() - WINDOW_24H_MS
         def rows = auditLogRepository.since(since)
-        if (!rows) return []
 
         def signals = []
-        signals.addAll(detectMultipleIpsPerUser(rows))
-        signals.addAll(detectSharedIpAcrossUsers(rows))
-        signals.addAll(detectRapidWithdrawAfterDeposit(rows))
-        signals.addAll(detectHighVelocityPurchases(rows))
-        signals.addAll(detectChargebacks(rows))
-        signals.addAll(detectCardToSkinNewAccount(rows))
+        if (rows) {
+            signals.addAll(detectMultipleIpsPerUser(rows))
+            signals.addAll(detectSharedIpAcrossUsers(rows))
+            signals.addAll(detectRapidWithdrawAfterDeposit(rows))
+            signals.addAll(detectHighVelocityPurchases(rows))
+            signals.addAll(detectChargebacks(rows))
+            signals.addAll(detectCardToSkinNewAccount(rows))
+            signals.addAll(detectDeclinedDepositItemGone(rows))
+        }
+        // Read from the custody table, not the 24h audit window: it counts
+        // over a week.
+        signals.addAll(detectFastDepositDeclines())
+        if (signals.isEmpty()) return []
         // Sort HIGH > MED > LOW, then newest-first within a severity bucket.
         // IMPORTANT: Groovy's `?:` treats 0 as falsy, so `sev[HIGH] ?: 9`
         // would turn rank 0 into 9 and break the order. Use the Map-as-
@@ -409,6 +432,64 @@ class FraudAnalysisService {
                 // across the 30-min sweeps, so each distinct chargeback
                 // alerts exactly once. (2026-05-20)
                 dedupKey:  cb.id
+            ]
+        }
+    }
+
+    // ── Signal 6: declined deposit, then the item left the seller ─
+    // SteamEscrowService re-reads the seller's inventory once after a
+    // declined deposit offer; this audit row means the asset was gone and
+    // the bot did not have it, the Steam Web API key scam (the seller is
+    // most likely the victim). HIGH so the sweeper below bells every admin.
+    private List<Map> detectDeclinedDepositItemGone(List<AuditLog> rows) {
+        rows.findAll { it.eventType == AuditService.DEPOSIT_DECLINED_ITEM_GONE }.collect { r ->
+            [
+                type:      'DEPOSIT_DECLINED_ITEM_GONE',
+                severity:  'HIGH',
+                userId:    r.subjectUserId,
+                userName:  r.subjectName,
+                ip:        r.ipAddress,
+                count:     1L,
+                summary:   "Declined deposit, item gone from seller ${r.subjectName ?: r.subjectUserId}: ${r.summary ?: 'see audit log'}".toString(),
+                createdAt: r.createdAt,
+                // One alert per audit row, as for chargebacks.
+                dedupKey:  r.id
+            ]
+        }
+    }
+
+    // ── Signal 7: deposits declined within minutes of the offer ──
+    // FAST_DECLINE_TRIP or more of a seller's deposit offers declined within
+    // FAST_DECLINE_GAP_MS of being sent, over FAST_DECLINE_WINDOW_MS. One fast
+    // decline is a seller changing their mind; repeated ones look like a
+    // script on the account. MED: shown on the Fraud tab, not belled.
+    // depositDeclinedAt is when the poller saw the decline, so the measured
+    // gap can only be longer than the real one.
+    private List<Map> detectFastDepositDeclines() {
+        if (escrowedItemRepository == null) return []
+        List<Object[]> hits
+        try {
+            hits = escrowedItemRepository.countFastDeclinesBySeller(
+                    System.currentTimeMillis() - FAST_DECLINE_WINDOW_MS, FAST_DECLINE_GAP_MS, FAST_DECLINE_TRIP) ?: []
+        } catch (Exception e) {
+            log.warn("Fraud fast-decline query failed: ${e.message}")
+            return []
+        }
+        hits.collect { Object[] h ->
+            Long uid = h[0] as Long
+            long n = (h[1] as Number).longValue()
+            String name = null
+            try { name = uid != null ? steamUserRepository?.findById(uid)?.orElse(null)?.displayName : null }
+            catch (Exception ignore) { /* name is display-only */ }
+            [
+                type:      'FAST_DEPOSIT_DECLINES',
+                severity:  'MED',
+                userId:    uid,
+                userName:  name,
+                ip:        null,
+                count:     n,
+                summary:   "Seller ${name ?: uid} had ${n} deposit offers declined within 5 min of sending in 7 days — possible Steam API key compromise".toString(),
+                createdAt: h[2] as Long
             ]
         }
     }
