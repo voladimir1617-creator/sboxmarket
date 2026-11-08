@@ -793,8 +793,10 @@ export async function fetchPublicStall(userId, { fresh = false } = {}) {
   // fires from the standard `stall || { __notFound: true }` fallback.
   // `fresh` skips the browser's 30s cached copy — used right after the
   // owner changes the stall, so the page shows the save, not the old one.
+  // 'reload', not 'no-store': no-store left the old copy in the cache, so
+  // coming back to the stall within 30s showed it again.
   const data = await safeJson(`${API}/listings/stall/${userId}`,
-    fresh ? { cache: 'no-store' } : undefined, { expect: [404] });
+    fresh ? { cache: 'reload' } : undefined, { expect: [404] });
   // safeJson returns null on ANY fetch error (HTTP non-2xx or network); the stall
   // endpoint returns an object on success and {notFound:true} for a missing id, so
   // a null here means a GENUINE error, not "not found". Return a distinct sentinel
@@ -1832,7 +1834,9 @@ export async function fetchReviewsForUser(userId, { fresh = false } = {}) {
   // `fresh` skips the 60s browser cache, so a refetch right after posting,
   // replying to or deleting a review shows the change.
   // null on failure so a refetch can keep the list already shown.
-  const data = await safeJson(`${API}/reviews/user/${userId}`, fresh ? { cache: 'no-store' } : undefined, { expect: [404] });
+  // 'reload' refreshes the cached copy too; no-store left the pre-post list
+  // in the cache, so a visitor coming back saw their review gone.
+  const data = await safeJson(`${API}/reviews/user/${userId}`, fresh ? { cache: 'reload' } : undefined, { expect: [404] });
   return Array.isArray(data) ? data : null;
 }
 /** Reviews the signed-in user has authored (as a buyer). Auth-gated —

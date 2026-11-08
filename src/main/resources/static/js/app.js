@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=357'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=358'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2359,7 +2359,14 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
   useEffect(() => {
     let alive = true;
     import('./api.js').then(({ fetchFollowStatus }) => fetchFollowStatus(sellerId))
-      .then(data => { if (alive) setStatus(data && typeof data.following === 'boolean' ? data : 'error'); })
+      .then(data => {
+        if (!alive) return;
+        const ok = data && typeof data.following === 'boolean';
+        setStatus(ok ? data : 'error');
+        // The stall read is browser-cached for 30s, so a return visit showed
+        // the pre-follow Followers stat beside this uncached count.
+        if (ok && Number.isFinite(data.followerCount)) onCountChange && onCountChange(data.followerCount);
+      })
       .catch(() => { if (alive) setStatus('error'); });
     return () => { alive = false; };
   }, [sellerId, reloadKey]);

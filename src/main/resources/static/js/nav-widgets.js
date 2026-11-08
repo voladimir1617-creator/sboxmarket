@@ -640,7 +640,15 @@ export function NotificationBell({ me }) {
       // reveal". Stable id on the dropdown div below.
       'aria-haspopup': 'menu',
       'aria-expanded': open,
-      'aria-controls': 'notif-dropdown-panel'
+      'aria-controls': 'notif-dropdown-panel',
+      // Arrow keys from the open bell enter its menu, like the user menu.
+      onKeyDown: (e) => {
+        if (!open || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+        const items = wrapRef.current ? wrapRef.current.querySelectorAll('[role="menuitem"]') : [];
+        if (!items.length) return;
+        e.preventDefault();
+        items[e.key === 'ArrowDown' || e.key === 'Home' ? 0 : items.length - 1].focus();
+      }
     },
       h(MaterialIcon, { name: 'notifications', size: 20, fill: unread > 0, color: unread > 0 ? '#fbbf24' : null }),
       // Cap the visible badge at `99+` — `.nav-icon-badge` is a fixed

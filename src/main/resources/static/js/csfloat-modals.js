@@ -170,8 +170,16 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   // params on /api/database. Strings so the input stays stable across
   // partial typing ("1.2" → "1.25"); parsed before send. Blank means
   // "no bound" — the server null-guards both sides.
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+  // Seeded from ?min= / ?max= (as on the market) so Back keeps the range.
+  const urlPrice = (k) => {
+    try {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return '';
+      const v = (new URLSearchParams(window.location.search).get(k) || '').slice(0, 12);
+      return /^\d*[.,]?\d*$/.test(v) ? v : '';
+    } catch (_) { return ''; }
+  };
+  const [minPrice, setMinPrice] = useState(() => urlPrice('min'));
+  const [maxPrice, setMaxPrice] = useState(() => urlPrice('max'));
   useEffect(() => {
     try { localStorage.setItem('sb_db_listed_only', listedOnly ? '1' : '0'); } catch (_) {}
   }, [listedOnly]);
@@ -251,11 +259,13 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       put('rarity', rarity, 'All');
       put('sort', sort, 'rarest');
       put('page', page + 1, 1);
+      put('min', minPrice.trim(), '');
+      put('max', maxPrice.trim(), '');
       const qs = params.toString();
       if (qs === window.location.search.replace(/^\?/, '')) return;
       window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
     } catch (_) { /* history unavailable */ }
-  }, [category, rarity, sort, page]);
+  }, [category, rarity, sort, page, minPrice, maxPrice]);
 
   const CATS = ['All','Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
   const RARS = ['All','Limited','Off-Market','Standard'];
