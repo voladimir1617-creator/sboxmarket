@@ -338,9 +338,19 @@ class LoadoutService {
         // ceiling, and a locked $9000 item must consume its share of
         // that ceiling identically, otherwise auto-fill blows past the
         // catch-all by the locked-slot value (total $19k for a $10k cap).
+        // At today's floor, which is what the page shows for the slot and
+        // counts in the total; the price when it was added can be far off.
+        def lockedIds = slots.findAll { it.locked && it.itemId != null }*.itemId
+        Map<Long, BigDecimal> lockedFloors = [:]
+        if (lockedIds) {
+            (itemRepository.findAllById(new HashSet<Long>(lockedIds)) ?: []).each { Item it ->
+                lockedFloors[it.id] = currentPrice([lowestPrice: it.lowestPrice])
+            }
+        }
         slots.each { slot ->
             if (slot.locked && slot.itemId != null) {
-                remaining = remaining - (slot.snapshotPrice ?: BigDecimal.ZERO)
+                def price = lockedFloors.containsKey(slot.itemId) ? lockedFloors[slot.itemId] : slot.snapshotPrice
+                remaining = remaining - (price ?: BigDecimal.ZERO)
             }
         }
         if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO

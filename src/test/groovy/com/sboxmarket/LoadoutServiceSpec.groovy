@@ -1483,4 +1483,28 @@ class LoadoutServiceSpec extends Specification {
         expect:
         service.currentTotal(4L) == new BigDecimal('4.50')
     }
+
+    def "autoGenerate counts a locked slot at today's floor, not the price when it was added"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats   = new LoadoutSlot(loadoutId: 1L, slot: 'Hats',   locked: false)
+        def slotLocked = new LoadoutSlot(loadoutId: 1L, slot: 'Shirts', locked: true,
+            itemId: 77L, snapshotPrice: new BigDecimal("90"))
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats, slotLocked], [slotHats, slotLocked]]
+        itemRepository.findAllById(_) >> [new Item(id: 77L, lowestPrice: new BigDecimal("30"))]
+        BigDecimal budgetSeen = null
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> { args ->
+            budgetSeen = args[1]
+            []
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when: "budget is \$100; the locked shirt was \$90 when added and is \$30 now"
+        service.autoGenerate(10L, 1L, new BigDecimal("100"))
+
+        then:
+        budgetSeen == new BigDecimal("70")
+    }
 }
