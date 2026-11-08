@@ -3707,6 +3707,19 @@ function AdminTicketsTab() {
     setReply('');
     setView(t);
   };
+  // A staff bell for a ticket carries `&ticket=<id>`: open that thread
+  // instead of leaving staff to find it in the list.
+  const ticketParam = new URLSearchParams(window.location.search).get('ticket');
+  useEffect(() => {
+    const id = Number(ticketParam);
+    if (!Number.isFinite(id) || id <= 0) return;
+    open(id);
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      qs.delete('ticket');
+      window.history.replaceState({}, '', window.location.pathname + (qs.toString() ? '?' + qs.toString() : ''));
+    } catch (_) {}
+  }, [ticketParam]);
   // ← Tickets unmounts the thread; hand focus back to the row that opened it
   // instead of dropping it on the page.
   const backFocusRef = React.useRef(null);
@@ -4373,6 +4386,19 @@ function CsrTicketsTab() {
     setReply('');
     setView(t);
   };
+  // A staff bell for a ticket carries `&ticket=<id>`: open that thread
+  // instead of leaving staff to find it in the list.
+  const ticketParam = new URLSearchParams(window.location.search).get('ticket');
+  useEffect(() => {
+    const id = Number(ticketParam);
+    if (!Number.isFinite(id) || id <= 0) return;
+    open(id);
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      qs.delete('ticket');
+      window.history.replaceState({}, '', window.location.pathname + (qs.toString() ? '?' + qs.toString() : ''));
+    } catch (_) {}
+  }, [ticketParam]);
   // ← Tickets unmounts the thread; hand focus back to the row that opened it
   // instead of dropping it on the page.
   const backFocusRef = React.useRef(null);
