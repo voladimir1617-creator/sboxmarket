@@ -26,9 +26,9 @@ test.describe('defect pass 72', () => {
     await page.route('**/api/offers/outgoing*', (r) => r.fulfill(json([offer(41, status)])));
     await page.route('**/api/offers/41', (r) => { status = 'ACCEPTED'; return r.fulfill(conflict('OFFER_NOT_PENDING', 'This offer is no longer pending (ACCEPTED)')); });
     await page.goto('/offers/outgoing');
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Cancel offer on Red Hat', exact: true }).click({ timeout: 20_000 });
     await expect(page.getByText(/no longer pending/).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Cancel offer on Red Hat', exact: true })).toHaveCount(0);
   });
 
   test('a failed Counter on the Offers page closes the form and refreshes the row', async ({ page }) => {

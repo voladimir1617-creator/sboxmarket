@@ -75,6 +75,8 @@ class SteamEscrowService {
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SellerFollowService sellerFollowService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SellerMarketPingService sellerMarketPingService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy ListingService listingService
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SteamInventoryService steamInventoryService
+    @Autowired(required = false) AuditService auditService
 
     /** Master switch for the escrow pollers, independent of the bot's own
      *  enabled flag — lets ops freeze deposit/return sweeps without unsetting
@@ -174,6 +176,13 @@ class SteamEscrowService {
      *  can lag a trade by minutes. */
     @Value('${steam.escrow.missing-confirm-ms:1800000}')
     long missingConfirmMs = 1800000L
+
+    /** How long after a deposit offer comes back `declined` the seller's
+     *  Steam inventory is re-read, once, to see whether the asset left them.
+     *  Long enough for a lookalike offer from a scammer to have been accepted,
+     *  short enough that staff hear about it the same hour. */
+    @Value('${steam.escrow.decline-recheck-delay-ms:600000}')
+    long declineRecheckDelayMs = 600000L
 
     /**
      * True only when the bot sidecar is configured. The whole escrow leg is
@@ -341,6 +350,7 @@ class SteamEscrowService {
         SteamBotResult res = steamTradeBotService.requestItems(tradeUrl, [assetId.trim()], messageFor(row))
         if (res.ok) {
             row.depositOfferId = res.offerId
+            row.depositOfferSentAt = System.currentTimeMillis()
             row.lastError = null
             persist(row)
             log.info("SteamEscrow: deposit offer ${res.offerId} requested for listing ${listing.id} asset ${assetId}")
@@ -450,6 +460,14 @@ class SteamEscrowService {
             // stuck until they found Cancel in My Stall.
             e.custodyState = EscrowedItem.FAILED
             e.lastError = "deposit offer ${res.status}"
+            // A decline can be a script on a stolen Steam Web API key that
+            // then sends the seller a lookalike offer. Stamp it so
+            // sweepDeclinedDepositRechecks reads the seller's inventory once,
+            // a few minutes from now, and so the fraud rollup can see how
+            // fast it came. Expired / canceled are ours or Steam's, not this.
+            if (res.status == 'declined' && e.depositDeclinedAt == null) {
+                e.depositDeclinedAt = System.currentTimeMillis()
+            }
             touch(e)
             cancelHeldListing(e.listingId)
             log.warn("SteamEscrow: deposit offer ${e.depositOfferId} for listing ${e.listingId} is terminal (${res.status}); listing cancelled")
@@ -793,6 +811,114 @@ class SteamEscrowService {
             } catch (Exception ex) {
                 log.warn("SteamEscrow: hold escalation failed on escrow=${e?.id}: ${ex.message}")
             }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 3a'. DECLINED DEPOSITS — did the item leave the seller anyway?
+    // -----------------------------------------------------------------------
+
+    /**
+     * One-time re-check of declined deposits, {@link #declineRecheckDelayMs}
+     * after the decline.
+     *
+     * The Steam Web API key scam: malware holding the seller's API key
+     * declines our deposit offer and sends a lookalike from the scammer's own
+     * account. If the seller accepts that one, the asset is gone from their
+     * inventory and the bot never got it. For each due row this reads the
+     * seller's inventory once:
+     *   - asset still there: PRESENT, nothing happens;
+     *   - asset gone and the bot does not hold it: GONE, and a
+     *     {@code DEPOSIT_DECLINED_ITEM_GONE} audit row is written, which
+     *     FraudAnalysisService raises as a HIGH signal to every admin's bell;
+     *   - the bot does hold it: BOT_HELD, logged at ERROR for an operator;
+     *   - inventory unreadable (private, rate-limited, truncated, any failure):
+     *     UNKNOWN, no alert.
+     * The claim UPDATE is the once-only gate: a row is never checked twice,
+     * whatever the outcome. Nothing the seller sees changes.
+     *
+     * NOT @Transactional, per-row try/catch, same posture as the other sweeps.
+     */
+    @Scheduled(initialDelayString = '${steam.escrow.decline-recheck-initial-delay-ms:90000}',
+               fixedDelayString = '${steam.escrow.decline-recheck-interval-ms:60000}')
+    void sweepDeclinedDepositRechecks() {
+        if (!escrowSweepEnabled) return
+        if (!escrowEnabled) return
+        long cutoff = System.currentTimeMillis() - Math.max(0L, declineRecheckDelayMs)
+        List<EscrowedItem> due
+        try {
+            due = escrowRepository.findDeclineRechecksDue(cutoff, PageRequest.of(0, Math.max(1, batchSize))) ?: []
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: failed to load declined deposits to re-check: ${ex.message}")
+            return
+        }
+        if (due.isEmpty()) return
+        Map botIndex = null
+        for (EscrowedItem e : due) {
+            try {
+                if (escrowRepository.claimDeclineRecheck(e.id) == 0) continue
+                if (botIndex == null) botIndex = fetchBotInventoryIndex()
+                String result = recheckDeclinedDeposit(e, botIndex)
+                escrowRepository.recordDeclineRecheck(e.id, result)
+            } catch (Exception ex) {
+                log.warn("SteamEscrow: declined-deposit re-check failed on escrow=${e?.id}: ${ex.message}")
+            }
+        }
+    }
+
+    /** Read the seller's inventory for one declined deposit and return the
+     *  DECLINE_* outcome, writing the audit row when the asset is gone. */
+    String recheckDeclinedDeposit(EscrowedItem e, Map botIndex) {
+        String asset = e.assetId?.trim()
+        String steamId = resolveSellerSteamId(e.sellerUserId)
+        if (!asset || !steamId || steamInventoryService == null) {
+            return unknownDecline(e, "not re-checkable (asset=${asset} steamId=${steamId})".toString())
+        }
+        // A negative-cache hit returns [] without asking Steam; that is not
+        // an answer about this asset.
+        if (steamInventoryService.blockedUntilMs(steamId) != null) return unknownDecline(e, 'inventory backed off')
+        List<Map> items = steamInventoryService.fetchInventory(steamId) ?: []
+        String outcome = steamInventoryService.lastOutcomeFor(steamId)?.outcome as String
+        if (outcome != SteamInventoryService.OUTCOME_OK && outcome != SteamInventoryService.OUTCOME_EMPTY) {
+            return unknownDecline(e, outcome ?: 'no outcome')
+        }
+        if (items.any { it?.assetId?.toString() == asset }) return EscrowedItem.DECLINE_PRESENT
+        // Absence from a truncated page proves nothing.
+        if (steamInventoryService.truncationFor(steamId) != null) return unknownDecline(e, 'inventory truncated')
+        if (botIndex == null || !botIndex.ok) return unknownDecline(e, 'bot inventory unreadable')
+        String held = resolveHeldAssetId(e, botIndex)
+        if (held != null) {
+            log.error("SteamEscrow: declined deposit escrow=${e.id} listing=${e.listingId} seller=${e.sellerUserId} " +
+                    "asset=${asset} is in the bot inventory as ${held} although the offer was declined; check by hand")
+            return EscrowedItem.DECLINE_BOT_HELD
+        }
+        long declined = e.depositDeclinedAt ?: 0L
+        String summary = ("Deposit offer ${e.depositOfferId ?: '?'} for listing ${e.listingId} was declined at " +
+                "${java.time.Instant.ofEpochMilli(declined)}; asset ${asset} (${e.marketHashName ?: 'unknown item'}) " +
+                "is no longer in seller ${e.sellerUserId}'s Steam inventory and the bot does not have it. " +
+                "Possible Steam API key scam.").toString()
+        log.warn("SteamEscrow: DEPOSIT_DECLINED_ITEM_GONE escrow=${e.id} listing=${e.listingId} " +
+                "seller=${e.sellerUserId} asset=${asset}")
+        try {
+            auditService?.log(AuditService.DEPOSIT_DECLINED_ITEM_GONE, null, e.sellerUserId, e.id, summary)
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: DEPOSIT_DECLINED_ITEM_GONE audit failed for escrow=${e.id}: ${ex.message}")
+        }
+        return EscrowedItem.DECLINE_GONE
+    }
+
+    private String unknownDecline(EscrowedItem e, String why) {
+        log.info("SteamEscrow: declined deposit escrow=${e.id} seller=${e.sellerUserId} re-check unknown: ${why}")
+        return EscrowedItem.DECLINE_UNKNOWN
+    }
+
+    private String resolveSellerSteamId(Long sellerUserId) {
+        if (sellerUserId == null || steamUserRepository == null) return null
+        try {
+            return steamUserRepository.findById(sellerUserId).orElse(null)?.steamId64
+        } catch (Exception ex) {
+            log.debug("SteamEscrow: seller steamId lookup failed for ${sellerUserId}: ${ex.message}")
+            return null
         }
     }
 
@@ -1346,6 +1472,7 @@ class SteamEscrowService {
                         continue
                     }
                     fresh.depositOfferId = res.offerId
+                    fresh.depositOfferSentAt = System.currentTimeMillis()
                     fresh.lastError = null
                     touch(fresh)
                     log.info("SteamEscrow: deposit re-requested for listing ${fresh.listingId} (offer ${res.offerId})")
@@ -1661,6 +1788,12 @@ class SteamEscrowService {
         if (sellerUserId == null || steamUserRepository == null) return null
         try {
             def seller = steamUserRepository.findById(sellerUserId).orElse(null)
+            // Re-checked here (ProfileController checks on save): a URL of
+            // another account is treated as no URL, so no request is sent.
+            if (seller?.tradeUrl && !com.sboxmarket.util.TradeUrlOwnership.ownedBy(seller.tradeUrl, seller.steamId64)) {
+                log.error("SteamEscrow: seller ${sellerUserId}'s saved trade URL is another Steam account's; not using it")
+                return null
+            }
             return seller?.tradeUrl
         } catch (Exception e) {
             log.debug("SteamEscrow: seller trade-url lookup failed for ${sellerUserId}: ${e.message}")

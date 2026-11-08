@@ -74,7 +74,7 @@ class SteamEscrowRecoverySpec extends Specification {
 
     private void sellerHasUrl(String url = URL) {
         steamUserRepository.findById(1L) >> Optional.of(
-                new SteamUser(id: 1L, steamId64: '76561190000000001', tradeUrl: url))
+                new SteamUser(id: 1L, steamId64: '76561197960265729', tradeUrl: url))
     }
 
     // ── the intent stamp ───────────────────────────────────────────────────
@@ -250,7 +250,7 @@ class SteamEscrowRecoverySpec extends Specification {
         def row = custody(custodyState: EscrowedItem.PENDING_DEPOSIT, depositOfferId: null)
         escrowRepository.findUnsentDeposits(_, _) >> [row]
         steamUserRepository.findById(1L) >> Optional.of(
-                new SteamUser(id: 1L, steamId64: '76561190000000001', tradeUrl: null))
+                new SteamUser(id: 1L, steamId64: '76561197960265729', tradeUrl: null))
 
         when:
         service.sweepUnsentDeposits()

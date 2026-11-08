@@ -158,6 +158,58 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
                                    @Param('reason') String reason,
                                    @Param('now') Long now)
 
+    /** Declined deposits whose one-time seller-inventory re-check is due:
+     *  declined at or before {@code cutoff} and never checked. Oldest first. */
+    @Query("""
+        SELECT e FROM EscrowedItem e
+        WHERE e.depositDeclinedAt IS NOT NULL
+          AND e.depositDeclinedAt <= :cutoff
+          AND e.declineCheck IS NULL
+        ORDER BY e.depositDeclinedAt ASC
+    """)
+    List<EscrowedItem> findDeclineRechecksDue(@Param('cutoff') Long cutoff, Pageable page)
+
+    /** Claim one declined-deposit re-check. 1 when this pod owns it, 0 when a
+     *  sibling pod (or an earlier tick) already did — this is what makes the
+     *  check run once per row. */
+    @org.springframework.transaction.annotation.Transactional
+    @Modifying
+    @Query("""
+        UPDATE EscrowedItem e
+           SET e.declineCheck = 'CHECKING'
+         WHERE e.id           = :id
+           AND e.declineCheck IS NULL
+    """)
+    int claimDeclineRecheck(@Param('id') Long id)
+
+    /** Record the outcome of a claimed declined-deposit re-check. */
+    @org.springframework.transaction.annotation.Transactional
+    @Modifying
+    @Query("""
+        UPDATE EscrowedItem e
+           SET e.declineCheck = :result
+         WHERE e.id           = :id
+           AND e.declineCheck = 'CHECKING'
+    """)
+    int recordDeclineRecheck(@Param('id') Long id, @Param('result') String result)
+
+    /** Per seller: deposits declined since {@code since} within {@code maxGapMs}
+     *  of the offer being sent, for sellers with at least {@code minCount}.
+     *  Rows are [sellerUserId, count, latest declinedAt]. */
+    @Query("""
+        SELECT e.sellerUserId, COUNT(e), MAX(e.depositDeclinedAt) FROM EscrowedItem e
+        WHERE e.sellerUserId IS NOT NULL
+          AND e.depositDeclinedAt IS NOT NULL
+          AND e.depositDeclinedAt >= :since
+          AND e.depositOfferSentAt IS NOT NULL
+          AND e.depositDeclinedAt - e.depositOfferSentAt <= :maxGapMs
+        GROUP BY e.sellerUserId
+        HAVING COUNT(e) >= :minCount
+    """)
+    List<Object[]> countFastDeclinesBySeller(@Param('since') Long since,
+                                             @Param('maxGapMs') Long maxGapMs,
+                                             @Param('minCount') Long minCount)
+
     /**
      * Items the bot still holds that SOMEBODY ASKED FOR BACK and did not get —
      * the retry queue for a failed return.

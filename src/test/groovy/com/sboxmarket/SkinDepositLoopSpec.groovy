@@ -62,6 +62,7 @@ class SkinDepositLoopSpec extends Specification {
          'steam.delivery.initial-delay-ms'].each { k -> r.add(k) { '3600000' } }
         r.add('steam.escrow.return-retry-backoff-ms') { '0' }
         r.add('steam.escrow.protection-initial-delay-ms') { '3600000' }
+        r.add('steam.escrow.decline-recheck-initial-delay-ms') { '3600000' }
         // The Trade Protection window is off for the loop tests and turned on
         // by the one test that exercises it.
         r.add('steam.escrow.trade-protection-hours') { '0' }

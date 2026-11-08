@@ -2891,7 +2891,9 @@ export function NotificationsModal({ onClose, me }) {
                 style: { flex: 1, minWidth: 0 },
                 role: 'button',
                 tabIndex: 0,
-                'aria-label': `${n.read ? '' : 'Unread. '}Open notification: ${n.title || n.kind || ''} — ${timeAgo(n.createdAt)}`,
+                // The body says which item or buyer: two "New 5★ review" rows
+                // otherwise read the same, as the bell rows used to.
+                'aria-label': `${n.read ? '' : 'Unread. '}Open notification: ${n.title || n.kind || ''}${n.body ? '. ' + n.body : ''} — ${timeAgo(n.createdAt)}`,
                 onKeyDown: (e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();

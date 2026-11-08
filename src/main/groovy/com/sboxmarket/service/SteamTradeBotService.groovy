@@ -120,13 +120,19 @@ class SteamTradeBotService {
         return request('GET', '/offers/' + enc(offerId), null)
     }
 
-    /** Accept an incoming offer by id (and confirm it on the sidecar). */
-    SteamBotResult acceptIncoming(String offerId) {
+    /** Accept an incoming offer by id (and confirm it on the sidecar). The
+     *  sidecar accepts it only when it comes from {@code expectedPartner}
+     *  (SteamID64) and brings exactly {@code assetIds}. */
+    SteamBotResult acceptIncoming(String offerId, String expectedPartner, List<String> assetIds) {
         if (!enabled) return SteamBotResult.disabled()
         if (offerId == null || offerId.trim().isEmpty()) {
             return SteamBotResult.error('BAD_REQUEST', 'offerId is required')
         }
-        return request('POST', '/offers/incoming/' + enc(offerId) + '/accept', null)
+        if (!expectedPartner || assetIds == null || assetIds.isEmpty()) {
+            return SteamBotResult.error('BAD_REQUEST', 'expectedPartner and assetIds are required')
+        }
+        Map body = [expectedPartner: expectedPartner, assetIds: assetIds.collect { String.valueOf(it) }]
+        return request('POST', '/offers/incoming/' + enc(offerId) + '/accept', body)
     }
 
     /**

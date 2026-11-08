@@ -352,7 +352,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   const auctionOnly    = !cheapestBuyNow && !!(listings[0] && listings[0].listingType === 'AUCTION');
   // What a buyer pays today. item.lowestPrice also counts an auction's
   // current bid, so it can sit far below anything buyable.
-  const floorPrice = cheapestBuyNow ? parseFloat(cheapestBuyNow.price) : parseFloat(item?.lowestPrice);
+  // With no live listing at all (the last copy just sold or was
+  // cancelled) lowestPrice still holds that copy's price until the floor
+  // sweep runs, so it counts as no price, as the Listing price box does.
+  const floorPrice = cheapestBuyNow ? parseFloat(cheapestBuyNow.price)
+    : (listings.length > 0 ? parseFloat(item?.lowestPrice) : 0);
   const [offerOpen, setOfferOpen] = useState(false);
   useReturnFocus(offerOpen);
   // The listing the offer drawer bargains on. null = the cheapest buy-now
@@ -1546,13 +1550,13 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                        as a stale/cancelled price and was confusing. */
                     h('div', {
                       className: 'modal-stat-val',
-                      style: discountPct(item.lowestPrice, item.steamPrice) > 0
+                      style: discountPct(floorPrice, item.steamPrice) > 0
                         ? { textDecoration: 'line-through', color: 'var(--text-muted)' }
                         : { color: 'var(--text-muted)' }
                     }, fmt(item.steamPrice)),
-                    discountPct(item.lowestPrice, item.steamPrice) > 0
+                    discountPct(floorPrice, item.steamPrice) > 0
                       ? h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--green)', marginTop: 2 } },
-                          `Save ${discountPct(item.lowestPrice, item.steamPrice)}%`
+                          `Save ${discountPct(floorPrice, item.steamPrice)}%`
                         )
                       : null,
                     h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, letterSpacing: 0.3 } }, '↗ View on Steam')
@@ -7366,9 +7370,18 @@ function ProfileBuyOrdersTab() {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       if (!aliveRef.current) return;
-      setOrders(Array.isArray(data) ? data : []);
+      const rows = Array.isArray(data) ? data : [];
+      // The Active view is the default, but once every order has filled
+      // (the "Buy order filled" bell links here) it showed only "No active
+      // buy orders." with the filled one behind a chip. Open on All then.
+      if (!openedRef.current) {
+        openedRef.current = true;
+        if (rows.length > 0 && !rows.some(o => o.status === 'ACTIVE')) setFilter('ALL');
+      }
+      setOrders(rows);
     } catch (_) { if (aliveRef.current) setErr(true); }
   }, []);
+  const openedRef = useRef(false);
   useEffect(() => {
     aliveRef.current = true;
     load();
@@ -7568,7 +7581,9 @@ function ProfileBuyOrdersTab() {
               // Negative (order ≥ floor) is green ("should match"),
               // small positive is amber, large positive is muted.
               // Null (no itemId, e.g. category-only orders) hides.
-              o.currentFloor != null && o.floorGap != null && (() => {
+              // Only an open order can still match; a filled, cancelled or
+              // expired row read "Floor $X · above floor" in green.
+              (o.status === 'ACTIVE' || o.status === 'PAUSED') && o.currentFloor != null && o.floorGap != null && (() => {
                 const gap = parseFloat(o.floorGap);
                 const floor = parseFloat(o.currentFloor);
                 const pct = floor > 0 ? Math.round((gap / floor) * 100) : 0;
@@ -10539,7 +10554,9 @@ function ProfileOffersTab() {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 },
-                  disabled: busy, onClick: () => doCancel(o.id), title: 'Walk away from the counter'
+                  disabled: busy, onClick: () => doCancel(o.id), title: 'Walk away from the counter',
+                  // Every row's buttons otherwise read the same to a screen reader.
+                  'aria-label': `Decline counter on ${o.itemName || ('listing #' + o.listingId)}`
                 }, 'Decline')
               )
             : h('div', { style: { display: 'flex', gap: 4, marginTop: 6 } },
@@ -10558,7 +10575,8 @@ function ProfileOffersTab() {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
-                  disabled: busy, onClick: () => doCancel(o.id)
+                  disabled: busy, onClick: () => doCancel(o.id),
+                  'aria-label': `Cancel offer on ${o.itemName || ('listing #' + o.listingId)}`
                 }, 'Cancel')
               )
         )
@@ -13917,7 +13935,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       );
     })(),
 
-    source === 'internal' && internalErr && h('div', { className: 'empty-inline' },
+    // Announced like the Steam-inventory read error on the tab beside it.
+    source === 'internal' && internalErr && h('div', { className: 'empty-inline', role: 'alert' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
         "Couldn't load your platform inventory"),
@@ -16635,7 +16654,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                         className: 'btn btn-ghost',
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 11px', fontSize: 11 },
                         onClick: () => handleCancel(offer.id), disabled: busy,
-                        title: 'Walk away from the seller counter'
+                        title: 'Walk away from the seller counter',
+                        // Every row's buttons otherwise read the same to a screen reader.
+                        'aria-label': `Decline counter on ${offer.itemName || ('listing #' + offer.listingId)}`
                       }, 'Decline')
                     )
                   : h('div', { style: { display: 'flex', gap: 6 } },
@@ -16653,7 +16674,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                       h('button', {
                         className: 'btn btn-ghost',
                         style: { border: '1px solid var(--border)', padding: '7px 14px', fontSize: 12 },
-                        onClick: () => handleCancel(offer.id), disabled: busy
+                        onClick: () => handleCancel(offer.id), disabled: busy,
+                        'aria-label': `Cancel offer on ${offer.itemName || ('listing #' + offer.listingId)}`
                       }, 'Cancel')
                     )))
         : h('div', { className: `wallet-tx-status ${offer.status}`, style: { padding: '4px 10px', borderRadius: 5, fontSize: 10 } },

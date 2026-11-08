@@ -214,6 +214,30 @@ class EscrowedItem {
     @Column(name = "missing_since")
     Long missingSince
 
+    /** Results of the one-time inventory re-check after a declined deposit
+     *  (see SteamEscrowService.sweepDeclinedDepositRechecks). */
+    static final String DECLINE_CHECKING = 'CHECKING'
+    static final String DECLINE_GONE     = 'GONE'
+    static final String DECLINE_PRESENT  = 'PRESENT'
+    static final String DECLINE_BOT_HELD = 'BOT_HELD'
+    static final String DECLINE_UNKNOWN  = 'UNKNOWN'
+
+    /** When the bot's deposit offer was sent to the seller, epoch millis. */
+    @Column(name = "deposit_offer_sent_at")
+    Long depositOfferSentAt
+
+    /** When the confirm poller saw the deposit offer come back `declined`,
+     *  epoch millis. NULL for every other outcome. A decline that lands
+     *  within minutes of the offer can be a script on a stolen Steam Web API
+     *  key rather than the seller. */
+    @Column(name = "deposit_declined_at")
+    Long depositDeclinedAt
+
+    /** Outcome of the single seller-inventory re-check after a decline: NULL
+     *  while pending, then one of the DECLINE_* values. Never re-run once set. */
+    @Column(name = "decline_check", length = 16)
+    String declineCheck
+
     /** PENDING_DEPOSIT, IN_ESCROW_HOLD, IN_TRADE_PROTECTION, IN_CUSTODY,
      *  DELIVERED, RETURNED, FAILED, REVERSED. */
     @Column(name = "custody_state", length = 24, nullable = false)
