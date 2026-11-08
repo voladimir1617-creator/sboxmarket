@@ -138,6 +138,23 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     List<Trade> findBotDeliveryCandidates(@Param("state") String state,
                                           org.springframework.data.domain.Pageable pageable)
 
+    /** DISPUTED trades whose latest bot delivery offer may still be accepted
+     *  (not yet seen accepted, declined, expired or cancelled). The buyer can
+     *  still take a live offer after opening a dispute; the delivery poller
+     *  keeps watching these so staff see the accept before they decide. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.state = 'DISPUTED'
+          AND EXISTS (SELECT a.id FROM SteamDeliveryAttempt a
+                      WHERE a.tradeId = t.id AND a.steamOfferId IS NOT NULL
+                        AND a.createdAt = (SELECT MAX(a2.createdAt) FROM SteamDeliveryAttempt a2
+                                           WHERE a2.tradeId = t.id AND a2.steamOfferId IS NOT NULL)
+                        AND (a.offerState IS NULL OR a.offerState NOT IN :settled))
+        ORDER BY t.updatedAt ASC
+    """)
+    List<Trade> findDisputedWithOpenBotOffer(@Param("settled") Collection<String> settled,
+                                             org.springframework.data.domain.Pageable pageable)
+
     Trade findByListingId(Long listingId)
 
     /** Every trade ever opened on this listing row, any state. */

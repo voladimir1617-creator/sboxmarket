@@ -11,7 +11,10 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Automated Steam trade-offer delivery orchestrator (bot-escrow model).
@@ -61,6 +64,19 @@ class SteamDeliveryService {
     static final String STATE_AWAITING_SEND = 'PENDING_SELLER_SEND'
     /** Trade state after the bot marks sent — we poll until the buyer accepts. */
     static final String STATE_AWAITING_CONFIRM = 'PENDING_BUYER_CONFIRM'
+    /** A buyer can still accept a live bot offer after opening a dispute. */
+    static final String STATE_DISPUTED = 'DISPUTED'
+
+    /** offerState of the row written just before the bot is asked to send.
+     *  While it is the trade's latest row, a send may be in flight, so the
+     *  refund guard refuses to cancel the trade until the send's own row
+     *  lands (or the claim is older than SEND_CLAIM_TTL_MS, e.g. a crash). */
+    static final String STATE_SENDING = 'SENDING'
+    static final long SEND_CLAIM_TTL_MS = 2L * 60 * 1000
+
+    /** Offer states after which a disputed trade's offer needs no more polls. */
+    static final Set<String> SETTLED_OFFER_STATES =
+            (SteamBotResult.TERMINAL_FAILURE_STATES + TradeService.ACCEPTED_OFFER_STATES).asImmutable()
 
     @Autowired SteamTradeBotService steamTradeBotService
     @Autowired TradeService tradeService
@@ -73,6 +89,8 @@ class SteamDeliveryService {
      *  this service field-by-field stay green without a stub; when absent (and
      *  no test override), delivery records NO_ASSET_ID exactly as before. */
     @Autowired(required = false) SteamEscrowService steamEscrowService
+    /** Commits the pre-send claim row on its own, even under a caller's tx. */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
 
     /** Master switch for the scheduled poller (independent of the bot's own
      *  enabled flag). Lets ops freeze auto-delivery without unsetting the bot. */
@@ -133,7 +151,7 @@ class SteamDeliveryService {
             // Bot not configured (dev/test) — nothing to do.
             return
         }
-        List<Trade> sendQ, confirmQ
+        List<Trade> sendQ, confirmQ, disputedQ = []
         try {
             def page = PageRequest.of(0, Math.max(1, batchSize))
             // The bot delivers from the SELLER_SEND state onward; we also poll
@@ -149,6 +167,7 @@ class SteamDeliveryService {
                 sendQ = tradeRepository.findBotDeliveryCandidates(STATE_AWAITING_SEND, page) ?: []
                 confirmQ = tradeRepository.findBotDeliveryCandidates(STATE_AWAITING_CONFIRM, page) ?: []
             }
+            disputedQ = tradeRepository.findDisputedWithOpenBotOffer(SETTLED_OFFER_STATES, page) ?: []
         } catch (Exception e) {
             log.warn("SteamDelivery: failed to load candidate trades: ${e.message}")
             return
@@ -164,6 +183,11 @@ class SteamDeliveryService {
             // entirely to the existing buyerConfirm + auto-release sweeper.
             try { processTrade(t.id) } catch (Exception e) {
                 log.warn("SteamDelivery: error processing confirm-trade ${t?.id}: ${e.message}")
+            }
+        }
+        for (Trade t : disputedQ) {
+            try { processTrade(t.id) } catch (Exception e) {
+                log.warn("SteamDelivery: error processing disputed trade ${t?.id}: ${e.message}")
             }
         }
     }
@@ -210,9 +234,41 @@ class SteamDeliveryService {
                 pollOfferForTrade(trade, existingOffer)
             }
             // else: not a bot-driven trade — leave to manual confirm / sweeper.
+        } else if (trade.state == STATE_DISPUTED) {
+            if (existingOffer != null && !SETTLED_OFFER_STATES.contains(existingOffer.offerState?.toLowerCase())) {
+                pollDisputedOffer(trade, existingOffer)
+            }
         }
-        // Any other state (VERIFIED / CANCELLED / DISPUTED / SELLER_ACCEPT):
+        // Any other state (VERIFIED / CANCELLED / SELLER_ACCEPT):
         // out of scope for the bot — ignore.
+    }
+
+    /**
+     * A disputed trade whose bot offer was still open: the buyer can accept it
+     * after opening the dispute. Record what Steam says, and on an accept move
+     * custody to DELIVERED so staff (and the refund guard, without a network
+     * call) see the buyer has the item. Money stays with the dispute: nothing
+     * is released or refunded here.
+     */
+    private void pollDisputedOffer(Trade trade, SteamDeliveryAttempt offer) {
+        SteamBotResult res = steamTradeBotService.getOfferStatus(offer.steamOfferId)
+        if (!res.ok) {
+            log.warn("SteamDelivery: poll failed for disputed trade ${trade.id} offer ${offer.steamOfferId}: ${res.errorCode} ${res.message}")
+            return
+        }
+        String status = res.status
+        if (status == offer.offerState) return
+        if (res.accepted) {
+            recordAttempt(trade.id, offer.steamOfferId, status, 'POLL', true,
+                    'buyer accepted the bot offer while the trade was disputed')
+            try { steamEscrowService?.markDelivered(trade.listingId) } catch (Exception ignore) {}
+            log.warn("SteamDelivery: buyer accepted offer ${offer.steamOfferId} on DISPUTED trade ${trade.id}; " +
+                    "the buyer has the item — staff must not refund it")
+            safeNotifySeller(trade,
+                "The buyer accepted the Steam trade offer for trade #${trade.id} after opening a dispute. Staff will take this into account.")
+        } else {
+            recordAttempt(trade.id, offer.steamOfferId, status, 'POLL', true, 'trade is disputed')
+        }
     }
 
     /** Most-recent attempt row of any kind, or null. */
@@ -250,6 +306,10 @@ class SteamDeliveryService {
             return
         }
 
+        // Claim the send before the slow call, committed on its own: a cancel
+        // that runs meanwhile sees a send in flight and is refused for a
+        // moment, instead of refunding while the offer is still on its way.
+        claimSend(trade.id)
         SteamBotResult res = steamTradeBotService.sendOffer(tradeUrl, [assetId], messageFor(trade))
         if (res.ok) {
             recordAttempt(trade.id, res.offerId, res.status ?: 'sent', 'SEND', true, null)
@@ -462,6 +522,19 @@ class SteamDeliveryService {
     // -----------------------------------------------------------------------
     // Audit + notifications (best-effort)
     // -----------------------------------------------------------------------
+
+    /** The SENDING row; see STATE_SENDING. Best-effort like recordAttempt. */
+    private void claimSend(Long tradeId) {
+        Closure work = { recordAttempt(tradeId, null, STATE_SENDING, 'SEND', false, 'asking the bot to send the offer') }
+        if (transactionManager == null) { work.call(); return }
+        try {
+            def tt = new TransactionTemplate(transactionManager)
+            tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+            tt.executeWithoutResult { work.call() }
+        } catch (Exception e) {
+            log.debug("SteamDelivery: could not commit send claim for trade ${tradeId}: ${e.message}")
+        }
+    }
 
     /** Append an audit/offer-tracking row. Never blocks delivery. */
     private void recordAttempt(Long tradeId, String offerId, String state, String phase,
