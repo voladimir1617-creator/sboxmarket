@@ -129,6 +129,21 @@ class SellerFollowServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    def "follow refused by a seller's block does not call the active seller banned"() {
+        given:
+        steamUserRepository.findById(99L) >> Optional.of(seller())
+        userBlockService.isBlocked(99L, 42L) >> true
+
+        when:
+        service.follow(42L, 99L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'FOLLOW_UNAVAILABLE'
+        !e.message.toLowerCase().contains('banned')
+        0 * repo.save(_)
+    }
+
     def "follow refuses an unknown seller"() {
         given:
         steamUserRepository.findById(99L) >> Optional.empty()
@@ -441,6 +456,32 @@ class SellerFollowServiceSpec extends Specification {
         // User 12 blocked the seller; user 11 has not.
         userBlockService.isBlocked(11L, 99L) >> false
         userBlockService.isBlocked(12L, 99L) >> true
+
+        when:
+        service.notifyFollowersOfNewListing(listing)
+
+        then:
+        1 * notificationService.push(11L, 'NEW_LISTING_FROM_SELLER', _, _, _, _)
+        0 * notificationService.push(12L, _, _, _, _, _)
+    }
+
+    def "notifyFollowersOfNewListing skips followers the seller has blocked"() {
+        given:
+        def listing = new Listing(
+            id: 123L, sellerUserId: 99L, sellerName: 'Bob',
+            price: new BigDecimal('15.00'),
+            item: new Item(id: 7L, name: 'Wizard Hat', category: 'Hats')
+        )
+        repo.findBySellerUserId(99L) >> [
+            new SellerFollow(id: 1L, followerUserId: 11L, sellerUserId: 99L, notificationsMuted: false),
+            new SellerFollow(id: 2L, followerUserId: 12L, sellerUserId: 99L, notificationsMuted: false)
+        ]
+        steamUserRepository.findAllById([11L, 12L]) >> [
+            new SteamUser(id: 11L, steamId64: '1', banned: false),
+            new SteamUser(id: 12L, steamId64: '2', banned: false)
+        ]
+        // The seller blocked user 12 after 12 had followed them.
+        userBlockService.isBlocked(99L, 12L) >> true
 
         when:
         service.notifyFollowersOfNewListing(listing)

@@ -2185,7 +2185,10 @@ class TradeServiceSpec extends Specification {
         // the winning pod) rather than an in-memory save — so winning the
         // claim is what gates the REVIEW_REMINDER push.
         1 * tradeRepository.claimReviewNudge(7L, _) >> 1
-        1 * notificationService.push(10L, 'REVIEW_REMINDER', _, _, 7L,
+        // The title names the item as the item, not as the person traded with.
+        1 * notificationService.push(10L, 'REVIEW_REMINDER',
+            { it.toString() == 'How did the trade go? · Wizard Hat' },
+            _, 7L,
             { it.toString() == '/stall/20?leaveReview=7' })
     }
 

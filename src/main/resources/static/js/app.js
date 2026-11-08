@@ -2298,7 +2298,8 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
     onClick: toggle,
     title: blocked
       ? 'You have blocked this seller. Click to unblock.'
-      : 'Hide this seller and refuse their offers/messages.'
+      // Trade chat stays open (a trade in flight still has to finish); only offers are refused.
+      : 'Hide this seller and refuse their offers.'
   },
     blocked ? 'Blocked' : 'Block'
   );
@@ -9070,7 +9071,7 @@ export function App() {
                                 : avg >= 3.0 ? 'Mixed'
                                 :              'Poor';
                   return h('div', { className: 'stall-rating', title: `Average rating across ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}` },
-                    h('span', { className: 'stall-rating-stars' }, '★'.repeat(Math.round(avg))),
+                    h('span', { className: 'stall-rating-stars', 'aria-hidden': 'true' }, '★'.repeat(Math.round(avg)) + '☆'.repeat(5 - Math.round(avg))),
                     h('span', { className: 'stall-rating-avg' }, avg.toFixed(1)),
                     h('span', { className: 'stall-rating-count', style: { fontWeight: 600, color: 'var(--text-secondary)', marginLeft: 6 } }, verdict),
                     h('span', { className: 'stall-rating-count' },
@@ -9429,7 +9430,12 @@ export function App() {
             eligibleTrades.length > 0 && h('div', { className: 'stall-review-cta' },
               h('div', { className: 'stall-review-cta-head' },
                 h('span', { className: 'section-title-dot' }),
-                reviewTradeId ? 'Leave a review' : 'Leave a review'
+                // Name the trade: with several trades from one seller, the open form
+                // (often reached from a bell link) did not say which item it rates.
+                (() => {
+                  const t = reviewTradeId && eligibleTrades.find(x => String(x.tradeId) === String(reviewTradeId));
+                  return t && t.itemName ? `Leave a review · ${t.itemName}` : 'Leave a review';
+                })()
               ),
               !reviewTradeId && h('div', { className: 'stall-review-cta-rows' },
                 // Unreviewed trades first so a seventh-newest trade still waiting
@@ -9628,9 +9634,10 @@ export function App() {
                     h('span', null,
                       stallData.seller.verified
                         ? h('strong', null, VERIFIED_SELLER_RULE)
-                        : (stallData.seller.soldCount > 0
-                            ? `${stallData.seller.soldCount} completed sale${stallData.seller.soldCount === 1 ? '' : 's'} so far — building toward Verified`
-                            : 'New seller — no completed sales yet'))
+                        // soldCount counts sales still waiting on delivery; "completed" is the trade record.
+                        : ((n => n > 0
+                            ? `${n} completed sale${n === 1 ? '' : 's'} so far — building toward Verified`
+                            : 'New seller — no completed sales yet')(stallData.seller.completedTrades ?? stallData.seller.soldCount)))
                   ),
                   stallData.seller.profileUrl && h('li', null,
                     h('span', { className: 'stall-trust-icon' }, '↗'),
