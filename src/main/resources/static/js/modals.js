@@ -13911,7 +13911,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'Platform inventory empty'),
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 18px' } },
-        'Items you buy on sboxmarket appear here. You can relist any of them at a new price.')
+        `Items you buy on ${BRAND.name} appear here. You can relist any of them at a new price.`)
     ),
     // Batch 1006 — overflow banner when the server caps the payload at
     // 500 rows. Harmless for typical users (internalTotal == internalList.length);

@@ -2925,7 +2925,7 @@ function AdminUsersTab({ me }) {
     { id: 'chargeback', label: 'Chargeback abuse',       reason: 'Deposit reversed via credit card chargeback after receiving items.' },
     { id: 'scam',       label: 'Scam / misrepresented item', reason: 'Multiple buyers reported receiving items that did not match the listing description.' },
     { id: 'abuse',      label: 'Harassment / abuse',     reason: 'Abusive language toward other users or staff in support tickets.' },
-    { id: 'tos',        label: 'ToS violation',          reason: 'Violation of sboxmarket Terms of Service.' }
+    { id: 'tos',        label: 'ToS violation',          reason: `Violation of ${BRAND.name} Terms of Service.` }
   ];
   const doBan = async (u) => setBanTarget(u);
   const submitBan = async (reason) => {
@@ -3756,7 +3756,7 @@ function AdminTicketsTab() {
       // Batch 917 — confirm toast on admin-side reply. Matches the
       // CSR-side toast so both staff flows feel consistent. Previously
       // the flow succeeded silently.
-      toast(`Reply posted to ticket #${t.id}. User will see it + get an email.`, 'ok');
+      toast(`Reply posted to ticket #${t.id}. The user gets a bell, and an email if their address is confirmed.`, 'ok');
     } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
@@ -3810,7 +3810,7 @@ function AdminTicketsTab() {
           { id: 'greet',     label: '👋 Greet',     body: 'Hi — thanks for reaching out. I\'m looking into this now and will follow up within 24 hours.' },
           { id: 'deposit',   label: '💳 Deposit',   body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
           { id: 'trade',     label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page. Let me know if you need me to nudge them.' },
-          { id: 'refund',    label: '↩ Refund',    body: 'I can issue a refund to your sboxmarket wallet balance for this trade. Confirm you\'d like that and I\'ll process it — Stripe-side chargebacks would go through your card issuer instead.' },
+          { id: 'refund',    label: '↩ Refund',    body: `I can issue a refund to your ${BRAND.name} wallet balance for this trade. Confirm you'd like that and I'll process it — Stripe-side chargebacks would go through your card issuer instead.` },
           { id: 'resolved',  label: '✓ Resolved',  body: 'Glad that\'s sorted. If nothing else comes up this ticket closes on its own. Reply here any time if you need more help.' }
         ].map(tpl => h('button', {
           key: tpl.id,
@@ -4434,7 +4434,7 @@ function CsrTicketsTab() {
       // silent on success, so a CSR had to eyeball the thread to know
       // their reply actually posted. Mirror the user-side support
       // flow's toast (batch 898).
-      toast(`Reply posted to ticket #${t.id}. User will see it + get an email.`, 'ok');
+      toast(`Reply posted to ticket #${t.id}. The user gets a bell, and an email if their address is confirmed.`, 'ok');
     } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
@@ -4483,7 +4483,7 @@ function CsrTicketsTab() {
           { id: 'greet',    label: '👋 Greet',    body: 'Hi — thanks for reaching out. I\'m looking into this now and will follow up within 24 hours.' },
           { id: 'deposit',  label: '💳 Deposit',  body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
           { id: 'trade',    label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page.' },
-          { id: 'refund',   label: '↩ Refund',    body: 'I can issue a refund to your sboxmarket wallet balance for this trade. Confirm you\'d like that and I\'ll process it.' },
+          { id: 'refund',   label: '↩ Refund',    body: `I can issue a refund to your ${BRAND.name} wallet balance for this trade. Confirm you'd like that and I'll process it.` },
           { id: 'resolved', label: '✓ Resolved',  body: 'Glad that\'s sorted. If nothing else comes up this ticket closes on its own. Reply here any time if you need more help.' }
         ].map(tpl => h('button', {
           key: tpl.id,
