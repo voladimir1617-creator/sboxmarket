@@ -111,7 +111,7 @@ class DisputedOfferPollAndSendClaimSpec extends Specification {
         tradeRepository.findById(7L) >> Optional.of(trade('PENDING_SELLER_SEND'))
         attemptRepository.findLatestWithOffer(7L, _) >> []
         attemptRepository.findByTrade(7L, _) >> []
-        steamUserRepository.findById(2L) >> Optional.of(new SteamUser(id: 2L, steamId64: '76561190000000002',
+        steamUserRepository.findById(2L) >> Optional.of(new SteamUser(id: 2L, steamId64: '76561197960265730',
                 tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=2&token=abc'))
 
         when:
@@ -144,5 +144,22 @@ class DisputedOfferPollAndSendClaimSpec extends Specification {
         ageMs                                          | expected
         1_000L                                         | BotDeliveryOfferGuard.Outcome.FAILED
         SteamDeliveryService.SEND_CLAIM_TTL_MS + 1_000 | BotDeliveryOfferGuard.Outcome.NO_LIVE_OFFER
+    }
+
+    def "a buyer's saved trade URL of another Steam account is not sent to, and the send halts"() {
+        given:
+        tradeRepository.findById(7L) >> Optional.of(trade('PENDING_SELLER_SEND'))
+        attemptRepository.findLatestWithOffer(7L, _) >> []
+        attemptRepository.findByTrade(7L, _) >> []
+        steamUserRepository.findById(2L) >> Optional.of(new SteamUser(id: 2L, steamId64: '76561197960265730',
+                tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=999&token=abc'))
+
+        when:
+        service.processTrade(7L)
+
+        then:
+        0 * bot.sendOffer(*_)
+        1 * attemptRepository.save({ SteamDeliveryAttempt a -> a.offerState == 'TRADE_URL_NOT_OWNED' && !a.success &&
+                a.errorMessage.startsWith(SteamBotResult.HALT_PREFIX) })
     }
 }

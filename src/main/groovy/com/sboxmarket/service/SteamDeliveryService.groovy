@@ -1,10 +1,12 @@
 package com.sboxmarket.service
 
 import com.sboxmarket.model.SteamDeliveryAttempt
+import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.Trade
 import com.sboxmarket.repository.SteamDeliveryAttemptRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TradeRepository
+import com.sboxmarket.util.TradeUrlOwnership
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -285,7 +287,8 @@ class SteamDeliveryService {
 
     /** (a) Ask the bot to send the offer; persist the offer id/state. */
     private void sendOfferForTrade(Trade trade) {
-        String tradeUrl = resolveBuyerTradeUrl(trade)
+        SteamUser buyer = resolveBuyer(trade)
+        String tradeUrl = buyer?.tradeUrl
         String assetId = resolveAssetId(trade)
         // A send refused for good (no trade URL, no asset, or the sidecar's
         // retryable:false) is not tried again until its input changes, e.g.
@@ -297,6 +300,12 @@ class SteamDeliveryService {
             log.warn("SteamDelivery: trade ${trade.id} buyer ${trade.buyerUserId} has no Steam trade URL; cannot auto-deliver")
             recordAttempt(trade.id, null, 'NO_TRADE_URL', 'SEND', false,
                     SteamBotResult.haltNote(inputKey, 'buyer has no Steam trade URL'))
+            return
+        }
+        if (!TradeUrlOwnership.ownedBy(tradeUrl, buyer?.steamId64)) {
+            log.error("SteamDelivery: trade ${trade.id} buyer ${trade.buyerUserId}'s saved trade URL is another Steam account's; not sending")
+            recordAttempt(trade.id, null, 'TRADE_URL_NOT_OWNED', 'SEND', false,
+                    SteamBotResult.haltNote(inputKey, "buyer's saved trade URL belongs to a different Steam account"))
             return
         }
         if (assetId == null || assetId.trim().isEmpty()) {
@@ -474,10 +483,15 @@ class SteamDeliveryService {
 
     /** The buyer's Steam trade URL (SteamUser.tradeUrl). Null when unknown. */
     private String resolveBuyerTradeUrl(Trade trade) {
+        return resolveBuyer(trade)?.tradeUrl
+    }
+
+    /** The buyer row; the send re-checks its trade URL is the buyer's own
+     *  account (ProfileController checks it on save). */
+    private SteamUser resolveBuyer(Trade trade) {
         if (trade.buyerUserId == null || steamUserRepository == null) return null
         try {
-            def buyer = steamUserRepository.findById(trade.buyerUserId).orElse(null)
-            return buyer?.tradeUrl
+            return steamUserRepository.findById(trade.buyerUserId).orElse(null)
         } catch (Exception e) {
             log.debug("SteamDelivery: buyer trade-url lookup failed for trade ${trade.id}: ${e.message}")
             return null

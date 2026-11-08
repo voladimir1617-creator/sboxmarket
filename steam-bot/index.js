@@ -434,7 +434,7 @@ app.post('/offers/send', (req, res) => core.send(req.body).then(reply(res)));
 // Deposit leg: the bot REQUESTS the assets from the seller and gives nothing.
 app.post('/offers/request', (req, res) => core.request(req.body).then(reply(res)));
 app.get('/offers/:id', (req, res) => core.getOffer(req.params.id).then(reply(res)));
-app.post('/offers/incoming/:id/accept', (req, res) => core.acceptIncoming(req.params.id).then(reply(res)));
+app.post('/offers/incoming/:id/accept', (req, res) => core.acceptIncoming(req.params.id, req.body || {}).then(reply(res)));
 // Cancel an offer the bot sent (deposit timeout, listing cancel, trade refund).
 // 200 cancelled (or already dead), 409 ALREADY_ACCEPTED when the item moved.
 app.post('/offers/:id/cancel', (req, res) => core.cancelOffer(req.params.id).then(reply(res)));

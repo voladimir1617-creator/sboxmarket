@@ -307,9 +307,19 @@ function createBotCore(opts) {
     }
   }
 
-  async function acceptIncoming(id) {
+  // Only an offer the backend expects: from this partner, bringing exactly
+  // these assets. Without both, a leaked BOT_API_TOKEN could have the bot
+  // take in anything anyone sends it, and nothing backend-side calls this yet.
+  async function acceptIncoming(id, body) {
     if (!isReady()) return notReady();
     if (!isValidOfferId(id)) return [400, { ok: false, error: 'BAD_REQUEST', message: 'offer id must be digits' }];
+    const expectedPartner = body && typeof body.expectedPartner === 'string' ? body.expectedPartner : '';
+    const expectedAssets = body && Array.isArray(body.assetIds) ? body.assetIds.map(String) : [];
+    if (!/^7656119\d{10}$/.test(expectedPartner) || expectedAssets.length === 0 ||
+        !expectedAssets.every((a) => /^\d{1,20}$/.test(a))) {
+      return [400, { ok: false, error: 'BAD_REQUEST', retryable: false,
+        message: 'expectedPartner (SteamID64) and assetIds are required' }];
+    }
     let offer;
     try {
       [offer] = await p((cb) => getManager().getOffer(id, cb));
@@ -333,6 +343,13 @@ function createBotCore(opts) {
     }
     if ((offer.itemsToReceive || []).length === 0) {
       return [409, { ok: false, error: 'NOTHING_TO_RECEIVE', message: 'incoming offer has no items for the bot' }];
+    }
+    if (partnerOf(offer) !== expectedPartner) {
+      log.warn('[bot] refused incoming offer #%s: from %s, expected %s', offer.id, partnerOf(offer), expectedPartner);
+      return [409, { ok: false, error: 'PARTNER_MISMATCH', retryable: false, message: 'incoming offer is not from the expected account' }];
+    }
+    if ((offer.itemsToReceive || []).length !== expectedAssets.length || !sameSet(assetsOf(offer, 'receive'), expectedAssets)) {
+      return [409, { ok: false, error: 'ASSETS_MISMATCH', retryable: false, message: 'incoming offer items differ from the expected assets' }];
     }
     try {
       const [status] = await p((cb) => offer.accept(cb));

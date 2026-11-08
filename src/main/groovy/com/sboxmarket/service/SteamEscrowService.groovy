@@ -1661,6 +1661,12 @@ class SteamEscrowService {
         if (sellerUserId == null || steamUserRepository == null) return null
         try {
             def seller = steamUserRepository.findById(sellerUserId).orElse(null)
+            // Re-checked here (ProfileController checks on save): a URL of
+            // another account is treated as no URL, so no request is sent.
+            if (seller?.tradeUrl && !com.sboxmarket.util.TradeUrlOwnership.ownedBy(seller.tradeUrl, seller.steamId64)) {
+                log.error("SteamEscrow: seller ${sellerUserId}'s saved trade URL is another Steam account's; not using it")
+                return null
+            }
             return seller?.tradeUrl
         } catch (Exception e) {
             log.debug("SteamEscrow: seller trade-url lookup failed for ${sellerUserId}: ${e.message}")
