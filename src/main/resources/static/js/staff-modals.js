@@ -853,6 +853,7 @@ function AdminAnnouncementsTab() {
       }
       setMessage(''); setHours('');
       await load();
+      window.dispatchEvent(new Event('sb:announcement-changed'));
       // Pre-fix: silent on success — form cleared, list refreshed, but
       // no confirmation that the banner went live sitewide. Staff with
       // multiple similar entries had to scroll the list to confirm the
@@ -871,7 +872,10 @@ function AdminAnnouncementsTab() {
     if (stopBusyRef.current.has(id)) return;
     stopBusyRef.current.add(id);
     refocusStopRef.current = true;
-    try { await deactivateOnce(id); } finally { stopBusyRef.current.delete(id); }
+    try { await deactivateOnce(id); } finally {
+      stopBusyRef.current.delete(id);
+      window.dispatchEvent(new Event('sb:announcement-changed'));
+    }
   };
   const deactivateOnce = async (id) => {
     const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];

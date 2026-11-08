@@ -719,13 +719,17 @@ function AnnouncementBanner() {
   });
   useEffect(() => {
     let alive = true;
-    const load = async () => {
+    const load = async (fresh) => {
       try {
-        const data = await fetchAnnouncement();
+        const data = await fetchAnnouncement(fresh === true);
         if (alive) setAnn(data || null);
       } catch (_) {}
     };
     load();
+    // Staff posting or stopping a banner in this tab sees the change now,
+    // not on the next 2-minute poll.
+    const onChanged = () => load(true);
+    window.addEventListener('sb:announcement-changed', onChanged);
     // Batch 806 — visibility-aware poll. Announcement banner only
     // matters when the user is looking at the page.
     const id = setInterval(() => { if (!document.hidden) load(); }, 120_000);
@@ -734,6 +738,7 @@ function AnnouncementBanner() {
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('sb:announcement-changed', onChanged);
     };
   }, []);
   if (!ann || ann.id === dismissedId) return null;
