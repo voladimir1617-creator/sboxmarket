@@ -836,7 +836,10 @@ function AdminAnnouncementsTab() {
     try {
       const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
       const body = { message, severity };
-      if (hours) body.expiresAt = Date.now() + (parseFloat(hours) || 0) * 3600_000;
+      // "0" (or junk) is no expiry, not "expire now": that posted a banner
+      // nobody ever saw while the toast said it auto-expires in 0h.
+      const expHours = parseFloat(hours) > 0 ? parseFloat(hours) : 0;
+      if (expHours) body.expiresAt = Date.now() + expHours * 3600_000;
       const r = await fetch('/api/admin/announcements', {
         method: 'POST',
         credentials: 'same-origin',
@@ -856,8 +859,8 @@ function AdminAnnouncementsTab() {
       // post landed. Surface a toast so the action reads as real.
       try {
         window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
-          text: hours
-            ? `Banner posted — auto-expires in ${hours}h.`
+          text: expHours
+            ? `Banner posted — auto-expires in ${expHours}h.`
             : 'Banner posted — live sitewide until manually deactivated.',
           kind: 'ok'
         }}));

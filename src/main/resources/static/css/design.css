@@ -430,7 +430,7 @@ nav.nav { display: flex !important; grid-template-columns: none !important; alig
 .announce-banner-icon { color: var(--ink-3); flex-shrink: 0; }
 .announce-banner.sev-warn .announce-banner-icon { color: #e8b960; }
 .announce-banner.sev-error .announce-banner-icon { color: var(--down); }
-.announce-banner-text { flex: 1; line-height: 1.5; }
+.announce-banner-text { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
 .announce-banner-text a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
 .announce-banner-text a:hover { text-decoration-color: var(--ink-3); }
 .announce-banner-close { width: 28px; height: 28px; border-radius: var(--r-sm); background: transparent; border: 0; cursor: pointer; color: var(--ink-3); display: grid; place-items: center; }
@@ -13664,7 +13664,7 @@ html body nav.nav:has(#user-menu-panel), html body nav.nav:has(#notif-dropdown-p
 }
 /* Phones: the bell dropdown is position:fixed here, so its desktop `top: calc(100% + 6px)` put it below the screen. */
 @media (max-width: 480px) {
-  html body #notif-dropdown-panel.notif-dropdown { top: 64px !important; max-height: min(480px, calc(100dvh - 64px - 66px - env(safe-area-inset-bottom, 0px))) !important; }
+  html body #notif-dropdown-panel.notif-dropdown { top: var(--notif-top, 64px) !important; max-height: min(480px, calc(100dvh - var(--notif-top, 64px) - 66px - env(safe-area-inset-bottom, 0px))) !important; }
 }
 /* 360px phones: a four-figure balance pushed the avatar chip off the right edge. */
 @media (max-width: 420px) {
