@@ -4786,6 +4786,10 @@ export function App() {
   // Deposit button, though the wallet was fine; the cart behind it offers
   // "Sign in to checkout" and keeps every row.
   useEffect(() => { if (!me) setCartConfirmOpen(false); }, [me]);
+  // Cart emptied with the confirm open (checked out or cleared in another
+  // tab): close it. Left open it read "Buying 0 items" over a $0.00 total
+  // with a dead Confirm button.
+  useEffect(() => { if (cart.length === 0) setCartConfirmOpen(false); }, [cart.length]);
   const doCheckout = async () => {
     if (cart.length === 0) return;
     // Synchronous in-flight latch — a rapid double-click on Confirm must not fire
@@ -5152,6 +5156,39 @@ export function App() {
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [me, meLoaded]);
+
+  // Another tab can sign out or sign in as someone else on the same cookie.
+  // This tab kept showing the old account's name over the new account's
+  // wallet (and acting as the new account) until a reload. Re-ask who is
+  // signed in when the tab comes back into view or gains focus.
+  useEffect(() => {
+    if (!meLoaded) return;
+    let busy = false;
+    const recheck = async () => {
+      if (busy || document.visibilityState !== 'visible') return;
+      busy = true;
+      let fresh;
+      try { fresh = await fetchMe({ throwOnFailure: true }); } catch (_) { busy = false; return; }
+      busy = false;
+      const was = me?.id ?? null;
+      const now = fresh?.id ?? null;
+      if (was === now) return;
+      // A different account: everything on screen (trades, wallet, cart
+      // merge) belongs to the old one, so start this tab over.
+      if (was != null && now != null) { window.location.reload(); return; }
+      if (now != null) { loadMe(); return; }
+      setMe(null);
+      setIsAdmin(false);
+      setIsCsrRole(false);
+      try { window.dispatchEvent(new CustomEvent('sb:toast', { detail: { text: 'You were signed out — sign in again to continue.', kind: 'warn' } })); } catch (_) {}
+    };
+    document.addEventListener('visibilitychange', recheck);
+    window.addEventListener('focus', recheck);
+    return () => {
+      document.removeEventListener('visibilitychange', recheck);
+      window.removeEventListener('focus', recheck);
+    };
+  }, [me, meLoaded, loadMe]);
 
   // wallet load
   // Only the newest wallet read may land. A tab-focus refresh that was still
