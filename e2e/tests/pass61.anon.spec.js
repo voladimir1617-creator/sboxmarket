@@ -73,7 +73,7 @@ test.describe('defect pass 61', () => {
     const deletes = await countSlow(page, '**/api/offers/2', 'DELETE');
     await page.goto('/profile/offers');
     await page.getByRole('tab', { name: /Outgoing/ }).click({ timeout: 20_000 });
-    const btn = page.getByRole('button', { name: 'Cancel', exact: true });
+    const btn = page.getByRole('button', { name: 'Cancel offer on Hat 2', exact: true });
     await btn.waitFor();
     await doubleClick(btn);
     await page.waitForTimeout(800);
