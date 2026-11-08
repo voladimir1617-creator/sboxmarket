@@ -960,7 +960,23 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
                     h('span', { style: { fontSize: 13, fontWeight: 600, color: '#fff' } }, fmtMoney(it.price)),
                     h('button', {
                       className: 'remove',
-                      onClick: (e) => { e.stopPropagation(); removeFromCart(it.id); },
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        // The row unmounts with its focused ✕; keep a keyboard
+                        // user in the panel on the row that takes its place.
+                        const wrap = wrapRef.current;
+                        const i = wrap ? [...wrap.querySelectorAll('button.remove')].indexOf(e.currentTarget) : -1;
+                        removeFromCart(it.id);
+                        requestAnimationFrame(() => {
+                          const a = document.activeElement;
+                          if (!wrap || (a && a !== document.body && document.contains(a))) return;
+                          const now = [...wrap.querySelectorAll('button.remove')];
+                          const t = now[Math.min(Math.max(i, 0), now.length - 1)] ||
+                            wrap.querySelector('.csfloat-cart-popover-container button, .csfloat-cart-popover-container a[href]') ||
+                            wrap.querySelector('a.nav-icon-btn');
+                          if (t) { if (t.classList.contains('nav-icon-btn')) refocusRef.current = true; t.focus(); }
+                        });
+                      },
                       title: 'Remove from cart',
                       'aria-label': `Remove ${it.name || 'item'} from cart`,
                       style: {
