@@ -95,6 +95,12 @@ class AuditService {
      *  written in the SAME transaction as the deletion so the ledger cannot
      *  vanish without it. */
     static final String MONEY_RESET         = 'MONEY_RESET'
+    /** A seller's deposit offer was declined and, on the one re-check a few
+     *  minutes later, the asset had left their Steam inventory without
+     *  reaching the bot: the Steam Web API key scam pattern. Written by
+     *  SteamEscrowService with a NULL actor, the seller as subject and the
+     *  custody row id as resource. Raised as a HIGH fraud signal. */
+    static final String DEPOSIT_DECLINED_ITEM_GONE = 'DEPOSIT_DECLINED_ITEM_GONE'
 
     @Autowired AuditLogRepository auditLogRepository
     @Autowired SteamUserRepository steamUserRepository

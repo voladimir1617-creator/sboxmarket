@@ -62,7 +62,7 @@ class SteamDeliveryServiceSpec extends Specification {
     }
 
     private SteamUser buyerWithUrl(String url = 'https://steamcommunity.com/tradeoffer/new/?partner=2&token=abc') {
-        new SteamUser(id: 2L, steamId64: '76561190000000002', tradeUrl: url)
+        new SteamUser(id: 2L, steamId64: '76561197960265730', tradeUrl: url)
     }
 
     private static SteamDeliveryAttempt offerRow(String offerId = '987', String state = 'sent') {

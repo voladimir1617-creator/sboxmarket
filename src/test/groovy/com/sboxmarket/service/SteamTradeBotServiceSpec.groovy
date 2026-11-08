@@ -250,14 +250,35 @@ class SteamTradeBotServiceSpec extends Specification {
         r.errorCode == 'BAD_RESPONSE'
     }
 
-    def "acceptIncoming posts to the accept endpoint"() {
+    def "acceptIncoming posts the expected partner and assets to the accept endpoint"() {
         when:
-        def r = service.acceptIncoming('424242')
+        def r = service.acceptIncoming('424242', '76561197960265739', ['900'])
 
         then:
-        1 * service.doRequest('POST', 'http://localhost:4000/offers/incoming/424242/accept', null) >> raw(200, [ok: true, offerId: '424242', status: 'accepted', confirmed: true])
+        1 * service.doRequest('POST', 'http://localhost:4000/offers/incoming/424242/accept', _) >> { String m, String url, String b ->
+            def sent = new groovy.json.JsonSlurper().parseText(b)
+            assert sent.expectedPartner == '76561197960265739'
+            assert sent.assetIds == ['900']
+            raw(200, [ok: true, offerId: '424242', status: 'accepted', confirmed: true])
+        }
         r.ok
         r.status == 'accepted'
+    }
+
+    def "acceptIncoming refuses without an expected partner or assets, without calling the bot"() {
+        when:
+        def r = service.acceptIncoming('424242', partner, assets)
+
+        then:
+        0 * service.doRequest(*_)
+        !r.ok
+        r.errorCode == 'BAD_REQUEST'
+
+        where:
+        partner             | assets
+        null                | ['900']
+        '76561197960265739' | []
+        '76561197960265739' | null
     }
 
     def "fetchBotInventory returns raw items"() {

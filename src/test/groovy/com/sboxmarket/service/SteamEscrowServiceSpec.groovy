@@ -57,7 +57,7 @@ class SteamEscrowServiceSpec extends Specification {
     }
 
     private SteamUser sellerWithUrl(String url = 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=xyz') {
-        new SteamUser(id: 1L, steamId64: '76561190000000001', tradeUrl: url)
+        new SteamUser(id: 1L, steamId64: '76561197960265729', tradeUrl: url)
     }
 
     // ── disabled-mode ──────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ class SteamEscrowServiceSpec extends Specification {
         0 * bot.sendOffer(_, _, _)
         0 * bot.getOfferStatus(_)
         0 * bot.fetchBotInventory()
-        0 * bot.acceptIncoming(_)
+        0 * bot.acceptIncoming(*_)
         !returned
     }
 

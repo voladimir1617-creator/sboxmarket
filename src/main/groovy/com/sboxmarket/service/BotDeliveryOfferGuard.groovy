@@ -69,6 +69,9 @@ class BotDeliveryOfferGuard {
     Result cancelLiveOffer(Trade t) {
         SteamDeliveryAttempt row
         try {
+            if (sendInFlight(t)) {
+                return new Result(outcome: Outcome.FAILED, detail: 'the bot is sending its trade offer right now')
+            }
             row = latestOfferRow(t)
         } catch (Exception e) {
             log.warn("Trade #{}: delivery log unreadable ({}); cannot tell whether a bot offer is live", t?.id, e.message)
@@ -162,6 +165,17 @@ class BotDeliveryOfferGuard {
             }
         }
         return "the buyer never accepted our bot's Steam trade offer ${row.steamOfferId} (${state ?: 'unknown'})"
+    }
+
+    /** The delivery poller's pre-send claim is the trade's latest row and
+     *  still fresh: an offer may be on its way to Steam with no id saved yet. */
+    private boolean sendInFlight(Trade t) {
+        if (t?.id == null || attemptRepository == null) return false
+        def rows = attemptRepository.findByTrade(t.id, PageRequest.of(0, 1))
+        if (rows == null || rows.isEmpty()) return false
+        def last = rows.get(0)
+        last.offerState == SteamDeliveryService.STATE_SENDING &&
+            System.currentTimeMillis() - (last.createdAt ?: 0L) < SteamDeliveryService.SEND_CLAIM_TTL_MS
     }
 
     private SteamDeliveryAttempt latestOfferRow(Trade t) {

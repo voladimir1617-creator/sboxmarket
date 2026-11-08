@@ -73,7 +73,7 @@ class DefectPassElevenDeliverySpec extends Specification {
         given:
         tradeRepository.findById(7L) >> Optional.of(trade(SteamDeliveryService.STATE_AWAITING_SEND))
         attemptRepository.findLatestWithOffer(7L, _) >> []
-        steamUserRepository.findById(2L) >> Optional.of(new SteamUser(id: 2L, steamId64: '76561190000000002',
+        steamUserRepository.findById(2L) >> Optional.of(new SteamUser(id: 2L, steamId64: '76561197960265730',
             tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=2&token=abc'))
         bot.sendOffer(_, _, _) >> new SteamBotResult(ok: true, offerId: '987', status: 'sent')
 

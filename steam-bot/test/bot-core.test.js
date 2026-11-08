@@ -112,25 +112,50 @@ test('the security code reaches the Steam offer, even behind a long message', as
 test('an incoming offer that asks for the bot\'s items is refused, never accepted', async () => {
   const { steam, core } = setup();
   const swap = steam.incoming({ fromId64: SELLER, give: ['700'], receive: ['900'] });
-  const [st, body] = await core.acceptIncoming(swap.id);
+  const exp = (ids) => ({ expectedPartner: SELLER, assetIds: ids });
+  const [st, body] = await core.acceptIncoming(swap.id, exp(['900']));
   assert.strictEqual(st, 409);
   assert.strictEqual(body.error, 'GIVES_ITEMS');
   assert.deepStrictEqual(steam.calls.accept, []);
 
   const old = steam.incoming({ fromId64: SELLER, receive: ['901'], state: S.Canceled });
-  assert.strictEqual((await core.acceptIncoming(old.id))[1].error, 'OFFER_NOT_ACTIVE');
+  assert.strictEqual((await core.acceptIncoming(old.id, exp(['901'])))[1].error, 'OFFER_NOT_ACTIVE');
   const empty = steam.incoming({ fromId64: SELLER });
-  assert.strictEqual((await core.acceptIncoming(empty.id))[1].error, 'NOTHING_TO_RECEIVE');
+  assert.strictEqual((await core.acceptIncoming(empty.id, exp(['903'])))[1].error, 'NOTHING_TO_RECEIVE');
 
   const gift = steam.incoming({ fromId64: SELLER, receive: ['902'] });
-  const [ok, acc] = await core.acceptIncoming(gift.id);
+  const [ok, acc] = await core.acceptIncoming(gift.id, exp(['902']));
   assert.strictEqual(ok, 200);
   assert.strictEqual(acc.status, 'accepted');
   assert.deepStrictEqual(steam.calls.accept, [gift.id]);
 
   const [s3, own] = await core.send({ partnerTradeUrl: BUYER_URL, assetIds: ['700'] });
   assert.strictEqual(s3, 200);
-  assert.strictEqual((await core.acceptIncoming(own.offerId))[0], 400, 'our own offer is not incoming');
+  assert.strictEqual((await core.acceptIncoming(own.offerId, exp(['700'])))[0], 400, 'our own offer is not incoming');
+});
+
+test('an incoming offer is accepted only from the expected partner with exactly the expected assets', async () => {
+  const { steam, core } = setup();
+  const offer = steam.incoming({ fromId64: SELLER, receive: ['910', '911'] });
+  for (const body of [undefined, {}, { expectedPartner: SELLER }, { assetIds: ['910'] },
+    { expectedPartner: 'x', assetIds: ['910', '911'] }, { expectedPartner: SELLER, assetIds: ['91a'] }]) {
+    const [st, b] = await core.acceptIncoming(offer.id, body);
+    assert.strictEqual(st, 400);
+    assert.strictEqual(b.error, 'BAD_REQUEST');
+  }
+  const [s1, b1] = await core.acceptIncoming(offer.id, { expectedPartner: '76561197960265999', assetIds: ['910', '911'] });
+  assert.strictEqual(s1, 409);
+  assert.strictEqual(b1.error, 'PARTNER_MISMATCH');
+  const [s2, b2] = await core.acceptIncoming(offer.id, { expectedPartner: SELLER, assetIds: ['910'] });
+  assert.strictEqual(s2, 409);
+  assert.strictEqual(b2.error, 'ASSETS_MISMATCH');
+  const [s3, b3] = await core.acceptIncoming(offer.id, { expectedPartner: SELLER, assetIds: ['910', '912'] });
+  assert.strictEqual(b3.error, 'ASSETS_MISMATCH');
+  assert.strictEqual(s3, 409);
+  assert.deepStrictEqual(steam.calls.accept, []);
+  const [s4] = await core.acceptIncoming(offer.id, { expectedPartner: SELLER, assetIds: ['911', '910'] });
+  assert.strictEqual(s4, 200);
+  assert.deepStrictEqual(steam.calls.accept, [offer.id]);
 });
 
 test('a failed confirmation is retried for the bot\'s own offer only', async () => {

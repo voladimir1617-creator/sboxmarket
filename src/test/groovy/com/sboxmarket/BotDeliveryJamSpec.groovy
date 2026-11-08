@@ -52,7 +52,8 @@ class BotDeliveryJamSpec extends Specification {
         ['steam.escrow.initial-delay-ms', 'steam.escrow.timeout-initial-delay-ms',
          'steam.escrow.hold-escalation-initial-delay-ms', 'steam.escrow.return-retry-initial-delay-ms',
          'steam.escrow.deposit-retry-initial-delay-ms', 'steam.escrow.return-confirm-initial-delay-ms',
-         'steam.escrow.protection-initial-delay-ms', 'steam.delivery.initial-delay-ms'].each { k -> r.add(k) { '3600000' } }
+         'steam.escrow.protection-initial-delay-ms', 'steam.escrow.decline-recheck-initial-delay-ms',
+         'steam.delivery.initial-delay-ms'].each { k -> r.add(k) { '3600000' } }
         r.add('steam.escrow.deposit-retry-backoff-ms') { '0' }
     }
 
@@ -136,9 +137,11 @@ class BotDeliveryJamSpec extends Specification {
         when:
         10.times { deliveryService.pollDeliveries() }
 
-        then: "Steam was asked once and one attempt was written"
+        then: "Steam was asked once and one attempt was written (plus its one pre-send claim)"
         sidecar.sendsTo(buyer.steamId64) == 1
-        attemptRepository.findByTrade(sale.id, PageRequest.of(0, 100)).size() == 1
+        def rows = attemptRepository.findByTrade(sale.id, PageRequest.of(0, 100))
+        rows.count { it.offerState != SteamDeliveryService.STATE_SENDING } == 1
+        rows.size() == 2
 
         when: "the buyer saves a new trade URL"
         buyer.tradeUrl = "https://steamcommunity.com/tradeoffer/new/?partner=${700_000_000L + n}&token=new${n}"
