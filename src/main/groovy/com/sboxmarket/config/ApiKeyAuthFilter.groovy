@@ -163,8 +163,13 @@ class ApiKeyAuthFilter extends OncePerRequestFilter {
      *  thief). Reading them stays allowed. */
     // /api/auth: a leaked key could POST logout-all and sign its owner out
     // of every browser while the key itself kept working.
+    // /api/wallet/withdraw: a leaked full-access key could cash out the
+    // whole balance (and, with no 2FA on the account, nothing else stood
+    // in the way). Money only leaves from a signed-in browser session;
+    // cancelling a pending withdrawal is closed to keys too.
     static final List<String> ACCOUNT_WRITE_PREFIXES = [
-        '/api/api-keys', '/api/profile', '/api/wallet/connect', '/api/auth/steam/logout-all'
+        '/api/api-keys', '/api/profile', '/api/wallet/connect', '/api/wallet/withdraw',
+        '/api/auth/steam/logout-all'
     ].asImmutable()
 
     static boolean forbiddenForApiKey(String rawPath, boolean isWrite) {
