@@ -4439,6 +4439,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   // replied and expects the user to read / respond). Pulled from the
   // user's own ticket list so no new server endpoint is needed.
   const [waitingSupportCount, setWaitingSupportCount]   = useState(0);
+  useEffect(() => {
+    const onWaiting = (e) => setWaitingSupportCount(Number(e.detail) || 0);
+    window.addEventListener('sb:support-waiting', onWaiting);
+    return () => window.removeEventListener('sb:support-waiting', onWaiting);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('sb_privacy', privacy ? '1' : '0');
@@ -11467,6 +11472,13 @@ function ProfileSupportTab() {
     if (res === null) { setTicketsErr(true); return; }
     setTicketsErr(false);
     setTickets(res);
+    // Keep the Support tab's "waiting on you" badge in step: it was only
+    // counted when the tab changed, so it still read 1 after a reply.
+    try {
+      window.dispatchEvent(new CustomEvent('sb:support-waiting', {
+        detail: (Array.isArray(res) ? res : []).filter(t => t.status === 'WAITING_USER').length
+      }));
+    } catch (_) {}
   }, []);
   useEffect(() => { load(); }, [load]);
   // Show a ticket only when it actually loaded; a failed fetch used to
