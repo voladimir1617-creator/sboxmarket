@@ -537,6 +537,23 @@ class OpenGraphControllerSpec extends Specification {
         body.contains('<script type="application/ld+json">')
     }
 
+    def "loadoutPage quotes the loadout at today's floors, not the stored add-time total"() {
+        given:
+        def loadout = new Loadout(id: 12L, name: 'Drifter', ownerName: 'Neo',
+            visibility: 'PUBLIC', totalValue: new BigDecimal('535.42'))
+        loadoutRepository.findById(12L) >> Optional.of(loadout)
+        def svc = Mock(com.sboxmarket.service.LoadoutService)
+        svc.currentTotal(12L) >> new BigDecimal('385.5')
+        controller.loadoutService = svc
+
+        when:
+        def body = controller.loadoutPage('12', req()).body as String
+
+        then:
+        body.contains('$385.50 total value')
+        !body.contains('535.42')
+    }
+
     def "loadoutPage omits value line when the loadout has zero total"() {
         given:
         def loadout = new Loadout(id: 11L, name: 'Empty Rack', ownerName: 'Alice',

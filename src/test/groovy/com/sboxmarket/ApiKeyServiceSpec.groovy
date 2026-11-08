@@ -1,6 +1,7 @@
 package com.sboxmarket
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.ApiKey
 import com.sboxmarket.repository.ApiKeyRepository
@@ -484,19 +485,27 @@ class ApiKeyServiceSpec extends Specification {
         }
     }
 
-    def "create coerces unknown scope values back to 'RW' (no silent RO)"() {
+    def "create treats a blank scope as RW"() {
         given:
         apiKeyRepository.save(_) >> { args -> args[0] }
 
         expect:
-        ['WRITE_ONLY', 'admin', 'RWX', '', ' '].each { s ->
-            def result = service.create(10L, 'bot', s)
-            // Anything unrecognised falls back to RW — never silently
-            // degrade to RO (that would break existing callers) and
-            // never upgrade to a fictional "RWX" (prevents SQL
-            // constraint violation on the V51 CHECK).
-            assert result.key.scope == 'RW'
+        ['', ' ', null].each { s ->
+            assert service.create(10L, 'bot', s).key.scope == 'RW'
         }
+    }
+
+    def "create refuses an unknown scope instead of minting a full-access key"() {
+        when:
+        service.create(10L, 'bot', scope)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_SCOPE'
+        0 * apiKeyRepository.save(_)
+
+        where:
+        scope << ['read', 'readonly', 'WRITE_ONLY', 'admin', 'RWX']
     }
 
     def "authenticateWithScope returns {userId, scope} for a valid key"() {

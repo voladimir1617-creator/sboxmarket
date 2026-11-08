@@ -2114,8 +2114,10 @@ export async function fetchOfferCounts() {
 }
 /** Current sitewide announcement banner or null. Polled every 2 minutes
  *  so a freshly posted ops message reaches browsers already on the page. */
-export async function fetchAnnouncement() {
-  const data = await safeJson(`${API}/announcement`);
+export async function fetchAnnouncement(fresh) {
+  // `fresh` skips the 30s HTTP cache: right after staff post or stop a
+  // banner, the cached answer still carried the old one.
+  const data = await safeJson(`${API}/announcement`, fresh ? { cache: 'no-store' } : undefined);
   return data?.announcement ?? null;
 }
 

@@ -34,6 +34,10 @@ class CorrelationIdFilter extends OncePerRequestFilter {
      *  would hand one visitor's CSRF token to the next. */
     static final String HTML_CACHE_CONTROL = 'private, no-cache, must-revalidate'
 
+    /** The tabbed private routes OpenGraphController.privateShell() serves
+     *  (router.js / WebConfig SPA_ROUTES), trailing slash already trimmed. */
+    static final java.util.regex.Pattern PRIVATE_TAB_ROUTE = ~/^\/(profile\/(personal|listings|transactions|buyorders|autobids|trades|offers|reviews|support|developers)|wallet\/(deposit|withdraw|history)|watchlist\/(all|drops)|offers\/(incoming|outgoing)|me\/stall\/(active|sold|analytics))$/
+
     // Content-Security-Policy lists every external origin the SPA talks to.
     // Keeping it here instead of in a reverse proxy means a single deploy
     // controls it. Keep the list tight — if we add a new CDN we edit this one
@@ -363,7 +367,9 @@ class CorrelationIdFilter extends OncePerRequestFilter {
                     // stops a (harmless but malformed) duplicate header.
                     '/profile', '/wallet', '/cart', '/sell', '/me/stall',
                     '/offers', '/buy-orders', '/notifications',
-                    '/watchlist', '/support', '/settings', '/admin', '/csr'])
+                    '/watchlist', '/support', '/settings', '/admin', '/csr'] ||
+                // privateShell()'s tabbed routes, same reason.
+                (ogExact != null && ogExact ==~ PRIVATE_TAB_ROUTE))
         if (path != null && path.matches('.*\\.(js|css)$')) {
             // Two tiers of JS/CSS by whether the URL is version-stamped:
             //   - `?v=NNN` present → the URL is immutable per build (the

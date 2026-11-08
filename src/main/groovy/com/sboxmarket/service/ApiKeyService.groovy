@@ -68,13 +68,20 @@ class ApiKeyService {
                 "API_KEY_LIMIT",
                 "You already have ${active} active API keys (cap: ${MAX_ACTIVE_PER_USER}). Revoke one from Profile → Developers before minting another.")
         }
+        // Unknown scopes are refused, not coerced: a caller asking for
+        // "read" or "readonly" used to get a full-access RW key silently.
+        // Blank still means RW (the pre-scope contract).
+        def wanted = scope?.trim()
+        if (wanted && !(wanted.equalsIgnoreCase('RO') || wanted.equalsIgnoreCase('RW'))) {
+            throw new BadRequestException("INVALID_SCOPE", "Scope must be RO (read-only) or RW (full access).")
+        }
         def cleanLabel = textSanitizer.cleanShort(label) ?: 'Untitled'
         def raw = PREFIX + randomToken(32)
         def hash = sha256(raw)
         // sbx_live_ + 11 hex chars: 14 chars left only 5 hex (~1M values)
         // against a UNIQUE column, so mints started colliding with a 500.
         def prefix = raw.substring(0, Math.min(20, raw.length()))
-        def scp = 'RO'.equalsIgnoreCase(scope) ? 'RO' : 'RW'
+        def scp = 'RO'.equalsIgnoreCase(wanted) ? 'RO' : 'RW'
         def key = new ApiKey(
             userId:       userId,
             publicPrefix: prefix,

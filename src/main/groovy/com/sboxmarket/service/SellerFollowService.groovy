@@ -86,11 +86,10 @@ class SellerFollowService {
                         "You can't follow a seller you've blocked")
                 }
                 if (userBlockService.isBlocked(sellerUserId, followerUserId)) {
-                    // Same surface response as a banned-seller — telling the
-                    // follower "this seller blocked you" leaks moderation
-                    // state; the seller has already declared they don't
-                    // want engagement from this account.
-                    throw new BadRequestException('SELLER_BANNED', 'This seller is banned')
+                    // Don't say "this seller blocked you" — but don't say
+                    // "banned" either: the stall right behind the toast shows
+                    // an active, online seller, and the claim maligns them.
+                    throw new BadRequestException('FOLLOW_UNAVAILABLE', "You can't follow this seller.")
                 }
             } catch (BadRequestException brex) {
                 throw brex
@@ -311,7 +310,10 @@ class SellerFollowService {
             followerIds.each { fid ->
                 if (fid != null) {
                     try {
-                        blockedByFollower[fid] = userBlockService.isBlocked(fid, listing.sellerUserId)
+                        // Either direction: a seller who blocked a follower must stop
+                        // pinging them too, just as follow() refuses them a new follow.
+                        blockedByFollower[fid] = userBlockService.isBlocked(fid, listing.sellerUserId) ||
+                            userBlockService.isBlocked(listing.sellerUserId, fid)
                     } catch (Exception e) {
                         // Fail-open — a block-check error shouldn't drop the fanout.
                         blockedByFollower[fid] = false

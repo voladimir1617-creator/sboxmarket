@@ -1,6 +1,6 @@
 // Shared by app.js and modals.js. They live here, not in modals.js, so that
 // app.js can use them on the first screen while modals.js loads later.
-import { useEffect } from './utils.js';
+import { useEffect, useRef } from './utils.js';
 
 export function fmtDelay(ms) {
   const m = Number(ms);
@@ -87,4 +87,27 @@ export function useDialogA11y(panelRef, onClose, enabled = true) {
       } catch (_) {}
     };
   }, [onClose, enabled, panelRef]);
+}
+
+// For an inline panel (no dialog shell) that takes focus when it opens:
+// remember what had focus just before it opened, and when it closes with
+// focus dropped to <body> (the focused control unmounted with the panel),
+// hand focus back to that opener. Escape out of the item page's offer
+// drawer or price-alert editor used to leave a keyboard user on <body>.
+export function useReturnFocus(open) {
+  const openerRef = useRef(null);
+  const wasOpen = useRef(open);
+  // Read during render: the DOM still shows the pre-open focus here, before
+  // the panel mounts and autoFocus moves it.
+  if (open && !wasOpen.current) openerRef.current = document.activeElement;
+  wasOpen.current = open;
+  useEffect(() => {
+    if (open) return;
+    const opener = openerRef.current;
+    openerRef.current = null;
+    const a = document.activeElement;
+    if (!opener || !document.contains(opener)) return;
+    if (a && a !== document.body && document.contains(a)) return;
+    try { opener.focus({ preventScroll: true }); } catch (_) {}
+  }, [open]);
 }

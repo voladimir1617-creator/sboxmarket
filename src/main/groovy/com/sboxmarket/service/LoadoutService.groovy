@@ -133,7 +133,7 @@ class LoadoutService {
         Map<Long, Map> itemDecor = [:]
         if (!allItemIds.isEmpty()) {
             itemRepository.findAllById(allItemIds).each { Item it ->
-                itemDecor[it.id] = [imageUrl: it.imageUrl, accentColor: it.accentColor]
+                itemDecor[it.id] = [imageUrl: it.imageUrl, accentColor: it.accentColor, lowestPrice: it.lowestPrice]
             }
         }
         loadouts.collect { Loadout l ->
@@ -148,9 +148,14 @@ class LoadoutService {
                     itemEmoji    : s.itemEmoji,
                     imageUrl     : deco?.imageUrl,
                     accentColor  : deco?.accentColor,
-                    snapshotPrice: s.snapshotPrice
+                    snapshotPrice: s.snapshotPrice,
+                    currentPrice : currentPrice(deco)
                 ]
             }
+            // The stored total is the sum of the prices each item had when it
+            // was added; the card shows what the set costs now, so a sold-out
+            // or cheaper item doesn't keep its old price in the total.
+            BigDecimal currentTotal = preview.inject(BigDecimal.ZERO) { BigDecimal acc, Map p -> acc + (p.currentPrice as BigDecimal) }
             [
                 id          : l.id,
                 ownerUserId : l.ownerUserId,
@@ -158,7 +163,7 @@ class LoadoutService {
                 name        : l.name,
                 description : l.description,
                 visibility  : l.visibility,
-                totalValue  : l.totalValue,
+                totalValue  : currentTotal,
                 favorites   : l.favorites,
                 createdAt   : l.createdAt,
                 updatedAt   : l.updatedAt,
@@ -203,7 +208,7 @@ class LoadoutService {
         def itemIds = slots.findAll { it?.itemId != null }*.itemId
         if (itemIds && !itemIds.isEmpty()) {
             itemRepository.findAllById(itemIds).each { Item it ->
-                itemDecor[it.id] = [imageUrl: it.imageUrl, accentColor: it.accentColor]
+                itemDecor[it.id] = [imageUrl: it.imageUrl, accentColor: it.accentColor, lowestPrice: it.lowestPrice]
             }
         }
         // Canonical slot order — `findByLoadout` returns rows in `id ASC`,
@@ -232,10 +237,34 @@ class LoadoutService {
                 itemImageUrl  : deco?.imageUrl,
                 itemAccentColor: deco?.accentColor,
                 snapshotPrice : s.snapshotPrice,
+                currentPrice  : (s?.itemId != null) ? currentPrice(deco) : null,
                 locked        : s.locked
             ]
         }
-        [loadout: loadout, slots: decoratedSlots, favorited: favorited]
+        // What the filled slots cost at today's floors. loadout.totalValue is
+        // the sum of the prices at the time each item was added, which goes
+        // stale as soon as an item gets cheaper, sells out or is delisted.
+        BigDecimal currentTotal = decoratedSlots.findAll { it.itemId != null }
+            .inject(BigDecimal.ZERO) { BigDecimal acc, Map m -> acc + (m.currentPrice as BigDecimal) }
+        [loadout: loadout, slots: decoratedSlots, favorited: favorited, currentTotal: currentTotal]
+    }
+
+    /** Today's floor for a slot's item: 0 when it has no live listing or
+     *  the catalogue row is gone. */
+    private static BigDecimal currentPrice(Map deco) {
+        def p = deco?.lowestPrice as BigDecimal
+        (p != null && p > BigDecimal.ZERO) ? p : BigDecimal.ZERO
+    }
+
+    /** Current-floor total of a loadout's filled slots (see getWithSlots). */
+    BigDecimal currentTotal(Long loadoutId) {
+        def ids = loadoutSlotRepository.findByLoadout(loadoutId).findAll { it?.itemId != null }*.itemId
+        if (!ids) return BigDecimal.ZERO
+        BigDecimal total = BigDecimal.ZERO
+        Map<Long, BigDecimal> floors = [:]
+        itemRepository.findAllById(new HashSet<Long>(ids)).each { Item it -> floors[it.id] = it.lowestPrice }
+        ids.each { Long id -> total = total + currentPrice([lowestPrice: floors[id]]) }
+        total
     }
 
     @Transactional
@@ -309,9 +338,19 @@ class LoadoutService {
         // ceiling, and a locked $9000 item must consume its share of
         // that ceiling identically, otherwise auto-fill blows past the
         // catch-all by the locked-slot value (total $19k for a $10k cap).
+        // At today's floor, which is what the page shows for the slot and
+        // counts in the total; the price when it was added can be far off.
+        def lockedIds = slots.findAll { it.locked && it.itemId != null }*.itemId
+        Map<Long, BigDecimal> lockedFloors = [:]
+        if (lockedIds) {
+            (itemRepository.findAllById(new HashSet<Long>(lockedIds)) ?: []).each { Item it ->
+                lockedFloors[it.id] = currentPrice([lowestPrice: it.lowestPrice])
+            }
+        }
         slots.each { slot ->
             if (slot.locked && slot.itemId != null) {
-                remaining = remaining - (slot.snapshotPrice ?: BigDecimal.ZERO)
+                def price = lockedFloors.containsKey(slot.itemId) ? lockedFloors[slot.itemId] : slot.snapshotPrice
+                remaining = remaining - (price ?: BigDecimal.ZERO)
             }
         }
         if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO

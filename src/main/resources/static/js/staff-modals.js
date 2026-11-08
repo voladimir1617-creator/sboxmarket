@@ -836,7 +836,10 @@ function AdminAnnouncementsTab() {
     try {
       const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
       const body = { message, severity };
-      if (hours) body.expiresAt = Date.now() + (parseFloat(hours) || 0) * 3600_000;
+      // "0" (or junk) is no expiry, not "expire now": that posted a banner
+      // nobody ever saw while the toast said it auto-expires in 0h.
+      const expHours = parseFloat(hours) > 0 ? parseFloat(hours) : 0;
+      if (expHours) body.expiresAt = Date.now() + expHours * 3600_000;
       const r = await fetch('/api/admin/announcements', {
         method: 'POST',
         credentials: 'same-origin',
@@ -850,14 +853,15 @@ function AdminAnnouncementsTab() {
       }
       setMessage(''); setHours('');
       await load();
+      window.dispatchEvent(new Event('sb:announcement-changed'));
       // Pre-fix: silent on success — form cleared, list refreshed, but
       // no confirmation that the banner went live sitewide. Staff with
       // multiple similar entries had to scroll the list to confirm the
       // post landed. Surface a toast so the action reads as real.
       try {
         window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
-          text: hours
-            ? `Banner posted — auto-expires in ${hours}h.`
+          text: expHours
+            ? `Banner posted — auto-expires in ${expHours}h.`
             : 'Banner posted — live sitewide until manually deactivated.',
           kind: 'ok'
         }}));
@@ -868,7 +872,10 @@ function AdminAnnouncementsTab() {
     if (stopBusyRef.current.has(id)) return;
     stopBusyRef.current.add(id);
     refocusStopRef.current = true;
-    try { await deactivateOnce(id); } finally { stopBusyRef.current.delete(id); }
+    try { await deactivateOnce(id); } finally {
+      stopBusyRef.current.delete(id);
+      window.dispatchEvent(new Event('sb:announcement-changed'));
+    }
   };
   const deactivateOnce = async (id) => {
     const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
@@ -2922,7 +2929,7 @@ function AdminUsersTab({ me }) {
     { id: 'chargeback', label: 'Chargeback abuse',       reason: 'Deposit reversed via credit card chargeback after receiving items.' },
     { id: 'scam',       label: 'Scam / misrepresented item', reason: 'Multiple buyers reported receiving items that did not match the listing description.' },
     { id: 'abuse',      label: 'Harassment / abuse',     reason: 'Abusive language toward other users or staff in support tickets.' },
-    { id: 'tos',        label: 'ToS violation',          reason: 'Violation of sboxmarket Terms of Service.' }
+    { id: 'tos',        label: 'ToS violation',          reason: `Violation of ${BRAND.name} Terms of Service.` }
   ];
   const doBan = async (u) => setBanTarget(u);
   const submitBan = async (reason) => {
@@ -3704,6 +3711,19 @@ function AdminTicketsTab() {
     setReply('');
     setView(t);
   };
+  // A staff bell for a ticket carries `&ticket=<id>`: open that thread
+  // instead of leaving staff to find it in the list.
+  const ticketParam = new URLSearchParams(window.location.search).get('ticket');
+  useEffect(() => {
+    const id = Number(ticketParam);
+    if (!Number.isFinite(id) || id <= 0) return;
+    open(id);
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      qs.delete('ticket');
+      window.history.replaceState({}, '', window.location.pathname + (qs.toString() ? '?' + qs.toString() : ''));
+    } catch (_) {}
+  }, [ticketParam]);
   // ← Tickets unmounts the thread; hand focus back to the row that opened it
   // instead of dropping it on the page.
   const backFocusRef = React.useRef(null);
@@ -3740,7 +3760,7 @@ function AdminTicketsTab() {
       // Batch 917 — confirm toast on admin-side reply. Matches the
       // CSR-side toast so both staff flows feel consistent. Previously
       // the flow succeeded silently.
-      toast(`Reply posted to ticket #${t.id}. User will see it + get an email.`, 'ok');
+      toast(`Reply posted to ticket #${t.id}. The user gets a bell, and an email if their address is confirmed.`, 'ok');
     } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
@@ -3794,7 +3814,7 @@ function AdminTicketsTab() {
           { id: 'greet',     label: '👋 Greet',     body: 'Hi — thanks for reaching out. I\'m looking into this now and will follow up within 24 hours.' },
           { id: 'deposit',   label: '💳 Deposit',   body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
           { id: 'trade',     label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page. Let me know if you need me to nudge them.' },
-          { id: 'refund',    label: '↩ Refund',    body: 'I can issue a refund to your sboxmarket wallet balance for this trade. Confirm you\'d like that and I\'ll process it — Stripe-side chargebacks would go through your card issuer instead.' },
+          { id: 'refund',    label: '↩ Refund',    body: `I can issue a refund to your ${BRAND.name} wallet balance for this trade. Confirm you'd like that and I'll process it — Stripe-side chargebacks would go through your card issuer instead.` },
           { id: 'resolved',  label: '✓ Resolved',  body: 'Glad that\'s sorted. If nothing else comes up this ticket closes on its own. Reply here any time if you need more help.' }
         ].map(tpl => h('button', {
           key: tpl.id,
@@ -4370,6 +4390,19 @@ function CsrTicketsTab() {
     setReply('');
     setView(t);
   };
+  // A staff bell for a ticket carries `&ticket=<id>`: open that thread
+  // instead of leaving staff to find it in the list.
+  const ticketParam = new URLSearchParams(window.location.search).get('ticket');
+  useEffect(() => {
+    const id = Number(ticketParam);
+    if (!Number.isFinite(id) || id <= 0) return;
+    open(id);
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      qs.delete('ticket');
+      window.history.replaceState({}, '', window.location.pathname + (qs.toString() ? '?' + qs.toString() : ''));
+    } catch (_) {}
+  }, [ticketParam]);
   // ← Tickets unmounts the thread; hand focus back to the row that opened it
   // instead of dropping it on the page.
   const backFocusRef = React.useRef(null);
@@ -4405,7 +4438,7 @@ function CsrTicketsTab() {
       // silent on success, so a CSR had to eyeball the thread to know
       // their reply actually posted. Mirror the user-side support
       // flow's toast (batch 898).
-      toast(`Reply posted to ticket #${t.id}. User will see it + get an email.`, 'ok');
+      toast(`Reply posted to ticket #${t.id}. The user gets a bell, and an email if their address is confirmed.`, 'ok');
     } finally { sendingRef.current = false; setBusy(false); }
   };
   const closeTicket = async () => {
@@ -4454,7 +4487,7 @@ function CsrTicketsTab() {
           { id: 'greet',    label: '👋 Greet',    body: 'Hi — thanks for reaching out. I\'m looking into this now and will follow up within 24 hours.' },
           { id: 'deposit',  label: '💳 Deposit',  body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
           { id: 'trade',    label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page.' },
-          { id: 'refund',   label: '↩ Refund',    body: 'I can issue a refund to your sboxmarket wallet balance for this trade. Confirm you\'d like that and I\'ll process it.' },
+          { id: 'refund',   label: '↩ Refund',    body: `I can issue a refund to your ${BRAND.name} wallet balance for this trade. Confirm you'd like that and I'll process it.` },
           { id: 'resolved', label: '✓ Resolved',  body: 'Glad that\'s sorted. If nothing else comes up this ticket closes on its own. Reply here any time if you need more help.' }
         ].map(tpl => h('button', {
           key: tpl.id,

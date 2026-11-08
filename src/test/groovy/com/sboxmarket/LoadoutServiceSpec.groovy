@@ -1427,4 +1427,84 @@ class LoadoutServiceSpec extends Specification {
         copy.name.length() <= 100
         copy.name.endsWith('(copy)')
     }
+
+    // ── prices at today's floor ───────────────────────────────────
+
+    def "getWithSlots prices each slot and the total at today's floor, not the price when it was added"() {
+        given: "a hat that got cheaper and a jacket that has since sold out"
+        def loadout = new Loadout(id: 1L, name: 'x', visibility: 'PUBLIC', ownerUserId: 10L, totalValue: new BigDecimal('161.68'))
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(1L) >> [
+            new LoadoutSlot(loadoutId: 1L, slot: 'Hats',    itemId: 5L,  itemName: 'WW1 Helmet',  snapshotPrice: new BigDecimal('69.12')),
+            new LoadoutSlot(loadoutId: 1L, slot: 'Jackets', itemId: 10L, itemName: 'Santa Jacket', snapshotPrice: new BigDecimal('92.56')),
+            new LoadoutSlot(loadoutId: 1L, slot: 'Shirts')
+        ]
+        itemRepository.findAllById(_) >> [
+            new Item(id: 5L,  name: 'WW1 Helmet',  lowestPrice: new BigDecimal('54.60')),
+            new Item(id: 10L, name: 'Santa Jacket', lowestPrice: BigDecimal.ZERO)
+        ]
+
+        when:
+        def result = service.getWithSlots(1L)
+
+        then:
+        result.slots.find { it.slot == 'Hats' }.currentPrice == new BigDecimal('54.60')
+        result.slots.find { it.slot == 'Jackets' }.currentPrice == BigDecimal.ZERO
+        result.slots.find { it.slot == 'Shirts' }.currentPrice == null
+        result.currentTotal == new BigDecimal('54.60')
+    }
+
+    def "decorate gives the Discover card today's total, counting a deleted item as nothing"() {
+        given:
+        def l = new Loadout(id: 3L, name: 'x', visibility: 'PUBLIC', ownerUserId: 10L, totalValue: new BigDecimal('20.00'))
+        loadoutSlotRepository.findByLoadoutIdIn(_) >> [
+            new LoadoutSlot(loadoutId: 3L, slot: 'Hats',  itemId: 1L, snapshotPrice: new BigDecimal('12.00')),
+            new LoadoutSlot(loadoutId: 3L, slot: 'Boots', itemId: 2L, snapshotPrice: new BigDecimal('8.00'))
+        ]
+        itemRepository.findAllById(_) >> [new Item(id: 1L, lowestPrice: new BigDecimal('9.50'))]
+
+        when:
+        def card = service.decorate([l]).first()
+
+        then:
+        card.totalValue == new BigDecimal('9.50')
+        card.previewItems*.currentPrice == [new BigDecimal('9.50'), BigDecimal.ZERO]
+    }
+
+    def "currentTotal counts an item that fills two slots twice"() {
+        given:
+        loadoutSlotRepository.findByLoadout(4L) >> [
+            new LoadoutSlot(loadoutId: 4L, slot: 'Accessories', itemId: 7L),
+            new LoadoutSlot(loadoutId: 4L, slot: 'Wild',        itemId: 7L),
+            new LoadoutSlot(loadoutId: 4L, slot: 'Hats')
+        ]
+        itemRepository.findAllById(_) >> [new Item(id: 7L, lowestPrice: new BigDecimal('2.25'))]
+
+        expect:
+        service.currentTotal(4L) == new BigDecimal('4.50')
+    }
+
+    def "autoGenerate counts a locked slot at today's floor, not the price when it was added"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats   = new LoadoutSlot(loadoutId: 1L, slot: 'Hats',   locked: false)
+        def slotLocked = new LoadoutSlot(loadoutId: 1L, slot: 'Shirts', locked: true,
+            itemId: 77L, snapshotPrice: new BigDecimal("90"))
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats, slotLocked], [slotHats, slotLocked]]
+        itemRepository.findAllById(_) >> [new Item(id: 77L, lowestPrice: new BigDecimal("30"))]
+        BigDecimal budgetSeen = null
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> { args ->
+            budgetSeen = args[1]
+            []
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when: "budget is \$100; the locked shirt was \$90 when added and is \$30 now"
+        service.autoGenerate(10L, 1L, new BigDecimal("100"))
+
+        then:
+        budgetSeen == new BigDecimal("70")
+    }
 }

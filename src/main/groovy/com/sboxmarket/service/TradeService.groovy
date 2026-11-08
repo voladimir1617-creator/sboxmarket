@@ -1816,7 +1816,8 @@ class TradeService {
                 }
                 if (bannedBuyers.contains(trade.buyerUserId)) return
                 notificationService?.push(trade.buyerUserId, 'REVIEW_REMINDER',
-                    "How was your trade with ${trade.itemName ?: 'the seller'}?",
+                    // Item, not seller: "your trade with Black Modern Watch" named the item as the trader.
+                    "How did the trade go? · ${trade.itemName ?: 'your purchase'}".toString(),
                     "Two days since it cleared — leave a quick review while it's fresh. Takes 10 seconds.",
                     trade.id, "/stall/${trade.sellerUserId}?leaveReview=${trade.id}".toString())
             } catch (Exception e) {

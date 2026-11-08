@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=356'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=357'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -719,13 +719,17 @@ function AnnouncementBanner() {
   });
   useEffect(() => {
     let alive = true;
-    const load = async () => {
+    const load = async (fresh) => {
       try {
-        const data = await fetchAnnouncement();
+        const data = await fetchAnnouncement(fresh === true);
         if (alive) setAnn(data || null);
       } catch (_) {}
     };
     load();
+    // Staff posting or stopping a banner in this tab sees the change now,
+    // not on the next 2-minute poll.
+    const onChanged = () => load(true);
+    window.addEventListener('sb:announcement-changed', onChanged);
     // Batch 806 — visibility-aware poll. Announcement banner only
     // matters when the user is looking at the page.
     const id = setInterval(() => { if (!document.hidden) load(); }, 120_000);
@@ -734,6 +738,7 @@ function AnnouncementBanner() {
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('sb:announcement-changed', onChanged);
     };
   }, []);
   if (!ann || ann.id === dismissedId) return null;
@@ -782,6 +787,30 @@ export function RatingBreakdown({ summary }) {
       );
     })
   );
+}
+
+// The cart row a Remove / Save button sits in unmounts with the click, which
+// dropped a keyboard user's focus to <body>. Call before removing; the
+// returned function, called after, moves focus to the same button on the
+// next row (or the previous one, or the cart's next control when the list
+// is empty) once React has re-rendered.
+function cartRowFocusKeeper(btn) {
+  const row = btn && btn.closest('.cart-row');
+  const list = row && row.parentElement;
+  const sib = row && (row.nextElementSibling || row.previousElementSibling);
+  const label = btn && btn.getAttribute('aria-label') ? 'Remove' : null;
+  return () => requestAnimationFrame(() => {
+    const a = document.activeElement;
+    if (a && a !== document.body && document.contains(a)) return;
+    let t = null;
+    if (sib && document.contains(sib)) {
+      t = label ? sib.querySelector('button[aria-label^="Remove"]')
+                : [...sib.querySelectorAll('button')].find(b => /save/i.test(b.textContent)) || sib;
+    }
+    if (!t) t = (list && document.contains(list) && list.querySelector('.cart-row')) ||
+                document.querySelector('#main a[href="/market"], #main button');
+    if (t) { try { t.focus({ preventScroll: false }); } catch (_) {} }
+  });
 }
 
 // ── Nav cart popover — CSFloat-1:1 parity surface. The cart icon in the
@@ -931,7 +960,23 @@ function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, o
                     h('span', { style: { fontSize: 13, fontWeight: 600, color: '#fff' } }, fmtMoney(it.price)),
                     h('button', {
                       className: 'remove',
-                      onClick: (e) => { e.stopPropagation(); removeFromCart(it.id); },
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        // The row unmounts with its focused ✕; keep a keyboard
+                        // user in the panel on the row that takes its place.
+                        const wrap = wrapRef.current;
+                        const i = wrap ? [...wrap.querySelectorAll('button.remove')].indexOf(e.currentTarget) : -1;
+                        removeFromCart(it.id);
+                        requestAnimationFrame(() => {
+                          const a = document.activeElement;
+                          if (!wrap || (a && a !== document.body && document.contains(a))) return;
+                          const now = [...wrap.querySelectorAll('button.remove')];
+                          const t = now[Math.min(Math.max(i, 0), now.length - 1)] ||
+                            wrap.querySelector('.csfloat-cart-popover-container button, .csfloat-cart-popover-container a[href]') ||
+                            wrap.querySelector('a.nav-icon-btn');
+                          if (t) { if (t.classList.contains('nav-icon-btn')) refocusRef.current = true; t.focus(); }
+                        });
+                      },
                       title: 'Remove from cart',
                       'aria-label': `Remove ${it.name || 'item'} from cart`,
                       style: {
@@ -2293,7 +2338,8 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
     onClick: toggle,
     title: blocked
       ? 'You have blocked this seller. Click to unblock.'
-      : 'Hide this seller and refuse their offers/messages.'
+      // Trade chat stays open (a trade in flight still has to finish); only offers are refused.
+      : 'Hide this seller and refuse their offers.'
   },
     blocked ? 'Blocked' : 'Block'
   );
@@ -4780,6 +4826,13 @@ export function App() {
   // Deposit button, though the wallet was fine; the cart behind it offers
   // "Sign in to checkout" and keeps every row.
   useEffect(() => { if (!me) setCartConfirmOpen(false); }, [me]);
+  // Cart emptied with the confirm open (checked out or cleared in another
+  // tab): close it. Left open it read "Buying 0 items" over a $0.00 total
+  // with a dead Confirm button.
+  useEffect(() => { if (cart.length === 0) setCartConfirmOpen(false); }, [cart.length]);
+  // Browser Back/Forward with the confirm open left it floating over the
+  // item page the user went back to. It belongs to /cart only.
+  useEffect(() => { if (routeName !== 'cart') setCartConfirmOpen(false); }, [routeName]);
   const doCheckout = async () => {
     if (cart.length === 0) return;
     // Synchronous in-flight latch — a rapid double-click on Confirm must not fire
@@ -5147,6 +5200,39 @@ export function App() {
     return () => clearInterval(interval);
   }, [me, meLoaded]);
 
+  // Another tab can sign out or sign in as someone else on the same cookie.
+  // This tab kept showing the old account's name over the new account's
+  // wallet (and acting as the new account) until a reload. Re-ask who is
+  // signed in when the tab comes back into view or gains focus.
+  useEffect(() => {
+    if (!meLoaded) return;
+    let busy = false;
+    const recheck = async () => {
+      if (busy || document.visibilityState !== 'visible') return;
+      busy = true;
+      let fresh;
+      try { fresh = await fetchMe({ throwOnFailure: true }); } catch (_) { busy = false; return; }
+      busy = false;
+      const was = me?.id ?? null;
+      const now = fresh?.id ?? null;
+      if (was === now) return;
+      // A different account: everything on screen (trades, wallet, cart
+      // merge) belongs to the old one, so start this tab over.
+      if (was != null && now != null) { window.location.reload(); return; }
+      if (now != null) { loadMe(); return; }
+      setMe(null);
+      setIsAdmin(false);
+      setIsCsrRole(false);
+      try { window.dispatchEvent(new CustomEvent('sb:toast', { detail: { text: 'You were signed out — sign in again to continue.', kind: 'warn' } })); } catch (_) {}
+    };
+    document.addEventListener('visibilitychange', recheck);
+    window.addEventListener('focus', recheck);
+    return () => {
+      document.removeEventListener('visibilitychange', recheck);
+      window.removeEventListener('focus', recheck);
+    };
+  }, [me, meLoaded, loadMe]);
+
   // wallet load
   // Only the newest wallet read may land. A tab-focus refresh that was still
   // in flight when the buyer paid answered after the post-purchase refresh,
@@ -5224,6 +5310,9 @@ export function App() {
   // Keyboard-shortcut help overlay state. `?` opens it, `Esc` closes.
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
+  // Browser Back/Forward left the user menu and the shortcuts overlay open
+  // over the page the user went back to; in-app links already close them.
+  useEffect(() => { setMenuOpen(false); setShortcutsOpen(false); }, [route.path]);
 
   // Keyboard shortcuts — CSFloat uses `/` to focus the market search.
   useEffect(() => {
@@ -9065,7 +9154,7 @@ export function App() {
                                 : avg >= 3.0 ? 'Mixed'
                                 :              'Poor';
                   return h('div', { className: 'stall-rating', title: `Average rating across ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}` },
-                    h('span', { className: 'stall-rating-stars' }, '★'.repeat(Math.round(avg))),
+                    h('span', { className: 'stall-rating-stars', 'aria-hidden': 'true' }, '★'.repeat(Math.round(avg)) + '☆'.repeat(5 - Math.round(avg))),
                     h('span', { className: 'stall-rating-avg' }, avg.toFixed(1)),
                     h('span', { className: 'stall-rating-count', style: { fontWeight: 600, color: 'var(--text-secondary)', marginLeft: 6 } }, verdict),
                     h('span', { className: 'stall-rating-count' },
@@ -9424,7 +9513,12 @@ export function App() {
             eligibleTrades.length > 0 && h('div', { className: 'stall-review-cta' },
               h('div', { className: 'stall-review-cta-head' },
                 h('span', { className: 'section-title-dot' }),
-                reviewTradeId ? 'Leave a review' : 'Leave a review'
+                // Name the trade: with several trades from one seller, the open form
+                // (often reached from a bell link) did not say which item it rates.
+                (() => {
+                  const t = reviewTradeId && eligibleTrades.find(x => String(x.tradeId) === String(reviewTradeId));
+                  return t && t.itemName ? `Leave a review · ${t.itemName}` : 'Leave a review';
+                })()
               ),
               !reviewTradeId && h('div', { className: 'stall-review-cta-rows' },
                 // Unreviewed trades first so a seventh-newest trade still waiting
@@ -9623,9 +9717,10 @@ export function App() {
                     h('span', null,
                       stallData.seller.verified
                         ? h('strong', null, VERIFIED_SELLER_RULE)
-                        : (stallData.seller.soldCount > 0
-                            ? `${stallData.seller.soldCount} completed sale${stallData.seller.soldCount === 1 ? '' : 's'} so far — building toward Verified`
-                            : 'New seller — no completed sales yet'))
+                        // soldCount counts sales still waiting on delivery; "completed" is the trade record.
+                        : ((n => n > 0
+                            ? `${n} completed sale${n === 1 ? '' : 's'} so far — building toward Verified`
+                            : 'New seller — no completed sales yet')(stallData.seller.completedTrades ?? stallData.seller.soldCount)))
                   ),
                   stallData.seller.profileUrl && h('li', null,
                     h('span', { className: 'stall-trust-icon' }, '↗'),
@@ -9937,7 +10032,10 @@ export function App() {
                     // detail page. Seller-name link + X-remove button
                     // stop propagation so they keep their own behavior.
                     onClick: (e) => { if (e.target.closest('a, button')) return; if (it.itemId) navigate(paths.item(it.itemId)); },
-                    onKeyDown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && it.itemId) { e.preventDefault(); navigate(paths.item(it.itemId)); } }
+                    // Only a key pressed on the row itself: Enter on the ✕ /
+                    // ♡ Save buttons or the seller link bubbled up here, was
+                    // swallowed, and opened the item page instead of removing.
+                    onKeyDown: (e) => { if (e.target !== e.currentTarget) return; if ((e.key === 'Enter' || e.key === ' ') && it.itemId) { e.preventDefault(); navigate(paths.item(it.itemId)); } }
                   },
                   h('div', { className: 'cart-thumb' }, it.thumb
                     ? h('img', { src: it.thumb, alt: it.name, loading: 'lazy', decoding: 'async' })
@@ -9990,14 +10088,16 @@ export function App() {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '6px 10px', fontSize: 11 },
                     title: 'Move to watchlist — keep tracking the price without holding it in your cart',
-                    onClick: () => {
+                    onClick: (e) => {
                       // toggleStar handles both anon (localStorage)
                       // and signed-in (server starItem) paths. Calling
                       // setWatchlist directly here used to skip the
                       // server hop, so a signed-in user's "Save for
                       // later" silently dropped on next page load.
+                      const keep = cartRowFocusKeeper(e.currentTarget);
                       toggleStar(it.itemId);
                       removeFromCart(it.id);
+                      keep();
                       showToast('Moved to watchlist', 'ok');
                     }
                   }, '♡ Save'),
@@ -10010,7 +10110,7 @@ export function App() {
                     // not five identical "button" labels.
                     'aria-label': `Remove ${it.name || ('listing #' + it.id)} from cart`,
                     title: `Remove ${it.name || ('listing #' + it.id)} from cart`,
-                    onClick: () => removeFromCart(it.id)
+                    onClick: (e) => { const keep = cartRowFocusKeeper(e.currentTarget); removeFromCart(it.id); keep(); }
                   }, '✕')
                 );
               })

@@ -343,6 +343,8 @@ class ApiKeyAuthFilterSpec extends Specification {
         'PUT'    | '/api/profile/email'
         'POST'   | '/api/profile/2fa/disable'
         'POST'   | '/api/wallet/connect/onboard'
+        'POST'   | '/api/wallet/withdraw'
+        'POST'   | '/api/wallet/withdraw/9/cancel'
         'POST'   | '/api/admin/users/7/credit'
         'POST'   | '/api/admin/grant-admin'
         'GET'    | '/api/admin/users.csv'
@@ -371,6 +373,9 @@ class ApiKeyAuthFilterSpec extends Specification {
             '/api//profile/trade-url',
             '/api/api-keys;jsessionid=1',
             '/api/Profile/trade-url',
+            '/api/wallet/Withdraw',
+            '/api/wallet;x/withdraw',
+            '/api/wallet/%77ithdraw',
         ]
     }
 
@@ -424,7 +429,7 @@ class ApiKeyAuthFilterSpec extends Specification {
         'GET'  | '/api/profile'
         'GET'  | '/api/api-keys'
         'POST' | '/api/cart/42'
-        'POST' | '/api/wallet/withdraw'
+        'GET'  | '/api/wallet/payouts'
         'POST' | '/api/bids'
         'GET'  | '/api/administrators-guide'
     }

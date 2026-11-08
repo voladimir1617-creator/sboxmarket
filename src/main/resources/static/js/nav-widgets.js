@@ -247,6 +247,9 @@ export function NotificationBell({ me }) {
   // first fetch lands or after it fails.
   const [fullState, setFullState] = useState('idle');
   const wrapRef = React.useRef(null);
+  // Bumped on scroll/resize while open so the phone panel re-reads the
+  // nav's bottom edge (see --notif-top below).
+  const [, setNavTick] = useState(0);
   // Sentinel: -1 until the first poll lands, so the initial "you have
   // N unread already" render doesn't trigger a ding for every unread
   // row a user already had before they loaded the page.
@@ -500,6 +503,16 @@ export function NotificationBell({ me }) {
   // NavPicker's pattern — no point listening while the panel is closed.
   useEffect(() => {
     if (!open) return;
+    const onMove = () => setNavTick(t => t + 1);
+    window.addEventListener('scroll', onMove, { passive: true, capture: true });
+    window.addEventListener('resize', onMove);
+    return () => {
+      window.removeEventListener('scroll', onMove, { capture: true });
+      window.removeEventListener('resize', onMove);
+    };
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
     const onDoc = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
     const onKey = e => {
       if (e.key !== 'Escape') return;
@@ -509,11 +522,16 @@ export function NotificationBell({ me }) {
       setOpen(false);
       if (inPanel) { const b = wrapRef.current.querySelector('button'); if (b) b.focus(); }
     };
+    // Browser Back/Forward changes the page under the panel; close it
+    // like any other navigation instead of leaving it over the new page.
+    const onPop = () => setOpen(false);
     document.addEventListener('click', onDoc);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('popstate', onPop);
     return () => {
       document.removeEventListener('click', onDoc);
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
     };
   }, [open]);
 
@@ -642,6 +660,15 @@ export function NotificationBell({ me }) {
       role: 'menu',
       'aria-orientation': 'vertical',
       'aria-label': 'Notifications',
+      // Phones pin the panel (position: fixed) just under the nav. With a
+      // sitewide banner above the nav, a fixed 64px put it over the banner
+      // and the bell itself; hand the CSS the nav's real bottom edge.
+      style: (() => {
+        const nav = wrapRef.current && wrapRef.current.closest('nav');
+        if (!nav) return undefined;
+        const bottom = Math.max(0, Math.round(nav.getBoundingClientRect().bottom));
+        return { '--notif-top': (bottom + 8) + 'px' };
+      })(),
       onClick: e => e.stopPropagation(),
       // A role=menu promises arrow-key movement between its items:
       // Up/Down step through the rows, Home/End jump to the ends.

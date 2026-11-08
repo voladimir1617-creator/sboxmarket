@@ -201,7 +201,8 @@ class CorrelationIdFilterSpec extends Specification {
             // privateShell() routes — controller sets its own
             // `no-cache, must-revalidate`; filter must not duplicate it.
             '/profile', '/wallet', '/cart', '/offers', '/buy-orders',
-            '/notifications', '/watchlist', '/settings', '/me/stall'
+            '/notifications', '/watchlist', '/settings', '/me/stall',
+            '/profile/trades', '/wallet/history', '/wallet/history/', '/me/stall/sold'
         ]
     }
 

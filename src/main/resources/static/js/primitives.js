@@ -462,7 +462,10 @@ export function Sparkline({ data, color, height, showAxes }) {
 
   const pts = series.map((d, i) => {
     const x = (i / (series.length - 1)) * W;
-    const y = H - axisH - ((d.price - min) / range) * bandH - padTop;
+    // A flat series (every sale at one price) sits mid-band; at the floor
+    // it ran along the bottom edge under the min label.
+    const frac = max === min ? 0.5 : (d.price - min) / range;
+    const y = H - axisH - frac * bandH - padTop;
     return { x, y, price: d.price, label: d.label };
   });
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
@@ -581,7 +584,8 @@ export function Sparkline({ data, color, height, showAxes }) {
         'text-anchor': 'start',
         fill: AXIS_FILL, fontSize: 10
       }, fmt(max)),
-      showAxes && h('text', {
+      // One price label is enough when the high and low are the same.
+      showAxes && max !== min && h('text', {
         className: 'axis-tick',
         x: 4, y: padTop + bandH - 2,
         'text-anchor': 'start',

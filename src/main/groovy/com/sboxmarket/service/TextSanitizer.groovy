@@ -37,13 +37,19 @@ class TextSanitizer {
     String cleanMedium(String input) { clean(input, LIMIT_MEDIUM) }
     String cleanLong(String input)   { clean(input, LIMIT_LONG) }
 
+    private static final java.util.regex.Pattern TAG = ~/<(?:[A-Za-z!?]|\/[A-Za-z])[^>]*>/
+
     String clean(String input, int maxLen) {
         if (input == null) return null
         def s = input.toString()
 
         // 1) Drop any HTML/XML tag — greedy but bounded, handles nested cases
         //    because we run it twice if the first pass found a match.
-        while (s =~ /<[^>]*>/) { s = s.replaceAll(/<[^>]*>/, '') }
+        //    Only a `<` that opens a tag the way a browser reads one (a letter,
+        //    `/letter`, `!` or `?` straight after it) counts: "price < 5 & > 3"
+        //    or "Paid < $5 for <i>knife</i>" used to lose everything between
+        //    the bare `<` and the next `>`.
+        while (TAG.matcher(s).find()) { s = TAG.matcher(s).replaceAll('') }
 
         // 2) Drop common XSS-ish protocols buried in plain text. The
         //    data: matcher now covers every executable MIME (svg, html,

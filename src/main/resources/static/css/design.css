@@ -430,7 +430,7 @@ nav.nav { display: flex !important; grid-template-columns: none !important; alig
 .announce-banner-icon { color: var(--ink-3); flex-shrink: 0; }
 .announce-banner.sev-warn .announce-banner-icon { color: #e8b960; }
 .announce-banner.sev-error .announce-banner-icon { color: var(--down); }
-.announce-banner-text { flex: 1; line-height: 1.5; }
+.announce-banner-text { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
 .announce-banner-text a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
 .announce-banner-text a:hover { text-decoration-color: var(--ink-3); }
 .announce-banner-close { width: 28px; height: 28px; border-radius: var(--r-sm); background: transparent; border: 0; cursor: pointer; color: var(--ink-3); display: grid; place-items: center; }
@@ -2107,7 +2107,7 @@ to { transform: translateY(0); opacity: 1; }
 .item-rail-actions-buy:disabled { opacity: 0.55; cursor: not-allowed; }
 .item-rail-actions-cart { background: transparent; color: var(--ink-2); border: 1px solid var(--line-2); border-radius: 6px; padding: 8px 12px; font-family: 'Roboto', 'Inter', system-ui, sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 140ms ease, color 140ms ease, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 140ms ease; }
 .item-rail-actions-cart:hover:not(:disabled) { background: color-mix(in oklab, var(--cta) 8%, transparent); color: var(--ink); border-color: color-mix(in oklab, var(--cta) 50%, var(--line-2)); transform: translateY(-1px); }
-.item-rail-actions-cart:disabled { opacity: 0.6; cursor: not-allowed; }
+.item-rail-actions-cart:disabled, .item-rail-actions-cart[aria-disabled=true] { opacity: 0.6; cursor: not-allowed; }
 .modal-name-rarity { font-style: italic; font-weight: 600; color: oklch(0.78 0.16 55); font-family: 'Roboto', 'Roboto', 'Inter', system-ui, sans-serif; letter-spacing: -0.005em; font-size: 14px; text-decoration: none; transition: color 140ms ease, opacity 140ms ease; }
 .modal-name-rarity:hover { color: oklch(0.85 0.18 55); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: oklch(0.78 0.16 55); }
 .item-rail-actions-bargain { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; background: transparent; color: color-mix(in oklab, var(--cta) 90%, white); border: 1px solid color-mix(in oklab, var(--cta) 30%, var(--line-2)); border-radius: 6px; padding: 8px 14px; margin-bottom: 10px; font-family: 'Roboto', 'Inter', system-ui, sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 140ms ease, color 140ms ease, border-color 140ms ease, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
@@ -7128,6 +7128,8 @@ body .cart-confirm-total-amt { font-size: 20px !important; font-weight: 700 !imp
 .seller-verified::before, .stall-verified::before, .stall-hero .verified-badge::before, .stall-hero .seller-verified-badge::before, .profile-verified-badge::before { content: '' !important; display: inline-block !important; width: 12px !important; height: 12px !important; background-color: rgb(108, 161, 255) !important; -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 16l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8z'/></svg>") center / contain no-repeat !important; mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 16l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8z'/></svg>") center / contain no-repeat !important; flex: 0 0 12px !important; }
 .stall-rating, .stall-rating-chip, .profile-rating, .seller-rating-row { display: inline-flex !important; align-items: center !important; gap: 4px !important; height: 20px !important; padding: 0 !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 14px !important; line-height: 20px !important; letter-spacing: 0.25px !important; color: rgba(255, 255, 255, 0.87) !important; white-space: nowrap !important; }
 .stall-rating::before, .stall-rating-chip::before, .profile-rating::before, .seller-rating-row::before { content: '' !important; display: inline-block !important; width: 16px !important; height: 16px !important; background-color: #fbbf24 !important; -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/></svg>") center / contain no-repeat !important; mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/></svg>") center / contain no-repeat !important; flex: 0 0 16px !important; vertical-align: middle !important; }
+/* The stall chip already spells its stars out (.stall-rating-stars); the icon made 4.3 read as five stars. */
+.stall-rating:has(.stall-rating-stars)::before { content: none !important; display: none !important; }
 .stall-rating .rating-count, .stall-rating-chip .rating-count, .profile-rating .rating-count, .seller-rating-row .rating-count { font-size: 12px !important; font-weight: 400 !important; color: rgb(158, 167, 177) !important; letter-spacing: 0.4px !important; margin-left: 2px !important; }
 .stall-stat-grid .stall-stat .stall-stat-val, .profile-stat-grid .profile-stat .profile-stat-val { font-variant-numeric: tabular-nums !important; }
 .stall-stat-grid .stall-stat[data-stat="totalSales"] .stall-stat-val, .stall-stat-grid .stall-stat[data-stat="totalPurchases"] .stall-stat-val, .stall-stat-grid .stall-stat[data-stat="lifetimeSales"] .stall-stat-val, .profile-stat-grid .profile-stat[data-stat="totalSales"] .profile-stat-val, .profile-stat-grid .profile-stat[data-stat="totalPurchases"] .profile-stat-val { font-size: 18px !important; line-height: 24px !important; font-weight: 500 !important; letter-spacing: 0.15px !important; }
@@ -9911,12 +9913,12 @@ body .cart-confirm-actions .btn-accent { position: relative !important; }
 body .cart-confirm-actions .btn-accent::before { content: "" !important; position: absolute !important; inset: 0 !important; border-radius: inherit !important; background: rgb(255, 255, 255) !important; opacity: 0 !important; pointer-events: none !important; transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important; z-index: 1 !important; }
 body .cart-confirm-actions .btn-accent:hover:not(:disabled)::before { opacity: 0.04 !important; }
 body .cart-confirm-actions .btn-accent > * { position: relative !important; z-index: 2 !important; }
-body .cart-confirm-actions .btn-accent:focus-visible:not(:disabled) { background: rgb(35, 123, 255) !important; outline: 0 !important; box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.20), 0 4px 5px 0 rgba(0, 0, 0, 0.14), 0 1px 10px 0 rgba(0, 0, 0, 0.12) !important; }
+body .cart-confirm-actions .btn-accent:focus-visible:not(:disabled) { background: rgb(35, 123, 255) !important; outline: 2px solid #fff !important; box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.20), 0 4px 5px 0 rgba(0, 0, 0, 0.14), 0 1px 10px 0 rgba(0, 0, 0, 0.12) !important; }
 body .cart-confirm-actions .btn-accent:focus-visible:not(:disabled)::before { opacity: 0.12 !important; }
 body .cart-confirm-actions .btn-accent:active:not(:disabled) { background: rgb(35, 123, 255) !important; transform: none !important; box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.20), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12) !important; }
 body .cart-confirm-actions .btn-accent:active:not(:disabled)::before { opacity: 0.12 !important; }
 body .cart-confirm-actions .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.04) !important; color: rgb(35, 123, 255) !important; }
-body .cart-confirm-actions .btn-ghost:focus-visible:not(:disabled) { background: rgba(255, 255, 255, 0.12) !important; outline: 0 !important; color: rgb(35, 123, 255) !important; }
+body .cart-confirm-actions .btn-ghost:focus-visible:not(:disabled) { background: rgba(255, 255, 255, 0.12) !important; outline: 2px solid #237bff !important; color: rgb(35, 123, 255) !important; }
 body .cart-confirm-actions .btn-ghost:active:not(:disabled) { background: rgba(255, 255, 255, 0.12) !important; transform: none !important; color: rgb(35, 123, 255) !important; }
 body .cart-confirm-list { scrollbar-width: thin !important; scrollbar-color: rgba(193, 206, 255, 0.07) transparent !important; }
 body .cart-confirm-list::-webkit-scrollbar { width: 12px !important; background-color: transparent !important; }
@@ -12168,6 +12170,9 @@ html body .profile-tabs { scroll-margin-top: 84px; }
    right-aligned buttons. */
 @media (max-width: 600px) {
   html body .stall-hero > .stall-share-btn { margin-left: 0 !important; flex: 1 1 calc(50% - 8px) !important; justify-content: center; }
+  /* The desktop divider margin on Block outranked the line above: Block sat 8px off the column. */
+  html body .stall-hero > .stall-share-btn[title*="Hide this seller"],
+  html body .stall-hero > .stall-share-btn[title*="have blocked this seller"] { margin-left: 0 !important; }
 }
 /* ...and keep the page tall enough for that landing while the section's own
    data is still loading, or the scroll stops short of the tabs. */
@@ -13664,7 +13669,7 @@ html body nav.nav:has(#user-menu-panel), html body nav.nav:has(#notif-dropdown-p
 }
 /* Phones: the bell dropdown is position:fixed here, so its desktop `top: calc(100% + 6px)` put it below the screen. */
 @media (max-width: 480px) {
-  html body #notif-dropdown-panel.notif-dropdown { top: 64px !important; max-height: min(480px, calc(100dvh - 64px - 66px - env(safe-area-inset-bottom, 0px))) !important; }
+  html body #notif-dropdown-panel.notif-dropdown { top: var(--notif-top, 64px) !important; max-height: min(480px, calc(100dvh - var(--notif-top, 64px) - 66px - env(safe-area-inset-bottom, 0px))) !important; }
 }
 /* 360px phones: a four-figure balance pushed the avatar chip off the right edge. */
 @media (max-width: 420px) {

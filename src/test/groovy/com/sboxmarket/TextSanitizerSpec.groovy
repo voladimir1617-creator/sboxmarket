@@ -41,6 +41,12 @@ class TextSanitizerSpec extends Specification {
         // literal `<<` survives as plain text, which is fine because
         // React text nodes escape it on render.
         '<<double<<tags'                       | '<<double<<tags'
+        // a bare `<` is text, not the start of a tag
+        'price < 5 & > 3'                      | 'price < 5 & > 3'
+        'Paid < $5 for <i>knife</i>'           | 'Paid < $5 for knife'
+        'a <3 b > c'                           | 'a <3 b > c'
+        '<!-- hidden -->shown'                 | 'shown'
+        '</b>x'                                | 'x'
     }
 
     def "strips protocol handlers from plain text"() {

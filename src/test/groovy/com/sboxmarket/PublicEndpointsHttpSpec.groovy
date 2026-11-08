@@ -2404,6 +2404,27 @@ class PublicEndpointsHttpSpec extends Specification {
         r.response.contentAsString.contains('name="robots" content="noindex, nofollow"')
     }
 
+    def "GET #path (a private page's tab) emits noindex robots meta too"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get(path)).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString.contains('name="robots" content="noindex, nofollow"')
+
+        where:
+        path << ['/profile/trades', '/profile/personal/', '/wallet/history', '/wallet/deposit',
+                 '/watchlist/drops', '/offers/incoming', '/me/stall/sold']
+    }
+
+    def "GET /profile/nope (an unknown tab) still goes to the SPA 404, not a private shell"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/profile/nope')).andReturn()
+
+        then:
+        r.response.forwardedUrl == '/spa-404'
+    }
+
     def "GET / (public shell) does NOT carry the private noindex (batch 808)"() {
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/')).andReturn()

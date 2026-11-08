@@ -9,7 +9,7 @@ import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
 import { TradeProtectionPanel } from './trade-protection.js';
 import { SellerPayoutsCard } from './seller-payouts.js';
-import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
+import { useDialogA11y, useReturnFocus, fmtDelay } from './dialog-a11y.js';
 export { useDialogA11y, fmtDelay };
 import {
   fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyPendingEscrow, fetchMyBotCustody, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
@@ -358,6 +358,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   const floorPrice = cheapestBuyNow ? parseFloat(cheapestBuyNow.price)
     : (listings.length > 0 ? parseFloat(item?.lowestPrice) : 0);
   const [offerOpen, setOfferOpen] = useState(false);
+  useReturnFocus(offerOpen);
   // The listing the offer drawer bargains on. null = the cheapest buy-now
   // listing (the rail Bargain and action-bar Make Offer); an Active
   // Listings row's Make offer sets its own id so a buyer can bargain with
@@ -814,6 +815,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // flow — same endpoint, same cap, but renders a proper dialog with a
   // prefilled target, quick ±% adjusters, and a live preview sentence.
   const [alertOpen, setAlertOpen] = useState(false);
+  useReturnFocus(alertOpen);
   const [alertTarget, setAlertTarget] = useState('');
   const [alertBusy, setAlertBusy] = useState(false);
   const [alertErr, setAlertErr]   = useState('');
@@ -1402,8 +1404,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 ),
                 h('button', {
                   className: 'item-buy-bar-cart',
-                  onClick: () => onAddToCart && onAddToCart(cheap),
-                  disabled: cheapInCart,
+                  // aria-disabled, not disabled: disabling the button the
+                  // moment the add lands dropped keyboard focus to <body>.
+                  onClick: () => { if (!cheapInCart && onAddToCart) onAddToCart(cheap); },
+                  'aria-disabled': cheapInCart || undefined,
                   'aria-label': cheapInCart ? 'Already in your cart' : 'Add this listing to your cart',
                   title: cheapInCart ? 'Already in your cart' : 'Add this listing to your cart'
                 }, h(MaterialIcon, { name: cheapInCart ? 'check' : 'shopping_cart', size: 18 })),
@@ -1439,9 +1443,12 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 ),
                 h('button', {
                   className: 'item-rail-actions-cart',
-                  onClick: () => onAddToCart && onAddToCart(cheap),
+                  onClick: () => { if (!(cartHas && cartHas(cheap.id)) && onAddToCart) onAddToCart(cheap); },
                   // Own listing: addToCart refuses it, as Buy now is refused.
-                  disabled: !!youOwn || (cartHas && cartHas(cheap.id)),
+                  // Already in cart: aria-disabled, not disabled, so the
+                  // keyboard focus that just added it stays on the button.
+                  disabled: !!youOwn,
+                  'aria-disabled': (!youOwn && cartHas && cartHas(cheap.id)) || undefined,
                   title: youOwn ? 'You are the seller of the cheapest listing' : cartHas && cartHas(cheap.id) ? 'Already in your cart' : 'Add this listing to your cart'
                 },
                   h(MaterialIcon, { name: 'shopping_cart', size: 14 }),
@@ -4443,6 +4450,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   // replied and expects the user to read / respond). Pulled from the
   // user's own ticket list so no new server endpoint is needed.
   const [waitingSupportCount, setWaitingSupportCount]   = useState(0);
+  useEffect(() => {
+    const onWaiting = (e) => setWaitingSupportCount(Number(e.detail) || 0);
+    window.addEventListener('sb:support-waiting', onWaiting);
+    return () => window.removeEventListener('sb:support-waiting', onWaiting);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('sb_privacy', privacy ? '1' : '0');
@@ -5990,8 +6002,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       setRecoveryStatus(null);
       setDisableDrawerOpen(false);
       setDisableCode('');
-      try { refreshProfile && await refreshProfile(); } catch (_) { /* disabled either way */ }
-      toast('Two-factor authentication disabled.', 'ok');
+      // The server signs out every session on disable, this one included,
+      // so a profile re-read 401s and the row kept saying Enabled. Say so
+      // and land on the marketplace, as Sign out everywhere does.
+      toast('Two-factor authentication disabled. You were signed out on every device; sign in again to continue.', 'ok');
+      setTimeout(() => { location.href = '/'; }, 2500);
     } finally { setDisableBusy(false); }
   };
   const disableTwofa = () => {
@@ -11482,6 +11497,13 @@ function ProfileSupportTab() {
     if (res === null) { setTicketsErr(true); return; }
     setTicketsErr(false);
     setTickets(res);
+    // Keep the Support tab's "waiting on you" badge in step: it was only
+    // counted when the tab changed, so it still read 1 after a reply.
+    try {
+      window.dispatchEvent(new CustomEvent('sb:support-waiting', {
+        detail: (Array.isArray(res) ? res : []).filter(t => t.status === 'WAITING_USER').length
+      }));
+    } catch (_) {}
   }, []);
   useEffect(() => { load(); }, [load]);
   // Show a ticket only when it actually loaded; a failed fetch used to
@@ -13927,7 +13949,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'Platform inventory empty'),
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 18px' } },
-        'Items you buy on sboxmarket appear here. You can relist any of them at a new price.')
+        `Items you buy on ${BRAND.name} appear here. You can relist any of them at a new price.`)
     ),
     // Batch 1006 — overflow banner when the server caps the payload at
     // 500 rows. Harmless for typical users (internalTotal == internalList.length);

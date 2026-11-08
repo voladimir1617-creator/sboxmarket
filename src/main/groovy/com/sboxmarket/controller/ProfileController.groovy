@@ -203,9 +203,7 @@ class ProfileController {
         // guessing on /2fa/disable with a fresh budget.
         long sharedMs = totpService?.lockoutRemainingMs(uid) ?: 0L
         if (sharedMs > 0L) {
-            long sec = Math.max(1L, (sharedMs / 1000L) as long)
-            throw new BadRequestException("TWOFA_LOCKED",
-                "Too many failed two-factor attempts. Try again in ${sec}s.")
+            throw new BadRequestException("TWOFA_LOCKED", lockedMessage(sharedMs))
         }
         def entry = TWOFA_FAILS.get(uid)
         if (entry == null) return
@@ -221,11 +219,15 @@ class ProfileController {
             return
         }
         if (count >= TWOFA_MAX_FAILS) {
-            long retryAfterSec = ((firstFailAt + TWOFA_LOCKOUT_MS - now) / 1000L) as long
-            if (retryAfterSec < 1L) retryAfterSec = 1L
-            throw new BadRequestException("TWOFA_LOCKED",
-                "Too many failed two-factor attempts. Try again in ${retryAfterSec}s.")
+            throw new BadRequestException("TWOFA_LOCKED", lockedMessage(firstFailAt + TWOFA_LOCKOUT_MS - now))
         }
+    }
+
+    /** Lockout copy in whole minutes, as the withdraw gate words it; the
+     *  raw seconds ("Try again in 899s") read like a timer dump. */
+    static String lockedMessage(long remainingMs) {
+        long min = Math.max(1L, (long) Math.ceil(remainingMs / 60000.0d))
+        "Too many failed two-factor attempts. Try again in ${min} minute${min == 1L ? '' : 's'}.".toString()
     }
 
     /** Record one failed 2FA verification for the user. Starts a fresh
@@ -1553,7 +1555,8 @@ class ProfileController {
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
         def stage = user.emailVerificationToken
         if (!stage?.startsWith('totp_pending:')) {
-            throw new BadRequestException("NOT_ENROLLING", "Call /2fa/enroll first")
+            throw new BadRequestException("NOT_ENROLLING",
+                "This two-factor setup was cancelled or already finished. Start again with Enable 2FA.")
         }
         def secret = stage.substring('totp_pending:'.size())
         def code = (body?.code as String ?: '').trim()
@@ -1583,7 +1586,7 @@ class ProfileController {
             uid, stage, secret, step, codes.hashed as String)
         if (updated == 0) {
             throw new BadRequestException("NOT_ENROLLING",
-                "Two-factor enrollment was already completed on a parallel request. Use /2fa/regenerate-codes if you need a fresh recovery list.")
+                "Two-factor authentication is already on (it was finished in another tab). Use Regenerate codes if you need a fresh backup list.")
         }
         ResponseEntity.ok([
             enabled:      true,

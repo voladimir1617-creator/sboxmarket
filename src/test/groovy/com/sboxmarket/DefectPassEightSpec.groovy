@@ -235,8 +235,8 @@ class DefectPassEightSpec extends Specification {
         def adminPing = notificationsFor(admin.id).find { it.refId == t.id }
 
         then:
-        csrPing.path == '/csr?tab=tickets'
-        adminPing.path == '/admin?tab=tickets'
+        csrPing.path == "/csr?tab=tickets&ticket=${t.id}".toString()
+        adminPing.path == "/admin?tab=tickets&ticket=${t.id}".toString()
     }
 
     // ── Profile settings ──────────────────────────────────────────

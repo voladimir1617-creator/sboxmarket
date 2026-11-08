@@ -206,7 +206,7 @@ class SupportService {
                         notificationService.push(s.id, 'SUPPORT_REPLY',
                             "New support ticket · #${ticket.id}",
                             "[${catLabel}] ${cleanSubject.take(100)} — from ${cleanName ?: 'user ' + userId}",
-                            ticket.id, staffTicketsPath(s))
+                            ticket.id, staffTicketsPath(s, ticket.id))
                     } catch (Exception e) {
                         log.warn("New-ticket staff push failed for uid=${s.id}: ${e.message}")
                     }
@@ -275,7 +275,7 @@ class SupportService {
                         notificationService?.push(s.id, 'SUPPORT_REPLY',
                             "User reply on ticket #${ticketId}",
                             "${cleanName ?: 'User ' + userId}: ${cleanBody.take(120)}",
-                            ticketId, staffTicketsPath(s))
+                            ticketId, staffTicketsPath(s, ticketId))
                     } catch (Exception e) {
                         log.warn("User-reply staff push failed for uid=${s.id}: ${e.message}")
                     }
@@ -328,7 +328,7 @@ class SupportService {
                         notificationService?.push(s.id, 'SUPPORT_REPLY',
                             "Ticket #${ticketId} reopened",
                             "User reopened the resolved thread.",
-                            ticketId, staffTicketsPath(s))
+                            ticketId, staffTicketsPath(s, ticketId))
                     } catch (Exception e) {
                         log.warn("Reopen staff push failed for uid=${s.id}: ${e.message}")
                     }
@@ -469,7 +469,10 @@ class SupportService {
 
     /** Where a staff ticket ping should land: only ADMINs can open
      *  /admin, so a CSR gets the tickets tab of their own console. */
-    private static String staffTicketsPath(def staff) {
-        staff?.role == 'ADMIN' ? '/admin?tab=tickets' : '/csr?tab=tickets'
+    private static String staffTicketsPath(def staff, Long ticketId) {
+        // The ticket id opens that thread; the bare tab left staff hunting
+        // for it in the list.
+        def base = staff?.role == 'ADMIN' ? '/admin?tab=tickets' : '/csr?tab=tickets'
+        ticketId != null ? "${base}&ticket=${ticketId}".toString() : base
     }
 }
