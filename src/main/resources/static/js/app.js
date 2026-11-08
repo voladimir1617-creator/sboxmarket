@@ -789,6 +789,30 @@ export function RatingBreakdown({ summary }) {
   );
 }
 
+// The cart row a Remove / Save button sits in unmounts with the click, which
+// dropped a keyboard user's focus to <body>. Call before removing; the
+// returned function, called after, moves focus to the same button on the
+// next row (or the previous one, or the cart's next control when the list
+// is empty) once React has re-rendered.
+function cartRowFocusKeeper(btn) {
+  const row = btn && btn.closest('.cart-row');
+  const list = row && row.parentElement;
+  const sib = row && (row.nextElementSibling || row.previousElementSibling);
+  const label = btn && btn.getAttribute('aria-label') ? 'Remove' : null;
+  return () => requestAnimationFrame(() => {
+    const a = document.activeElement;
+    if (a && a !== document.body && document.contains(a)) return;
+    let t = null;
+    if (sib && document.contains(sib)) {
+      t = label ? sib.querySelector('button[aria-label^="Remove"]')
+                : [...sib.querySelectorAll('button')].find(b => /save/i.test(b.textContent)) || sib;
+    }
+    if (!t) t = (list && document.contains(list) && list.querySelector('.cart-row')) ||
+                document.querySelector('#main a[href="/market"], #main button');
+    if (t) { try { t.focus({ preventScroll: false }); } catch (_) {} }
+  });
+}
+
 // ── Nav cart popover — CSFloat-1:1 parity surface. The cart icon in the
 // nav reveals a 370×680px popover on hover (desktop) / tap (mobile) that
 // summarises the current cart: line-items with thumb, name, price, remove
@@ -9992,7 +10016,10 @@ export function App() {
                     // detail page. Seller-name link + X-remove button
                     // stop propagation so they keep their own behavior.
                     onClick: (e) => { if (e.target.closest('a, button')) return; if (it.itemId) navigate(paths.item(it.itemId)); },
-                    onKeyDown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && it.itemId) { e.preventDefault(); navigate(paths.item(it.itemId)); } }
+                    // Only a key pressed on the row itself: Enter on the ✕ /
+                    // ♡ Save buttons or the seller link bubbled up here, was
+                    // swallowed, and opened the item page instead of removing.
+                    onKeyDown: (e) => { if (e.target !== e.currentTarget) return; if ((e.key === 'Enter' || e.key === ' ') && it.itemId) { e.preventDefault(); navigate(paths.item(it.itemId)); } }
                   },
                   h('div', { className: 'cart-thumb' }, it.thumb
                     ? h('img', { src: it.thumb, alt: it.name, loading: 'lazy', decoding: 'async' })
@@ -10045,14 +10072,16 @@ export function App() {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '6px 10px', fontSize: 11 },
                     title: 'Move to watchlist — keep tracking the price without holding it in your cart',
-                    onClick: () => {
+                    onClick: (e) => {
                       // toggleStar handles both anon (localStorage)
                       // and signed-in (server starItem) paths. Calling
                       // setWatchlist directly here used to skip the
                       // server hop, so a signed-in user's "Save for
                       // later" silently dropped on next page load.
+                      const keep = cartRowFocusKeeper(e.currentTarget);
                       toggleStar(it.itemId);
                       removeFromCart(it.id);
+                      keep();
                       showToast('Moved to watchlist', 'ok');
                     }
                   }, '♡ Save'),
@@ -10065,7 +10094,7 @@ export function App() {
                     // not five identical "button" labels.
                     'aria-label': `Remove ${it.name || ('listing #' + it.id)} from cart`,
                     title: `Remove ${it.name || ('listing #' + it.id)} from cart`,
-                    onClick: () => removeFromCart(it.id)
+                    onClick: (e) => { const keep = cartRowFocusKeeper(e.currentTarget); removeFromCart(it.id); keep(); }
                   }, '✕')
                 );
               })
