@@ -1883,7 +1883,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         }, generatingLoadout ? '…' : 'Generate'),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, marginLeft: 'auto' } },
           'Total Value · ',
-          h('strong', { style: { color: 'var(--accent)' } }, fmt(viewing.loadout.totalValue))
+          h('strong', { style: { color: 'var(--accent)' } }, fmt(viewing.currentTotal ?? viewing.loadout.totalValue))
         )
       ),
       // Batch 833 — inline rename panel. Replaces window.prompt.
@@ -2014,8 +2014,24 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                         }
                       })
                     : h('div', { className: 'loadout-slot-emoji' }, s.itemEmoji || '—'),
-                  h('div', { className: 'loadout-slot-name' }, s.itemName),
-                  h('div', { className: 'loadout-slot-price' }, fmt(s.snapshotPrice)),
+                  // The name opens the item, so a visitor can go and buy
+                  // what the loadout wears (the share card promises it).
+                  h('div', { className: 'loadout-slot-name' },
+                    h('a', {
+                      href: paths.item(s.itemId),
+                      style: { color: 'inherit', textDecoration: 'none' },
+                      onClick: (e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+                        e.preventDefault();
+                        navigate(paths.item(s.itemId));
+                      }
+                    }, s.itemName)),
+                  // Today's floor, not the price when the item was added;
+                  // an item with no live listing says so instead of keeping
+                  // its old price. Older payloads only carry snapshotPrice.
+                  h('div', { className: 'loadout-slot-price' },
+                    s.currentPrice == null ? fmt(s.snapshotPrice)
+                      : parseFloat(s.currentPrice) > 0 ? fmt(s.currentPrice) : 'Not listed'),
                   // Lock toggle (owner-only). Locked slots survive the
                   // Generate autopicker — CSFloat-parity behaviour for a
                   // user who wants a specific item but is happy to
@@ -2253,7 +2269,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 l.previewItems.slice(0, 8).map((pi, idx) => h('div', {
                   key: 'lcp-' + l.id + '-' + idx,
                   className: 'loadout-card-preview-tile',
-                  title: (pi.itemName || pi.slot || '') + (pi.snapshotPrice != null ? ' · ' + fmt(pi.snapshotPrice) : ''),
+                  title: (pi.itemName || pi.slot || '') + (pi.currentPrice != null
+                    ? ' · ' + (parseFloat(pi.currentPrice) > 0 ? fmt(pi.currentPrice) : 'Not listed')
+                    : (pi.snapshotPrice != null ? ' · ' + fmt(pi.snapshotPrice) : '')),
                   style: pi.accentColor ? { borderColor: pi.accentColor } : null
                 },
                   pi.imageUrl
@@ -2291,18 +2309,26 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                       : null
                   ].filter(Boolean).join(' · ') +
                     ` — clone or favorite it on ${BRAND.name}.`;
+                  if (typeof navigator.share === 'function') {
+                    try { await navigator.share({ title, text, url }); return; }
+                    catch (e) {
+                      // Closing the phone share sheet rejects with AbortError;
+                      // that is the user saying no, not a reason for a pop-up.
+                      if (e && e.name === 'AbortError') return;
+                      // Any other refusal (the site's Permissions-Policy turns
+                      // web-share off, so it always refuses) falls through to
+                      // the clipboard, as the item page's Share does, instead
+                      // of a "Copy this link" pop-up on every phone.
+                    }
+                  }
                   try {
-                    if (navigator.share) { await navigator.share({ title, text, url }); return; }
                     if (navigator.clipboard?.writeText) {
                       await navigator.clipboard.writeText(url);
                       toast('Loadout link copied.', 'ok');
                     } else {
                       window.prompt('Copy this loadout link:', url);
                     }
-                  } catch (e) {
-                    // Closing the phone share sheet rejects with AbortError;
-                    // that is the user saying no, not a reason for a pop-up.
-                    if (e && e.name === 'AbortError') return;
+                  } catch (_) {
                     window.prompt('Copy this loadout link:', url);
                   }
                 }

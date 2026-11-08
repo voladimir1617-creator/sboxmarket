@@ -43,6 +43,7 @@ class OpenGraphController {
     @Autowired LoadoutRepository loadoutRepository
     @Autowired(required = false) ListingService listingService
     @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
+    @Autowired(required = false) com.sboxmarket.service.LoadoutService loadoutService
 
     @Value('${app.public-url:http://localhost:8080}')
     String publicUrl
@@ -675,8 +676,16 @@ class OpenGraphController {
         def url = base + '/loadout/' + loadoutId
         def name = escape(loadout.name ?: 'Loadout')
         def ownerName = escape(loadout.ownerName ?: 'a SkinBox user')
-        def valueStr = (loadout.totalValue != null && loadout.totalValue > BigDecimal.ZERO)
-            ? '$' + loadout.totalValue.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString()
+        // Price the set at today's floors, as the loadout page does: the
+        // stored totalValue keeps each item's price from when it was added,
+        // so a share card went on quoting items that have since sold out.
+        BigDecimal total = loadout.totalValue
+        if (loadoutService != null) {
+            try { total = loadoutService.currentTotal(loadoutId) }
+            catch (Exception e) { log.debug("OG loadout total failed for ${loadoutId}: ${e.message}") }
+        }
+        def valueStr = (total != null && total > BigDecimal.ZERO)
+            ? '$' + total.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString()
             : null
         def title = "${name} · SkinBox Loadout"
         def desc = valueStr
