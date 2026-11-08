@@ -4790,6 +4790,9 @@ export function App() {
   // tab): close it. Left open it read "Buying 0 items" over a $0.00 total
   // with a dead Confirm button.
   useEffect(() => { if (cart.length === 0) setCartConfirmOpen(false); }, [cart.length]);
+  // Browser Back/Forward with the confirm open left it floating over the
+  // item page the user went back to. It belongs to /cart only.
+  useEffect(() => { if (routeName !== 'cart') setCartConfirmOpen(false); }, [routeName]);
   const doCheckout = async () => {
     if (cart.length === 0) return;
     // Synchronous in-flight latch — a rapid double-click on Confirm must not fire
@@ -5267,6 +5270,9 @@ export function App() {
   // Keyboard-shortcut help overlay state. `?` opens it, `Esc` closes.
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
+  // Browser Back/Forward left the user menu and the shortcuts overlay open
+  // over the page the user went back to; in-app links already close them.
+  useEffect(() => { setMenuOpen(false); setShortcutsOpen(false); }, [route.path]);
 
   // Keyboard shortcuts — CSFloat uses `/` to focus the market search.
   useEffect(() => {

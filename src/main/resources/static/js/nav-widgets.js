@@ -522,11 +522,16 @@ export function NotificationBell({ me }) {
       setOpen(false);
       if (inPanel) { const b = wrapRef.current.querySelector('button'); if (b) b.focus(); }
     };
+    // Browser Back/Forward changes the page under the panel; close it
+    // like any other navigation instead of leaving it over the new page.
+    const onPop = () => setOpen(false);
     document.addEventListener('click', onDoc);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('popstate', onPop);
     return () => {
       document.removeEventListener('click', onDoc);
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
     };
   }, [open]);
 
