@@ -780,7 +780,18 @@ class OpenGraphController {
                          '/support', '/support/',
                          '/settings', '/settings/',
                          '/admin', '/admin/',
-                         '/csr', '/csr/'],
+                         '/csr', '/csr/',
+                         // The tabbed private pages (router.js / WebConfig
+                         // SPA_ROUTES) were served the plain shell, i.e.
+                         // `index, follow` with the home canonical, so
+                         // /wallet/history or /profile/trades was indexable
+                         // while /wallet and /profile were not.
+                         '/profile/{tab:personal|listings|transactions|buyorders|autobids|trades|offers|reviews|support|developers}',
+                         '/profile/{tab:personal|listings|transactions|buyorders|autobids|trades|offers|reviews|support|developers}/',
+                         '/wallet/{tab:deposit|withdraw|history}', '/wallet/{tab:deposit|withdraw|history}/',
+                         '/watchlist/{tab:all|drops}', '/watchlist/{tab:all|drops}/',
+                         '/offers/{tab:incoming|outgoing}', '/offers/{tab:incoming|outgoing}/',
+                         '/me/stall/{tab:active|sold|analytics}', '/me/stall/{tab:active|sold|analytics}/'],
                 produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> privateShell() {
         refreshTemplate()
