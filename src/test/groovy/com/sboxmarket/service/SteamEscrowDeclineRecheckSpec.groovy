@@ -24,7 +24,7 @@ class SteamEscrowDeclineRecheckSpec extends Specification {
     SteamInventoryService inventory = Mock()
     AuditService auditService = Mock()
 
-    static final String STEAM_ID = '76561190000000001'
+    static final String STEAM_ID = '76561197960265729'
 
     def setup() {
         service = new SteamEscrowService()
