@@ -4,6 +4,7 @@ import com.sboxmarket.model.AuditLog
 import com.sboxmarket.repository.AuditLogRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -31,6 +32,13 @@ import org.springframework.transaction.annotation.Transactional
  *      a 10-minute window. Either a reseller script or a compromised
  *      account draining balance fast.
  *
+ *   5. **CARD_TO_SKIN_NEW_ACCOUNT** — an account younger than 7 days
+ *      (SteamUser.createdAt, measured at the deposit) completes a card
+ *      deposit (DEPOSIT_COMPLETE) and buys one or more listings within 60
+ *      minutes after it. The stolen-card "cash out into skins" pattern.
+ *      HIGH when the purchases in that window total $200+, else MED.
+ *      Staff-only triage signal: nothing is blocked, held or refunded.
+ *
  * Each signal returns a structured map with `type`, `severity` (LOW/MED/
  * HIGH), `userId`, `ip`, `count`, and a human `summary`. The admin tab
  * renders this list directly.
@@ -51,7 +59,19 @@ class FraudAnalysisService {
     private static final int   PURCHASE_VELOCITY_TRIP    = 10
     private static final long  PURCHASE_VELOCITY_WINDOW  = 10L * 60L * 1000L
 
+    // CARD_TO_SKIN_NEW_ACCOUNT tunables. Unlike the constants above these
+    // are @Value so ops can tune them per environment; the field
+    // initialisers keep the same defaults for unit tests that build the
+    // service with `new FraudAnalysisService(...)` outside Spring.
+    @Value('${fraud.card-to-skin.max-account-age-days:7}')
+    long cardToSkinMaxAccountAgeDays = 7L
+    @Value('${fraud.card-to-skin.window-minutes:60}')
+    long cardToSkinWindowMinutes = 60L
+    @Value('${fraud.card-to-skin.high-total-usd:200}')
+    BigDecimal cardToSkinHighTotalUsd = new BigDecimal('200')
+
     @Autowired AuditLogRepository auditLogRepository
+    @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     /** Cluster-wide dedup ledger — wave-112-style multi-pod race claim
@@ -102,6 +122,7 @@ class FraudAnalysisService {
         signals.addAll(detectRapidWithdrawAfterDeposit(rows))
         signals.addAll(detectHighVelocityPurchases(rows))
         signals.addAll(detectChargebacks(rows))
+        signals.addAll(detectCardToSkinNewAccount(rows))
         // Sort HIGH > MED > LOW, then newest-first within a severity bucket.
         // IMPORTANT: Groovy's `?:` treats 0 as falsy, so `sev[HIGH] ?: 9`
         // would turn rank 0 into 9 and break the order. Use the Map-as-
@@ -261,6 +282,103 @@ class FraudAnalysisService {
             }
         }
         out
+    }
+
+    // ── Signal 6: new account, card deposit -> skins within 60m ───
+    // Reads the same DEPOSIT_COMPLETE rows as the rapid-withdraw signal
+    // (written only by the Stripe card-deposit webhook) and the same
+    // LISTING_PURCHASED rows as the velocity signal. Account age comes
+    // from SteamUser.createdAt (one findAllById for the depositors) and
+    // each purchase's amount from Listing.price (one findAllById for the
+    // bought listings), falling back to the "for $X" in the audit
+    // summary when a listing can't be loaded. Read-only: it only adds a
+    // row to the staff fraud rollup.
+    private List<Map> detectCardToSkinNewAccount(List<AuditLog> rows) {
+        if (steamUserRepository == null) return []
+        def deposits  = rows.findAll { it.eventType == AuditService.DEPOSIT_COMPLETE && it.actorUserId && it.createdAt != null }
+        if (!deposits) return []
+        def purchases = rows.findAll { it.eventType == AuditService.LISTING_PURCHASED && it.actorUserId && it.createdAt != null }
+        if (!purchases) return []
+
+        long windowMs = cardToSkinWindowMinutes * 60L * 1000L
+        long maxAgeMs = cardToSkinMaxAccountAgeDays * 24L * 60L * 60L * 1000L
+
+        def buyerIds = purchases*.actorUserId.toSet()
+        def candidateIds = deposits*.actorUserId.findAll { it in buyerIds }.toSet()
+        if (!candidateIds) return []
+
+        Map<Long, Long> accountCreatedAt = [:]
+        try {
+            (steamUserRepository.findAllById(candidateIds) ?: []).each { u ->
+                if (u?.id != null && u.createdAt != null) accountCreatedAt[u.id] = u.createdAt
+            }
+        } catch (Exception e) {
+            log.warn("CARD_TO_SKIN_NEW_ACCOUNT user lookup failed: ${e.message}")
+            return []
+        }
+        if (!accountCreatedAt) return []
+
+        def relevantPurchases = purchases.findAll { accountCreatedAt.containsKey(it.actorUserId) }
+        Map<Long, BigDecimal> listingPrice = [:]
+        if (listingRepository != null) {
+            def listingIds = relevantPurchases*.resourceId.findAll { it != null }.toSet()
+            if (listingIds) {
+                try {
+                    (listingRepository.findAllById(listingIds) ?: []).each { l ->
+                        if (l?.id != null && l.price != null) listingPrice[l.id] = l.price
+                    }
+                } catch (Exception e) {
+                    log.warn("CARD_TO_SKIN_NEW_ACCOUNT listing lookup failed: ${e.message}")
+                }
+            }
+        }
+
+        def out = []
+        deposits.each { d ->
+            Long created = accountCreatedAt[d.actorUserId]
+            if (created == null) return
+            long ageMs = d.createdAt - created
+            if (ageMs >= maxAgeMs) return
+            def inWindow = relevantPurchases.findAll {
+                it.actorUserId == d.actorUserId &&
+                it.createdAt >= d.createdAt &&
+                (it.createdAt - d.createdAt) <= windowMs
+            }
+            if (!inWindow) return
+            BigDecimal total = BigDecimal.ZERO
+            inWindow.each { p -> total = total + (purchaseAmount(p, listingPrice) ?: BigDecimal.ZERO) }
+            def last = inWindow.max { it.createdAt }
+            long ageDays = (Math.max(0L, ageMs).intdiv(24L * 60L * 60L * 1000L)) as long
+            def who = d.actorName ?: d.actorUserId
+            def totalStr = total.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+            out << [
+                type:      'CARD_TO_SKIN_NEW_ACCOUNT',
+                severity:  total >= cardToSkinHighTotalUsd ? 'HIGH' : 'MED',
+                userId:    d.actorUserId,
+                userName:  d.actorName,
+                ip:        last.ipAddress ?: d.ipAddress,
+                count:     inWindow.size(),
+                total:     total,
+                summary:   "Account ${who} (${ageDays}d old) bought ${inWindow.size()} listing(s) totalling \$${totalStr} within ${cardToSkinWindowMinutes} min of a card deposit",
+                createdAt: last.createdAt,
+                // One alert per deposit — the deposit row id is unique and
+                // stable across the 30-min sweeps (same pattern as the
+                // rapid-withdraw and chargeback signals).
+                dedupKey:  d.id
+            ]
+        }
+        out
+    }
+
+    private static final java.util.regex.Pattern PURCHASE_SUMMARY_AMOUNT = ~/for \$([0-9]+(?:\.[0-9]+)?)/
+
+    private static BigDecimal purchaseAmount(AuditLog p, Map<Long, BigDecimal> listingPrice) {
+        if (p.resourceId != null && listingPrice.containsKey(p.resourceId)) return listingPrice[p.resourceId]
+        def m = PURCHASE_SUMMARY_AMOUNT.matcher(p.summary ?: '')
+        if (m.find()) {
+            try { return new BigDecimal(m.group(1)) } catch (NumberFormatException ignore) {}
+        }
+        null
     }
 
     // ── Signal 5: chargeback opened in the last 24h ──────────────
