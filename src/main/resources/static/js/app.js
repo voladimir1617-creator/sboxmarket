@@ -807,8 +807,10 @@ function cartRowFocusKeeper(btn) {
       t = label ? sib.querySelector('button[aria-label^="Remove"]')
                 : [...sib.querySelectorAll('button')].find(b => /save/i.test(b.textContent)) || sib;
     }
+    // The link first: as one selector list the page's hidden ✕ (earlier in
+    // the DOM) won, focus() on it did nothing and focus stayed on <body>.
     if (!t) t = (list && document.contains(list) && list.querySelector('.cart-row')) ||
-                document.querySelector('#main a[href="/market"], #main button');
+                document.querySelector('#main a[href="/market"]') || document.querySelector('#main button');
     if (t) { try { t.focus({ preventScroll: false }); } catch (_) {} }
   });
 }
