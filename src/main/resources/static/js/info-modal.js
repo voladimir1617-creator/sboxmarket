@@ -49,6 +49,10 @@ export function InfoModal({ title, onClose, children, wide }) {
     // popup, so don't steal focus to ✕ and don't trap Tab inside it (the
     // trap made the header nav, search and footer unreachable by keyboard).
     const isPage = () => !!document.querySelector('.site-root.full-page-mode');
+    // As a page, it unmounts because the user went to another page; handing
+    // focus back to whatever had it on arrival (often a footer link) pulled
+    // focus off the link the user had just followed, to somewhere offscreen.
+    const pageAtMount = isPage();
     const id = requestAnimationFrame(() => {
       if (closeRef.current && !isPage()) {
         try { closeRef.current.focus({ preventScroll: true }); }
@@ -125,7 +129,7 @@ export function InfoModal({ title, onClose, children, wide }) {
       // resume where they were. Guard against a trigger that was
       // removed from the DOM mid-lifecycle.
       try {
-        if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
+        if (!pageAtMount && prev && typeof prev.focus === 'function' && document.contains(prev)) {
           prev.focus({ preventScroll: true });
         }
       } catch (_) {}

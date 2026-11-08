@@ -1398,8 +1398,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 ),
                 h('button', {
                   className: 'item-buy-bar-cart',
-                  onClick: () => onAddToCart && onAddToCart(cheap),
-                  disabled: cheapInCart,
+                  // aria-disabled, not disabled: disabling the button the
+                  // moment the add lands dropped keyboard focus to <body>.
+                  onClick: () => { if (!cheapInCart && onAddToCart) onAddToCart(cheap); },
+                  'aria-disabled': cheapInCart || undefined,
                   'aria-label': cheapInCart ? 'Already in your cart' : 'Add this listing to your cart',
                   title: cheapInCart ? 'Already in your cart' : 'Add this listing to your cart'
                 }, h(MaterialIcon, { name: cheapInCart ? 'check' : 'shopping_cart', size: 18 })),
@@ -1435,9 +1437,12 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 ),
                 h('button', {
                   className: 'item-rail-actions-cart',
-                  onClick: () => onAddToCart && onAddToCart(cheap),
+                  onClick: () => { if (!(cartHas && cartHas(cheap.id)) && onAddToCart) onAddToCart(cheap); },
                   // Own listing: addToCart refuses it, as Buy now is refused.
-                  disabled: !!youOwn || (cartHas && cartHas(cheap.id)),
+                  // Already in cart: aria-disabled, not disabled, so the
+                  // keyboard focus that just added it stays on the button.
+                  disabled: !!youOwn,
+                  'aria-disabled': (!youOwn && cartHas && cartHas(cheap.id)) || undefined,
                   title: youOwn ? 'You are the seller of the cheapest listing' : cartHas && cartHas(cheap.id) ? 'Already in your cart' : 'Add this listing to your cart'
                 },
                   h(MaterialIcon, { name: 'shopping_cart', size: 14 }),
