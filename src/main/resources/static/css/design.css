@@ -12836,7 +12836,7 @@ html body .item-buy-bar { display: none; }
     display: inline-flex; align-items: center; justify-content: center;
     background: transparent; color: var(--ink-1); border: 1px solid var(--line-2, var(--line));
   }
-  html body .item-buy-bar button.item-buy-bar-cart:disabled { color: var(--cta); cursor: default; }
+  html body .item-buy-bar button.item-buy-bar-cart:disabled, html body .item-buy-bar button.item-buy-bar-cart[aria-disabled=true] { color: var(--cta); cursor: default; }
   html body .item-buy-bar button.item-buy-bar-buy {
     height: 44px; flex: 0 0 auto; padding: 0 20px; border-radius: 10px; border: 0; cursor: pointer;
     background: var(--cta); color: #fff; font: 700 14px/1 var(--ui); white-space: nowrap;
