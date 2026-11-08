@@ -5986,8 +5986,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       setRecoveryStatus(null);
       setDisableDrawerOpen(false);
       setDisableCode('');
-      try { refreshProfile && await refreshProfile(); } catch (_) { /* disabled either way */ }
-      toast('Two-factor authentication disabled.', 'ok');
+      // The server signs out every session on disable, this one included,
+      // so a profile re-read 401s and the row kept saying Enabled. Say so
+      // and land on the marketplace, as Sign out everywhere does.
+      toast('Two-factor authentication disabled. You were signed out on every device; sign in again to continue.', 'ok');
+      setTimeout(() => { location.href = '/'; }, 2500);
     } finally { setDisableBusy(false); }
   };
   const disableTwofa = () => {

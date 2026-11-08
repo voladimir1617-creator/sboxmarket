@@ -121,6 +121,8 @@ class ProfileController2faBruteForceSpec extends Specification {
         def e = thrown(BadRequestException)
         e.code == 'TWOFA_LOCKED'
         e.message.contains('Try again')
+        // Whole minutes, not a raw "Try again in 899s".
+        e.message.contains('Try again in 15 minutes')
         // Secret is intact — no side effect, no save on the locked attempt.
         user.totpSecret == secret
         user.sessionEpoch == 0L
@@ -320,5 +322,12 @@ class ProfileController2faBruteForceSpec extends Specification {
         def f = ProfileController.getDeclaredField('TWOFA_FAILS')
         f.setAccessible(true)
         (f.get(null) as java.util.concurrent.ConcurrentHashMap).get(100L) == null
+    }
+
+    def "lockout copy rounds up to whole minutes"() {
+        expect:
+        ProfileController.lockedMessage(899_000L) == 'Too many failed two-factor attempts. Try again in 15 minutes.'
+        ProfileController.lockedMessage(30_000L)  == 'Too many failed two-factor attempts. Try again in 1 minute.'
+        ProfileController.lockedMessage(0L)       == 'Too many failed two-factor attempts. Try again in 1 minute.'
     }
 }
