@@ -118,7 +118,7 @@ test.describe('defect pass 54', () => {
       return r.fulfill(json({ id: 5 }));
     });
     await page.goto('/profile/reviews');
-    await page.getByRole('button', { name: '✎ Edit reply' }).click({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Edit reply/ }).click({ timeout: 20_000 });
     const box = page.getByRole('textbox', { name: 'Seller reply to review' });
     await box.press('Escape');
     await expect(box).toHaveCount(0);

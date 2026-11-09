@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=360'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=361'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -457,7 +457,9 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
             ? "You can't vote on your own review"
             : isOwner
             ? "You can't vote on reviews of your own stall"
-            : (hasVoted ? 'Click to undo your helpful vote' : 'Mark this review as helpful')
+            : (hasVoted ? 'Click to undo your helpful vote' : 'Mark this review as helpful'),
+        // Every row's button otherwise read the same "Helpful · N".
+        'aria-label': `Helpful · ${helpfulCount} · review by ${review.fromDisplayName || 'Anonymous'}`
       }, hasVoted ? 'Helpful · ' : 'Helpful · ', helpfulCount)
     ),
     review.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + review.itemName),
@@ -559,6 +561,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
           'aria-expanded': reportDraft !== null,
           'aria-controls': `review-report-drawer-${review.id}`,
           title: 'Report this review — staff will review and remove if it violates the community guidelines',
+          'aria-label': `Report review by ${review.fromDisplayName || 'Anonymous'}`,
           onClick: () => setReportDraft(reportDraft === null ? '' : null)
         }, 'Report')
       ),
@@ -748,7 +751,8 @@ function AnnouncementBanner() {
   };
   const sev = (ann.severity || 'INFO').toLowerCase();
   // The stylesheet styles sev-warn and sev-error; CRITICAL is the red one.
-  return h('div', { className: `announce-banner sev-${sev === 'critical' ? 'error' : sev}`, role: 'status' },
+  // A critical banner (trading halted, etc.) interrupts; the rest wait.
+  return h('div', { className: `announce-banner sev-${sev === 'critical' ? 'error' : sev}`, role: sev === 'critical' ? 'alert' : 'status' },
     h('span', { className: 'announce-banner-icon' },
       sev === 'critical' ? '⚠' : sev === 'warn' ? '⚠' : 'ℹ'),
     h('div', { className: 'announce-banner-text' }, ann.message),
@@ -5473,6 +5477,9 @@ export function App() {
     // sign-out toast with a red "Sign in with Steam to continue".
     ReactDOM.flushSync(() => setMe(null));
     setMenuOpen(false);
+    // The Logout item that had focus is gone with the menu; land on the
+    // header's Sign in button instead of <body>.
+    document.querySelector('.steam-btn')?.focus();
     loadWallet();
     // Cart + watchlist are per-user signals: the next user to sign in on
     // this browser shouldn't inherit the previous user's cart contents or

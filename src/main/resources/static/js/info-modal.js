@@ -235,7 +235,7 @@ export function SignInNeededEmptyState({ what, mailto }) {
         h('rect', { x: 3, y: 11, width: 18, height: 11, rx: 2 }),
         h('path', { d: 'M7 11V7a5 5 0 0 1 10 0v4' })
       )),
-    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+    h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Sign in required'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
       `Sign in with your Steam account to see ${what}.`),
