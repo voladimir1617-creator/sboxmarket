@@ -110,7 +110,7 @@ class UnsubscribeController {
             def candidate = kind.trim().toUpperCase()
             if (candidate && EmailService.MUTABLE_EMAIL_BUCKETS.contains(candidate)) bucket = candidate
         }
-        def what = bucket ? "${bucket.toLowerCase()} emails" : 'email notifications'
+        def what = bucket ? bucketEmails(bucket) : 'email notifications'
         def form = """<form method="post" action="/api/unsubscribe" class="row">
       <input type="hidden" name="email" value="${esc(lower)}">
       <input type="hidden" name="t" value="${esc(token)}">${bucket ? """
@@ -119,6 +119,20 @@ class UnsubscribeController {
       <a class="btn ghost" href="/profile/personal">Manage preferences</a>
     </form>"""
         page("Stop ${what} to this address? Security notices still arrive.", true, form, 'Confirm unsubscribe')
+    }
+
+    /** The bucket in the words Profile → Personal Info uses for it, so the
+     *  page never says "follows emails" or "matches emails". */
+    private static final Map<String, String> BUCKET_EMAILS = [
+        TRADES:    'trade activity emails',
+        AUCTIONS:  'auction activity emails',
+        WATCHLIST: 'watchlist alert emails',
+        FOLLOWS:   'followed-seller emails',
+        MATCHES:   'saved-search match emails'
+    ]
+
+    private static String bucketEmails(String bucket) {
+        BUCKET_EMAILS[bucket] ?: "${bucket.toLowerCase()} emails".toString()
     }
 
     private static String esc(String v) {
@@ -160,7 +174,7 @@ class UnsubscribeController {
             // leak whether an email is registered (enumeration guard).
             log.info("Unsubscribe: no account matches email={} (returning success)", EmailService.maskEmail(lower))
             return page(bucket
-                ? "Preferences saved. You're unsubscribed from ${bucket.toLowerCase()} emails."
+                ? "Preferences saved. You're unsubscribed from ${bucketEmails(bucket)}. Other notifications continue."
                 : 'Preferences saved. You\'re unsubscribed from email notifications.', true)
         }
         // Flip the flag on every matched row (should be 1 in practice).
@@ -207,7 +221,7 @@ class UnsubscribeController {
             return ResponseEntity.status(500).headers(failed.headers).body(failed.body)
         }
         return page(bucket
-            ? "Preferences saved. You're unsubscribed from ${bucket.toLowerCase()} emails. Other notifications continue."
+            ? "Preferences saved. You're unsubscribed from ${bucketEmails(bucket)}. Other notifications continue."
             : 'Preferences saved. You\'re unsubscribed from email notifications.', true)
     }
 
