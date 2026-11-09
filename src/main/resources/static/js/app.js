@@ -1,7 +1,7 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
 import { BRAND } from './brand.js';
-import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy, useTestMode, parseMoneyInput } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, focusPastOnUnmount, linkifyText, currencySymbol, fxToUsd, platformFee, sellerPayout, useCustodyCopy, useTestMode, parseMoneyInput } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=362'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=363'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -245,7 +245,8 @@ function PendingTradeReminder({ me }) {
     }, 'Open trade'),
     h('button', {
       className: 'pending-trade-nudge-close',
-      onClick: () => dismiss(t.id),
+      // The last reminder takes this button with it; focus what follows.
+      onClick: (e) => { focusPastOnUnmount(e.currentTarget.closest('.pending-trade-nudge')); dismiss(t.id); },
       title: 'Dismiss',
       'aria-label': 'Dismiss reminder'
     }, '✕')
@@ -707,7 +708,7 @@ function EmailVerifyNag({ me }) {
         : 'Resend email'),
     h('button', {
       className: 'announce-banner-close',
-      onClick: dismiss,
+      onClick: (e) => { focusPastOnUnmount(e.currentTarget.closest('.announce-banner')); dismiss(); },
       title: 'Remind me later (7 days)',
       'aria-label': 'Dismiss email verification reminder'
     }, '✕')
@@ -758,7 +759,8 @@ function AnnouncementBanner() {
     h('div', { className: 'announce-banner-text' }, ann.message),
     h('button', {
       className: 'announce-banner-close',
-      onClick: dismiss,
+      // The banner goes with its ✕; focus what follows it, not <body>.
+      onClick: (e) => { focusPastOnUnmount(e.currentTarget.closest('.announce-banner')); dismiss(); },
       title: 'Dismiss',
       'aria-label': 'Dismiss announcement'
     }, '✕')
@@ -2336,6 +2338,7 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
   if (blocked === null) return null; // render nothing until we know
   return h('button', {
     className: 'stall-share-btn',
+    'data-block-seller': '',
     style: blocked
       ? { border: '1px solid var(--red)', color: 'var(--red)', opacity: 0.9 }
       : { border: '1px solid var(--border)', opacity: 0.7 },
@@ -8502,7 +8505,8 @@ export function App() {
           h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '4px 14px' },
-            onClick: () => { setLoadError(null); load(false); }
+            // Retry goes away with this line; keep focus on the category strip.
+            onClick: () => { setLoadError(null); load(false); document.querySelector('.csfloat-subnav-tab')?.focus(); }
           }, 'Retry')
         ),
         loading
@@ -8602,7 +8606,8 @@ export function App() {
                   h('div', { className: 'empty-state-actions' },
                     isError && h('button', {
                       className: 'btn btn-accent',
-                      onClick: () => { setLoadError(null); load(false); }
+                      // The skeleton replaces Retry; land on the category strip, as Clear Filters does.
+                      onClick: () => { setLoadError(null); load(false); document.querySelector('.csfloat-subnav-tab')?.focus(); }
                     }, 'Retry'),
                     showClear && h('button', {
                       className: 'btn btn-ghost',
@@ -8969,6 +8974,9 @@ export function App() {
                   // refetch lands, so a second click sent a second DELETE.
                   const btn = e.currentTarget;
                   if (btn.disabled) return;
+                  // The banner goes once the unblock lands; focus the
+                  // header's Block button then, not <body>.
+                  focusPastOnUnmount(btn.parentElement, '[data-block-seller]');
                   btn.disabled = true;
                   try {
                     const { unblockUser } = await import('./api.js');

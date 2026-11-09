@@ -1,7 +1,7 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
 import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=21';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -5328,6 +5328,8 @@ function FollowingListRow() {
       const shown = showAllFollows ? (rows || []) : (rows || []).slice(0, 10);
       const at = shown.findIndex(r => r.sellerUserId === sellerId);
       if (at >= 0 && followListRef.current?.contains(document.activeElement)) refocusUnfollowRef.current = at;
+      // The last unfollow removes the whole row; focus what follows it.
+      focusPastOnUnmount(followListRef.current?.closest('.profile-row'));
       setRows(rs => (rs || []).filter(r => r.sellerUserId !== sellerId));
       toast(who ? `Unfollowed @${who}.` : 'Unfollowed.', 'ok');
     } finally { unfollowBusyRef.current.delete(sellerId); }
@@ -5370,6 +5372,7 @@ function FollowingListRow() {
       return;
     }
     const n = (res && res.unfollowed) || 0;
+    focusPastOnUnmount(followListRef.current?.closest('.profile-row'));
     setRows([]);
     toast(n === 0 ? 'Nothing to unfollow.' : `Unfollowed ${n} seller${n === 1 ? '' : 's'}.`, 'ok');
   };
@@ -5517,6 +5520,8 @@ function BlockedListRow() {
       const shown = showAll ? (rows || []) : (rows || []).slice(0, 10);
       const at = shown.findIndex(x => Number(x.blockedUserId) === key);
       if (at >= 0 && blockListRef.current?.contains(document.activeElement)) refocusUnblockRef.current = at;
+      // The last unblock removes the whole row; focus what follows it.
+      focusPastOnUnmount(blockListRef.current?.closest('.profile-row'));
       setRows(rs => (rs || []).filter(r => Number(r.blockedUserId) !== key));
       toast(who ? `Unblocked @${who} — their listings are visible again.` : 'Unblocked.', 'ok');
     } finally { unblockBusyRef.current.delete(key); }
@@ -5535,6 +5540,7 @@ function BlockedListRow() {
       toast(res.message || res.error || 'Could not clear block list', 'err');
       return;
     }
+    focusPastOnUnmount(blockListRef.current?.closest('.profile-row'));
     setRows([]);
     toast(`Cleared ${res?.removed || rows.length} block${(res?.removed || rows.length) === 1 ? '' : 's'}.`, 'ok');
   };
