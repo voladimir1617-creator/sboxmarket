@@ -602,8 +602,8 @@ class LoadoutService {
         }
 
         def baseName = (source.name ?: 'Loadout').trim()
-        def cloneName = baseName.length() > 90 ? baseName.substring(0, 90) : baseName
-        cloneName = (cloneName + ' (copy)').take(100)
+        def cloneName = TextSanitizer.cap(baseName, 90)
+        cloneName = TextSanitizer.cap(cloneName + ' (copy)', 100)
         def cleanOwner = textSanitizer.cleanShort(ownerName)
 
         def copy = new Loadout(

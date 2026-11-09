@@ -83,9 +83,33 @@ class TextSanitizer {
         // 4) Collapse whitespace, trim
         s = s.replaceAll(/\s+/, ' ').trim()
 
+        // 4b) Invisible characters. Bidi embedding / override / isolate
+        //     controls (U+202A-202E, U+2066-2069) make the rest of a line
+        //     render reversed ("‮txt.exe") and plain text never needs them.
+        //     Zero-width and no-break spaces at either end are trimmed like
+        //     ordinary spaces, and a value made only of invisible format
+        //     characters counts as empty, so "​" is not saved as a name, a
+        //     chat message or a key label that shows as nothing. Interior
+        //     ZWJ / ZWNJ stay: emoji families and Persian words need them.
+        s = s.replaceAll(/[‪-‮⁦-⁩]/, '')
+        s = s.replaceAll(/^[\s\p{Z}​-‍⁠﻿]+|[\s\p{Z}​-‍⁠﻿]+$/, '')
+        if (s ==~ /[\s\p{Z}\p{Cf}]*/) s = ''
+
         // 5) Length cap
-        if (s.length() > maxLen) s = s.substring(0, maxLen)
-        s
+        cap(s, maxLen)
+    }
+
+    /**
+     * Cut {@code s} to at most {@code maxLen} UTF-16 units without splitting
+     * a surrogate pair. A plain substring that lands between the two halves
+     * of an emoji stores a lone high surrogate, which every page then shows
+     * as a "?" box.
+     */
+    static String cap(String s, int maxLen) {
+        if (s == null || s.length() <= maxLen) return s
+        int end = maxLen
+        if (end > 0 && Character.isHighSurrogate(s.charAt(end - 1))) end--
+        s.substring(0, end)
     }
 
     /** Clean a short subject line (used by support tickets + offer notes). */
@@ -123,9 +147,7 @@ class TextSanitizer {
             cleaned.append(c)
         }
         def result = cleaned.toString().trim()
-        if (result.length() > LIMIT_LONG) {
-            result = result.substring(0, LIMIT_LONG)
-        }
+        result = cap(result, LIMIT_LONG)
         result
     }
 }

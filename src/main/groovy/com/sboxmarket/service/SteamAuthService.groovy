@@ -51,7 +51,7 @@ class SteamAuthService {
         // and the Hangul fillers Steam allows, then trim Unicode spaces too,
         // so an invisible name falls back to the placeholder like a blank one.
         cleaned = (cleaned ?: '').replaceAll(/[\p{Cc}\p{Cf}\u115F\u1160\u3164\uFFA0]/, '')
-        cleaned = cleaned.replaceAll(/^[\p{Z}\s]+|[\p{Z}\s]+$/, '').take(64)
+        cleaned = TextSanitizer.cap(cleaned.replaceAll(/^[\p{Z}\s]+|[\p{Z}\s]+$/, ''), 64)
         cleaned ?: "Player_${steamId64.takeRight(6)}".toString()
     }
 

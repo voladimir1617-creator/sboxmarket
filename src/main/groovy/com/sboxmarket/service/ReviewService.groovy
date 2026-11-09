@@ -295,7 +295,7 @@ class ReviewService {
             try {
                 notificationService.push(review.fromUserId, 'REVIEW_REPLIED',
                     "Seller replied to your review",
-                    review.sellerReply.take(140),
+                    TextSanitizer.cap(review.sellerReply, 140),
                     reviewId, '/profile?tab=reviews')
             } catch (Exception e) {
                 log.warn("REVIEW_REPLIED push failed for buyer ${review.fromUserId}: ${e.message}")

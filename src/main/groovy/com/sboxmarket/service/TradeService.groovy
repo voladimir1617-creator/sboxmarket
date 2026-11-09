@@ -263,7 +263,7 @@ class TradeService {
         def counterpartyId = (trade.buyerUserId == senderUserId) ? trade.sellerUserId : trade.buyerUserId
         if (counterpartyId != null) {
             try {
-                def preview = cleanBody.length() > 80 ? cleanBody.substring(0, 77) + '…' : cleanBody
+                def preview = cleanBody.length() > 80 ? TextSanitizer.cap(cleanBody, 77) + '…' : cleanBody
                 // Deep-link includes the tradeId so the Profile Trades tab can
                 // auto-open the chat panel for this specific trade. Without
                 // this a user with N pending trades lands on the tab and has
@@ -359,7 +359,7 @@ class TradeService {
                 def trade = tradeRepository.findById(msg.tradeId).orElse(null)
                 Long recipient = trade == null ? null
                     : (trade.buyerUserId == msg.senderUserId ? trade.sellerUserId : trade.buyerUserId)
-                String preview = oldBody.length() > 80 ? oldBody.substring(0, 77) + '…' : oldBody
+                String preview = oldBody.length() > 80 ? TextSanitizer.cap(oldBody, 77) + '…' : oldBody
                 notificationService?.replaceBodyForRef(recipient, 'TRADE_MESSAGE', msg.tradeId,
                     preview, 'Message removed by moderators')
             } catch (Exception e) {
@@ -544,7 +544,7 @@ class TradeService {
             // back to `false` so callers without viewer context don't
             // falsely claim ownership.
             preview = [
-                body:         body.length() > 80 ? body.substring(0, 77) + '…' : body,
+                body:         body.length() > 80 ? TextSanitizer.cap(body, 77) + '…' : body,
                 senderUserId: lastMessage.senderUserId,
                 createdAt:    lastMessage.createdAt,
                 fromMe:       viewerUserId != null && lastMessage.senderUserId == viewerUserId
@@ -1129,7 +1129,7 @@ class TradeService {
         // button, they know. Note-length capped at 140 chars so long
         // complaints don't blow out the notification row.
         def itemName = t.itemName ?: 'your trade'
-        def bodySnippet = (t.note ?: '').take(140)
+        def bodySnippet = TextSanitizer.cap(t.note ?: '', 140)
         if (disputeSubject != null) {
             try {
                 notificationService?.push(disputeSubject, 'TRADE_DISPUTED',
