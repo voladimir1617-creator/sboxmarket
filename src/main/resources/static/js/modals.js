@@ -6082,7 +6082,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   };
   const downloadBackupCodes = () => {
     if (!backupCodes || backupCodes.length === 0) return;
-    const when = new Date().toISOString().slice(0, 10);
+    const when = localYmd(new Date());
     const body = [
       `# ${BRAND.name} — 2FA backup / recovery codes`,
       '# Generated ' + new Date().toLocaleString(),
