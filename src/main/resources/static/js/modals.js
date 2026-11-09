@@ -2093,7 +2093,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               // Italic + truncated so the bubble stays tight. Title attribute
               // carries the full text for hover reveal on long messages.
               o.message && h('div', {
-                className: 'item-offer-note',
+                className: 'item-offer-note', dir: 'auto',
                 style: {
                   fontSize: 11, fontStyle: 'italic',
                   color: 'var(--text-secondary)', marginTop: 3,
@@ -3631,7 +3631,7 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
       },
         'Reports open a support ticket and are reviewed by staff. ',
         'For a dispute over the trade itself (item not received / wrong item) use ',
-        h('strong', null, 'Dispute'), ' instead so the trade state machine can resolve it.'),
+        h('strong', null, 'Dispute'), ' instead, so it is settled on the trade.'),
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6,
                           textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
       h('select', {
@@ -4535,7 +4535,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   useEffect(() => {
     if (!me) return;
     let alive = true;
-    (async () => {
+    const load = async () => {
       try {
         const [tr, oc, ti] = await Promise.all([
           fetch('/api/trades', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []),
@@ -4544,7 +4544,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         ]);
         if (!alive) return;
         const tradeN = (Array.isArray(tr) ? tr : []).filter(t =>
-          (t.sellerUserId === me.id && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND'].includes(t.state)) ||
+          // A bot-delivered sale has nothing for the seller to send: the
+          // row itself says "no action needed", so it is not their to-do.
+          (t.sellerUserId === me.id && (t.state === 'PENDING_SELLER_ACCEPT' ||
+            (t.state === 'PENDING_SELLER_SEND' && !(t.botManaged === true || !!t.botDeliveryState)))) ||
           (t.buyerUserId  === me.id && t.state === 'PENDING_BUYER_CONFIRM')
         ).length;
         setActionableTradeCount(tradeN);
@@ -4552,8 +4555,17 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         const waitingN = (Array.isArray(ti) ? ti : []).filter(t => t.status === 'WAITING_USER').length;
         setWaitingSupportCount(waitingN);
       } catch (_) {}
-    })();
-    return () => { alive = false; };
+    };
+    load();
+    // A trade step or offer reply on this page changes these badges; without
+    // this the Trades tab kept its old count until the user switched tabs.
+    window.addEventListener('sb:trades-changed', load);
+    window.addEventListener('sb:offers-changed', load);
+    return () => {
+      alive = false;
+      window.removeEventListener('sb:trades-changed', load);
+      window.removeEventListener('sb:offers-changed', load);
+    };
   }, [me?.id, tab]);
 
   // Batch 893 — auto-submit the verification token when the user
@@ -6073,7 +6085,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   };
   const downloadBackupCodes = () => {
     if (!backupCodes || backupCodes.length === 0) return;
-    const when = new Date().toISOString().slice(0, 10);
+    const when = localYmd(new Date());
     const body = [
       `# ${BRAND.name} — 2FA backup / recovery codes`,
       '# Generated ' + new Date().toLocaleString(),
@@ -8911,7 +8923,9 @@ function ProfileTradesTab({ me, privacy }) {
   // Summary chips above the state filter. Counts derived from the
   // already-loaded trades list so adding them is essentially free.
   // Surfaces "you've sold 12, had 2 disputes, 1 cancel" at a glance.
-  const openStates = ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'];
+  // Same rule as the "Open" filter chip and the CSV's ?state=OPEN: a
+  // disputed trade is not settled yet, so "4 open" no longer led to 5 rows.
+  const openStates = ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','DISPUTED'];
   const summaryCounts = {
     total:     trades.length,
     open:      trades.filter(t => openStates.includes(t.state)).length,
@@ -9765,7 +9779,7 @@ function ProfileTradesTab({ me, privacy }) {
                                 h('span', null, '—'),
                                 h('span', null, 'Message removed by moderators')
                               )
-                            : h('div', { style: { color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
+                            : h('div', { dir: 'auto', style: { color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
                                 // Auto-linkify URLs (batch 441) — Steam trade
                                 // URLs are the most-pasted payload here.
                                 linkifyText(m.body, 'tcm-' + m.id)
@@ -9869,7 +9883,8 @@ function ProfileTradesTab({ me, privacy }) {
         h('button', { className: 'modal-close', onClick: closeReview, 'aria-label': 'Close' }, '✕'),
         h('div', { style: { padding: '24px 26px 20px' } },
           h('div', { id: 'review-modal-title', style: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 } },
-            'Leave a review'),
+            // Opened from "Edit Review", it edits the review already posted.
+            myReviews[reviewTrade.id] ? 'Edit your review' : 'Leave a review'),
           h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 } },
             'For "', h('strong', { style: { color: 'var(--text-secondary)' } }, reviewTrade.itemName || ('Trade #' + reviewTrade.id)), '"'),
 
@@ -11808,7 +11823,7 @@ function ProfileSupportTab() {
             }, 'STAFF'),
             ' · ', timeAgo(m.createdAt)
           ),
-          h('div', { className: 'support-msg-body' }, linkifyText(m.body, 'sup-' + m.id))
+          h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'sup-' + m.id))
         ))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
@@ -14896,7 +14911,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // fee), this is the seller's gross. Lives alongside the away toggle
   // so a seller sees their total exposure at a glance.
   const stallBookValue = stall.reduce((s, l) => s + (parseFloat(l.price) || 0), 0);
-  const pendingOfferRows = Object.keys(offerMap || {}).length;
+  // Only this stall's active listings: an offer left PENDING on a listing
+  // that just sold (the sold-listing sweep closes it minutes later) read
+  // "3 listings with offers" over a 2-listing stall.
+  const pendingOfferRows = stall.filter(l => offerMap && offerMap[l.id]).length;
 
   // "Slow movers" derivation — listings older than 14 days with no
   // active offers AND no watchlist demand are stale inventory the
@@ -16482,7 +16500,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         // echoed back) so both sides see the same context.
         // Wraps rather than ellipsing: the title tooltip never shows on a
         // phone, so a cut note could not be read there at all.
-        offer.message && h('div', {
+        offer.message && h('div', { dir: 'auto',
           style: {
             fontSize: 12, color: 'var(--text-secondary)',
             fontStyle: 'italic', marginTop: 2,

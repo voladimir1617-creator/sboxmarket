@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=363'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=364'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1855,7 +1855,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   },
     // Auto-linkify URLs in the bio (batch 442) — sellers often paste a
     // Discord/Twitter/Steam-group contact link.
-    h('div', { style: { flex: 1 } }, linkifyText(bio, 'biolnk')),
+    h('div', { dir: 'auto', style: { flex: 1 } }, linkifyText(bio, 'biolnk')),
     canEdit && h('button', {
       className: 'btn btn-ghost',
       style: { flexShrink: 0, padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)' },
@@ -4271,10 +4271,12 @@ export function App() {
     // An accept / counter / reject on /offers changes the offer count in
     // this badge; without this it kept the old number until the next poll.
     window.addEventListener('sb:offers-changed', load);
+    window.addEventListener('sb:trades-changed', load);
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('sb:offers-changed', load);
+      window.removeEventListener('sb:trades-changed', load);
     };
   }, [me?.id]);
   // Pre-signin ToS + email modal state. Opens on the "Sign in through

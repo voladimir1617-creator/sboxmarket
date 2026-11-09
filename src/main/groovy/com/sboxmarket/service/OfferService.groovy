@@ -1232,7 +1232,7 @@ class OfferService {
         }
         if (!withdrewCounter && offer.buyerUserId != null && notificationService != null) {
             def body = cleanReply
-                ? "The seller declined your \$${offer.amount.toPlainString()} offer — \"${cleanReply.take(120)}${cleanReply.length() > 120 ? '…' : ''}\""
+                ? "The seller declined your \$${offer.amount.toPlainString()} offer — \"${TextSanitizer.cap(cleanReply, 120)}${cleanReply.length() > 120 ? '…' : ''}\""
                 : "The seller declined your \$${offer.amount.toPlainString()} offer."
             try {
                 notificationService.push(offer.buyerUserId, 'OFFER_REJECTED',

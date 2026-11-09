@@ -856,7 +856,7 @@ class ProfileController {
             // Line by line, so the bio keeps the line breaks the stall
             // renders with pre-wrap instead of collapsing to one line.
             def clean = (TextSanitizer.multiline(textSanitizer, raw) ?: '').trim()
-            if (clean.length() > 500) clean = clean.substring(0, 500).trim()
+            if (clean.length() > 500) clean = TextSanitizer.cap(clean, 500).trim()
             user.stallBio = clean
         }
         steamUserRepository.save(user)

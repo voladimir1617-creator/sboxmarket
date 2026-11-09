@@ -2940,7 +2940,7 @@ export function NotificationsModal({ onClose, me }) {
                 }
               },
                 h('div', { className: 'notif-feed-title' }, highlightMatch(n.title || '', search)),
-                n.body && h('div', { className: 'notif-feed-body' }, highlightMatch(n.body, search)),
+                n.body && h('div', { className: 'notif-feed-body', dir: 'auto' }, highlightMatch(n.body, search)),
                 h('div', { className: 'notif-feed-time' }, timeAgo(n.createdAt))
               ),
               !n.read && h('div', { className: 'notif-feed-dot' }),
@@ -3137,6 +3137,7 @@ function kindIcon(kind) {
     WITHDRAWAL_COMPLETE: '$', WITHDRAWAL_REJECTED: '✕',
     CHARGEBACK_OPENED: '⚠', DISPUTE_CLEARED: '✓', REFUND_ISSUED: '↩',
     CARD_TESTING_DETECTED: '⚠',
+    OPS_BOT_OFFLINE: '⚠', OPS_BOT_ONLINE: '✓', OPS_STRIPE_WEBHOOK: '⚠', OPS_STUCK_ESCROW: '⚠',
     ADMIN_CREDIT: '+', ADMIN_DEBIT: '−', CSR_CREDIT: '+',
     // Catalogue + misc
     CART_ITEM_SOLD: '$', FRAUD_SIGNAL_HIGH: '⚠',

@@ -470,11 +470,17 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
      *  (accept the request or mark the Steam offer as sent). Drives the
      *  nav-avatar "pending actions" badge so sellers see at a glance
      *  how many trades are waiting on them. Indexed scan over
-     *  `(state, updatedAt)`. */
+     *  `(state, updatedAt)`. A sale whose skin the bot holds is not the
+     *  seller's to send (the Trades row says "no action needed"), so it is
+     *  left out; same custody states as SteamEscrowService.botDeliveredListingIds. */
     @Query("""
         SELECT COUNT(t) FROM Trade t
         WHERE t.sellerUserId = :uid
-          AND t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND')
+          AND (t.state = 'PENDING_SELLER_ACCEPT'
+               OR (t.state = 'PENDING_SELLER_SEND'
+                   AND NOT EXISTS (SELECT e.id FROM EscrowedItem e
+                                   WHERE e.listingId = t.listingId
+                                     AND e.custodyState IN ('IN_CUSTODY','DELIVERED'))))
     """)
     long countSellerPending(@Param("uid") Long sellerUserId)
 

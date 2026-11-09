@@ -278,6 +278,21 @@ function AdminHealthTab() {
       (() => {
         const wh = data.stripeWebhook;
         const at = wh?.lastReceivedAt || 0;
+        // The ops alert for rejected / dropped deliveries links here; say
+        // so on this card instead of "No events yet" beside the alert.
+        const fails = data.opsAlerts?.stripeWebhook;
+        const bad = fails?.badSignatureInWindow || 0;
+        const dropped = fails?.permanentAckInWindow || 0;
+        if (bad || dropped) {
+          const mins = Math.max(1, Math.round((fails.windowMs || 900000) / 60000));
+          const parts = [];
+          if (bad) parts.push(`${bad} rejected for a bad signature`);
+          if (dropped) parts.push(`${dropped} failed permanently`);
+          return h('div', { className: 'health-card' },
+            h('div', { className: 'health-card-label' }, 'Stripe webhook'),
+            h('div', { className: 'health-card-value', style: { color: 'var(--red)' } }, 'FAILING'),
+            h('div', { className: 'health-card-hint', style: { color: 'var(--red)' } }, `${parts.join(' · ')} in the last ${mins} min`));
+        }
         if (!at) return card('Stripe webhook', 'No events yet',
           'Awaiting first event since boot');
         const ageMin = Math.round((Date.now() - at) / 60000);
@@ -756,7 +771,7 @@ function AdminReportedTab() {
             // phone, like the staff trade chat, so long notes wrap in view.
             h('div', { style: { position: 'sticky', left: 0, maxWidth: 'calc(100vw - 80px)' } },
             h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Recent reports'),
-            (r.recentNotes || []).map((n, i) => h('div', { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)' } },
+            (r.recentNotes || []).map((n, i) => h('div', { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)', overflowWrap: 'anywhere' } },
               h('strong', { style: { color: 'var(--text-primary)' } }, n.reason),
               n.note && h('span', { style: { color: 'var(--text-secondary)', marginLeft: 8 } }, '— ' + n.note),
               h('span', { style: { color: 'var(--text-muted)', marginLeft: 8, fontSize: 11 } }, '· ' + timeAgo(n.at))
@@ -3791,7 +3806,7 @@ function AdminTicketsTab() {
       h('div', { className: 'support-thread' },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
           h('div', { className: 'support-msg-head' }, m.authorName, ' · ', timeAgo(m.createdAt)),
-          h('div', { className: 'support-msg-body' }, linkifyText(m.body, 'st-' + m.id))
+          h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'st-' + m.id))
         ))
       ),
       // Canned-response templates. Click a chip to populate the reply
@@ -4467,7 +4482,7 @@ function CsrTicketsTab() {
       h('div', { className: 'support-thread' },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
           h('div', { className: 'support-msg-head' }, m.authorName, ' · ', timeAgo(m.createdAt)),
-          h('div', { className: 'support-msg-body' }, linkifyText(m.body, 'st-' + m.id))
+          h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'st-' + m.id))
         ))
       ),
       // Same canned-response templates as the admin view — lets CSRs

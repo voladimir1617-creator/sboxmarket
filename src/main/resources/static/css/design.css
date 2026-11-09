@@ -1478,7 +1478,7 @@ nav.nav { padding: 0 12px !important; gap: 8px !important; flex-wrap: wrap; heig
 @media (hover: none) { .card-actions { opacity: 1; transform: translateY(0); }
 .inventory-item:hover, .card:hover, .grid-card:hover, .listing-grid > *:hover { transform: none; }
 }
-@media print { .nav, .subnav, .pulse, .site-footer, .tweaks-panel, .modal-backdrop, .announce-banner { display: none !important; }
+@media print { .subnav, .pulse, .tweaks-panel, .modal-backdrop, .announce-banner { display: none !important; }
 body::before { display: none; }
 body { background: #fff; color: #000; }
 }
@@ -2926,8 +2926,8 @@ html { scroll-behavior: smooth; }
 *::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; transition: background 120ms ease; }
 *::-webkit-scrollbar-thumb:hover { background: oklch(0.42 0.014 260); }
 *::-webkit-scrollbar-corner { background: transparent; }
-@media print { .nav, .subnav, .pulse, .csfloat-cart-drawer, .csfloat-cart-drawer-backdrop, .csfloat-cmdk-backdrop, .csfloat-toast-container, .csfloat-fab, .csfloat-footer { display: none !important; }
-body, .layout, .site-root { background: white !important; color: black !important; }
+@media print { :is(.nav,.site-footer,#_), .subnav, .pulse, .csfloat-cart-drawer, .csfloat-cart-drawer-backdrop, .csfloat-cmdk-backdrop, .csfloat-toast-container, .csfloat-fab, .csfloat-footer { display: none !important; }
+body, .layout, .site-root { background: white !important; }
 .csfloat-grid-card, .csfloat-band-card { page-break-inside: avoid; border: 1px solid #ddd !important; background: white !important; }
 }
 @keyframes pulse-scroll { from { transform: translateX(0); }
@@ -3701,9 +3701,10 @@ to { transform: translateX(-50%); }
 .csfloat-fee-sum-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; font: 400 12px/1.3 var(--ui); color: var(--ink-3); letter-spacing: -0.005em; }
 .csfloat-bar-list-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 6px 0; }
 @media print {
-body { background: #fff !important; color: #000 !important; }
+body { background: #fff !important; }
+:is(body *,#_) { color: #000 !important; }
 .csfloat-card, .csfloat-mkt-card, .csfloat-panel, [class*="csfloat-"] { box-shadow: none !important; }
-a[href]::after { content: " (" attr(href) ")"; font-size: 80%; color: #555; }
+a[href^=http]::after { content: " (" attr(href) ")"; font-size: 80%; color: #555; }
 }
 @keyframes csfloat-fade-in { from { opacity: 0; }
 to { opacity: 1; }
@@ -5797,7 +5798,7 @@ body .notif-feed-icon, body .full-page-mode .notif-feed-icon { width: 36px !impo
 body .notif-feed-icon .material-symbols-rounded, body .notif-feed-icon .mi, body .full-page-mode .notif-feed-icon .material-symbols-rounded, body .full-page-mode .notif-feed-icon .mi { font-size: 18px !important; color: rgb(158, 167, 177) !important; }
 body .notif-feed-title, body .full-page-mode .notif-feed-title { font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 14px !important; line-height: 20px !important; font-weight: 500 !important; color: rgb(255, 255, 255) !important; letter-spacing: 0 !important; text-transform: none !important; margin: 0 0 2px !important; text-align: left !important; }
 body .notif-feed-row > div:not(.notif-feed-icon):not(.notif-feed-dot), body .full-page-mode .notif-feed-row > div:not(.notif-feed-icon):not(.notif-feed-dot) { flex: 1 1 auto !important; min-width: 0 !important; text-align: left !important; }
-body .notif-feed-body, body .full-page-mode .notif-feed-body { font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 13px !important; line-height: 18px !important; font-weight: 400 !important; color: rgba(158, 167, 177, 0.95) !important; letter-spacing: 0 !important; margin: 0 !important; max-height: none !important; overflow: visible !important; text-align: left !important; }
+body .notif-feed-body, body .full-page-mode .notif-feed-body { font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 13px !important; line-height: 18px !important; font-weight: 400 !important; color: rgba(158, 167, 177, 0.95) !important; letter-spacing: 0 !important; margin: 0 !important; max-height: none !important; overflow: visible !important; text-align: left !important; overflow-wrap: anywhere !important; }
 body .notif-feed-row .notif-feed-body, body .full-page-mode .notif-feed-row .notif-feed-body { max-height: none !important; overflow: visible !important; padding: 0 !important; }
 body .notif-feed-time, body .full-page-mode .notif-feed-time { font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 12px !important; line-height: 16px !important; font-weight: 400 !important; color: rgba(158, 167, 177, 0.7) !important; letter-spacing: 0 !important; text-transform: none !important; margin-top: 4px !important; text-align: left !important; }
 body .stall-row, body .full-page-mode .stall-row, body .offer-row, body .full-page-mode .offer-row { text-align: left !important; }
@@ -10184,7 +10185,7 @@ html body .csfloat-home-hero-art .csfloat-home-hero-stack { width: 300px !import
 html body .csfloat-home-hero-inner .csfloat-home-hero-art { padding: 16px 0 16px 0 !important; }
 }
 html body .site-root.full-page-mode .modal.item-page .modal-actions, html body .site-root.full-page-mode .modal.item-page > .modal-actions, html body .modal.item-page .modal-actions, html body .modal.item-page > .modal-actions { display: none !important; }
-html body .modal.item-page { grid-template-columns: minmax(0, 1fr) minmax(320px, 380px) !important; }
+@media (min-width: 1101px) { html body .modal.item-page { grid-template-columns: minmax(0, 1fr) minmax(320px, 380px) !important; } }
 html body .modal.item-page > .modal-header > .modal-preview { max-width: 760px !important; width: 100% !important; min-height: 520px !important; }
 html body .modal.item-page > .modal-header > .modal-preview img { max-width: 100% !important; max-height: 480px !important; }
 html body .modal.item-page svg.chart linearGradient stop:first-child { stop-opacity: 0.14 !important; }
@@ -12051,6 +12052,9 @@ html body .modal-listing-row .listing-report-btn:focus-visible { outline: 2px so
 html body .trade-row { text-align: left; }
 html body .trade-row > .trade-main { align-items: stretch !important; }
 html body .trade-row .trade-title, html body .trade-row .trade-state { justify-content: flex-start; }
+/* Phones: the one-line state ("Delivered — awaiting confirmation · sent 5m ago · 7d 23h left") ran past the card
+   edge and the deadline chip was cut off. Let the chips drop to a second line. */
+@media (max-width: 640px) { html body .trade-row .trade-state { flex-wrap: wrap !important; white-space: normal !important; } html body .trade-row .trade-state > span { white-space: nowrap; } }
 /* The 66x50 thumbnail rule for the item image also caught the counterparty's
    16px avatar and blew it up to a 66x50 box beside the name. */
 html body .trade-row .trade-title a[href^="/stall/"] img { width: 16px !important; height: 16px !important; border-radius: 50% !important; object-fit: cover !important; }
@@ -13725,3 +13729,4 @@ html body .site-root.full-page-mode .modal-backdrop .modal-backdrop > .modal { w
    (outage notice, suspended account, announcements): the banner never showed and content showed through above the nav.
    Start the layer below those banners; --pre-nav-h is the nav's offset, set from app.js. */
 @media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop { top: var(--pre-nav-h, 0px) !important; } }
+@media (forced-colors:active){:is([role=switch],#_){border:1px solid CanvasText!important}:is([role=switch],#_)::before,:is([role=switch],#_)::after{background:CanvasText!important}:is([aria-selected=true],[aria-pressed=true],[aria-checked=true],#_):not(:focus-visible){outline:2px solid Highlight!important; outline-offset:-2px}}

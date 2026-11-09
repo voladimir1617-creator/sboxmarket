@@ -178,8 +178,8 @@ class NotificationService {
             // below means such a failure can no longer poison the parent
             // transaction, but truncating still avoids losing the row.
             // (2026-05-20)
-            title:  title?.take(200),
-            body:   body?.take(500),
+            title:  TextSanitizer.cap(title, 200),
+            body:   TextSanitizer.cap(body, 500),
             refId:  refId,
             path:   path
         )

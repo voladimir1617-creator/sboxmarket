@@ -169,6 +169,30 @@ class UnsubscribeControllerSpec extends Specification {
         resp.body == 'OK'
     }
 
+    def "a bucket link names the bucket the way Profile does, on the confirm and result pages"() {
+        given:
+        def u = new SteamUser(id: 8L, email: 'b@example.com', emailNotificationsEnabled: true, mutedEmailKinds: '')
+
+        when:
+        def confirm = controller.unsubscribe('b@example.com', 'good-token', kind)
+        def done = controller.unsubscribePost('b@example.com', 'good-token', kind, null)
+
+        then:
+        2 * emailService.verifyUnsubscribeToken('b@example.com', 'good-token') >> true
+        1 * steamUserRepository.findByEmailIgnoreCase('b@example.com') >> [u]
+        confirm.body.contains("Stop ${words} to this address?")
+        done.body.contains("You're unsubscribed from ${words}.")
+        !confirm.body.contains("${kind.toLowerCase()} emails")
+
+        where:
+        kind        | words
+        'TRADES'    | 'trade activity emails'
+        'AUCTIONS'  | 'auction activity emails'
+        'WATCHLIST' | 'watchlist alert emails'
+        'FOLLOWS'   | 'followed-seller emails'
+        'MATCHES'   | 'saved-search match emails'
+    }
+
     def "POST one-click with invalid token still returns 2xx 'OK' (idempotent)"() {
         when:
         def resp = controller.unsubscribePost('x@example.com', 'bad')

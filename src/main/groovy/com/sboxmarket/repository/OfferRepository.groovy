@@ -245,12 +245,14 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
      *  (accept / reject / counter) and expired rows (the seller never
      *  answered within the auto-decline window). Denominator for the
      *  public "response rate" chip. CANCELLED is excluded because that
-     *  is a buyer-side withdrawal, not a seller-controlled outcome. */
+     *  is a buyer-side withdrawal, not a seller-controlled outcome.
+     *  CLOSED is a COUNTERED offer whose counter thread ended: the seller
+     *  answered it, so it stays in both counts instead of dropping out. */
     @Query("""
         SELECT COUNT(o) FROM Offer o
         WHERE o.sellerUserId = :uid
           AND o.author = 'USER'
-          AND o.status IN ('ACCEPTED','REJECTED','COUNTERED','EXPIRED')
+          AND o.status IN ('ACCEPTED','REJECTED','COUNTERED','CLOSED','EXPIRED')
     """)
     long countSellerEngagedTotal(@Param("uid") Long sellerUserId)
 
@@ -260,7 +262,7 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
         SELECT COUNT(o) FROM Offer o
         WHERE o.sellerUserId = :uid
           AND o.author = 'USER'
-          AND o.status IN ('ACCEPTED','REJECTED','COUNTERED')
+          AND o.status IN ('ACCEPTED','REJECTED','COUNTERED','CLOSED')
     """)
     long countSellerResponded(@Param("uid") Long sellerUserId)
 
