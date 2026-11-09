@@ -60,6 +60,38 @@ class ProdConfigValidatorSpec extends Specification {
         environment.getProperty(_ as String) >> { String name -> values[name] }
     }
 
+    def "a sender on an unverifiable domain (#from) is warned about, never refused"() {
+        given:
+        Map<String, String> env = validEnv()
+        if (from != null) env['app.email.from'] = from
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().isEmpty()
+        validator.findWarnings().size() == 1
+        validator.findWarnings()[0].startsWith('EMAIL_FROM is ')
+
+        where:
+        from << [null, 'no-reply@skinbox.local', 'bot@localhost', 'noreply']
+    }
+
+    def "a real sender gives no warning; a Reply-To on another domain is warned about"() {
+        given:
+        Map<String, String> env = validEnv()
+        env['app.email.from'] = 'no-reply@skinbox.market'
+        if (replyTo) env['app.email.reply-to'] = replyTo
+        stubEnv(env)
+
+        expect:
+        validator.findWarnings().size() == warnings
+
+        where:
+        replyTo                   | warnings
+        null                      | 0
+        'support@skinbox.market'  | 0
+        'help@gmail.com'          | 1
+    }
+
     def "all required vars present and no dev placeholders → no violations"() {
         given:
         stubEnv(validEnv())

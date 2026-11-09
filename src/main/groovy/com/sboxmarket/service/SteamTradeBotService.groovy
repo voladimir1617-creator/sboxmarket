@@ -22,6 +22,7 @@ import java.time.Duration
  *   - {@link #acceptIncoming(String)}               -> POST /offers/incoming/:id/accept
  *   - {@link #cancelOffer(String)}                  -> POST /offers/:id/cancel
  *   - {@link #fetchBotInventory()}                  -> GET  /inventory
+ *   - {@link #health()}                             -> GET  /health
  *
  * Configuration via @Value:
  *   STEAM_BOT_BASE_URL  -> base URL of the sidecar (e.g. http://127.0.0.1:4000).
@@ -167,6 +168,16 @@ class SteamTradeBotService {
     SteamBotResult fetchBotInventory(long timeoutMs) {
         if (!enabled) return SteamBotResult.disabled()
         return request('GET', '/inventory', null, timeoutMs)
+    }
+
+    /** Read the sidecar's own status: {@code loggedIn}, {@code ready},
+     *  {@code lastError}, {@code pendingConfirmations} (in {@code raw}). Staff
+     *  monitoring only ({@link SteamBotHealthMonitor}); never used to decide a
+     *  trade. Bounded by its own short timeout so a hung sidecar cannot stall
+     *  the scheduler thread for the full request timeout. */
+    SteamBotResult health() {
+        if (!enabled) return SteamBotResult.disabled()
+        return request('GET', '/health', null, Math.min(5000L, Math.max(1000L, requestTimeoutMs)))
     }
 
     // -----------------------------------------------------------------------

@@ -2786,6 +2786,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           inputMode: 'decimal',
           enterKeyHint: 'send',
           'aria-label': 'Offer amount in USD',
+          'aria-invalid': offerErr ? 'true' : undefined,
+          'aria-describedby': offerErr ? 'offer-error-msg' : undefined,
           // "e.g." so the suggestion cannot be mistaken for a typed amount:
           // it rendered as a bare "0.46" beside a disabled Send button that
           // never said why it was disabled.
@@ -2977,7 +2979,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   : `${belowAskPct.toFixed(1)}% below ask · save ${fmt(savings)}${autoThreshold > 0 ? ` · auto-accept at ${fmt(autoThreshold)}` : ''}`
               )
         ),
-        offerErr && h('div', { role: 'alert', style: { color: 'var(--red)', fontSize: 12, marginTop: 6 } }, offerErr)
+        offerErr && h('div', { id: 'offer-error-msg', role: 'alert', style: { color: 'var(--red)', fontSize: 12, marginTop: 6 } }, offerErr)
       );
       })(),
       reportTarget && h(ReportListingDrawer, {
@@ -13069,6 +13071,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             type: 'text', min: '0', max: '100000', step: '0.01',
             inputMode: 'decimal',
             'aria-label': 'Buy Now price',
+            'aria-invalid': error ? 'true' : undefined,
+            'aria-describedby': error ? 'sell-error-msg' : undefined,
             placeholder: 'Leave blank for no Buy Now',
             value: sellBuyNow,
             onChange: e => setSellBuyNow(e.target.value),
@@ -13085,6 +13089,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         type: 'text', min: '0.01', step: '0.01',
         inputMode: 'decimal', enterKeyHint: 'done',
         'aria-label': sellType === 'AUCTION' ? 'Starting bid' : 'Asking price',
+        'aria-invalid': error ? 'true' : undefined,
+        'aria-describedby': (error || relistBlocked) ? 'sell-error-msg' : undefined,
         // Empty when we have no anchor: a placeholder of "0.00" reads as a
         // suggestion, and $0.00 is not a price this market will accept.
         placeholder: suggested || 'Set your price',
@@ -13288,7 +13294,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           style: { fontFamily: 'inherit', fontSize: 13, lineHeight: 1.4, resize: 'vertical' }
         })
       ),
-      (error || relistBlocked) && h('div', { className: 'wallet-error', role: 'alert' }, error || relistMsg),
+      (error || relistBlocked) && h('div', { className: 'wallet-error', id: 'sell-error-msg', role: 'alert' }, error || relistMsg),
       h('div', { style: { display: 'flex', gap: 10, marginTop: 20 } },
         h('button', { className: 'btn btn-ghost', style: { flex: 1, border: '1px solid var(--border)', justifyContent: 'center', padding: 13 }, onClick: () => setPicking(null) }, 'Back'),
         h('button', {
@@ -18662,6 +18668,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                     className: 'sell-filter-search',
                     style: { flex: 1, minWidth: 140, maxWidth: 260 },
                     placeholder: 'Search description…',
+                    'aria-label': 'Search transactions',
                     value: txSearch,
                     onChange: e => setTxSearch(e.target.value)
                   }),
@@ -19081,7 +19088,9 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                           placeholder: '0.00',
                           value: amount,
                           onChange: e => { setAmount(e.target.value); setError(''); },
-                          'aria-label': tab === 'deposit' ? 'Deposit amount' : 'Withdrawal amount'
+                          'aria-label': tab === 'deposit' ? 'Deposit amount' : 'Withdrawal amount',
+                          'aria-invalid': error ? 'true' : undefined,
+                          'aria-describedby': error ? 'wallet-error-msg' : undefined
                         }),
                         // FX equivalent hint — when the user has selected a
                         // non-USD display currency, show what the typed USD
@@ -19306,6 +19315,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                         autoCapitalize: 'off',
                         spellCheck: false,
                         placeholder: '6-digit 2FA code (if enabled)',
+                        'aria-label': '2FA code',
                         value: totpCode,
                         onChange: e => setTotpCode(e.target.value.replace(/\D/g, '')),
                         style: { letterSpacing: '4px', marginTop: 8 }
@@ -19321,7 +19331,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                   h('div', { className: 'wallet-step-body' },
                     h('div', { className: 'wallet-step-title' },
                       tab === 'deposit' ? 'Checkout' : 'Review'),
-                    error && h('div', { className: 'wallet-error' }, error),
+                    error && h('div', { className: 'wallet-error', id: 'wallet-error-msg', role: 'alert' }, error),
                     h('button', {
                       className: 'btn btn-accent wallet-submit',
                       // Unreadable text ("1,700") keeps the button live so a

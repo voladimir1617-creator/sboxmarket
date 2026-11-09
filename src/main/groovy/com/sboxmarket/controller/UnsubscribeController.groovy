@@ -32,10 +32,11 @@ import org.springframework.web.bind.annotation.RestController
  * FOLLOWS, MATCHES), only that bucket is added to the user's
  * `mutedEmailKinds` set — security alerts and other notification
  * types keep delivering. Without `kind`, the legacy behaviour
- * (global flag flip) is preserved so existing email footer URLs keep
- * working unchanged. Future email templates that target a single
- * bucket can append `&kind=AUCTIONS` to the URL so a user who only
- * wants to silence outbid alerts isn't forced into all-or-nothing.
+ * (global flag flip) is preserved so older footer URLs and ungated
+ * emails keep working unchanged. EmailService.send() appends
+ * `&kind=<BUCKET>` (upper-case) to the footer and List-Unsubscribe URL
+ * of every email sent under a bucket, so a user who only wants to
+ * silence outbid alerts isn't forced into all-or-nothing.
  */
 @RestController
 @RequestMapping('/api/unsubscribe')

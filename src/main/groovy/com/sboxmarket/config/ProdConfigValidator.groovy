@@ -412,5 +412,31 @@ class ProdConfigValidator implements EnvironmentPostProcessor, Ordered {
         }
         log.info('Prod config validation passed: all {} required secrets present, no dev placeholders, hardening on.',
                  REQUIRED_VARS.size())
+        findWarnings().each { log.warn('Prod config warning: {}', it) }
+    }
+
+    /**
+     * Settings that do not stop the boot but will hurt on prod. Logged once
+     * at startup; never echoes a value that could be a secret.
+     */
+    List<String> findWarnings() {
+        List<String> warnings = []
+        // The default sender is on a domain nobody can publish SPF/DKIM/DMARC
+        // for, so Gmail and Yahoo junk or reject every email from it,
+        // including the verification mail withdrawals depend on.
+        String from = safeProperty('app.email.from') ?: safeProperty('EMAIL_FROM') ?: 'no-reply@skinbox.local'
+        String fromDomain = from.contains('@') ? from.substring(from.lastIndexOf('@') + 1).trim().toLowerCase() : ''
+        if (!fromDomain || fromDomain == 'localhost' || fromDomain.endsWith('.local') || fromDomain.endsWith('.localhost')) {
+            warnings.add("EMAIL_FROM is '${from}' — mail from that domain cannot pass SPF/DKIM/DMARC and will be " +
+                'junked or rejected; set EMAIL_FROM to an address on a domain your mail provider has verified'.toString())
+        } else {
+            String replyTo = safeProperty('app.email.reply-to') ?: 'support@skinbox.market'
+            String replyDomain = replyTo.contains('@') ? replyTo.substring(replyTo.lastIndexOf('@') + 1).trim().toLowerCase() : ''
+            if (replyDomain && replyDomain != fromDomain) {
+                warnings.add("the Reply-To domain (${replyDomain}) differs from the From domain (${fromDomain}) — " +
+                    'replies may go to an inbox you do not read'.toString())
+            }
+        }
+        warnings
     }
 }

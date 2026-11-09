@@ -106,6 +106,9 @@ class FraudAnalysisService {
      *  duplicate "⚠ Fraud signal" bells per admin per HIGH signal,
      *  N pods = N×. */
     @Autowired(required = false) com.sboxmarket.repository.FraudSignalClaimRepository fraudSignalClaimRepository
+    /** Emails admins (own verified addresses, throttled) when a HIGH bell
+     *  lands, so the signal reaches someone away from the admin page. */
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy OpsAlertService opsAlertService
 
     /** Signatures of HIGH-severity signals we've already pushed to the
      *  admin bell (batch 507). Without this, the 30-min sweeper would
@@ -678,6 +681,16 @@ class FraudAnalysisService {
                         }
                     }
                     pushed++
+                    // Email copy of the bell. One throttle key for every HIGH
+                    // signal, so an attack wave is one email an hour, not one
+                    // per signal; the Fraud tab has the full list.
+                    try {
+                        opsAlertService?.emailAdmins('FRAUD_SIGNAL_HIGH',
+                            "Fraud signal: ${sig.type}".toString(),
+                            summary + ' More HIGH signals may follow; see the Fraud tab.')
+                    } catch (Exception e) {
+                        log.warn("FRAUD_SIGNAL_HIGH email failed: ${e.message}")
+                    }
                 }
             } catch (Exception e) {
                 log.warn("Fraud sweeper row failed: ${e.message}")

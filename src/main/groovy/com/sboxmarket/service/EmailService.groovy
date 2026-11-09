@@ -549,7 +549,7 @@ You can manage or cancel your active alerts from the Watchlist page.
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'WATCHLIST')
     }
 
     /** Staff replied on a support ticket (batch 475). Pings the user
@@ -594,7 +594,7 @@ seller's stall page or turn off email notifications in Profile → Personal Info
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'FOLLOWS')
     }
 
     /** Auction outbid. Fires from BidService.placeBid when a higher bid
@@ -619,7 +619,7 @@ listing for the live state.
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'AUCTIONS')
     }
 
     /** Wallet freeze alert (batch 584). Security-grade alert — bypasses
@@ -786,7 +786,7 @@ If anything looks off (wrong price, wrong item) open a dispute from the trade ro
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Auction expired without a valid winner (batch 607). Three
@@ -818,7 +818,7 @@ these.
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'AUCTIONS')
     }
 
     /** New sign-in location security alert (batch 606). Fires from
@@ -893,7 +893,7 @@ Staff will review the case even after auto-release. Please act within
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Buy-order auto-expired after 30 days of idleness (batch 596).
@@ -921,7 +921,7 @@ You're getting this because buy-order results are part of your trade pipeline. M
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Trade cancelled — fires from manual cancel + the day-3 auto-cancel
@@ -950,7 +950,7 @@ Any questions? Reply to this email (it threads into support) or open a ticket in
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Auction ending in ~N minutes (batch 572). Fires once per auction
@@ -976,7 +976,7 @@ Anti-snipe rules: a bid in the final 30 seconds extends the close by another 30 
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'AUCTIONS')
     }
 
     /** Auction won. Fires from BidService.settleAuction when the timer
@@ -997,7 +997,7 @@ Profile → Trades${itemUrl ? ' or open the item: ' + absUrl(itemUrl) : '.'}
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'AUCTIONS')
     }
 
     /** Sale completed — seller notification that escrow released on a
@@ -1033,7 +1033,7 @@ You can cash out to Stripe from your wallet at any time${walletUrl ? ': ' + absU
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Counterparty-facing email when a trade dispute is filed against
@@ -1061,7 +1061,7 @@ If you believe the dispute is fraudulent or retaliatory, flag that directly in t
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Buyer-facing email when the seller marks the Steam trade offer
@@ -1093,7 +1093,7 @@ If the item doesn't match the listing or something feels off, open a dispute fro
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Buyer-facing purchase receipt (batch 571). Fires from
@@ -1123,7 +1123,7 @@ If the seller doesn't respond within ${sellerResponseDays} day${sellerResponseDa
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Seller-facing email on a fresh sale (batch 564). Fires alongside
@@ -1156,7 +1156,7 @@ ${publicUrl}/profile?tab=trades
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Offer received — fires from OfferService.makeOffer when a buyer
@@ -1196,7 +1196,7 @@ stop these.
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Offer countered — fires from OfferService.counterOffer when a
@@ -1230,7 +1230,7 @@ notifications to stop these.
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Offer accepted — fires from OfferService.acceptOffer when the
@@ -1262,7 +1262,7 @@ stop these.
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Offer rejected — fires from OfferService.rejectOffer when a
@@ -1294,7 +1294,7 @@ stop these.
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'TRADES')
     }
 
     /** Saved-search match. Fires from SavedSearchService when a fresh
@@ -1322,7 +1322,7 @@ Profile → Email notifications.
 
 — The SkinBox team
 """.stripIndent()
-        send(toEmail, subject, body)
+        send(toEmail, subject, body, 'MATCHES')
     }
 
     /** Deletion-request receipt. Fires from ProfileController when a
@@ -1742,9 +1742,21 @@ Thanks for your patience.
      *       60s TTL drops the duplicate.
      *    4. Uncapped subject/body letting a user trigger huge mail
      *       payloads via a long Steam display name → MAX_SUBJECT_CHARS
-     *       / MAX_BODY_CHARS truncate before send. */
-    void send(String to, String subject, String body) {
+     *       / MAX_BODY_CHARS truncate before send.
+     *
+     *  `bucket` names the opt-out bucket (one of MUTABLE_EMAIL_BUCKETS)
+     *  the email is sent under, i.e. the canSendTo(user, bucket) gate
+     *  its caller checked. With a bucket, the List-Unsubscribe header
+     *  and the footer's one-click URL carry `&kind=<bucket>`, so a
+     *  mail client's "Unsubscribe" tap mutes only that bucket. Without
+     *  one (security alerts, verification, admin/ungated sends) no
+     *  List-Unsubscribe header is set: a one-click tap there would
+     *  have switched off every notification email at once. */
+    void send(String to, String subject, String body, String bucket = null) {
         if (!to || !subject || !body) return
+        // Only a known bucket is honoured; anything else is treated as
+        // ungated rather than minting a URL the controller would ignore.
+        final String kind = (bucket != null && MUTABLE_EMAIL_BUCKETS.contains(bucket)) ? bucket : null
         // Length caps applied at the boundary so every template benefits
         // without having to remember to clamp at the call site. Subject
         // first (user-visible truncation matters most), then body.
@@ -1765,23 +1777,10 @@ Thanks for your patience.
             return
         }
         if (smtpReady) {
-            def finalBody = appendFooter(safeBody, to)
-            def lower = to.trim().toLowerCase()
-            def tok = unsubscribeToken(lower)
-            def base = (publicUrl ?: 'https://skinbox.market').with { u -> u.endsWith('/') ? u[0..-2] : u }
-            // Derive the unsubscribe mailto domain from the From: address.
-            // Previously this was derived from publicUrl, which is
-            // `http://localhost:8080` in dev and contains a port — and
-            // `unsubscribe@localhost:8080` is a malformed RFC-5321
-            // mailbox. The From address is always a real email so its
-            // domain is always a real mail domain.
-            def fromDomain = 'skinbox.market'
-            if (fromAddress) {
-                int at = fromAddress.indexOf('@')
-                if (at > 0 && at < fromAddress.length() - 1) {
-                    fromDomain = fromAddress.substring(at + 1).trim()
-                }
-            }
+            def finalBody = appendFooter(safeBody, to, kind)
+            // Header URL only for bucketed (opt-out-able) emails; null
+            // otherwise, and null when the token can't be minted.
+            final String listUnsubUrl = kind ? oneClickUnsubscribeUrl(to, kind) : null
             smtpPending.incrementAndGet()
             smtpExecutor.submit({
                 try {
@@ -1817,19 +1816,19 @@ Thanks for your patience.
                             if (replyToAddress && !replyToAddress.isBlank()) {
                                 try { helper.setReplyTo(replyToAddress) } catch (ignore) { /* fall through */ }
                             }
-                            // List-Unsubscribe header per RFC 8058. The mailto
-                            // half lets clients without webhook support fall
-                            // back to a no-op inbound address (ignored since we
-                            // also surface the URL). The https half is what
-                            // Gmail/Outlook actually click. One-Click-Post
-                            // tells the client it can POST to the URL without
-                            // user confirmation — the endpoint is idempotent
-                            // and validates the HMAC before doing anything.
-                            if (tok) {
-                                def enc = java.net.URLEncoder.encode(lower, 'UTF-8')
-                                def url = "${base}/api/unsubscribe?email=${enc}&t=${tok}"
-                                mime.setHeader('List-Unsubscribe',
-                                    "<mailto:unsubscribe@${fromDomain}?subject=unsubscribe>, <${url}>")
+                            // List-Unsubscribe header per RFC 8058, set only on
+                            // emails sent under an opt-out bucket. The single
+                            // https URL carries `kind=<bucket>`, so Gmail /
+                            // Outlook's one-click POST mutes just that bucket
+                            // (UnsubscribeController → mutedEmailKinds) instead
+                            // of switching off every notification. No mailto
+                            // entry: that address went to an inbox nothing
+                            // reads. One-Click-Post tells the client it can
+                            // POST to the URL without user confirmation — the
+                            // endpoint is idempotent and validates the HMAC
+                            // before doing anything.
+                            if (listUnsubUrl) {
+                                mime.setHeader('List-Unsubscribe', "<${listUnsubUrl}>")
                                 mime.setHeader('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click')
                             }
                             mailSender.send(mime)
@@ -1887,8 +1886,29 @@ Thanks for your patience.
             } as Runnable)
         } else {
             log.info("[email/log-sink] to={} subject={}\n---\n{}\n---",
-                     maskEmail(to), safeSubject, appendFooter(safeBody, to))
+                     maskEmail(to), safeSubject, appendFooter(safeBody, to, kind))
         }
+    }
+
+    /**
+     * The signed one-click unsubscribe URL for a recipient, shared by
+     * the List-Unsubscribe header and the footer so the two never
+     * drift. With a `kind` (one of MUTABLE_EMAIL_BUCKETS, upper-case as
+     * UnsubscribeController expects) the URL ends `&kind=<bucket>`; the
+     * HMAC token covers only the lowercased email, so it is the same
+     * with or without kind. Null when no token can be minted.
+     */
+    String oneClickUnsubscribeUrl(String to, String kind = null) {
+        if (!to) return null
+        def lower = to.trim().toLowerCase()
+        def tok = unsubscribeToken(lower)
+        if (!tok) return null
+        def base = publicUrl ?: 'https://skinbox.market'
+        if (base.endsWith('/')) base = base.substring(0, base.length() - 1)
+        def enc = java.net.URLEncoder.encode(lower, 'UTF-8')
+        def url = base + "/api/unsubscribe?email=" + enc + "&t=" + tok
+        if (kind && MUTABLE_EMAIL_BUCKETS.contains(kind)) url += "&kind=" + kind
+        url
     }
 
     /**
@@ -1944,7 +1964,7 @@ Thanks for your patience.
      * of the email path (send() already swallows send errors, but a
      * crash inside footer-build would leak up before the try block).
      */
-    private String appendFooter(String body, String to = null) {
+    private String appendFooter(String body, String to = null, String kind = null) {
         try {
             def base = publicUrl ?: 'https://skinbox.market'
             if (base.endsWith('/')) base = base.substring(0, base.length() - 1)
@@ -1952,21 +1972,18 @@ Thanks for your patience.
             // Per CAN-SPAM + RFC 8058: the recipient must have a way to
             // opt out without logging in. The URL is deterministic per
             // email (HMAC-signed; see unsubscribeToken) so we don't need
-            // DB storage. Clicking it flips emailNotificationsEnabled
-            // without auth. Gmail/Outlook surface a dedicated
-            // "Unsubscribe" button via the List-Unsubscribe header set
-            // by send() above; the plain-text footer URL is the
-            // explicit fallback for mail clients that don't render the
-            // RFC-8058 button.
+            // DB storage. For an email sent under an opt-out bucket the
+            // URL carries `&kind=<bucket>` and confirming it mutes only
+            // that bucket; without a bucket it flips
+            // emailNotificationsEnabled. Gmail/Outlook surface a
+            // dedicated "Unsubscribe" button via the List-Unsubscribe
+            // header send() sets on bucketed emails; the plain-text
+            // footer URL is the explicit fallback for mail clients that
+            // don't render the RFC-8058 button.
             String unsubLine = ''
-            if (to) {
-                def lower = to.trim().toLowerCase()
-                def tok = unsubscribeToken(lower)
-                if (tok) {
-                    def enc = java.net.URLEncoder.encode(lower, 'UTF-8')
-                    unsubLine = "\nOne-click unsubscribe: " + base +
-                                "/api/unsubscribe?email=" + enc + "&t=" + tok
-                }
+            def url = oneClickUnsubscribeUrl(to, kind)
+            if (url) {
+                unsubLine = "\nOne-click unsubscribe: " + url
             }
             // Footer surfaces the unsubscribe (CAN-SPAM), preferences,
             // support path, and the trademark/affiliation disclaimer.
