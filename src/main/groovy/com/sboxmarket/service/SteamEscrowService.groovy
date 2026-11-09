@@ -77,6 +77,8 @@ class SteamEscrowService {
     @Autowired(required = false) @org.springframework.context.annotation.Lazy ListingService listingService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SteamInventoryService steamInventoryService
     @Autowired(required = false) AuditService auditService
+    /** Staff alert for deposits stuck past their Steam hold. Optional. */
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy OpsAlertService opsAlertService
 
     /** Master switch for the escrow pollers, independent of the bot's own
      *  enabled flag — lets ops freeze deposit/return sweeps without unsetting
@@ -782,6 +784,7 @@ class SteamEscrowService {
         if (overdue.isEmpty()) return
         log.warn("SteamEscrow: ${overdue.size()} deposit(s) past their Steam trade-hold release and still not in the bot inventory")
 
+        List<EscrowedItem> escalated = []
         for (EscrowedItem e : overdue) {
             try {
                 String release = formatHoldRelease(e.escrowEndsAt)
@@ -808,9 +811,51 @@ class SteamEscrowService {
                         "Your item's Steam trade hold has ended but we haven't received it yet. " +
                         "We're looking into it — your listing is still reserved and we have a record of the trade. " +
                         "Nothing is lost; contact support if you'd like an update.")
+                escalated << e
             } catch (Exception ex) {
                 log.warn("SteamEscrow: hold escalation failed on escrow=${e?.id}: ${ex.message}")
             }
+        }
+        alertStaffOfOverdueHolds(escalated)
+    }
+
+    /** One staff alert per sweep for the holds this pod just escalated (the
+     *  per-row claim already limits each row to once per backoff window), so
+     *  a human hears about an item the platform holds without waiting for the
+     *  seller to complain. Observe only: no state changes. */
+    private void alertStaffOfOverdueHolds(List<EscrowedItem> escalated) {
+        if (opsAlertService == null || escalated == null || escalated.isEmpty()) return
+        try {
+            String ids = escalated.take(10).collect { "escrow ${it.id} (listing ${it.listingId}, offer ${it.depositOfferId ?: '-'})" }.join('; ')
+            String more = escalated.size() > 10 ? " and ${escalated.size() - 10} more".toString() : ''
+            opsAlertService.alertAdmins(OpsAlertService.STUCK_ESCROW, OpsAlertService.STUCK_ESCROW,
+                    "Stuck deposit${escalated.size() == 1 ? '' : 's'}: ${escalated.size()} past Steam hold".toString(),
+                    ("${escalated.size()} deposit(s) were accepted by the seller and are past their Steam hold, " +
+                     "but the item is not in the bot inventory: ${ids}${more}. " +
+                     'The rows are left as they are; reconcile by hand.').toString(),
+                    '/admin?tab=health', true)
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: overdue-hold staff alert failed: ${ex.message}")
+        }
+    }
+
+    /** Staff-view counts of custody rows that need a human, for the admin
+     *  Health tile. Read-only; reuses existing state. Null on failure. */
+    Map stuckEscrowCounts() {
+        try {
+            long now = System.currentTimeMillis()
+            long grace = Math.max(0L, (long) holdGraceHours) * 60L * 60L * 1000L
+            // A hold we could not read is overdue once even Steam's longest
+            // hold (15 days) plus the grace has passed since acceptance.
+            long unknownHoldBefore = now - 15L * 24L * 60L * 60L * 1000L - grace
+            return [
+                overdueEscrowHolds:      escrowRepository.countOverdueEscrowHolds(now - grace, unknownHoldBefore),
+                missingFromBotInventory: escrowRepository.countMissingFromBotInventory(),
+                holdGraceHours:          holdGraceHours
+            ]
+        } catch (Exception ex) {
+            log.warn("SteamEscrow: stuck counts failed: ${ex.message}")
+            return null
         }
     }
 

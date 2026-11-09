@@ -1,6 +1,7 @@
 package com.sboxmarket.controller
 
 import com.sboxmarket.service.StripeService
+import com.sboxmarket.service.StripeWebhookFailureMonitor
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
@@ -16,6 +17,10 @@ import org.springframework.web.bind.annotation.RestController
 class StripeWebhookController {
 
     @Autowired StripeService stripeService
+
+    /** Observe-only failure counters + staff alert. Optional, and every call
+     *  into it is guarded, so it can never change a response below. */
+    @Autowired(required = false) StripeWebhookFailureMonitor failureMonitor
 
     /** Stripe posts events here. Point your webhook (or `stripe listen
      *  --forward-to localhost:8080/api/stripe/webhook`) at this URL.
@@ -48,17 +53,28 @@ class StripeWebhookController {
             stripeService.handleWebhookEvent(payload, sig ?: "")
             ResponseEntity.ok("ok")
         } catch (SecurityException e) {
+            observe { failureMonitor?.recordBadSignature() }
             ResponseEntity.status(400).body("invalid signature")
         } catch (IllegalArgumentException | IllegalStateException domainFailure) {
             // Permanent, non-retryable domain failure (already logged in
             // StripeService). ACK with 200 so Stripe stops retrying a
             // request that can never succeed.
             log.error("Webhook processing failed permanently — ACKing 200 to stop Stripe retries: ${domainFailure.message}", domainFailure)
+            observe { failureMonitor?.recordPermanentAck(payload) }
             ResponseEntity.ok("acknowledged")
         } catch (Exception e) {
             // Genuinely transient — let Stripe retry with backoff.
             log.error("Webhook processing failed (transient — Stripe will retry)", e)
             ResponseEntity.status(500).body("error")
+        }
+    }
+
+    /** Monitoring must never change what Stripe is told. */
+    private static void observe(Closure c) {
+        try {
+            c.call()
+        } catch (Throwable t) {
+            log.warn("Stripe webhook failure monitor threw: ${t.message}")
         }
     }
 }

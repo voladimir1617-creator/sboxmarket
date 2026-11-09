@@ -115,6 +115,9 @@ class AdminService {
     @Autowired(required = false) SteamMarketPriceService steamMarketPriceService
     @Autowired(required = false) com.sboxmarket.config.BackupFreshnessReporter backupFreshnessReporter
     @Autowired(required = false) @Lazy StripeService stripeService
+    @Autowired(required = false) @Lazy SteamBotHealthMonitor steamBotHealthMonitor
+    @Autowired(required = false) @Lazy StripeWebhookFailureMonitor stripeWebhookFailureMonitor
+    @Autowired(required = false) @Lazy SteamEscrowService steamEscrowService
 
     // ── Auth guard helpers (delegated to dedicated components) ──────
     // Kept as thin pass-throughs so existing AdminController code and Spock
@@ -435,7 +438,25 @@ class AdminService {
             // at /api/health/backup gets the state word alone. Null-safe like
             // the two collaborators above so unit tests that don't wire the
             // reporter keep passing.
-            backup:         backupFreshnessSnapshot()
+            backup:         backupFreshnessSnapshot(),
+            // Staff ops alerts (bot health, webhook failure counters, stuck
+            // deposits). Each part null-safe so specs without the
+            // collaborators keep passing and one failing part hides nothing else.
+            opsAlerts:      opsAlertsSnapshot()
+        ]
+    }
+
+    private Map opsAlertsSnapshot() {
+        def part = { Closure c ->
+            try { return c.call() } catch (Exception e) {
+                log.warn("ops alert snapshot part failed: ${e.message}")
+                return null
+            }
+        }
+        [
+            steamBot:      part { steamBotHealthMonitor?.snapshot() },
+            stripeWebhook: part { stripeWebhookFailureMonitor?.snapshot() },
+            stuckEscrow:   part { steamEscrowService?.stuckEscrowCounts() }
         ]
     }
 

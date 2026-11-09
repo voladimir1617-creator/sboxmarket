@@ -120,6 +120,28 @@ interface EscrowedItemRepository extends JpaRepository<EscrowedItem, Long> {
                                               @Param('backoffCutoff') Long backoffCutoff,
                                               Pageable page)
 
+    /** Staff-view count of deposits past their Steam hold (plus grace) that
+     *  never arrived. Same rows {@link #findOverdueEscrowHolds} escalates,
+     *  minus its backoff; a hold we never read counts once
+     *  {@code acceptedBefore} has passed since acceptance. */
+    @Query("""
+        SELECT COUNT(e) FROM EscrowedItem e
+        WHERE e.custodyState = 'IN_ESCROW_HOLD'
+          AND ((e.escrowEndsAt IS NOT NULL AND e.escrowEndsAt < :releasedBefore)
+            OR (e.escrowEndsAt IS NULL AND COALESCE(e.depositAcceptedAt, e.updatedAt) < :acceptedBefore))
+    """)
+    long countOverdueEscrowHolds(@Param('releasedBefore') Long releasedBefore,
+                                 @Param('acceptedBefore') Long acceptedBefore)
+
+    /** Staff-view count of live custody rows whose skin was not found in the
+     *  bot inventory ({@code missingSince} set). */
+    @Query("""
+        SELECT COUNT(e) FROM EscrowedItem e
+        WHERE e.missingSince IS NOT NULL
+          AND e.custodyState NOT IN ('DELIVERED', 'RETURNED', 'FAILED', 'REVERSED')
+    """)
+    long countMissingFromBotInventory()
+
     /**
      * Atomic claim for the stale-deposit TIMEOUT sweep — flips custody
      * PENDING_DEPOSIT→FAILED and stamps the timeout reason ONLY if the row is
