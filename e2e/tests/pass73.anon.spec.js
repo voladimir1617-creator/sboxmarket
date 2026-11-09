@@ -99,7 +99,9 @@ test.describe('defect pass 73', () => {
       ? r.fulfill(json({ error: 'boom' }, 500))
       : r.fulfill(json({ user: { id: 3, displayName: 'carol', email: 'c@x.io', emailVerified: true, tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc' }, twoFactorEnabled: true, stats: { totalSold: 12, totalPurchased: 3, net: 9 } })));
     await page.goto('/profile/personal');
-    await expect(page.getByText('Display Name')).toBeVisible({ timeout: 20000 });
+    // Wait for the failure itself: the tab's "Display Name" row only shows
+    // for the instant before the 500 lands, so waiting on it was a race.
+    await expect(page.getByRole('alert').filter({ hasText: /load your profile/i })).toBeVisible({ timeout: 20000 });
     await page.waitForTimeout(1500);
     await expect(page.getByRole('button', { name: 'Enable 2FA' })).toHaveCount(0);
     await expect(page.getByText('(not set)')).toHaveCount(0);
