@@ -2239,8 +2239,15 @@ export async function fetchTradesWithTotal() {
     return { items: [], total: 0, error: true };
   }
 }
+// A trade step changes the header's pending-actions badge; tell it to
+// refetch instead of showing the old count until its 60s poll.
+async function tradeWrite(url, opts) {
+  const res = await writeJson(url, opts);
+  try { window.dispatchEvent(new Event('sb:trades-changed')); } catch (_) {}
+  return res;
+}
 export async function tradeAccept(id) {
-  return writeJson(`${API}/trades/${id}/accept`, { method: 'POST', credentials: 'same-origin' });
+  return tradeWrite(`${API}/trades/${id}/accept`, { method: 'POST', credentials: 'same-origin' });
 }
 /** Mark the seller's side of a trade as sent (batch 773). Optionally
  *  attaches the Steam trade-offer URL so the buyer can open it in one
@@ -2250,7 +2257,7 @@ export async function tradeMarkSent(id, tradeOfferUrl) {
   const body = (tradeOfferUrl && tradeOfferUrl.trim())
     ? JSON.stringify({ tradeOfferUrl: tradeOfferUrl.trim() })
     : null;
-  return writeJson(`${API}/trades/${id}/sent`, {
+  return tradeWrite(`${API}/trades/${id}/sent`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: body ? { 'Content-Type': 'application/json' } : {},
@@ -2258,7 +2265,7 @@ export async function tradeMarkSent(id, tradeOfferUrl) {
   });
 }
 export async function tradeConfirm(id) {
-  return writeJson(`${API}/trades/${id}/confirm`, { method: 'POST', credentials: 'same-origin' });
+  return tradeWrite(`${API}/trades/${id}/confirm`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function fetchTradeMessages(tradeId) {
   const data = await safeJson(`${API}/trades/${tradeId}/messages`);
@@ -2279,7 +2286,7 @@ export async function postTradeMessage(tradeId, body) {
 }
 
 export async function tradeDispute(id, reason) {
-  return writeJson(`${API}/trades/${id}/dispute`, {
+  return tradeWrite(`${API}/trades/${id}/dispute`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
@@ -2287,7 +2294,7 @@ export async function tradeDispute(id, reason) {
   });
 }
 export async function tradeCancel(id, reason) {
-  return writeJson(`${API}/trades/${id}/cancel`, {
+  return tradeWrite(`${API}/trades/${id}/cancel`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },

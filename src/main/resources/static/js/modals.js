@@ -4535,7 +4535,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   useEffect(() => {
     if (!me) return;
     let alive = true;
-    (async () => {
+    const load = async () => {
       try {
         const [tr, oc, ti] = await Promise.all([
           fetch('/api/trades', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []),
@@ -4552,8 +4552,17 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         const waitingN = (Array.isArray(ti) ? ti : []).filter(t => t.status === 'WAITING_USER').length;
         setWaitingSupportCount(waitingN);
       } catch (_) {}
-    })();
-    return () => { alive = false; };
+    };
+    load();
+    // A trade step or offer reply on this page changes these badges; without
+    // this the Trades tab kept its old count until the user switched tabs.
+    window.addEventListener('sb:trades-changed', load);
+    window.addEventListener('sb:offers-changed', load);
+    return () => {
+      alive = false;
+      window.removeEventListener('sb:trades-changed', load);
+      window.removeEventListener('sb:offers-changed', load);
+    };
   }, [me?.id, tab]);
 
   // Batch 893 — auto-submit the verification token when the user
@@ -8911,7 +8920,9 @@ function ProfileTradesTab({ me, privacy }) {
   // Summary chips above the state filter. Counts derived from the
   // already-loaded trades list so adding them is essentially free.
   // Surfaces "you've sold 12, had 2 disputes, 1 cancel" at a glance.
-  const openStates = ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'];
+  // Same rule as the "Open" filter chip and the CSV's ?state=OPEN: a
+  // disputed trade is not settled yet, so "4 open" no longer led to 5 rows.
+  const openStates = ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','DISPUTED'];
   const summaryCounts = {
     total:     trades.length,
     open:      trades.filter(t => openStates.includes(t.state)).length,

@@ -4271,10 +4271,12 @@ export function App() {
     // An accept / counter / reject on /offers changes the offer count in
     // this badge; without this it kept the old number until the next poll.
     window.addEventListener('sb:offers-changed', load);
+    window.addEventListener('sb:trades-changed', load);
     return () => {
       alive = false; clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('sb:offers-changed', load);
+      window.removeEventListener('sb:trades-changed', load);
     };
   }, [me?.id]);
   // Pre-signin ToS + email modal state. Opens on the "Sign in through
