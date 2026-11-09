@@ -278,6 +278,21 @@ function AdminHealthTab() {
       (() => {
         const wh = data.stripeWebhook;
         const at = wh?.lastReceivedAt || 0;
+        // The ops alert for rejected / dropped deliveries links here; say
+        // so on this card instead of "No events yet" beside the alert.
+        const fails = data.opsAlerts?.stripeWebhook;
+        const bad = fails?.badSignatureInWindow || 0;
+        const dropped = fails?.permanentAckInWindow || 0;
+        if (bad || dropped) {
+          const mins = Math.max(1, Math.round((fails.windowMs || 900000) / 60000));
+          const parts = [];
+          if (bad) parts.push(`${bad} rejected for a bad signature`);
+          if (dropped) parts.push(`${dropped} failed permanently`);
+          return h('div', { className: 'health-card' },
+            h('div', { className: 'health-card-label' }, 'Stripe webhook'),
+            h('div', { className: 'health-card-value', style: { color: 'var(--red)' } }, 'FAILING'),
+            h('div', { className: 'health-card-hint', style: { color: 'var(--red)' } }, `${parts.join(' · ')} in the last ${mins} min`));
+        }
         if (!at) return card('Stripe webhook', 'No events yet',
           'Awaiting first event since boot');
         const ageMin = Math.round((Date.now() - at) / 60000);
