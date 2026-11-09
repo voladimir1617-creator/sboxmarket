@@ -3704,7 +3704,7 @@ to { transform: translateX(-50%); }
 body { background: #fff !important; }
 :is(body *,#_) { color: #000 !important; }
 .csfloat-card, .csfloat-mkt-card, .csfloat-panel, [class*="csfloat-"] { box-shadow: none !important; }
-a[href^=http]::after { content: " (" attr(href) ")"; font-size: 80%; color: #555; }
+a[href^=http]:not(.compact)::after { content: " (" attr(href) ")"; font-size: 80%; color: #555; }
 }
 @keyframes csfloat-fade-in { from { opacity: 0; }
 to { opacity: 1; }
