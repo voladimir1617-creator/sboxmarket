@@ -1077,7 +1077,7 @@ class EmailServiceSpec extends Specification {
         })
     }
 
-    def "the footer + List-Unsubscribe header are attached to every email"() {
+    def "the footer is attached to every email; an ungated email gets no List-Unsubscribe header"() {
         given:
         def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com',
                              publicUrl: 'https://skinbox.example')
@@ -1088,13 +1088,81 @@ class EmailServiceSpec extends Specification {
 
         then:
         1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
-            // CAN-SPAM footer + RFC-8058 one-click unsubscribe.
+            // CAN-SPAM footer + one-click unsubscribe line, unchanged.
             f.text.contains('Manage your email preferences') &&
             // The email switches live on Profile → Personal Info, not /settings.
             f.text.contains('/profile/personal') &&
-            f.text.contains('One-click unsubscribe') &&
-            f.listUnsub.contains('/api/unsubscribe?email=') &&
-            f.listUnsub.contains('user%40example.com')
+            f.text.contains('One-click unsubscribe: https://skinbox.example/api/unsubscribe?email=user%40example.com&t=') &&
+            !f.text.contains('kind=') &&
+            // No bucket → no RFC-8058 header: a one-click tap would have
+            // switched off every notification email.
+            msg.getHeader('List-Unsubscribe') == null &&
+            msg.getHeader('List-Unsubscribe-Post') == null
+        })
+    }
+
+    def "a WATCHLIST email's List-Unsubscribe header and footer URL carry kind=WATCHLIST, with no mailto"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com',
+                             publicUrl: 'https://skinbox.example')
+        def expected = "https://skinbox.example/api/unsubscribe?email=user%40example.com&t=" +
+                       svc.unsubscribeToken('user@example.com') + "&kind=WATCHLIST"
+
+        when:
+        svc.sendPriceDrop('User@Example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('20.00'), new BigDecimal('25.00'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            msg.getHeader('List-Unsubscribe') as List == ["<${expected}>".toString()] &&
+            !f.listUnsub.contains('mailto') &&
+            msg.getHeader('List-Unsubscribe-Post') as List == ['List-Unsubscribe=One-Click'] &&
+            f.text.contains("One-click unsubscribe: ${expected}\n")
+        })
+    }
+
+    def "every gated template is sent under the bucket of its canSendTo gate"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com',
+                             publicUrl: 'https://skinbox.example')
+        def headers = []
+        mailSender.send(_ as MimeMessage) >> { MimeMessage m ->
+            headers << ((m.getHeader('List-Unsubscribe') ?: [null]) as List)[0]
+        }
+
+        when:
+        sender.call(svc)
+        svc.awaitSmtpForTests()
+
+        then:
+        headers.size() == 1
+        headers[0] != null
+        headers[0].endsWith("&kind=${bucket}>")
+
+        where:
+        bucket      | sender
+        'WATCHLIST' | { EmailService s -> s.sendPriceDrop('u@x.com', 'A', 'Hat', 1.0G, 2.0G, '/item/1') }
+        'FOLLOWS'   | { EmailService s -> s.sendNewListingFromSeller('u@x.com', 'A', 'Bob', 'Hat', 1.0G, '/item/1') }
+        'MATCHES'   | { EmailService s -> s.sendSavedSearchMatch('u@x.com', 'A', 'Hats', 'Hat', 1.0G, '/item/1') }
+        'AUCTIONS'  | { EmailService s -> s.sendAuctionOutbid('u@x.com', 'A', 'Hat', 1.0G, '/item/1') }
+        'TRADES'    | { EmailService s -> s.sendTradeCancelled('u@x.com', 'A', 'Hat', 'timeout', 'buyer', 5L) }
+    }
+
+    def "a security alert has no List-Unsubscribe header"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com',
+                             publicUrl: 'https://skinbox.example')
+
+        when:
+        svc.sendNewSignIn('user@example.com', 'Alice', '1.2.3.4', 'Firefox')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg ->
+            msg.getHeader('List-Unsubscribe') == null &&
+            msg.getHeader('List-Unsubscribe-Post') == null &&
+            fields(msg).subject.contains('Security alert')
         })
     }
 
