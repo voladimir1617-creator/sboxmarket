@@ -529,6 +529,24 @@ export function toast(text, kind = 'ok') {
   }
 }
 
+// A block about to unmount (a dismissed banner, a list emptied by its last
+// row) takes the focused control with it. Once it is gone, focus `prefer`
+// (a selector) or else what followed the block, instead of <body>.
+export function focusPastOnUnmount(block, prefer) {
+  if (!block || !block.contains(document.activeElement)) return;
+  const next = Array.from(document.querySelectorAll('a[href], button, input, select, textarea, [tabindex]'))
+    .find(el => el.tabIndex >= 0 && !el.disabled && !block.contains(el)
+      && (block.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && el.getClientRects().length > 0);
+  const until = Date.now() + 10000;
+  const go = () => {
+    if (block.isConnected) { if (Date.now() < until) requestAnimationFrame(go); return; }
+    const to = (prefer && document.querySelector(prefer)) || next;
+    if (to && to.isConnected && document.activeElement === document.body) to.focus();
+  };
+  requestAnimationFrame(go);
+}
+
 export function signInWithSteam() {
   // Build the post-login destination from the current page so the user
   // lands back where they triggered auth instead of being dumped at /.

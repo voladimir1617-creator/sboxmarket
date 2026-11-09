@@ -2459,6 +2459,15 @@ export function NotificationsModal({ onClose, me }) {
   // error + Retry instead of the deceptive empty state.
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState(false);
+  // Retry unmounts with the error panel: focus the All filter, or the new
+  // Retry if the reload fails again, instead of <body>.
+  const retryRef = useRef(null);
+  const retryFocusRef = useRef(false);
+  useEffect(() => {
+    if (loading || !retryFocusRef.current) return;
+    retryFocusRef.current = false;
+    (loadErr ? retryRef : allBtnRef).current?.focus();
+  }, [loading, loadErr]);
   const load = useCallback(async () => {
     setLoadErr(false);
     try {
@@ -2821,11 +2830,12 @@ export function NotificationsModal({ onClose, me }) {
          error with a Retry that re-runs load(). */
       ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             "Couldn't load notifications"),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
             'Your notification feed failed to load. Check your connection and try again.'),
-          h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry'))
+          // Show the loading rows while it retries, not "Quiet so far".
+          h('button', { className: 'btn btn-accent', ref: retryRef, onClick: () => { retryFocusRef.current = true; setLoading(true); load(); } }, 'Retry'))
       : (loading && count === 0)
       /* First load still in flight: skeleton feed rows in the existing
          skeleton classes, laid out like the loaded rows (icon, title, body,
@@ -2893,7 +2903,7 @@ export function NotificationsModal({ onClose, me }) {
           }
           return h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'notifications_off', size: 26 })),
-            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               'Quiet so far'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 16px', lineHeight: 1.55 } },
               "Every trade move, bid update, offer, price-alert hit, and seller-follow ping lands here. List an item, place a bid, or watchlist something — the first notification shows up the moment it happens."),
