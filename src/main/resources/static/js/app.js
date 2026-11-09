@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=359'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=360'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -10648,8 +10648,9 @@ export function App() {
             background: 'var(--bg-secondary)', border: '1px solid var(--border)',
             borderRadius: 10
           },
-          // In-page region (not a dialog) — no aria-modal / role=dialog.
-          role: 'region',
+          // The page's main content (not a dialog), and the skip link's target.
+          id: 'main',
+          role: 'main',
           'aria-labelledby': 'item-not-found-title'
         },
           // Two different facts, two different panels. `itemLoadError` set

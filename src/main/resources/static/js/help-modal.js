@@ -274,6 +274,8 @@ export function HelpModal({ onClose }) {
           setOpenIdx(i);
           // Defer one frame so the accordion has rendered the panel.
           requestAnimationFrame(() => {
+            // Keyboard focus follows to the opened question, not left up here.
+            document.getElementById('help-faq-q-' + i)?.focus({ preventScroll: true });
             const el = document.getElementById('help-faq-panel-' + i);
             if (el && typeof el.scrollIntoView === 'function') {
               el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -307,7 +309,7 @@ export function HelpModal({ onClose }) {
             padding: '20px 10px', textAlign: 'center'
           }
         },
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'No FAQs match "', h('strong', { style: { color: 'var(--accent)' } }, search.trim()), '"'),
           h('div', { style: { maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
             'Try a broader keyword, or open a ticket and staff will answer as soon as they can (trade, payment and refund issues first).'),
