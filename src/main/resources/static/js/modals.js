@@ -1237,7 +1237,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
       ref: isPageMode ? undefined : panelRef,
       className: 'modal' + (isPageMode ? ' item-page' : ''),
       onClick: isPageMode ? undefined : (e => e.stopPropagation()),
-      ...(isPageMode ? { role: 'main', 'aria-label': item?.name ? `${item.name} — item details page` : 'Item details page' } : {
+      // id="main": the "Skip to main content" link's target.
+      ...(isPageMode ? { id: 'main', role: 'main', 'aria-label': item?.name ? `${item.name} — item details page` : 'Item details page' } : {
         role: 'dialog',
         'aria-modal': 'true',
         'aria-label': item?.name ? `${item.name} — item details` : 'Item details'
@@ -2391,7 +2392,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                     className: 'listing-offer-btn' + (offerOpen && offerTarget && offerTarget.id === l.id ? ' is-open' : ''),
                     type: 'button',
                     'data-testid': 'listing-offer-btn',
-                    'aria-label': me ? `Make an offer on listing #${l.id}` : 'Sign in with Steam to make an offer',
+                    'aria-label': me ? `Make an offer on listing #${l.id}` : `Sign in with Steam to make an offer on listing #${l.id}`,
                     'aria-expanded': me ? !!(offerOpen && offerTarget && offerTarget.id === l.id) : undefined,
                     title: me ? `Make an offer to ${l.sellerName || 'this seller'} below ${fmt(l.price)}` : 'Sign in with Steam to make an offer',
                     onClick: () => {
@@ -2519,6 +2520,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               className: 'similar-card',
               href: '/item/' + (l.item?.id || '') + '?listing=' + l.id,
               title: l.item?.name,
+              // The image alt repeated the name; say name and price once.
+              'aria-label': `${l.item?.name || 'Item'}, ${fmt(l.listingType === 'AUCTION' && l.currentBid != null ? l.currentBid : l.price)}`,
               onClick: (e) => { if (!l.item?.id) e.preventDefault(); }
             },
               h('div', { className: 'similar-thumb' },
@@ -2546,6 +2549,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             href: '/item/' + it.id,
             title: live && Number(it.supply) > 0
               ? `${it.name}: ${Number(it.supply)} offer${Number(it.supply) === 1 ? '' : 's'}, cheapest shown`
+              : it.name,
+            // Read "$0.59, 4 offers", not the glued "$0.594 offers" (or the name twice).
+            'aria-label': live
+              ? `${it.name}, ${fmt(it.lowestPrice)}` + (Number(it.supply) > 0 ? `, ${Number(it.supply).toLocaleString()} offer${Number(it.supply) === 1 ? '' : 's'}` : '')
               : it.name
           },
             h('div', { className: 'similar-thumb' }, h(ItemImage, { item: it, variant: 'thumb' })),
@@ -4048,7 +4055,7 @@ export function FaqModal({ onClose }) {
           // batch. Users no longer dead-end on a search box.
           style: { fontSize: 13, color: 'var(--text-secondary)', padding: '20px 10px', textAlign: 'center' }
         },
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'No FAQs match "', h('strong', { style: { color: 'var(--accent)' } }, q.trim()), '"'),
           h('div', { style: { maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
             'Try a broader keyword, or open a ticket and staff will answer as soon as they can (trade, payment and refund issues first).'),
@@ -4338,7 +4345,7 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
     // and the Notifications page without silencing everything else.
     me && Row('Mute notification types',
       'Hide these categories from the bell + /notifications. Applied client-side; the server still records the event.',
-      h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', maxWidth: 320 } },
+      h('div', { role: 'group', 'aria-label': 'Mute notification types', style: { display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', maxWidth: 320 } },
         [
           { id: 'TRADES',   label: 'Trades' },
           { id: 'AUCTIONS', label: 'Auctions' },
@@ -5168,6 +5175,15 @@ function EmailBucketMutes() {
   // A failed load used to hide the whole category list without a word.
   const [loadErr, setLoadErr] = useState(false);
   const [retry, setRetry] = useState(0);
+  // Retry unmounts with the error; once the reload lands, focus the first
+  // category box (or Retry again) instead of leaving focus on <body>.
+  const boxRef = useRef(null);
+  const refocusRef = useRef(false);
+  useEffect(() => {
+    if (!loaded || !refocusRef.current) return;
+    refocusRef.current = false;
+    boxRef.current?.querySelector('input, button')?.focus();
+  }, [loaded, loadErr]);
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -5200,8 +5216,8 @@ function EmailBucketMutes() {
     } finally { setBusy(false); }
   };
   if (!loaded) return h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Loading categories…');
-  if (loadErr) return h('div', { className: 'wallet-error', role: 'alert', style: { fontSize: 11 } }, 'Email categories failed to load. ',
-    h('button', { className: 'btn btn-sm', onClick: () => { setLoaded(false); setRetry(n => n + 1); } }, 'Retry'));
+  if (loadErr) return h('div', { ref: boxRef, className: 'wallet-error', role: 'alert', style: { fontSize: 11 } }, 'Email categories failed to load. ',
+    h('button', { className: 'btn btn-sm', onClick: () => { refocusRef.current = true; setLoaded(false); setRetry(n => n + 1); } }, 'Retry'));
   if (available.length === 0) return null;
   const LABELS = {
     TRADES:    { name: 'Trade activity',          hint: 'New sales to send, trade updates and disputes, offers and counters, buy-order fills, and payouts. Muting it also mutes "you sold an item" emails.' },
@@ -5210,7 +5226,7 @@ function EmailBucketMutes() {
     FOLLOWS:   { name: 'Followed sellers',        hint: 'Emails when a seller you follow lists a new item' },
     MATCHES:   { name: 'Saved-search matches',    hint: 'Emails when a fresh listing matches one of your saved searches' }
   };
-  return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
+  return h('div', { ref: boxRef, style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
     available.map(b => {
       const meta = LABELS[b] || { name: b, hint: '' };
       const off = muted.has(b);

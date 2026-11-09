@@ -4,6 +4,7 @@
 import { BRAND } from './brand.js';
 import { h, React, useState, useEffect, useCallback, fmt, timeAgo, toast, linkifyText, parseMoneyInput, moneyInputError } from './utils.js';
 import { InfoModal } from './info-modal.js';
+import { navigate } from './router.js';
 import { ReasonDrawer, MaterialIcon } from './primitives.js';
 import {
   adminStats, adminWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
@@ -3249,25 +3250,14 @@ function AdminUsersTab({ me }) {
           h('a', {
             className: 'btn btn-ghost',
             style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
-            href: `/admin#audit?subject=${detailUser.id}`,
+            // The Audit Log tab reads ?subject= on mount (the Fraud tab links it the same way).
+            href: `/admin?tab=audit&subject=${detailUser.id}`,
             onClick: (e) => {
-              // Hash-based routing isn't wired — intercept, flip the
-              // detail modal, and swap the admin tab to audit with the
-              // user's id prefilled. For now, close drawer + open a
-              // new tab with the filter in the URL.
               e.preventDefault();
+              const to = `/admin?tab=audit&subject=${detailUser.id}`;
               setDetailUser(null);
-              // Surface the user's id for the admin to paste into the
-              // subject filter. The audit tab doesn't currently read
-              // the URL fragment, so a clipboard copy is the safer UX.
-              try {
-                if (navigator.clipboard?.writeText) {
-                  navigator.clipboard.writeText(detailUser.id.toString());
-                  toast(`User id ${detailUser.id} copied. Paste into the Audit Log "Subject user #id" box.`, 'ok');
-                } else {
-                  window.prompt('Paste into Audit Log subject filter:', detailUser.id.toString());
-                }
-              } catch (_) { window.prompt('Paste into Audit Log subject filter:', detailUser.id.toString()); }
+              navigate(to);
+              requestAnimationFrame(() => document.getElementById('admin-tab-audit')?.focus());
             }
           }, '📜 Audit'),
           // Batch 580 — direct message. One-off heads-up ("your email
