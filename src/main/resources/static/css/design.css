@@ -13725,3 +13725,4 @@ html body .site-root.full-page-mode .modal-backdrop .modal-backdrop > .modal { w
    (outage notice, suspended account, announcements): the banner never showed and content showed through above the nav.
    Start the layer below those banners; --pre-nav-h is the nav's offset, set from app.js. */
 @media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop { top: var(--pre-nav-h, 0px) !important; } }
+@media (forced-colors: active) { :is([role=switch],#_) { border: 1px solid CanvasText !important; } :is([role=switch],#_)::before, :is([role=switch],#_)::after { background: CanvasText !important; } :is([aria-selected=true],[aria-pressed=true],[aria-checked=true],#_):not(:focus-visible) { outline: 2px solid Highlight !important; outline-offset: -2px; } }
