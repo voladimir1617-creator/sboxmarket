@@ -2093,7 +2093,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               // Italic + truncated so the bubble stays tight. Title attribute
               // carries the full text for hover reveal on long messages.
               o.message && h('div', {
-                className: 'item-offer-note',
+                className: 'item-offer-note', dir: 'auto',
                 style: {
                   fontSize: 11, fontStyle: 'italic',
                   color: 'var(--text-secondary)', marginTop: 3,
@@ -9765,7 +9765,7 @@ function ProfileTradesTab({ me, privacy }) {
                                 h('span', null, '—'),
                                 h('span', null, 'Message removed by moderators')
                               )
-                            : h('div', { style: { color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
+                            : h('div', { dir: 'auto', style: { color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
                                 // Auto-linkify URLs (batch 441) — Steam trade
                                 // URLs are the most-pasted payload here.
                                 linkifyText(m.body, 'tcm-' + m.id)
@@ -11808,7 +11808,7 @@ function ProfileSupportTab() {
             }, 'STAFF'),
             ' · ', timeAgo(m.createdAt)
           ),
-          h('div', { className: 'support-msg-body' }, linkifyText(m.body, 'sup-' + m.id))
+          h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'sup-' + m.id))
         ))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
@@ -16482,7 +16482,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         // echoed back) so both sides see the same context.
         // Wraps rather than ellipsing: the title tooltip never shows on a
         // phone, so a cut note could not be read there at all.
-        offer.message && h('div', {
+        offer.message && h('div', { dir: 'auto',
           style: {
             fontSize: 12, color: 'var(--text-secondary)',
             fontStyle: 'italic', marginTop: 2,

@@ -3806,7 +3806,7 @@ function AdminTicketsTab() {
       h('div', { className: 'support-thread' },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
           h('div', { className: 'support-msg-head' }, m.authorName, ' · ', timeAgo(m.createdAt)),
-          h('div', { className: 'support-msg-body' }, linkifyText(m.body, 'st-' + m.id))
+          h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'st-' + m.id))
         ))
       ),
       // Canned-response templates. Click a chip to populate the reply
@@ -4482,7 +4482,7 @@ function CsrTicketsTab() {
       h('div', { className: 'support-thread' },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
           h('div', { className: 'support-msg-head' }, m.authorName, ' · ', timeAgo(m.createdAt)),
-          h('div', { className: 'support-msg-body' }, linkifyText(m.body, 'st-' + m.id))
+          h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'st-' + m.id))
         ))
       ),
       // Same canned-response templates as the admin view — lets CSRs

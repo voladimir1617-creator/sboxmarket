@@ -1855,7 +1855,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   },
     // Auto-linkify URLs in the bio (batch 442) — sellers often paste a
     // Discord/Twitter/Steam-group contact link.
-    h('div', { style: { flex: 1 } }, linkifyText(bio, 'biolnk')),
+    h('div', { dir: 'auto', style: { flex: 1 } }, linkifyText(bio, 'biolnk')),
     canEdit && h('button', {
       className: 'btn btn-ghost',
       style: { flexShrink: 0, padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)' },

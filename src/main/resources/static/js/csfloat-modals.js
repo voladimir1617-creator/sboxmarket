@@ -2940,7 +2940,7 @@ export function NotificationsModal({ onClose, me }) {
                 }
               },
                 h('div', { className: 'notif-feed-title' }, highlightMatch(n.title || '', search)),
-                n.body && h('div', { className: 'notif-feed-body' }, highlightMatch(n.body, search)),
+                n.body && h('div', { className: 'notif-feed-body', dir: 'auto' }, highlightMatch(n.body, search)),
                 h('div', { className: 'notif-feed-time' }, timeAgo(n.createdAt))
               ),
               !n.read && h('div', { className: 'notif-feed-dot' }),
