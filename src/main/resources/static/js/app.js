@@ -464,10 +464,10 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       }, hasVoted ? 'Helpful · ' : 'Helpful · ', helpfulCount)
     ),
     review.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + review.itemName),
-    review.comment && h('div', { className: 'stall-review-body' }, review.comment),
+    review.comment && h('div', { className: 'stall-review-body', dir: 'auto' }, review.comment),
     review.sellerReply && !editing && h('div', { className: 'stall-review-reply' },
       h('span', { className: 'stall-review-reply-label' }, 'Seller response'),
-      h('div', { className: 'stall-review-reply-body' }, review.sellerReply)
+      h('div', { className: 'stall-review-reply-body', dir: 'auto' }, review.sellerReply)
     ),
     // The server refuses reply edits 72h after the review (ReviewService
     // REPLY_EDIT_WINDOW_MS); past that the buttons only led to an error.
@@ -578,7 +578,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
           if (!reason) return;
           setBusy(true);
           try {
-            const excerpt = (review.comment || '').substring(0, 300);
+            const excerpt = Array.from(review.comment || '').slice(0, 300).join('');
             const { createSupportTicket } = await import('./api.js');
             const res = await createSupportTicket({
               category: 'ACCOUNT',
@@ -1749,6 +1749,12 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
     try { return await saveOnce(); } finally { bioBusyRef.current = false; }
   };
   const saveOnce = async () => {
+    // Zero-width / filler characters alone save as an empty bio; with no
+    // bio yet that used to toast "Bio added" over a stall showing nothing.
+    if (!bio && !draft.replace(/[\p{Cf}ᅟᅠㅤﾠ⠀]/gu, '').trim()) {
+      setErr('Type a bio first');
+      return;
+    }
     setBusy(true); setErr('');
     try {
       const { setStallBio } = await import('./api.js');
@@ -1769,7 +1775,8 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       const wasEmpty = !bio;
       try {
         window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
-          text: wasEmpty ? 'Bio added — buyers see it on your stall.' : 'Bio updated.',
+          text: !(res && res.stallBio) ? 'Bio removed.'
+            : wasEmpty ? 'Bio added — buyers see it on your stall.' : 'Bio updated.',
           kind: 'ok'
         }}));
       } catch (_) {}
@@ -3514,7 +3521,9 @@ function SaveSearchDrawer({ initial, onCancel, onSave }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onCancel]);
   const trimmed = (name || '').trim();
-  const canSave = trimmed.length > 0 && trimmed.length <= 60;
+  // A name of only zero-width / filler characters shows as nothing and the
+  // server refuses it; keep Save off for it like a blank name.
+  const canSave = trimmed.replace(/[\p{Cf}ᅟᅠㅤﾠ⠀]/gu, '').trim().length > 0 && trimmed.length <= 60;
   return h('div', {
     role: 'dialog',
     'aria-modal': 'false',
@@ -3901,7 +3910,7 @@ export function App() {
   };
   const commitSaveSearch = async (rawName) => {
     const name = (rawName || '').trim();
-    if (!name) return;
+    if (!name.replace(/[\p{Cf}ᅟᅠㅤﾠ⠀]/gu, '').trim()) return;
     // Same exact-name match as SavedSearchService.upsert: the server
     // replaces that preset's filters, so do the same here (after asking)
     // instead of listing a second one with the same name.

@@ -205,7 +205,7 @@ class SupportService {
                     try {
                         notificationService.push(s.id, 'SUPPORT_REPLY',
                             "New support ticket · #${ticket.id}",
-                            "[${catLabel}] ${cleanSubject.take(100)} — from ${cleanName ?: 'user ' + userId}",
+                            "[${catLabel}] ${TextSanitizer.cap(cleanSubject, 100)} — from ${cleanName ?: 'user ' + userId}",
                             ticket.id, staffTicketsPath(s, ticket.id))
                     } catch (Exception e) {
                         log.warn("New-ticket staff push failed for uid=${s.id}: ${e.message}")
@@ -274,7 +274,7 @@ class SupportService {
                     try {
                         notificationService?.push(s.id, 'SUPPORT_REPLY',
                             "User reply on ticket #${ticketId}",
-                            "${cleanName ?: 'User ' + userId}: ${cleanBody.take(120)}",
+                            "${cleanName ?: 'User ' + userId}: ${TextSanitizer.cap(cleanBody, 120)}",
                             ticketId, staffTicketsPath(s, ticketId))
                     } catch (Exception e) {
                         log.warn("User-reply staff push failed for uid=${s.id}: ${e.message}")

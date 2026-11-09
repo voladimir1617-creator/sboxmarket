@@ -558,13 +558,13 @@ You can manage or cancel your active alerts from the Watchlist page.
      *  before clicking through. */
     void sendSupportReply(String toEmail, String displayName, Long ticketId, String subject, String snippet) {
         if (!toEmail || ticketId == null) return
-        def emailSubject = "Support reply · ticket #${ticketId}" + (subject ? ' · ' + subject.take(60) : '')
+        def emailSubject = "Support reply · ticket #${ticketId}" + (subject ? ' · ' + TextSanitizer.cap(subject, 60) : '')
         def body = """\
 Hi ${displayName ?: 'there'},
 
 A SkinBox support agent has replied to your ticket #${ticketId}${subject ? ' (' + subject + ')' : ''}:
 
-${snippet ? '> ' + snippet.take(300).readLines().join('\n> ') : '(reply contents available in the app)'}
+${snippet ? '> ' + TextSanitizer.cap(snippet, 300).readLines().join('\n> ') : '(reply contents available in the app)'}
 
 Open the ticket to read the full reply and respond:
 ${publicUrl}/support?ticket=${ticketId}
@@ -1047,7 +1047,7 @@ You can cash out to Stripe from your wallet at any time${walletUrl ? ': ' + absU
         if (!toEmail) return
         def subject = "Trade dispute · ${itemName ?: 'trade #' + tradeId}"
         def snippet = (disputeNote ?: '').trim()
-        if (snippet.length() > 300) snippet = snippet.substring(0, 297) + '…'
+        if (snippet.length() > 300) snippet = TextSanitizer.cap(snippet, 297) + '…'
         def body = """\
 Hi ${displayName ?: 'there'},
 
@@ -1174,7 +1174,7 @@ ${publicUrl}/profile?tab=trades
         def subject = "New offer · \$${priceStr} on ${itemName ?: 'your listing'}"
         def cleanNote = buyerNote?.trim() ?: null
         def noteBlock = cleanNote
-            ? "\nBuyer's note:\n  \"${cleanNote.length() > 240 ? cleanNote.substring(0, 237) + '…' : cleanNote}\"\n"
+            ? "\nBuyer's note:\n  \"${cleanNote.length() > 240 ? TextSanitizer.cap(cleanNote, 237) + '…' : cleanNote}\"\n"
             : ''
         def body = """\
 Hi ${displayName ?: 'there'},
@@ -1210,7 +1210,7 @@ stop these.
         def subject = "Seller countered · \$${sellerCounter.toPlainString()} on ${itemName ?: 'your offer'}"
         def cleanNote = sellerNote?.trim() ?: null
         def noteBlock = cleanNote
-            ? "\nSeller's note:\n  \"${cleanNote.length() > 240 ? cleanNote.substring(0, 237) + '…' : cleanNote}\"\n"
+            ? "\nSeller's note:\n  \"${cleanNote.length() > 240 ? TextSanitizer.cap(cleanNote, 237) + '…' : cleanNote}\"\n"
             : ''
         def body = """\
 Hi ${displayName ?: 'there'},
@@ -1277,7 +1277,7 @@ stop these.
         def subject = "Offer declined · ${itemName ?: 'listing'}"
         def cleanReply = sellerReply?.trim() ?: null
         def replyBlock = cleanReply
-            ? "\nSeller's note:\n  \"${cleanReply.length() > 240 ? cleanReply.substring(0, 237) + '…' : cleanReply}\"\n"
+            ? "\nSeller's note:\n  \"${cleanReply.length() > 240 ? TextSanitizer.cap(cleanReply, 237) + '…' : cleanReply}\"\n"
             : ''
         def body = """\
 Hi ${displayName ?: 'there'},

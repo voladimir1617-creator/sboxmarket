@@ -1450,8 +1450,8 @@ class AdminService {
         if (to == null || to.trim().isEmpty() || !(to.contains('@'))) {
             throw new BadRequestException('INVALID_ADDRESS', 'Provide a valid email address')
         }
-        def cleanSubject = textSanitizer.medium(subject ?: 'SkinBox SMTP test').take(200)
-        def cleanBody    = (body ?: 'If you received this, the SkinBox SMTP pipeline is healthy.').take(2000)
+        def cleanSubject = TextSanitizer.cap(textSanitizer.medium(subject ?: 'SkinBox SMTP test'), 200)
+        def cleanBody    = TextSanitizer.cap(body ?: 'If you received this, the SkinBox SMTP pipeline is healthy.', 2000)
         try {
             emailService.send(to.trim(), cleanSubject, cleanBody)
             // Distinct event type — was mislogged as ADMIN_GRANTED, which
@@ -1526,9 +1526,9 @@ class AdminService {
         if (cleanTitle.isEmpty()) {
             throw new BadRequestException('EMPTY_TITLE', 'Message title is required')
         }
-        if (cleanTitle.length() > 120) cleanTitle = cleanTitle.substring(0, 120)
+        if (cleanTitle.length() > 120) cleanTitle = TextSanitizer.cap(cleanTitle, 120)
         def cleanBody = (body ?: '').trim()
-        if (cleanBody.length() > 500) cleanBody = cleanBody.substring(0, 500)
+        if (cleanBody.length() > 500) cleanBody = TextSanitizer.cap(cleanBody, 500)
         def cleanPath = (path ?: '').trim()
         if (cleanPath.length() > 200) cleanPath = null
         if (cleanPath != null && !cleanPath.isEmpty() && !cleanPath.startsWith('/')) {
@@ -1587,9 +1587,9 @@ class AdminService {
         if (cleanTitle.isEmpty()) {
             throw new BadRequestException('EMPTY_TITLE', 'Broadcast title is required')
         }
-        if (cleanTitle.length() > 120) cleanTitle = cleanTitle.substring(0, 120)
+        if (cleanTitle.length() > 120) cleanTitle = TextSanitizer.cap(cleanTitle, 120)
         def cleanBody = (body ?: '').trim()
-        if (cleanBody.length() > 500) cleanBody = cleanBody.substring(0, 500)
+        if (cleanBody.length() > 500) cleanBody = TextSanitizer.cap(cleanBody, 500)
         def cleanPath = (path ?: '').trim()
         if (cleanPath.length() > 200) cleanPath = null
         if (cleanPath != null && !cleanPath.isEmpty() && !cleanPath.startsWith('/')) {

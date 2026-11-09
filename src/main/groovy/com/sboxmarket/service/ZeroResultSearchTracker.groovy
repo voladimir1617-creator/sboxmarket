@@ -43,7 +43,7 @@ class ZeroResultSearchTracker {
         if (term == null) return null
         def t = term.replace('\u0000', '').trim().toLowerCase().replaceAll(/\s+/, ' ')
         if (t.isEmpty()) return null
-        t.length() > MAX_TERM_LENGTH ? t.substring(0, MAX_TERM_LENGTH) : t
+        TextSanitizer.cap(t, MAX_TERM_LENGTH)
     }
 
     /** Count one empty search. `requesterKey` only dedupes polls; it is never stored past the window or shown. */

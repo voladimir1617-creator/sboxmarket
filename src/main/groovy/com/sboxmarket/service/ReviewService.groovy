@@ -283,7 +283,7 @@ class ReviewService {
             // counterparty traceability is preserved.
             auditService?.log('REVIEW_REPLIED', sellerUserId, sellerUserId, reviewId,
                 review.sellerReply
-                    ? "Replied to buyer ${review.fromUserId}: ${review.sellerReply.take(120)}"
+                    ? "Replied to buyer ${review.fromUserId}: ${TextSanitizer.cap(review.sellerReply, 120)}"
                     : "Cleared reply to buyer ${review.fromUserId}")
         }
         // Notify the buyer that the seller responded — only on a genuine

@@ -206,12 +206,12 @@ class AuditService {
         // userAgent above.
         def entry = new AuditLog(
             actorUserId:   actorUserId,
-            actorName:     actor?.displayName?.take(80),
+            actorName:     TextSanitizer.cap(actor?.displayName, 80),
             subjectUserId: subjectUserId,
-            subjectName:   subject?.displayName?.take(80),
+            subjectName:   TextSanitizer.cap(subject?.displayName, 80),
             eventType:     eventType,
             resourceId:    resourceId,
-            summary:       summary?.take(500),
+            summary:       TextSanitizer.cap(summary, 500),
             ipAddress:     req ? clientIp(req) : null,
             userAgent:     req ? (req.getHeader('User-Agent') ?: '').take(120) : null
         )

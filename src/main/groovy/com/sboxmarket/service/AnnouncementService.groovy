@@ -53,7 +53,7 @@ class AnnouncementService {
         if (!cleanMessage || cleanMessage.length() < 3) {
             throw new BadRequestException("INVALID_MESSAGE", "Message must be at least 3 characters")
         }
-        if (cleanMessage.length() > 500) cleanMessage = cleanMessage.substring(0, 500)
+        if (cleanMessage.length() > 500) cleanMessage = TextSanitizer.cap(cleanMessage, 500)
         def sev = (severity ?: 'INFO').toUpperCase()
         if (!ALLOWED_SEVERITY.contains(sev)) {
             throw new BadRequestException("INVALID_SEVERITY", "Severity must be INFO, WARN, or CRITICAL")
@@ -67,7 +67,7 @@ class AnnouncementService {
         )
         def saved = announcementRepository.save(row)
         auditService?.log(AuditService.ANNOUNCEMENT_CREATED, adminUserId, null, saved.id,
-            "Posted ${sev}: ${cleanMessage.take(120)}")
+            "Posted ${sev}: ${TextSanitizer.cap(cleanMessage, 120)}")
         saved
     }
 
@@ -87,7 +87,7 @@ class AnnouncementService {
         // truncated copy of the original message so a CSR can grep for
         // "PROMO" or "OUTAGE" deactivations later).
         def sev = (row.severity ?: '').toUpperCase()
-        def msg = (row.message ?: '').take(120)
+        def msg = TextSanitizer.cap(row.message ?: '', 120)
         auditService?.log(AuditService.ANNOUNCEMENT_DEACTIVATED, adminUserId, null, id,
             "Deactivated ${sev}: ${msg}")
         row
