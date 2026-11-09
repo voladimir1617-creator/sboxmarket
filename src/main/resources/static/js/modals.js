@@ -3631,7 +3631,7 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
       },
         'Reports open a support ticket and are reviewed by staff. ',
         'For a dispute over the trade itself (item not received / wrong item) use ',
-        h('strong', null, 'Dispute'), ' instead so the trade state machine can resolve it.'),
+        h('strong', null, 'Dispute'), ' instead, so it is settled on the trade.'),
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6,
                           textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
       h('select', {
@@ -4544,7 +4544,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         ]);
         if (!alive) return;
         const tradeN = (Array.isArray(tr) ? tr : []).filter(t =>
-          (t.sellerUserId === me.id && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND'].includes(t.state)) ||
+          // A bot-delivered sale has nothing for the seller to send: the
+          // row itself says "no action needed", so it is not their to-do.
+          (t.sellerUserId === me.id && (t.state === 'PENDING_SELLER_ACCEPT' ||
+            (t.state === 'PENDING_SELLER_SEND' && !(t.botManaged === true || !!t.botDeliveryState)))) ||
           (t.buyerUserId  === me.id && t.state === 'PENDING_BUYER_CONFIRM')
         ).length;
         setActionableTradeCount(tradeN);

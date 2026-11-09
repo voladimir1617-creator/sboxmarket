@@ -12052,6 +12052,9 @@ html body .modal-listing-row .listing-report-btn:focus-visible { outline: 2px so
 html body .trade-row { text-align: left; }
 html body .trade-row > .trade-main { align-items: stretch !important; }
 html body .trade-row .trade-title, html body .trade-row .trade-state { justify-content: flex-start; }
+/* Phones: the one-line state ("Delivered — awaiting confirmation · sent 5m ago · 7d 23h left") ran past the card
+   edge and the deadline chip was cut off. Let the chips drop to a second line. */
+@media (max-width: 640px) { html body .trade-row .trade-state { flex-wrap: wrap !important; white-space: normal !important; } html body .trade-row .trade-state > span { white-space: nowrap; } }
 /* The 66x50 thumbnail rule for the item image also caught the counterparty's
    16px avatar and blew it up to a 66x50 box beside the name. */
 html body .trade-row .trade-title a[href^="/stall/"] img { width: 16px !important; height: 16px !important; border-radius: 50% !important; object-fit: cover !important; }
