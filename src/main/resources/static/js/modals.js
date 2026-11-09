@@ -9883,7 +9883,8 @@ function ProfileTradesTab({ me, privacy }) {
         h('button', { className: 'modal-close', onClick: closeReview, 'aria-label': 'Close' }, '✕'),
         h('div', { style: { padding: '24px 26px 20px' } },
           h('div', { id: 'review-modal-title', style: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 } },
-            'Leave a review'),
+            // Opened from "Edit Review", it edits the review already posted.
+            myReviews[reviewTrade.id] ? 'Edit your review' : 'Leave a review'),
           h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 } },
             'For "', h('strong', { style: { color: 'var(--text-secondary)' } }, reviewTrade.itemName || ('Trade #' + reviewTrade.id)), '"'),
 
