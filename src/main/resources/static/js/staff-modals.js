@@ -771,7 +771,7 @@ function AdminReportedTab() {
             // phone, like the staff trade chat, so long notes wrap in view.
             h('div', { style: { position: 'sticky', left: 0, maxWidth: 'calc(100vw - 80px)' } },
             h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Recent reports'),
-            (r.recentNotes || []).map((n, i) => h('div', { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)' } },
+            (r.recentNotes || []).map((n, i) => h('div', { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)', overflowWrap: 'anywhere' } },
               h('strong', { style: { color: 'var(--text-primary)' } }, n.reason),
               n.note && h('span', { style: { color: 'var(--text-secondary)', marginLeft: 8 } }, '— ' + n.note),
               h('span', { style: { color: 'var(--text-muted)', marginLeft: 8, fontSize: 11 } }, '· ' + timeAgo(n.at))
