@@ -1820,7 +1820,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
           fontFamily: 'inherit', fontSize: 13, resize: 'vertical'
         }
       }),
-      h('div', { style: { display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' } },
+      h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' } },
         h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
           `${draft.length} / ${CAP}`),
         err && h('span', { role: 'alert', style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, err),
