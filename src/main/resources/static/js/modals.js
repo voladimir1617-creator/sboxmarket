@@ -11020,6 +11020,17 @@ function ProfileReviewsTab({ me }) {
   // regardless of active tab. Small payload (cap 50), one round-trip.
   useEffect(() => { loadPending(); }, [loadPending]);
   useEffect(() => { if (mode === 'given' && given === null) loadGiven(); }, [mode, given, loadGiven]);
+  // Closing a reply or review editor (Escape, Cancel, a save) unmounts the
+  // focused box and dropped focus to <body>; hand it back to the row's button.
+  const prevEditorRef = useRef({ reply: null, given: null });
+  useEffect(() => {
+    const prev = prevEditorRef.current;
+    prevEditorRef.current = { reply: editId, given: editGivenId };
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae.isConnected) return;
+    if (prev.reply != null && editId == null) document.querySelector(`[data-reply-review="${prev.reply}"]`)?.focus();
+    else if (prev.given != null && editGivenId == null) document.querySelector(`[data-edit-given="${prev.given}"]`)?.focus();
+  }, [editId, editGivenId]);
 
   if (!me) return h(InfoModal, { title: 'Reviews' },
     h(SignInNeededEmptyState, { what: 'your reviews' }));
@@ -11451,12 +11462,16 @@ function ProfileReviewsTab({ me }) {
                     h('button', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+                      'data-reply-review': r.id,
+                      // Every row's button otherwise read the same "Reply".
+                      'aria-label': `${r.sellerReply ? 'Edit reply' : 'Reply'} to ${r.fromDisplayName || 'Anonymous'}'s review`,
                       onClick: () => { setDraft(r.sellerReply || ''); setEditId(r.id); }
                     }, r.sellerReply ? '✎ Edit reply' : '↩ Reply'),
                     r.sellerReply && h('button', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
                       disabled: busy,
+                      'aria-label': `Remove reply to ${r.fromDisplayName || 'Anonymous'}'s review`,
                       onClick: () => submit(r.id, true)
                     }, 'Remove reply')
                   ))
@@ -11465,6 +11480,7 @@ function ProfileReviewsTab({ me }) {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
                       disabled: busy,
+                      'data-edit-given': r.id,
                       onClick: () => startEditGiven(r),
                       title: 'Edit your rating or comment — the stall page will show "· edited" next to the original date.'
                     }, '✎ Edit'),
@@ -13001,7 +13017,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
        // for `durationHours`). Default Buy Now so the common path stays a
        // one-click flow; Auction reveals the duration picker when chosen.
       h('div', { className: 'wallet-input-label' }, 'Listing type'),
-      h('div', { style: { display: 'flex', gap: 8, marginBottom: 14 } },
+      h('div', { role: 'group', 'aria-label': 'Listing type', style: { display: 'flex', gap: 8, marginBottom: 14 } },
         h('button', {
           type: 'button',
           className: `offer-tab ${sellType === 'BUY_NOW' ? 'active' : ''}`,
@@ -13021,7 +13037,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       ),
       sellType === 'AUCTION' && h('div', { style: { marginBottom: 14 } },
         h('div', { className: 'wallet-input-label' }, 'Auction duration'),
-        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+        h('div', { role: 'group', 'aria-label': 'Auction duration', style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
           [
             { v: '6',   l: '6h' },
             { v: '12',  l: '12h' },
@@ -14245,6 +14261,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // a slow line, so a seller clicked again, confirmed again and got a red
   // "not active" error for every extra click after the first one landed.
   const cancellingRef = useRef(new Set());
+  // A row that leaves the list (cancelled, or hidden/shown under a type
+  // filter) took the focused button with it; hand focus to the same button
+  // on the next row, else the selected tab.
+  const leavingRowRef = useRef(null);
+  const markLeaving = (id, kind) => {
+    const row = document.querySelector(`.stall-row[data-listing-id="${id}"]`);
+    const near = row && (row.nextElementSibling || row.previousElementSibling);
+    leavingRowRef.current = { id, kind, near: near?.getAttribute('data-listing-id') || null };
+  };
   const [cancellingIds, setCancellingIds] = useState([]);
   // Active-stall fetch failure (vs a genuinely-empty stall) so the modal can
   // show a retry card instead of spinning forever / claiming the seller's live
@@ -14400,6 +14425,18 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     fetchMyStallEarnings().then(e => setEarnings(e || null)).catch(() => {});
   }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
+  useEffect(() => {
+    const leaving = leavingRowRef.current;
+    if (!leaving) return;
+    if (document.querySelector(`.stall-row[data-listing-id="${leaving.id}"]`)) return;
+    leavingRowRef.current = null;
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae.isConnected) return;
+    const near = leaving.near && document.querySelector(`.stall-row[data-listing-id="${leaving.near}"]`);
+    const sel = leaving.kind === 'cancel' ? '[aria-label^="Cancel listing for"]' : '[aria-label^="Hide "], [aria-label^="Show "]';
+    (near && (near.querySelector(sel + ':not([disabled])') || near.querySelector('button:not([disabled])'))
+      || document.querySelector('.mystall-tabs [role="tab"][aria-selected="true"]'))?.focus();
+  }, [stall]);
   // A deposit offer the seller still has to accept in Steam.
   const heldAwaitingSeller = held.some(r => r?.escrow?.custodyState !== 'FAILED' && !r?.escrow?.itemLeftSeller);
   // An offer he can actually go and accept: not one the bot never sent.
@@ -16123,7 +16160,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       title: lockedHide ? 'Auctions with bids stay visible until they settle' : undefined,
                       // Every row's buttons otherwise read the same to a screen reader.
                       'aria-label': `${l.hidden ? 'Show' : 'Hide'} ${l.item?.name || 'listing #' + l.id}`,
-                      onClick: () => toggleHidden(l)
+                      onClick: () => { markLeaving(l.id, 'hide'); toggleHidden(l); }
                     }, l.hidden ? 'Show' : 'Hide');
                   })(),
                   // Copy a direct link to this listing's item detail page —
@@ -16178,7 +16215,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         title: 'Cancel listing',
                         'aria-label': `Cancel listing for ${l.item?.name || 'listing #' + l.id}`,
                         disabled: cancellingIds.includes(l.id),
-                        onClick: () => doCancel(l)
+                        onClick: () => { markLeaving(l.id, 'cancel'); doCancel(l); }
                       }, '✕')
                 )
           ));
