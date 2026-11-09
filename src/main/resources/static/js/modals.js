@@ -1938,7 +1938,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             h(AuctionBidPanel, { key: auctionListing.id, listing: auctionListing, me, wallet, onPlaced: onRefresh })
           );
         })(),
-        h('h2', { className: 'modal-section-title' },
+        // The range buttons sit inside the heading; name it by its text alone.
+        h('h2', { className: 'modal-section-title', 'aria-label': 'Price History' },
           h('div', { className: 'section-title-dot' }),
           'Price History',
           // Batch 640 — CSFloat Visual Manual §15 parity time ranges
@@ -1961,7 +1962,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 onClick: () => { if (!insufficient) setChartRange(r.id); },
                 disabled: insufficient,
                 title: insufficient
-                  ? `Not enough price history in the last ${r.label} to draw a chart — try ALL.`
+                  ? `Not enough price history in the last ${r.label} to draw a chart${history.length >= 2 ? ' — try ALL' : ''}.`
                   : null,
                 'aria-label': insufficient
                   ? `${r.label} (insufficient history)`
@@ -5872,6 +5873,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       // reads the app-level `me`) stayed shut until a full reload.
       try { refreshProfile && await refreshProfile(); } catch (_) { /* the save itself succeeded */ }
       try { onMeChanged && onMeChanged(); } catch (_) { /* same */ }
+      // Remove and Copy go away with the URL; keep focus on the row's Add button.
+      if (!raw) tradeUrlEditRef.current?.focus();
       // Pre-fix: success was visually terminal via exit-edit-mode but
       // gave no toast — and the empty-string path SILENTLY removed the
       // user's trade URL, which gates checkout/cart/buy-now. A removal

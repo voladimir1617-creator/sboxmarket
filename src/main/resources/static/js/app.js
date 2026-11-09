@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=358'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=359'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4070,7 +4070,13 @@ export function App() {
   }, [mobileFiltersOpen]);
   useEffect(() => {
     if (!mobileFiltersOpen) return;
-    const onKey = (e) => { if (e.key === 'Escape') setMobileFiltersOpen(false); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      // The drawer hides; hand focus from inside it back to the Filters button.
+      const inDrawer = document.activeElement?.closest?.('.sidebar');
+      setMobileFiltersOpen(false);
+      if (inDrawer) document.querySelector('.mobile-filters-fab')?.focus();
+    };
     document.addEventListener('keydown', onKey);
     document.body.classList.add('mobile-filters-open');
     return () => {
@@ -8361,7 +8367,18 @@ export function App() {
           // explicit aria-label a SR user just hears "Hats, X". The
           // ' ✕' glyph is also wrapped with aria-hidden so the same
           // SR doesn't read it twice ("Hats, X. Remove Hats filter, X").
-          h('div', { className: 'active-filters' },
+          h('div', { className: 'active-filters',
+            // A removed chip (or Clear all) unmounts; move focus to the chip
+            // now in its place, else the category strip's All tab.
+            onClick: (e) => {
+              const i = [...e.currentTarget.querySelectorAll('.filter-chip')].indexOf(e.target.closest('.filter-chip'));
+              if (i < 0) return;
+              setTimeout(() => {
+                if (document.activeElement && document.activeElement !== document.body) return;
+                const left = document.querySelectorAll('.active-filters .filter-chip');
+                (left[Math.min(i, left.length - 1)] || document.querySelector('.csfloat-subnav-tab'))?.focus();
+              }, 0);
+            } },
             search && h('button', { className: 'filter-chip', onClick: () => { setSearchInput(''); setSearch(''); }, 'aria-label': `Remove search filter "${search}"` },
               'search: ', h('strong', null, '"' + search + '"'), h('span', { 'aria-hidden': true }, ' ✕')),
             category !== 'All' && h('button', { className: 'filter-chip', onClick: () => setCategory('All'), 'aria-label': `Remove category filter: ${category}` },
@@ -8567,6 +8584,7 @@ export function App() {
                   ),
                   h('div', {
                     className: 'empty-state-title',
+                    role: 'heading', 'aria-level': 2,
                     // Machine-readable so the e2e guard asserts on the STATE
                     // (fault vs genuinely-empty), not on copy that will be
                     // reworded. This is the distinction the whole fix is

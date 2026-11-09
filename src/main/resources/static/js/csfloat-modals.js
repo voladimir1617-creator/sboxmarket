@@ -1249,10 +1249,16 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
 // features we don't port over.
 
 // ── Loadout Lab ─────────────────────────────────────────────────
+// /loadout and /loadout/:id mount separate instances, so the list tab a
+// loadout was opened from, and the card to refocus on Back, live here.
+let loadoutListTab = null;
+let loadoutReturn = null;
 export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // A shared /loadout/:id opens straight on its view (spinner until it
   // loads) instead of flashing the Discover list first.
-  const [tab, setTab]         = useState(loadoutId ? 'view' : 'discover'); // discover | mine | view
+  const [tab, setTab]         = useState(() => loadoutId ? 'view'
+    : (loadoutReturn && (me || loadoutReturn.tab === 'discover') ? loadoutReturn.tab : 'discover')); // discover | mine | view
+  useEffect(() => { if (tab !== 'view') loadoutListTab = tab; }, [tab]);
   const [list, setList]       = useState(null);
   // Audit fix — `load()` did `setList(null)` then awaited
   // fetchPublicLoadouts/fetchMyLoadouts with no catch, so a rejected
@@ -1423,6 +1429,15 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     }
   }, [tab, search, me]);
   useEffect(() => { load(); }, [load]);
+  // Back from a loadout: focus its card once the list has loaded (or the
+  // selected tab when the card is gone), not <body>.
+  useEffect(() => {
+    if (!loadoutReturn || tab === 'view' || (list === null && !listErr)) return;
+    const id = loadoutReturn.id;
+    loadoutReturn = null;
+    (document.querySelector(`.loadout-card-name a[href="/loadout/${id}"]`)
+      || document.querySelector('.loadout-tabs [role="tab"][aria-selected="true"]'))?.focus();
+  }, [list, listErr, tab]);
 
   // Cache item pool for slot picker
   useEffect(() => {
@@ -1700,7 +1715,10 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       ),
       h('div', { className: 'loadout-action-row', style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
         h('button', { className: 'btn btn-ghost', onClick: () => {
-          setViewing(null); setTab(isOwner ? 'mine' : 'discover');
+          // Back to the tab the loadout was opened from, focused on its card.
+          const backTab = (me && loadoutListTab) || (isOwner ? 'mine' : 'discover');
+          loadoutReturn = { tab: backTab, id: viewing.loadout.id };
+          setViewing(null); setTab(backTab);
           // A loadout opened at /loadout/:id: leave its URL too, or a reload reopens it.
           if (loadoutId) navigate(paths.loadouts());
         } }, '← Back'),
@@ -2187,7 +2205,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             if (tab === 'mine') {
               return h('div', { className: 'empty-inline' },
                 h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'checkroom', size: 26 })),
-                h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+                h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                   'No loadouts yet'),
                 h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 14px', lineHeight: 1.55 } },
                   "Build a named head-to-toe set from the catalogue — try mixing a hat + shirt + shoes — and publish it so other s&box players can copy-buy."),
@@ -2209,7 +2227,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             if (tab === 'favorites') {
               return h('div', { className: 'empty-inline' },
                 h('div', { className: 'empty-icon' }, '❤'),
-                h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+                h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                   'No favorites yet'),
                 h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 14px', lineHeight: 1.55 } },
                   "Hit the ❤ on any public loadout and it shows up here. Great for bookmarking sets you want to copy-buy later."),
@@ -2225,7 +2243,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             // for signed-in users so the first mover has a clear jump-in.
             return h('div', { className: 'empty-inline' },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'public', size: 26 })),
-              h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                 'No public loadouts yet'),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 14px', lineHeight: 1.55 } },
                 "Be the first to share. Build a set, flip it public, and it'll land here for every visitor to browse."),
