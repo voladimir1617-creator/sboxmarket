@@ -14907,7 +14907,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // fee), this is the seller's gross. Lives alongside the away toggle
   // so a seller sees their total exposure at a glance.
   const stallBookValue = stall.reduce((s, l) => s + (parseFloat(l.price) || 0), 0);
-  const pendingOfferRows = Object.keys(offerMap || {}).length;
+  // Only this stall's active listings: an offer left PENDING on a listing
+  // that just sold (the sold-listing sweep closes it minutes later) read
+  // "3 listings with offers" over a 2-listing stall.
+  const pendingOfferRows = stall.filter(l => offerMap && offerMap[l.id]).length;
 
   // "Slow movers" derivation — listings older than 14 days with no
   // active offers AND no watchlist demand are stale inventory the
