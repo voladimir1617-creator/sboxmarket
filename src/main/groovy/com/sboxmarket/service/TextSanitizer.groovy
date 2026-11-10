@@ -93,7 +93,10 @@ class TextSanitizer {
         //     ZWJ / ZWNJ stay: emoji families and Persian words need them.
         s = s.replaceAll(/[‪-‮⁦-⁩]/, '')
         s = s.replaceAll(/^[\s\p{Z}​-‍⁠﻿]+|[\s\p{Z}​-‍⁠﻿]+$/, '')
-        if (s ==~ /[\s\p{Z}\p{Cf}]*/) s = ''
+        //     The Hangul fillers and the blank Braille cell are letters/symbols
+        //     that draw nothing, so a value of only those counts as empty too
+        //     (same set SteamAuthService drops from display names, plus U+2800).
+        if (s ==~ /[\s\p{Z}\p{Cf}ᅟᅠㅤﾠ⠀]*/) s = ''
 
         // 5) Length cap
         cap(s, maxLen)

@@ -773,7 +773,7 @@ function AdminReportedTab() {
             h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Recent reports'),
             (r.recentNotes || []).map((n, i) => h('div', { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)', overflowWrap: 'anywhere' } },
               h('strong', { style: { color: 'var(--text-primary)' } }, n.reason),
-              n.note && h('span', { style: { color: 'var(--text-secondary)', marginLeft: 8 } }, '— ' + n.note),
+              n.note && h('span', { style: { color: 'var(--text-secondary)', marginLeft: 8 } }, '— ', h('span', { dir: 'auto' }, n.note)),
               h('span', { style: { color: 'var(--text-muted)', marginLeft: 8, fontSize: 11 } }, '· ' + timeAgo(n.at))
             )))
           )
@@ -1862,7 +1862,7 @@ function AdminTradesTab() {
                 // but was never shown, so staff resolved disputes without
                 // seeing what was claimed.
                 h('td', null, r.itemName || '—',
-                  r.note && h('div', { style: { fontSize: 10, marginTop: 2, color: 'var(--text-muted)', maxWidth: 260, whiteSpace: 'normal', wordBreak: 'break-word' } }, r.note)),
+                  r.note && h('div', { dir: 'auto', style: { fontSize: 10, marginTop: 2, color: 'var(--text-muted)', maxWidth: 260, whiteSpace: 'normal', wordBreak: 'break-word' } }, r.note)),
                 // Buyer + seller cells (batch 526). Now show name and
                 // inline risk chips — chargeback count (red), fresh
                 // account (amber), banned (red). Clicking a name row
@@ -1996,7 +1996,7 @@ function AdminTradesTab() {
                                 },
                                 title: 'Redacted ' + new Date(m.redactedAt).toLocaleString()
                               }, '🛡 Message removed by moderators')
-                            : h('div', { style: { flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-primary)' } }, m.body),
+                            : h('div', { dir: 'auto', style: { flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-primary)' } }, m.body),
                           h('div', { style: { fontSize: 10, color: 'var(--text-muted)' } }, timeAgo(m.createdAt)),
                           // Redact button hidden once the message is already
                           // redacted — no point offering the action twice.
@@ -3582,7 +3582,7 @@ function AdminUsersTab({ me }) {
                     ' · ', r.fromDisplayName || 'Anonymous',
                     ' · ', new Date(r.createdAt).toLocaleDateString()
                   ),
-                  r.comment && h('div', { style: { fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 2 } }, r.comment)
+                  r.comment && h('div', { dir: 'auto', style: { fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 2 } }, r.comment)
                 ))
               ),
               // Batch 568 — inline wallet-transaction history for fraud
@@ -3895,7 +3895,7 @@ function AdminTicketsTab() {
               }
             },
               h('td', { className: 'db-rank' }, '#' + t.id),
-              h('td', { style: { overflowWrap: 'anywhere', minWidth: 160 } }, t.subject),
+              h('td', { dir: 'auto', style: { overflowWrap: 'anywhere', minWidth: 160 } }, t.subject),
               h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, t.username || '#' + t.userId),
               // Fraud-signal chips on tickets (batch 525). Lets support
               // spot the "3 chargebacks + fresh account + unverified email"
@@ -4559,7 +4559,7 @@ function CsrTicketsTab() {
                 }
               },
                 h('td', { className: 'db-rank' }, '#' + t.id),
-                h('td', { style: { overflowWrap: 'anywhere', minWidth: 160 } }, t.subject),
+                h('td', { dir: 'auto', style: { overflowWrap: 'anywhere', minWidth: 160 } }, t.subject),
                 h('td', { className: 'db-mono', style: { fontSize: 11, overflowWrap: 'anywhere', minWidth: 140 } }, t.username || '#' + t.userId),
                 // Fraud-signal chips on CSR tickets (batch 527). Same
                 // shape as the admin Tickets tab (batch 525).

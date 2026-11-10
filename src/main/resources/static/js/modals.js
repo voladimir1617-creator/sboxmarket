@@ -2109,7 +2109,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   whiteSpace: 'nowrap', maxWidth: 180
                 },
                 title: o.sellerReply
-              }, '↩ “', o.sellerReply, '”'),
+              }, '↩ “', h('span', { dir: 'auto' }, o.sellerReply), '”'),
               h('div', { className: 'item-offer-status' },
                 ({ PENDING: 'Pending', ACCEPTED: 'Accepted', REJECTED: 'Rejected', CANCELLED: 'Cancelled',
                    EXPIRED: 'Expired', COUNTERED: 'Countered', CLOSED: 'Closed' })[o.status] || o.status)
@@ -2318,7 +2318,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                     },
                     title: l.description
-                  }, '"' + (l.description.length > 100 ? l.description.substring(0, 97) + '…' : l.description) + '"'),
+                  }, '"' + (l.description.length > 100 ? Array.from(l.description).slice(0, 97).join('') + '…' : l.description) + '"'),
                   // (A decorative "float bar" used to sit here; s&box items have
                   // no float, and on the row it drew as a stray blue tick.)
                   (() => {
@@ -9714,7 +9714,7 @@ function ProfileTradesTab({ me, privacy }) {
                     me && t.lastMessage.senderUserId === me.id
                       ? 'you: '
                       : `${t.counterpartyName || 'them'}: `),
-                  t.lastMessage.body
+                  h('span', { dir: 'auto' }, t.lastMessage.body)
                 )
               ),
               // Trade Protection — optional paid buyer add-on. The panel
@@ -11453,11 +11453,11 @@ function ProfileReviewsTab({ me }) {
                     }, editGivenBusy ? 'Saving…' : 'Save changes')
                   )
                 )
-              : r.comment && h('div', { className: 'stall-review-body' }, r.comment),
+              : r.comment && h('div', { className: 'stall-review-body', dir: 'auto' }, r.comment),
             r.sellerReply && editId !== r.id && h('div', { className: 'stall-review-reply' },
               h('span', { className: 'stall-review-reply-label' },
                 mode === 'received' ? 'Your response' : "Seller's response"),
-              h('div', { className: 'stall-review-reply-body' }, r.sellerReply)
+              h('div', { className: 'stall-review-reply-body', dir: 'auto' }, r.sellerReply)
             ),
             mode === 'received' && editId === r.id
               ? h('div', { className: 'stall-review-reply-edit' },
@@ -11939,7 +11939,7 @@ function ProfileSupportTab() {
                   }
                 },
                   h('td', { className: 'db-rank' }, '#' + t.id),
-                  h('td', null, t.subject),
+                  h('td', { dir: 'auto' }, t.subject),
                   h('td', { className: 'db-cat' }, ticketCategoryLabel(t.category)),
                   h('td', { style: { fontSize: 10, fontWeight: 700 } }, ticketStatusLabel(t.status)),
                   h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
@@ -16520,7 +16520,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
             whiteSpace: 'nowrap', maxWidth: 320
           },
           title: offer.sellerReply
-        }, '↩ Seller: “', offer.sellerReply, '”'),
+        }, '↩ Seller: “', h('span', { dir: 'auto' }, offer.sellerReply), '”'),
         h('div', { className: 'item-sub' },
           isIncoming
             ? (offer.author === 'SELLER' ? `Your counter to ${offer.buyerName}` : `From ${offer.buyerName}`)

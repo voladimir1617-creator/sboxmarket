@@ -3704,7 +3704,7 @@ to { transform: translateX(-50%); }
 body { background: #fff !important; }
 :is(body *,#_) { color: #000 !important; }
 .csfloat-card, .csfloat-mkt-card, .csfloat-panel, [class*="csfloat-"] { box-shadow: none !important; }
-a[href^=http]::after { content: " (" attr(href) ")"; font-size: 80%; color: #555; }
+a[href^=http]:not(.compact)::after { content: " (" attr(href) ")"; font-size: 80%; color: #555; }
 }
 @keyframes csfloat-fade-in { from { opacity: 0; }
 to { opacity: 1; }
@@ -6599,6 +6599,8 @@ body .nav-picker-panel .nav-picker-row.active .material-symbols-rounded, body .n
    like a modal for Escape, and it removes the overlap entirely. The large
    box-shadow spread doubles as a dim backdrop without needing a backdrop node. */
 .item-offer-drawer { position: fixed !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important; z-index: 120 !important; width: min(440px, calc(100vw - 32px)) !important; max-height: 85vh !important; overflow-y: auto !important; margin: 0 !important; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.6), 0 24px 70px rgba(0, 0, 0, 0.55) !important; }
+/* Its z-index only counts inside .item-page (z 1); the later footer (z 1) painted over it. */
+html body .modal.item-page:has(.item-offer-drawer) { z-index: 2 !important; }
 @media (max-width: 720px) { .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"] { margin: 8px 14px !important; padding: 12px !important; }
 }
 .item-rail-actions-bargain + div .wallet-amount-input, .item-rail-actions-bargain + div input[inputmode="decimal"][aria-label="Offer amount in USD"] { height: 44px !important; padding: 0 12px 0 26px !important; font-size: 14px !important; font-weight: 500 !important; line-height: 44px !important; border-radius: 8px !important; border: 1px solid rgba(255, 255, 255, 0.10) !important; background: rgba(0, 0, 0, 0.25) !important; color: rgb(255, 255, 255) !important; box-shadow: none !important; width: 100% !important; letter-spacing: 0 !important; }
@@ -10236,7 +10238,7 @@ html body footer.site-footer { display: block !important; padding-left: 0 !impor
 html body footer.site-footer .site-footer-inner, html body footer.site-footer .site-footer-bottom { max-width: var(--page-maxw, min(92vw, 1800px)) !important; margin-left: auto !important; margin-right: auto !important; padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box !important; width: auto !important; }
 .full-page-mode .info-modal:has(.db-table) { width: min(96vw, 1360px) !important; max-width: 1360px !important; }
 /* WAVE 177: item detail page widens toward the page cap so its content no longer sits stranded at 1280 while the nav/footer span the raised cap. Capped a touch narrower than the full page cap (1520) because the 2-col preview+chart layout reads sparse if stretched edge-to-edge; still centered so it stays visually anchored under the wide nav. Item-page-only — info-modals keep their content-specific caps above. */
-html body .full-page-mode .modal.item-page, html body .modal-backdrop.page-mode:has(.modal.item-page) > .modal.item-page { width: min(100%, min(92vw, 1520px)) !important; max-width: min(92vw, 1520px) !important; }
+html body .full-page-mode .modal.item-page, html body .modal-backdrop.page-mode:has(.modal.item-page) > .modal.item-page { width: min(100%, min(92vw, 1520px)) !important; max-width: min(92vw, 1520px) !important; margin-inline: auto !important; }
 body .csfloat-home-hero, body .csfloat-home-rail, body .csfloat-home-preview, body .csfloat-home-tiles, body .csfloat-home-metrics, body .csfloat-home-faq, body .csfloat-home-journey { padding-left: 0 !important; padding-right: 0 !important; }
 html body .site-root.full-page-mode .modal-backdrop { display: block !important; place-items: normal !important; }
 html body .site-root.full-page-mode .modal-backdrop > .info-modal, html body .site-root.full-page-mode .modal-backdrop > .item-modal { width: 100% !important; margin-left: auto !important; margin-right: auto !important; }

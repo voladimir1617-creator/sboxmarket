@@ -749,7 +749,7 @@ export function NotificationBell({ me }) {
               h('div', { className: 'notif-icon' }, KIND_ICONS[n.kind] || '•'),
               h('div', { className: 'notif-text' },
                 n.title,
-                n.body && h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 } }, n.body),
+                n.body && h('div', { dir: 'auto', style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 } }, n.body),
                 h('div', { className: 'notif-time' }, timeAgo(n.createdAt))
               )
             )),

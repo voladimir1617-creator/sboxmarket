@@ -1,6 +1,11 @@
 package com.sboxmarket
 
+import com.sboxmarket.model.SteamUser
+import com.sboxmarket.repository.AuditLogRepository
+import com.sboxmarket.repository.SteamUserRepository
+import com.sboxmarket.service.AuditService
 import com.sboxmarket.service.TextSanitizer
+import com.sboxmarket.service.ZeroResultSearchTracker
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -61,6 +66,9 @@ class TextSanitizerUnicodeSpec extends Specification {
         'word joiner'  | ' ⁠ '
         'nbsp'         | '  '
         'rlm only'     | '‏'
+        'hangul filler'| '\u3164'
+        'hw filler'    | '\uFFA0 \u115F\u1160'
+        'braille blank'| '\u2800\u2800'
     }
 
     def "zero-width and no-break spaces at the ends are trimmed, inner ZWJ kept"() {
@@ -83,5 +91,30 @@ class TextSanitizerUnicodeSpec extends Specification {
 
         expect:
         sanitizer.clean(s) == s
+    }
+
+    def "Korean text and a filler inside visible text are kept"() {
+        expect:
+        sanitizer.clean('안녕하세요') == '안녕하세요'
+        sanitizer.clean('a\u3164b') == 'a\u3164b'
+    }
+
+    def "staff search term and audit summary caps never leave half an emoji"() {
+        given:
+        AuditLogRepository repo = Mock()
+        repo.save(_) >> { args -> args[0] }
+        SteamUserRepository users = Mock()
+        users.findById(_) >> Optional.of(new SteamUser(id: 1L, displayName: 'b' * 79 + '😀'))
+        def audit = new AuditService(auditLogRepository: repo, steamUserRepository: users)
+
+        when:
+        def term  = ZeroResultSearchTracker.normalise('a' * (ZeroResultSearchTracker.MAX_TERM_LENGTH - 1) + '😀')
+        def entry = audit.log('TRADE_DISPUTED', 1L, 1L, null, 'Disputed: ' + 'x' * 489 + '😀 tail')
+
+        then:
+        !hasLoneSurrogate(term)
+        !hasLoneSurrogate(entry.summary)
+        !hasLoneSurrogate(entry.actorName)
+        entry.summary.length() == 499
     }
 }
