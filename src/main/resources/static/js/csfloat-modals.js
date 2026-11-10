@@ -1726,7 +1726,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         h('div', { className: 'loadout-action-spacer', style: { flex: 1, minWidth: 0 } }),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap' } },
           'By ', h('strong', { style: { color: 'var(--text-secondary)' } }, viewing.loadout.ownerName || 'anon'),
-          ' · ❤ ', viewing.loadout.favorites
+          ' · ❤ ', Number(viewing.loadout.favorites || 0).toLocaleString()
         ),
         !isOwner && me && h('button', {
           className: 'btn btn-ghost',
@@ -2287,7 +2287,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   }
                 }, highlightMatch(l.name || '', search))),
               h('div', { className: 'loadout-card-meta' },
-                h('span', null, '❤ ', l.favorites),
+                h('span', null, '❤ ', Number(l.favorites || 0).toLocaleString()),
                 h('span', null, fmt(l.totalValue)),
                 l.filledSlots != null && h('span', null, l.filledSlots, l.filledSlots === 1 ? ' item' : ' items')
               ),
@@ -2720,7 +2720,7 @@ export function NotificationsModal({ onClose, me }) {
   // at 100; when that cap is hit there may be more unread, so say "N+".
   const shownUnread = mutedSet.size > 0
     ? shownItems.filter(n => !n.read).length + (data.items.length >= 100 ? '+' : '')
-    : data.unread;
+    : (Number.isFinite(data.unread) ? data.unread.toLocaleString() : data.unread);
 
   if (!me) return h(InfoModal, { title: 'Notifications', onClose },
     h(SignInNeededEmptyState, { what: 'your notifications' }));
