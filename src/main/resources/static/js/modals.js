@@ -544,7 +544,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
       if (!alive) return;
       // A failed load keeps the rows already shown instead of wiping the section.
       if (Array.isArray(rows)) setRecentSales(rows);
-      else if (recentSalesLimit > 10) toast('Could not load more sales — try again.', 'err');
+      // ...and puts Show more back, so "try again" has something to press.
+      else if (recentSalesLimit > 10) { toast('Could not load more sales — try again.', 'err'); setRecentSalesLimit(10);
+        // Focus was on the count line, which goes with the reset.
+        const wasNote = !!document.activeElement?.hasAttribute?.('data-recent-sales-note');
+        if (wasNote) setTimeout(() => document.querySelector('[data-recent-sales-more]')?.focus(), 0); }
     });
     return () => { alive = false; };
   }, [item?.id, recentSalesLimit]);
@@ -2062,15 +2066,17 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           // expanded, replaced with a row count so the user knows the
           // view is at the server cap.
           recentSalesLimit === 10 && recentSales.length >= 10 && h('button', {
-            className: 'btn btn-ghost',
+            className: 'btn btn-ghost', 'data-recent-sales-more': '',
             style: {
               width: '100%', marginTop: 6, padding: '6px 12px', fontSize: 11,
               border: '1px dashed var(--border)', color: 'var(--text-secondary)'
             },
-            onClick: () => setRecentSalesLimit(50),
+            // The count line below takes this button's place; move focus there.
+            onClick: () => { setRecentSalesLimit(50); requestAnimationFrame(() => document.querySelector('[data-recent-sales-note]')?.focus()); },
             title: 'Load up to 50 of the most-recent sales for a deeper price anchor'
           }, '↓ Show more sales'),
           recentSalesLimit > 10 && h('div', {
+            'data-recent-sales-note': '', tabIndex: -1,
             style: { fontSize: 10, marginTop: 6, color: 'var(--text-muted)', textAlign: 'center' }
           }, `Showing ${recentSales.length} most-recent sales (server cap: 50)`)
         ),
@@ -3013,7 +3019,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             },
               h('div', { className: 'recently-viewed-thumb' },
                 it.imageUrl
-                  ? h('img', { src: it.imageUrl, alt: it.name, loading: 'lazy' })
+                  // alt '': the card's name text follows; the link read it twice.
+                  ? h('img', { src: it.imageUrl, alt: '', loading: 'lazy' })
                   : h('div', { className: 'recently-viewed-glyph', style: { color: 'var(--ink-3)' } },
                       ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[it.category] || '—')
               ),

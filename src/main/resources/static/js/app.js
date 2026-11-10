@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=365'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=366'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4190,6 +4190,20 @@ export function App() {
   // makes with `__notFound` vs `__error`.
   const [itemLoadError, setItemLoadError] = useState(null);
   const [itemRetry, setItemRetry]         = useState(0);
+  // Retry gives way to the loading skeleton; once the load settles, focus
+  // the new Retry or the item page instead of leaving it on <body>.
+  const itemRetryFocusRef = useRef(false);
+  useEffect(() => {
+    if (modalLoading || !itemRetryFocusRef.current) return;
+    itemRetryFocusRef.current = false;
+    const until = Date.now() + 5000;
+    const go = () => {
+      if (document.activeElement !== document.body) return;
+      const t = document.querySelector('#main [data-item-retry]') || document.querySelector('#main a[href], #main button');
+      if (t) t.focus(); else if (Date.now() < until) requestAnimationFrame(go);
+    };
+    requestAnimationFrame(go);
+  }, [modalLoading]);
 
   // wallet
   const [wallet, setWallet]             = useState(null);
@@ -5836,6 +5850,10 @@ export function App() {
     // fires a fresh load() while this page-2 fetch is in flight makes us
     // discard the (now-mismatched) response instead of appending it.
     const seqAtStart = loadSeqRef.current;
+    // The last page takes Load more with it; focus the first card it added.
+    const btn = document.activeElement;
+    const cardLinks = () => document.querySelectorAll('.grid-card-link, tr .item-name a');
+    const before = cardLinks().length;
     try {
       const next = await fetchListings({
         sort,
@@ -5878,7 +5896,16 @@ export function App() {
       // acknowledged as a failure the user can repeat.
       showToast("Couldn't load more listings — tap Load more to retry", 'err');
     }
-    finally { setLoadingMore(false); }
+    finally {
+      setLoadingMore(false);
+      const until = Date.now() + 3000;
+      const go = () => {
+        if (btn && btn.tagName === 'BUTTON' && !btn.isConnected && document.activeElement === document.body) {
+          const l = cardLinks(); (l[before] || l[l.length - 1])?.focus();
+        } else if (btn && btn.isConnected && Date.now() < until) requestAnimationFrame(go);
+      };
+      requestAnimationFrame(go);
+    }
   }, [loadingMore, hasMore, sort, category, rarity, minPrice, maxPrice,
       search, listingTypeFilter, listings.length]);
   useEffect(() => { load(); }, [load]);
@@ -7963,7 +7990,14 @@ export function App() {
           role: 'toolbar',
           'aria-label': 'Marketplace search, sort, and view controls'
         },
-          h('div', { className: 'search-wrap', role: 'search' },
+          h('div', { className: 'search-wrap', role: 'search',
+            // Tabbing on past the search left the list open over the controls
+            // that took focus. A click on a row blurs to nothing (no
+            // relatedTarget), so that still reaches the row.
+            onBlur: (e) => {
+              const to = e.relatedTarget;
+              if (to && !e.currentTarget.contains(to)) { setSuggestOpen(false); setSuggestIdx(-1); }
+            } },
             h('span', { className: 'search-icon' }, h(Icon, { name: 'search', size: 14 })),
             /* csfloat-style "/" keyboard hint chip in the right of the input */
             !searchInput && h('kbd', { className: 'search-kbd', 'aria-hidden': true }, '/'),
@@ -8015,7 +8049,8 @@ export function App() {
                   }
                   return;
                 }
-                if (!suggestOpen) return;
+                // ArrowDown brings back a list Escape closed.
+                if (!suggestOpen) { if (e.key === 'ArrowDown') { e.preventDefault(); setSuggestOpen(true); } return; }
                 // The recent-searches list takes the arrows when it is the
                 // popup on screen (no autocomplete rows), so it is reachable
                 // without a mouse.
@@ -8818,7 +8853,8 @@ export function App() {
             style: { textDecoration: 'none', color: 'inherit' },
             title: `${s.listing.item.name} sold for ${fmt(s.listing.price)} · ${s.time}`
           },
-            h('div', { className: 'ticker-thumb' }, h(ItemImage, { item: s.listing.item, variant: 'mini' })),
+            // The name follows as text; the picture would only repeat it.
+            h('div', { className: 'ticker-thumb', 'aria-hidden': 'true' }, h(ItemImage, { item: s.listing.item, variant: 'mini' })),
             h('span', { className: 'ticker-name' }, s.listing.item.name),
             h('span', { className: 'ticker-price' }, fmt(s.listing.price)),
             h('span', { className: 'ticker-time' }, s.time)
@@ -10700,7 +10736,8 @@ export function App() {
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
             itemLoadError && h('button', {
               className: 'btn btn-accent',
-              onClick: () => setItemRetry(n => n + 1)
+              'data-item-retry': '',
+              onClick: () => { itemRetryFocusRef.current = true; setItemRetry(n => n + 1); }
             }, 'Retry'),
             h('a', {
               className: itemLoadError ? 'btn btn-ghost' : 'btn btn-accent',
