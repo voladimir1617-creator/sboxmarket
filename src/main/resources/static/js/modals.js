@@ -3151,6 +3151,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               h(ItemImage, { item: confirmItem, variant: 'thumb' })),
             h('div', { style: { flex: 1, minWidth: 0 } },
               h('div', {
+                title: confirmItem?.name || 'Item',
                 style: {
                   fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
@@ -13984,10 +13985,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             h(ItemImage, { item: { imageUrl: si.imageUrl || si.iconUrl, name: si.name, category: si.category, iconEmoji: '—' }, variant: 'card' })
           ),
           steamRowBlock(si)
-            ? h('div', { className: 'inventory-name' }, si.name)
+            // title: the card cuts a long name with an ellipsis.
+            ? h('div', { className: 'inventory-name', title: si.name }, si.name)
             : h('button', {
                 type: 'button',
                 className: 'inventory-name',
+                title: si.name,
                 style: INVENTORY_NAME_BUTTON_STYLE,
                 'aria-label': `List ${si.name} for sale${bulkSelected.has(si.assetId) ? ' (selected for bulk)' : ''}`,
                 onClick: e => { e.stopPropagation(); startPickSteam(si); }
@@ -14221,6 +14224,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                 h('button', {
                   type: 'button',
                   className: 'inventory-name',
+                  title: l.item?.name || 'Item',
                   style: INVENTORY_NAME_BUTTON_STYLE,
                   'aria-label': (() => { const rv = rowValue(l.item); return `Relist ${l.item?.name || 'item'} (${rv.kind === 'floor' ? 'floor ' + fmt(rv.v) : rv.kind === 'est' ? 'est. ' + fmt(rv.v) : 'unpriced'})`; })(),
                   onClick: e => { e.stopPropagation(); startPickInternal(l); }

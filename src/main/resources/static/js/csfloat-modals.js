@@ -552,6 +552,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
                     h('a', {
                       className: 'db-name',
                       href: '/item/' + item.id,
+                      // A phone cuts a long name with an ellipsis.
+                      title: item.name,
                       'aria-label': `Open ${item.name} detail · ${item.category} · ${(parseFloat(item.lowestPrice) || 0) > 0 ? 'floor ' + fmt(item.lowestPrice) : 'no listings yet'}`,
                       onClick: (e) => {
                         e.preventDefault();
@@ -2274,7 +2276,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               // not contain the Copy link button as a separate control.
               onClick: () => goLoadout(l.id)
             },
-              h('div', { className: 'loadout-card-name' },
+              // title: a long name is cut with an ellipsis (phone width).
+              h('div', { className: 'loadout-card-name', title: l.name || undefined },
                 h('a', {
                   href: '/loadout/' + l.id,
                   style: { color: 'inherit', textDecoration: 'none' },
