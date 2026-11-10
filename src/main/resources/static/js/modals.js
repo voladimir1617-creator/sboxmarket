@@ -3850,7 +3850,8 @@ export function AffiliateModal({ onClose }) {
       }
     },
       h('div', { style: { fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 500, color: 'var(--ink-4)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8 } }, BRAND.name),
-      h('div', { style: { fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 360, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariationSettings: '"opsz" 144' } }, 'Affiliate Program')
+      // The InfoModal h1 is hidden on this page (design.css), so this title is the page heading.
+      h('div', { role: 'heading', 'aria-level': 1, style: { fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 360, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariationSettings: '"opsz" 144' } }, 'Affiliate Program')
     ),
     h('div', { style: { color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 14, marginBottom: 24 } },
       `The ${BRAND.name} Affiliate Program pays you a share of the platform fees from every user you refer. Earnings are credited to your ${BRAND.name} wallet and can be cashed out to Stripe like any other sale proceeds.`),
@@ -4087,7 +4088,8 @@ export function FaqModal({ onClose }) {
           // h3 (not <div>) so screen-reader heading-list lets users skim
           // questions without reading every answer. Visual styling matches
           // the previous div: bold ink-primary, 14px, 6px bottom margin.
-          h('h3', { style: { fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px', fontSize: 14 } }, highlightMatch(question, q)),
+          // h2: the page title is the h1, so a question is the next level down.
+          h('h2', { style: { fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px', fontSize: 14 } }, highlightMatch(question, q)),
           h('div', { style: { color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 13 } }, highlightMatch(answer, q))
         )),
     // A way out at the end of the list, so a reader who scrolled every
@@ -5903,6 +5905,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       if (!re.test(raw)) {
         setTradeUrlErr('That doesn\'t look like a Steam trade URL. It should look like https://steamcommunity.com/tradeoffer/new/?partner=…&token=…');
         setTradeUrlBusy(false);
+        // Back to the box the error is about (Save had focus).
+        document.getElementById('profile-trade-url-input')?.focus();
         return;
       }
     }
@@ -5951,6 +5955,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
     if (!re.test(trimmed)) {
       setEmailResult({ err: 'That doesn\'t look like a valid email address (name@domain.tld).' });
+      document.getElementById('profile-email-input')?.focus();
       return;
     }
     if (emailVerified && trimmed.toLowerCase() === (profile?.user?.email || '').toLowerCase()) {
@@ -6286,6 +6291,9 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             autoCapitalize: 'off',
             spellCheck: false,
             'aria-label': 'Email address',
+            id: 'profile-email-input',
+            'aria-invalid': emailResult?.err ? 'true' : undefined,
+            'aria-describedby': emailResult?.err ? 'profile-email-error' : undefined,
             // The server rejects addresses over 254 characters (EMAIL_TOO_LONG).
             maxLength: 254,
             autoFocus: true,
@@ -6316,7 +6324,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           )
         ),
         emailResult?.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } }, 'Email verified'),
-        emailResult?.err && h('div', { className: 'wallet-error', role: 'alert' }, emailResult.err),
+        emailResult?.err && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-email-error' }, emailResult.err),
         // Resend verification link — only meaningful when email is set but
         // not yet verified. Regenerates the token and re-delivers via
         // EmailService (or logs it in dev mode).
@@ -6391,8 +6399,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
         editingTradeUrl && h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, width: '100%', flexWrap: 'wrap' } },
           h('input', {
             type: 'url',
+            id: 'profile-trade-url-input',
             className: 'wallet-amount-input',
             'aria-label': 'Steam trade URL',
+            'aria-invalid': tradeUrlErr ? 'true' : undefined,
+            'aria-describedby': tradeUrlErr ? 'profile-trade-url-error' : undefined,
             autoFocus: true,
             placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
             value: tradeUrlDraft,
@@ -6415,7 +6426,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           }, 'Steam → Trade offers → Who can send me offers'),
           '.'
         ),
-        tradeUrlErr && h('div', { className: 'wallet-error', role: 'alert' }, tradeUrlErr)
+        tradeUrlErr && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-trade-url-error' }, tradeUrlErr)
       )
     ),
 
@@ -11546,6 +11557,10 @@ function ProfileSupportTab() {
   const [form, setForm] = useState(savedTicket || { subject: '', category: 'OTHER', body: '' });
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
+  // Which New Ticket fields were blank on Submit (marked aria-invalid).
+  const [ticketMissing, setTicketMissing] = useState({});
+  const ticketSubjectRef = useRef(null);
+  const ticketBodyRef = useRef(null);
   // Batch 1078 — synchronous re-entrancy latch shared by submitCreate +
   // submitReply. async setBusy alone can't stop a same-frame double-
   // click (both handlers capture busy===false from the same render).
@@ -11694,6 +11709,10 @@ function ProfileSupportTab() {
 
   const submitCreate = async () => {
     if (!form.subject.trim() || !form.body.trim()) {
+      const miss = { subject: !form.subject.trim(), body: !form.body.trim() };
+      setTicketMissing(miss);
+      // Focus the first blank field so the keyboard user lands on it.
+      (miss.subject ? ticketSubjectRef : ticketBodyRef).current?.focus();
       toast('Add a subject and a message first.', 'err');
       return;
     }
@@ -11849,6 +11868,7 @@ function ProfileSupportTab() {
   return h('div', { className: 'profile-panel' },
     (creating || !noTickets) && h('button', { ref: newTicketBtnRef, className: 'btn btn-accent', style: { marginBottom: 14 }, onClick: () => {
       if (creating) { try { sessionStorage.removeItem('sb_ticket_unsent'); } catch (_) {} }
+      setTicketMissing({});
       setCreating(c => !c);
     } },
       creating ? 'Cancel' : '+ New Ticket'),
@@ -11877,13 +11897,13 @@ function ProfileSupportTab() {
       // a11y audit — visible label exists but wasn't programmatically tied
       // to the input. Screen-reader users heard "edit, blank" instead of
       // "Ticket subject, edit". Same fix for the Message textarea below.
-      h('input', { className: 'wallet-amount-input', 'aria-label': 'Ticket subject', autoFocus: true, value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), maxLength: 80, placeholder: 'Short subject line…' }),
+      h('input', { ref: ticketSubjectRef, className: 'wallet-amount-input', 'aria-label': 'Ticket subject', 'aria-invalid': ticketMissing.subject ? 'true' : undefined, autoFocus: true, value: form.subject, onChange: e => { setForm({ ...form, subject: e.target.value }); setTicketMissing(m => ({ ...m, subject: false })); }, maxLength: 80, placeholder: 'Short subject line…' }),
       h('div', { className: 'wallet-input-label' }, 'Category'),
       h('select', { className: 'sort-select', 'aria-label': 'Ticket category', value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) },
         ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, ticketCategoryLabel(c)))
       ),
       h('div', { className: 'wallet-input-label' }, 'Message'),
-      h('textarea', { className: 'wallet-amount-input', 'aria-label': 'Ticket message body', style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), maxLength: 2000, placeholder: 'Describe your issue…' }),
+      h('textarea', { ref: ticketBodyRef, className: 'wallet-amount-input', 'aria-label': 'Ticket message body', 'aria-invalid': ticketMissing.body ? 'true' : undefined, style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => { setForm({ ...form, body: e.target.value }); setTicketMissing(m => ({ ...m, body: false })); }, maxLength: 2000, placeholder: 'Describe your issue…' }),
       // aria-disabled keeps focus on the button; submitCreate ignores in-flight sends.
       h('button', { className: 'btn btn-accent wallet-submit', 'aria-disabled': busy || undefined, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
@@ -12276,7 +12296,14 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // so a rapid double-click lists the SAME item twice. Auto-resets via the
   // per-render busyRef sync after setBusy(false).
   const busyRef = useRef(busy); busyRef.current = busy;
-  const [error, setError]         = useState('');
+  const [error, setErrorText]     = useState('');
+  // The field a form check failed on: it alone is marked aria-invalid and
+  // takes focus. null (server replies, other paths) marks the price fields.
+  const [errField, setErrField]   = useState(null);
+  const setError = (msg, field = null) => {
+    setErrorText(msg); setErrField(field);
+    if (field) document.querySelector(`.wallet-amount-input[aria-label="${field}"]`)?.focus();
+  };
   const [syncing, setSyncing]     = useState(false);
   // Double-click latch: the syncing state lags a re-render, so a quick second click ran a second Steam sync.
   const resyncBusyRef = useRef(false);
@@ -12770,23 +12797,24 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     setError('');
     // Whole cents, so the price we send is exactly what the breakdown and the
     // toast show (the server would otherwise round "1.005" up to $1.01).
-    if (moneyInputError(price)) { setError(moneyInputError(price)); return; }
+    const priceField = sellType === 'AUCTION' ? 'Starting bid' : 'Asking price';
+    if (moneyInputError(price)) { setError(moneyInputError(price), priceField); return; }
     const p = Math.round(parseMoneyInput(price) * 100) / 100;
     // Floor at $0.01 — matches the relist DTO @DecimalMin("0.01") and the
     // server PRICE_TOO_LOW guard. Without this a sub-cent price (e.g. 0.004)
     // passed `<= 0` and rounded to $0.00 in NUMERIC(10,2) → a free, instantly
     // buyable listing.
-    if (!p || p < 0.01) { setError('Price must be at least $0.01.'); return; }
+    if (!p || p < 0.01) { setError('Price must be at least $0.01.', priceField); return; }
     // Cap inline — matches the $100k server limit (PRICE_TOO_HIGH) and
     // submitBulk, so a fat-fingered price fails here instead of on a
     // server round-trip. `p` is shared by the buy-now price and the
     // auction starting bid, so this covers both listing types.
-    if (p > 100000) { setError('Price must not exceed $100,000.'); return; }
+    if (p > 100000) { setError('Price must not exceed $100,000.', priceField); return; }
     const opts = { listingType: sellType };
     const trimmedDesc = (sellDescription || '').trim();
     if (trimmedDesc) {
       if (trimmedDesc.length > 500) {
-        setError('Description must be 500 characters or fewer.');
+        setError('Description must be 500 characters or fewer.', 'Seller note (optional, max 500 characters)');
         return;
       }
       opts.description = trimmedDesc;
@@ -12801,18 +12829,18 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       // Optional Buy-Now ceiling (batch 371).
       const bn = (sellBuyNow || '').trim();
       if (bn) {
-        if (moneyInputError(bn)) { setError(moneyInputError(bn)); return; }
+        if (moneyInputError(bn)) { setError(moneyInputError(bn), 'Buy Now price'); return; }
         const bnVal = parseMoneyInput(bn);
         if (!Number.isFinite(bnVal) || bnVal <= 0) {
-          setError('Buy-Now price must be a positive number.');
+          setError('Buy-Now price must be a positive number.', 'Buy Now price');
           return;
         }
         if (bnVal <= p) {
-          setError('Buy-Now price must be greater than the starting bid.');
+          setError('Buy-Now price must be greater than the starting bid.', 'Buy Now price');
           return;
         }
         if (bnVal > 100000) {
-          setError('Buy-Now price must not exceed $100,000.');
+          setError('Buy-Now price must not exceed $100,000.', 'Buy Now price');
           return;
         }
         opts.buyNowPrice = bnVal;
@@ -12830,7 +12858,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       const pct = Number(rawPct);
       // 0 means off, as Help and the My Stall edit form say.
       if (!Number.isInteger(pct) || pct < 0 || pct > 50) {
-        setError('Auto-accept discount must be a whole number from 1% to 50%.');
+        setError('Auto-accept discount must be a whole number from 1% to 50%.', 'Auto-accept discount percent');
         return;
       }
       if (pct > 0) opts.maxDiscount = pct / 100;
@@ -13099,8 +13127,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             type: 'text', min: '0', max: '100000', step: '0.01',
             inputMode: 'decimal',
             'aria-label': 'Buy Now price',
-            'aria-invalid': error ? 'true' : undefined,
-            'aria-describedby': error ? 'sell-error-msg' : undefined,
+            'aria-invalid': error && (errField == null || errField === 'Buy Now price') ? 'true' : undefined,
+            'aria-describedby': error && (errField == null || errField === 'Buy Now price') ? 'sell-error-msg' : undefined,
             placeholder: 'Leave blank for no Buy Now',
             value: sellBuyNow,
             onChange: e => setSellBuyNow(e.target.value),
@@ -13117,8 +13145,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         type: 'text', min: '0.01', step: '0.01',
         inputMode: 'decimal', enterKeyHint: 'done',
         'aria-label': sellType === 'AUCTION' ? 'Starting bid' : 'Asking price',
-        'aria-invalid': error ? 'true' : undefined,
-        'aria-describedby': (error || relistBlocked) ? 'sell-error-msg' : undefined,
+        'aria-invalid': error && (errField == null || errField === 'Starting bid' || errField === 'Asking price') ? 'true' : undefined,
+        'aria-describedby': ((error && (errField == null || errField === 'Starting bid' || errField === 'Asking price')) || relistBlocked) ? 'sell-error-msg' : undefined,
         // Empty when we have no anchor: a placeholder of "0.00" reads as a
         // suggestion, and $0.00 is not a price this market will accept.
         placeholder: suggested || 'Set your price',
@@ -13278,6 +13306,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             type: 'number', min: '0', max: '50', step: '1',
             inputMode: 'numeric',
             'aria-label': 'Auto-accept discount percent',
+            'aria-invalid': error && errField === 'Auto-accept discount percent' ? 'true' : undefined,
+            'aria-describedby': error && errField === 'Auto-accept discount percent' ? 'sell-error-msg' : undefined,
             placeholder: 'e.g. 10',
             value: sellAutoPct,
             onChange: e => setSellAutoPct(e.target.value),
@@ -13317,6 +13347,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           maxLength: 500,
           placeholder: 'e.g. "Quick sale, open to offers" or "Mint condition"',
           'aria-label': 'Seller note (optional, max 500 characters)',
+          'aria-invalid': error && errField === 'Seller note (optional, max 500 characters)' ? 'true' : undefined,
+          'aria-describedby': error && errField === 'Seller note (optional, max 500 characters)' ? 'sell-error-msg' : undefined,
           value: sellDescription,
           onChange: e => setSellDescription(e.target.value),
           style: { fontFamily: 'inherit', fontSize: 13, lineHeight: 1.4, resize: 'vertical' }
