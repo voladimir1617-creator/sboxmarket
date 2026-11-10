@@ -7045,7 +7045,7 @@ function ProfileListingsTab({ me }) {
       'Couldn’t load your listings'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your active listings. Check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   );
 
   // Loading — single spinner, identical to ProfileOffersTab's null guard.
@@ -7520,7 +7520,7 @@ function ProfileBuyOrdersTab() {
       'Couldn’t load your buy orders'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your buy orders. Your standing orders are safe — check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   );
   if (orders === null) return h('div', { className: 'spinner' });
   if (orders.length === 0) return h('div', { className: 'empty-inline' },
@@ -8080,7 +8080,7 @@ function ProfileAutoBidsTab() {
       'Couldn’t load your bids'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your live bids. Your auction positions are unaffected — check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   ));
   if (bids === null) return h('div', null, subTabPicker, h('div', { className: 'spinner' }));
   if (bids.length === 0) return h('div', null, subTabPicker, h('div', { className: 'empty-inline' },
@@ -8740,7 +8740,7 @@ function ProfileTradesTab({ me, privacy }) {
       'Couldn’t load your trades'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your trades. Your escrowed trades are safe — check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   );
   if (trades === null) return h('div', { className: 'spinner' });
 
@@ -10276,6 +10276,8 @@ const alertCancelInFlight = new Set();
 // My Stall hide and cancel all).
 const bulkInFlight = new Set();
 
+// A Retry gives way to a spinner; land on the open Profile tab, not <body>.
+const PROFILE_TAB_NOW = '.profile-tabs [role="tab"][aria-selected="true"]';
 // Profile sub-tab state in ?view=, replaced in place (no new history entry).
 function setViewParam(v) {
   try {
@@ -10401,7 +10403,7 @@ function ProfileOffersTab() {
       'Couldn’t load your offers'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your offers. Nothing was lost — check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   );
   if (data === null) return h('div', { className: 'spinner' });
 
@@ -11164,7 +11166,7 @@ function ProfileReviewsTab({ me }) {
       pending === false
         ? h('div', { className: 'wallet-error', role: 'alert' },
             "Couldn't check for trades waiting on a review. ",
-            h('button', { className: 'btn btn-sm', onClick: () => { setPending(null); loadPending(); } }, 'Retry'))
+            h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setPending(null); loadPending(); } }, 'Retry'))
         : pending.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -11210,11 +11212,11 @@ function ProfileReviewsTab({ me }) {
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load your reviews"),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
       'Something went wrong fetching your reviews — your reputation is safe; check your connection and retry.'),
-    h('button', { className: 'btn btn-accent', onClick: loadReceived }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); loadReceived(); } }, 'Retry')
   ) : (mode === 'given' && givenErr) ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '24px 16px' } },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load the reviews you've written"),
-    h('button', { className: 'btn btn-accent', onClick: loadGiven }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); loadGiven(); } }, 'Retry')
   ) : null;
   // Built before the loading return so the tabs stay put (and keep focus)
   // while a lazily loaded tab fetches.
@@ -11260,7 +11262,7 @@ function ProfileReviewsTab({ me }) {
     ),
     pending === false && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 14 } },
       "Couldn't check for trades waiting on a review. ",
-      h('button', { className: 'btn btn-sm', onClick: () => { setPending(null); loadPending(); } }, 'Retry')));
+      h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setPending(null); loadPending(); } }, 'Retry')));
   })();
   if (loadErrCard) return h('div', null, tabList, loadErrCard);
   if (rows === null) return h('div', null, tabList, h('div', { className: 'spinner' }));
@@ -11956,7 +11958,7 @@ function ProfileSupportTab() {
       // Also after a refresh fails: the old list (or "No tickets yet") is stale.
       if (ticketsErr) return h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your support tickets.'),
-          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setTicketsErr(false); load(); } }, 'Retry'));
+          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setTicketsErr(false); load(); } }, 'Retry'));
       if (tickets === null) return h('div', { className: 'spinner' });
       if (tickets.length === 0) return creating ? null : h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -12163,7 +12165,7 @@ function ProfileDevelopersTab() {
     keysErr
       ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your API keys.'),
-          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setKeysErr(false); load(); } }, 'Retry'))
+          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setKeysErr(false); load(); } }, 'Retry'))
     : keys === null
       ? h('div', { className: 'spinner' })
       : keys.length === 0

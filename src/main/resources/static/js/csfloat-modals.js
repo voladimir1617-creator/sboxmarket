@@ -4,7 +4,7 @@
 // Every modal follows the same pattern as ./modals.js — narrow prop surface,
 // uses InfoModal as the shell, calls into ./api.js for I/O.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol, fxToUsd, parseMoneyInput, moneyInputError } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, focusPastOnUnmount, highlightMatch, currencySymbol, fxToUsd, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths, followInternalLink } from './router.js';
@@ -454,7 +454,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
           h('div', { className: 'empty-state-actions' },
             h('button', {
               className: 'btn btn-accent',
-              onClick: () => load()
+              // The panel gives way to the table; land on the search box, not <body>.
+              onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.db-controls input[type="search"]'); load(); }
             }, 'Retry'))
         )
       : (data.items.length === 0 && data.total === 0)
@@ -2202,7 +2203,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             "Couldn't load loadouts"),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
             'This list failed to load. Check your connection and try again.'),
-          h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry'))
+          h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.loadout-tabs [role="tab"][aria-selected="true"]'); load(); } }, 'Retry'))
       : list === null
       ? h('div', { className: 'spinner' })
       : list.length === 0
