@@ -7269,12 +7269,12 @@ export function App() {
         h('div', { className: 'csfloat-band-row-wrap' },
           h('button', {
             className: 'csfloat-band-arrow left',
-            onClick: (e) => { const r = e.currentTarget.parentElement.querySelector('.csfloat-band-row'); if (r) r.scrollBy({ left: -240, behavior: 'smooth' }); },
+            onClick: (e) => { const r = e.currentTarget.parentElement.querySelector('.csfloat-band-row'); if (r) r.scrollBy({ left: -240 }); },
             'aria-label': 'Scroll left'
           }, h(MaterialIcon, { name: 'chevron_left', size: 18 })),
           h('button', {
             className: 'csfloat-band-arrow right',
-            onClick: (e) => { const r = e.currentTarget.parentElement.querySelector('.csfloat-band-row'); if (r) r.scrollBy({ left: 240, behavior: 'smooth' }); },
+            onClick: (e) => { const r = e.currentTarget.parentElement.querySelector('.csfloat-band-row'); if (r) r.scrollBy({ left: 240 }); },
             'aria-label': 'Scroll right'
           }, h(MaterialIcon, { name: 'chevron_right', size: 18 })),
         h('div', { className: 'csfloat-band-row' },

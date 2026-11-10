@@ -2411,7 +2411,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       setOfferOpen(true);
                       requestAnimationFrame(() => {
                         const el = document.querySelector('.item-offer-drawer');
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // No explicit 'smooth': the CSS smooth scroll honours reduced motion.
+                        if (el) el.scrollIntoView({ block: 'center' });
                       });
                     }
                   }, h(MaterialIcon, { name: 'forum', size: 16 }), h('span', { className: 'listing-offer-btn-label' }, 'Make offer')),
@@ -2430,7 +2431,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                           // find it without wiring refs through the tree.
                           setSelectedAuctionId(l.id);
                           const el = document.querySelector('[data-auction-panel]');
-                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          if (el) el.scrollIntoView({ block: 'start' });
                         },
                         title: 'Place or update your bid in the auction panel above'
                       }, 'Bid')
@@ -2632,7 +2633,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               className: 'btn btn-accent',
               onClick: () => {
                 const el = document.querySelector('[data-auction-panel]');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (el) el.scrollIntoView({ block: 'start' });
               },
               'aria-label': 'Place a bid in the auction panel above'
             }, 'Place Bid')
@@ -8398,7 +8399,7 @@ function ProfileTradesTab({ me, privacy }) {
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const el = document.getElementById('trade-' + id);
         if (!el) return;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ block: 'center' });
         el.style.transition = 'box-shadow 0.25s ease';
         el.style.boxShadow = '0 0 0 2px var(--accent), 0 0 24px rgba(30,165,255,0.4)';
         setTimeout(() => { el.style.boxShadow = ''; }, 1800);
