@@ -201,14 +201,26 @@ export function HelpModal({ onClose }) {
   // `/help?q=API` open with the search pre-filled. Lets other parts
   // of the app link to specific FAQ entries without embedding the
   // full answer inline. First-match auto-expands below.
-  const initialQ = (() => {
+  // Read once: typing writes ?q= back (changeSearch), and a per-render read
+  // would re-run the open-time auto-expand on the first keystroke.
+  const [initialQ] = useState(() => {
     try {
       const u = new URLSearchParams(window.location.search);
       return (u.get('q') || '').slice(0, 60);
     } catch { return ''; }
-  })();
+  });
   const [openIdx, setOpenIdx] = useState(0);
   const [search, setSearch]   = useState(initialQ);
+  // Mirror the box into ?q= (read above) so a reload keeps the search.
+  const changeSearch = (v) => {
+    setSearch(v);
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if (v.trim()) qs.set('q', v.slice(0, 60)); else qs.delete('q');
+      const next = qs.toString();
+      window.history.replaceState(window.history.state, '', window.location.pathname + (next ? '?' + next : ''));
+    } catch (_) {}
+  };
   const searchRef = useRef(null);
   const q = search.trim().toLowerCase();
   // Re-render once /api/version answers; live sites drop the test-mode line.
@@ -278,7 +290,8 @@ export function HelpModal({ onClose }) {
             document.getElementById('help-faq-q-' + i)?.focus({ preventScroll: true });
             const el = document.getElementById('help-faq-panel-' + i);
             if (el && typeof el.scrollIntoView === 'function') {
-              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+              el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
             }
           });
         }
@@ -296,7 +309,7 @@ export function HelpModal({ onClose }) {
       placeholder: 'Search FAQs…',
       value: search,
       ref: searchRef,
-      onChange: e => setSearch(e.target.value)
+      onChange: e => changeSearch(e.target.value)
     }),
     filteredFaq.length === 0
       ? h('div', {
@@ -318,7 +331,7 @@ export function HelpModal({ onClose }) {
               className: 'btn btn-ghost',
               style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12 },
               // The button goes away with the no-match state; keep focus in the search box.
-              onClick: () => { setSearch(''); searchRef.current?.focus(); }
+              onClick: () => { changeSearch(''); searchRef.current?.focus(); }
             }, 'Clear search'),
             h('a', {
               className: 'btn btn-accent',
