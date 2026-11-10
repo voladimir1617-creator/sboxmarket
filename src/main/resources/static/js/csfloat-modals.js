@@ -372,7 +372,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
        failed fetch `data.total` is still its 0 initial value, so the meta
        read "0 results · page 1 / 1" sitting above the error panel, which
        looks like a contradictory healthy-but-empty result. */
-    !loadErr && loaded && h('div', { className: 'db-meta' },
+    // role=status so a filter, search or page change reads the new count out.
+    !loadErr && loaded && h('div', { className: 'db-meta', role: 'status', 'aria-atomic': 'true' },
       h('strong', null, Number(data.total).toLocaleString()), Number(data.total) === 1 ? ' result · page ' : ' results · page ',
       h('strong', null, page + 1), ' / ', totalPages
     ),
@@ -2120,7 +2121,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         setTab(TABS[n]);
         e.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[n]?.focus();
       };
-      return h('div', { className: 'loadout-tabs', role: 'tablist', 'aria-label': 'Loadout sections' },
+      // Only the tabs sit in the tablist; + Create is a plain button beside them.
+      return h('div', { className: 'loadout-tabs' },
+        h('div', { role: 'tablist', 'aria-label': 'Loadout sections', style: { display: 'contents' } },
         TABS.map(id => h('button', {
           key: id,
           className: `offer-tab ${tab === id ? 'active' : ''}`,
@@ -2134,7 +2137,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           tabIndex: tab === id ? 0 : -1,
           onClick: () => setTab(id),
           onKeyDown: onKey
-        }, labels[id])),
+        }, labels[id]))),
         h('div', { style: { flex: 1 } }),
         me && h('button', { className: 'btn btn-accent', ref: createBtnRef, onClick: () => setCreating(c => !c) }, creating ? 'Cancel' : '+ Create')
       );
