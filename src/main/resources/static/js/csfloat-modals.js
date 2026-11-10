@@ -1259,8 +1259,16 @@ let loadoutReturn = null;
 export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // A shared /loadout/:id opens straight on its view (spinner until it
   // loads) instead of flashing the Discover list first.
-  const [tab, setTab]         = useState(() => loadoutId ? 'view'
-    : (loadoutReturn && (me || loadoutReturn.tab === 'discover') ? loadoutReturn.tab : 'discover')); // discover | mine | view
+  // /loadout?view=mine|favorites&q=… (kept in step below) so a reload stays put.
+  const [urlState] = useState(() => {
+    try {
+      if (loadoutId || !/^\/loadout\/?$/.test(window.location.pathname)) return {};
+      const u = new URLSearchParams(window.location.search), v = u.get('view');
+      return { view: v === 'mine' || v === 'favorites' ? v : null, q: (u.get('q') || '').slice(0, 100) };
+    } catch (_) { return {}; }
+  });
+  const [tab, setTab]         = useState(() => loadoutId ? 'view' : urlState.view
+    || (loadoutReturn && (me || loadoutReturn.tab === 'discover') ? loadoutReturn.tab : 'discover')); // discover | mine | view
   useEffect(() => { if (tab !== 'view') loadoutListTab = tab; }, [tab]);
   const [list, setList]       = useState(null);
   // Audit fix — `load()` did `setList(null)` then awaited
@@ -1278,12 +1286,26 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // Database modal (batch 972). Prevents a 10-char query from firing
   // 10 round-trips — each one does a LIKE '%q%' against the loadouts
   // table + burns a READ-budget rate-limit token.
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch]   = useState('');
+  const [searchInput, setSearchInput] = useState(urlState.q || '');
+  const [search, setSearch]   = useState(urlState.q || '');
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+  // Signed out: My Loadouts and Favorites are not tabs (a ?view= from a reload after sign-out).
+  useEffect(() => { if (meLoaded && !me && (tab === 'mine' || tab === 'favorites')) setTab('discover'); }, [meLoaded, me, tab]);
+  useEffect(() => {
+    try {
+      if (tab === 'view' || !/^\/loadout\/?$/.test(window.location.pathname)) return;
+      const params = new URLSearchParams(window.location.search);
+      if (tab === 'discover') params.delete('view'); else params.set('view', tab);
+      // The search box is on Discover only.
+      const q = tab === 'discover' ? (search || '').trim() : '';
+      if (q) params.set('q', q); else params.delete('q');
+      const qs = params.toString();
+      window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
+    } catch (_) { /* history unavailable */ }
+  }, [tab, search]);
   const discoverSearchRef = useRef(null);
   // The empty-state "Browse" buttons go away with the tab they sit on; move
   // focus to the Discover tab they switch to instead of dropping it.

@@ -3959,13 +3959,23 @@ export function FaqModal({ onClose }) {
   // `/faq?q=fees` open the modal with the search already applied
   // (and filter down to the answer the link author intended). Matches
   // the behaviour of the Help Center modal (help-modal.js) which has
-  // always honoured the param. Query stays in place — no replaceState
-  // here because the user may navigate back from within the modal.
+  // always honoured the param.
   const initialQ = (() => {
     try { return (new URLSearchParams(window.location.search).get('q') || '').slice(0, 60); }
     catch { return ''; }
   })();
   const [q, setQ] = useState(initialQ);
+  // Mirror the box into ?q= (replaced in place, so Back is unchanged) and a
+  // reload keeps the search, as the Help Center does.
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if ((qs.get('q') || '') === q.slice(0, 60)) return;
+      if (q.trim()) qs.set('q', q.slice(0, 60)); else qs.delete('q');
+      const next = qs.toString();
+      window.history.replaceState(window.history.state, '', window.location.pathname + (next ? '?' + next : ''));
+    } catch (_) {}
+  }, [q]);
   const searchRef = useRef(null);
   const ENTRIES = [
     [`What is ${BRAND.name}?`,
