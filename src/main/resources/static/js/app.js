@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=369'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=370'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4471,30 +4471,34 @@ export function App() {
       setStallReviews(reviews);
       setEligibleTrades(Array.isArray(eligible) ? eligible : []);
       setStallSold(Array.isArray(sold) ? sold : []);
-      // Deep-link support for Profile → Reviews → Pending "Leave review →"
-      // (batch 341). If the URL carries ?leaveReview={tradeId} AND that
-      // trade is actually un-reviewed between this viewer and this seller,
-      // auto-focus the review form on it.
-      try {
-        const qs = new URLSearchParams(window.location.search);
-        const wantTradeId = qs.get('leaveReview');
-        if (wantTradeId && Array.isArray(eligible)) {
-          const match = eligible.find(t =>
-            String(t.tradeId) === wantTradeId && !t.reviewed);
-          if (match) {
-            setReviewTradeId(match.tradeId);
-            setReviewStars(5);
-            setReviewText('');
-            qs.delete('leaveReview');
-            const next = qs.toString();
-            window.history.replaceState({}, '',
-              window.location.pathname + (next ? '?' + next : ''));
-          }
-        }
-      } catch (_) {}
     })();
     return () => { alive = false; };
   }, [routeName, route.params?.id, me?.id]);
+  // Deep-link support for Profile → Reviews → Pending "Leave review →"
+  // (batch 341). If the URL carries ?leaveReview={tradeId} AND that
+  // trade is actually un-reviewed between this viewer and this seller,
+  // auto-focus the review form on it. The query string is a dependency
+  // too: a review-reminder bell click while already on this stall
+  // changes only the URL.
+  useEffect(() => {
+    if (routeName !== 'stall') return;
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const wantTradeId = qs.get('leaveReview');
+      if (!wantTradeId) return;
+      const match = eligibleTrades.find(t =>
+        String(t.tradeId) === wantTradeId && !t.reviewed);
+      if (match) {
+        setReviewTradeId(match.tradeId);
+        setReviewStars(5);
+        setReviewText('');
+        qs.delete('leaveReview');
+        const next = qs.toString();
+        window.history.replaceState({}, '',
+          window.location.pathname + (next ? '?' + next : ''));
+      }
+    } catch (_) {}
+  }, [routeName, eligibleTrades, window.location.search]);
 
   // Inline review form state (lives on the stall page).
   const [reviewTradeId, setReviewTradeId] = useState(null);

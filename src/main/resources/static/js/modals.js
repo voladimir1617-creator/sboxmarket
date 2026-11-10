@@ -4815,6 +4815,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
                 title: standing.note || 'See Account Standing below.'
               }, standing.label || 'At Risk');
             }
+            // Unknown until the profile loads (or if it failed): don't claim it.
+            if (!standing) return null;
             return h('span', {
               style: { marginLeft: 10, padding: '2px 8px', borderRadius: 4,
                 fontSize: 10, fontWeight: 800,
@@ -11138,9 +11140,14 @@ function ProfileReviewsTab({ me }) {
           onClick: () => setMode('pending'),
           title: 'Trades you settled but never reviewed',
           ...pTab('pending')
-        }, 'Pending', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, pending.length))
+        }, 'Pending', pending && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, pending.length))
       )),
-      pending.length === 0
+      // A failed check (?view=pending on reload) has no list to map.
+      pending === false
+        ? h('div', { className: 'wallet-error', role: 'alert' },
+            "Couldn't check for trades waiting on a review. ",
+            h('button', { className: 'btn btn-sm', onClick: () => { setPending(null); loadPending(); } }, 'Retry'))
+        : pending.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
