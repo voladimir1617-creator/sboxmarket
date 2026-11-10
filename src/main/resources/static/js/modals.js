@@ -1636,7 +1636,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             title: `${listings.length} listing${listings.length === 1 ? '' : 's'} from ${sellerCount(listings)} seller${sellerCount(listings) === 1 ? '' : 's'} — click to scroll to the active listings section`,
             onClick: () => {
               const section = document.querySelector('.active-listings-anchor, .listings-section');
-              if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+              if (section) section.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
             }
           },
             h('span', { className: 'modal-demand-chip-num' }, listings.length),
@@ -10255,6 +10256,15 @@ const alertCancelInFlight = new Set();
 // My Stall hide and cancel all).
 const bulkInFlight = new Set();
 
+// Profile sub-tab state in ?view=, replaced in place (no new history entry).
+function setViewParam(v) {
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    if (v) qs.set('view', v); else qs.delete('view');
+    const next = qs.toString();
+    window.history.replaceState(window.history.state, '', window.location.pathname + (next ? '?' + next : ''));
+  } catch (_) {}
+}
 function ProfileOffersTab() {
   // Two tabs (incoming / outgoing) with accept / reject / counter / cancel
   // buttons right on each row. Countering opens an inline input, so the user
@@ -10268,7 +10278,12 @@ function ProfileOffersTab() {
   // the card.
   const [err, setErr] = useState(false);
   const aliveRef = useRef(true);
-  const [tab, setTab]   = useState('incoming');
+  // ?view= keeps the direction across a reload, as /offers/outgoing does.
+  const [tab, setTabState] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('view') === 'outgoing' ? 'outgoing' : 'incoming'; }
+    catch { return 'incoming'; }
+  });
+  const setTab = (t) => { setTabState(t); setViewParam(t === 'outgoing' ? t : null); };
   const [busy, setBusy] = useState(false);
   // Synchronous re-entrancy latch (matches the trades busyRef / buyConfirmBusyRef
   // / wallet submittingRef). doAccept/doCounter/doRaise set setBusy AFTER their
@@ -10989,7 +11004,12 @@ function ProfileOffersTab() {
 function ProfileReviewsTab({ me }) {
   // mode: 'received' (default — reviews about me) | 'given' (reviews I wrote)
   //       | 'pending' (trades I haven't reviewed yet — batch 337)
-  const [mode, setMode]       = useState('received');
+  // ?view= keeps the filter across a reload (Profile tabs live in the path).
+  const [mode, setModeState]  = useState(() => {
+    try { const v = new URLSearchParams(window.location.search).get('view'); return v === 'given' || v === 'pending' ? v : 'received'; }
+    catch { return 'received'; }
+  });
+  const setMode = (m) => { setModeState(m); setViewParam(m === 'received' ? null : m); };
   const [received, setReceived] = useState(null);
   const [given, setGiven]     = useState(null);
   // Distinguish "you have no reviews" from "the fetch failed" — a 500/offline used
@@ -15731,7 +15751,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                   h('div', { className: 'admin-stat-label' }, '30d net'),
                   h('div', { className: 'admin-stat-val green' }, maskEarn(rollup30d.net))
                 ),
-                rollup30d.topItem && h('div', { className: 'admin-stat', title: `Best-selling item over the last 30d by total revenue (${maskEarn(rollup30d.topItemGross)})` },
+                rollup30d.topItem && h('div', { className: 'admin-stat', title: `${rollup30d.topItem}: best-selling item over the last 30d by total revenue (${maskEarn(rollup30d.topItemGross)})` },
                   h('div', { className: 'admin-stat-label' }, 'Top seller'),
                   h('div', {
                     className: 'admin-stat-val',
@@ -15768,7 +15788,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 soldShown.map(l => h('div', { key: l.id, className: 'recent-sales-row' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 } },
                     h('div', { className: 'item-thumb', style: { width: 28, height: 28, flexShrink: 0 } }, h(ItemImage, { item: l.item, variant: 'mini' })),
-                    h('span', { style: { fontSize: 12.5, color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, l.item?.name || 'Item')
+                    h('span', { title: l.item?.name || 'Item', style: { fontSize: 12.5, color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, l.item?.name || 'Item')
                   ),
                   h('span', { className: 'recent-sales-price' }, fmt(l.price)),
                   h('span', { className: 'recent-sales-time' }, timeAgo(l.soldAt || l.updatedAt || l.listedAt))
@@ -15936,7 +15956,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               : filtered.map(l => h('div', { key: l.id, 'data-listing-id': l.id, className: `stall-row ${l.hidden ? 'hidden-listing' : ''}` },
             h('div', { className: 'item-thumb', style: { width: 48, height: 48 } }, h(ItemImage, { item: l.item, variant: 'mini' })),
             h('div', { style: { flex: 1, minWidth: 0 } },
-              h('div', { className: 'item-name' }, l.item.name,
+              // title: a phone cuts the name (and its chips) with an ellipsis.
+              h('div', { className: 'item-name', title: l.item.name + (l.hidden ? ' · HIDDEN' : '') }, l.item.name,
                 l.hidden && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 } }, '· HIDDEN'),
                 // Batch 722 — "⚠ reported" chip for sellers. Fires when
                 // a listing has at least one pending report from a

@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=367'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=368'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2990,8 +2990,10 @@ function BackToTopButton() {
     title: 'Back to top',
     onClick: () => {
       const layout = document.querySelector('.layout');
-      if (layout && layout.scrollTop > 0) layout.scrollTo({ top: 0, behavior: 'smooth' });
-      else window.scrollTo({ top: 0, behavior: 'smooth' });
+      // An explicit 'smooth' overrides the CSS reduced-motion rule.
+      const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+      if (layout && layout.scrollTop > 0) layout.scrollTo({ top: 0, behavior });
+      else window.scrollTo({ top: 0, behavior });
     },
     style: {
       position: 'fixed', right: 24, bottom: 24,
