@@ -15669,7 +15669,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
                   row.floorDelta == null ? '—' : (parseFloat(row.floorDelta) >= 0 ? '+' : '') + fmt(row.floorDelta)),
                 h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-secondary)' } }, Number(row.viewCount || 0).toLocaleString()),
-                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? row.itemSales30d : '—')
+                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? Number(row.itemSales30d).toLocaleString() : '—')
               )))
             )
     ),

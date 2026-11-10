@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=368'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=369'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2447,7 +2447,7 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
     status.following ? 'Following' : 'Follow',
     status.followerCount > 0 && h('span', {
       style: { marginLeft: 6, fontSize: 10, opacity: 0.7 }
-    }, `· ${status.followerCount}`)
+    }, `· ${Number(status.followerCount).toLocaleString()}`)
   );
 }
 
@@ -3646,7 +3646,7 @@ export function App() {
     // title and browser history is unreadable when you have 5 tabs open.
     const TAB_LABELS = {
       profile: {
-        personal: 'Personal Info', transactions: 'Transactions',
+        personal: 'Personal Info', listings: 'Listings', transactions: 'Transactions',
         buyorders: 'Buy Orders', autobids: 'Active Bids',
         trades: 'Trades', offers: 'Offers',
         reviews: 'Reviews', support: 'Support',
@@ -9146,7 +9146,7 @@ export function App() {
                       h('div', { className: 'stall-stat-label' }, 'Completion'),
                       h('div', { className: 'stall-stat-val' },
                         stallData.seller.completionRate + '%',
-                        h('span', { className: 'stall-stat-unit' }, ` ${done} of ${decided}`)));
+                        h('span', { className: 'stall-stat-unit' }, ` ${done.toLocaleString()} of ${decided.toLocaleString()}`)));
                   })(),
                   // Delivery time: sale to the buyer having the item, median of
                   // the last 90 days, from 3 confirmed trades; "–" until then.
