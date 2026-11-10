@@ -6507,6 +6507,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               spellCheck: false,
               maxLength: 32,
               'aria-label': '6-digit authenticator code or backup code',
+              'aria-invalid': disableErr ? 'true' : undefined,
+              'aria-describedby': disableErr ? 'profile-2fa-disable-error' : undefined,
               autoFocus: true,
               placeholder: '000000 or backup code',
               value: disableCode,
@@ -6522,7 +6524,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 else if (e.key === 'Escape' && !disableBusy) { e.preventDefault(); setDisableDrawerOpen(false); setDisableCode(''); setDisableErr(''); }
               }
             }),
-            disableErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, disableErr),
+            disableErr && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-2fa-disable-error', style: { marginTop: 6 } }, disableErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
               h('button', {
                 className: 'btn btn-ghost',
@@ -6563,6 +6565,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               spellCheck: false,
               maxLength: 6,
               'aria-label': '6-digit authenticator code',
+              'aria-invalid': regenErr ? 'true' : undefined,
+              'aria-describedby': regenErr ? 'profile-2fa-regen-error' : undefined,
               placeholder: '000000',
               autoFocus: true,
               value: regenCode,
@@ -6576,7 +6580,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 else if (e.key === 'Escape' && !regenBusy) { e.preventDefault(); setRegenDrawerOpen(false); setRegenCode(''); setRegenErr(''); }
               }
             }),
-            regenErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, regenErr),
+            regenErr && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-2fa-regen-error', style: { marginTop: 6 } }, regenErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
               h('button', {
                 className: 'btn btn-ghost',
@@ -6695,6 +6699,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             maxLength: 6,
             placeholder: '000000',
             'aria-label': '6-digit code from your authenticator app',
+            'aria-invalid': twofaErr ? 'true' : undefined,
+            'aria-describedby': twofaErr ? 'profile-2fa-error' : undefined,
             // Enable 2FA unmounts on open; start the keyboard here.
             autoFocus: true,
             value: twofaCode,
@@ -6713,7 +6719,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               }
             }
           }),
-          twofaErr && h('div', { className: 'wallet-error', role: 'alert' }, twofaErr),
+          twofaErr && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-2fa-error' }, twofaErr),
           h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
             h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: async () => {
               // Tell the server to drop the staged secret — else email verify/resend
