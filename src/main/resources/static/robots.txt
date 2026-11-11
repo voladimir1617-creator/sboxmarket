@@ -28,6 +28,14 @@ Allow: /legal/responsible-disclosure.html
 # Coordinated disclosure manifest — crawlers (and researchers) should find this.
 Allow: /.well-known/security.txt
 
+# The two read-only public APIs the /item/{id} page renders from, so a
+# rendering crawler can fetch the price + listings it shows. Longest match
+# wins, so these beat the /api/ Disallow below. Crawler fetches of
+# /api/items/{id} do not bump the item view count (ItemController.isCrawler);
+# /api/listings/item/{id} counts nothing.
+Allow: /api/listings/item/
+Allow: /api/items/
+
 # Hide private / authenticated surfaces.
 Disallow: /api/
 Disallow: /admin

@@ -213,9 +213,12 @@ class ItemController {
      *  penalising legitimate proxy-stripped traffic). */
     /** Search-engine and link-preview bots that load item pages. Their loads
      *  are not buyer interest, and the view count feeds the item's view chip
-     *  and the sitemap priority. */
+     *  and the sitemap priority. robots.txt lets crawlers fetch /api/items/,
+     *  so Google's fetchers whose UA has no "bot" word (GoogleOther,
+     *  Google-InspectionTool) are named here too. */
     private static final java.util.regex.Pattern CRAWLER_UA = java.util.regex.Pattern.compile(
         '(?i)bot\\b|crawler|spider|slurp|bingpreview|facebookexternalhit|embedly|' +
+        'googleother|google-inspectiontool|' +
         'curl/|wget/|python-requests|httpclient|go-http-client')
 
     static boolean isCrawler(HttpServletRequest req) {

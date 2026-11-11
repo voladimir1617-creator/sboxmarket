@@ -290,6 +290,7 @@ class OpenGraphController {
         }
         out = out.replace('</head>',
             "${ogProductTags}  <script type=\"application/ld+json\">${jsonLd}</script>\n</head>")
+        out = injectItemSummary(out, itemSummaryHtml(name, item.lowestPrice, offerCount, url))
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
@@ -297,6 +298,61 @@ class OpenGraphController {
             // see CorrelationIdFilter.HTML_CACHE_CONTROL.
             .header('Cache-Control', CorrelationIdFilter.HTML_CACHE_CONTROL)
             .body(out)
+    }
+
+    /**
+     * Server-built, crawler-readable item summary (name, lowest price, active
+     * listing count) for the /item/{id} shell. Wrapped in a {@code <noscript>}
+     * that sits OUTSIDE {@code #root}, next to the shell's existing
+     * "JavaScript required" noscript: a browser running the React app never
+     * renders noscript content, so the page looks exactly the same for people,
+     * while an HTML-only crawler (or a no-JS visitor) reads real text instead
+     * of an empty boot skeleton. {@code escapedName} is already HTML-escaped by
+     * the caller; the price and count are numbers and the URL goes through
+     * {@link #escape}. The listing-count line is left out when the count query
+     * could not answer, rather than printing a made-up zero.
+     */
+    static String itemSummaryHtml(String escapedName, BigDecimal lowestPrice, Long activeListings, String url) {
+        boolean inStock = lowestPrice != null && lowestPrice > BigDecimal.ZERO
+        def sb = new StringBuilder()
+        sb.append('<noscript data-item-summary>\n')
+        sb.append('    <section style="max-width:560px;margin:24px auto 0;padding:20px 32px;font-family:system-ui,-apple-system,\'Segoe UI\',sans-serif;color:#e2e7f5;">\n')
+        sb.append('      <h1 style="margin:0 0 8px;font-size:20px;">').append(escapedName).append('</h1>\n')
+        if (inStock) {
+            sb.append('      <p style="margin:0 0 4px;">Lowest price: $')
+              .append(lowestPrice.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString()).append(' USD</p>\n')
+        } else {
+            sb.append('      <p style="margin:0 0 4px;">Lowest price: out of stock</p>\n')
+        }
+        if (activeListings != null) {
+            sb.append('      <p style="margin:0 0 4px;">Active listings: ').append(activeListings.longValue()).append('</p>\n')
+        }
+        sb.append('      <p style="margin:0;"><a href="').append(escape(url)).append('" style="color:#1ea5ff;">')
+          .append(escapedName).append(' on SkinBox</a></p>\n')
+        sb.append('    </section>\n')
+        sb.append('  </noscript>\n  ')
+        sb.toString()
+    }
+
+    /** Place the summary right after {@code #root}: in front of the first
+     *  {@code <noscript>} that follows the root div (the shell's "JavaScript
+     *  required" block), else just before {@code </body>}. Never into
+     *  {@code <head>}, where a noscript may only hold link/style/meta. The
+     *  template is returned unchanged when neither anchor exists. */
+    static String injectItemSummary(String html, String summary) {
+        if (html == null || !summary) return html
+        int root = html.indexOf('<div id="root"')
+        if (root >= 0) {
+            int ns = html.indexOf('<noscript>', root)
+            if (ns >= 0) {
+                return html.substring(0, ns) + summary + html.substring(ns)
+            }
+        }
+        int body = html.lastIndexOf('</body>')
+        if (body >= 0) {
+            return html.substring(0, body) + summary + html.substring(body)
+        }
+        html
     }
 
     /**
