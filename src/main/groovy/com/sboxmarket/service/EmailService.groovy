@@ -800,6 +800,14 @@ If anything looks off (wrong price, wrong item) open a dispute from the trade ro
      *  email like every other auction email. */
     void sendAuctionExpired(String toEmail, String displayName, String itemName,
                             String reason, Long listingId) {
+        sendAuctionExpired(toEmail, displayName, itemName, reason, listingId, false)
+    }
+
+    /** {@code relistFromSteam}: see {@link #sendTradeCancelled}. True when the
+     *  bot is on and the item came from the seller's Steam inventory, so it
+     *  goes back there and is listed again from the Steam tab. */
+    void sendAuctionExpired(String toEmail, String displayName, String itemName,
+                            String reason, Long listingId, boolean relistFromSteam) {
         if (!toEmail) return
         def subject = "Auction ended without a sale · ${itemName ?: 'your auction'}"
         def body = """\
@@ -809,8 +817,9 @@ Your auction for ${itemName ?: 'the item'} has ended.
 
 ${reason ?: 'No valid winning bid was recorded.'}
 
-The item has been returned to your Platform Inventory and is ready to
-relist at a different price or as a Buy Now listing:
+${relistFromSteam
+    ? 'The item goes back to your Steam inventory. To sell it again, list it\nfrom the Steam tab on the Sell page:'
+    : 'The item has been returned to your Platform Inventory and is ready to\nrelist at a different price or as a Buy Now listing:'}
 ${publicUrl}/sell
 
 You're getting this because you posted an auction listing. Mute the
@@ -933,6 +942,22 @@ You're getting this because buy-order results are part of your trade pipeline. M
      *  bucket unmuted like every other trade email. */
     void sendTradeCancelled(String toEmail, String displayName, String itemName,
                             String reason, String role, Long tradeId) {
+        sendTradeCancelled(toEmail, displayName, itemName, reason, role, tradeId, null, false)
+    }
+
+    /** As above, with two facts the caller knows:
+     *  {@code protectionFeeKept} is the Trade Protection fee the buyer paid
+     *  on this trade, or null when they bought none. A cancel refunds only
+     *  the item price (TradeService.refundBuyer credits {@code t.price}; the
+     *  protection fee is expired, not returned), so "the full amount" was
+     *  wrong for a protected buyer.
+     *  {@code relistFromSteam} is true when, with the Steam bot on, the item
+     *  came from the seller's Steam inventory: a Platform Inventory relist is
+     *  refused for it (SellService.relistNeedsSteamDeposit), so the seller is
+     *  sent to the Steam tab instead. */
+    void sendTradeCancelled(String toEmail, String displayName, String itemName,
+                            String reason, String role, Long tradeId,
+                            BigDecimal protectionFeeKept, boolean relistFromSteam) {
         if (!toEmail) return
         def isBuyer = (role ?: '').toLowerCase() == 'buyer'
         def subject = "Trade cancelled · ${itemName ?: 'trade #' + tradeId}"
@@ -944,8 +969,12 @@ Your trade for ${itemName ?: 'the item'} was cancelled.
 
 ${cleanReason ? 'Reason: ' + cleanReason + '\n\n' : ''}\
 ${isBuyer
-    ? 'Your wallet has been refunded the full amount — check your Wallet to confirm. No further action needed on your end.'
-    : 'The item is back in your stall inventory. Relist it from Sell → Platform Inventory if you still want to sell.'}
+    ? (protectionFeeKept != null && protectionFeeKept > 0
+        ? "Your wallet has been refunded the item price — check your Wallet to confirm. The Trade Protection fee of ${usd(protectionFeeKept)} is not refunded. No further action needed on your end."
+        : 'Your wallet has been refunded the full amount — check your Wallet to confirm. No further action needed on your end.')
+    : (relistFromSteam
+        ? 'The item goes back to your Steam inventory. To sell it again, list it from the Steam tab on the Sell page.'
+        : 'The item is back in your stall inventory. Relist it from Sell → Platform Inventory if you still want to sell.')}
 
 Any questions? Reply to this email (it threads into support) or open a ticket in-app: ${publicUrl}/support
 
@@ -1014,11 +1043,15 @@ Profile → Trades${itemUrl ? ' or open the item: ' + absUrl(itemUrl) : '.'}
      *  states only that the sale is complete. */
     void sendSaleCompleted(String toEmail, String displayName, String itemName,
                            BigDecimal netCredit, String walletUrl, Long autoReleaseDays = null,
-                           boolean buyerConfirmed = true) {
+                           boolean buyerConfirmed = true, boolean botVerified = false) {
         if (!toEmail) return
         def subject = "Sale completed · ${itemName ?: 'your listing'}"
         def item = itemName ?: 'your item'
-        def opening = autoReleaseDays
+        // botVerified: the buyer accepted our Steam bot's trade offer and the
+        // bot verified the delivery; the buyer pressed no Confirm button.
+        def opening = botVerified
+            ? "Our Steam bot verified that the buyer received ${item}, so funds have"
+            : autoReleaseDays
             ? "The buyer's ${autoReleaseDays}-day window to confirm or dispute ${item} ended, so funds have"
             : buyerConfirmed
             ? "The buyer confirmed receipt of ${item} and funds have"

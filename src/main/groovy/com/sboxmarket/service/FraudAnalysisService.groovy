@@ -32,7 +32,8 @@ import org.springframework.transaction.annotation.Transactional
  *      a 10-minute window. Either a reseller script or a compromised
  *      account draining balance fast.
  *
- *   5. **CHARGEBACK_IN_WINDOW** — a Stripe chargeback opened in 24h.
+ *   5. **CHARGEBACK_IN_WINDOW** — a Stripe chargeback opened, or a Stripe
+ *      Early Fraud Warning received, in 24h.
  *
  *   6. **DEPOSIT_DECLINED_ITEM_GONE** (HIGH) — a declined deposit whose
  *      asset then left the seller's inventory without reaching the bot.
@@ -414,8 +415,13 @@ class FraudAnalysisService {
     // a wallet that's also hitting the velocity or multi-IP signals
     // is a correlated pattern the admin needs to see at once.
     private List<Map> detectChargebacks(List<AuditLog> rows) {
-        def chargebacks = rows.findAll { it.eventType == AuditService.CHARGEBACK_OPENED }
+        // Early Fraud Warnings count too: they usually come days before
+        // the dispute, while a refund can still prevent it.
+        def chargebacks = rows.findAll {
+            it.eventType == AuditService.CHARGEBACK_OPENED || it.eventType == AuditService.EARLY_FRAUD_WARNING
+        }
         chargebacks.collect { cb ->
+            boolean efw = cb.eventType == AuditService.EARLY_FRAUD_WARNING
             [
                 type:      'CHARGEBACK_IN_WINDOW',
                 severity:  'HIGH',
@@ -423,7 +429,9 @@ class FraudAnalysisService {
                 userName:  cb.subjectName,
                 ip:        cb.ipAddress,
                 count:     1L,
-                summary:   "Stripe chargeback opened: ${cb.summary ?: 'see audit log'}",
+                summary:   efw
+                    ? "Stripe early fraud warning: ${cb.summary ?: 'see audit log'}"
+                    : "Stripe chargeback opened: ${cb.summary ?: 'see audit log'}",
                 createdAt: cb.createdAt,
                 // Per-chargeback dedup discriminator. The Stripe webhook
                 // writes CHARGEBACK_OPENED audit rows with a null

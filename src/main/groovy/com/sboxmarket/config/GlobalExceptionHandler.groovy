@@ -355,6 +355,9 @@ class GlobalExceptionHandler {
             // is left today; over 140 chars they collapsed to the generic line.
             case 'DEPOSIT_DAILY_CAP':
             case 'WITHDRAW_DAILY_CAP':
+            // Fresh-card hold: names the date the card money becomes
+            // withdrawable, which is the whole point of the message.
+            case 'WITHDRAW_CARD_HOLD':
             // Trade-URL refusals (ProfileController.setTradeUrl). Each tells the
             // buyer exactly what to paste instead, and each is over 140 chars,
             // so a buyer who pasted a friend's trade URL, or the wrong link,
@@ -363,6 +366,22 @@ class GlobalExceptionHandler {
             case 'INVALID_TRADE_URL':
             case 'TRADE_URL_TAKEN':
             case 'TRADE_URL_NOT_YOURS':
+            // Bot-delivery refusals on cancel / force-release
+            // (BotDeliveryOfferGuard, TradeService.cancel, AdminService
+            // .forceReleaseTrade). Each says whether the buyer has the item and
+            // that nothing was refunded; cut to the generic line, a buyer or
+            // staff member could not tell "already delivered" from "try again".
+            case 'OFFER_ALREADY_ACCEPTED':
+            case 'OFFER_CANCEL_FAILED':
+            case 'OFFER_IN_FLIGHT':
+            case 'BOT_OFFER_NOT_ACCEPTED':
+            case 'BUYER_CANT_CANCEL_AFTER_SENT':
+            // Seller payout refusals (StripeService / WalletController). They
+            // say the balance was not charged and when to try again; the
+            // generic line sent sellers into a retry loop.
+            case 'PAYOUT_FUNDS_PENDING':
+            case 'WITHDRAW_DISPUTE_HOLD':
+            case 'WITHDRAW_CLAIM_HOLD':
                 return ex.message
             default:
                 // For explicit validation-style errors the message is usually

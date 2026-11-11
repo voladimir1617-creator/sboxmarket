@@ -144,7 +144,7 @@ class DeliveryReleasesOnReceiptSpec extends Specification {
         1 * escrowService.markDelivered(10L)
 
         and: "and only now is the seller credited"
-        1 * deliveryTradeService.buyerConfirm(2L, 7L)
+        1 * deliveryTradeService.confirmDeliveryByBot(2L, 7L)
     }
 
     @Unroll
@@ -164,7 +164,7 @@ class DeliveryReleasesOnReceiptSpec extends Specification {
 
         and:
         0 * escrowService.markDelivered(_)
-        0 * deliveryTradeService.buyerConfirm(_, _)
+        0 * deliveryTradeService.confirmDeliveryByBot(_, _)
 
         where:
         status << ['active', 'needs_confirmation', 'declined', 'expired', 'canceled']

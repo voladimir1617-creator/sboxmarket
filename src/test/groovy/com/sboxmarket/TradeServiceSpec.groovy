@@ -786,6 +786,72 @@ class TradeServiceSpec extends Specification {
         1 * emailService.sendTradeCancelled('bob@example.com',   'Bob',   'Wizard Hat', 'changed my mind', 'seller', 1L)
     }
 
+    def "buyer cancel email names the kept Trade Protection fee when the buyer bought protection"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        textSanitizer.medium(_) >> 'changed my mind'
+        steamUserRepository.findById(10L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 10L, displayName: 'Alice', email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true))
+        steamUserRepository.findById(20L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob', email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: true))
+        def tps = Mock(com.sboxmarket.service.TradeProtectionService)
+        tps.lockAndExpireIfActiveOrReportClaimed(1L) >> false
+        tps.findForTrade(1L) >> new com.sboxmarket.model.TradeProtection(
+            tradeId: 1L, status: 'EXPIRED', feeAmount: new BigDecimal('0.50'))
+        service.tradeProtectionService = tps
+        def before = buyerWallet.balance
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: 'the refund is the item price only, so the email names the kept fee'
+        buyerWallet.balance - before == t.price
+        1 * emailService.sendTradeCancelled('alice@example.com', 'Alice', 'Wizard Hat', 'changed my mind', 'buyer', 1L,
+            new BigDecimal('0.50'), false)
+        1 * emailService.sendTradeCancelled('bob@example.com', 'Bob', 'Wizard Hat', 'changed my mind', 'seller', 1L)
+    }
+
+    def "with the bot on, the seller cancel email for a Steam-sourced item points at the Steam tab"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD'))
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L))
+        listingRepository.save(_) >> { Listing l -> l }
+        textSanitizer.medium(_) >> 'changed my mind'
+        steamUserRepository.findById(10L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 10L, displayName: 'Alice', email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true))
+        steamUserRepository.findById(20L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob', email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: true))
+        def sell = Mock(com.sboxmarket.service.SellService)
+        sell.relistNeedsSteamDeposit(20L, 100L) >> true
+        service.sellService = sell
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then:
+        1 * emailService.sendTradeCancelled('alice@example.com', 'Alice', 'Wizard Hat', 'changed my mind', 'buyer', 1L)
+        1 * emailService.sendTradeCancelled('bob@example.com', 'Bob', 'Wizard Hat', 'changed my mind', 'seller', 1L,
+            null, true)
+    }
+
     def "cancel by a non-participant requires admin authorization"() {
         given:
         tradeRepository.findById(_) >> Optional.of(tradeIn('PENDING_SELLER_ACCEPT'))

@@ -109,6 +109,8 @@ class BidService {
     // and required=false so Spock specs that build BidService via property map
     // don't need to stub it.
     @Autowired(required = false) SteamEscrowService steamEscrowService
+    /** Lazy, optional: only asked which relist path an unsold item takes. */
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SellService sellService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SteamBotReconcileService steamBotReconcileService
     /**
      * Spring event publisher — drives AuctionEventBus SSE fan-out after
@@ -1744,8 +1746,19 @@ class BidService {
             if (emailService == null || steamUserRepository == null) return
             def seller = steamUserRepository.findById(listing.sellerUserId).orElse(null)
             if (!emailService.canSendTo(seller, 'AUCTIONS')) return
-            emailService.sendAuctionExpired(seller.email, seller.displayName,
-                listing.item?.name, reason, listing.id)
+            // With the bot on, an item from the seller's Steam goes back there
+            // and cannot be relisted from Platform Inventory.
+            boolean fromSteam = false
+            try {
+                fromSteam = sellService?.relistNeedsSteamDeposit(listing.sellerUserId, listing.id) ?: false
+            } catch (Exception ignore) { }
+            if (fromSteam) {
+                emailService.sendAuctionExpired(seller.email, seller.displayName,
+                    listing.item?.name, reason, listing.id, true)
+            } else {
+                emailService.sendAuctionExpired(seller.email, seller.displayName,
+                    listing.item?.name, reason, listing.id)
+            }
         } catch (Exception e) {
             log.warn("AUCTION_EXPIRED email failed for seller ${listing?.sellerUserId}: ${e.message}")
         }
