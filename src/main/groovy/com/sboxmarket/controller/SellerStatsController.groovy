@@ -3,6 +3,7 @@ package com.sboxmarket.controller
 import com.sboxmarket.repository.ReviewRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TradeRepository
+import com.sboxmarket.service.SellerVerifiedRule
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.PageRequest
@@ -142,7 +143,8 @@ class SellerStatsController {
      * GET /api/sellers/verified?ids=1,2,3 — bulk "is this seller verified"
      * lookup for the marketplace grid. Drives the ✓ badge on GridCard
      * next to the seller name. Verified rule mirrors the stall hero:
-     *   `soldCount >= 10  AND  (no reviews OR avg rating >= 4.0)`.
+     *   10+ delivered (VERIFIED) trades AND (no reviews OR avg rating >= 4.0)
+     *   — see SellerVerifiedRule.
      *
      * Response: `{1: true, 5: true}` — only verified ids are emitted so
      * a sparsely-verified grid stays tight on the wire. Missing ids =
@@ -175,9 +177,9 @@ class SellerStatsController {
         if (uid == null) {
             throw new com.sboxmarket.exception.UnauthorizedException()
         }
-        long soldCount = listingRepository != null
-            ? (listingRepository.countSoldBySeller(uid) ?: 0L)
-            : 0L
+        // Progress counts what the badge counts: delivered (VERIFIED) trades
+        // as the seller, not listings marked SOLD. Field name kept for the UI.
+        long soldCount = SellerVerifiedRule.deliveredTrades(tradeRepository, uid)
         long ratingCount = 0L
         BigDecimal ratingAvg = null
         Double ratingRaw = null
@@ -199,18 +201,17 @@ class SellerStatsController {
         // Judge the unrounded average, like /verified and the badge do: a
         // 3.996 average rounds to 4.00 and used to show "verified" here
         // while the seller's listings carried no badge.
-        boolean ratingOk = ratingCount == 0L || (ratingRaw != null && ratingRaw >= 4.0d)
-        boolean salesOk = soldCount >= 10L
-        boolean verified = salesOk && ratingOk
+        boolean ratingOk = SellerVerifiedRule.ratingOk(ratingCount, ratingRaw)
+        boolean verified = SellerVerifiedRule.isVerified(soldCount, ratingCount, ratingRaw)
         ResponseEntity.ok([
             verified:        verified,
             soldCount:       soldCount,
-            salesNeeded:     Math.max(0L, 10L - soldCount),
+            salesNeeded:     SellerVerifiedRule.tradesNeeded(soldCount),
             ratingAverage:   ratingAvg,
             ratingCount:     ratingCount,
             ratingOk:        ratingOk,
-            thresholdSales:  10L,
-            thresholdRating: 4.0d
+            thresholdSales:  SellerVerifiedRule.MIN_DELIVERED_TRADES,
+            thresholdRating: SellerVerifiedRule.MIN_RATING
         ])
     }
 
@@ -233,7 +234,8 @@ class SellerStatsController {
      * Batch 668: attached the `verified` flag so the UI can render the
      * ✓ badge directly in the search dropdown without a second round-trip
      * to `/api/sellers/verified`. Same thresholds used everywhere else:
-     * `soldCount >= 10` AND (no reviews yet OR avgRating >= 4.0).
+     * 10+ delivered trades AND (no reviews yet OR avgRating >= 4.0) — see
+     * SellerVerifiedRule.
      */
     @GetMapping('/search')
     ResponseEntity<List<Map>> search(@RequestParam(required = false) String q,
@@ -268,6 +270,14 @@ class SellerStatsController {
         Map<Long, Long> soldBy = [:]
         Map<Long, Long> activeBy = [:]
         Map<Long, Map> ratingBy = [:]
+        // The ✓ flag counts delivered trades (SellerVerifiedRule); soldCount
+        // stays the listing-based "N sold" figure the dropdown shows.
+        Map<Long, Long> deliveredBy = [:]
+        try {
+            deliveredBy = SellerVerifiedRule.deliveredTradesBySeller(tradeRepository, ids)
+        } catch (Exception e) {
+            log.debug("search delivered-trade lookup failed: ${e.message}")
+        }
         if (listingRepository != null) {
             listingRepository.countSoldByMultipleSellers(ids).each { r ->
                 soldBy[(r[0] as Long)] = (r[1] ?: 0L) as Long
@@ -294,7 +304,7 @@ class SellerStatsController {
             def rating = ratingBy[id]
             long rCount = (rating?.count ?: 0L) as long
             double rAvg = (rating?.avg ?: 0.0d) as double
-            boolean verified = sold >= 10L && (rCount == 0L || rAvg >= 4.0d)
+            boolean verified = SellerVerifiedRule.isVerified(deliveredBy[id] ?: 0L, rCount, rating?.avg as Double)
             [
                 sellerUserId:    id,
                 displayName:     r[1],
@@ -415,7 +425,7 @@ class SellerStatsController {
 
     @GetMapping('/verified')
     ResponseEntity<Map<Long, Boolean>> verifiedBulk(@RequestParam(required = false) String ids) {
-        if (listingRepository == null || ids == null || ids.isBlank()) {
+        if (tradeRepository == null || ids == null || ids.isBlank()) {
             return ResponseEntity.ok([:] as Map<Long, Boolean>)
         }
         List<Long> parsed = []
@@ -431,11 +441,8 @@ class SellerStatsController {
         if (parsed.isEmpty()) return ResponseEntity.ok([:] as Map<Long, Boolean>)
         if (parsed.size() > 200) parsed = parsed.take(200)
 
-        // Bulk sold-count for all ids in one GROUP BY.
-        Map<Long, Long> soldBy = [:]
-        listingRepository.countSoldByMultipleSellers(parsed).each { row ->
-            soldBy[(row[0] as Long)] = (row[1] ?: 0L) as Long
-        }
+        // Bulk delivered-trade count for all ids in one GROUP BY.
+        Map<Long, Long> soldBy = SellerVerifiedRule.deliveredTradesBySeller(tradeRepository, parsed)
         // Bulk rating aggregate.
         Map<Long, Map> ratingBy = [:]
         if (reviewRepository != null) {
@@ -452,12 +459,9 @@ class SellerStatsController {
         }
         Map<Long, Boolean> out = [:]
         parsed.each { uid ->
-            long sold = soldBy[uid] ?: 0L
-            if (sold < 10L) return   // not enough track record
             def rating = ratingBy[uid]
             long count = (rating?.count ?: 0L) as long
-            double avg = (rating?.avg ?: 0.0d) as double
-            if (count == 0L || avg >= 4.0d) out[uid] = true
+            if (SellerVerifiedRule.isVerified(soldBy[uid] ?: 0L, count, rating?.avg as Double)) out[uid] = true
         }
         // Batch 756 — 2-minute public browser cache. Verified status
         // changes slowly (only when a seller crosses the sold-count

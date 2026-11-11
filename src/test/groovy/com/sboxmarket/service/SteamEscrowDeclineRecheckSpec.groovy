@@ -58,7 +58,7 @@ class SteamEscrowDeclineRecheckSpec extends Specification {
 
     // ── recording the decline ────────────────────────────────────────────
 
-    def "a declined deposit is stamped with its decline time; the seller notice adds the API-key step"() {
+    def "a declined deposit is stamped with its decline time; the seller notice adds the API-key advice"() {
         given:
         def e = new EscrowedItem(id: 5L, listingId: 10L, sellerUserId: 1L, assetId: '555',
                 depositOfferId: '444', custodyState: EscrowedItem.PENDING_DEPOSIT)
@@ -72,8 +72,8 @@ class SteamEscrowDeclineRecheckSpec extends Specification {
         1 * bot.getOfferStatus('444') >> SteamBotResult.success([ok: true, status: 'declined'])
         1 * notificationService.safePush(1L, 'TRADE_SENT', 'Steam escrow',
                 "Your deposit trade offer was declined, so your listing didn't go live. Re-list to try again. " +
-                "If you didn't decline it, revoke any Steam Web API key you didn't create " +
-                "(steamcommunity.com/dev/apikey) and change your Steam password.", 10L, '/me/stall')
+                "If you didn't decline an offer yourself, revoke any Steam Web API key you didn't create at " +
+                "steamcommunity.com/dev/apikey and change your Steam password.", 10L, '/me/stall')
         e.custodyState == EscrowedItem.FAILED
         e.depositDeclinedAt != null && e.depositDeclinedAt >= before
         e.declineCheck == null

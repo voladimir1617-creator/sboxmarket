@@ -2,6 +2,7 @@ package com.sboxmarket.service
 
 import com.sboxmarket.model.BuyOrder
 import com.sboxmarket.model.Listing
+import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.NotificationRepository
 import com.sboxmarket.repository.SteamUserRepository
@@ -9,6 +10,8 @@ import com.sboxmarket.repository.WalletRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * Bell pings that tell a SELLER the market moved on an item they list:
@@ -20,9 +23,14 @@ import org.springframework.stereotype.Service
  *    live, so the sellers now priced above it hear their ask is stale.
  *
  * Only the buyer heard about a buy order before, and only auctions had an
- * outbid notice. Bell only (no email), one ping per seller per item per
- * day, banned sellers skipped, capped like the follower fanout. Never names
- * the buyer or the other seller. Best-effort: never throws to its caller.
+ * outbid notice. One ping per seller per item per day, banned sellers
+ * skipped, capped like the follower fanout. Never names the buyer or the
+ * other seller. Best-effort: never throws to its caller.
+ *
+ * Each bell that is actually pushed also sends a short email, under the
+ * same 24h dedupe, when EmailService.canSendTo(seller, EMAIL_BUCKET)
+ * passes. The email goes out after the caller's transaction commits (the
+ * bell row is saved then too), so a rolled-back listing never emails.
  */
 @Slf4j
 @Service
@@ -36,12 +44,25 @@ class SellerMarketPingService {
     /** Same cap as SellerFollowService's follower fanout. */
     static final int FANOUT_MAX = 500
 
+    /**
+     * Email opt-out bucket for these market alerts. MATCHES, not TRADES:
+     * TRADES carries "you sold an item, send it" and payout emails, so a
+     * seller muting market noise through the one-click unsubscribe would
+     * also lose the emails that get their sales delivered. MATCHES is the
+     * low-priority "market signal" bucket (the bell's filter already files
+     * price drops and new-listing pings there), and muting it costs no
+     * operational mail. Not WATCHLIST: that one is the buyer's own price
+     * targets on items they watch.
+     */
+    static final String EMAIL_BUCKET = 'MATCHES'
+
     @Autowired ListingRepository listingRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) NotificationRepository notificationRepository
     @Autowired(required = false) SteamUserRepository steamUserRepository
     @Autowired(required = false) UserBlockService userBlockService
     @Autowired(required = false) WalletRepository walletRepository
+    @Autowired(required = false) EmailService emailService
 
     /** Call after a buy order is saved and its first fill attempt ran. */
     int notifyBuyOrderPlaced(BuyOrder order) {
@@ -58,10 +79,14 @@ class SellerMarketPingService {
             def itemName = order.itemName ?: above.first().item?.name ?: 'an item you list'
             def title = "A buyer wants ${itemName} at \$${order.maxPrice.toPlainString()}".toString()
             def body = 'You list it higher. Lower your price or sell to the buy order to make the sale.'
-            return fanout(above, KIND_BUY_ORDER, order.itemId, title, body) { Long sellerId ->
+            BigDecimal bid = order.maxPrice
+            String path = "/item/${order.itemId}".toString()
+            return fanout(above, KIND_BUY_ORDER, order.itemId, title, body, { Long sellerId ->
                 // A seller who blocked this buyer shouldn't be nudged toward them.
                 blocked(sellerId, order.buyerUserId)
-            }
+            }, { EmailService es, String to, String name ->
+                es.sendBuyOrderOnYourItem(to, name, itemName as String, bid, path)
+            })
         } catch (Exception e) {
             log.warn("Buy-order seller ping failed for order ${order?.id}: ${e.message}")
             return 0
@@ -83,7 +108,12 @@ class SellerMarketPingService {
             def itemName = listing.item.name ?: 'an item you list'
             def title = "A cheaper ${itemName} just went on sale".toString()
             def body = "Another seller listed it at \$${listing.price.toPlainString()}, below your price.".toString()
-            return fanout(above, KIND_UNDERCUT, itemId, title, body) { Long sellerId -> false }
+            BigDecimal newPrice = listing.price
+            String path = "/item/${itemId}".toString()
+            return fanout(above, KIND_UNDERCUT, itemId, title, body, { Long sellerId -> false },
+                { EmailService es, String to, String name ->
+                    es.sendListingUndercut(to, name, itemName as String, newPrice, path)
+                })
         } catch (Exception e) {
             log.warn("Undercut seller ping failed for listing ${listing?.id}: ${e.message}")
             return 0
@@ -97,13 +127,15 @@ class SellerMarketPingService {
     }
 
     private int fanout(List<Listing> listings, String kind, Long itemId, String title, String body,
-                       Closure<Boolean> skip) {
+                       Closure<Boolean> skip, Closure email = null) {
         if (notificationService == null) return 0
         def sellerIds = listings*.sellerUserId.unique()
         def banned = [] as Set<Long>
+        Map<Long, SteamUser> sellers = [:]
         if (steamUserRepository != null) {
             try {
                 steamUserRepository.findAllById(sellerIds).each {
+                    if (it?.id != null) sellers[it.id] = it
                     if (Boolean.TRUE.equals(it.banned)) banned << it.id
                 }
             } catch (Exception e) {
@@ -124,9 +156,39 @@ class SellerMarketPingService {
                 sent++
             } catch (Exception e) {
                 log.warn("${kind} push failed for seller ${sellerId}: ${e.message}")
+                continue
             }
+            // Only a seller whose bell was just pushed gets the email, so it
+            // shares the bell's 24h dedupe.
+            emailAfterCommit(kind, sellers[sellerId], email)
         }
         sent
+    }
+
+    private void emailAfterCommit(String kind, SteamUser seller, Closure email) {
+        if (email == null || emailService == null || seller == null) return
+        try {
+            if (!emailService.canSendTo(seller, EMAIL_BUCKET)) return
+        } catch (Exception e) {
+            log.debug("${kind} email gate failed for seller ${seller.id}: ${e.message}")
+            return
+        }
+        String to = seller.email
+        String name = seller.displayName
+        Closure work = {
+            try {
+                email.call(emailService, to, name)
+            } catch (Exception e) {
+                log.warn("${kind} email failed for seller ${seller.id}: ${e.message}")
+            }
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override void afterCommit() { work.call() }
+            })
+        } else {
+            work.call()
+        }
     }
 
     private boolean recentlyPinged(Long sellerId, String kind, Long itemId, long since) {

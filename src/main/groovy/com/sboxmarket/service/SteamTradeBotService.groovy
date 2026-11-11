@@ -177,46 +177,38 @@ class SteamTradeBotService {
      *  the scheduler thread for the full request timeout. */
     SteamBotResult health() {
         if (!enabled) return SteamBotResult.disabled()
-        return request('GET', '/health', null, Math.min(5000L, Math.max(1000L, requestTimeoutMs)))
+        SteamBotResult r = request('GET', '/health', null, Math.min(5000L, Math.max(1000L, requestTimeoutMs)))
+        rememberIdentity(r?.raw)
+        return r
     }
 
-    /** How long a bot identity read from /health is reused. */
-    static final long IDENTITY_TTL_MS = 5L * 60L * 1000L
-    /** How long a failed read is remembered, so a dead sidecar is not asked
-     *  on every trade-list request. */
-    static final long IDENTITY_MISS_TTL_MS = 60L * 1000L
-
+    /** The bot's own Steam account, as the sidecar's {@code /health} last
+     *  reported it: {@code steamId} (SteamID64) and, when the sidecar knows
+     *  it, {@code name} (the persona name). Filled by every {@link #health()}
+     *  call ({@link SteamBotHealthMonitor} polls once a minute), so reading it
+     *  never makes a network call. */
     private volatile Map botIdentityCache
-    private volatile long botIdentityAt = 0L
 
-    /**
-     * The bot's own Steam account, for users to check a trade offer comes
-     * from it: {@code [steamId: '7656…', name: 'persona name' or null]}.
-     * Read from the sidecar's /health and cached ({@link #IDENTITY_TTL_MS}).
-     * Null when the bot is off, unreachable, not logged in, or a fake
-     * (dev/demo) sidecar, so the page shows nothing rather than a wrong
-     * account. Never throws.
-     */
+    /** SteamID64 of an individual account: 7656119 followed by ten digits. */
+    private static final java.util.regex.Pattern STEAM_ID64 = ~/^7656119\d{10}$/
+
+    /** The bot's {@code [steamId, name]} (name may be null), or null when the
+     *  bot is off or its account is not known yet. Never calls the sidecar. */
     Map botIdentity() {
         if (!enabled) return null
-        long now = System.currentTimeMillis()
-        long ttl = botIdentityCache != null ? IDENTITY_TTL_MS : IDENTITY_MISS_TTL_MS
-        if (botIdentityAt > 0L && now - botIdentityAt < ttl) return botIdentityCache
-        Map id = null
-        try {
-            SteamBotResult r = health()
-            Map raw = r?.ok ? r.raw : null
-            String sid = raw?.steamId != null ? String.valueOf(raw.steamId) : null
-            if (raw != null && raw.fake != true && sid ==~ /7656\d{13}/) {
-                String name = raw.personaName instanceof String ? ((String) raw.personaName).trim() : null
-                id = [steamId: sid, name: name ? (name.length() > 64 ? name.substring(0, 64) : name) : null]
-            }
-        } catch (Exception e) {
-            log.warn("Steam bot identity read failed: {}", e.message)
-        }
-        botIdentityCache = id
-        botIdentityAt = now
-        return id
+        return botIdentityCache
+    }
+
+    private void rememberIdentity(Map raw) {
+        if (raw == null) return
+        String id = raw.steamId != null ? String.valueOf(raw.steamId).trim() : null
+        if (id == null || !STEAM_ID64.matcher(id).matches()) return
+        String name = raw.personaName != null ? String.valueOf(raw.personaName).trim() : null
+        if (name != null && name.isEmpty()) name = null
+        if (name != null && name.length() > 64) name = name.substring(0, 64)
+        // Keep a name we already had when this answer lacks one.
+        if (name == null && botIdentityCache?.steamId == id) name = botIdentityCache.name as String
+        botIdentityCache = Collections.unmodifiableMap([steamId: id, name: name])
     }
 
     // -----------------------------------------------------------------------

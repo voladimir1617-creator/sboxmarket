@@ -187,7 +187,7 @@ function createFakeBot(opts = {}) {
   function route(method, path, body, auth) {
     let m;
     if (method === 'GET' && path === '/health') {
-      return [200, { ok: true, loggedIn: true, ready: true, steamId: BOT_STEAM_ID, appId: Number(appId),
+      return [200, { ok: true, loggedIn: true, ready: true, steamId: BOT_STEAM_ID, personaName: 'SkinBox fake bot', appId: Number(appId),
         lastError: null, fake: true }];
     }
     // Public, like Steam's own: /inventory/:steamId64/:appId/:contextId

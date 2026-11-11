@@ -1,315 +1,49 @@
 package com.sboxmarket
 
 import com.sboxmarket.config.GlobalExceptionHandler
-import com.sboxmarket.controller.SteamAuthController
-import com.sboxmarket.controller.TradeController
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.model.AuditLog
-import com.sboxmarket.model.EscrowedItem
-import com.sboxmarket.model.SteamDeliveryAttempt
 import com.sboxmarket.model.SteamUser
-import com.sboxmarket.model.Trade
 import com.sboxmarket.model.Transaction
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.AuditLogRepository
-import com.sboxmarket.repository.EscrowedItemRepository
-import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.ProcessedStripeEventRepository
-import com.sboxmarket.repository.SteamDeliveryAttemptRepository
 import com.sboxmarket.repository.SteamUserRepository
-import com.sboxmarket.repository.TradeRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.AuditService
 import com.sboxmarket.service.FraudAnalysisService
 import com.sboxmarket.service.NotificationService
-import com.sboxmarket.service.SteamBotResult
-import com.sboxmarket.service.SteamDeliveryService
-import com.sboxmarket.service.SteamEscrowService
 import com.sboxmarket.service.StripeService
-import com.sboxmarket.service.SteamTradeBotService
-import com.sboxmarket.service.TradeService
 import com.stripe.model.Event
 import com.stripe.model.EventDataObjectDeserializer
 import com.stripe.model.radar.EarlyFraudWarning
 import com.stripe.net.Webhook
 import com.stripe.param.checkout.SessionCreateParams
-import groovy.json.JsonOutput
 import jakarta.servlet.http.HttpServletRequest
-import jakarta.servlet.http.HttpSession
-import org.springframework.data.domain.Pageable
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import spock.lang.Specification
 
 /**
  * Scam-defense pass 4 (2026-11-08), the items the owner approved:
  *
- *  2. The bot's own Steam account (id + name from the sidecar's /health)
- *     rides on every payload that shows an offer code, so a user can check
- *     an offer comes from it and not from a scammer copying the code.
- *  3. A "declined" offer bell tells the user to revoke unknown Steam Web API
- *     keys and change the password when the decline wasn't theirs.
  *  4. Stripe Early Fraud Warnings are audited, ping admins and count in the
  *     CHARGEBACK_IN_WINDOW fraud signal. No wallet hold.
  *  8. Checkout sends client_reference_id, and the email only when verified.
  *  -  Fresh-card hold: card money can't be cashed out until N days (7 by
  *     default) after the deposit completed.
+ *
+ * Items 2 and 3 (the bot account by the offer code, the API-key line in
+ * declined-offer bells) are covered by main's own specs: SteamTradeBotServiceSpec,
+ * TradeControllerSpec, SteamEscrowHoldSpec, SteamEscrowDeclineRecheckSpec and
+ * SteamDeliveryServiceSpec.
  */
 class ScamDefensePass4Spec extends Specification {
-
-    static final String BOT_ID = '76561198000000042'
 
     def cleanup() {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.clearSynchronization()
         }
-    }
-
-    // ── 2. bot identity ─────────────────────────────────────────────
-
-    private SteamTradeBotService botSpy() {
-        def svc = Spy(SteamTradeBotService)
-        svc.baseUrl = 'http://localhost:4000'
-        svc.apiToken = 't'
-        svc
-    }
-
-    private static SteamTradeBotService.RawResponse health(Map body) {
-        new SteamTradeBotService.RawResponse(status: 200, body: JsonOutput.toJson(body))
-    }
-
-    def "botIdentity reads the bot's Steam id and persona name from /health, and caches it"() {
-        given:
-        def svc = botSpy()
-
-        when:
-        def a = svc.botIdentity()
-        def b = svc.botIdentity()
-
-        then: 'one /health read serves both calls'
-        1 * svc.doRequest('GET', 'http://localhost:4000/health', null, _ as Long) >>
-                health([ok: true, loggedIn: true, steamId: BOT_ID, personaName: 'SkinBox Bot 1'])
-        a == [steamId: BOT_ID, name: 'SkinBox Bot 1']
-        b == a
-    }
-
-    def "botIdentity is null when /health reports #why"() {
-        given:
-        def svc = botSpy()
-
-        when:
-        def id = svc.botIdentity()
-
-        then:
-        1 * svc.doRequest(*_) >> health(body)
-        id == null
-
-        where:
-        why                    | body
-        'a fake (dev) sidecar' | [ok: true, steamId: '76561190000000001', fake: true]
-        'no id (logged out)'   | [ok: true, steamId: null]
-        'a malformed id'       | [ok: true, steamId: '12345']
-        'a failure'            | [ok: false, error: 'NOT_READY']
-    }
-
-    def "botIdentity makes no call when the bot is off"() {
-        given:
-        def svc = botSpy()
-        svc.baseUrl = ''
-
-        when:
-        def id = svc.botIdentity()
-
-        then:
-        0 * svc.doRequest(*_)
-        id == null
-    }
-
-    def "botIdentity without a persona name still gives the id"() {
-        given:
-        def svc = botSpy()
-
-        when:
-        def id = svc.botIdentity()
-
-        then:
-        1 * svc.doRequest(*_) >> health([ok: true, steamId: BOT_ID])
-        id == [steamId: BOT_ID, name: null]
-    }
-
-    def "the buyer's trade payload carries the bot's Steam id and name next to the delivery code"() {
-        given:
-        def tradeService = Mock(TradeService)
-        def delivery = Mock(SteamDeliveryService)
-        def bot = Mock(SteamTradeBotService)
-        def controller = new TradeController(tradeService: tradeService, steamDeliveryService: delivery,
-                steamTradeBotService: bot)
-        def req = Mock(HttpServletRequest)
-        def ses = Mock(HttpSession)
-        req.session >> ses
-        ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 2L
-        def t = new Trade(id: 7L, buyerUserId: 2L, sellerUserId: 1L, state: 'PENDING_BUYER_CONFIRM')
-        tradeService.get(7L) >> t
-        delivery.deliveryCodeFor(_) >> 'K7Q2'
-
-        when:
-        def known = controller.get(7L, req).body
-
-        then:
-        1 * bot.botIdentity() >> [steamId: BOT_ID, name: 'SkinBox Bot 1']
-        known.deliveryCode == 'K7Q2'
-        known.botSteamId == BOT_ID
-        known.botName == 'SkinBox Bot 1'
-
-        when: 'bot unknown: no identity keys at all'
-        def unknown = controller.get(7L, req).body
-
-        then:
-        1 * bot.botIdentity() >> null
-        unknown.deliveryCode == 'K7Q2'
-        !unknown.containsKey('botSteamId')
-        !unknown.containsKey('botName')
-    }
-
-    def "the trade list reads the bot identity once and puts it only on rows with a code"() {
-        given:
-        def tradeService = Mock(TradeService)
-        def delivery = Mock(SteamDeliveryService)
-        def bot = Mock(SteamTradeBotService)
-        def controller = new TradeController(tradeService: tradeService, steamDeliveryService: delivery,
-                steamTradeBotService: bot)
-        def req = Mock(HttpServletRequest)
-        def ses = Mock(HttpSession)
-        req.session >> ses
-        ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 2L
-        tradeService.listForUserWithCounterparty(2L) >> [
-                [id: 1L, buyerUserId: 2L], [id: 2L, buyerUserId: 2L], [id: 3L, buyerUserId: 9L]]
-        tradeService.countForUser(2L) >> 3L
-        delivery.deliveryCodeFor(_) >> 'ABCD'
-
-        when:
-        List<Map> rows = controller.mine(req).body
-
-        then:
-        1 * bot.botIdentity() >> [steamId: BOT_ID, name: null]
-        rows[0].botSteamId == BOT_ID && rows[1].botSteamId == BOT_ID
-        !rows[0].containsKey('botName')
-        !rows[2].containsKey('botSteamId')
-    }
-
-    private SteamEscrowService escrow(SteamTradeBotService bot, EscrowedItemRepository repo) {
-        def s = new SteamEscrowService()
-        s.steamTradeBotService = bot
-        s.escrowRepository = repo
-        s.listingRepository = Mock(ListingRepository)
-        s.offerMessage = 'sboxmarket escrow'
-        s
-    }
-
-    def "held-deposit and returning rows carry the bot's Steam account with their code"() {
-        given:
-        def bot = Mock(SteamTradeBotService) { isEnabled() >> true }
-        def repo = Mock(EscrowedItemRepository)
-        def s = escrow(bot, repo)
-        def pending = new EscrowedItem(id: 1L, listingId: 10L, sellerUserId: 1L, assetId: '5',
-                custodyState: EscrowedItem.PENDING_DEPOSIT, securityCode: 'Q1W2')
-        def returning = new EscrowedItem(id: 2L, listingId: 11L, sellerUserId: 1L, assetId: '6',
-                custodyState: EscrowedItem.RETURNED, securityCode: 'Z9X8',
-                returnRequestedAt: System.currentTimeMillis() - 1000L)
-        repo.findByListingIds(_) >> [pending]
-        repo.findBySellerUserIdAndCustodyStateIn(1L, _) >> [returning]
-        bot.botIdentity() >> [steamId: BOT_ID, name: 'SkinBox Bot 1']
-
-        when:
-        def view = s.custodyViewForListings([10L])
-        def seller = s.custodyForSeller(1L)
-
-        then:
-        view[10L].securityCode == 'Q1W2'
-        view[10L].botSteamId == BOT_ID
-        view[10L].botName == 'SkinBox Bot 1'
-        seller.returning[0].securityCode == 'Z9X8'
-        seller.returning[0].botSteamId == BOT_ID
-    }
-
-    def "custody rows show no bot account when the bot identity is unknown"() {
-        given:
-        def bot = Mock(SteamTradeBotService) { isEnabled() >> true; botIdentity() >> null }
-        def repo = Mock(EscrowedItemRepository)
-        repo.findByListingIds(_) >> [new EscrowedItem(id: 1L, listingId: 10L, sellerUserId: 1L, assetId: '5',
-                custodyState: EscrowedItem.PENDING_DEPOSIT, securityCode: 'Q1W2')]
-
-        when:
-        def view = escrow(bot, repo).custodyViewForListings([10L])
-
-        then:
-        view[10L].securityCode == 'Q1W2'
-        !view[10L].containsKey('botSteamId')
-    }
-
-    // ── 3. decline bells ────────────────────────────────────────────
-
-    static final String API_KEY_LINE = "If you didn't decline it, revoke any Steam Web API key you didn't create " +
-            "(steamcommunity.com/dev/apikey) and change your Steam password."
-
-    def "a declined deposit bell tells the seller to revoke unknown API keys and change the password"() {
-        given:
-        def bot = Mock(SteamTradeBotService) { isEnabled() >> true }
-        def repo = Mock(EscrowedItemRepository)
-        def notes = Mock(NotificationService)
-        def s = escrow(bot, repo)
-        s.notificationService = notes
-        def e = new EscrowedItem(id: 5L, listingId: 10L, sellerUserId: 1L, assetId: '555',
-                depositOfferId: '444', custodyState: EscrowedItem.PENDING_DEPOSIT)
-        repo.findById(5L) >> Optional.of(e)
-        bot.getOfferStatus('444') >> SteamBotResult.success([ok: true, status: status])
-        String body = null
-
-        when:
-        s.confirmDeposit(5L, [ok: true, byAsset: [:], byName: [:], nonTradable: [] as Set, items: []])
-
-        then:
-        1 * notes.safePush(1L, 'TRADE_SENT', 'Steam escrow', _, 10L, '/me/stall') >> { args -> body = args[3] }
-        body.contains(API_KEY_LINE) == warned
-
-        where:
-        status     | warned
-        'declined' | true
-        'expired'  | false
-    }
-
-    def "a declined delivery bell tells the buyer the same; the seller's bell is unchanged"() {
-        given:
-        def bot = Mock(SteamTradeBotService) { isEnabled() >> true }
-        def trades = Mock(TradeRepository)
-        def attempts = Mock(SteamDeliveryAttemptRepository)
-        def notes = Mock(NotificationService)
-        def svc = new SteamDeliveryService(steamTradeBotService: bot, tradeService: Mock(TradeService),
-                tradeRepository: trades, attemptRepository: attempts,
-                steamUserRepository: Mock(SteamUserRepository), notificationService: notes,
-                steamEscrowService: Mock(SteamEscrowService), pollerEnabled: true, batchSize: 50)
-        def t = new Trade(id: 7L, state: SteamDeliveryService.STATE_AWAITING_CONFIRM, buyerUserId: 2L,
-                sellerUserId: 1L, listingId: 10L, itemId: 20L, itemName: 'Hat', price: 10G)
-        trades.findById(7L) >> Optional.of(t)
-        attempts.findLatestWithOffer(7L, _ as Pageable) >> [new SteamDeliveryAttempt(id: 1L, tradeId: 7L,
-                steamOfferId: '987', offerState: 'active', phase: 'SEND', success: true)]
-        bot.getOfferStatus('987') >> SteamBotResult.success([ok: true, offerId: '987', status: status])
-        String buyerBody = null
-        String sellerBody = null
-
-        when:
-        svc.processTrade(7L)
-
-        then:
-        1 * notes.safePush(2L, _, _, _, _, _) >> { args -> buyerBody = args[3] }
-        1 * notes.safePush(1L, _, _, _, _, _) >> { args -> sellerBody = args[3] }
-        buyerBody.contains(API_KEY_LINE) == warned
-        !sellerBody.contains('apikey')
-
-        where:
-        status     | warned
-        'declined' | true
-        'expired'  | false
     }
 
     // ── 4. Early Fraud Warnings ─────────────────────────────────────

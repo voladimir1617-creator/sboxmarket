@@ -34,20 +34,18 @@ class TradeController {
     /** Optional — supplies the buyer's delivery offer code. */
     @Autowired(required = false) SteamDeliveryService steamDeliveryService
 
-    /** Optional: the bot's own Steam account, shown next to the delivery
-     *  code so the buyer can check the offer comes from it. */
+    /** Optional — the bot's own Steam account, shown beside the offer code. */
     @Autowired(required = false) SteamTradeBotService steamTradeBotService
 
-    /** Put the bot's Steam id (and name, when known) on a payload that
-     *  carries a delivery code. Absent when the bot is off or unknown. */
-    private void addBotIdentity(Map payload, Map bot) {
-        if (bot?.steamId == null) return
-        payload.botSteamId = bot.steamId
-        if (bot.name) payload.botName = bot.name
-    }
-
-    private Map botIdentityOrNull() {
-        try { return steamTradeBotService?.botIdentity() } catch (Exception ignored) { return null }
+    /** Adds the bot's SteamID64 (and persona name, when known) next to an
+     *  offer code, so the buyer can check who the offer comes from. Adds
+     *  nothing when the bot's account is unknown. */
+    private void addBotIdentity(Map payload) {
+        Map bot = steamTradeBotService?.botIdentity()
+        if (bot?.steamId) {
+            payload.botSteamId = bot.steamId
+            if (bot.name) payload.botName = bot.name
+        }
     }
 
     /** The buyer's delivery code, only for the buyer; null for anyone else. */
@@ -73,15 +71,12 @@ class TradeController {
         def uid = requireUser(req)
         def rows = tradeService.listForUserWithCounterparty(uid)
         if (steamDeliveryService != null) {
-            Map bot = null
-            boolean botRead = false
             rows?.each { Map r ->
                 if (r.buyerUserId == uid && r.id != null) {
                     def code = steamDeliveryService.deliveryCodeFor(new Trade(id: r.id as Long, buyerUserId: uid))
                     if (code) {
                         r.deliveryCode = code
-                        if (!botRead) { bot = botIdentityOrNull(); botRead = true }
-                        addBotIdentity(r, bot)
+                        addBotIdentity(r)
                     }
                 }
             }
@@ -112,7 +107,7 @@ class TradeController {
         def code = deliveryCodeForViewer(t, uid)
         if (code) {
             payload.deliveryCode = code
-            addBotIdentity(payload, botIdentityOrNull())
+            addBotIdentity(payload)
         }
         ResponseEntity.ok(payload)
     }

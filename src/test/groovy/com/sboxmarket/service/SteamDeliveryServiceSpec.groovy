@@ -296,7 +296,10 @@ class SteamDeliveryServiceSpec extends Specification {
         0 * tradeService.confirmDeliveryByBot(_, _)
         0 * tradeService.sellerMarkSent(_, _, _)
         1 * notificationService.safePush(1L, _, _, _, _, _)  // seller
-        1 * notificationService.safePush(2L, _, _, _, _, _)  // buyer
+        // buyer: the decline notice ends with the stolen-API-key advice
+        1 * notificationService.safePush(2L, _, _, { String b ->
+            b.startsWith('Your Steam trade offer for trade #') && b.endsWith(SteamEscrowService.DECLINE_API_KEY_ADVICE)
+        }, _, _)
     }
 
     def "poll: expired does NOT credit"() {
@@ -312,6 +315,8 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * bot.getOfferStatus('987') >> SteamBotResult.success([ok: true, status: 'expired'])
         _ * attemptRepository.save(_)
         0 * tradeService.confirmDeliveryByBot(_, _)
+        // Only a decline gets the API-key advice; an expiry is not a sign of one.
+        0 * notificationService.safePush(_, _, _, { String b -> b.contains('dev/apikey') }, _, _)
     }
 
     def "poll: in_escrow keeps waiting, no credit"() {

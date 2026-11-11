@@ -418,6 +418,25 @@ class SteamEscrowHoldSpec extends Specification {
         !view[10L].holdOverdue
     }
 
+    def "custody view: the offer code comes with the bot's Steam account when it is known"() {
+        given:
+        bot.enabled >> true
+        def e = custody(listingId: 10L, custodyState: EscrowedItem.PENDING_DEPOSIT)
+
+        when:
+        def known = service.custodyViewForListings([10L])
+        def unknown = service.custodyViewForListings([10L])
+
+        then:
+        2 * escrowRepository.findByListingIds([10L]) >> [e]
+        2 * bot.botIdentity() >>> [[steamId: '76561190000000001', name: null], null]
+        known[10L].securityCode == e.securityCode
+        known[10L].botSteamId == '76561190000000001'
+        !known[10L].containsKey('botName')
+        unknown[10L].securityCode == e.securityCode
+        !unknown[10L].containsKey('botSteamId')
+    }
+
     def "custody view: a deposit the seller has not accepted asks THEM to act, not us"() {
         given:
         bot.enabled >> true

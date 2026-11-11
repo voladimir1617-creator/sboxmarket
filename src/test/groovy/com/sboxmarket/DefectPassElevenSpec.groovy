@@ -132,13 +132,17 @@ class DefectPassElevenSpec extends Specification {
         apiKeyRepo.findByUser(target.id).every { it.revoked }
     }
 
-    def "the grid card's Verified badge follows the stall rule (10 sales, no reviews yet)"() {
+    def "the grid card's Verified badge follows the stall rule (10 delivered trades, no reviews yet)"() {
         given:
         def seller = user(); def buyer = user()
         10.times {
-            listingRepo.save(new Listing(item: item(), price: new BigDecimal('1.00'), listingType: 'BUY_NOW',
+            def itm = item()
+            def l = listingRepo.save(new Listing(item: itm, price: new BigDecimal('1.00'), listingType: 'BUY_NOW',
                 status: 'SOLD', sellerName: 'p11', rarityScore: BigDecimal.ZERO, sellerUserId: seller.id,
                 buyerUserId: buyer.id, soldAt: System.currentTimeMillis()))
+            tradeRepo.save(new Trade(buyerUserId: buyer.id, sellerUserId: seller.id, itemName: itm.name,
+                itemId: itm.id, listingId: l.id, price: new BigDecimal('1.00'), state: 'VERIFIED',
+                settledAt: System.currentTimeMillis()))
         }
         def shown = listingRepo.save(new Listing(item: item(), price: new BigDecimal('2.00'), listingType: 'BUY_NOW',
             status: 'ACTIVE', sellerName: 'p11', rarityScore: BigDecimal.ZERO, sellerUserId: seller.id))

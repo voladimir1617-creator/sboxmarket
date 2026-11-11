@@ -205,8 +205,9 @@ let manager = null;
 const state = {
   loggedIn: false,
   steamId: null,
-  // The bot account's Steam profile name, for the site to show users which
-  // account a real offer comes from.
+  // The bot account's Steam persona name, from steam-user's accountInfo
+  // event. The site shows it beside the offer code so a user can match the
+  // offer's sender; null until Steam sends it.
   personaName: null,
   lastError: null,
   cookiesReady: false,
@@ -267,7 +268,7 @@ client.on('loggedOn', () => {
 });
 
 client.on('accountInfo', (name) => {
-  state.personaName = typeof name === 'string' && name ? name : null;
+  state.personaName = typeof name === 'string' && name.trim() ? name.trim() : null;
 });
 
 client.on('error', (err) => {

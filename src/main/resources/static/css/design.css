@@ -13279,8 +13279,6 @@ html body .bot-step.is-active .bot-step-dot { background: var(--accent); border-
 html body .bot-code { display: inline-flex; flex-direction: column; align-items: center; padding: 5px 10px; border: 1px dashed var(--line-2); border-radius: var(--r-sm); background: var(--bg-2); cursor: help; }
 html body .bot-code-label { font: 500 9px/1.2 var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-4); }
 html body .bot-code-value { font: 700 15px/1.2 var(--mono); letter-spacing: 0.18em; color: var(--ink); }
-html body .bot-code-account { margin-top: 3px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/1.3 var(--ui); color: var(--accent); text-decoration: none; cursor: pointer; }
-html body .bot-code-account:hover, html body .bot-code-account:focus-visible { text-decoration: underline; }
 @media (max-width: 600px) {
   html body .bot-offer-row { grid-template-columns: 40px 1fr; }
   html body .bot-offer-thumb { width: 40px; height: 40px; }

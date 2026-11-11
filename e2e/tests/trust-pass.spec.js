@@ -39,14 +39,47 @@ test('a delivery code on a trade row comes with its meaning as visible text', as
       buyerUserId: me.id, sellerUserId: me.id + 1000, price: 15.0, feeAmount: 0.3,
       state: 'PENDING_BUYER_CONFIRM', createdAt: now - 3600_000, updatedAt: now - 600_000,
       sentAt: now - 600_000, expiresAt: now + 7 * 86400_000, unreadCount: 0,
-      deliveryCode: 'K7Q2', counterpartyName: 'GhostlyDeals'
+      deliveryCode: 'K7Q2', counterpartyName: 'GhostlyDeals',
+      botSteamId: '76561190000000001', botName: 'SkinBox fake bot'
     }]
   }));
   await page.goto('/profile/trades');
   await expect(page.locator('.bot-code-value')).toHaveText('K7Q2', { timeout: 15_000 });
   await expect(page.getByTestId('bot-code-note')).toBeVisible();
+  // The code alone is not proof: the note also sends the buyer to the sender.
   await expect(page.getByTestId('bot-code-note'))
-    .toHaveText("Our bot's trade offer message ends with this code, and the offer comes from our bot's Steam account. Decline any offer for this item that fails either check.");
+    .toHaveText("Our bot's trade offer message ends with this code. Accept an offer for this item only if it has this code and comes from our bot's Steam profile; decline any other.");
+  const from = page.getByTestId('bot-code-from');
+  await expect(from).toHaveText('From our bot: SkinBox fake bot');
+  await expect(from.getByRole('link')).toHaveAttribute('href', 'https://steamcommunity.com/profiles/76561190000000001');
+});
+
+// Without the bot's account on the payload the code stands alone: no
+// "From our bot" line pointing nowhere.
+test('a delivery code with no known bot account shows no sender line', async ({ page }) => {
+  const me = await (await page.request.get('/api/auth/steam/me')).json();
+  const now = Date.now();
+  await page.route(/\/api\/trades(\?.*)?$/, (route) => route.fulfill({
+    json: [{
+      id: 990002, listingId: 990002, itemId: 12, itemName: 'Vintage Design Crop Top',
+      buyerUserId: me.id, sellerUserId: me.id + 1000, price: 15.0, feeAmount: 0.3,
+      state: 'PENDING_BUYER_CONFIRM', createdAt: now - 3600_000, updatedAt: now - 600_000,
+      sentAt: now - 600_000, expiresAt: now + 7 * 86400_000, unreadCount: 0,
+      deliveryCode: 'K7Q3', counterpartyName: 'GhostlyDeals'
+    }]
+  }));
+  await page.goto('/profile/trades');
+  await expect(page.locator('.bot-code-value')).toHaveText('K7Q3', { timeout: 15_000 });
+  await expect(page.getByTestId('bot-code-from')).toHaveCount(0);
+});
+
+test('the Help Center walks a seller through a first listing', async ({ page }) => {
+  await page.goto('/help');
+  await expect(page.getByTestId('help-first-listing')).toHaveText(/Your first listing/, { timeout: 15_000 });
+  const body = page.locator('body');
+  await expect(body).toContainText('Send the item to our bot');
+  await page.getByRole('button', { name: /How do I avoid scams/ }).click();
+  await expect(page.locator('.help-faq-a')).toContainText('steamcommunity.com/dev/apikey');
 });
 
 // No payment processor is connected in test mode, so the footer names none.
