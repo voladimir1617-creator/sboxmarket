@@ -38,6 +38,47 @@ class SteamTradeBotServiceSpec extends Specification {
         r.errorCode == 'DISABLED'
     }
 
+    def "botIdentity is read from /health and never calls the sidecar itself"() {
+        expect: 'nothing known before a health check'
+        service.botIdentity() == null
+
+        when:
+        service.health()
+
+        then:
+        1 * service.doRequest('GET', 'http://localhost:4000/health', null, _) >>
+                raw(200, [ok: true, loggedIn: true, ready: true, steamId: '76561190000000001', personaName: '  SkinBox bot  '])
+
+        when:
+        def id = service.botIdentity()
+
+        then:
+        0 * service.doRequest(*_)
+        id == [steamId: '76561190000000001', name: 'SkinBox bot']
+    }
+
+    def "botIdentity keeps the last name, and ignores an id that is not a SteamID64"() {
+        when:
+        service.health()
+        service.health()
+        service.health()
+
+        then:
+        3 * service.doRequest('GET', 'http://localhost:4000/health', null, _) >>>
+                [raw(200, [ok: true, steamId: '76561190000000001', personaName: 'SkinBox bot']),
+                 raw(200, [ok: true, steamId: '76561190000000001']),
+                 raw(200, [ok: true, steamId: 'javascript:alert(1)', personaName: 'evil'])]
+        service.botIdentity() == [steamId: '76561190000000001', name: 'SkinBox bot']
+    }
+
+    def "botIdentity is null when the bot is off"() {
+        given:
+        service.baseUrl = ''
+
+        expect:
+        service.botIdentity() == null
+    }
+
     def "enabled when base url is set"() {
         expect:
         service.enabled

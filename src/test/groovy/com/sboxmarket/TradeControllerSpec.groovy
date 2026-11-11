@@ -88,6 +88,33 @@ class TradeControllerSpec extends Specification {
         !sellerGet.containsKey('deliveryCode')
     }
 
+    def "the buyer's delivery code comes with the bot's Steam account, and only when it is known"() {
+        given:
+        def delivery = new com.sboxmarket.service.SteamDeliveryService(deliveryCodeSecret: 'k')
+        controller.steamDeliveryService = delivery
+        def bot = Mock(com.sboxmarket.service.SteamTradeBotService)
+        controller.steamTradeBotService = bot
+        def t = new Trade(id: 9L, buyerUserId: 100L, sellerUserId: 200L, state: 'PENDING_BUYER_CONFIRM')
+
+        when:
+        def known   = controller.get(9L, req).body
+        def unknown = controller.get(9L, req).body
+        def seller  = controller.get(9L, req).body
+
+        then:
+        3 * req.session >> ses
+        3 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >>> [100L, 100L, 200L]
+        3 * tradeService.get(9L) >> t
+        2 * bot.botIdentity() >>> [[steamId: '76561190000000001', name: 'SkinBox bot'], null]
+        known.botSteamId == '76561190000000001'
+        known.botName == 'SkinBox bot'
+        unknown.deliveryCode
+        !unknown.containsKey('botSteamId')
+        !unknown.containsKey('botName')
+        // No code for the seller, so no bot account either.
+        !seller.containsKey('botSteamId')
+    }
+
     def "mine() returns rows + X-Total-Count header"() {
         given:
         def rows = [[id: 1L], [id: 2L]]

@@ -179,6 +179,13 @@ class SteamEscrowService {
     @Value('${steam.escrow.missing-confirm-ms:1800000}')
     long missingConfirmMs = 1800000L
 
+    /** Appended to the "offer declined" notices (deposit here, delivery in
+     *  SteamDeliveryService): an offer declined by a script on a stolen Steam
+     *  Web API key is the usual opening of a lookalike-offer scam. */
+    static final String DECLINE_API_KEY_ADVICE =
+            "If you didn't decline an offer yourself, revoke any Steam Web API key you didn't create at " +
+            "steamcommunity.com/dev/apikey and change your Steam password."
+
     /** How long after a deposit offer comes back `declined` the seller's
      *  Steam inventory is re-read, once, to see whether the asset left them.
      *  Long enough for a lookalike offer from a scammer to have been accepted,
@@ -474,8 +481,11 @@ class SteamEscrowService {
             cancelHeldListing(e.listingId)
             log.warn("SteamEscrow: deposit offer ${e.depositOfferId} for listing ${e.listingId} is terminal (${res.status}); listing cancelled")
             if (e.returnRequestedAt == null) {
-                safeNotifySeller(e.sellerUserId, e.listingId,
-                        "Your deposit trade offer was ${res.status}, so your listing didn't go live. Re-list to try again.")
+                String notice = "Your deposit trade offer was ${res.status}, so your listing didn't go live. Re-list to try again."
+                // A decline the seller didn't make can be a script on a
+                // stolen Steam Web API key; tell them how to shut it out.
+                if (res.status == 'declined') notice += ' ' + DECLINE_API_KEY_ADVICE
+                safeNotifySeller(e.sellerUserId, e.listingId, notice)
             }
             return
         }
@@ -1672,8 +1682,20 @@ class SteamEscrowService {
                 securityCode:    e.securityCode,
                 message:         message
             ]
+            if (e.securityCode) addBotIdentity(out[e.listingId] as Map)
         }
         return out
+    }
+
+    /** Adds the bot's SteamID64 (and persona name, when the sidecar reports
+     *  it) beside an offer code, so the seller can check the offer comes from
+     *  our bot's profile. Adds nothing when the account is not known yet. */
+    private void addBotIdentity(Map row) {
+        Map bot
+        try { bot = steamTradeBotService?.botIdentity() } catch (Exception ignored) { return }
+        if (row == null || !bot?.steamId) return
+        row.botSteamId = bot.steamId
+        if (bot.name) row.botName = bot.name
     }
 
     /** The trade-offer message for a custody row: the configured text plus
@@ -1742,10 +1764,12 @@ class SteamEscrowService {
             }
             def item = null
             try { item = listingRepository.findById(e.listingId).orElse(null)?.item } catch (Exception ignored) { }
-            returning << [listingId: e.listingId, name: e.marketHashName, state: state,
-                          returnOfferId: e.returnOfferId, securityCode: e.securityCode,
-                          item: item, message: message,
-                          at: e.returnConfirmedAt ?: e.returnRequestedAt]
+            Map back = [listingId: e.listingId, name: e.marketHashName, state: state,
+                        returnOfferId: e.returnOfferId, securityCode: e.securityCode,
+                        item: item, message: message,
+                        at: e.returnConfirmedAt ?: e.returnRequestedAt]
+            if (e.securityCode) addBotIdentity(back)
+            returning << back
         }
         out.returning = returning.sort { a, b -> (b.at ?: 0L) <=> (a.at ?: 0L) }
         return out
