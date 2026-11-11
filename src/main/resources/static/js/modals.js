@@ -12218,7 +12218,12 @@ function ProfileDevelopersTab() {
       // the Help modal opens pre-filtered to the API entry.
       h('a', {
         href: '/help?q=API', style: { color: 'var(--accent)', marginLeft: 6 }
-      }, 'How to use the API →')),
+      }, 'How to use the API →'),
+      // The route-by-route reference: scopes, routes a key can use, errors.
+      h('a', {
+        href: '/api-reference.html', style: { color: 'var(--accent)', marginLeft: 10 },
+        'data-testid': 'api-reference-link'
+      }, 'API reference →')),
     h('div', { className: 'inline-cta-row', style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
       // Named for screen readers like the scope select; 80 is where
       // ApiKeyService cuts the label.

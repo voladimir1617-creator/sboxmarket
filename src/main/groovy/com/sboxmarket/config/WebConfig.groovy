@@ -255,6 +255,7 @@ class WebConfig implements WebMvcConfigurer {
         // Registered BEFORE the generic SPA catchall so these win on match.
         registry.addViewController('/changelog').setViewName('forward:/changelog.html')
         registry.addViewController('/status').setViewName('forward:/status.html')
+        registry.addViewController('/api-reference').setViewName('forward:/api-reference.html')
         registry.addViewController('/legal/terms').setViewName('forward:/legal/terms.html')
         registry.addViewController('/legal/privacy').setViewName('forward:/legal/privacy.html')
         registry.addViewController('/legal/refunds').setViewName('forward:/legal/refunds.html')

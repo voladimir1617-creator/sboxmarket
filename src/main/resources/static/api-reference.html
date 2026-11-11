@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Reference — SkinBox</title>
+  <meta name="description" content="How to call the SkinBox API with an API key: authentication, key scopes, the routes a key can use, and the errors it can get back.">
+  <link rel="canonical" href="https://skinbox.market/api-reference.html">
+  <meta name="theme-color" content="#1ea5ff">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="icon" type="image/png" href="/img/favicon-32.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/design.css">
+  <!-- Same document styles as /legal/*.html (cookies.html for the tables). -->
+  <style>
+    .legal-doc { max-width: 820px; margin: 40px auto 80px; padding: 0 24px; color: var(--text-primary); line-height: 1.7; font-size: 15px; }
+    .legal-doc h1 { font-size: 32px; margin-bottom: 8px; }
+    .legal-doc .legal-meta { color: var(--text-muted); font-size: 13px; margin-bottom: 32px; }
+    .legal-doc h2 { font-size: 20px; margin: 32px 0 12px; color: var(--text-primary); }
+    .legal-doc h3 { font-size: 15px; margin: 24px 0 4px; color: var(--text-primary); }
+    .legal-doc p, .legal-doc li { color: var(--text-secondary); }
+    .legal-doc ul { padding-left: 24px; margin-bottom: 16px; }
+    .legal-doc li { margin-bottom: 6px; }
+    .legal-doc strong { color: var(--text-primary); }
+    .legal-doc a { color: var(--accent); }
+    .legal-doc p a, .legal-doc li a { text-decoration: underline; text-underline-offset: 3px; }
+    .legal-doc table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+    .legal-doc th, .legal-doc td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; color: var(--text-secondary); vertical-align: top; }
+    .legal-doc th { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; font-weight: 700; }
+    .legal-doc code { background: var(--bg-card); padding: 2px 6px; border-radius: 4px; font-size: 13px; overflow-wrap: anywhere; }
+    .legal-doc td code { font-size: 12px; }
+    .legal-doc pre { background: var(--bg-card); padding: 12px 14px; border-radius: 8px; font-size: 13px; overflow-x: auto; margin: 0 0 16px; }
+    .legal-doc pre code { background: none; padding: 0; }
+    .legal-back { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
+    @media (max-width: 600px) {
+      .legal-doc { padding: 0 16px; }
+      .legal-doc th, .legal-doc td { padding: 8px 6px; }
+      /* Route tables: the route on its own line, then what it does + scope. */
+      .legal-doc table.routes thead { display: none; }
+      .legal-doc table.routes tr { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; border-bottom: 1px solid var(--border); }
+      .legal-doc table.routes td { border-bottom: 0; }
+      .legal-doc table.routes td:first-child { grid-column: 1 / -1; padding-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="legal-doc">
+    <a class="legal-back" href="/">← Back to SkinBox</a>
+    <h1>API Reference</h1>
+    <div class="legal-meta">For bots and browser extensions that use a SkinBox API key.</div>
+
+    <p>
+      An API key lets your own script act as your SkinBox account. Create one at
+      <a href="/profile/developers">Profile → Developers</a>. The full token is shown once, when you create it.
+      Anyone holding it can use your account, so keep it out of public files and chats.
+    </p>
+
+    <h2 id="authentication">Authentication</h2>
+    <p>Send the token in the <code>Authorization</code> header on every request:</p>
+    <pre><code>curl https://skinbox.market/api/wallet \
+  -H "Authorization: Bearer sbx_live_…"</code></pre>
+    <p>
+      A key replaces the browser sign-in, so you don't send cookies or a CSRF token.
+      Requests and responses are JSON; send <code>Content-Type: application/json</code> with a body.
+      Prices are in US dollars.
+    </p>
+
+    <h2 id="scopes">Key scopes</h2>
+    <table>
+      <thead><tr><th>Scope</th><th>What it can do</th></tr></thead>
+      <tbody>
+        <tr><td><strong>RO</strong> · read-only</td><td>Only <code>GET</code> and <code>HEAD</code> requests: prices, listings, your wallet balance, orders and trades. Anything that changes data is refused with <code>RO_KEY_WRITE_FORBIDDEN</code>.</td></tr>
+        <tr><td><strong>RW</strong> · full</td><td>Everything below, including buying, selling, bidding and placing buy orders with your wallet balance.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="routes">Routes a key can use</h2>
+    <p>The <strong>Key</strong> column is the scope a route needs. Routes marked RO also work with an RW key.</p>
+
+    <h3>Market data</h3>
+    <table class="routes">
+      <thead><tr><th>Route</th><th>What it returns</th><th>Key</th></tr></thead>
+      <tbody>
+        <tr data-route="GET /api/items"><td><code>GET /api/items</code></td><td>The item catalogue.</td><td>RO</td></tr>
+        <tr data-route="GET /api/items/{id}"><td><code>GET /api/items/{id}</code></td><td>One item.</td><td>RO</td></tr>
+        <tr data-route="GET /api/items/{id}/history"><td><code>GET /api/items/{id}/history</code></td><td>Daily price, with the number of SkinBox sales each day in <code>volume</code>.</td><td>RO</td></tr>
+        <tr data-route="GET /api/items/{id}/recent-sales"><td><code>GET /api/items/{id}/recent-sales</code></td><td>Recent sales of the item on SkinBox.</td><td>RO</td></tr>
+        <tr data-route="GET /api/listings"><td><code>GET /api/listings</code></td><td>Active listings. Query: <code>q</code>, <code>category</code>, <code>rarity</code>, <code>minPrice</code>, <code>maxPrice</code>, <code>listingType</code>, <code>sort</code>, <code>limit</code>, <code>offset</code>.</td><td>RO</td></tr>
+        <tr data-route="GET /api/listings/{id}"><td><code>GET /api/listings/{id}</code></td><td>One listing.</td><td>RO</td></tr>
+        <tr data-route="GET /api/listings/item/{itemId}"><td><code>GET /api/listings/item/{itemId}</code></td><td>Active listings of one item.</td><td>RO</td></tr>
+        <tr data-route="GET /api/buy-orders/book/{id}"><td><code>GET /api/buy-orders/book/{itemId}</code></td><td>Open buy orders for one item, grouped by price: <code>price</code>, <code>quantity</code>, <code>orders</code>. Buyers are not named.</td><td>RO</td></tr>
+        <tr data-route="GET /api/buy-orders/public"><td><code>GET /api/buy-orders/public</code></td><td>Every item with open buy orders: best price, order count and quantity wanted.</td><td>RO</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Buying</h3>
+    <table class="routes">
+      <thead><tr><th>Route</th><th>What it does</th><th>Key</th></tr></thead>
+      <tbody>
+        <tr data-route="POST /api/listings/{id}/buy"><td><code>POST /api/listings/{id}/buy</code></td><td>Buy a listing from your wallet balance. Optional body <code>{"expectedPrice"}</code> refuses with <code>PRICE_CHANGED</code> if the price moved.</td><td>RW</td></tr>
+        <tr data-route="GET /api/cart"><td><code>GET /api/cart</code></td><td>Your cart.</td><td>RO</td></tr>
+        <tr data-route="POST /api/cart/{listingId}"><td><code>POST /api/cart/{listingId}</code></td><td>Add a listing to your cart.</td><td>RW</td></tr>
+        <tr data-route="POST /api/cart/checkout"><td><code>POST /api/cart/checkout</code></td><td>Buy everything in your cart.</td><td>RW</td></tr>
+        <tr data-route="POST /api/bids"><td><code>POST /api/bids</code></td><td>Bid on an auction. Body: <code>listingId</code>, <code>amount</code>, optional <code>maxAmount</code> for an automatic bid.</td><td>RW</td></tr>
+        <tr data-route="GET /api/bids/my-active"><td><code>GET /api/bids/my-active</code></td><td>Auctions you are bidding on.</td><td>RO</td></tr>
+        <tr data-route="POST /api/offers"><td><code>POST /api/offers</code></td><td>Make an offer on a listing. Body: <code>listingId</code>, <code>amount</code>, optional <code>message</code>.</td><td>RW</td></tr>
+        <tr data-route="GET /api/offers/outgoing"><td><code>GET /api/offers/outgoing</code></td><td>Offers you have made.</td><td>RO</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Buy orders</h3>
+    <table class="routes">
+      <thead><tr><th>Route</th><th>What it does</th><th>Key</th></tr></thead>
+      <tbody>
+        <tr data-route="GET /api/buy-orders"><td><code>GET /api/buy-orders</code></td><td>Your buy orders.</td><td>RO</td></tr>
+        <tr data-route="POST /api/buy-orders"><td><code>POST /api/buy-orders</code></td><td>Place a buy order. Body: <code>maxPrice</code>, <code>quantity</code>, and <code>itemId</code> (or <code>category</code> / <code>rarity</code>).</td><td>RW</td></tr>
+        <tr data-route="PUT /api/buy-orders/{id}"><td><code>PUT /api/buy-orders/{id}</code></td><td>Change one of your buy orders.</td><td>RW</td></tr>
+        <tr data-route="DELETE /api/buy-orders/{id}"><td><code>DELETE /api/buy-orders/{id}</code></td><td>Cancel one of your buy orders.</td><td>RW</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Selling</h3>
+    <table class="routes">
+      <thead><tr><th>Route</th><th>What it does</th><th>Key</th></tr></thead>
+      <tbody>
+        <tr data-route="GET /api/listings/my-stall"><td><code>GET /api/listings/my-stall</code></td><td>Your listings.</td><td>RO</td></tr>
+        <tr data-route="GET /api/listings/my-stall/sold"><td><code>GET /api/listings/my-stall/sold</code></td><td>Your sold listings.</td><td>RO</td></tr>
+        <tr data-route="GET /api/listings/inventory"><td><code>GET /api/listings/inventory</code></td><td>Items you bought on SkinBox and still own.</td><td>RO</td></tr>
+        <tr data-route="POST /api/listings/sell"><td><code>POST /api/listings/sell</code></td><td>List an item from your SkinBox inventory. Body: <code>listingId</code>, <code>price</code>, optional <code>listingType</code> (<code>BUY_NOW</code> or <code>AUCTION</code>) and <code>durationHours</code>.</td><td>RW</td></tr>
+        <tr data-route="DELETE /api/listings/{id}"><td><code>DELETE /api/listings/{id}</code></td><td>Take down one of your listings.</td><td>RW</td></tr>
+        <tr data-route="GET /api/offers/incoming"><td><code>GET /api/offers/incoming</code></td><td>Offers on your listings.</td><td>RO</td></tr>
+        <tr data-route="POST /api/offers/{id}/accept"><td><code>POST /api/offers/{id}/accept</code></td><td>Accept an offer on your listing.</td><td>RW</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Trades, wallet and alerts</h3>
+    <table class="routes">
+      <thead><tr><th>Route</th><th>What it does</th><th>Key</th></tr></thead>
+      <tbody>
+        <tr data-route="GET /api/trades"><td><code>GET /api/trades</code></td><td>Your trades.</td><td>RO</td></tr>
+        <tr data-route="GET /api/trades/{id}"><td><code>GET /api/trades/{id}</code></td><td>One trade and its status.</td><td>RO</td></tr>
+        <tr data-route="GET /api/wallet"><td><code>GET /api/wallet</code></td><td>Your wallet balance.</td><td>RO</td></tr>
+        <tr data-route="GET /api/wallet/transactions"><td><code>GET /api/wallet/transactions</code></td><td>Your wallet history.</td><td>RO</td></tr>
+        <tr data-route="GET /api/watchlist"><td><code>GET /api/watchlist</code></td><td>Your watchlist.</td><td>RO</td></tr>
+        <tr data-route="POST /api/watchlist/{itemId}"><td><code>POST /api/watchlist/{itemId}</code></td><td>Add an item to your watchlist.</td><td>RW</td></tr>
+        <tr data-route="GET /api/notifications"><td><code>GET /api/notifications</code></td><td>Your notifications.</td><td>RO</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="not-for-keys">Website only</h2>
+    <p>These are refused to every API key with <code>API_KEY_FORBIDDEN</code>. Use them signed in on the website.</p>
+    <ul>
+      <li data-forbidden="any"><code>/api/admin</code> and <code>/api/csr</code>: staff tools, for any method.</li>
+      <li data-forbidden="write">Changes under <code>/api/api-keys</code>, <code>/api/profile</code>, <code>/api/wallet/connect</code>, <code>/api/wallet/withdraw</code> and <code>/api/auth/steam/logout-all</code>: creating keys, account settings (email, trade URL, 2FA), the payout account, withdrawals and signing out everywhere. Reading them with <code>GET</code> still works.</li>
+    </ul>
+
+    <h2 id="errors">Errors</h2>
+    <p>Errors come back as JSON with a <code>code</code> and a <code>message</code>.</p>
+    <table>
+      <thead><tr><th>Status</th><th>Code</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr data-error="401 INVALID_API_KEY"><td>401</td><td><code>INVALID_API_KEY</code></td><td>The key is unknown or has been revoked.</td></tr>
+        <tr data-error="403 RO_KEY_WRITE_FORBIDDEN"><td>403</td><td><code>RO_KEY_WRITE_FORBIDDEN</code></td><td>A read-only key tried to change something. Create an RW key for that.</td></tr>
+        <tr data-error="403 API_KEY_FORBIDDEN"><td>403</td><td><code>API_KEY_FORBIDDEN</code></td><td>The route is website only (see above).</td></tr>
+        <tr data-error="429 RATE_LIMITED"><td>429</td><td><code>RATE_LIMITED</code></td><td>Too many requests. Wait the number of seconds in the <code>Retry-After</code> header, then try again.</td></tr>
+      </tbody>
+    </table>
+    <p>Requests are rate limited.</p>
+  </main>
+</body>
+</html>

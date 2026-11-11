@@ -167,3 +167,40 @@ test.describe('anonymous shop', () => {
     expect(back.sellerName).toBe(sellerName);
   });
 });
+
+// ── Public API reference ─────────────────────────────────────────────────
+test.describe('api reference page', () => {
+  test('the page lists scopes, routes and error codes, and fits a phone', async ({ page }) => {
+    for (const path of ['/api-reference.html', '/api-reference']) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1, name: 'API Reference' })).toBeVisible();
+    }
+    await expect(page.locator('tr[data-route="GET /api/listings"]')).toContainText('RO');
+    await expect(page.locator('tr[data-route="POST /api/listings/{id}/buy"]')).toContainText('RW');
+    for (const code of ['INVALID_API_KEY', 'RO_KEY_WRITE_FORBIDDEN', 'API_KEY_FORBIDDEN', 'RATE_LIMITED']) {
+      await expect(page.locator(`tr[data-error$=" ${code}"]`)).toBeVisible();
+    }
+    await expect(page.getByText('Requests are rate limited.', { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 800 });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('an unknown key gets the documented 401 code', async ({ request }) => {
+    const r = await request.get('/api/wallet', { headers: { Authorization: 'Bearer sbx_live_not_a_real_key' } });
+    expect(r.status()).toBe(401);
+    expect((await r.json()).code).toBe('INVALID_API_KEY');
+  });
+
+  test('Profile → Developers links to the reference', async ({ page, playwright, baseURL }) => {
+    const ctx = await playwright.request.newContext({ baseURL });
+    await ctx.get('/api/auth/steam/dev-login?userId=5&next=/', { maxRedirects: 0 });
+    await page.context().addCookies((await ctx.storageState()).cookies);
+    await page.goto('/profile/developers');
+    const link = page.getByTestId('api-reference-link');
+    await expect(link).toBeVisible({ timeout: 15_000 });
+    await link.click();
+    await expect(page).toHaveURL(/\/api-reference\.html$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'API Reference' })).toBeVisible();
+  });
+});
