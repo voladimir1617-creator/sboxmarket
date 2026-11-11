@@ -206,6 +206,9 @@ class EmailService {
         if (user.email == null || user.email.isEmpty()) return false
         if (!Boolean.TRUE.equals(user.emailVerified)) return false
         if (!Boolean.TRUE.equals(user.emailNotificationsEnabled)) return false
+        // Provider said the address is dead (bounce) or the user marked us
+        // as spam (complaint): no opt-out-able mail either way.
+        if (user.emailSuppressed) return false
         return !isBucketMuted(user, bucket)
     }
 
@@ -223,8 +226,15 @@ class EmailService {
     boolean canSendSecurityTo(SteamUser user) {
         if (user == null) return false
         if (user.email == null || user.email.isEmpty()) return false
+        // A hard bounce means nobody can read it; resending only hurts the
+        // sending domain's reputation. A spam complaint does NOT stop
+        // security alerts: those are the mail a hijacked account needs most.
+        if (user.emailSuppressed == EMAIL_SUPPRESSED_BOUNCE) return false
         return Boolean.TRUE.equals(user.emailVerified)
     }
+
+    static final String EMAIL_SUPPRESSED_BOUNCE = 'BOUNCE'
+    static final String EMAIL_SUPPRESSED_COMPLAINT = 'COMPLAINT'
 
     /** Format an amount as "$X.XX (USD)" for in-body currency display.
      *  Per the email-audit policy: emails are async + may render hours

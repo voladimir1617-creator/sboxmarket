@@ -65,6 +65,7 @@ class PresenceFilter extends OncePerRequestFilter {
         '/api/auth/steam/return',
         '/api/auth/steam/logout',
         '/api/stripe/webhook',
+        '/api/email/webhook',
         '/api/health'
     ]
 
