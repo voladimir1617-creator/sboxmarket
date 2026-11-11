@@ -15,31 +15,41 @@ see on your PC.
 Real money stays off until you say "go live". That is a separate setup with
 your real Stripe keys.
 
-## The host: Render
+## The hosts: Render (site) and Neon (database), both free
 
-- Free plan, no credit card needed to sign up.
-- The site falls asleep after 15 minutes with no visitors. The next visitor
-  waits while it wakes up: up to about 5 minutes on the free plan's small
-  share of a processor (measured on the same image held to that size).
-- The free database stops working 30 days after it is made, and Render deletes it 14 days after that.
-  Nothing real is in it, so when it goes you just press the deploy button
-  again and the demo stock comes back.
-- If you later want it always awake and keeping its data, Render's paid
-  plans start at about $7 a month for the site and about $6 a month for the
-  database. You do not need either for the demo.
+- Render free plan for the site. No card. The site falls asleep after 15
+  minutes with no visitors; the next visitor waits while it wakes up (up to
+  about 5 minutes on the free plan's small share of a processor).
+- Neon free plan for the database: 1 GB, no expiry, no card. (Render's own
+  free database is deleted 30 days after it is made, which is why it is not
+  used any more.) Neon pauses the database when idle and wakes it on the
+  next request in about a second.
+- Neither can carry real money: the free site sleeps, so the Steam bot and
+  timers would stop. Real money is a separate setup after "go live".
 
 ## What you press
 
-1. Open **https://render.com/deploy?repo=https://github.com/voladimir1617-creator/sboxmarket**
-2. Click **Sign in with GitHub** and allow Render to see the sboxmarket repo.
-   (This creates your free Render account. No card.)
-3. You land on a page called **Blueprint** that already lists
-   `skinbox-demo` and `skinbox-demo-db`, both marked **Free**.
-   Type any name in **Blueprint Name** (for example `skinbox`).
-4. Click **Deploy Blueprint**.
-5. Wait. The first build takes around 10 minutes. When the `skinbox-demo` box
-   turns green and says **Live**, click the link under its name. That is your
-   site.
+If `skinbox-demo` already exists on Render (it does since 2026-10-13):
+
+1. Open **https://neon.tech**, click **Sign up**, choose **Continue with
+   GitHub**. No card.
+2. Create a project: any name (for example `skinbox`), Postgres 16, region
+   **AWS US West (Oregon)** (same place as the Render site).
+3. On the project page click **Connect**, pick **Java** in the list, and keep
+   that window open. It shows the host, database, user and password.
+4. In Render open `skinbox-demo`, then **Environment**, then add:
+   - `SPRING_DATASOURCE_URL` = `jdbc:postgresql://<host>/<database>?sslmode=require`
+   - `SPRING_DATASOURCE_USERNAME` = the user
+   - `SPRING_DATASOURCE_PASSWORD` = the password
+   Delete `DB_HOST`, `DB_PORT`, `DB_NAME` and `DB_USER` there if they are
+   listed. Click **Save, rebuild, and deploy**.
+5. Wait about 10 minutes. When `skinbox-demo` says **Live**, open
+   https://skinbox-demo.onrender.com. The demo stock is filled in by itself.
+
+Starting from nothing instead: do steps 1-3, then open
+**https://render.com/deploy?repo=https://github.com/voladimir1617-creator/sboxmarket**,
+sign in with GitHub, click **Deploy Blueprint**, and paste the three values
+when Render asks for them.
 
 After that, every change merged into `main` on GitHub updates the site by
 itself.
@@ -51,7 +61,7 @@ itself.
 - **Build failed**: open `skinbox-demo`, click **Logs**, copy the last
   screen of red text and paste it to Claude.
 - **Want it gone**: in Render open `skinbox-demo`, then **Settings**, then
-  **Delete Web Service**. Do the same for `skinbox-demo-db`.
+  **Delete Web Service**. In Neon, delete the project.
 
 ## For whoever maintains this
 
@@ -71,4 +81,5 @@ itself.
 - Local smoke test of the same image:
   `docker build -t skinbox-demo .`, start `postgres:16-alpine`, then run the
   image with `SPRING_PROFILES_ACTIVE=demo PORT=10000 COOKIE_SECURE=false`
-  and `DB_HOST/DB_USER/DB_PASSWORD` pointing at it.
+  and `DB_HOST/DB_USER/DB_PASSWORD` (or the three `SPRING_DATASOURCE_*`)
+  pointing at it.

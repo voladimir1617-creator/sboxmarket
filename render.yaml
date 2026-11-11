@@ -1,9 +1,9 @@
 # Render Blueprint: the public DEMO copy of SkinBox on Render's free plan.
 # The "Deploy to Render" button in docs/HOSTING.md reads this file.
 #
-# It creates two things, both on the free plan:
-#   * skinbox-demo     the website, built from ./Dockerfile
-#   * skinbox-demo-db  a Postgres database for it
+# It creates the website on Render's free plan (skinbox-demo, built from
+# ./Dockerfile). The database is a free Neon Postgres, set up separately:
+# see docs/HOSTING.md.
 #
 # The demo profile (application-demo.yml) keeps every money and staff route
 # shut and refuses to start with live Stripe keys or dev sign-in, so nothing
@@ -28,29 +28,16 @@ services:
           -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom
       - key: APP_UNSUBSCRIBE_SECRET
         generateValue: true
-      - key: DB_HOST
-        fromDatabase:
-          name: skinbox-demo-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: skinbox-demo-db
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: skinbox-demo-db
-          property: database
-      - key: DB_USER
-        fromDatabase:
-          name: skinbox-demo-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: skinbox-demo-db
-          property: password
-
-databases:
-  - name: skinbox-demo-db
-    plan: free
-    databaseName: skinbox
-    user: skinbox
+      # Database: a free Neon Postgres (neon.tech, 1 GB, no expiry, no card).
+      # Render's own free Postgres is deleted 30 days after it is made, so
+      # it is not used. Paste these three from Neon's "Connection string"
+      # (Java / JDBC tab) into the service's Environment yourself.
+      #   SPRING_DATASOURCE_URL       jdbc:postgresql://<host>/<db>?sslmode=require
+      #   SPRING_DATASOURCE_USERNAME  <user>
+      #   SPRING_DATASOURCE_PASSWORD  <password>
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
