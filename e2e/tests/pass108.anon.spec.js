@@ -33,25 +33,34 @@ async function asCsr(page) {
   await page.route('**/api/csr/check', (r) => r.fulfill(json({ csr: true })));
 }
 
-// A cold new tab on a loaded CI runner can take well over 5s to open and
-// commit its first navigation (main run 591 timed out at 5s, then sat on
-// about:blank for 8s on retry; locally the first one took 19s). The
-// assertions are unchanged, only the wait is longer.
-const NEW_TAB_MS = 20000;
+// Ctrl/Cmd-click must be left to the browser: the app neither prevents the
+// default (which is what opens the new tab) nor navigates in place.
+// The checks do not wait for the new tab to load: Ctrl/Cmd-click opens a
+// BACKGROUND tab, and the headless Chromium CI uses sometimes never starts a
+// background tab's navigation (reproduced locally: stuck on about:blank for
+// 20s, or no tab event at all, whatever the wait). Whether a new tab then
+// loads is the browser's job, not the app's.
+async function modClick(page, link) {
+  await page.evaluate(() => {
+    window.__modClickPrevented = undefined;
+    document.addEventListener('click', (e) => {
+      // Read after every handler has run.
+      setTimeout(() => { window.__modClickPrevented = e.defaultPrevented; }, 0);
+    }, { capture: true, once: true });
+  });
+  await link.click({ modifiers: ['ControlOrMeta'] });
+  await expect.poll(() => page.evaluate(() => window.__modClickPrevented)).toBe(false);
+}
 
 test.describe('database item links', () => {
-  test('Ctrl/Cmd-click on an item name opens it in a new tab and leaves the Database in place (real app)', async ({ page, context }) => {
-    test.slow(); // two NEW_TAB_MS waits must fit in the test budget
+  test('Ctrl/Cmd-click on an item name is left to the browser and leaves the Database in place (real app)', async ({ page }) => {
     await realApi(page, 0);
     await page.goto('/db');
     const link = page.locator('a.db-name').first();
     await expect(link).toBeVisible();
     const href = await link.getAttribute('href');
-    const popup = context.waitForEvent('page', { timeout: NEW_TAB_MS });
-    await link.click({ modifiers: ['ControlOrMeta'] });
-    const tab = await popup;
-    // A new tab starts at about:blank; wait for it to reach its URL.
-    await expect.poll(() => { try { return new URL(tab.url()).pathname; } catch (_) { return ''; } }, { timeout: NEW_TAB_MS }).toBe(href);
+    expect(href).toMatch(/^\/item\/\d+$/);
+    await modClick(page, link);
     await expect(page).toHaveURL(/\/db(\?|$)/);
     await expect(page.getByRole('status').filter({ hasText: /results? · page/ })).toBeVisible();
   });
@@ -179,17 +188,13 @@ test.describe('My Stall cancel all', () => {
 });
 
 test.describe('help center contact link', () => {
-  test('Ctrl/Cmd-click on "Open a ticket" opens Support in a new tab (real app)', async ({ page, context }) => {
-    test.slow(); // two NEW_TAB_MS waits must fit in the test budget
+  test('Ctrl/Cmd-click on "Open a ticket" is left to the browser (new tab) and stays on Help (real app)', async ({ page }) => {
     await realApi(page, 0);
     await page.goto('/help?q=zzqqxx');
     const link = page.getByRole('link', { name: /Open a ticket/ });
     await expect(link).toBeVisible();
-    const popup = context.waitForEvent('page', { timeout: NEW_TAB_MS });
-    await link.click({ modifiers: ['ControlOrMeta'] });
-    const tab = await popup;
-    // A new tab starts at about:blank; wait for it to reach its URL.
-    await expect.poll(() => { try { return new URL(tab.url()).pathname; } catch (_) { return ''; } }, { timeout: NEW_TAB_MS }).toBe('/support');
+    expect(await link.getAttribute('href')).toBe('/support');
+    await modClick(page, link);
     await expect(page).toHaveURL(/\/help/);
   });
 });
