@@ -41,6 +41,7 @@ const NEW_TAB_MS = 20000;
 
 test.describe('database item links', () => {
   test('Ctrl/Cmd-click on an item name opens it in a new tab and leaves the Database in place (real app)', async ({ page, context }) => {
+    test.slow(); // two NEW_TAB_MS waits must fit in the test budget
     await realApi(page, 0);
     await page.goto('/db');
     const link = page.locator('a.db-name').first();
@@ -179,6 +180,7 @@ test.describe('My Stall cancel all', () => {
 
 test.describe('help center contact link', () => {
   test('Ctrl/Cmd-click on "Open a ticket" opens Support in a new tab (real app)', async ({ page, context }) => {
+    test.slow(); // two NEW_TAB_MS waits must fit in the test budget
     await realApi(page, 0);
     await page.goto('/help?q=zzqqxx');
     const link = page.getByRole('link', { name: /Open a ticket/ });
