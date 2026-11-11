@@ -33,34 +33,28 @@ async function asCsr(page) {
   await page.route('**/api/csr/check', (r) => r.fulfill(json({ csr: true })));
 }
 
-// Ctrl/Cmd-click must be left to the browser: the app neither prevents the
-// default (which is what opens the new tab) nor navigates in place.
-// The checks do not wait for the new tab to load: Ctrl/Cmd-click opens a
-// BACKGROUND tab, and the headless Chromium CI uses sometimes never starts a
-// background tab's navigation (reproduced locally: stuck on about:blank for
-// 20s, or no tab event at all, whatever the wait). Whether a new tab then
-// loads is the browser's job, not the app's.
-async function modClick(page, link) {
-  await page.evaluate(() => {
-    window.__modClickPrevented = undefined;
-    document.addEventListener('click', (e) => {
-      // Read after every handler has run.
-      setTimeout(() => { window.__modClickPrevented = e.defaultPrevented; }, 0);
-    }, { capture: true, once: true });
+// Records whether the app cancelled the last click: a capture listener keeps
+// the event and reads defaultPrevented once dispatch has finished (the app may
+// stop propagation, so a bubble listener would never see it). A modifier-click the app leaves alone is what makes the
+// browser open the link in a new tab. (Asserting on the new tab itself was
+// unreliable in CI: the background tab sometimes never left about:blank.)
+async function recordClicks(page) {
+  await page.addInitScript(() => {
+    window.__clickPrevented = null;
+    window.addEventListener('click', (e) => { setTimeout(() => { window.__clickPrevented = e.defaultPrevented; }, 0); }, true);
   });
-  await link.click({ modifiers: ['ControlOrMeta'] });
-  await expect.poll(() => page.evaluate(() => window.__modClickPrevented)).toBe(false);
 }
 
 test.describe('database item links', () => {
-  test('Ctrl/Cmd-click on an item name is left to the browser and leaves the Database in place (real app)', async ({ page }) => {
+  test('Ctrl/Cmd-click on an item name opens it in a new tab and leaves the Database in place (real app)', async ({ page }) => {
     await realApi(page, 0);
+    await recordClicks(page);
     await page.goto('/db');
     const link = page.locator('a.db-name').first();
     await expect(link).toBeVisible();
-    const href = await link.getAttribute('href');
-    expect(href).toMatch(/^\/item\/\d+$/);
-    await modClick(page, link);
+    expect(await link.getAttribute('href')).toMatch(/^\/item\/\d+/);
+    await link.click({ modifiers: ['ControlOrMeta'] });
+    await expect.poll(() => page.evaluate(() => window.__clickPrevented)).toBe(false);
     await expect(page).toHaveURL(/\/db(\?|$)/);
     await expect(page.getByRole('status').filter({ hasText: /results? · page/ })).toBeVisible();
   });
@@ -188,13 +182,15 @@ test.describe('My Stall cancel all', () => {
 });
 
 test.describe('help center contact link', () => {
-  test('Ctrl/Cmd-click on "Open a ticket" is left to the browser (new tab) and stays on Help (real app)', async ({ page }) => {
+  test('Ctrl/Cmd-click on "Open a ticket" opens Support in a new tab (real app)', async ({ page }) => {
     await realApi(page, 0);
+    await recordClicks(page);
     await page.goto('/help?q=zzqqxx');
     const link = page.getByRole('link', { name: /Open a ticket/ });
     await expect(link).toBeVisible();
-    expect(await link.getAttribute('href')).toBe('/support');
-    await modClick(page, link);
+    expect(new URL(await link.getAttribute('href'), 'http://x').pathname).toBe('/support');
+    await link.click({ modifiers: ['ControlOrMeta'] });
+    await expect.poll(() => page.evaluate(() => window.__clickPrevented)).toBe(false);
     await expect(page).toHaveURL(/\/help/);
   });
 });
