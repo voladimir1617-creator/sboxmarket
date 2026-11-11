@@ -910,6 +910,123 @@ class EmailServiceSpec extends Specification {
         1 * mailSender.send({ MimeMessage msg -> fields(msg).text.contains('5 days to send') })
     }
 
+    def "sendAuctionWon for SkinBox's own stock names no seller and no send window"() {
+        given: 'an auction of a listing with no seller, whose trade opens in PENDING_BUYER_CONFIRM'
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionWon('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('12.00'), '/item/1', false)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains("SkinBox's own stock, so there is no seller to wait on") &&
+            !f.text.contains('seller has been notified') &&
+            !f.text.contains('days to send')
+        })
+    }
+
+    def "sendAuctionWon with a seller keeps the send window"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionWon('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('12.00'), '/item/1', true)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('seller has been notified') && f.text.contains('3 days to send') &&
+            !f.text.contains('own stock')
+        })
+    }
+
+    def "ops alerts get a staff footer, not the unsubscribe and help lines that do not stop them"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.send('admin@example.com', '[SkinBox ops] Bot offline', 'It is down.', EmailService.OPS_ALERT_KIND)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('Staff alert. To stop these, turn off ops.alerts.email-enabled on the server') &&
+            !f.text.contains('One-click unsubscribe') &&
+            !f.text.contains('Need help? Reply') &&
+            !f.text.contains('Manage your email preferences') &&
+            f.listUnsub == ''
+        })
+    }
+
+    def "an ordinary ungated email keeps the generic footer"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.send('user@example.com', 'Hello', 'Body.')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('Need help? Reply') && !f.text.contains('Staff alert')
+        })
+    }
+
+    def "trade timing emails quote the configured windows, not hard-coded days"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+        svc.sellerResponseDays = 4
+        svc.autoReleaseDays = 6
+
+        when:
+        svc.sendOfferAccepted('a@example.com', 'A', 'Wizard Hat', new BigDecimal('5.00'), 7L)
+        svc.sendTradeSent('b@example.com', 'B', 'Wizard Hat', 'Bob', 7L)
+        svc.sendTradeAutoReleased('c@example.com', 'C', 'Wizard Hat', 7L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['a@example.com'] && f.text.contains('within 4 days') && !f.text.contains('3 days') })
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['b@example.com'] && f.text.contains('6 days after it was marked sent') && !f.text.contains('8 days') })
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['c@example.com'] && f.text.contains('waited 6 days for you to confirm') &&
+            !f.text.contains("haven't heard from you") })
+    }
+
+    def "the suspension email says the account is read-only, not that sign-in is blocked"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAccountBanned('a@example.com', 'A', 'spam', null)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('You can still sign in, but your account is read-only') &&
+            f.text.contains('cancelled and refunded') &&
+            !f.text.contains("can't sign in") && !f.text.contains('rolled back')
+        })
+    }
+
+    def "the withdrawal-approved email quotes no settlement time"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendWithdrawalApproved('a@example.com', 'A', new BigDecimal('20.00'), 'tr_1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            !f.text.contains('business day') && f.text.contains('Wallet → Transactions')
+        })
+    }
+
     // ── plain-text / no-HTML-injection (the email-XSS property) ───────
     //
     // Every SkinBox email is built as plain text — send() calls

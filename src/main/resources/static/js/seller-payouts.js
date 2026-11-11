@@ -27,18 +27,20 @@ const plural = (c, one, many) => c + ' ' + (c === 1 ? one : many);
 
 // Next payout, in one sentence. Order: money already moving, then money the
 // seller can request now, then the next sale that releases into the balance.
+// No bank date is printed for a payout: no code sets one (Stripe pays the bank
+// on its own schedule), so expectedAt / arrivalIfRequestedNow are not shown.
 export function nextPayoutLine(p, now = Date.now()) {
-  const moving = (p.history || []).find(t => t.status === 'PENDING' && t.expectedAt);
+  const moving = (p.history || []).find(t => t.status === 'PENDING');
   if (num(p.inFlight && p.inFlight.amount) > 0 && moving) {
-    return { date: moving.expectedAt, text: 'Your requested payout should reach your bank by' };
+    return { date: null, text: 'Your requested payout is waiting to be sent to Stripe.' };
   }
   if (num(p.available) > 0) {
-    return { date: p.arrivalIfRequestedNow, text: 'Request now and it should reach your bank by' };
+    return { date: null, text: 'You can request a payout now.' };
   }
   if (p.nextReleaseAt) {
     return { date: Math.max(p.nextReleaseAt, now), text: 'Your next sale releases to your balance by' };
   }
-  return { date: null, text: 'No payout scheduled. Sales release to your balance once the buyer confirms.' };
+  return { date: null, text: 'No payout scheduled. Sales release to your balance once the item is delivered and confirmed.' };
 }
 
 export function SellerPayoutsCard({ refreshKey, mask }) {
@@ -141,7 +143,6 @@ export function SellerPayoutsCard({ refreshKey, mask }) {
       h('div', { className: 'wallet-activity-label', style: { margin: '0 2px 6px' } }, 'Payout history'),
       h('div', { role: 'list', style: { border: '1px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden' } },
         shown.map((t, i) => {
-          const arriving = t.status === 'COMPLETED' && t.expectedAt && t.expectedAt > Date.now();
           const tone = t.status === 'COMPLETED' ? 'var(--up)'
             : t.status === 'PENDING' ? 'var(--ink-2)' : 'var(--ink-4)';
           return h('div', {
@@ -155,10 +156,7 @@ export function SellerPayoutsCard({ refreshKey, mask }) {
           },
             h('span', { style: { color: 'var(--ink-3)', minWidth: 92 } }, day(t.createdAt)),
             h('span', { style: { color: tone, fontWeight: 600, flex: 1, minWidth: 0 } },
-              STATUS_LABEL[t.status] || t.status,
-              (t.status === 'PENDING' || arriving) && t.expectedAt
-                ? h('span', { style: { color: 'var(--ink-3)', fontWeight: 400 } }, ' · bank by ' + day(t.expectedAt))
-                : null),
+              STATUS_LABEL[t.status] || t.status),
             h('span', { style: { fontFamily: 'var(--mono)', color: 'var(--ink)', whiteSpace: 'nowrap' } }, money(t.amount))
           );
         })

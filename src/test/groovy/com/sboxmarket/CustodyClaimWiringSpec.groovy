@@ -44,7 +44,7 @@ class CustodyClaimWiringSpec extends Specification {
 
         and: "and with no STEAM_BOT_BASE_URL set — the mode the operator launches in — the page states the true, non-custodial mode"
         !controller.custodial
-        res.contentAsString.contains('SkinBox is non-custodial')
+        res.contentAsString.contains("SkinBox does not hold sellers' items")
     }
 
     def "the /legal/trade-safety alias forwards through the same renderer"() {

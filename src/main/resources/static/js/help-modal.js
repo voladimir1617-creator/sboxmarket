@@ -20,7 +20,7 @@ const FAQ = [
   {
     s: 'trade',
     q: 'How do I list an item I own on Steam?',
-    a: "Open Sell Items from the user menu. The Steam Inventory tab fetches your real Steam inventory for s&box (appid 590830) — click any item, pick Buy Now or Auction, set a price (or starting bid + duration for auctions), and hit List for Sale. The listing appears on the marketplace immediately and a 2% platform fee is deducted when it sells."
+    a: "Open Sell Items from the user menu. The Steam Inventory tab fetches your real Steam inventory for s&box (appid 590830) — click any item, pick Buy Now or Auction, set a price (or starting bid + duration for auctions), and hit List for Sale. The listing goes live once it's ready (straight away, or after our escrow bot has received and held the item when escrow is on), and a 2% platform fee is deducted when it sells."
   },
   {
     s: 'trade',
@@ -35,12 +35,12 @@ const FAQ = [
   {
     s: 'money',
     q: 'How do withdrawals work?',
-    a: "Wallet → Withdraw. You'll need a verified email address first (verify it from Profile → Personal). The first time, Set up cash-out links your bank account or debit card through Stripe (this is also the identity check). Then enter an amount; if you have 2FA enabled you'll also enter a fresh 6-digit code. Your balance is debited and the payout is sent to your Stripe cash-out account straight away; Stripe pays it on to your bank, usually within 1–2 business days. A rolling $5,000 cap applies per 24-hour window, and withdrawals are paused while any deposit on your account is under a chargeback dispute. Test mode: no real money moves yet."
+    a: "Wallet → Withdraw. You'll need a verified email address first (verify it from Profile → Personal). The first time, Set up cash-out links your bank account or debit card through Stripe (this is also the identity check). Then enter an amount; if you have 2FA enabled you'll also enter a fresh 6-digit code. Your balance is debited and the payout is sent to your Stripe cash-out account straight away; Stripe then pays it on to your bank on its own payout schedule. A rolling $5,000 cap applies per 24-hour window, and withdrawals are paused while any deposit on your account is under a chargeback dispute. Test mode: no real money moves yet."
   },
   {
     s: 'trade',
     q: 'What are Buy Orders?',
-    a: "A standing offer to auto-purchase a specific item as soon as a listing drops to your max price. Open any item, hit Place Buy Order, pick a max, and walk away. When a matching listing appears, we charge your wallet and assign the item automatically. It works on items nobody is selling yet, too: the order waits and fills the first Buy Now listing at or under your max. Cancel from your Profile → Buy Orders tab."
+    a: "A standing offer to auto-purchase a specific item as soon as a listing drops to your max price. Open any item, hit Place Buy Order, pick a max, and walk away. When a matching listing appears, we buy it for you automatically: your wallet is charged and the item is delivered like any other purchase. It works on items nobody is selling yet, too: the order waits and fills the first Buy Now listing at or under your max. Cancel from your Profile → Buy Orders tab."
   },
   {
     s: 'trade',
@@ -60,7 +60,7 @@ const FAQ = [
   {
     s: 'money',
     q: 'Is my money safe?',
-    a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. When you buy an item the payment is held in escrow — not paid to the seller — until you confirm receipt or the 8-day trade-hold window passes, so a seller can't take your money and ghost you. Withdrawals are queued for manual admin approval before payout and require a verified email (plus a 2FA code if you've enabled it). Session cookies are HttpOnly and SameSite=Lax in production, and every wallet write is logged with a correlation id for audit. Test mode: no real money moves yet."
+    a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. When you buy an item the payment is held in escrow — not paid to the seller — until you confirm receipt or the 8-day auto-release window passes, so a seller can't take your money and ghost you. Withdrawals need a verified email (plus a 2FA code if you've enabled it) and are sent to your Stripe cash-out account as soon as you confirm. Session cookies are HttpOnly and SameSite=Lax in production, and every wallet write is logged with a correlation id for audit. Test mode: no real money moves yet."
   },
   {
     s: 'money',
@@ -90,7 +90,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'Can I cancel a pending withdrawal?',
-    a: "Yes. Wallet → Transactions has a 'Cancel' button next to every PENDING withdrawal row. The full amount is credited back immediately and the row flips to CANCELLED. You don't need to wait for an admin rejection."
+    a: "Withdrawals are sent as soon as you confirm, so there is normally nothing to cancel. If an older withdrawal still shows as PENDING in Wallet → Transactions, its 'Cancel' button credits the full amount back at once."
   },
   {
     s: 'trade',

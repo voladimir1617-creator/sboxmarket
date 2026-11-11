@@ -42,9 +42,9 @@ class CustodyClaimHonestySpec extends Specification {
 
     /** Sentences that are FALSE the moment the escrow bot is switched on. */
     private static final Map<String, String> FALSE_WHEN_CUSTODIAL = [
-        'the non-custodial claim'          : 'non-custodial',
-        'the "we never hold your skins"'   : 'We never hold your skins',
-        'the "no bot touches items"'       : 'No bot account ever touches the items',
+        'the "skins stay with the players"': "Players' skins stay with the players",
+        'the "we do not hold items"'       : "SkinBox does not hold sellers' items",
+        'the "no bot touches trades"'      : 'No bot account touches player trades',
         'the "we have no bot"'             : "we don't have one",
         'the "no middle man exists"'       : 'There is no such thing on SkinBox',
     ]
@@ -91,6 +91,9 @@ class CustodyClaimHonestySpec extends Specification {
 
         expect: "it says we hold listed items"
         page.contains('SkinBox holds listed items in escrow')
+
+        and: "it never calls the platform non-custodial"
+        !page.toLowerCase().contains('non-custodial')
 
         and: "it warns the seller to expect an offer FROM us, rather than calling one a scam"
         page.contains('SkinBox will send you trade offers')

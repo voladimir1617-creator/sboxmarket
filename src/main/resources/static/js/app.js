@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=374'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=375'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -7754,15 +7754,15 @@ export function App() {
         h('div', { className: 'csfloat-home-journey-left' },
           h('h2', { className: 'csfloat-home-journey-title' }, 'A trade clears in six clean steps.'),
           h('p', { className: 'csfloat-home-journey-blurb' },
-            'No middleman, no manual escrow, no Discord deals. Pick the item, confirm in your client, and the funds settle to your wallet automatically.')
+            'No middleman, no Discord deals. Your payment is held in escrow, the item comes to you as a Steam trade offer, and the seller is paid once it’s yours.')
         ),
         h('ol', { className: 'csfloat-home-journey-steps', role: 'list' },
           [
             { icon: 'shopping_cart',  label: 'Pick the item', sub: 'Buy now, bargain, or auction bid.' },
             { icon: 'notifications', label: 'Seller notified',  sub: 'Trade request fires within seconds.' },
-            { icon: 'send',           label: 'Steam offer sent', sub: 'Bot relays the trade through Steam.' },
-            { icon: 'check_circle',   label: 'Confirm in client', sub: 'Both parties accept on Steam mobile.' },
-            { icon: 'verified',       label: 'Transfer verified',  sub: `${BRAND.name} confirms the item changed hands on Steam.` },
+            { icon: 'send',           label: 'Steam offer sent', sub: 'The item comes to you as a Steam trade offer.' },
+            { icon: 'check_circle',   label: 'Accept on Steam', sub: 'You accept the offer in Steam.' },
+            { icon: 'verified',       label: 'Delivery confirmed', sub: 'You confirm receipt, or our bot sees the offer accepted.' },
             { icon: 'paid',           label: 'Funds released',     sub: 'Seller paid, buyer keeps the item.' }
           ].map((s, i) => h('li', { key: s.icon, className: 'csfloat-home-journey-step' },
             h('span', { className: 'csfloat-home-journey-step-icon' },
@@ -10287,7 +10287,7 @@ export function App() {
               ),
               h('div', { className: 'cart-summary-row' },
                 h('span', null, 'Trade escrow'),
-                h('span', { style: { color: 'var(--ink-3)' } }, '8 days · auto-release')
+                h('span', { style: { color: 'var(--ink-3)' } }, 'held until the trade completes')
               ),
               cartSavings > 0 && h('div', { className: 'cart-summary-row cart-summary-savings' },
                 h('span', null, 'Savings vs Steam'),
@@ -10514,8 +10514,8 @@ export function App() {
             h('span', null, anySeller
               ? h('span', null,
                   h('strong', null, 'Delivery is not instant. '),
-                  'Your wallet is charged now, but the seller has to send you a Steam trade offer by hand. ',
-                  'Your money stays in escrow until you confirm the item arrived — and if the seller never sends it, ',
+                  'Your wallet is charged now and the item comes to you as a Steam trade offer, from the seller or from our escrow bot. ',
+                  'Your money stays in escrow until the item is yours — and if it is never sent, ',
                   'the purchase cancels itself and you are refunded in full.',
                   // A mixed cart: the house items do not wait on anyone, and
                   // the copy above alone told the buyer they all did.
@@ -10971,7 +10971,7 @@ export function App() {
               )
             );
           })(),
-          h('div', { className: 'fee-calc-note' }, `Steam takes 12% on Workshop sales. ${BRAND.name} takes a flat 2% on each sale. Card deposits and payouts carry only the payment processor's fee, shown before you confirm; payouts arrive in 1-2 business days.`)
+          h('div', { className: 'fee-calc-note' }, `Steam takes 12% on Workshop sales. ${BRAND.name} takes a flat 2% on each sale. Card deposits and payouts carry only the payment processor's fee, shown before you confirm.`)
         )
       ),
     ),

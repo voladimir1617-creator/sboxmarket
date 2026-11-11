@@ -2307,7 +2307,7 @@ function AdminDashboardTab({ onNavTab }) {
            'users'),
       Stat('Catalogue Items',      Number(stats.items || 0).toLocaleString(), null, null, 'catalogue'),
       Stat('Active Listings',      Number(stats.activeListings || 0).toLocaleString()),
-      Stat('Total Escrow',         fmt(stats.totalEscrow || 0), 'accent'),
+      Stat('Total wallet balances', fmt(stats.totalEscrow || 0), 'accent'),
       Stat('Deposits 24h',         fmt(stats.deposits24h || 0), 'green', depositDelta),
       Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green', salesDelta, 'trades:ALL'),
       Stat('Platform fees 24h',    fmt(stats.fees24h || 0), 'accent'),
@@ -3818,7 +3818,7 @@ function AdminTicketsTab() {
         [
           { id: 'greet',     label: '👋 Greet',     body: 'Hi — thanks for reaching out. I\'m looking into this now and will follow up within 24 hours.' },
           { id: 'deposit',   label: '💳 Deposit',   body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
-          { id: 'trade',     label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page. Let me know if you need me to nudge them.' },
+          { id: 'trade',     label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms, or at most 8 days after the item is marked sent, when they release automatically. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page. Let me know if you need me to nudge them.' },
           { id: 'refund',    label: '↩ Refund',    body: `I can issue a refund to your ${BRAND.name} wallet balance for this trade. Confirm you'd like that and I'll process it — Stripe-side chargebacks would go through your card issuer instead.` },
           { id: 'resolved',  label: '✓ Resolved',  body: 'Glad that\'s sorted. If nothing else comes up this ticket closes on its own. Reply here any time if you need more help.' }
         ].map(tpl => h('button', {
@@ -4494,7 +4494,7 @@ function CsrTicketsTab() {
         [
           { id: 'greet',    label: '👋 Greet',    body: 'Hi — thanks for reaching out. I\'m looking into this now and will follow up within 24 hours.' },
           { id: 'deposit',  label: '💳 Deposit',  body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
-          { id: 'trade',    label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page.' },
+          { id: 'trade',    label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms, or at most 8 days after the item is marked sent, when they release automatically. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page.' },
           { id: 'refund',   label: '↩ Refund',    body: `I can issue a refund to your ${BRAND.name} wallet balance for this trade. Confirm you'd like that and I'll process it.` },
           { id: 'resolved', label: '✓ Resolved',  body: 'Glad that\'s sorted. If nothing else comes up this ticket closes on its own. Reply here any time if you need more help.' }
         ].map(tpl => h('button', {

@@ -170,7 +170,7 @@ function OptInPanel({ trade, fee, loadingFee, onEnable, busy, error }) {
         h('div', {
           className: 'trade-protection-copy',
           style: { fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }
-        }, `Cancelled and timed-out trades are refunded automatically either way. Protection covers disputes: if the item is wrong or never arrives after the seller marks it sent, opening a dispute refunds ${coverage} at once instead of after staff review.`)
+        }, `Cancelled and timed-out trades are refunded automatically either way. Protection covers disputes you open: if the item is wrong or never arrives, your dispute refunds ${coverage} at once instead of after staff review, unless Steam shows the trade offer was accepted or our bot’s offer is still open.`)
       )
     ),
     // Inline error — friendly mapped copy from a failed enable POST.

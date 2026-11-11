@@ -1588,7 +1588,8 @@ class BidService {
                     ? "/item/${listing.item.id}".toString()
                     : null
                 emailService.sendAuctionWon(winner.email, winner.displayName,
-                    listing.item?.name, listing.currentBid, itemUrl)
+                    listing.item?.name, listing.currentBid, itemUrl,
+                    listing.sellerUserId != null)
             }
         } catch (Exception e) {
             log.warn("Auction-won email failed for user ${winnerId}: ${e.message}")

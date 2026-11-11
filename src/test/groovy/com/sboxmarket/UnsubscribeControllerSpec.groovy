@@ -50,7 +50,7 @@ class UnsubscribeControllerSpec extends Specification {
         // Content-Type ends up in the header map regardless of whether
         // HttpHeaders.contentType resolves on this Spring version.
         resp.headers.getFirst('Content-Type')?.startsWith('text/html')
-        resp.body.contains("Missing email or token")
+        resp.body.contains("This unsubscribe link is incomplete or damaged")
     }
 
     def "GET with empty-whitespace email returns the error card"() {
@@ -59,7 +59,7 @@ class UnsubscribeControllerSpec extends Specification {
 
         then:
         0 * emailService.verifyUnsubscribeToken(_, _)
-        resp.body.contains("Missing email or token")
+        resp.body.contains("This unsubscribe link is incomplete or damaged")
     }
 
     def "GET with invalid HMAC token returns the expired/malformed card"() {

@@ -65,10 +65,15 @@ class SupportService {
     private static String autoReply(String category) {
         switch (category ?: 'OTHER') {
             case 'PAYMENT':
-                return "Thanks for reaching out about payments. Most deposits clear within 2 minutes — " +
-                       "if yours hasn't, please include the Stripe session id shown under Wallet → History so we can investigate."
+                return "Thanks for reaching out about payments. Card deposits are credited as soon as Stripe confirms " +
+                       "the payment. If yours hasn't arrived, please include the Stripe session id shown under Wallet → History so we can investigate."
             case 'TRADE':
-                return "Trade questions usually resolve themselves within the 8-day Steam hold."
+                // 3 / 8 match the defaults of trade.seller-response-days and
+                // trade.auto-release-days; this helper is static and has no
+                // config access.
+                return "Most trades settle on their own: a trade that isn't sent within 3 days is cancelled and refunded, " +
+                       "and a delivered trade releases to the seller 8 days after it was marked sent if the buyer doesn't " +
+                       "confirm. A staff member will reply here too."
             case 'REFUND':
                 return "Thanks — a refund specialist will review your trade details and the item delivery status, " +
                        "then follow up here. Typical review turnaround is under 24 hours. If you have a screenshot " +
