@@ -33,6 +33,12 @@ async function asCsr(page) {
   await page.route('**/api/csr/check', (r) => r.fulfill(json({ csr: true })));
 }
 
+// A cold new tab on a loaded CI runner can take well over 5s to open and
+// commit its first navigation (main run 591 timed out at 5s, then sat on
+// about:blank for 8s on retry; locally the first one took 19s). The
+// assertions are unchanged, only the wait is longer.
+const NEW_TAB_MS = 20000;
+
 test.describe('database item links', () => {
   test('Ctrl/Cmd-click on an item name opens it in a new tab and leaves the Database in place (real app)', async ({ page, context }) => {
     await realApi(page, 0);
@@ -40,11 +46,11 @@ test.describe('database item links', () => {
     const link = page.locator('a.db-name').first();
     await expect(link).toBeVisible();
     const href = await link.getAttribute('href');
-    const popup = context.waitForEvent('page', { timeout: 5000 });
+    const popup = context.waitForEvent('page', { timeout: NEW_TAB_MS });
     await link.click({ modifiers: ['ControlOrMeta'] });
     const tab = await popup;
     // A new tab starts at about:blank; wait for it to reach its URL.
-    await expect.poll(() => { try { return new URL(tab.url()).pathname; } catch (_) { return ''; } }).toBe(href);
+    await expect.poll(() => { try { return new URL(tab.url()).pathname; } catch (_) { return ''; } }, { timeout: NEW_TAB_MS }).toBe(href);
     await expect(page).toHaveURL(/\/db(\?|$)/);
     await expect(page.getByRole('status').filter({ hasText: /results? · page/ })).toBeVisible();
   });
@@ -177,11 +183,11 @@ test.describe('help center contact link', () => {
     await page.goto('/help?q=zzqqxx');
     const link = page.getByRole('link', { name: /Open a ticket/ });
     await expect(link).toBeVisible();
-    const popup = context.waitForEvent('page', { timeout: 5000 });
+    const popup = context.waitForEvent('page', { timeout: NEW_TAB_MS });
     await link.click({ modifiers: ['ControlOrMeta'] });
     const tab = await popup;
     // A new tab starts at about:blank; wait for it to reach its URL.
-    await expect.poll(() => { try { return new URL(tab.url()).pathname; } catch (_) { return ''; } }).toBe('/support');
+    await expect.poll(() => { try { return new URL(tab.url()).pathname; } catch (_) { return ''; } }, { timeout: NEW_TAB_MS }).toBe('/support');
     await expect(page).toHaveURL(/\/help/);
   });
 });
