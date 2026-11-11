@@ -421,7 +421,8 @@ class SteamDeliveryService {
             safeNotifySeller(trade,
                 "The Steam trade offer for trade #${trade.id} was ${status}. Delivery needs attention.")
             safeNotifyBuyer(trade,
-                "Your Steam trade offer for trade #${trade.id} was ${status}.")
+                "Your Steam trade offer for trade #${trade.id} was ${status}." +
+                (status == 'declined' ? ' ' + SteamEscrowService.DECLINED_BY_SOMEONE_ELSE : ''))
         } else if (res.inEscrow) {
             log.info("SteamDelivery: offer ${offer.steamOfferId} for trade ${trade.id} is in Steam escrow/hold; will keep polling until it clears")
         } else {

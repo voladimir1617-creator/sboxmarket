@@ -205,6 +205,9 @@ let manager = null;
 const state = {
   loggedIn: false,
   steamId: null,
+  // The bot account's Steam profile name, for the site to show users which
+  // account a real offer comes from.
+  personaName: null,
   lastError: null,
   cookiesReady: false,
 };
@@ -261,6 +264,10 @@ client.on('loggedOn', () => {
   // eslint-disable-next-line no-console
   console.log('[bot] Logged on. SteamID=%s', state.steamId);
   client.setPersona(SteamUser.EPersonaState.Online);
+});
+
+client.on('accountInfo', (name) => {
+  state.personaName = typeof name === 'string' && name ? name : null;
 });
 
 client.on('error', (err) => {
@@ -421,6 +428,7 @@ app.get('/health', (req, res) => {
     loggedIn: state.loggedIn,
     ready: ready(),
     steamId: state.steamId,
+    personaName: state.personaName,
     appId: CONFIG.appId,
     lastError: state.lastError,
     pendingConfirmations: core.pendingConfirmations().length,

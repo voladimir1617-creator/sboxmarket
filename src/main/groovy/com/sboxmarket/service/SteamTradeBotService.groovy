@@ -180,6 +180,45 @@ class SteamTradeBotService {
         return request('GET', '/health', null, Math.min(5000L, Math.max(1000L, requestTimeoutMs)))
     }
 
+    /** How long a bot identity read from /health is reused. */
+    static final long IDENTITY_TTL_MS = 5L * 60L * 1000L
+    /** How long a failed read is remembered, so a dead sidecar is not asked
+     *  on every trade-list request. */
+    static final long IDENTITY_MISS_TTL_MS = 60L * 1000L
+
+    private volatile Map botIdentityCache
+    private volatile long botIdentityAt = 0L
+
+    /**
+     * The bot's own Steam account, for users to check a trade offer comes
+     * from it: {@code [steamId: '7656…', name: 'persona name' or null]}.
+     * Read from the sidecar's /health and cached ({@link #IDENTITY_TTL_MS}).
+     * Null when the bot is off, unreachable, not logged in, or a fake
+     * (dev/demo) sidecar, so the page shows nothing rather than a wrong
+     * account. Never throws.
+     */
+    Map botIdentity() {
+        if (!enabled) return null
+        long now = System.currentTimeMillis()
+        long ttl = botIdentityCache != null ? IDENTITY_TTL_MS : IDENTITY_MISS_TTL_MS
+        if (botIdentityAt > 0L && now - botIdentityAt < ttl) return botIdentityCache
+        Map id = null
+        try {
+            SteamBotResult r = health()
+            Map raw = r?.ok ? r.raw : null
+            String sid = raw?.steamId != null ? String.valueOf(raw.steamId) : null
+            if (raw != null && raw.fake != true && sid ==~ /7656\d{13}/) {
+                String name = raw.personaName instanceof String ? ((String) raw.personaName).trim() : null
+                id = [steamId: sid, name: name ? (name.length() > 64 ? name.substring(0, 64) : name) : null]
+            }
+        } catch (Exception e) {
+            log.warn("Steam bot identity read failed: {}", e.message)
+        }
+        botIdentityCache = id
+        botIdentityAt = now
+        return id
+    }
+
     // -----------------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------------

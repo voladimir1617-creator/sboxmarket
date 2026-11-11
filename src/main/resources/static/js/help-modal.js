@@ -125,7 +125,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'How do I avoid scams?',
-    a: "SkinBox signs you in only through Steam's own page at steamcommunity.com, and it never asks for your Steam password, your Steam Guard code or a Steam Web API key. Check the address bar before you sign in. Accept a SkinBox trade offer only if its message ends with the offer code shown on your trade. If anyone contacts you claiming to be SkinBox staff, report it with a ticket from Profile → Support. (The SkinBox API keys under Profile → Developers are a different thing: they are keys you mint for your own scripts, not something anyone should ask you for.)"
+    a: "SkinBox signs you in only through Steam's own page at steamcommunity.com, and it never asks for your Steam password, your Steam Guard code or a Steam Web API key. Check the address bar before you sign in. Accept a SkinBox trade offer only if its message ends with the offer code shown on your trade AND it comes from our bot's Steam account, the one linked next to that code. A scammer who has your Steam Web API key can copy the code into a lookalike offer from his own account, so check both. Revoke any Steam Web API key you didn't create at steamcommunity.com/dev/apikey. If anyone contacts you claiming to be SkinBox staff, report it with a ticket from Profile → Support. (The SkinBox API keys under Profile → Developers are a different thing: they are keys you mint for your own scripts, not something anyone should ask you for.)"
   },
   {
     s: 'problems',

@@ -76,6 +76,12 @@ class StripeService {
     @Value('${sbox.stripe.daily-deposit-cap:5000}')
     BigDecimal dailyDepositCap
 
+    /** Fresh-card withdrawal hold, in days: money deposited by card cannot be
+     *  cashed out until this long after the deposit completed (it can still
+     *  be spent on the market). 0 turns the hold off. */
+    @Value('${wallet.card-withdrawal-hold-days:7}')
+    Long cardHoldDays = 7L
+
     /**
      * Pass-through processor fee on a deposit of {@code gross} — the amount
      * withheld from the wallet credit so the platform does not absorb Stripe's
@@ -891,7 +897,7 @@ class StripeService {
 
         long amountCents = (amount * 100).longValue()
 
-        def params = SessionCreateParams.builder()
+        def paramsBuilder = SessionCreateParams.builder()
             .setMode(SessionCreateParams.Mode.PAYMENT)
             // Payment methods defer to the Stripe Dashboard config (batch 516).
             // Previously hard-coded to CARD only, which blocked Apple Pay /
@@ -938,7 +944,15 @@ class StripeService {
                     .putMetadata("walletId", walletId.toString())
                     .putMetadata("type", "DEPOSIT")
                     .build())
-            .build()
+            // Radar risk data (scam-defense pass 4, G8). Stripe's card-testing
+            // models score better with a stable customer reference and an
+            // email. The email goes only when the user has verified it, so
+            // an unverified address is never sent to Stripe or pre-filled on
+            // the hosted page.
+            .setClientReferenceId(walletId.toString())
+        String radarEmail = verifiedEmailForWallet(wallet)
+        if (radarEmail) paramsBuilder.setCustomerEmail(radarEmail)
+        def params = paramsBuilder.build()
 
         // Idempotency key — Stripe guarantees repeated requests with the same
         // key return the original session rather than creating a second one.
@@ -1772,6 +1786,9 @@ class StripeService {
         if (wallet.balance < amount) {
             throw new IllegalStateException("Insufficient balance: have \$${wallet.balance}, need \$${amount}")
         }
+        // Fresh-card hold: card money can be spent on the market at once but
+        // not cashed out until cardHoldDays after the deposit completed.
+        assertCardHoldAllowsWithdrawal(walletId, wallet.balance, amount)
 
         // ── Connect-onboarding gate (live mode) ──────────────────────
         // A real money-out movement REQUIRES an onboarded, payouts-enabled
@@ -2333,6 +2350,15 @@ class StripeService {
                 def disputeOpened = (Dispute) webhookDataObject(event)
                 if (disputeOpened != null) handleChargebackOpened(disputeOpened)
                 break
+            // Early Fraud Warning: the card network told Stripe this charge
+            // looks like fraud, usually days before a dispute. Staff can
+            // refund it first (a fully refunded payment cannot be disputed).
+            // Audit + admin bell only; no wallet hold. No try/catch, same as
+            // the dispute case: a transient failure retries.
+            case "radar.early_fraud_warning.created":
+                def efw = (com.stripe.model.radar.EarlyFraudWarning) webhookDataObject(event)
+                if (efw != null) handleEarlyFraudWarning(efw)
+                break
             case "charge.dispute.closed":
                 // Dispute resolved by Stripe (batch 495). If we won the
                 // dispute, auto-clear the hold so the user's withdraw
@@ -2496,6 +2522,75 @@ class StripeService {
      * does an extra walletRepository round-trip; here the caller
      * already has the Wallet in scope, so we just take it directly.
      */
+    /**
+     * Fresh-card withdrawal hold. A card deposit can be spent on the market
+     * straight away, but the money cannot be cashed out until
+     * {@link #cardHoldDays} after the deposit completed: a stolen card's
+     * charge is usually disputed within days, and cash already paid out
+     * cannot be pulled back.
+     *
+     * Conservative, computed rule (no new column): the withdrawal may not
+     * exceed the balance minus the net credit of every Checkout (card)
+     * deposit completed inside the hold window, floored at zero. Spending
+     * is not tracked per deposit, so money spent since is still counted as
+     * held until the deposit ages out. Dev-mode credits (no card) are not
+     * held. Refuses with WITHDRAW_CARD_HOLD naming the date the amount
+     * becomes withdrawable.
+     */
+    void assertCardHoldAllowsWithdrawal(Long walletId, BigDecimal balance, BigDecimal amount) {
+        if (cardHoldDays == null || cardHoldDays <= 0L || amount == null || balance == null) return
+        long holdMs = cardHoldDays * 24L * 60L * 60L * 1000L
+        long now = System.currentTimeMillis()
+        List<Transaction> fresh = (transactionRepository.findCompletedDepositsUpdatedSince(walletId, now - holdMs) ?: [])
+                .findAll { it?.stripeReference?.startsWith('cs_') && it.updatedAt != null }
+                .sort { it.updatedAt }
+        if (fresh.isEmpty()) return
+        Closure<BigDecimal> net = { Transaction t ->
+            BigDecimal n = (t.amount ?: BigDecimal.ZERO) - (t.feeAmount ?: BigDecimal.ZERO)
+            n < BigDecimal.ZERO ? BigDecimal.ZERO : n
+        }
+        BigDecimal held = fresh.inject(BigDecimal.ZERO) { BigDecimal acc, Transaction t -> acc + net(t) }
+        BigDecimal withdrawable = balance - held
+        if (withdrawable < BigDecimal.ZERO) withdrawable = BigDecimal.ZERO
+        if (amount <= withdrawable) return
+        // The first moment enough of the held money has aged out to cover
+        // this amount, assuming the balance does not change meanwhile.
+        Long freeAt = null
+        BigDecimal stillHeld = held
+        for (Transaction t : fresh) {
+            stillHeld -= net(t)
+            if (balance - stillHeld >= amount) { freeAt = t.updatedAt + holdMs; break }
+        }
+        if (freeAt == null) freeAt = fresh.last().updatedAt + holdMs
+        String on = java.time.format.DateTimeFormatter.ofPattern('d MMM yyyy, HH:mm', java.util.Locale.ENGLISH)
+                .withZone(java.time.ZoneOffset.UTC).format(java.time.Instant.ofEpochMilli(freeAt)) + ' UTC'
+        String dayWord = cardHoldDays == 1L ? 'day' : 'days'
+        log.info("WITHDRAW_CARD_HOLD wallet=${walletId}: asked \$${amount}, withdrawable \$${withdrawable} " +
+                 "(\$${held} card money under ${cardHoldDays}d hold), free at ${on}")
+        throw new com.sboxmarket.exception.BadRequestException("WITHDRAW_CARD_HOLD",
+            "Card deposits can be spent on the market right away but can't be withdrawn for ${cardHoldDays} ${dayWord}. " +
+            "You can withdraw up to \$${withdrawable.setScale(2, java.math.RoundingMode.DOWN).toPlainString()} now; " +
+            "this amount becomes withdrawable on ${on}.")
+    }
+
+    /** The wallet owner's email when, and only when, they verified it; null
+     *  otherwise or on any lookup failure. Sent to Stripe Checkout as risk
+     *  data. */
+    private String verifiedEmailForWallet(Wallet w) {
+        if (w == null || steamUserRepository == null) return null
+        try {
+            def uname = w.username ?: ''
+            if (!uname.startsWith('steam_')) return null
+            def owner = steamUserRepository.findBySteamId64(uname.substring('steam_'.length()))
+            if (owner == null || !Boolean.TRUE.equals(owner.emailVerified)) return null
+            String email = owner.email?.trim()
+            return email ?: null
+        } catch (Exception e) {
+            log.debug("verified-email lookup failed for wallet ${w.id}: ${e.message}")
+            return null
+        }
+    }
+
     private Long resolveSteamOwnerId(Wallet w) {
         if (w == null || steamUserRepository == null) return null
         try {
@@ -3126,6 +3221,72 @@ class StripeService {
                 log.warn("CHARGEBACK_OPENED user-notify failed for tx=${tx.id}: ${e.message}")
             }
         }
+    }
+
+    /**
+     * {@code radar.early_fraud_warning.created}: the card issuer reported the
+     * charge as likely fraud. Matched to the deposit by PaymentIntent, then by
+     * walking the charge to its PaymentIntent, then by charge id. Writes an
+     * {@code EARLY_FRAUD_WARNING} audit row (counted by the fraud rollup's
+     * CHARGEBACK_IN_WINDOW) and pings every admin the way a chargeback does.
+     * Nothing is held or refunded automatically: staff decide.
+     * Stripe redelivery is deduped by the event claim in handleWebhookEvent.
+     */
+    @Transactional
+    void handleEarlyFraudWarning(com.stripe.model.radar.EarlyFraudWarning efw) {
+        if (efw == null) return
+        String chargeId = efw.charge
+        String paymentIntentId = efw.paymentIntent
+        Transaction tx = null
+        if (paymentIntentId) tx = findDepositByPaymentIntent(paymentIntentId)
+        if (tx == null && chargeId) {
+            try {
+                def pi = lookupChargePaymentIntent(chargeId)
+                if (pi) {
+                    paymentIntentId = pi
+                    tx = findDepositByPaymentIntent(pi)
+                }
+            } catch (Exception e) {
+                log.warn("Early fraud warning charge.retrieve(${chargeId}) failed: ${e.message}")
+            }
+        }
+        if (tx == null && chargeId) tx = transactionRepository.findByStripeReference(chargeId)
+        Long subject = null
+        if (tx?.walletId != null) {
+            try { subject = resolveSteamOwnerId(walletRepository.findById(tx.walletId).orElse(null)) } catch (Exception ignore) { }
+        }
+        String amountText = tx?.amount != null ? ('$' + tx.amount.toPlainString()) : 'unmatched'
+        log.error("EARLY FRAUD WARNING ${efw.id} charge=${chargeId} pi=${paymentIntentId} type=${efw.fraudType} " +
+                  "actionable=${efw.actionable} matchedTx=${tx?.id}")
+        String summary = "Stripe early fraud warning ${efw.id} on charge ${chargeId} " +
+                "(${tx != null ? "deposit tx ${tx.id}, ${amountText}" : 'no matching deposit'}, " +
+                "fraud type ${efw.fraudType ?: 'unknown'}, actionable=${efw.actionable}). " +
+                "Consider refunding before it becomes a dispute."
+        try {
+            auditService?.log(AuditService.EARLY_FRAUD_WARNING, null, subject, tx?.id, summary)
+        } catch (Exception e) {
+            log.warn("Early fraud warning audit-log failed: ${e.message}")
+        }
+        if (notificationService != null && steamUserRepository != null) {
+            try {
+                steamUserRepository.findByRole('ADMIN').each { admin ->
+                    notificationService.safePush(admin.id, 'CHARGEBACK_OPENED',
+                        "⚠ Early fraud warning · ${amountText}",
+                        "Stripe early fraud warning ${efw.id} (${efw.fraudType ?: 'fraud'}). " +
+                        "A refund now stops it becoming a chargeback. Review the user and decide.",
+                        tx?.id,
+                        '/admin?tab=disputes')
+                }
+            } catch (Exception e) {
+                log.warn("Early fraud warning admin fan-out failed: ${e.message}")
+            }
+        }
+    }
+
+    /** The PaymentIntent id of a charge, read from Stripe. A seam so specs
+     *  need no network. */
+    protected String lookupChargePaymentIntent(String chargeId) {
+        com.stripe.model.Charge.retrieve(chargeId)?.paymentIntent
     }
 
     /**

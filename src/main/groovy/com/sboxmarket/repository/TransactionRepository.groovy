@@ -469,6 +469,21 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     BigDecimal sumDepositsSince(@Param('walletId') Long walletId,
                                  @Param('since') Long since)
 
+    /** COMPLETED deposits whose row last changed at or after {@code since},
+     *  oldest first. Feeds the fresh-card withdrawal hold
+     *  (StripeService.assertCardHoldAllowsWithdrawal): completeDeposit stamps
+     *  updatedAt when it credits the wallet, so this is "completed since". */
+    @Query("""
+        SELECT t FROM Transaction t
+        WHERE t.walletId = :walletId
+          AND t.type = 'DEPOSIT'
+          AND t.status = 'COMPLETED'
+          AND t.updatedAt >= :since
+        ORDER BY t.updatedAt ASC
+    """)
+    List<Transaction> findCompletedDepositsUpdatedSince(@Param('walletId') Long walletId,
+                                                         @Param('since') Long since)
+
     /** Earliest-row timestamp in the 24h withdrawal window (batch 753).
      *  When the daily cap is hit, the UI uses this to compute "resets
      *  in X hours" — `oldestAt + 24h - now` — instead of the misleading

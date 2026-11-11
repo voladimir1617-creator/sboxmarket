@@ -475,7 +475,8 @@ class SteamEscrowService {
             log.warn("SteamEscrow: deposit offer ${e.depositOfferId} for listing ${e.listingId} is terminal (${res.status}); listing cancelled")
             if (e.returnRequestedAt == null) {
                 safeNotifySeller(e.sellerUserId, e.listingId,
-                        "Your deposit trade offer was ${res.status}, so your listing didn't go live. Re-list to try again.")
+                        "Your deposit trade offer was ${res.status}, so your listing didn't go live. Re-list to try again." +
+                        (res.status == 'declined' ? ' ' + DECLINED_BY_SOMEONE_ELSE : ''))
             }
             return
         }
@@ -1604,6 +1605,7 @@ class SteamEscrowService {
             return out
         }
         long now = System.currentTimeMillis()
+        Map bot = rows.any { it?.securityCode } ? botIdentityOrNull() : null
         for (EscrowedItem e : rows) {
             if (e?.listingId == null) continue
             String release = formatHoldRelease(e.escrowEndsAt)
@@ -1672,8 +1674,23 @@ class SteamEscrowService {
                 securityCode:    e.securityCode,
                 message:         message
             ]
+            if (e.securityCode) addBotIdentity(out[e.listingId], bot)
         }
         return out
+    }
+
+    /** The bot's own Steam account ([steamId, name]) for users to check an
+     *  offer against, or null when the bot is off or unknown. Never throws. */
+    private Map botIdentityOrNull() {
+        try { return steamTradeBotService?.botIdentity() } catch (Exception ignored) { return null }
+    }
+
+    /** Put the bot's Steam id, and name when known, on a row that shows an
+     *  offer code. Nothing when the bot account is unknown. */
+    private static void addBotIdentity(Map row, Map bot) {
+        if (row == null || bot?.steamId == null) return
+        row.botSteamId = bot.steamId
+        if (bot.name) row.botName = bot.name
     }
 
     /** The trade-offer message for a custody row: the configured text plus
@@ -1682,6 +1699,13 @@ class SteamEscrowService {
         String base = offerMessage ?: ''
         e?.securityCode ? "${base} · code ${e.securityCode}".toString() : base
     }
+
+    /** Added to a "declined" offer bell: a decline the user did not make is
+     *  the Steam Web API key scam, where a script on the user's own account
+     *  declines our offer and sends a lookalike. */
+    static final String DECLINED_BY_SOMEONE_ELSE =
+            "If you didn't decline it, revoke any Steam Web API key you didn't create " +
+            "(steamcommunity.com/dev/apikey) and change your Steam password."
 
     /** How long a confirmed return stays on the seller's view as "back in
      *  your Steam" before it drops off. */
@@ -1710,6 +1734,8 @@ class SteamEscrowService {
         }
         long now = System.currentTimeMillis()
         List<Map> returning = []
+        Map bot = null
+        boolean botRead = false
         for (EscrowedItem e : rows) {
             if (e.custodyState == EscrowedItem.IN_CUSTODY && e.returnRequestedAt == null) {
                 out.heldListingIds << e.listingId
@@ -1742,10 +1768,15 @@ class SteamEscrowService {
             }
             def item = null
             try { item = listingRepository.findById(e.listingId).orElse(null)?.item } catch (Exception ignored) { }
-            returning << [listingId: e.listingId, name: e.marketHashName, state: state,
+            Map row = [listingId: e.listingId, name: e.marketHashName, state: state,
                           returnOfferId: e.returnOfferId, securityCode: e.securityCode,
                           item: item, message: message,
                           at: e.returnConfirmedAt ?: e.returnRequestedAt]
+            if (e.securityCode && state != 'BACK') {
+                if (!botRead) { bot = botIdentityOrNull(); botRead = true }
+                addBotIdentity(row, bot)
+            }
+            returning << row
         }
         out.returning = returning.sort { a, b -> (b.at ?: 0L) <=> (a.at ?: 0L) }
         return out

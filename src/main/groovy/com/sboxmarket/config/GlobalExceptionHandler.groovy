@@ -355,6 +355,9 @@ class GlobalExceptionHandler {
             // is left today; over 140 chars they collapsed to the generic line.
             case 'DEPOSIT_DAILY_CAP':
             case 'WITHDRAW_DAILY_CAP':
+            // Fresh-card hold: names the date the card money becomes
+            // withdrawable, which is the whole point of the message.
+            case 'WITHDRAW_CARD_HOLD':
             // Trade-URL refusals (ProfileController.setTradeUrl). Each tells the
             // buyer exactly what to paste instead, and each is over 140 chars,
             // so a buyer who pasted a friend's trade URL, or the wrong link,

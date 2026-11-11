@@ -9557,9 +9557,10 @@ function ProfileTradesTab({ me, privacy }) {
                   style: { marginTop: 6, display: 'flex', gap: 8, fontSize: 11, flexWrap: 'wrap', alignItems: 'center' }
                 },
                   // Our bot's delivery offer ends with this code; only the
-                  // buyer sees it, so an impersonator's offer can't match it.
-                  t.deliveryCode && h(BotSecurityCode, { code: t.deliveryCode }),
-                  t.deliveryCode && h('span', { 'data-testid': 'bot-code-note', style: { color: 'var(--text-muted)', flexBasis: '100%', order: 99 } }, BOT_CODE_NOTE),
+                  // buyer sees it. A script on a stolen Steam Web API key can
+                  // copy it, so the bot's own account is shown with it.
+                  t.deliveryCode && h(BotSecurityCode, { code: t.deliveryCode, botSteamId: t.botSteamId, botName: t.botName }),
+                  t.deliveryCode && h('span', { 'data-testid': 'bot-code-note', style: { color: 'var(--text-muted)', flexBasis: '100%', order: 99 } }, botCodeNote(t.botSteamId)),
                   // Batch 773 — if the seller included a direct trade-offer
                   // URL at Mark-Sent time, show a one-click deep link to
                   // that exact offer. Still render the generic inbox
@@ -14348,14 +14349,32 @@ function BotPanelIcon({ kind }) {
 // The stall panels explain the code in their tip line; the buyer's trade row
 // has no tip, so it shows this sentence as text too (a phone never shows the
 // tooltip).
-const BOT_CODE_NOTE = "Our bot's trade offer message ends with this code. Decline any offer for this item without it.";
-function BotSecurityCode({ code }) {
+// A scammer with the user's Steam Web API key can read our offer and copy
+// its message, code included, into a lookalike from his own account. So the
+// note asks for both checks: the code, and that the offer comes from our bot
+// account, which is shown with the code when the server knows it.
+const BOT_CODE_NOTE = "Our bot's trade offer message ends with this code, and the offer comes from our bot's Steam account shown here. Decline any offer for this item that fails either check.";
+const BOT_CODE_NOTE_NO_ACCOUNT = "Our bot's trade offer message ends with this code, and the offer comes from our bot's Steam account. Decline any offer for this item that fails either check.";
+const BOT_STEAM_ID_RE = /^7656\d{13}$/;
+function botCodeNote(botSteamId) {
+  return BOT_STEAM_ID_RE.test(String(botSteamId || '')) ? BOT_CODE_NOTE : BOT_CODE_NOTE_NO_ACCOUNT;
+}
+function BotSecurityCode({ code, botSteamId, botName }) {
+  const id = String(botSteamId || '');
+  const known = BOT_STEAM_ID_RE.test(id);
   return h('div', {
     className: 'bot-code',
-    title: BOT_CODE_NOTE
+    title: botCodeNote(id)
   },
     h('span', { className: 'bot-code-label' }, 'Offer code'),
-    h('span', { className: 'bot-code-value' }, code));
+    h('span', { className: 'bot-code-value' }, code),
+    known && h('a', {
+      className: 'bot-code-account',
+      'data-testid': 'bot-code-account',
+      href: 'https://steamcommunity.com/profiles/' + id,
+      target: '_blank', rel: 'noopener noreferrer',
+      title: 'Open our bot\'s Steam profile in a new tab. A real offer comes from this account.'
+    }, 'From ', h('span', { className: 'bot-code-account-name' }, botName || 'our bot'), ' ↗'));
 }
 
 export function MyStallModal(props) {
@@ -15539,7 +15558,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         }, 'Open Steam trade offers ↗')
       ),
       heldOfferToAccept && h('div', { className: 'bot-offer-tip' },
-        'Our deposit offer asks for this one item and gives nothing back. Accept it only if its message shows the code next to the item here.'),
+        'Our deposit offer asks for this one item and gives nothing back. Accept it only if its message shows the code next to the item here and it comes from our bot\'s Steam account.'),
       held.map(row => {
         const l = row.listing || {};
         const e = row.escrow || {};
@@ -15556,7 +15575,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               e.message || 'Waiting for our bot to receive your item. Your listing goes live the moment it arrives.')
           ),
           h('div', { className: 'bot-offer-side' },
-            e.securityCode && h(BotSecurityCode, { code: e.securityCode }),
+            e.securityCode && h(BotSecurityCode, { code: e.securityCode, botSteamId: e.botSteamId, botName: e.botName }),
             h('button', { className: 'btn btn-ghost bot-offer-cancel', disabled: cancellingIds.includes(l.id), onClick: () => doCancel(l) }, 'Cancel')
           )
         );
@@ -15580,7 +15599,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           }, 'Open Steam trade offers ↗')
         ),
         !allBack && h('div', { className: 'bot-offer-tip' },
-          'A withdrawal offer only gives you your item and asks for nothing. Check its message shows the code next to the item here.'),
+          'A withdrawal offer only gives you your item and asks for nothing. Check its message shows the code next to the item here and that it comes from our bot\'s Steam account.'),
         botCustody.returning.map(r => {
           const step = r.state === 'BACK' ? 3 : r.state === 'OFFER_SENT' ? 1 : 0;
           return h('div', { key: r.listingId, className: 'stall-returning-row bot-offer-row' },
@@ -15591,7 +15610,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               h('div', { className: 'bot-offer-msg' }, r.message)
             ),
             h('div', { className: 'bot-offer-side' },
-              r.state !== 'BACK' && r.securityCode && h(BotSecurityCode, { code: r.securityCode }))
+              r.state !== 'BACK' && r.securityCode && h(BotSecurityCode, { code: r.securityCode, botSteamId: r.botSteamId, botName: r.botName }))
           );
         })
       );

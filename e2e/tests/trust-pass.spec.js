@@ -46,7 +46,7 @@ test('a delivery code on a trade row comes with its meaning as visible text', as
   await expect(page.locator('.bot-code-value')).toHaveText('K7Q2', { timeout: 15_000 });
   await expect(page.getByTestId('bot-code-note')).toBeVisible();
   await expect(page.getByTestId('bot-code-note'))
-    .toHaveText("Our bot's trade offer message ends with this code. Decline any offer for this item without it.");
+    .toHaveText("Our bot's trade offer message ends with this code, and the offer comes from our bot's Steam account. Decline any offer for this item that fails either check.");
 });
 
 // No payment processor is connected in test mode, so the footer names none.
