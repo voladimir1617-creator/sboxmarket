@@ -41,7 +41,7 @@ import org.springframework.transaction.support.TransactionTemplate
  * TradeService's only non-buyer/non-admin path to VERIFIED is `release()`,
  * which is `protected`. The public transitions are:
  *     sellerMarkSent(sellerUserId, tradeId, tradeOfferUrl)  // SELLER_SEND -> BUYER_CONFIRM
- *     buyerConfirm(buyerUserId, tradeId)                    // BUYER_CONFIRM -> VERIFIED (+credit)
+ *     confirmDeliveryByBot(buyerUserId, tradeId)            // BUYER_CONFIRM -> VERIFIED (+credit)
  * The bot acts on the seller's behalf to mark sent, and — once the Steam Web
  * API proves the buyer accepted — confirms receipt on the BUYER's behalf. Both
  * are existing public methods; buyerConfirm runs the frozen fee/escrow math in
@@ -463,11 +463,13 @@ class SteamDeliveryService {
             return
         }
         try {
-            // Confirm receipt on the buyer's behalf — the Steam Web API has
-            // verified the buyer accepted the on-chain offer, which is the
-            // platform's proof of delivery. buyerConfirm runs the frozen
-            // release()/fee math and credits the seller wallet.
-            tradeService.buyerConfirm(trade.buyerUserId, trade.id)
+            // The Steam Web API has verified the buyer accepted the bot's
+            // offer, which is the platform's proof of delivery.
+            // confirmDeliveryByBot runs the same guards and frozen
+            // release()/fee math as buyerConfirm and credits the seller
+            // wallet, but records no buyer action (audit actor null) and
+            // tells the seller the bot verified the delivery.
+            tradeService.confirmDeliveryByBot(trade.buyerUserId, trade.id)
             log.info("SteamDelivery: trade ${trade.id} auto-verified via accepted Steam offer; seller credited through existing release path")
             recordAttempt(trade.id, null, 'verified', 'POLL', true, 'auto-confirmed via Steam Web API')
         } catch (Exception e) {

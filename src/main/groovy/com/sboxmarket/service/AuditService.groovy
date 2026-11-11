@@ -101,6 +101,11 @@ class AuditService {
      *  SteamEscrowService with a NULL actor, the seller as subject and the
      *  custody row id as resource. Raised as a HIGH fraud signal. */
     static final String DEPOSIT_DECLINED_ITEM_GONE = 'DEPOSIT_DECLINED_ITEM_GONE'
+    /** Stripe radar.early_fraud_warning.created: the card issuer flagged a
+     *  deposit charge as likely fraud. Written by StripeService with a NULL
+     *  actor, the wallet owner as subject (when matched) and the deposit tx
+     *  id as resource. Counted in the CHARGEBACK_IN_WINDOW fraud signal. */
+    static final String EARLY_FRAUD_WARNING = 'EARLY_FRAUD_WARNING'
 
     @Autowired AuditLogRepository auditLogRepository
     @Autowired SteamUserRepository steamUserRepository

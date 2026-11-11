@@ -11,6 +11,8 @@ import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
+import jakarta.persistence.EntityManager
+import jakarta.persistence.PersistenceContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
@@ -52,6 +54,26 @@ class BuyOrderService {
      *  there is never an active transaction and {@link #runInIsolatedTx}
      *  runs the work inline so the mocked-repo assertions still fire. */
     @Autowired(required = false) PlatformTransactionManager transactionManager
+
+    /** Null when the service is built with `new` in a unit test. */
+    @PersistenceContext EntityManager entityManager
+
+    /**
+     * Take the BuyOrder row lock and return the row's CURRENT state.
+     * findByIdForUpdate alone hands back the instance already managed in
+     * this persistence context (loaded by findMatching / a probe read)
+     * without re-reading it, so the ACTIVE / quantity re-check ran on
+     * stale values and a quantity-1 order could fill several times.
+     * Refreshing after the lock is held reads the committed row.
+     */
+    private BuyOrder findFreshForUpdate(Long orderId) {
+        if (orderId == null) return null
+        def locked = buyOrderRepository.findByIdForUpdate(orderId)
+        if (locked != null && entityManager != null && entityManager.contains(locked)) {
+            entityManager.refresh(locked)
+        }
+        locked
+    }
 
     /**
      * Run {@code work} in a fresh REQUIRES_NEW transaction when a
@@ -247,7 +269,7 @@ class BuyOrderService {
         // lock query is unconfigured (a Mock repo in a unit test) or the
         // order has no id yet.
         if (order.id != null) {
-            order = buyOrderRepository.findByIdForUpdate(order.id) ?: order
+            order = findFreshForUpdate(order.id) ?: order
         }
         if (order.status != 'ACTIVE' || order.quantity <= 0) return
         def candidates = listingRepository.findMatchingForBuyOrder(
@@ -527,7 +549,7 @@ class BuyOrderService {
         // on a wallet debit they didn't expect rightly opens a support
         // ticket claiming fraud. Falls back to the probe row when the lock
         // query is unconfigured (Mock repo in unit tests).
-        def o = (orderId != null ? buyOrderRepository.findByIdForUpdate(orderId) : null) ?: probe
+        def o = findFreshForUpdate(orderId) ?: probe
         // Re-verify ownership on the locked row — defence-in-depth in the
         // (impossible-in-practice) case the id-to-owner mapping changed
         // between the probe read and the lock acquisition.
@@ -631,7 +653,7 @@ class BuyOrderService {
         // Lock the row the same way cancel() and the matcher do. A plain
         // read let a fill that committed mid-edit be overwritten by this
         // stale ACTIVE copy, so the order filled again past its quantity.
-        def o = buyOrderRepository.findByIdForUpdate(orderId) ?: probe
+        def o = findFreshForUpdate(orderId) ?: probe
         if (o.buyerUserId != buyerUserId) {
             throw new ForbiddenException("Not your buy order")
         }
@@ -786,7 +808,7 @@ class BuyOrderService {
         if (probe.buyerUserId != buyerUserId) {
             throw new ForbiddenException("Not your buy order")
         }
-        def o = (orderId != null ? buyOrderRepository.findByIdForUpdate(orderId) : null) ?: probe
+        def o = findFreshForUpdate(orderId) ?: probe
         if (o.buyerUserId != buyerUserId) {
             throw new ForbiddenException("Not your buy order")
         }
@@ -876,7 +898,7 @@ class BuyOrderService {
                 // locked copy: a concurrent fill may have just drained it.
                 // Falls back to the in-hand order when the lock query is
                 // unconfigured (a Mock repo in a unit test).
-                def locked = buyOrderRepository.findByIdForUpdate(order.id) ?: order
+                def locked = findFreshForUpdate(order.id) ?: order
                 if (locked.status != 'ACTIVE' || locked.quantity <= 0) continue
                 // Cap guard — never auto-buy above the order's ceiling.
                 // buy() charges whatever the listing says with no cap

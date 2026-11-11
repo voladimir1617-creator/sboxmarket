@@ -17,7 +17,22 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
      *  entire wallet history. Used by WalletController. */
     List<Transaction> findByWalletIdOrderByCreatedAtDesc(Long walletId, Pageable pageable)
 
-    Transaction findByStripeReference(String stripeReference)
+    /**
+     * The USER-side row carrying this Stripe id (deposit, withdrawal, refund).
+     * Treasury rows are excluded: PlatformLedgerService books the processor
+     * pair on the treasury wallet with the SAME reference as the user row
+     * (the Checkout Session id for a deposit, the Transfer id for a payout),
+     * so a plain derived lookup saw three rows and threw
+     * IncorrectResultSizeDataAccessException. That made a transfer.reversed
+     * webhook unable to re-credit the user and a repeat deposit confirm 500.
+     */
+    @Query("""
+        SELECT t FROM Transaction t
+        WHERE t.stripeReference = :ref
+          AND NOT EXISTS (SELECT w.id FROM Wallet w
+                          WHERE w.id = t.walletId AND w.username = '__platform_treasury__')
+    """)
+    Transaction findByStripeReference(@Param('ref') String stripeReference)
 
     /** Single SUM aggregate for the admin dashboard 24h volume charts.
      *  Replaces `findAll().findAll { ... }.sum()` which is O(N) over every
@@ -468,6 +483,21 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     """)
     BigDecimal sumDepositsSince(@Param('walletId') Long walletId,
                                  @Param('since') Long since)
+
+    /** COMPLETED deposits whose row last changed at or after {@code since},
+     *  oldest first. Feeds the fresh-card withdrawal hold
+     *  (StripeService.assertCardHoldAllowsWithdrawal): completeDeposit stamps
+     *  updatedAt when it credits the wallet, so this is "completed since". */
+    @Query("""
+        SELECT t FROM Transaction t
+        WHERE t.walletId = :walletId
+          AND t.type = 'DEPOSIT'
+          AND t.status = 'COMPLETED'
+          AND t.updatedAt >= :since
+        ORDER BY t.updatedAt ASC
+    """)
+    List<Transaction> findCompletedDepositsUpdatedSince(@Param('walletId') Long walletId,
+                                                         @Param('since') Long since)
 
     /** Earliest-row timestamp in the 24h withdrawal window (batch 753).
      *  When the daily cap is hit, the UI uses this to compute "resets

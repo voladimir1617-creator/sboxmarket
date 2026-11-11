@@ -8,6 +8,7 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
@@ -832,6 +833,35 @@ class PlatformLedgerService {
         tt.executeWithoutResult { work() }
     }
 
+    /** Attempts for one deferred posting before it is given up and logged. */
+    static final int POSTING_ATTEMPTS = 5
+
+    /**
+     * Every posting updates the single @Version treasury row, so any other
+     * treasury write (a trade-release fee, another deposit's pair, a payout)
+     * that commits between this posting's read and its UPDATE makes it fail
+     * with an optimistic-lock conflict. The posting's own transaction has then
+     * rolled back completely, so running it again in a fresh transaction (a
+     * fresh read of the treasury) is safe and cannot double-book. Without the
+     * retry the processor-cost pair / dispute fee was simply lost.
+     * Inline (no transaction manager wired) runs once, as before.
+     */
+    private void runIsolatedWithRetry(Closure work) {
+        if (transactionManager == null) { work(); return }
+        for (int attempt = 1; ; attempt++) {
+            try {
+                runInIsolatedTx(work)
+                return
+            } catch (OptimisticLockingFailureException e) {
+                if (attempt >= POSTING_ATTEMPTS) throw e
+                log.warn("Platform-ledger posting hit a treasury version conflict (attempt ${attempt}/${POSTING_ATTEMPTS}); retrying")
+                try { Thread.sleep(10L * attempt) } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt(); throw e
+                }
+            }
+        }
+    }
+
     /**
      * Run after the caller's transaction commits, in a transaction of its own —
      * or inline when there is no active transaction. Exceptions are swallowed
@@ -845,7 +875,7 @@ class PlatformLedgerService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override void afterCommit() {
                     try {
-                        runInIsolatedTx(work)
+                        runIsolatedWithRetry(work)
                     } catch (Exception e) {
                         log.error("Deferred platform-ledger posting failed — margin understated by this row: ${e.message}", e)
                     }
@@ -853,7 +883,7 @@ class PlatformLedgerService {
             })
         } else {
             try {
-                work()
+                runIsolatedWithRetry(work)
             } catch (Exception e) {
                 log.error("Platform-ledger posting failed (no active tx) — margin understated by this row: ${e.message}", e)
             }

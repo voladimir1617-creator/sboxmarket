@@ -211,6 +211,15 @@ class SellService {
      * any row is written rather than return 200 for something that silently did
      * not happen.
      *
+     * ── Platform-held items are exempt (owner's call, 2026-10-29) ─────────
+     * The refusal above stranded items the platform itself holds: house
+     * purchases, and the seller's own non-Steam listings handed back by a
+     * cancel. They are not in the seller's Steam tab, so "list it from the
+     * Steam tab" left them unsellable for good. {@link #isPlatformHeld} lets
+     * exactly those through to the legacy ACTIVE path (no deposit, as with the
+     * bot off). Anything that came from, or went back to, the seller's Steam
+     * inventory is still refused here. Steam-sourced listings are never exempt.
+     *
      * ── Escrow DISABLED is untouched ──────────────────────────────────────
      * Gated on {@code escrowEnabled}, which is false whenever the bot sidecar
      * is unconfigured (STEAM_BOT_BASE_URL unset — dev / test / CI, and
@@ -233,11 +242,62 @@ class SellService {
      * by RelistEscrowGateSpec, the length via a round-trip through the real
      * handler rather than a bare character count.
      */
-    private void assertRelistNotBypassingEscrow() {
+    private void assertRelistNotBypassingEscrow(Long sellerUserId, Long ownedListingId) {
         if (!(steamEscrowService?.escrowEnabled)) return
+        if (isPlatformHeld(sellerUserId, ownedListingId)) return
         throw new BadRequestException("RELIST_NEEDS_STEAM_DEPOSIT",
             "Our bot has to hold an item before it can sell, and a relist gives us no Steam " +
             "item to collect. List it from the Steam tab instead.")
+    }
+
+    /**
+     * True when the item behind this platform-inventory row exists only on the
+     * platform, so there is no Steam item for the bot to collect and the
+     * escrow gate above does not apply (owner's call, 2026-10-29: such items
+     * relist without a bot deposit, exactly as with the bot off).
+     *
+     * Platform-held means all of:
+     *   - the row is this seller's own SOLD inventory row;
+     *   - it never came from a Steam asset ({@code assetId} null; every
+     *     listFromSteam row stores one);
+     *   - it never went through bot custody (no custody row: a custody item
+     *     is returned to the seller's Steam on cancel);
+     *   - it did not reach this seller through a Steam trade from another
+     *     player: either a house purchase ({@code sellerUserId} null) or the
+     *     seller's own listing handed back to them by a cancel
+     *     ({@code sellerUserId} == the seller).
+     *
+     * Anything else may be sitting in the seller's Steam inventory and still
+     * needs the Steam-tab deposit. A read only; nothing is written here, and
+     * any doubt (missing row, lookup failure) keeps the gate closed.
+     */
+    private boolean isPlatformHeld(Long sellerUserId, Long ownedListingId) {
+        try {
+            def owned = ownedListingId == null ? null : listingRepository.findById(ownedListingId)?.orElse(null)
+            if (owned == null) return false
+            if (owned.status != 'SOLD' || owned.buyerUserId == null || owned.buyerUserId != sellerUserId) return false
+            if (owned.assetId != null && !owned.assetId.trim().isEmpty()) return false
+            if (owned.sellerUserId != null && owned.sellerUserId != sellerUserId) return false
+            return !steamEscrowService.hasCustodyRow(owned.id)
+        } catch (Exception e) {
+            log.warn("Relist platform-held check failed for listing ${ownedListingId}: ${e.message}")
+            return false
+        }
+    }
+
+    /**
+     * True when relisting this row from Platform Inventory would be refused
+     * with RELIST_NEEDS_STEAM_DEPOSIT: the bot is on and the item is not
+     * platform-held. Cancel / auction-expired copy uses it to send the seller
+     * to the Steam tab instead of a relist that cannot work. Never throws.
+     */
+    boolean relistNeedsSteamDeposit(Long sellerUserId, Long listingId) {
+        try {
+            return steamEscrowService?.escrowEnabled && !isPlatformHeld(sellerUserId, listingId)
+        } catch (Exception e) {
+            log.warn("relistNeedsSteamDeposit failed for listing ${listingId}: ${e.message}")
+            return false
+        }
     }
 
     @Transactional
@@ -245,9 +305,11 @@ class SellService {
                    String listingType = 'BUY_NOW', Long durationHours = null, String description = null,
                    BigDecimal buyNowPrice = null, BigDecimal maxDiscount = null) {
         banGuard.assertNotBanned(sellerUserId)
-        // Pre-flight, before ANY read or write: with the escrow bot live this
-        // path cannot produce a deliverable listing. See the guard's docstring.
-        assertRelistNotBypassingEscrow()
+        // Pre-flight, before ANY write: with the escrow bot live this path
+        // cannot produce a bot-deliverable listing, so only items the platform
+        // already holds (no Steam item to collect) may go through. See the
+        // guard's docstring and isPlatformHeld.
+        assertRelistNotBypassingEscrow(sellerUserId, ownedListingId)
         sellerName = textSanitizer.cleanShort(sellerName)
         // HALF_UP-normalize the money inputs to whole cents up front so the
         // range checks + the buyNowPrice-vs-startingBid comparison below — and
@@ -370,9 +432,9 @@ class SellService {
             rarityScore : owned.rarityScore,
             // ACTIVE unconditionally, and that is now SAFE rather than an
             // oversight: assertRelistNotBypassingEscrow at the top of this
-            // method means we only ever get here with the escrow bot OFF, where
-            // ACTIVE-on-create is the correct legacy behaviour (the seller
-            // hand-delivers). It must NOT become a conditional PENDING_ESCROW —
+            // method means we only ever get here with the escrow bot OFF, or
+            // for a platform-held item with no Steam asset for the bot to
+            // collect; both take the legacy ACTIVE-on-create path. It must NOT become a conditional PENDING_ESCROW —
             // holding a listing without a deposit request is a hold nothing can
             // ever release, and the 24h timeout sweeper would then cancel it
             // WITHOUT returning the item to the seller's inventory.

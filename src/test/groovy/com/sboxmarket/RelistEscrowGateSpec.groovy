@@ -87,7 +87,7 @@ class RelistEscrowGateSpec extends Specification {
 
     // ── escrow LIVE: refuse, and refuse before touching anything ──────────
 
-    def "escrow live: relist is refused BEFORE any listing row is read or written"() {
+    def "escrow live: relist is refused BEFORE any listing row is written"() {
         given:
         steamEscrowService.escrowEnabled >> true
 
@@ -101,8 +101,10 @@ class RelistEscrowGateSpec extends Specification {
         and: 'the message names the path that actually works'
         e.message.contains('Steam tab')
 
-        and: 'no row was even loaded — nothing to half-mutate and nothing to roll back'
-        0 * listingRepository.findById(_)
+        and: 'no row was written — nothing to half-mutate and nothing to roll back'
+        // The gate now reads the row to tell a platform-held item (exempt,
+        // RelistPlatformHeldSpec) from one in the seller's Steam; it still
+        // writes nothing before refusing.
         0 * listingRepository.save(_)
 
         and: 'the bot was never asked for a deposit it has no asset id to address'
