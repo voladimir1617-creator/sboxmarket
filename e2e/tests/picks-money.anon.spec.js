@@ -37,6 +37,11 @@ test.describe('picks money: declined bot offer', () => {
     await expect(page.getByRole('button', { name: /^Confirm receipt/ })).toHaveCount(0);
   });
 
+  test('an open bot offer the buyer has not accepted yet offers no Confirm receipt', async ({ page }) => {
+    await tradesTab(page, [botTrade({ botDeliveryState: 'active' })]);
+    await expect(page.getByRole('button', { name: /^Confirm receipt/ })).toHaveCount(0);
+  });
+
   test('an accepted bot offer still shows Delivered and Confirm receipt', async ({ page }) => {
     await tradesTab(page, [botTrade({ botDeliveryState: 'accepted' })]);
     await expect(page.locator('#trade-51 .trade-state')).toContainText('Delivered — awaiting confirmation');

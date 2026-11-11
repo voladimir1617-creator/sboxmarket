@@ -871,6 +871,15 @@ class TradeService {
                 "The Steam trade offer for this item was ${offerState}, so the item was not delivered. " +
                 "Receipt cannot be confirmed for this trade.")
         }
+        // The bot's offer is still open (sent, not yet accepted in Steam).
+        // Confirming now would pay the seller before the item has moved, and
+        // a later decline would leave the buyer with nothing. Bot trades are
+        // confirmed automatically the moment Steam reports the offer accepted.
+        if (offerState != null && offerState != 'accepted') {
+            throw new BadRequestException('BOT_OFFER_NOT_ACCEPTED_YET',
+                "Accept the Steam trade offer for this item first. " +
+                "Receipt is confirmed automatically once Steam reports it accepted.")
+        }
         // The moment the item is known to have arrived; release() saves it.
         t.deliveredAt = System.currentTimeMillis()
         release(t)

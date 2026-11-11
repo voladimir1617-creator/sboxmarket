@@ -9659,6 +9659,7 @@ function ProfileTradesTab({ me, privacy }) {
                 isSeller && t.state === 'PENDING_SELLER_SEND' && !automated &&
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => onSent(t.id), 'aria-label': `Mark Sent for ${rowName}` }, 'Mark Sent'),
                 isBuyer && t.state === 'PENDING_BUYER_CONFIRM' && !botOfferFailed &&
+                  !(botOfferState && botOfferState !== 'accepted') &&
                   // "Confirm receipt" is what the bell, the email and the
                   // Inbox tip beside this row tell the buyer to click.
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => onConfirm(t), 'aria-label': `Confirm receipt for ${rowName}` }, 'Confirm receipt'),

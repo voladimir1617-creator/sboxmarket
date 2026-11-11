@@ -89,6 +89,27 @@ class BuyerConfirmDeclinedBotOfferSpec extends Specification {
         state << ['declined', 'expired', 'canceled', 'invalid_items']
     }
 
+    def "confirm receipt is refused while the bot's Steam offer is still open (state #state)"() {
+        given: 'the buyer has not accepted the offer yet; a later decline would leave them with nothing'
+        def t = awaitingConfirm()
+        tradeRepository.findById(1L) >> Optional.of(t)
+        attemptRepository.findLatestWithOffer(1L, _) >> [offerRow(state)]
+
+        when:
+        service.buyerConfirm(10L, 1L)
+
+        then: 'the seller is not paid before the item moves'
+        def e = thrown(BadRequestException)
+        e.code == 'BOT_OFFER_NOT_ACCEPTED_YET'
+        t.state == 'PENDING_BUYER_CONFIRM'
+        t.deliveredAt == null
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+
+        where:
+        state << ['active', 'sent', 'in_escrow']
+    }
+
     def "confirm receipt still releases once the bot offer was accepted"() {
         given:
         def t = awaitingConfirm()
