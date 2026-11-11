@@ -57,7 +57,7 @@ class DisputedOfferPollAndSendClaimSpec extends Specification {
         then:
         1 * attemptRepository.save({ SteamDeliveryAttempt a -> a.offerState == 'accepted' && a.steamOfferId == '987' })
         1 * escrowService.markDelivered(10L)
-        0 * tradeService.buyerConfirm(*_)
+        0 * tradeService.confirmDeliveryByBot(*_)
         0 * tradeService.sellerMarkSent(*_)
         0 * tradeService.cancel(*_)
     }

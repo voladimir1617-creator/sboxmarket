@@ -366,6 +366,22 @@ class GlobalExceptionHandler {
             case 'INVALID_TRADE_URL':
             case 'TRADE_URL_TAKEN':
             case 'TRADE_URL_NOT_YOURS':
+            // Bot-delivery refusals on cancel / force-release
+            // (BotDeliveryOfferGuard, TradeService.cancel, AdminService
+            // .forceReleaseTrade). Each says whether the buyer has the item and
+            // that nothing was refunded; cut to the generic line, a buyer or
+            // staff member could not tell "already delivered" from "try again".
+            case 'OFFER_ALREADY_ACCEPTED':
+            case 'OFFER_CANCEL_FAILED':
+            case 'OFFER_IN_FLIGHT':
+            case 'BOT_OFFER_NOT_ACCEPTED':
+            case 'BUYER_CANT_CANCEL_AFTER_SENT':
+            // Seller payout refusals (StripeService / WalletController). They
+            // say the balance was not charged and when to try again; the
+            // generic line sent sellers into a retry loop.
+            case 'PAYOUT_FUNDS_PENDING':
+            case 'WITHDRAW_DISPUTE_HOLD':
+            case 'WITHDRAW_CLAIM_HOLD':
                 return ex.message
             default:
                 // For explicit validation-style errors the message is usually

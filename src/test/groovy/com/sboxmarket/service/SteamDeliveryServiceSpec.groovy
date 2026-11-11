@@ -237,7 +237,7 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> [offerRow('987', 'sent')]
         1 * bot.getOfferStatus('987') >> SteamBotResult.success([ok: true, offerId: '987', status: 'accepted'])
         // THE CREDIT PATH: existing public transition with the real buyer id.
-        1 * tradeService.buyerConfirm(2L, 7L)
+        1 * tradeService.confirmDeliveryByBot(2L, 7L)
         // attempt rows: one for the poll status, one for the verified outcome
         (1.._) * attemptRepository.save(_)
     }
@@ -260,7 +260,7 @@ class SteamDeliveryServiceSpec extends Specification {
         // mark-sent runs first, linking the bot's own offer
         1 * tradeService.sellerMarkSent(1L, 7L, 'https://steamcommunity.com/tradeoffer/987/')
         // then buyerConfirm on the re-loaded BUYER_CONFIRM trade
-        1 * tradeService.buyerConfirm(2L, 7L)
+        1 * tradeService.confirmDeliveryByBot(2L, 7L)
     }
 
     def "poll: buyerConfirm benign race is swallowed (no throw out of poller)"() {
@@ -275,7 +275,7 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> [offerRow('987', 'sent')]
         1 * bot.getOfferStatus('987') >> SteamBotResult.success([ok: true, status: 'accepted'])
         _ * attemptRepository.save(_)
-        1 * tradeService.buyerConfirm(2L, 7L) >> { throw new IllegalStateException('Trade cannot be confirmed in state VERIFIED') }
+        1 * tradeService.confirmDeliveryByBot(2L, 7L) >> { throw new IllegalStateException('Trade cannot be confirmed in state VERIFIED') }
         noExceptionThrown()
     }
 
@@ -293,7 +293,7 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> [offerRow('987', 'active')]
         1 * bot.getOfferStatus('987') >> SteamBotResult.success([ok: true, offerId: '987', status: 'declined'])
         1 * attemptRepository.save({ SteamDeliveryAttempt a -> a.offerState == 'declined' })
-        0 * tradeService.buyerConfirm(_, _)
+        0 * tradeService.confirmDeliveryByBot(_, _)
         0 * tradeService.sellerMarkSent(_, _, _)
         1 * notificationService.safePush(1L, _, _, _, _, _)  // seller
         1 * notificationService.safePush(2L, _, _, _, _, _)  // buyer
@@ -311,7 +311,7 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> [offerRow('987', 'active')]
         1 * bot.getOfferStatus('987') >> SteamBotResult.success([ok: true, status: 'expired'])
         _ * attemptRepository.save(_)
-        0 * tradeService.buyerConfirm(_, _)
+        0 * tradeService.confirmDeliveryByBot(_, _)
     }
 
     def "poll: in_escrow keeps waiting, no credit"() {
@@ -326,7 +326,7 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> [offerRow('987', 'active')]
         1 * bot.getOfferStatus('987') >> SteamBotResult.success([ok: true, status: 'in_escrow'])
         1 * attemptRepository.save({ SteamDeliveryAttempt a -> a.offerState == 'in_escrow' })
-        0 * tradeService.buyerConfirm(_, _)
+        0 * tradeService.confirmDeliveryByBot(_, _)
     }
 
     def "poll: transient failure records error and does not credit"() {
@@ -341,7 +341,7 @@ class SteamDeliveryServiceSpec extends Specification {
         1 * attemptRepository.findLatestWithOffer(7L, _ as Pageable) >> [offerRow('987', 'active')]
         1 * bot.getOfferStatus('987') >> SteamBotResult.error('TRANSPORT_ERROR', 'connection refused')
         1 * attemptRepository.save({ SteamDeliveryAttempt a -> a.offerState == 'TRANSPORT_ERROR' && !a.success })
-        0 * tradeService.buyerConfirm(_, _)
+        0 * tradeService.confirmDeliveryByBot(_, _)
     }
 
     // ── state guards ────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ import {
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
   fetchBuyOrders, deleteBuyOrder, pauseBuyOrder, resumeBuyOrder, fetchAutoBids, fetchActiveBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey, revokeAllApiKeys,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
-  fetchTrades, fetchTradesWithTotal, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
+  fetchTrades, fetchTradesWithTotal, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel, fetchTradeProtection,
   fetchTradeMessages, fetchTradeMessagesOrNull, postTradeMessage,
   setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, cancel2fa, disable2fa,
   regenerate2faBackupCodes, fetch2faRecoveryStatus,
@@ -8927,7 +8927,21 @@ function ProfileTradesTab({ me, privacy }) {
     // (line 6293) so the seller gets symmetric feedback on every step.
     const t = trades.find(x => x.id === id);
     const iAmBuyer = !!(me && t && t.buyerUserId === me.id);
-    if (!confirm(iAmBuyer ? 'Cancel this trade? You will be refunded.' : 'Cancel this trade? The buyer will be refunded.')) return;
+    // A cancel refunds the item price only (TradeService.refundBuyer credits
+    // t.price); a Trade Protection fee the buyer paid is kept. Name that
+    // only when this buyer actually bought protection on the trade.
+    let tpFee = null;
+    if (iAmBuyer) {
+      try {
+        const tp = await fetchTradeProtection(id);
+        const fee = tp && tp.protected && tp.protection ? Number(tp.protection.feeAmount) : NaN;
+        if (Number.isFinite(fee) && fee > 0) tpFee = fee;
+      } catch (_) { /* fall back to the plain line */ }
+    }
+    const buyerLine = tpFee != null
+      ? `Cancel this trade? You will be refunded the item price${t?.price != null ? ` (${fmt(t.price)})` : ''}. The ${fmt(tpFee)} Trade Protection fee is not refunded.`
+      : 'Cancel this trade? You will be refunded.';
+    if (!confirm(iAmBuyer ? buyerLine : 'Cancel this trade? The buyer will be refunded.')) return;
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);

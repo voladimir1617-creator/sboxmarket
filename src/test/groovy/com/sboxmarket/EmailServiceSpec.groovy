@@ -1618,6 +1618,63 @@ class EmailServiceSpec extends Specification {
         })
     }
 
+    def "buyer cancel email does not promise the full amount when a Trade Protection fee was kept"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendTradeCancelled('buyer@example.com', 'Bob', 'Wizard Hat',
+            'Cancelled by the buyer', 'buyer', 5L, new BigDecimal('0.50'), false)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('refunded the item price') &&
+            f.text.contains('The Trade Protection fee of $0.50 (USD) is not refunded') &&
+            !f.text.contains('full amount')
+        })
+
+        when: 'an unprotected buyer paid only the price, so the full amount is true'
+        svc.sendTradeCancelled('buyer@example.com', 'Bob', 'Wizard Hat',
+            'Cancelled by the buyer', 'buyer', 5L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('refunded the full amount') && !f.text.contains('Trade Protection')
+        })
+    }
+
+    def "seller copy sends a Steam-sourced item to the Steam tab, not a Platform Inventory relist the bot refuses"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendTradeCancelled('seller@example.com', 'Sam', 'Wizard Hat', null, 'seller', 5L, null, true)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('list it from the Steam tab') && !f.text.contains('Platform Inventory')
+        })
+
+        when:
+        svc.sendAuctionExpired('seller@example.com', 'Sam', 'Wizard Hat', 'No bids.', 9L, true)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('Steam tab') && !f.text.contains('Platform Inventory')
+        })
+
+        when: 'a platform-held item keeps the Platform Inventory wording'
+        svc.sendAuctionExpired('seller@example.com', 'Sam', 'Wizard Hat', 'No bids.', 9L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> fields(msg).text.contains('returned to your Platform Inventory') })
+    }
+
     def "sendForceLogout is a non-opt-out security alert with the admin note"() {
         given:
         def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')

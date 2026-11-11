@@ -206,6 +206,9 @@ class TradeService {
      *  physical item is stranded in the bot forever. `required = false` so unit
      *  specs and the escrow-disabled (dev/CI) path still wire. */
     @Autowired(required = false) com.sboxmarket.service.SteamEscrowService steamEscrowService
+    /** Lazy: SellService depends on TradeService. Only asked which relist
+     *  path a cancelled item takes, for the seller's cancel copy. */
+    @Autowired(required = false) @org.springframework.context.annotation.Lazy SellService sellService
 
     /** Cap on in-trade messages per sender per 10 min. Anti-spam — a
      *  compromised account trying to DM every counterparty will trip this
@@ -865,6 +868,25 @@ class TradeService {
     }
 
     /**
+     * The Steam bot's delivery offer was accepted: release the sale exactly
+     * as {@link #buyerConfirm} does (same guards, same release() money path),
+     * but record it as what it is. The buyer pressed nothing, so the
+     * TRADE_VERIFIED audit row has no actor (like the 8-day auto-release) and
+     * the seller is told the Steam bot verified the delivery, not that "the
+     * buyer confirmed receipt". Called only by SteamDeliveryService.
+     */
+    @Transactional
+    Trade confirmDeliveryByBot(Long buyerUserId, Long tradeId) {
+        banGuard.assertNotBanned(buyerUserId)
+        def t = get(tradeId)
+        requireParticipant(t, buyerUserId, 'buyer')
+        require(t.state == 'PENDING_BUYER_CONFIRM', "Trade cannot be confirmed in state ${t.state}")
+        t.deliveredAt = System.currentTimeMillis()
+        release(t, false, false, null, true)
+        t
+    }
+
+    /**
      * Admin-path release. Skips the ban-guard on the buyer (admin may need
      * to release a trade even when the buyer was banned since the sale)
      * and the PENDING_BUYER_CONFIRM state gate (admin is releasing from a
@@ -893,9 +915,12 @@ class TradeService {
      * records matching SALE transactions on both sides. Called by
      * `buyerConfirm` and by the auto-release sweep after the trade-hold window.
      * `forced` marks adminRelease, where no buyer confirmed anything.
+     * `botVerified` marks confirmDeliveryByBot: Steam reported the bot's
+     * offer accepted, and again no buyer confirmed anything.
      */
     @Transactional
-    protected void release(Trade t, boolean autoRelease = false, boolean forced = false, String staffNote = null) {
+    protected void release(Trade t, boolean autoRelease = false, boolean forced = false, String staffNote = null,
+                           boolean botVerified = false) {
         transitionTo(t, 'VERIFIED')
         t.settledAt = System.currentTimeMillis()
         tradeRepository.save(t)
@@ -1001,9 +1026,14 @@ class TradeService {
                 if (emailService != null && steamUserRepository != null) {
                     def seller = steamUserRepository.findById(t.sellerUserId).orElse(null)
                     if (emailService.canSendTo(seller, 'TRADES')) {
-                        emailService.sendSaleCompleted(seller.email, seller.displayName,
-                            t.itemName, (t.price - t.feeAmount), '/wallet',
-                            autoRelease ? autoReleaseDays : null, !forced)
+                        if (botVerified) {
+                            emailService.sendSaleCompleted(seller.email, seller.displayName,
+                                t.itemName, (t.price - t.feeAmount), '/wallet', null, false, true)
+                        } else {
+                            emailService.sendSaleCompleted(seller.email, seller.displayName,
+                                t.itemName, (t.price - t.feeAmount), '/wallet',
+                                autoRelease ? autoReleaseDays : null, !forced)
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -1038,9 +1068,12 @@ class TradeService {
         // A staff force-release is not the buyer either: it named the buyer
         // as having confirmed a trade they never touched. The staff member
         // is recorded on the TRADE_FORCE_RELEASED row adminRelease writes.
+        // The bot path is the same: Steam reported the offer accepted, the
+        // buyer clicked nothing, so it is not recorded as the buyer's action.
         auditService?.log(AuditService.TRADE_VERIFIED,
-            (autoRelease || forced) ? null : t.buyerUserId, t.sellerUserId, t.id,
-            "Verified trade #${t.id} for \$${t.price}" + (forced ? ' (force-released by staff)' : ''))
+            (autoRelease || forced || botVerified) ? null : t.buyerUserId, t.sellerUserId, t.id,
+            "Verified trade #${t.id} for \$${t.price}" + (forced ? ' (force-released by staff)' :
+                botVerified ? ' (delivery verified by the Steam bot)' : ''))
         // Trade Protection resolution. Normally the trade completed
         // cleanly, so any ACTIVE cover lapses (ACTIVE → EXPIRED) and the
         // fee is kept as revenue. BUT a disputed protected trade was
@@ -1443,11 +1476,45 @@ class TradeService {
         try {
             def u = steamUserRepository.findById(targetUid).orElse(null)
             if (emailService.canSendTo(u, 'TRADES')) {
-                emailService.sendTradeCancelled(u.email, u.displayName,
-                    t.itemName, reason, role, t.id)
+                // A cancel refunds the item price only; a Trade Protection
+                // fee the buyer paid is kept, so the buyer email must not
+                // promise "the full amount" when there was one.
+                BigDecimal feeKept = role == 'buyer' ? protectionFeeKept(t) : null
+                // With the bot on, an item from the seller's Steam cannot be
+                // relisted from Platform Inventory; point them at the Steam tab.
+                boolean fromSteam = role == 'seller' && relistNeedsSteamDeposit(t)
+                if (feeKept != null || fromSteam) {
+                    emailService.sendTradeCancelled(u.email, u.displayName,
+                        t.itemName, reason, role, t.id, feeKept, fromSteam)
+                } else {
+                    emailService.sendTradeCancelled(u.email, u.displayName,
+                        t.itemName, reason, role, t.id)
+                }
             }
         } catch (Exception e) {
             log.warn("Trade-cancelled email failed for ${role} ${targetUid}: ${e.message}")
+        }
+    }
+
+    /** See SellService.relistNeedsSteamDeposit. False without the bean. */
+    private boolean relistNeedsSteamDeposit(Trade t) {
+        try {
+            return sellService != null && t?.listingId != null &&
+                sellService.relistNeedsSteamDeposit(t.sellerUserId, t.listingId)
+        } catch (Exception e) {
+            log.warn("Trade #${t?.id}: relist-path lookup failed: ${e.message}")
+            return false
+        }
+    }
+
+    /** The Trade Protection fee the buyer paid on {@code t}, or null. */
+    private BigDecimal protectionFeeKept(Trade t) {
+        try {
+            def fee = tradeProtectionService?.findForTrade(t.id)?.feeAmount
+            return (fee != null && fee > 0) ? fee : null
+        } catch (Exception e) {
+            log.warn("Trade #${t.id}: protection lookup for the cancel email failed: ${e.message}")
+            return null
         }
     }
 
@@ -1979,7 +2046,9 @@ class TradeService {
             "Seller did not respond within ${sellerResponseDays} days — your wallet has been refunded.",
             'buyer')
         fireTradeCancelledEmail(trade,
-            "You didn't respond within ${sellerResponseDays} days, so the trade was auto-cancelled. Relist from Sell → Platform Inventory to try again.",
+            relistNeedsSteamDeposit(trade)
+                ? "You didn't respond within ${sellerResponseDays} days, so the trade was auto-cancelled. List it again from the Steam tab on the Sell page to try again."
+                : "You didn't respond within ${sellerResponseDays} days, so the trade was auto-cancelled. Relist from Sell → Platform Inventory to try again.",
             'seller')
         auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
             "Seller-response timeout after ${sellerResponseDays}d")
