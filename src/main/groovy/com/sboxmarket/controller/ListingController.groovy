@@ -8,6 +8,7 @@ import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.ListingService
+import com.sboxmarket.service.SellerVerifiedRule
 import com.sboxmarket.service.PurchaseService
 import com.sboxmarket.service.SellService
 import com.sboxmarket.util.ListingEnums
@@ -909,28 +910,25 @@ class ListingController {
         decorateWithSellerVerified(rows, sellerIds, summaries)
     }
 
-    /** Same ✓ rule as the stall and /api/sellers/verified: 10+ real sales
-     *  and (no reviews or an average of 4.0+). The card used its own rule
-     *  (5+ reviews at 4+), so a seller could be verified on one and not
-     *  the other. One GROUP BY for the whole page. */
+    /** Same ✓ rule as the stall and /api/sellers/verified
+     *  (SellerVerifiedRule): 10+ delivered trades and (no reviews or an
+     *  average of 4.0+). One GROUP BY for the whole page. */
     private void decorateWithSellerVerified(List<Listing> rows, Set<Long> sellerIds, Map summaries) {
-        def listingRepository = listingService?.listingRepository
-        if (listingRepository == null || sellerIds == null || sellerIds.isEmpty()) return
-        Map<Long, Long> sold = [:]
+        if (tradeRepository == null || sellerIds == null || sellerIds.isEmpty()) return
+        Map<Long, Long> delivered
         try {
-            (listingRepository.countSoldByMultipleSellers(sellerIds as List<Long>) ?: []).each { row ->
-                sold[(row[0] as Long)] = (row[1] as Number).longValue()
-            }
+            delivered = SellerVerifiedRule.deliveredTradesBySeller(tradeRepository, sellerIds)
         } catch (Exception e) {
-            log.debug("seller sold-count decoration failed: ${e.message}")
+            log.debug("seller delivered-trade decoration failed: ${e.message}")
             return
         }
         rows.each { l ->
             if (l.sellerUserId == null) return
             def s = summaries ? summaries[l.sellerUserId] : null
             long reviews = s?.count != null ? (s.count as Number).longValue() : 0L
-            boolean ratingOk = reviews == 0L || (s?.average != null && (s.average as Double) >= 4.0d)
-            l.sellerVerified = (sold[l.sellerUserId] ?: 0L) >= 10L && ratingOk
+            Double avg = s?.averageRaw != null ? (s.averageRaw as Double)
+                       : (s?.average != null ? (s.average as Double) : null)
+            l.sellerVerified = SellerVerifiedRule.isVerified(delivered[l.sellerUserId] ?: 0L, reviews, avg)
         }
     }
 
@@ -974,6 +972,12 @@ class ListingController {
             : steamUserRepository.findAllById(sellerIds).collectEntries { [(it.id): it] }
         def summariesById = (reviewService != null && !sellerIds.isEmpty())
             ? (reviewService.summariesForUsers(sellerIds) ?: [:]) : [:]
+        Map<Long, Long> deliveredById = [:]
+        try {
+            deliveredById = SellerVerifiedRule.deliveredTradesBySeller(tradeRepository, sellerIds)
+        } catch (Exception e) {
+            log.debug("top-sellers delivered-trade lookup failed: ${e.message}")
+        }
         def out = rows.collect { r ->
             def user = usersById[r.userId]
             if (user == null) return null
@@ -990,9 +994,11 @@ class ListingController {
                 soldCount:   r.soldCount,
                 joinedAt:    user.createdAt,
                 rating:      ratingSummary,
-                verified:    r.soldCount >= 10L &&
-                             ((ratingSummary.count ?: 0) == 0 ||
-                              ((ratingSummary.average ?: 0.0) as double) >= 4.0d)
+                verified:    SellerVerifiedRule.isVerified(
+                                 deliveredById[user.id] ?: 0L,
+                                 ((ratingSummary.count ?: 0) as Number).longValue(),
+                                 (ratingSummary.averageRaw ?: ratingSummary.average) == null ? null
+                                     : ((ratingSummary.averageRaw ?: ratingSummary.average) as Double))
             ]
         }.findAll { it != null }
         // Public aggregate — no viewer-specific data. 2-min cache:
@@ -1096,13 +1102,15 @@ class ListingController {
             userId, now - (7L  * 24L * 60L * 60L * 1000L))
         def soldLast30d = listingService.countSoldBySellerSince(
             userId, now - (30L * 24L * 60L * 60L * 1000L))
-        // Verified threshold — 10+ completed sales AND (no ratings OR avg >= 4.0).
-        // Mirrors CSFloat's trust badge: you have to have actually traded
-        // successfully to show up as verified. Opinionated defaults that
-        // can be tuned without touching clients.
-        def verified = soldCount >= 10L &&
-            ((ratingSummary.count ?: 0) == 0 ||
-             ((ratingSummary.averageRaw ?: ratingSummary.average ?: 0.0) as double) >= 4.0d)
+        // Verified — SellerVerifiedRule: 10+ DELIVERED trades AND (no ratings
+        // OR avg >= 4.0). `soldCount` above counts listings marked SOLD at
+        // purchase, which includes sales later cancelled/refunded, so it
+        // no longer decides the badge.
+        def verifiedAvg = ratingSummary.averageRaw ?: ratingSummary.average
+        def verified = SellerVerifiedRule.isVerified(
+            SellerVerifiedRule.deliveredTrades(tradeRepository, userId),
+            ((ratingSummary.count ?: 0) as Number).longValue(),
+            verifiedAvg == null ? null : (verifiedAvg as Double))
         // Public follower count — cheap indexed COUNT. Silently zero
         // when the feature isn't wired in the current profile.
         def followerCount = sellerFollowService?.countFollowers(userId) ?: 0L

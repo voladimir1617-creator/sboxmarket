@@ -623,7 +623,8 @@ class ReviewService {
                 def avg   = row[2] == null ? null : ((row[2] as Number).doubleValue())
                 def rounded = avg == null ? null : (Math.round(avg * 10.0) / 10.0)
                 if (uid != null && count > 0) {
-                    out[uid] = [count: count, average: rounded]
+                    // averageRaw: unrounded, for the Verified threshold (SellerVerifiedRule).
+                    out[uid] = [count: count, average: rounded, averageRaw: avg]
                 }
             }
         } catch (Exception e) {

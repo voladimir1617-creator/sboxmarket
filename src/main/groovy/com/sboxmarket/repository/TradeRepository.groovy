@@ -416,6 +416,30 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Object[]> countVerifiedByBuyerIds(@Param("uids") Collection<Long> buyerUserIds)
 
+    /** Delivered (VERIFIED) trades as the seller — the count behind the
+     *  ✓ Verified seller badge (see SellerVerifiedRule). Self-trades never
+     *  count. A cancelled or refunded trade is never VERIFIED, so it does
+     *  not count even though its listing was marked SOLD at purchase. */
+    @Query("""
+        SELECT COUNT(t) FROM Trade t
+        WHERE t.sellerUserId = :uid
+          AND t.state        = 'VERIFIED'
+          AND (t.buyerUserId IS NULL OR t.buyerUserId <> t.sellerUserId)
+    """)
+    long countVerifiedBySeller(@Param("uid") Long uid)
+
+    /** Bulk variant of {@link #countVerifiedBySeller}: `[sellerUserId, count]`
+     *  rows in one GROUP BY. Sellers with none are absent; read as 0. Empty
+     *  input is the caller's responsibility. */
+    @Query("""
+        SELECT t.sellerUserId, COUNT(t) FROM Trade t
+        WHERE t.sellerUserId IN :uids
+          AND t.state        = 'VERIFIED'
+          AND (t.buyerUserId IS NULL OR t.buyerUserId <> t.sellerUserId)
+        GROUP BY t.sellerUserId
+    """)
+    List<Object[]> countVerifiedBySellerIds(@Param("uids") Collection<Long> sellerUserIds)
+
     /** Count-only version of findUnreviewedByBuyer — drives the
      *  /api/profile/pending-actions avatar badge so we don't hydrate a
      *  full list of Trade rows just to count them. Same NOT EXISTS shape

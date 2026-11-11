@@ -3,6 +3,7 @@ package com.sboxmarket
 import com.sboxmarket.controller.ListingController
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.SteamUserRepository
+import com.sboxmarket.repository.TradeRepository
 import com.sboxmarket.service.ListingService
 import com.sboxmarket.service.ReviewService
 import spock.lang.Specification
@@ -18,14 +19,17 @@ class ListingControllerStallVerifiedSpec extends Specification {
     SteamUserRepository steamUserRepository = Mock()
     ListingService      listingService      = Mock()
     ReviewService       reviewService       = Mock()
+    TradeRepository     tradeRepository     = Mock()
 
     ListingController controller = new ListingController(
         steamUserRepository: steamUserRepository,
         listingService:      listingService,
-        reviewService:       reviewService
+        reviewService:       reviewService,
+        tradeRepository:     tradeRepository
     )
 
-    private Map stallFor(Map summary) {
+    private Map stallFor(Map summary, long delivered = 12L) {
+        tradeRepository.countVerifiedBySeller(5L) >> delivered
         steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, steamId64: '76561190000000005', displayName: 'Seller'))
         listingService.findActiveVisibleBySeller(5L, _) >> []
         listingService.countActiveBySeller(5L) >> 0L
@@ -49,5 +53,15 @@ class ListingControllerStallVerifiedSpec extends Specification {
     def "a seller with sales and no reviews yet is Verified"() {
         expect:
         stallFor([count: 0, average: null, histogram: [0, 0, 0, 0, 0]]).seller.verified == true
+    }
+
+    def "12 listings marked SOLD but only 9 delivered trades is not Verified"() {
+        expect: 'a sale later cancelled or refunded no longer counts toward the badge'
+        stallFor([count: 0, average: null, histogram: [0, 0, 0, 0, 0]], 9L).seller.verified == false
+    }
+
+    def "exactly 10 delivered trades crosses the threshold"() {
+        expect:
+        stallFor([count: 0, average: null, histogram: [0, 0, 0, 0, 0]], 10L).seller.verified == true
     }
 }

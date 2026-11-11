@@ -263,6 +263,7 @@ class SellerStatsControllerSpec extends Specification {
             ([1L, 'Bobby', 'https://cdn/1.jpg'] as Object[])
         ]
         1 * listingRepository.countSoldByMultipleSellers([1L]) >> [([1L, 12L] as Object[])]
+        1 * tradeRepository.countVerifiedBySellerIds([1L]) >> [([1L, 11L] as Object[])]
         1 * listingRepository.countActiveByMultipleSellers([1L]) >> [([1L, 3L] as Object[])]
         1 * reviewRepository.aggregateForUsers([1L]) >> [([1L, 4L, new BigDecimal('4.50')] as Object[])]
 
@@ -275,7 +276,7 @@ class SellerStatsControllerSpec extends Specification {
         resp.body[0].displayName == 'Bobby'
         resp.body[0].soldCount == 12L
         resp.body[0].activeListings == 3L
-        resp.body[0].verified == true       // 12 sold, 4.5 rating
+        resp.body[0].verified == true       // 11 delivered trades, 4.5 rating
         resp.body[0].ratingCount == 4L
         resp.body[0].ratingAverage == new BigDecimal('4.50')
     }
@@ -313,8 +314,12 @@ class SellerStatsControllerSpec extends Specification {
             ([2L, 'Bob B', null] as Object[])
         ]
         1 * listingRepository.countSoldByMultipleSellers(_) >> [
-            ([1L, 2L]  as Object[]),     // 2 sold → not verified
-            ([2L, 50L] as Object[])      // 50 sold → verified
+            ([1L, 60L] as Object[]),     // 60 listings marked SOLD...
+            ([2L, 12L] as Object[])
+        ]
+        1 * tradeRepository.countVerifiedBySellerIds(_) >> [
+            ([1L, 2L]  as Object[]),     // ...but only 2 delivered → not verified
+            ([2L, 12L] as Object[])      // 12 delivered → verified
         ]
         1 * listingRepository.countActiveByMultipleSellers(_) >> []
         1 * reviewRepository.aggregateForUsers(_) >> []
@@ -322,8 +327,9 @@ class SellerStatsControllerSpec extends Specification {
         when:
         def resp = controller.search('bob', null, null)
 
-        then: 'verified Bob B sorts first despite alphabetical order putting Bob A first'
+        then: 'verified Bob B sorts first despite alphabetical order and more SOLD listings putting Bob A first'
         resp.body*.sellerUserId == [2L, 1L]
+        resp.body.find { it.sellerUserId == 1L }.verified == false
     }
 
     def "search() emits null ratingAverage for a seller with no reviews"() {
@@ -458,13 +464,13 @@ class SellerStatsControllerSpec extends Specification {
         def resp = controller.verifiedBulk('')
 
         then:
-        0 * listingRepository.countSoldByMultipleSellers(_)
+        0 * tradeRepository.countVerifiedBySellerIds(_)
         resp.body == [:]
     }
 
     def "verifiedBulk() omits sellers with <10 sales"() {
         given: 'seller 1 has 9 sales (below threshold), seller 2 has 10 (qualifies)'
-        1 * listingRepository.countSoldByMultipleSellers(_) >> [
+        1 * tradeRepository.countVerifiedBySellerIds(_) >> [
             ([1L, 9L]  as Object[]),
             ([2L, 10L] as Object[])
         ]
@@ -482,7 +488,7 @@ class SellerStatsControllerSpec extends Specification {
 
     def "verifiedBulk() omits sellers with avg rating < 4.0 even if sales qualify"() {
         given:
-        1 * listingRepository.countSoldByMultipleSellers(_) >> [
+        1 * tradeRepository.countVerifiedBySellerIds(_) >> [
             ([1L, 20L] as Object[]),
             ([2L, 20L] as Object[])
         ]
@@ -501,7 +507,7 @@ class SellerStatsControllerSpec extends Specification {
 
     def "verifiedBulk() verifies a zero-review but high-sales seller (no reviews OR >= 4.0)"() {
         given:
-        1 * listingRepository.countSoldByMultipleSellers(_) >> [([7L, 50L] as Object[])]
+        1 * tradeRepository.countVerifiedBySellerIds(_) >> [([7L, 50L] as Object[])]
         1 * reviewRepository.aggregateForUsers(_) >> []   // no review aggregate row
 
         when:
@@ -514,7 +520,7 @@ class SellerStatsControllerSpec extends Specification {
     def "verifiedBulk() skips malformed tokens"() {
         given:
         List<Long> capturedIds = null
-        1 * listingRepository.countSoldByMultipleSellers(_) >> { args ->
+        1 * tradeRepository.countVerifiedBySellerIds(_) >> { args ->
             capturedIds = args[0]
             [([5L, 20L] as Object[])]
         }
@@ -529,7 +535,7 @@ class SellerStatsControllerSpec extends Specification {
 
     def "verifiedBulk() carries the 2-minute public cache header"() {
         given:
-        1 * listingRepository.countSoldByMultipleSellers(_) >> []
+        1 * tradeRepository.countVerifiedBySellerIds(_) >> []
         1 * reviewRepository.aggregateForUsers(_) >> []
 
         when:
@@ -547,13 +553,13 @@ class SellerStatsControllerSpec extends Specification {
         given: anonSession()
         when:  controller.myVerificationProgress(req)
         then:  thrown(UnauthorizedException)
-        0 * listingRepository.countSoldBySeller(_)
+        0 * tradeRepository.countVerifiedBySeller(_)
     }
 
     def "myVerificationProgress() reports salesNeeded + thresholds for a new seller"() {
         given:
         authedSession(100L)
-        1 * listingRepository.countSoldBySeller(100L) >> 3L
+        1 * tradeRepository.countVerifiedBySeller(100L) >> 3L
         1 * reviewRepository.aggregateForUser(100L) >> []   // no reviews yet
 
         when:
@@ -573,7 +579,7 @@ class SellerStatsControllerSpec extends Specification {
     def "myVerificationProgress() returns verified:true when both thresholds met"() {
         given:
         authedSession(100L)
-        1 * listingRepository.countSoldBySeller(100L) >> 25L
+        1 * tradeRepository.countVerifiedBySeller(100L) >> 25L
         1 * reviewRepository.aggregateForUser(100L) >> [([4L, new BigDecimal('4.50')] as Object[])]
 
         when:
@@ -591,7 +597,7 @@ class SellerStatsControllerSpec extends Specification {
     def "myVerificationProgress() blocks verification on a low rating"() {
         given:
         authedSession(100L)
-        1 * listingRepository.countSoldBySeller(100L) >> 20L
+        1 * tradeRepository.countVerifiedBySeller(100L) >> 20L
         1 * reviewRepository.aggregateForUser(100L) >> [([5L, new BigDecimal('3.20')] as Object[])]
 
         when:
@@ -607,7 +613,7 @@ class SellerStatsControllerSpec extends Specification {
     def "myVerificationProgress() handles review aggregate exception (treats as zero)"() {
         given:
         authedSession(100L)
-        1 * listingRepository.countSoldBySeller(100L) >> 50L
+        1 * tradeRepository.countVerifiedBySeller(100L) >> 50L
         1 * reviewRepository.aggregateForUser(100L) >> { throw new RuntimeException('db pool empty') }
 
         when:
