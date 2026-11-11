@@ -2411,7 +2411,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       setOfferOpen(true);
                       requestAnimationFrame(() => {
                         const el = document.querySelector('.item-offer-drawer');
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // No explicit 'smooth': the CSS smooth scroll honours reduced motion.
+                        if (el) el.scrollIntoView({ block: 'center' });
                       });
                     }
                   }, h(MaterialIcon, { name: 'forum', size: 16 }), h('span', { className: 'listing-offer-btn-label' }, 'Make offer')),
@@ -2430,7 +2431,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                           // find it without wiring refs through the tree.
                           setSelectedAuctionId(l.id);
                           const el = document.querySelector('[data-auction-panel]');
-                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          if (el) el.scrollIntoView({ block: 'start' });
                         },
                         title: 'Place or update your bid in the auction panel above'
                       }, 'Bid')
@@ -2632,7 +2633,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               className: 'btn btn-accent',
               onClick: () => {
                 const el = document.querySelector('[data-auction-panel]');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (el) el.scrollIntoView({ block: 'start' });
               },
               'aria-label': 'Place a bid in the auction panel above'
             }, 'Place Bid')
@@ -3150,6 +3151,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               h(ItemImage, { item: confirmItem, variant: 'thumb' })),
             h('div', { style: { flex: 1, minWidth: 0 } },
               h('div', {
+                title: confirmItem?.name || 'Item',
                 style: {
                   fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
@@ -3957,13 +3959,23 @@ export function FaqModal({ onClose }) {
   // `/faq?q=fees` open the modal with the search already applied
   // (and filter down to the answer the link author intended). Matches
   // the behaviour of the Help Center modal (help-modal.js) which has
-  // always honoured the param. Query stays in place — no replaceState
-  // here because the user may navigate back from within the modal.
+  // always honoured the param.
   const initialQ = (() => {
     try { return (new URLSearchParams(window.location.search).get('q') || '').slice(0, 60); }
     catch { return ''; }
   })();
   const [q, setQ] = useState(initialQ);
+  // Mirror the box into ?q= (replaced in place, so Back is unchanged) and a
+  // reload keeps the search, as the Help Center does.
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if ((qs.get('q') || '') === q.slice(0, 60)) return;
+      if (q.trim()) qs.set('q', q.slice(0, 60)); else qs.delete('q');
+      const next = qs.toString();
+      window.history.replaceState(window.history.state, '', window.location.pathname + (next ? '?' + next : ''));
+    } catch (_) {}
+  }, [q]);
   const searchRef = useRef(null);
   const ENTRIES = [
     [`What is ${BRAND.name}?`,
@@ -6495,6 +6507,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               spellCheck: false,
               maxLength: 32,
               'aria-label': '6-digit authenticator code or backup code',
+              'aria-invalid': disableErr ? 'true' : undefined,
+              'aria-describedby': disableErr ? 'profile-2fa-disable-error' : undefined,
               autoFocus: true,
               placeholder: '000000 or backup code',
               value: disableCode,
@@ -6510,7 +6524,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 else if (e.key === 'Escape' && !disableBusy) { e.preventDefault(); setDisableDrawerOpen(false); setDisableCode(''); setDisableErr(''); }
               }
             }),
-            disableErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, disableErr),
+            disableErr && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-2fa-disable-error', style: { marginTop: 6 } }, disableErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
               h('button', {
                 className: 'btn btn-ghost',
@@ -6551,6 +6565,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               spellCheck: false,
               maxLength: 6,
               'aria-label': '6-digit authenticator code',
+              'aria-invalid': regenErr ? 'true' : undefined,
+              'aria-describedby': regenErr ? 'profile-2fa-regen-error' : undefined,
               placeholder: '000000',
               autoFocus: true,
               value: regenCode,
@@ -6564,7 +6580,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 else if (e.key === 'Escape' && !regenBusy) { e.preventDefault(); setRegenDrawerOpen(false); setRegenCode(''); setRegenErr(''); }
               }
             }),
-            regenErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, regenErr),
+            regenErr && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-2fa-regen-error', style: { marginTop: 6 } }, regenErr),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
               h('button', {
                 className: 'btn btn-ghost',
@@ -6683,6 +6699,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             maxLength: 6,
             placeholder: '000000',
             'aria-label': '6-digit code from your authenticator app',
+            'aria-invalid': twofaErr ? 'true' : undefined,
+            'aria-describedby': twofaErr ? 'profile-2fa-error' : undefined,
             // Enable 2FA unmounts on open; start the keyboard here.
             autoFocus: true,
             value: twofaCode,
@@ -6701,7 +6719,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               }
             }
           }),
-          twofaErr && h('div', { className: 'wallet-error', role: 'alert' }, twofaErr),
+          twofaErr && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-2fa-error' }, twofaErr),
           h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
             h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: async () => {
               // Tell the server to drop the staged secret — else email verify/resend
@@ -7027,7 +7045,7 @@ function ProfileListingsTab({ me }) {
       'Couldn’t load your listings'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your active listings. Check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   );
 
   // Loading — single spinner, identical to ProfileOffersTab's null guard.
@@ -7502,7 +7520,7 @@ function ProfileBuyOrdersTab() {
       'Couldn’t load your buy orders'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your buy orders. Your standing orders are safe — check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   );
   if (orders === null) return h('div', { className: 'spinner' });
   if (orders.length === 0) return h('div', { className: 'empty-inline' },
@@ -8062,7 +8080,7 @@ function ProfileAutoBidsTab() {
       'Couldn’t load your bids'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your live bids. Your auction positions are unaffected — check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   ));
   if (bids === null) return h('div', null, subTabPicker, h('div', { className: 'spinner' }));
   if (bids.length === 0) return h('div', null, subTabPicker, h('div', { className: 'empty-inline' },
@@ -8398,7 +8416,7 @@ function ProfileTradesTab({ me, privacy }) {
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const el = document.getElementById('trade-' + id);
         if (!el) return;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ block: 'center' });
         el.style.transition = 'box-shadow 0.25s ease';
         el.style.boxShadow = '0 0 0 2px var(--accent), 0 0 24px rgba(30,165,255,0.4)';
         setTimeout(() => { el.style.boxShadow = ''; }, 1800);
@@ -8722,7 +8740,7 @@ function ProfileTradesTab({ me, privacy }) {
       'Couldn’t load your trades'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your trades. Your escrowed trades are safe — check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   );
   if (trades === null) return h('div', { className: 'spinner' });
 
@@ -10258,6 +10276,8 @@ const alertCancelInFlight = new Set();
 // My Stall hide and cancel all).
 const bulkInFlight = new Set();
 
+// A Retry gives way to a spinner; land on the open Profile tab, not <body>.
+const PROFILE_TAB_NOW = '.profile-tabs [role="tab"][aria-selected="true"]';
 // Profile sub-tab state in ?view=, replaced in place (no new history entry).
 function setViewParam(v) {
   try {
@@ -10383,7 +10403,7 @@ function ProfileOffersTab() {
       'Couldn’t load your offers'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your offers. Nothing was lost — check your connection and try again.'),
-    h('button', { className: 'btn btn-accent', onClick: load }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); load(); } }, 'Retry')
   );
   if (data === null) return h('div', { className: 'spinner' });
 
@@ -11146,7 +11166,7 @@ function ProfileReviewsTab({ me }) {
       pending === false
         ? h('div', { className: 'wallet-error', role: 'alert' },
             "Couldn't check for trades waiting on a review. ",
-            h('button', { className: 'btn btn-sm', onClick: () => { setPending(null); loadPending(); } }, 'Retry'))
+            h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setPending(null); loadPending(); } }, 'Retry'))
         : pending.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -11192,11 +11212,11 @@ function ProfileReviewsTab({ me }) {
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load your reviews"),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
       'Something went wrong fetching your reviews — your reputation is safe; check your connection and retry.'),
-    h('button', { className: 'btn btn-accent', onClick: loadReceived }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); loadReceived(); } }, 'Retry')
   ) : (mode === 'given' && givenErr) ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '24px 16px' } },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load the reviews you've written"),
-    h('button', { className: 'btn btn-accent', onClick: loadGiven }, 'Retry')
+    h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); loadGiven(); } }, 'Retry')
   ) : null;
   // Built before the loading return so the tabs stay put (and keep focus)
   // while a lazily loaded tab fetches.
@@ -11242,7 +11262,7 @@ function ProfileReviewsTab({ me }) {
     ),
     pending === false && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 14 } },
       "Couldn't check for trades waiting on a review. ",
-      h('button', { className: 'btn btn-sm', onClick: () => { setPending(null); loadPending(); } }, 'Retry')));
+      h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setPending(null); loadPending(); } }, 'Retry')));
   })();
   if (loadErrCard) return h('div', null, tabList, loadErrCard);
   if (rows === null) return h('div', null, tabList, h('div', { className: 'spinner' }));
@@ -11938,7 +11958,7 @@ function ProfileSupportTab() {
       // Also after a refresh fails: the old list (or "No tickets yet") is stale.
       if (ticketsErr) return h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your support tickets.'),
-          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setTicketsErr(false); load(); } }, 'Retry'));
+          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setTicketsErr(false); load(); } }, 'Retry'));
       if (tickets === null) return h('div', { className: 'spinner' });
       if (tickets.length === 0) return creating ? null : h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -12145,7 +12165,7 @@ function ProfileDevelopersTab() {
     keysErr
       ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your API keys.'),
-          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => { setKeysErr(false); load(); } }, 'Retry'))
+          h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setKeysErr(false); load(); } }, 'Retry'))
     : keys === null
       ? h('div', { className: 'spinner' })
       : keys.length === 0
@@ -13983,10 +14003,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             h(ItemImage, { item: { imageUrl: si.imageUrl || si.iconUrl, name: si.name, category: si.category, iconEmoji: '—' }, variant: 'card' })
           ),
           steamRowBlock(si)
-            ? h('div', { className: 'inventory-name' }, si.name)
+            // title: the card cuts a long name with an ellipsis.
+            ? h('div', { className: 'inventory-name', title: si.name }, si.name)
             : h('button', {
                 type: 'button',
                 className: 'inventory-name',
+                title: si.name,
                 style: INVENTORY_NAME_BUTTON_STYLE,
                 'aria-label': `List ${si.name} for sale${bulkSelected.has(si.assetId) ? ' (selected for bulk)' : ''}`,
                 onClick: e => { e.stopPropagation(); startPickSteam(si); }
@@ -14220,6 +14242,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                 h('button', {
                   type: 'button',
                   className: 'inventory-name',
+                  title: l.item?.name || 'Item',
                   style: INVENTORY_NAME_BUTTON_STYLE,
                   'aria-label': (() => { const rv = rowValue(l.item); return `Relist ${l.item?.name || 'item'} (${rv.kind === 'floor' ? 'floor ' + fmt(rv.v) : rv.kind === 'est' ? 'est. ' + fmt(rv.v) : 'unpriced'})`; })(),
                   onClick: e => { e.stopPropagation(); startPickInternal(l); }

@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=370'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=371'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -6927,7 +6927,7 @@ export function App() {
                   }
                 }, pendingActions.total > 99 ? '99+' : pendingActions.total)
               ),
-              h('span', { className: 'user-chip-name' }, me.displayName || 'Player'),
+              h('span', { className: 'user-chip-name', title: me.displayName || 'Player' }, me.displayName || 'Player'),
               menuOpen && h('div', {
                 className: 'user-menu-backdrop',
                 onClick: (e) => { e.stopPropagation(); setMenuOpen(false); }
@@ -7269,12 +7269,12 @@ export function App() {
         h('div', { className: 'csfloat-band-row-wrap' },
           h('button', {
             className: 'csfloat-band-arrow left',
-            onClick: (e) => { const r = e.currentTarget.parentElement.querySelector('.csfloat-band-row'); if (r) r.scrollBy({ left: -240, behavior: 'smooth' }); },
+            onClick: (e) => { const r = e.currentTarget.parentElement.querySelector('.csfloat-band-row'); if (r) r.scrollBy({ left: -240 }); },
             'aria-label': 'Scroll left'
           }, h(MaterialIcon, { name: 'chevron_left', size: 18 })),
           h('button', {
             className: 'csfloat-band-arrow right',
-            onClick: (e) => { const r = e.currentTarget.parentElement.querySelector('.csfloat-band-row'); if (r) r.scrollBy({ left: 240, behavior: 'smooth' }); },
+            onClick: (e) => { const r = e.currentTarget.parentElement.querySelector('.csfloat-band-row'); if (r) r.scrollBy({ left: 240 }); },
             'aria-label': 'Scroll right'
           }, h(MaterialIcon, { name: 'chevron_right', size: 18 })),
         h('div', { className: 'csfloat-band-row' },
@@ -7429,7 +7429,7 @@ export function App() {
                      mirrors csfloat's "AK-47 | Case Hardened" + italic
                      "StatTrak™ Factory New" line. */
                   h('div', { className: 'csfloat-home-hero-feature-title' },
-                    h('div', { className: 'csfloat-home-hero-feature-name top' }, top.item.name),
+                    h('div', { className: 'csfloat-home-hero-feature-name top', title: top.item.name }, top.item.name),
                     h('div', { className: 'csfloat-home-hero-feature-wear ' + ((top.item.rarity || '').toLowerCase().replace(/[^a-z]/g, '')) }, top.item.rarity === 'Off-Market' ? 'Scarce' : (top.item.rarity || 'Standard'))
                   ),
                   h('div', { className: 'csfloat-home-hero-feature-img' },
@@ -10481,7 +10481,8 @@ export function App() {
             const priceMoved = fresh && fresh.active && fresh.price != null &&
               Math.abs(parseFloat(fresh.price) - parseFloat(it.price)) > 0.005;
             return h('div', { key: it.id, className: 'cart-confirm-row' },
-              h('div', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+              // title: a long name (and seller) is cut with an ellipsis.
+              h('div', { title: it.name + (it.sellerName ? ' · ' + it.sellerName : ''), style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                 it.name,
                 // Batch 804 — seller attribution (confirm-modal variant).
                 // Matches the cart-list row styling so the buyer can

@@ -4,7 +4,7 @@
 // Every modal follows the same pattern as ./modals.js — narrow prop surface,
 // uses InfoModal as the shell, calls into ./api.js for I/O.
 import { BRAND } from './brand.js';
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol, fxToUsd, parseMoneyInput, moneyInputError } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, focusPastOnUnmount, highlightMatch, currencySymbol, fxToUsd, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths, followInternalLink } from './router.js';
@@ -454,7 +454,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
           h('div', { className: 'empty-state-actions' },
             h('button', {
               className: 'btn btn-accent',
-              onClick: () => load()
+              // The panel gives way to the table; land on the search box, not <body>.
+              onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.db-controls input[type="search"]'); load(); }
             }, 'Retry'))
         )
       : (data.items.length === 0 && data.total === 0)
@@ -552,6 +553,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
                     h('a', {
                       className: 'db-name',
                       href: '/item/' + item.id,
+                      // A phone cuts a long name with an ellipsis.
+                      title: item.name,
                       'aria-label': `Open ${item.name} detail · ${item.category} · ${(parseFloat(item.lowestPrice) || 0) > 0 ? 'floor ' + fmt(item.lowestPrice) : 'no listings yet'}`,
                       onClick: (e) => {
                         e.preventDefault();
@@ -1257,8 +1260,16 @@ let loadoutReturn = null;
 export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // A shared /loadout/:id opens straight on its view (spinner until it
   // loads) instead of flashing the Discover list first.
-  const [tab, setTab]         = useState(() => loadoutId ? 'view'
-    : (loadoutReturn && (me || loadoutReturn.tab === 'discover') ? loadoutReturn.tab : 'discover')); // discover | mine | view
+  // /loadout?view=mine|favorites&q=… (kept in step below) so a reload stays put.
+  const [urlState] = useState(() => {
+    try {
+      if (loadoutId || !/^\/loadout\/?$/.test(window.location.pathname)) return {};
+      const u = new URLSearchParams(window.location.search), v = u.get('view');
+      return { view: v === 'mine' || v === 'favorites' ? v : null, q: (u.get('q') || '').slice(0, 100) };
+    } catch (_) { return {}; }
+  });
+  const [tab, setTab]         = useState(() => loadoutId ? 'view' : urlState.view
+    || (loadoutReturn && (me || loadoutReturn.tab === 'discover') ? loadoutReturn.tab : 'discover')); // discover | mine | view
   useEffect(() => { if (tab !== 'view') loadoutListTab = tab; }, [tab]);
   const [list, setList]       = useState(null);
   // Audit fix — `load()` did `setList(null)` then awaited
@@ -1276,12 +1287,26 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // Database modal (batch 972). Prevents a 10-char query from firing
   // 10 round-trips — each one does a LIKE '%q%' against the loadouts
   // table + burns a READ-budget rate-limit token.
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch]   = useState('');
+  const [searchInput, setSearchInput] = useState(urlState.q || '');
+  const [search, setSearch]   = useState(urlState.q || '');
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+  // Signed out: My Loadouts and Favorites are not tabs (a ?view= from a reload after sign-out).
+  useEffect(() => { if (meLoaded && !me && (tab === 'mine' || tab === 'favorites')) setTab('discover'); }, [meLoaded, me, tab]);
+  useEffect(() => {
+    try {
+      if (tab === 'view' || !/^\/loadout\/?$/.test(window.location.pathname)) return;
+      const params = new URLSearchParams(window.location.search);
+      if (tab === 'discover') params.delete('view'); else params.set('view', tab);
+      // The search box is on Discover only.
+      const q = tab === 'discover' ? (search || '').trim() : '';
+      if (q) params.set('q', q); else params.delete('q');
+      const qs = params.toString();
+      window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
+    } catch (_) { /* history unavailable */ }
+  }, [tab, search]);
   const discoverSearchRef = useRef(null);
   // The empty-state "Browse" buttons go away with the tab they sit on; move
   // focus to the Discover tab they switch to instead of dropping it.
@@ -2178,7 +2203,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             "Couldn't load loadouts"),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
             'This list failed to load. Check your connection and try again.'),
-          h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry'))
+          h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.loadout-tabs [role="tab"][aria-selected="true"]'); load(); } }, 'Retry'))
       : list === null
       ? h('div', { className: 'spinner' })
       : list.length === 0
@@ -2274,7 +2299,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               // not contain the Copy link button as a separate control.
               onClick: () => goLoadout(l.id)
             },
-              h('div', { className: 'loadout-card-name' },
+              // title: a long name is cut with an ellipsis (phone width).
+              h('div', { className: 'loadout-card-name', title: l.name || undefined },
                 h('a', {
                   href: '/loadout/' + l.id,
                   style: { color: 'inherit', textDecoration: 'none' },
