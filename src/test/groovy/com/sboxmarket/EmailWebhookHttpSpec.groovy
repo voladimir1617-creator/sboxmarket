@@ -16,13 +16,28 @@ import javax.crypto.spec.SecretKeySpec
 import java.nio.charset.StandardCharsets
 
 /** The bounce webhook is reachable with no session or CSRF token, and only a signed call changes anything. */
-@SpringBootTest(properties = ['app.email.webhook-secret=whsec_dGVzdC1zaWduaW5nLWtleS0wMTIzNDU2Nzg5YWJjZGVm'])
+// Plain @SpringBootTest (no property override) so it reuses the cached test
+// context: a context of its own pushed CI's test JVM out of memory. The secret
+// is set on the bean for this spec and restored afterwards.
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles('test')
 class EmailWebhookHttpSpec extends Specification {
 
     @Autowired MockMvc mockMvc
     @Autowired SteamUserRepository userRepo
+    @Autowired com.sboxmarket.service.EmailEventService emailEventService
+
+    String savedSecret
+
+    def setup() {
+        savedSecret = emailEventService.webhookSecret
+        emailEventService.webhookSecret = 'whsec_dGVzdC1zaWduaW5nLWtleS0wMTIzNDU2Nzg5YWJjZGVm'
+    }
+
+    def cleanup() {
+        emailEventService.webhookSecret = savedSecret
+    }
 
     static String sign(String id, String ts, String body) {
         def mac = Mac.getInstance('HmacSHA256')
