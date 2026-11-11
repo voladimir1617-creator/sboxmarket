@@ -471,6 +471,23 @@ class RateLimitFilterSpec extends Specification {
         blocked == 10
     }
 
+    def "public buy-order book GET is enumeration-guarded, like /api/items/{id}"() {
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when: "walk /api/buy-orders/book/{id} from one IP"
+        (1..50).each { id ->
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(get("/api/buy-orders/book/${id}"), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        allowed == 40
+        blocked == 10
+    }
+
     def "POST /api/profile/email/resend is in the 20/10s write bucket (batch 133 — email-spam DoS)"() {
         given:
         int allowed = 0

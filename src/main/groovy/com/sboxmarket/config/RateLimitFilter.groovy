@@ -180,6 +180,10 @@ class RateLimitFilter extends OncePerRequestFilter {
         // async connections (DoS). Cap the open-rate per IP like the other enums.
         '/api/bids/stream/',
         '/api/reviews/user/',
+        // Public buy-order book per item (the item page's Buy offers
+        // block): walking item ids would map the whole book, so it
+        // gets the same per-IP enum budget as /api/items/{id}.
+        '/api/buy-orders/book/',
         // Steam inventory fetch makes an outbound HTTP call per request.
         // Without a cap, a logged-in attacker can proxy-DoS Steam through
         // us and exhaust Tomcat threads (10s timeout each).
