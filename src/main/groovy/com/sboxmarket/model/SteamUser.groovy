@@ -200,6 +200,15 @@ class SteamUser {
     @Column(name = 'muted_email_kinds', length = 255, nullable = false)
     String mutedEmailKinds = ''
 
+    /** Set when our mail provider reports the address on file as dead:
+     *  'BOUNCE' (the receiving server permanently refused it) or
+     *  'COMPLAINT' (the user marked our mail as spam). Written only by
+     *  EmailEventService from a signed provider webhook, cleared when the
+     *  user puts in a new address. A bounce stops all mail to the address;
+     *  a complaint stops everything except security alerts. Null = fine. */
+    @Column(name = 'email_suppressed', length = 16)
+    String emailSuppressed
+
     /** Epoch-ms at which the user's currently-active "vacation mode"
      *  should auto-resume (un-hide every active listing). Null = not
      *  on a scheduled vacation; either fully active OR indefinitely

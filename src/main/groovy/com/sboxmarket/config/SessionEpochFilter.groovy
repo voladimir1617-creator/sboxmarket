@@ -54,7 +54,8 @@ class SessionEpochFilter extends OncePerRequestFilter {
         '/api/auth/steam/login',
         '/api/auth/steam/return',
         '/api/auth/steam/me',
-        '/api/stripe/webhook'
+        '/api/stripe/webhook',
+        '/api/email/webhook'
     ]
     /** Exact, not a prefix: as a prefix it also matched /logout-all, which
      *  let an already-revoked cookie bump the epoch once more and sign the

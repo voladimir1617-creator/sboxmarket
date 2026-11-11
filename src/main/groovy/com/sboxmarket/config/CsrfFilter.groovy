@@ -46,6 +46,8 @@ class CsrfFilter extends OncePerRequestFilter {
     private static final Set<String> SAFE_METHODS = ['GET','HEAD','OPTIONS','TRACE'] as Set
     private static final List<String> EXEMPT_PREFIXES = [
         '/api/stripe/webhook',
+        // Mail-provider bounce/complaint webhook: signed, no cookie.
+        '/api/email/webhook',
         '/api/auth/steam/login',
         '/api/auth/steam/return',
         // Batch 688 — crash-reporting endpoint is exempt so the

@@ -92,6 +92,25 @@ class ProdConfigValidatorSpec extends Specification {
         'help@gmail.com'          | 1
     }
 
+    def "a mail server without the bounce webhook secret is warned about, never refused"() {
+        given:
+        Map<String, String> env = validEnv()
+        env['app.email.from'] = 'no-reply@skinbox.market'
+        env['spring.mail.host'] = 'smtp.resend.com'
+        if (secret) env['app.email.webhook-secret'] = secret
+        stubEnv(env)
+
+        expect:
+        validator.findViolations().isEmpty()
+        validator.findWarnings().size() == warnings
+        warnings == 0 || validator.findWarnings()[0].startsWith('RESEND_WEBHOOK_SECRET is not set')
+
+        where:
+        secret         | warnings
+        null           | 1
+        'whsec_abc123' | 0
+    }
+
     def "all required vars present and no dev placeholders → no violations"() {
         given:
         stubEnv(validEnv())

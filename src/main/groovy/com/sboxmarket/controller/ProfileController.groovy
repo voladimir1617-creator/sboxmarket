@@ -617,7 +617,9 @@ class ProfileController {
         // Re-saving the address that is already verified changes nothing.
         // It used to un-verify it, which blocked withdrawals and security
         // mail until the user clicked a fresh link.
-        if (Boolean.TRUE.equals(user.emailVerified) && user.email?.toLowerCase() == emailRaw) {
+        // Not when our mail to it bounced or was reported as spam: re-saving
+        // it then sends a fresh link, and clicking it proves the inbox works.
+        if (Boolean.TRUE.equals(user.emailVerified) && user.email?.toLowerCase() == emailRaw && !user.emailSuppressed) {
             return ResponseEntity.ok([email: user.email, verified: true] as Map)
         }
         // Refuse while a 2FA enrollment is staged in the overloaded
@@ -707,6 +709,9 @@ class ProfileController {
         // column null in that case rather than persisting a junk key.
         user.canonicalEmail = canonical
         user.emailVerified = false
+        // A new address starts clean: an earlier bounce or spam report was
+        // about the old one.
+        user.emailSuppressed = null
         user.emailVerificationToken = randomToken()
         // Batch 647 — 24h expiry on the fresh token. Narrow enough that a
         // leaked mail archive / misrouted message from yesterday still
@@ -1468,6 +1473,8 @@ class ProfileController {
                 "This verification link has expired. Open Profile and click Resend to get a new one.")
         }
         user.emailVerified = true
+        // The link was opened from this inbox, so it takes mail again.
+        user.emailSuppressed = null
         user.emailVerificationToken = null
         user.emailVerificationTokenExpiresAt = null
         steamUserRepository.save(user)

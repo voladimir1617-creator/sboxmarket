@@ -556,6 +556,9 @@ app:
     from-name: ${EMAIL_FROM_NAME:SkinBox}
     # Where replies go. Use a real inbox on the same domain as EMAIL_FROM.
     reply-to:  ${APP_EMAIL_REPLYTO:support@skinbox.market}
+    # Signing secret (whsec_...) of the mail provider's bounce/complaint
+    # webhook at /api/email/webhook. Blank = the endpoint answers 404.
+    webhook-secret: ${RESEND_WEBHOOK_SECRET:}
   public-url:  ${APP_PUBLIC_URL:http://localhost:${server.port}}
   # Listing-floor refresh sweep — recomputes every catalogue item's
   # `lowestPrice` from active listings every 60s. ON by default; ops

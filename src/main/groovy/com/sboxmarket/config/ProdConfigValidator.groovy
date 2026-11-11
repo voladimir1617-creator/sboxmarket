@@ -437,6 +437,12 @@ class ProdConfigValidator implements EnvironmentPostProcessor, Ordered {
                     'replies may go to an inbox you do not read'.toString())
             }
         }
+        // Without the bounce webhook, mail keeps going to dead and spam-
+        // reporting inboxes, which is what gets a sending domain blocked.
+        if ((safeProperty('spring.mail.host') ?: '').trim() && !(safeProperty('app.email.webhook-secret') ?: '').trim()) {
+            warnings.add('RESEND_WEBHOOK_SECRET is not set — bounces and spam reports are not recorded, so mail ' +
+                'keeps going to dead inboxes; add the webhook /api/email/webhook in the mail provider and paste its secret')
+        }
         warnings
     }
 }
