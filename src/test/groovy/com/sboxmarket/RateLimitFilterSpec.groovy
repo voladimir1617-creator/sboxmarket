@@ -488,6 +488,23 @@ class RateLimitFilterSpec extends Specification {
         blocked == 10
     }
 
+    def "public buy-order board GET is in the per-IP enumeration budget"() {
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when:
+        (1..45).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(get('/api/buy-orders/public'), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        allowed == 40
+        blocked == 5
+    }
+
     def "POST /api/profile/email/resend is in the 20/10s write bucket (batch 133 — email-spam DoS)"() {
         given:
         int allowed = 0

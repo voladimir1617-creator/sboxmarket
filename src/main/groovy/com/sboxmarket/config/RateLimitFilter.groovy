@@ -184,6 +184,9 @@ class RateLimitFilter extends OncePerRequestFilter {
         // block): walking item ids would map the whole book, so it
         // gets the same per-IP enum budget as /api/items/{id}.
         '/api/buy-orders/book/',
+        // The market's public Buy orders board: one aggregate scan of
+        // every live order, so it shares the per-IP enum budget too.
+        '/api/buy-orders/public',
         // Steam inventory fetch makes an outbound HTTP call per request.
         // Without a cap, a logged-in attacker can proxy-DoS Steam through
         // us and exhaust Tomcat threads (10s timeout each).

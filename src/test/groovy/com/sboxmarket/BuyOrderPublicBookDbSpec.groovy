@@ -104,4 +104,48 @@ class BuyOrderPublicBookDbSpec extends Specification {
         two.size() == 2
         two*.price.collect { new BigDecimal(it.toString()) } == [new BigDecimal('5.00'), new BigDecimal('4.00')]
     }
+
+    def "GET /api/buy-orders/public rolls the same levels up per item: best price, orders, quantity, no buyer"() {
+        given: "prices high enough to sit at the top of a shared test database"
+        SteamUser a = user('erin')
+        SteamUser b = user('fred')
+        SteamUser banned = user('trudy', true)
+        Item hot = item('Hot')
+        Item warm = item('Warm')
+        Item onlyBanned = item('OnlyBanned')
+        order(a, hot, '99000.00', 2)
+        order(b, hot, '98000.00', 1)
+        order(b, hot, '98000.00', 4)
+        order(a, warm, '97000.00', 1)
+        order(banned, onlyBanned, '99500.00', 1)
+
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/buy-orders/public')).andReturn()
+        def body = r.response.contentAsString
+        def rows = objectMapper.readValue(body, List)
+        def mine = rows.findAll { (it.itemId as Long) in [hot.id, warm.id, onlyBanned.id] }
+
+        then:
+        r.response.status == 200
+        r.response.getHeader('Cache-Control').contains('public')
+        mine*.itemId.collect { it as Long } == [hot.id, warm.id]       // best price first; banned-only demand is no demand
+        new BigDecimal(mine[0].bestPrice.toString()) == new BigDecimal('99000.00')
+        mine[0].orders == 3
+        mine[0].quantity == 7
+        mine[0].itemName == hot.name
+        mine[0].lowestListing == null              // nothing listed for it
+        mine[1].orders == 1
+        rows.every { Map row -> !row.containsKey('buyerUserId') && !row.containsKey('buyerName') && !row.containsKey('id') }
+        !body.contains('erin') && !body.contains('fred') && !body.contains('trudy')
+    }
+
+    def "the public board honours its limit"() {
+        given:
+        SteamUser a = user('gina')
+        (1..3).each { n -> order(a, item("Lim${n}"), "9${n}00.00", 1) }
+
+        expect:
+        objectMapper.readValue(mockMvc.perform(MockMvcRequestBuilders.get('/api/buy-orders/public').param('limit', '2'))
+            .andReturn().response.contentAsString, List).size() == 2
+    }
 }
