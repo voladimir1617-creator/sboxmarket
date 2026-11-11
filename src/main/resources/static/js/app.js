@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=372'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=373'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1704,6 +1704,48 @@ function HottestRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas }) 
           onClick: () => onOpen(l),
           onAddToCart,
           cartHas
+        })
+      ))
+    )
+  );
+}
+
+// "Popular right now" under a search that found nothing, so the shopper
+// has somewhere to go next. Same feed as HottestRail (/api/listings/
+// hottest: recent sales, topped up with most-watched then most-viewed
+// items), so the head makes no "last 7d" or count claim — "popular"
+// is true of every signal that fills it. Fetches once per mount and
+// renders nothing when the feed is empty or fails.
+function PopularNowRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas, meId }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch('/api/listings/hottest?limit=8', { credentials: 'same-origin' });
+        if (!alive || !r.ok) return;
+        const data = await r.json();
+        if (alive) setRows(Array.isArray(data) ? data.filter(l => l && l.item) : []);
+      } catch (_) {}
+    })();
+    return () => { alive = false; };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'just-listed-rail', 'aria-label': 'Popular right now', 'data-testid': 'market-empty-popular' },
+    h('h2', { className: 'just-listed-head' },
+      h('span', { className: 'section-title-dot' }),
+      h('span', null, 'Popular right now')
+    ),
+    h('div', { className: 'just-listed-track' },
+      rows.map(l => h('div', { key: 'pop-' + l.id, className: 'just-listed-card-wrap' },
+        h(GridCard, {
+          listing: l,
+          starred: Array.isArray(watchlist) ? watchlist.includes(l.item.id) : false,
+          onToggleStar,
+          onClick: () => onOpen(l),
+          onAddToCart,
+          cartHas,
+          meId
         })
       ))
     )
@@ -8641,7 +8683,7 @@ export function App() {
                   sub   = 'Be the first to list an item — head to Sell to put one of your skins up for grabs.';
                 }
                 const showClear = !isError && (hasQueryFilters || hasClientFilters || onlyTypeFilter);
-                return h('div', { className: 'empty-state', role: isError ? 'alert' : undefined },
+                const emptyBox = h('div', { className: 'empty-state', role: isError ? 'alert' : undefined },
                   h('div', { className: 'empty-state-icon' },
                     h(MaterialIcon, { name: isError ? 'cloud_off' : (listingTypeFilter === 'AUCTION' ? 'gavel' : 'inventory_2'), size: 42 })
                   ),
@@ -8683,6 +8725,20 @@ export function App() {
                     }, '+ Create buy order'),
                     !isError && me && h('a', { className: 'btn btn-accent', href: paths.sell() }, 'Sell Items')
                   )
+                );
+                // A search or filter that found nothing gets a row of
+                // popular items under it, so the page isn't a dead end.
+                if (isError || !hasQueryFilters) return emptyBox;
+                return h('div', null,
+                  emptyBox,
+                  h(PopularNowRail, {
+                    watchlist,
+                    onToggleStar: toggleStar,
+                    onOpen: openModal,
+                    onAddToCart: addToCart,
+                    cartHas: (id) => cart.some(c => c.id === id),
+                    meId: me?.id
+                  })
                 );
               })()
             : h('div', null,

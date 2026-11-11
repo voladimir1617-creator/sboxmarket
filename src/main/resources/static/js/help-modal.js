@@ -125,7 +125,7 @@ const FAQ = [
   {
     s: 'problems',
     q: 'How do I avoid scams?',
-    a: "SkinBox signs you in only through Steam's own page at steamcommunity.com, and it never asks for your Steam password, your Steam Guard code or a Steam Web API key. Check the address bar before you sign in. Accept a SkinBox trade offer only if its message ends with the offer code shown on your trade. If anyone contacts you claiming to be SkinBox staff, report it with a ticket from Profile → Support. (The SkinBox API keys under Profile → Developers are a different thing: they are keys you mint for your own scripts, not something anyone should ask you for.)"
+    a: "SkinBox signs you in only through Steam's own page at steamcommunity.com, and it never asks for your Steam password, your Steam Guard code or a Steam Web API key. Check the address bar before you sign in. Accept a SkinBox trade offer only if its message ends with the offer code shown on your trade and it comes from our bot's Steam profile, linked next to that code. The code alone doesn't prove an offer is ours. If you didn't decline an offer yourself, revoke any Steam Web API key you didn't create at steamcommunity.com/dev/apikey and change your Steam password. If anyone contacts you claiming to be SkinBox staff, report it with a ticket from Profile → Support. (The SkinBox API keys under Profile → Developers are a different thing: they are keys you mint for your own scripts, not something anyone should ask you for.)"
   },
   {
     s: 'problems',
@@ -196,6 +196,20 @@ const STEPS = [
   { icon: 'verified',     title: 'Trade safely', body: 'Every change you make on the website carries an anti-forgery token, trading and wallet actions are rate-limited, and purchases, trades and wallet changes are logged. Support is one click away.' },
 ];
 
+// A seller's first listing, step by step. Kept to what the code does: the
+// deposit offer asks for the one item and gives nothing back, the listing
+// goes live when the bot receives it (later if Steam holds the item), and
+// the seller is paid into the SkinBox wallet once delivery is confirmed.
+const SELL_STEPS = [
+  { icon: 'login',        title: 'Sign in with Steam', body: 'Use the Sign in through Steam button. Steam handles the login; your password never reaches SkinBox.' },
+  { icon: 'swap_horiz',   title: 'Add your Steam trade URL', body: "Paste it into Profile → Personal Info. Our bot sends its trade offers to this link, so your listing can't go live without it." },
+  { icon: 'mail',         title: 'Verify your email', body: 'Add and verify an email address in Profile → Personal Info. You need it to withdraw what you earn.' },
+  { icon: 'inventory_2',  title: 'Pick an item in Sell', body: 'Open Sell Items from the user menu. The Steam Inventory tab lists your s&box items; your Steam inventory must be public.' },
+  { icon: 'sell',         title: 'Set your price', body: 'Choose Buy Now or Auction, set the price, and press List for Sale. The 2% fee is taken only when it sells.' },
+  { icon: 'verified',     title: 'Send the item to our bot', body: "Our bot sends you a Steam trade offer that asks for that one item and gives nothing back. Accept it only if its message ends with the offer code shown in My Stall and it comes from our bot's Steam profile linked there. Your listing goes live when the item arrives; if Steam holds the item, it goes live when Steam lets it move." },
+  { icon: 'payments',     title: 'Wait for a sale', body: 'When it sells, our bot sends the item to the buyer. Your price minus the 2% fee goes to your SkinBox wallet once delivery is confirmed.' },
+];
+
 export function HelpModal({ onClose }) {
   // Batch 708 — read `?q=` from the URL so deep links like
   // `/help?q=API` open with the search pre-filled. Lets other parts
@@ -255,7 +269,7 @@ export function HelpModal({ onClose }) {
       h('div', null,
         h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, "New to SkinBox?"),
         h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 4 } },
-          "Work through the six-step walkthrough below, or jump straight to the FAQ. Still stuck? Open a support ticket at the bottom of this page.")
+          "Work through the walkthroughs below (buying first, then your first listing), or jump straight to the FAQ. Still stuck? Open a support ticket at the bottom of this page.")
       )
     ),
 
@@ -263,6 +277,17 @@ export function HelpModal({ onClose }) {
       h(MaterialIcon, { name: 'route', size: 18 }), 'Getting Started'),
     h('div', { className: 'help-steps' },
       STEPS.map((s, i) => h('div', { key: i, className: 'help-step' },
+        h('div', { className: 'help-step-num' }, i + 1),
+        h(MaterialIcon, { name: s.icon, size: 28 }),
+        h('div', { className: 'help-step-title' }, s.title),
+        h('div', { className: 'help-step-body' }, testModeCopy(s.body))
+      ))
+    ),
+
+    h('h2', { className: 'help-section-title', 'data-testid': 'help-first-listing' },
+      h(MaterialIcon, { name: 'storefront', size: 18 }), 'Your first listing'),
+    h('div', { className: 'help-steps' },
+      SELL_STEPS.map((s, i) => h('div', { key: i, className: 'help-step' },
         h('div', { className: 'help-step-num' }, i + 1),
         h(MaterialIcon, { name: s.icon, size: 28 }),
         h('div', { className: 'help-step-title' }, s.title),

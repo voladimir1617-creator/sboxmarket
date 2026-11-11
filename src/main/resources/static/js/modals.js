@@ -9558,7 +9558,7 @@ function ProfileTradesTab({ me, privacy }) {
                 },
                   // Our bot's delivery offer ends with this code; only the
                   // buyer sees it, so an impersonator's offer can't match it.
-                  t.deliveryCode && h(BotSecurityCode, { code: t.deliveryCode }),
+                  t.deliveryCode && h(BotSecurityCode, { code: t.deliveryCode, botSteamId: t.botSteamId, botName: t.botName }),
                   t.deliveryCode && h('span', { 'data-testid': 'bot-code-note', style: { color: 'var(--text-muted)', flexBasis: '100%', order: 99 } }, BOT_CODE_NOTE),
                   // Batch 773 — if the seller included a direct trade-offer
                   // URL at Mark-Sent time, show a one-click deep link to
@@ -14348,14 +14348,28 @@ function BotPanelIcon({ kind }) {
 // The stall panels explain the code in their tip line; the buyer's trade row
 // has no tip, so it shows this sentence as text too (a phone never shows the
 // tooltip).
-const BOT_CODE_NOTE = "Our bot's trade offer message ends with this code. Decline any offer for this item without it.";
-function BotSecurityCode({ code }) {
+// A code alone proves nothing: a script on a stolen Steam Web API key can
+// read it off the real offer and copy it, so the note also names the sender.
+const BOT_CODE_NOTE = "Our bot's trade offer message ends with this code. Accept an offer for this item only if it has this code and comes from our bot's Steam profile; decline any other.";
+// SteamID64 of an individual account; anything else gets no link.
+const BOT_STEAM_ID_RE = /^7656119\d{10}$/;
+function BotSecurityCode({ code, botSteamId, botName }) {
+  const id = typeof botSteamId === 'string' && BOT_STEAM_ID_RE.test(botSteamId) ? botSteamId : null;
   return h('div', {
     className: 'bot-code',
     title: BOT_CODE_NOTE
   },
     h('span', { className: 'bot-code-label' }, 'Offer code'),
-    h('span', { className: 'bot-code-value' }, code));
+    h('span', { className: 'bot-code-value' }, code),
+    // Who the offer comes from, linked to the bot's Steam profile so the
+    // user can match the sender. Shown only when the server knows it.
+    id && h('span', { className: 'bot-code-label', 'data-testid': 'bot-code-from' },
+      'From our bot: ',
+      h('a', {
+        href: 'https://steamcommunity.com/profiles/' + id,
+        target: '_blank',
+        rel: 'noopener noreferrer'
+      }, (typeof botName === 'string' && botName.trim()) ? botName.trim() : id)));
 }
 
 export function MyStallModal(props) {
@@ -15539,7 +15553,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         }, 'Open Steam trade offers ↗')
       ),
       heldOfferToAccept && h('div', { className: 'bot-offer-tip' },
-        'Our deposit offer asks for this one item and gives nothing back. Accept it only if its message shows the code next to the item here.'),
+        'Our deposit offer asks for this one item and gives nothing back. Accept it only if its message shows the code next to the item here and it comes from our bot\'s Steam profile.'),
       held.map(row => {
         const l = row.listing || {};
         const e = row.escrow || {};
@@ -15556,7 +15570,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               e.message || 'Waiting for our bot to receive your item. Your listing goes live the moment it arrives.')
           ),
           h('div', { className: 'bot-offer-side' },
-            e.securityCode && h(BotSecurityCode, { code: e.securityCode }),
+            e.securityCode && h(BotSecurityCode, { code: e.securityCode, botSteamId: e.botSteamId, botName: e.botName }),
             h('button', { className: 'btn btn-ghost bot-offer-cancel', disabled: cancellingIds.includes(l.id), onClick: () => doCancel(l) }, 'Cancel')
           )
         );
@@ -15580,7 +15594,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           }, 'Open Steam trade offers ↗')
         ),
         !allBack && h('div', { className: 'bot-offer-tip' },
-          'A withdrawal offer only gives you your item and asks for nothing. Check its message shows the code next to the item here.'),
+          'A withdrawal offer only gives you your item and asks for nothing. Check its message shows the code next to the item here and it comes from our bot\'s Steam profile.'),
         botCustody.returning.map(r => {
           const step = r.state === 'BACK' ? 3 : r.state === 'OFFER_SENT' ? 1 : 0;
           return h('div', { key: r.listingId, className: 'stall-returning-row bot-offer-row' },
@@ -15591,7 +15605,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               h('div', { className: 'bot-offer-msg' }, r.message)
             ),
             h('div', { className: 'bot-offer-side' },
-              r.state !== 'BACK' && r.securityCode && h(BotSecurityCode, { code: r.securityCode }))
+              r.state !== 'BACK' && r.securityCode && h(BotSecurityCode, { code: r.securityCode, botSteamId: r.botSteamId, botName: r.botName }))
           );
         })
       );

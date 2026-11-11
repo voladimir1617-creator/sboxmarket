@@ -175,6 +175,7 @@ class EmailService {
      *   WatchlistAlertSvc  → WATCHLIST (price drop)
      *   SellerFollowSvc    → FOLLOWS   (new listing)
      *   SavedSearchService → MATCHES   (saved-search match)
+     *   SellerMarketPingSvc → MATCHES  (seller market alerts)
      */
     boolean isBucketMuted(SteamUser user, String bucket) {
         if (user == null || bucket == null) return false
@@ -1325,6 +1326,59 @@ Profile → Email notifications.
         send(toEmail, subject, body, 'MATCHES')
     }
 
+    /** Market alert for a SELLER: a buyer placed an item buy order below
+     *  their ask (SellerMarketPingService, BUY_ORDER_ON_YOUR_ITEM). Sent
+     *  only when the bell was pushed, so it shares the bell's one-per-day
+     *  dedupe. Gated on the MATCHES bucket (see
+     *  SellerMarketPingService.EMAIL_BUCKET for why not TRADES). Never
+     *  names the buyer. */
+    void sendBuyOrderOnYourItem(String toEmail, String displayName, String itemName,
+                                BigDecimal bid, String itemUrl) {
+        if (!toEmail || bid == null) return
+        def name = itemName ?: 'an item you list'
+        def subject = "A buyer wants ${name} at \$${bid.toPlainString()}"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+A buyer placed a buy order for ${name} at ${usd(bid)}.
+Your listing is priced higher.
+
+You can lower your price, sell to the buy order, or leave it as is.
+Open the item${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
+
+You get at most one of these per item per day. Mute the
+"Saved-search matches" category in Profile → Email notifications
+to stop these market alerts.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body, 'MATCHES')
+    }
+
+    /** Market alert for a SELLER: another seller listed the same item for
+     *  less (SellerMarketPingService, LISTING_UNDERCUT). Same dedupe and
+     *  bucket as sendBuyOrderOnYourItem. Never names the other seller. */
+    void sendListingUndercut(String toEmail, String displayName, String itemName,
+                             BigDecimal newPrice, String itemUrl) {
+        if (!toEmail || newPrice == null) return
+        def name = itemName ?: 'an item you list'
+        def subject = "A cheaper ${name} just went on sale"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+Another seller just listed ${name} at ${usd(newPrice)}, below your price.
+
+If you want to compete, you can change your price from the item page${itemUrl ? ': ' + absUrl(itemUrl) : '.'}
+
+You get at most one of these per item per day. Mute the
+"Saved-search matches" category in Profile → Email notifications
+to stop these market alerts.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body, 'MATCHES')
+    }
+
     /** Deletion-request receipt. Fires from ProfileController when a
      *  user first submits a deletion request — confirms the request
      *  landed + gives them a cancel window. */
@@ -1964,6 +2018,12 @@ Thanks for your patience.
      * of the email path (send() already swallows send errors, but a
      * crash inside footer-build would leak up before the try block).
      */
+    /** Anti-phishing line on every email. Steam account thieves pose as
+     *  marketplaces; saying what we never ask for gives the reader a rule
+     *  to check a fake against. */
+    static final String SAFETY_FOOTER_LINE =
+        'SkinBox will never ask for your Steam password, Steam Guard code or Web API key.'
+
     private String appendFooter(String body, String to = null, String kind = null) {
         try {
             def base = publicUrl ?: 'https://skinbox.market'
@@ -1993,6 +2053,7 @@ Thanks for your patience.
             return body + "\n\n—\nManage your email preferences: " + base + "/profile/personal" +
                    unsubLine +
                    "\nNeed help? Reply to this email or visit " + base + "/support" +
+                   "\n" + SAFETY_FOOTER_LINE +
                    "\n\n© 2026 SkinBox · Not affiliated with Facepunch\n"
         } catch (Exception ignore) {
             return body

@@ -175,6 +175,8 @@ class SearchDiscoverySignalsSpec extends Specification {
         'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'          || true
         'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)'           || true
         'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)'                 || true
+        'GoogleOther'                                                                       || true
+        'Mozilla/5.0 (compatible; Google-InspectionTool/1.0;)'                              || true
         'facebookexternalhit/1.1'                                                           || true
         'curl/8.4.0'                                                                        || true
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36' || false

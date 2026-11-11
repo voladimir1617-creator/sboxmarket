@@ -4,6 +4,7 @@ import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Trade
 import com.sboxmarket.service.SteamDeliveryService
+import com.sboxmarket.service.SteamTradeBotService
 import com.sboxmarket.service.TradeProtectionService
 import com.sboxmarket.service.TradeService
 import groovy.util.logging.Slf4j
@@ -33,6 +34,20 @@ class TradeController {
     /** Optional — supplies the buyer's delivery offer code. */
     @Autowired(required = false) SteamDeliveryService steamDeliveryService
 
+    /** Optional — the bot's own Steam account, shown beside the offer code. */
+    @Autowired(required = false) SteamTradeBotService steamTradeBotService
+
+    /** Adds the bot's SteamID64 (and persona name, when known) next to an
+     *  offer code, so the buyer can check who the offer comes from. Adds
+     *  nothing when the bot's account is unknown. */
+    private void addBotIdentity(Map payload) {
+        Map bot = steamTradeBotService?.botIdentity()
+        if (bot?.steamId) {
+            payload.botSteamId = bot.steamId
+            if (bot.name) payload.botName = bot.name
+        }
+    }
+
     /** The buyer's delivery code, only for the buyer; null for anyone else. */
     private String deliveryCodeForViewer(Trade t, Long uid) {
         (t != null && t.buyerUserId == uid) ? steamDeliveryService?.deliveryCodeFor(t) : null
@@ -59,7 +74,10 @@ class TradeController {
             rows?.each { Map r ->
                 if (r.buyerUserId == uid && r.id != null) {
                     def code = steamDeliveryService.deliveryCodeFor(new Trade(id: r.id as Long, buyerUserId: uid))
-                    if (code) r.deliveryCode = code
+                    if (code) {
+                        r.deliveryCode = code
+                        addBotIdentity(r)
+                    }
                 }
             }
         }
@@ -87,7 +105,10 @@ class TradeController {
         def protection = tradeProtectionService?.summary(id)
         def payload = tradePayload(t, protection)
         def code = deliveryCodeForViewer(t, uid)
-        if (code) payload.deliveryCode = code
+        if (code) {
+            payload.deliveryCode = code
+            addBotIdentity(payload)
+        }
         ResponseEntity.ok(payload)
     }
 
