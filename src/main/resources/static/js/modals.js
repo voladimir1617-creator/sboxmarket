@@ -13463,7 +13463,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       const failed = (res?.failed || []).length;
       const heldCount = (res?.ok || []).filter(r => r && (r.status === 'PENDING_ESCROW' || r.escrowPending === true)).length;
       if (ok > 0) {
-        setBulkSelected(new Set());
+        // Keep the ones that failed selected so the seller can see and retry them.
+        setBulkSelected(new Set((res?.failed || []).map(f => f && String(f.assetId)).filter(id => ids.includes(id))));
         setBulkPrice('');
         await onRefresh();
         await loadSteam();
@@ -15445,7 +15446,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                  padding: '6px 12px', fontSize: 11, marginLeft: 6 },
         onClick: async () => {
           if (bulkInFlight.has('stall-cancel-all')) return;
-          if (!confirm(`Cancel all ${stall.length} active listings? Auctions with live bids are kept (cancel those individually if needed). Pending offers on the affected listings will be rejected with a courtesy notification.`)) return;
+          // Auctions with bids are locked (no single cancel either), so count them out.
+          const kept = stall.filter(l => l && l.listingType === 'AUCTION' && (l.bidCount || 0) > 0).length;
+          const n = stall.length - kept;
+          if (n === 0) { toast(`Nothing to cancel: ${kept === 1 ? 'your listing is an auction' : `all ${kept} listings are auctions`} with live bids, which settle when they end.`, 'err'); return; }
+          if (!confirm(`${kept > 0 ? `Cancel ${n} of your ${stall.length} active listings? The ${kept} auction${kept === 1 ? '' : 's'} with live bids stay${kept === 1 ? 's' : ''} up until ${kept === 1 ? 'it ends' : 'they end'}.` : `Cancel all ${stall.length} active listings?`} Pending offers on the affected listings will be rejected with a courtesy notification.`)) return;
           bulkInFlight.add('stall-cancel-all');
           try {
             const r = await fetch('/api/listings/my-stall', { method: 'DELETE', credentials: 'same-origin' });

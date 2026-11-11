@@ -4254,7 +4254,8 @@ function CsrLookupTab() {
     const seq = ++lookupSeqRef.current;
     setBusy(true);
     try {
-      const res = await csrLookup(q);
+      // "#42" is how user ids are written here; the server matches the bare number.
+      const res = await csrLookup(q.trim().replace(/^#(?=\d+$)/, ''));
       if (seq === lookupSeqRef.current) setData(res);
     } finally { if (seq === lookupSeqRef.current) setBusy(false); }
   };
@@ -4420,7 +4421,9 @@ function CsrTicketsTab() {
     if (viewing || backFocusRef.current == null) return;
     const id = backFocusRef.current;
     backFocusRef.current = null;
-    document.querySelector(`tr[data-ticket-row="${id}"]`)?.focus();
+    // A reply or close can move the ticket out of this filter; land on the filter then.
+    (document.querySelector(`tr[data-ticket-row="${id}"]`)
+      || document.querySelector('#csr-tabpanel .offer-tab[aria-pressed="true"]'))?.focus();
   }, [viewing]);
   // Enter auto-repeat (or Enter then a click) re-entered this before the
   // async busy state landed and posted the reply twice; a ref latches now.

@@ -557,6 +557,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
                       title: item.name,
                       'aria-label': `Open ${item.name} detail · ${item.category} · ${(parseFloat(item.lowestPrice) || 0) > 0 ? 'floor ' + fmt(item.lowestPrice) : 'no listings yet'}`,
                       onClick: (e) => {
+                        // Ctrl/Cmd/Shift-click opens the item in a new tab; leave it to the browser.
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { e.stopPropagation(); return; }
                         e.preventDefault();
                         e.stopPropagation();
                         if (typeof onPickItem === 'function') onPickItem(item);
@@ -2212,7 +2214,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             // "tab is genuinely empty" so a typo doesn't look like a
             // dead feature. Same pattern as the marketplace grid's
             // empty state.
-            const searching = search.trim().length > 0;
+            // The search box and its filter belong to Discover only.
+            const searching = tab === 'discover' && search.trim().length > 0;
             if (searching) {
               return h('div', { className: 'empty-inline' },
                 h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search_off', size: 26 })),
