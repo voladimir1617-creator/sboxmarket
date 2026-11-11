@@ -426,7 +426,7 @@ export function RarityBar({ score, compact }) {
  * tooltip follows the mouse along the x axis and snaps to the nearest
  * data point. Pure inline SVG — no external chart lib.
  */
-export function Sparkline({ data, color, height, showAxes }) {
+export function Sparkline({ data, color, height, showAxes, showVolume }) {
   const [hover, setHover] = useState(null);
   if (!data || data.length < 2) return null;
   // Default to CSFloat's signature price-line blue (rgb(35,123,255)) so a
@@ -443,7 +443,8 @@ export function Sparkline({ data, color, height, showAxes }) {
   // poison Math.min/Math.max → every coordinate becomes NaN → the SVG
   // path string is `NaN,NaN …` and the whole chart renders blank.
   const series = data
-    .map((d, i) => ({ price: parseFloat(d && d.price), label: d && d.dayLabel }))
+    .map((d, i) => ({ price: parseFloat(d && d.price), label: d && d.dayLabel,
+                      volume: Math.max(0, parseInt(d && d.volume, 10) || 0) }))
     .filter(d => Number.isFinite(d.price));
   // Need at least two real points to draw a line.
   if (series.length < 2) return null;
@@ -458,18 +459,37 @@ export function Sparkline({ data, color, height, showAxes }) {
   // notification feed) pass no `showAxes`, so they keep the full band and
   // gain zero axis chrome.
   const axisH = showAxes ? 16 : 0;
-  const padTop = H * 0.09, bandH = H * 0.82 - axisH;
+  // Volume bars (item-page chart only, `showVolume`): each history row's
+  // `volume` is the number of SkinBox sales recorded that day (Steam-sync
+  // rows write 0), drawn as bars in a strip under the line with their own
+  // trade-count tick on the right. No sales in the series = no strip, so
+  // a Steam-price-only line doesn't grow an empty band.
+  const maxVol = showVolume ? Math.max(0, ...series.map(d => d.volume)) : 0;
+  const volH = maxVol > 0 ? Math.round(H * 0.26) : 0;
+  const padTop = H * 0.09, bandH = H * 0.82 - axisH - volH;
+  const lineFloor = volH > 0 ? H - axisH - volH : H;
 
   const pts = series.map((d, i) => {
     const x = (i / (series.length - 1)) * W;
     // A flat series (every sale at one price) sits mid-band; at the floor
     // it ran along the bottom edge under the min label.
     const frac = max === min ? 0.5 : (d.price - min) / range;
-    const y = H - axisH - frac * bandH - padTop;
-    return { x, y, price: d.price, label: d.label };
+    const y = H - axisH - volH - frac * bandH - padTop;
+    return { x, y, price: d.price, label: d.label, volume: d.volume };
   });
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
-  const area = `0,${H} ${polyline} ${W},${H}`;
+  const area = `0,${lineFloor} ${polyline} ${W},${lineFloor}`;
+  // Bars are centred on their point and clamped inside the viewBox so the
+  // first and last days aren't cut in half at the edges.
+  const barW = Math.max(2, Math.min(18, (W / series.length) * 0.6));
+  // The tick sits at the top of the strip, the bars top out just below it.
+  const volTop = H - axisH - volH, volBand = volH - 15;
+  const bars = volH > 0 ? pts.filter(p => p.volume > 0).map(p => {
+    const bh = Math.max(1.5, (p.volume / maxVol) * volBand);
+    const x = Math.min(W - barW, Math.max(0, p.x - barW / 2));
+    return { x, y: H - axisH - bh, h: bh, key: p.x };
+  }) : [];
+  const totalSales = series.reduce((n, d) => n + d.volume, 0);
   // Hash-ish id that survives non-hex color inputs (e.g. var(--up))
   // so callers can pass design-token colors instead of raw hex.
   const gradId = 'grad-' + String(colorSafe).replace(/[^a-z0-9]/gi, '');
@@ -530,7 +550,8 @@ export function Sparkline({ data, color, height, showAxes }) {
     `Range ${fmt(min)} to ${fmt(max)}. ` +
     (deltaPct > 0 ? `Up ${deltaPct}% overall.`
      : deltaPct < 0 ? `Down ${Math.abs(deltaPct)}% overall.`
-     : 'Flat overall.');
+     : 'Flat overall.') +
+    (volH > 0 ? ` ${totalSales} ${totalSales === 1 ? 'sale' : 'sales'} on SkinBox in this range.` : '');
   return h('div', { className: 'sparkline-wrap' },
     h('svg', {
       className: 'chart',
@@ -559,6 +580,24 @@ export function Sparkline({ data, color, height, showAxes }) {
         stroke: 'var(--line, var(--border))', strokeOpacity: 0.5, strokeWidth: 1
       })),
       h('polygon',  { points: area,     fill: `url(#${gradId})` }),
+      // Volume strip: a baseline, one bar per day with sales, and the
+      // trade-count axis tick (the busiest day's count) on the right.
+      volH > 0 && h('g', { className: 'chart-volume', 'data-testid': 'chart-volume' },
+        h('line', {
+          x1: 0, x2: W, y1: H - axisH, y2: H - axisH,
+          stroke: 'var(--line, var(--border))', strokeOpacity: 0.8, strokeWidth: 1
+        }),
+        bars.map(b => h('rect', {
+          key: b.key, x: b.x, y: b.y, width: barW, height: b.h, rx: 1,
+          fill: colorSafe, fillOpacity: hoverPt && Math.abs(hoverPt.x - (b.x + barW / 2)) < barW ? 0.75 : 0.4
+        })),
+        h('text', {
+          className: 'axis-tick',
+          x: W - 4, y: volTop + 11,
+          'text-anchor': 'end',
+          fill: AXIS_FILL, fontSize: 10
+        }, `${maxVol} ${maxVol === 1 ? 'trade' : 'trades'}`)
+      ),
       // CSFloat parity: a thin (~1.6px) line, not a heavy 2.2px stroke.
       h('polyline', { points: polyline, fill: 'none', stroke: colorSafe, strokeWidth: '1.6',
                       strokeLinejoin: 'round', strokeLinecap: 'round' }),
@@ -606,7 +645,9 @@ export function Sparkline({ data, color, height, showAxes }) {
       style: { left: `${(hoverPt.x / W) * 100}%` }
     },
       h('div', { className: 'sparkline-tt-price' }, fmt(hoverPt.price)),
-      h('div', { className: 'sparkline-tt-date' }, hoverPt.label || '')
+      h('div', { className: 'sparkline-tt-date' }, hoverPt.label || ''),
+      volH > 0 && h('div', { className: 'sparkline-tt-date' },
+        hoverPt.volume > 0 ? `${hoverPt.volume} ${hoverPt.volume === 1 ? 'sale' : 'sales'}` : 'No sales')
     )
   );
 }
