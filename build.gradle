@@ -12,9 +12,10 @@ repositories {
     mavenCentral()
 }
 
-// Boot 3.5.16 ships Tomcat 10.1.55; keep the newer 10.1.60 patch this repo
-// already ran on (multipart and partial-PUT CVE fixes). Same 10.1 line.
-ext['tomcat.version'] = '10.1.60'
+// Boot 3.5.16 ships Tomcat 10.1.55; pin the newer 10.1 patch. 10.1.60 brought
+// the multipart and partial-PUT CVE fixes; 10.1.61 (2026-10-06) adds six more
+// (mostly HTTP/2 or deployment dependent). Same 10.1 line.
+ext['tomcat.version'] = '10.1.61'
 
 // commons-lang3: Boot 3.5.16 manages 3.17.0; 3.18.0 fixes CVE-2025-48924
 // (unbounded recursion). Not called directly by app code. (pgjdbc no longer
