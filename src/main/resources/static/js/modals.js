@@ -13532,8 +13532,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         h('button', {
           className: 'btn btn-accent',
           style: { flex: 1, justifyContent: 'center', padding: 13 },
-          // Blocked for either reason, not just the tradable one.
-          disabled: busy || relistBlocked || (isSteam && !!pickBlock),
+          // Blocked for either reason, not just the tradable one. While it
+          // lists, aria-disabled keeps focus here for a refusal (submit
+          // ignores clicks while busy).
+          disabled: relistBlocked || (isSteam && !!pickBlock),
+          'aria-disabled': busy || undefined,
           title: isSteam && pickBlock === 'ALREADY_LISTED'
             ? 'Every copy of this item you own is already on sale — cancel one in My Stall to relist it'
             : isSteam && pickBlock === 'NOT_TRADABLE'
@@ -13555,7 +13558,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   // the same endpoint so the whole batch inherits a uniform threshold.
   const submitBulk = async () => {
     const ids = Array.from(bulkSelected);
-    if (ids.length === 0) return;
+    if (bulkBusy || ids.length === 0) return;
     if (moneyInputError(bulkPrice)) { toast(moneyInputError(bulkPrice), 'err'); return; }
     const p = parseMoneyInput(bulkPrice);
     if (!p || p < 0.01) { toast('Price must be at least $0.01.', 'err'); return; }
@@ -13993,7 +13996,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           h('button', {
             className: 'btn btn-accent',
             style: { padding: '6px 14px', fontSize: 12, fontWeight: 700 },
-            disabled: bulkBusy || !bulkPrice,
+            disabled: !bulkPrice,
+            // aria-disabled keeps focus here for a refusal; submitBulk ignores clicks while busy.
+            'aria-disabled': bulkBusy || undefined,
             onClick: submitBulk
           }, bulkBusy ? 'Listing…' : `List ${bulkSelected.size} @ ${fmtUsd(parseMoneyInput(bulkPrice) || 0)}`),
           h('button', {
@@ -14017,7 +14022,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             className: `wallet-tx-filter-chip ${sellRarityFilter === r ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === r,
             onClick: () => setSellRarityFilter(r)
-          }, `${r} · ${steamList.filter(s => (s.rarity || 'Standard') === r).length}`)),
+          }, `${r === 'Off-Market' ? 'Scarce' : r} · ${steamList.filter(s => (s.rarity || 'Standard') === r).length}`)),
           h('input', {
             className: 'sell-filter-search',
             placeholder: 'Search items…',
@@ -14181,7 +14186,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                 opacity: quickSellBusy && !busyThis ? 0.5 : 1,
                 cursor: quickSellBusy && !busyThis ? 'not-allowed' : 'pointer'
               },
-              disabled: !!quickSellBusy,
+              'aria-disabled': !!quickSellBusy || undefined,
               title: `List at ${fmt(best)} — auto-fills against the standing buy order on the next sweep`,
               onClick: e => { e.stopPropagation(); quickSell('steam', si, best); }
             }, busyThis ? 'Listing…' : `⚡ Quick Sell · ${fmt(best)}`);
@@ -14336,7 +14341,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             className: `wallet-tx-filter-chip ${sellRarityFilter === r ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === r,
             onClick: () => setSellRarityFilter(r)
-          }, `${r} · ${internalList.filter(l => (l.item?.rarity || 'Standard') === r).length}`)),
+          }, `${r === 'Off-Market' ? 'Scarce' : r} · ${internalList.filter(l => (l.item?.rarity || 'Standard') === r).length}`)),
           h('div', { style: { flex: 1, minWidth: 140 } },
             h('input', {
               className: 'price-input',
@@ -14422,7 +14427,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                       opacity: quickSellBusy && !busyThis ? 0.5 : 1,
                       cursor: quickSellBusy && !busyThis ? 'not-allowed' : 'pointer'
                     },
-                    disabled: !!quickSellBusy,
+                    'aria-disabled': !!quickSellBusy || undefined,
                     title: `List at ${fmt(best)} — auto-fills against the standing buy order on the next sweep`,
                     onClick: e => { e.stopPropagation(); quickSell('internal', l, best); }
                   }, busyThis ? 'Listing…' : `⚡ Quick Sell · ${fmt(best)}`);
