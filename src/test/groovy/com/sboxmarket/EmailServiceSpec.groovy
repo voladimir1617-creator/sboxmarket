@@ -1093,6 +1093,8 @@ class EmailServiceSpec extends Specification {
             // The email switches live on Profile → Personal Info, not /settings.
             f.text.contains('/profile/personal') &&
             f.text.contains('One-click unsubscribe: https://skinbox.example/api/unsubscribe?email=user%40example.com&t=') &&
+            // Anti-phishing line, on every email.
+            f.text.contains('SkinBox will never ask for your Steam password, Steam Guard code or Web API key.') &&
             !f.text.contains('kind=') &&
             // No bucket → no RFC-8058 header: a one-click tap would have
             // switched off every notification email.
@@ -1118,7 +1120,8 @@ class EmailServiceSpec extends Specification {
             msg.getHeader('List-Unsubscribe') as List == ["<${expected}>".toString()] &&
             !f.listUnsub.contains('mailto') &&
             msg.getHeader('List-Unsubscribe-Post') as List == ['List-Unsubscribe=One-Click'] &&
-            f.text.contains("One-click unsubscribe: ${expected}\n")
+            f.text.contains("One-click unsubscribe: ${expected}\n") &&
+            f.text.contains('SkinBox will never ask for your Steam password, Steam Guard code or Web API key.')
         })
     }
 
@@ -1145,8 +1148,51 @@ class EmailServiceSpec extends Specification {
         'WATCHLIST' | { EmailService s -> s.sendPriceDrop('u@x.com', 'A', 'Hat', 1.0G, 2.0G, '/item/1') }
         'FOLLOWS'   | { EmailService s -> s.sendNewListingFromSeller('u@x.com', 'A', 'Bob', 'Hat', 1.0G, '/item/1') }
         'MATCHES'   | { EmailService s -> s.sendSavedSearchMatch('u@x.com', 'A', 'Hats', 'Hat', 1.0G, '/item/1') }
+        'MATCHES'   | { EmailService s -> s.sendBuyOrderOnYourItem('u@x.com', 'A', 'Hat', 1.0G, '/item/1') }
+        'MATCHES'   | { EmailService s -> s.sendListingUndercut('u@x.com', 'A', 'Hat', 1.0G, '/item/1') }
         'AUCTIONS'  | { EmailService s -> s.sendAuctionOutbid('u@x.com', 'A', 'Hat', 1.0G, '/item/1') }
         'TRADES'    | { EmailService s -> s.sendTradeCancelled('u@x.com', 'A', 'Hat', 'timeout', 'buyer', 5L) }
+    }
+
+    def "the seller market-alert emails are short, link the item and never name the other party"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com',
+                             publicUrl: 'https://skinbox.example')
+        def sent = []
+        mailSender.send(_ as MimeMessage) >> { MimeMessage m -> sent << fields(m) }
+
+        when:
+        svc.sendBuyOrderOnYourItem('s@x.com', 'Sam', 'Red Cap', new BigDecimal('10.00'), '/item/7')
+        svc.sendListingUndercut('s@x.com', 'Sam', 'Red Cap', new BigDecimal('8.50'), '/item/7')
+        svc.awaitSmtpForTests()
+
+        then:
+        sent.size() == 2
+        with(sent.find { it.subject.startsWith('A buyer wants') }) {
+            subject == 'A buyer wants Red Cap at $10.00'
+            text.contains('Hi Sam,')
+            text.contains('$10.00 (USD)')
+            text.contains('https://skinbox.example/item/7')
+            text.contains('at most one of these per item per day')
+        }
+        with(sent.find { it.subject.startsWith('A cheaper') }) {
+            subject == 'A cheaper Red Cap just went on sale'
+            text.contains('$8.50 (USD), below your price')
+            text.contains('https://skinbox.example/item/7')
+        }
+    }
+
+    def "the seller market-alert emails skip a missing price or address"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendBuyOrderOnYourItem('s@x.com', 'Sam', 'Red Cap', null, '/item/7')
+        svc.sendListingUndercut(null, 'Sam', 'Red Cap', 1.0G, '/item/7')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
     }
 
     def "a security alert has no List-Unsubscribe header"() {
