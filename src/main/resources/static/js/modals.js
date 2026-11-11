@@ -1979,7 +1979,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         ),
         h('div', { className: 'chart-wrap' },
           slicedHistory && slicedHistory.length >= 2
-            ? h(Sparkline, { data: slicedHistory, color: 'var(--cta)', height: 150, showAxes: true })
+            // Bars under the line count each day's SkinBox sales (the
+            // history rows' `volume`); the strip only appears when the
+            // range holds at least one sale, so the chart grows to fit it.
+            ? h(Sparkline, { data: slicedHistory, color: 'var(--cta)', showAxes: true, showVolume: true,
+                height: slicedHistory.some(p => (parseInt(p && p.volume, 10) || 0) > 0) ? 190 : 150 })
             : h('div', { className: 'chart-empty', style: { height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 } },
                 // Listed items only gain history from sales, so "next sync" never came.
                 historyFailed ? 'Price history could not be loaded. Reload the page to try again.'
@@ -1991,6 +1995,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // set by that sync, so say where the points come from once it has run.
         item.steamPrice != null && h('div', { className: 'chart-source', style: { marginTop: 6, fontSize: 12, color: 'var(--text-muted)' } },
           'Prices: sales on SkinBox, and the Steam Market price on days nobody listed this item here.'),
+        // Legend for the volume strip, same muted line as the source note.
+        slicedHistory && slicedHistory.length >= 2 && slicedHistory.some(p => (parseInt(p && p.volume, 10) || 0) > 0)
+          && h('div', { className: 'chart-volume-legend', style: { marginTop: 6, fontSize: 12, color: 'var(--text-muted)' } },
+            'Bars: number of sales on SkinBox each day.'),
 
         // Recent sales strip — buyers anchor fairness on the actual sale
         // ladder (floor price alone tells them what sellers ASK for, not
