@@ -172,6 +172,15 @@ class SteamSyncService {
     }
 
     private void doSyncOne(SteamUser user) {
+        // 0) The sweep loads its batch up front and walks it at 1 user/s, so a
+        // row can be removed before its turn comes. upsertUser below is
+        // find-OR-CREATE: refreshing a vanished row would re-mint the account
+        // with a fresh $0 wallet and a WELCOME push. A removed user stays removed.
+        if (user.id != null && !steamUserRepository.findById(user.id).isPresent()) {
+            log.debug("Steam sync skipped for ${user.steamId64}: user row no longer exists")
+            return
+        }
+
         // 1) profile refresh — reuse the same code path login uses so display
         // name / avatar stays in lock-step with Steam.
         try {

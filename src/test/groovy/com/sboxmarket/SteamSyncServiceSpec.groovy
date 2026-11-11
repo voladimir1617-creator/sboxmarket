@@ -57,6 +57,21 @@ class SteamSyncServiceSpec extends Specification {
         user.lastSyncedAt != null
     }
 
+    def "syncOne does not re-create a user whose row was removed after the sweep loaded it"() {
+        given: 'the sweep holds a user that has since been deleted'
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 0)
+        steamUserRepository.findById(10L) >> Optional.empty()
+
+        when:
+        service.syncOne(user)
+
+        then: 'no find-or-create profile refresh (it would mint a new account and wallet), no Steam call, no write'
+        0 * steamAuthService.upsertUser(_)
+        0 * steamInventoryService.fetchInventory(_)
+        0 * steamUserRepository.save(_)
+        0 * notificationService.push(*_)
+    }
+
     def "syncOne fires STEAM_INVENTORY notification when inventory grew"() {
         given:
         def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 2)
