@@ -2088,6 +2088,14 @@ export async function fetchBuyOrderBook(itemId, limit = 10) {
   return Array.isArray(data) ? data : null;
 }
 
+/** The market's public Buy orders board: one row per item with what
+ *  buyers will pay (`bestPrice`), `orders`, `quantity` wanted and the Buy
+ *  Now floor (`lowestListing`). Aggregates only. Null when the load failed. */
+export async function fetchPublicBuyOrders(limit = 100) {
+  const data = await safeJson(`${API}/buy-orders/public?limit=${limit}`, { cache: 'no-cache' });
+  return Array.isArray(data) ? data : null;
+}
+
 /** Projected queue position for a hypothetical buy order at (itemId,
  *  maxPrice). Drives the "#N in queue" preview on the create form.
  *  Returns null when inputs are missing or invalid. */

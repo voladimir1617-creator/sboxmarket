@@ -8,9 +8,9 @@ import {
   adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPlatformRecentSales, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals,
-  checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
+  checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers, fetchPublicBuyOrders
 } from './api.js';
-import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
+import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip, RarityBadge } from './primitives.js';
 import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=21';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=377'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=378'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1922,6 +1922,158 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
 // /api/listings/stats endpoint for volume24h + activeListings + floor
 // and reshapes them into a trust-signal bar. Silent when the
 // marketplace is empty so a fresh install doesn't show "$0 traded".
+/* Public "Buy orders" view of the market: what buyers will pay, one row
+   per item (best open order, how many orders, how many items wanted, and
+   the Buy Now floor beside it). Read from /api/buy-orders/public, the same
+   server read as the item page's Buy offers block. Aggregates only, so no
+   buyer is ever named. Reuses the market's list-view table, empty state
+   and buttons; the toolbar's search, category, rarity and price sort
+   narrow it in the browser. */
+function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
+  // null = loading, false = the load failed.
+  const [rows, setRows] = useState(null);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    setRows(null);
+    fetchPublicBuyOrders(200).then(r => { if (alive) setRows(Array.isArray(r) ? r : false); });
+    return () => { alive = false; };
+  }, [retry]);
+  const shown = useMemo(() => {
+    if (!Array.isArray(rows)) return [];
+    const q = String(search || '').trim().toLowerCase();
+    const out = rows.filter(r =>
+      (!q || String(r.itemName || '').toLowerCase().includes(q)) &&
+      (!category || category === 'All' || r.category === category) &&
+      (!rarity || rarity === 'All' || r.rarity === rarity));
+    if (sort === 'price_asc') out.sort((a, b) => parseFloat(a.bestPrice) - parseFloat(b.bestPrice));
+    return out;
+  }, [rows, search, category, rarity, sort]);
+  const open = (id) => navigate(paths.item(id));
+  // The market's list-view table folds into a grid under 720px that only
+  // fits its own columns, so a phone gets one compact row per item instead.
+  const narrowQuery = '(max-width: 720px)';
+  const [narrow, setNarrow] = useState(() => !!window.matchMedia?.(narrowQuery).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(narrowQuery);
+    if (!mq) return;
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener ? mq.addEventListener('change', on) : mq.addListener(on);
+    return () => { mq.removeEventListener ? mq.removeEventListener('change', on) : mq.removeListener(on); };
+  }, []);
+  const toItem = (r) => ({ id: r.itemId, name: r.itemName, imageUrl: r.itemImageUrl, iconEmoji: r.iconEmoji, accentColor: r.accentColor, category: r.category, rarity: r.rarity });
+  const MONO = "'Roboto Mono', 'JetBrains Mono', monospace";
+  const narrowed = !!(String(search || '').trim() || (category && category !== 'All') || (rarity && rarity !== 'All'));
+
+  return h('div', { 'data-testid': 'market-buy-orders' },
+    h('div', { className: 'results-meta', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+      rows === null ? 'Loading buy orders…'
+        : rows === false ? 'Buy orders unavailable'
+        : h('span', null,
+            h('strong', null, shown.length), shown.length === 1 ? ' item buyers want' : ' items buyers want',
+            category && category !== 'All' && h('span', null, ' in ', h('strong', null, category)),
+            search && h('span', null, ' matching ', h('strong', null, `"${search}"`)))
+    ),
+    h('div', { style: { margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 } },
+      'The best open buy order for each item. A Buy Now listing at or under that price fills the order at the listing’s price. Buyers are never named.'),
+    rows === null
+      ? h('div', { className: 'listing-grid' },
+          Array.from({ length: 6 }).map((_, i) => h('div', { key: 'sk-' + i, className: 'skeleton-card' },
+            h('div', { className: 'skeleton-body' },
+              h('div', { className: 'skeleton-line med' }),
+              h('div', { className: 'skeleton-line short' })))))
+      : rows === false
+        ? h('div', { className: 'empty-state' },
+            h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 42 })),
+            h('div', { className: 'empty-state-title' }, "Couldn't load buy orders"),
+            h('div', { className: 'empty-state-sub' }, 'This is a loading problem, not an empty market.'),
+            h('button', { className: 'btn btn-accent', onClick: () => setRetry(n => n + 1) }, 'Retry'))
+        : shown.length === 0
+          ? h('div', { className: 'empty-state', 'data-testid': 'market-buy-orders-empty' },
+              h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'inventory_2', size: 42 })),
+              h('div', { className: 'empty-state-title' }, narrowed ? 'No buy orders match your filters' : 'No open buy orders yet'),
+              h('div', { className: 'empty-state-sub' },
+                narrowed ? 'Try another search, category or rarity.'
+                  : 'Set a standing “pay up to” on any item and the next matching Buy Now listing is bought for you.'),
+              !narrowed && (me
+                ? h('button', { className: 'btn btn-accent', onClick: () => navigate(paths.buyorders()) }, 'Create a new order')
+                : h('button', { className: 'btn btn-accent', onClick: () => signInWithSteam() }, 'Sign in to place one')))
+          : narrow
+            ? h('div', { style: { background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10 } },
+                shown.map((r, i) => {
+                  const orders = Number(r.orders) || 0;
+                  const wanted = Number(r.quantity) || 0;
+                  return h('a', {
+                    key: r.itemId, 'data-testid': 'market-buy-order-row',
+                    href: paths.item(r.itemId),
+                    onClick: (e) => {
+                      if (e.button === 1 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                      e.preventDefault(); open(r.itemId);
+                    },
+                    style: {
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                      borderTop: i === 0 ? 0 : '1px solid var(--border)', color: 'inherit', textDecoration: 'none'
+                    }
+                  },
+                    h('div', { style: { width: 44, height: 44, flexShrink: 0 } }, h(ItemImage, { item: toItem(r), variant: 'thumb' })),
+                    h('div', { style: { flex: 1, minWidth: 0 } },
+                      h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: r.itemName }, r.itemName),
+                      h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 } },
+                        `${orders} ${orders === 1 ? 'order' : 'orders'} · ${wanted} wanted`)),
+                    h('div', { style: { textAlign: 'right', flexShrink: 0 } },
+                      h('div', { style: { fontFamily: MONO, fontWeight: 700, color: 'var(--accent)', fontSize: 14 } }, fmt(r.bestPrice)),
+                      h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2 } },
+                        r.lowestListing != null ? `Lowest listing ${fmt(r.lowestListing)}` : 'None listed')));
+                }))
+          : h('div', null,
+              h('table', { className: 'listing-table' },
+                h('caption', { className: 'visually-hidden' }, 'Open buy orders by item, best price first'),
+                h('thead', null,
+                  h('tr', null,
+                    h('th', { scope: 'col' }, 'Item'),
+                    h('th', { scope: 'col' }, 'Rarity'),
+                    h('th', { scope: 'col', className: 'center' }, 'Orders'),
+                    h('th', { scope: 'col', className: 'center' }, 'Wanted'),
+                    h('th', { scope: 'col', className: 'right' }, 'Buyers pay'),
+                    h('th', { scope: 'col', className: 'right' }, 'Lowest listing'),
+                    h('th', { scope: 'col', className: 'center' }, 'Action'))),
+                h('tbody', null,
+                  shown.map(r => {
+                    const item = toItem(r);
+                    const orders = Number(r.orders) || 0;
+                    return h('tr', { key: r.itemId, 'data-testid': 'market-buy-order-row', onClick: () => open(r.itemId) },
+                      h('td', null,
+                        h('div', { className: 'item-cell' },
+                          h('div', { className: 'item-thumb' }, h(ItemImage, { item, variant: 'thumb' })),
+                          h('div', { className: 'item-info' },
+                            h('div', { className: 'item-name' },
+                              h('a', {
+                                href: paths.item(r.itemId),
+                                style: { color: 'inherit', textDecoration: 'none' },
+                                onClick: (e) => {
+                                  e.stopPropagation();
+                                  if (e.button === 1 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                                  e.preventDefault(); open(r.itemId);
+                                }
+                              }, r.itemName)),
+                            h('div', { className: 'item-sub' },
+                              [r.category, `${orders} ${orders === 1 ? 'order' : 'orders'}`].filter(Boolean).join(' · '))))),
+                      h('td', null, h(RarityBadge, { rarity: r.rarity })),
+                      h('td', { className: 'center' }, orders),
+                      h('td', { className: 'center' }, Number(r.quantity) || 0),
+                      h('td', { className: 'right', style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--accent)' } }, fmt(r.bestPrice)),
+                      h('td', { className: 'right', style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-muted)' } },
+                        r.lowestListing != null ? fmt(r.lowestListing) : 'None listed'),
+                      h('td', { className: 'center' },
+                        h('button', {
+                          className: 'btn btn-ghost',
+                          style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+                          onClick: (e) => { e.stopPropagation(); open(r.itemId); },
+                          'aria-label': `View ${r.itemName}`
+                        }, 'View')));
+                  })))));
+}
+
 function MarketStatsStrip() {
   const [s, setS] = useState(null);
   useEffect(() => {
@@ -4169,6 +4321,9 @@ export function App() {
     return ['ALL', 'BUY_NOW', 'AUCTION'].includes(raw) ? raw : 'ALL';
   })();
   const [listingTypeFilter, setListingTypeFilter] = useState(__initialType);
+  // Market view: the listings grid, or the public Buy orders board
+  // (`?view=buyorders`), picked from the same type toggle.
+  const [marketView, setMarketView] = useState(__urlParams.get('view') === 'buyorders' ? 'buyorders' : 'listings');
   // Deal hunter toggle — when on, only show listings priced below the
   // catalogue steamPrice (i.e. cheaper than you'd pay on Steam Market).
   // Pure client-side filter applied before dedup so the cheapest seller
@@ -5770,6 +5925,10 @@ export function App() {
     // 'auction' in state, which the grid treats as buy-now only.
     const canonType = urlType ? String(urlType).toUpperCase() : null;
     if (canonType && ['ALL', 'BUY_NOW', 'AUCTION'].includes(canonType) && canonType !== listingTypeFilter) setListingTypeFilter(canonType);
+    // A link names the Buy orders board with view=buyorders; any other
+    // market link is the listings grid.
+    const urlView = params.get('view') === 'buyorders' ? 'buyorders' : 'listings';
+    if (routeName === 'market' && urlView !== marketView) setMarketView(urlView);
     // The quick toggles were only ever cleared here, so Back to (or a link
     // naming) `deals=1` / `new=1` / `aff=1` left them off.
     if (params.get('deals') === '1' && !dealsOnly) setDealsOnly(true);
@@ -5804,6 +5963,7 @@ export function App() {
     if (listingTypeFilter && listingTypeFilter !== 'ALL') {
       qs.set('type', listingTypeFilter);
     }
+    if (marketView === 'buyorders') qs.set('view', 'buyorders');
     const q = qs.toString();
     const nextSearch = q ? '?' + q : '';
     lastSyncedSearchRef.current = nextSearch;
@@ -5811,7 +5971,7 @@ export function App() {
       window.history.replaceState({}, '', window.location.pathname + nextSearch);
     }
   }, [routeName, search, sort, category, rarity, minPrice, maxPrice,
-      minDiscountPct, dealsOnly, newOnly, affordableOnly, listingTypeFilter]);
+      minDiscountPct, dealsOnly, newOnly, affordableOnly, listingTypeFilter, marketView]);
 
   // 2026-05-20 — monotonic load generation. Bumped on every fresh
   // (non-silent) listings fetch so an in-flight loadMore() can detect
@@ -8360,12 +8520,15 @@ export function App() {
           // full grid.
           h('div', { className: 'type-toggle', role: 'group', 'aria-label': 'Listing type' },
             [{ id: 'ALL', label: 'All' }, { id: 'BUY_NOW', label: 'Buy Now' }, { id: 'AUCTION', label: 'Auction' }]
-              .map(opt => h('button', {
-                key: opt.id,
-                className: `type-toggle-btn ${listingTypeFilter === opt.id ? 'active' : ''}`,
-                onClick: () => setListingTypeFilter(opt.id),
-                'aria-pressed': listingTypeFilter === opt.id
-              }, opt.label))
+              .map(opt => {
+                const on = marketView === 'listings' && listingTypeFilter === opt.id;
+                return h('button', {
+                  key: opt.id,
+                  className: `type-toggle-btn ${on ? 'active' : ''}`,
+                  onClick: () => { setMarketView('listings'); setListingTypeFilter(opt.id); },
+                  'aria-pressed': on
+                }, opt.label);
+              })
           ),
           // Deal-hunter chip. Separated from the type toggle because
           // it's orthogonal — you can stack "Auctions only" + "Deals only"
@@ -8404,6 +8567,15 @@ export function App() {
             title: 'Only show listings posted in the last 24 hours',
             'aria-pressed': newOnly
           }, 'New'),
+          // What buyers will pay: switches the grid for the public board of
+          // open buy orders. A view switch, not a listing filter, so it is
+          // its own chip after the quick filters; picking a type comes back.
+          h('button', {
+            className: `deals-chip ${marketView === 'buyorders' ? 'active' : ''}`,
+            onClick: () => setMarketView(v => v === 'buyorders' ? 'listings' : 'buyorders'),
+            'aria-pressed': marketView === 'buyorders',
+            title: 'What buyers will pay: the best open buy order for each item'
+          }, 'Buy orders'),
           // Affordable-only chip (batch 367) — signed-in users can filter
           // to listings under their wallet balance in one click. Hidden
           // for anon viewers (no wallet, no comparison). Stackable with
@@ -8528,6 +8700,9 @@ export function App() {
         // defined for potential reuse as compact inline text later; the freshness
         // chip now rides inside the results-meta row below instead of its own band.)
         routeName === 'market' && h('h1', { className: 'visually-hidden' }, category && category !== 'All' ? `Marketplace: ${category}` : 'Marketplace'),
+        marketView === 'buyorders'
+          ? h(MarketBuyOrdersBoard, { me, search, category, rarity, sort })
+          : h(React.Fragment, null,
         h('div', {
           className: 'results-meta',
           // Batch 841 — a11y: announce result-count changes to screen
@@ -8846,6 +9021,7 @@ export function App() {
                   }, loadingMore ? 'Loading…' : `↓ Load more (${listings.length} listings loaded)`)
                 )
               )
+          )
       )
     ),
 

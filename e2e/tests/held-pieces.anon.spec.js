@@ -72,3 +72,60 @@ test.describe('item page buy offers', () => {
     await expect(page.getByTestId('buy-orders-empty')).toHaveCount(0);
   });
 });
+
+// ── Market: public Buy orders board ──────────────────────────────────────
+test.describe('market buy orders board', () => {
+  const BOARD = [
+    { itemId: 12, itemName: 'Vintage Design Crop Top', category: 'Shirts', rarity: 'Standard', bestPrice: 0.5, orders: 3, quantity: 6, lowestListing: 0.6 },
+    { itemId: 13, itemName: 'Unlisted Hat', category: 'Hats', rarity: 'Limited', bestPrice: 0.2, orders: 1, quantity: 1, lowestListing: null },
+  ];
+
+  test('the Buy orders chip shows what buyers pay per item, keeps it in the URL, and goes back', async ({ page }) => {
+    await page.route('**/api/buy-orders/public**', (r) => r.fulfill({ json: BOARD }));
+    await page.goto('/market');
+    await page.getByRole('button', { name: 'Buy orders', exact: true }).click({ timeout: 15_000 });
+    const board = page.getByTestId('market-buy-orders');
+    await expect(board).toContainText('2 items buyers want');
+    await expect(board).toContainText('Buyers are never named.');
+    const rows = board.getByTestId('market-buy-order-row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('Vintage Design Crop Top');
+    await expect(rows.nth(0)).toContainText('$0.50');
+    await expect(rows.nth(1)).toContainText('None listed');
+    await expect(page).toHaveURL(/view=buyorders/);
+    // Picking a listing type returns to the grid.
+    await page.getByRole('group', { name: 'Listing type' }).getByRole('button', { name: 'All', exact: true }).click();
+    await expect(board).toHaveCount(0);
+    await expect(page).not.toHaveURL(/view=buyorders/);
+  });
+
+  test('a shared link opens the board, and the search box narrows it', async ({ page }) => {
+    await page.route('**/api/buy-orders/public**', (r) => r.fulfill({ json: BOARD }));
+    await page.goto('/market?view=buyorders&q=hat');
+    const rows = page.getByTestId('market-buy-order-row');
+    await expect(rows).toHaveCount(1, { timeout: 15_000 });
+    await expect(rows.first()).toContainText('Unlisted Hat');
+    await rows.first().getByRole('link', { name: 'Unlisted Hat' }).click();
+    await expect(page).toHaveURL(/\/item\/13$/);
+  });
+
+  test('no orders and a failed load are told apart', async ({ page }) => {
+    let fail = true;
+    await page.route('**/api/buy-orders/public**', (r) => fail ? r.fulfill({ status: 500, body: '{}' }) : r.fulfill({ json: [] }));
+    await page.goto('/market?view=buyorders');
+    await expect(page.getByText("Couldn't load buy orders")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('market-buy-orders-empty')).toHaveCount(0);
+    fail = false;
+    await page.getByRole('button', { name: 'Retry' }).click();
+    await expect(page.getByTestId('market-buy-orders-empty')).toContainText('No open buy orders yet');
+    await expect(page.getByRole('button', { name: 'Sign in to place one' })).toBeVisible();
+  });
+
+  test('the real board endpoint answers anonymously and names no buyer', async ({ request }) => {
+    const r = await request.get('/api/buy-orders/public');
+    expect(r.status()).toBe(200);
+    for (const row of await r.json()) {
+      expect(Object.keys(row).sort()).toEqual(['accentColor', 'bestPrice', 'category', 'iconEmoji', 'itemId', 'itemImageUrl', 'itemName', 'lowestListing', 'orders', 'quantity', 'rarity']);
+    }
+  });
+});

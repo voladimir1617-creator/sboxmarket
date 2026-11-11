@@ -200,6 +200,20 @@ class BuyOrderController {
             .body(buyOrderService.publicBookForItem(id, lim))
     }
 
+    /**
+     * Public "Buy orders" board for the market page: what buyers will pay
+     * per item (best price, order count, quantity wanted, the Buy Now
+     * floor), highest bid first. Anonymous-safe: aggregates only, never a
+     * buyer name or id. Same read as /book/{id}. `limit` 1-200, default 100.
+     */
+    @GetMapping("/public")
+    ResponseEntity<List<Map>> publicBoard(@RequestParam(required = false) Integer limit) {
+        int lim = Math.min(Math.max(limit != null ? limit : 100, 1), 200)
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(buyOrderService.publicDemandByItem(lim))
+    }
+
     /** Bulk demand lookup (batch 415). Accepts a comma-separated
      *  `ids=1,2,3` param (max 200) and returns a map keyed by itemId
      *  with {count, bestBid} for items that have at least one ACTIVE

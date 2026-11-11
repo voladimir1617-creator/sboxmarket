@@ -502,6 +502,57 @@ class BuyOrderService {
         }
     }
 
+    /**
+     * The market's public "Buy orders" tab: what buyers will pay, one row
+     * per item, rolled up from the same price levels as the item page's
+     * book. `{itemId, itemName, itemImageUrl, iconEmoji, accentColor,
+     * category, rarity, bestPrice, orders, quantity, lowestListing}`,
+     * highest best price first, at most `limit` (1-200) items. No buyer
+     * identity: the rows are built from aggregates only. `lowestListing`
+     * is the item's Buy Now floor (null when nothing is listed), so a
+     * seller sees the gap between asks and bids.
+     */
+    List<Map> publicDemandByItem(int limit) {
+        int lim = Math.min(Math.max(limit, 1), 200)
+        def byItem = new LinkedHashMap<Long, Map>()
+        // Levels arrive best price first, so an item's first level is its best.
+        publicPriceLevels(null).each { l ->
+            def row = byItem[l.itemId]
+            if (row == null) {
+                byItem[l.itemId] = [itemId: l.itemId, bestPrice: l.price, orders: l.orders, quantity: l.quantity]
+            } else {
+                row.orders = (row.orders as long) + (l.orders as long)
+                row.quantity = (row.quantity as long) + (l.quantity as long)
+            }
+        }
+        def rows = byItem.values().toList()
+            .sort { a, b -> (b.bestPrice <=> a.bestPrice) ?: ((b.orders as long) <=> (a.orders as long)) }
+            .take(lim)
+        if (rows.isEmpty()) return []
+        def ids = rows*.itemId
+        def items = [:]
+        itemRepository.findAllById(ids).each { items[it.id] = it }
+        def floors = [:]
+        (listingRepository?.buyNowFloorsForItems(ids) ?: []).each { Object[] r -> floors[(Long) r[0]] = (BigDecimal) r[1] }
+        rows.findAll { items[it.itemId] != null }.collect { r ->
+            def item = items[r.itemId]
+            def floor = floors[r.itemId]
+            [
+                itemId:        r.itemId,
+                itemName:      item.name,
+                itemImageUrl:  item.imageUrl,
+                iconEmoji:     item.iconEmoji,
+                accentColor:   item.accentColor,
+                category:      item.category,
+                rarity:        item.rarity,
+                bestPrice:     r.bestPrice,
+                orders:        r.orders,
+                quantity:      r.quantity,
+                lowestListing: (floor != null && floor > BigDecimal.ZERO) ? floor : null
+            ]
+        }
+    }
+
     /** Bulk {count, bestBid} per item (batch 415). Powers the MyStall
      *  "N want · best $X" chip without N+1 per-row queries. Returns a
      *  map keyed on itemId; missing keys mean no active buy orders. */
