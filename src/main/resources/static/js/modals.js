@@ -4570,7 +4570,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           // row itself says "no action needed", so it is not their to-do.
           (t.sellerUserId === me.id && (t.state === 'PENDING_SELLER_ACCEPT' ||
             (t.state === 'PENDING_SELLER_SEND' && !(t.botManaged === true || !!t.botDeliveryState)))) ||
-          (t.buyerUserId  === me.id && t.state === 'PENDING_BUYER_CONFIRM')
+          (t.buyerUserId  === me.id && t.state === 'PENDING_BUYER_CONFIRM' &&
+            !['declined', 'expired', 'canceled', 'canceled_2fa', 'invalid_items'].includes(String(t.botDeliveryState || '').toLowerCase()))
         ).length;
         setActionableTradeCount(tradeN);
         setPendingOfferCount(Number(oc?.incomingPending || 0));
@@ -9204,6 +9205,16 @@ function ProfileTradesTab({ me, privacy }) {
             // falsy and the existing manual flow is used unchanged. When true,
             // the seller is NEVER asked to send a Steam offer by hand.
             const automated = t.botManaged === true || !!t.botDeliveryState;
+            // The bot's Steam offer ended without delivery (the buyer declined
+            // it, or it expired / was canceled). The item never arrived, so the
+            // row must not say "Delivered" or offer Confirm receipt; the server
+            // refuses that confirm too (BOT_OFFER_NOT_DELIVERED).
+            const botOfferState = String(t.botDeliveryState || '').toLowerCase();
+            const botOfferFailed = t.state === 'PENDING_BUYER_CONFIRM'
+              && ['declined', 'expired', 'canceled', 'canceled_2fa', 'invalid_items'].includes(botOfferState);
+            const botOfferFailedText = botOfferState === 'declined'
+              ? 'Steam offer declined — item not delivered'
+              : 'Steam offer not completed — item not delivered';
             // Names the row's buttons: with several trades open, a list of
             // bare "Accept" / "Chat" buttons said nothing about which trade.
             const rowName = `${t.itemName || 'trade'} (trade #${t.id})`;
@@ -9327,6 +9338,7 @@ function ProfileTradesTab({ me, privacy }) {
                   // Automated delivery relabels the seller-send / buyer-confirm
                   // states so neither side reads them as "a human must act".
                   automated && t.state === 'PENDING_SELLER_SEND' ? 'Delivering automatically'
+                    : botOfferFailed ? botOfferFailedText
                     : automated && t.state === 'PENDING_BUYER_CONFIRM' ? 'Delivered — awaiting confirmation'
                     : meta.label,
                   // Batch 560 — "Seller sent N ago" chip on PENDING_BUYER_CONFIRM
@@ -9527,7 +9539,8 @@ function ProfileTradesTab({ me, privacy }) {
                   h('div', { className: 'trade-auto-banner' },
                     h('span', { className: 'trade-auto-banner-icon' }, '🔒'),
                     h('span', null,
-                      t.state === 'PENDING_SELLER_SEND'
+                      botOfferFailed ? botOfferFailedText + '.'
+                      : t.state === 'PENDING_SELLER_SEND'
                         ? (isSeller
                             ? 'Your item is in escrow. Our secure bot is delivering it to the buyer automatically — no action needed.'
                             : 'The item is in escrow and being delivered automatically by our secure bot. It will arrive in your inventory shortly.')
@@ -9645,7 +9658,7 @@ function ProfileTradesTab({ me, privacy }) {
                 // Manual fallback: seller marks the Steam offer as sent.
                 isSeller && t.state === 'PENDING_SELLER_SEND' && !automated &&
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => onSent(t.id), 'aria-label': `Mark Sent for ${rowName}` }, 'Mark Sent'),
-                isBuyer && t.state === 'PENDING_BUYER_CONFIRM' &&
+                isBuyer && t.state === 'PENDING_BUYER_CONFIRM' && !botOfferFailed &&
                   // "Confirm receipt" is what the bell, the email and the
                   // Inbox tip beside this row tell the buyer to click.
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => onConfirm(t), 'aria-label': `Confirm receipt for ${rowName}` }, 'Confirm receipt'),

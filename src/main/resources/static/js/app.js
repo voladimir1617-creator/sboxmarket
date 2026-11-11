@@ -195,7 +195,10 @@ function PendingTradeReminder({ me }) {
           // not yet on the trade DTO) so manual trades still nudge as before.
           const automated = t.botManaged === true || !!t.botDeliveryState;
           const mine = (t.sellerUserId === me.id && (t.state === 'PENDING_SELLER_ACCEPT' || (t.state === 'PENDING_SELLER_SEND' && !automated)))
-            || (t.buyerUserId === me.id && t.state === 'PENDING_BUYER_CONFIRM');
+            || (t.buyerUserId === me.id && t.state === 'PENDING_BUYER_CONFIRM'
+                // Nothing to confirm when the bot's Steam offer was declined
+                // or otherwise ended without delivery.
+                && !['declined', 'expired', 'canceled', 'canceled_2fa', 'invalid_items'].includes(String(t.botDeliveryState || '').toLowerCase()));
           if (!mine) return false;
           const age = now - (t.updatedAt || t.createdAt || now);
           return age > 2 * 3600 * 1000; // 2h

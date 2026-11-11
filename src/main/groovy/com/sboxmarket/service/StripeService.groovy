@@ -2656,17 +2656,44 @@ class StripeService {
             log.warn("refund.created ${refundId} arrived with non-positive amount=${refund.amount} — ignoring")
             return
         }
-        def wallet = walletRepository.findById(depositTx.walletId).orElse(null)
+        // Lock the wallet row, then re-check the dedupe. The admin path
+        // (refundDeposit) holds this same lock from before Refund.create until
+        // it commits its REFUND row, and Stripe fires refund.created right
+        // away. The dedupe read above can run before that commit; a plain
+        // wallet read after it then saw the new @Version and debited the
+        // wallet a second time under the same re_ id. Waiting on the lock and
+        // re-reading makes the dedupe and the debit one atomic step.
+        def wallet = walletRepository.findByIdForUpdate(depositTx.walletId).orElse(null)
         if (wallet == null) {
             log.error("refund.created ${refundId} wallet ${depositTx.walletId} not found — cannot debit")
             return
         }
+        existing = transactionRepository.findByStripeReference(refundId)
+        if (existing != null) {
+            log.info("Refund ${refundId} already reconciled (tx=${existing.id}) — webhook is a no-op")
+            return
+        }
+        // Cap at the deposit's remaining refundable balance, read under the
+        // wallet lock (the same rule refundDeposit enforces). Without it a
+        // second refund.created could take the ledger past the deposit and
+        // drain the wallet for money Stripe never sent back to the card.
+        def alreadyRefunded = (transactionRepository.sumRefundsByDeposit(depositTx.id) ?: BigDecimal.ZERO)
+            .setScale(2, java.math.RoundingMode.HALF_UP)
+        def remaining = (depositTx.amount ?: BigDecimal.ZERO) - alreadyRefunded
+        if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO
+        if (amount > remaining) {
+            log.error("refund.created ${refundId} for \$${amount} exceeds the remaining refundable \$${remaining} " +
+                "on deposit ${depositTx.id} (original \$${depositTx.amount}, already refunded \$${alreadyRefunded}) " +
+                "— recording only \$${remaining}; manual reconciliation required")
+            amount = remaining
+        }
+        if (amount <= BigDecimal.ZERO) return
         // Defensive: if the wallet is already drained below the refund
         // amount, we still record the REFUND for ledger completeness but
-        // clamp the wallet at 0 (never go negative). The resulting gap
-        // becomes an auditable negative "owed" position for admins to
-        // chase via the user's trade history.
+        // clamp the wallet at 0 (never go negative). The gap is written as a
+        // MANUAL_PAYOUT_REQUIRED audit row below, as refundDeposit does.
         def debit = amount.min(wallet.balance)
+        if (debit < BigDecimal.ZERO) debit = BigDecimal.ZERO
         wallet.balance = wallet.balance - debit
         if (wallet.balance < BigDecimal.ZERO) wallet.balance = BigDecimal.ZERO
         walletRepository.save(wallet)
@@ -2698,6 +2725,13 @@ class StripeService {
             auditService?.log(AuditService.REFUND_ISSUED, null, ownerId, refundTx.id,
                 "Dashboard refund \$${amount} of deposit ${depositTx.id} (stripeRef=${refundId}, wallet debit=\$${debit})")
         } catch (Exception ignored) {}
+        if (debit < amount) {
+            try {
+                auditService?.log(AuditService.MANUAL_PAYOUT_REQUIRED, null, ownerId, refundTx.id,
+                    "Refund shortfall on deposit ${depositTx.id}: \$${amount} refunded via Stripe but wallet ${wallet.id} " +
+                    "only had \$${debit} — \$${amount - debit} shortfall for manual reconciliation.")
+            } catch (Exception ignored) {}
+        }
         // User-facing notification so they know money moved out of the
         // wallet — otherwise their balance silently drops and they file
         // a support ticket.

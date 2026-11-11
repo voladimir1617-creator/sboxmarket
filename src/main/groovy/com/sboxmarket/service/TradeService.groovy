@@ -861,6 +861,16 @@ class TradeService {
         def t = get(tradeId)
         requireParticipant(t, buyerUserId, 'buyer')
         require(t.state == 'PENDING_BUYER_CONFIRM', "Trade cannot be confirmed in state ${t.state}")
+        // A bot-delivered trade whose latest Steam offer ended without
+        // delivery (declined, expired, canceled, ...) never reached the
+        // buyer. Confirming it would pay the seller for an item the buyer
+        // does not have.
+        String offerState = latestBotOfferState(t)?.toLowerCase()
+        if (offerState != null && SteamBotResult.TERMINAL_FAILURE_STATES.contains(offerState)) {
+            throw new BadRequestException('BOT_OFFER_NOT_DELIVERED',
+                "The Steam trade offer for this item was ${offerState}, so the item was not delivered. " +
+                "Receipt cannot be confirmed for this trade.")
+        }
         // The moment the item is known to have arrived; release() saves it.
         t.deliveredAt = System.currentTimeMillis()
         release(t)
