@@ -1645,7 +1645,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             title: `${listings.length} listing${listings.length === 1 ? '' : 's'} from ${sellerCount(listings)} seller${sellerCount(listings) === 1 ? '' : 's'} — click to scroll to the active listings section`,
             onClick: () => {
               const section = document.querySelector('.active-listings-anchor, .listings-section');
-              const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+              const reduce = (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduce-motion'));
               if (section) section.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
             }
           },
@@ -1868,7 +1868,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { padding: '6px 14px', fontSize: 12, border: '1px solid var(--border)' },
-                  onClick: () => { setBuyOrderRows(null); setBuyOrderRetry(n => n + 1); }
+                  onClick: (e) => { focusPastOnUnmount(e.currentTarget); setBuyOrderRows(null); setBuyOrderRetry(n => n + 1); }
                 }, 'Retry'))
           : buyOrderRows.length === 0
             // White.market's empty Buy offers panel puts the action on the
@@ -10775,7 +10775,7 @@ function ProfileOffersTab() {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 },
-                  disabled: busy, onClick: () => doCancel(o.id), title: 'Walk away from the counter',
+                  disabled: busy, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); doCancel(o.id); }, title: 'Walk away from the counter',
                   // Every row's buttons otherwise read the same to a screen reader.
                   'aria-label': `Decline counter on ${o.itemName || ('listing #' + o.listingId)}`
                 }, 'Decline')
@@ -10796,7 +10796,7 @@ function ProfileOffersTab() {
                 h('button', {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
-                  disabled: busy, onClick: () => doCancel(o.id),
+                  disabled: busy, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); doCancel(o.id); },
                   'aria-label': `Cancel offer on ${o.itemName || ('listing #' + o.listingId)}`
                 }, 'Cancel')
               )
@@ -16985,7 +16985,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                       h('button', {
                         className: 'btn btn-ghost',
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 11px', fontSize: 11 },
-                        onClick: () => handleCancel(offer.id), disabled: busy,
+                        onClick: (e) => { focusPastOnUnmount(e.currentTarget); handleCancel(offer.id); }, disabled: busy,
                         title: 'Walk away from the seller counter',
                         // Every row's buttons otherwise read the same to a screen reader.
                         'aria-label': `Decline counter on ${offer.itemName || ('listing #' + offer.listingId)}`
@@ -17006,7 +17006,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                       h('button', {
                         className: 'btn btn-ghost',
                         style: { border: '1px solid var(--border)', padding: '7px 14px', fontSize: 12 },
-                        onClick: () => handleCancel(offer.id), disabled: busy,
+                        onClick: (e) => { focusPastOnUnmount(e.currentTarget); handleCancel(offer.id); }, disabled: busy,
                         'aria-label': `Cancel offer on ${offer.itemName || ('listing #' + offer.listingId)}`
                       }, 'Cancel')
                     )))
