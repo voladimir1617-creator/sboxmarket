@@ -254,6 +254,7 @@ class CorrelationIdFilter extends OncePerRequestFilter {
                 path == '/api/buy-orders/top' || path.startsWith('/api/buy-orders/top?') ||
                 path.startsWith('/api/buy-orders/count/') ||
                 path.startsWith('/api/buy-orders/for-item/') ||
+                path.startsWith('/api/buy-orders/book/') ||
                 path.startsWith('/api/buy-orders/projected-position'))
         boolean isBuyOrderPrivate = path != null && path.startsWith('/api/buy-orders') && !isBuyOrderPublicRead
         // Watchlist mirrors the buy-order split: `/counts` and

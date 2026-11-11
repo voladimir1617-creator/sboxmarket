@@ -29,3 +29,46 @@ test.describe('price history volume bars', () => {
     await expect(page.locator('.chart-volume-legend')).toHaveCount(0);
   });
 });
+
+// ── Item page: Buy offers book ───────────────────────────────────────────
+test.describe('item page buy offers', () => {
+  test('open orders show as price levels with quantity and order count, no buyer', async ({ page }) => {
+    await page.route('**/api/buy-orders/book/12**', (r) => r.fulfill({ json: [
+      { price: 0.5, orders: 2, quantity: 3 },
+      { price: 0.46, orders: 1, quantity: 3 },
+    ] }));
+    await page.goto('/item/12');
+    const block = page.getByTestId('buy-offers');
+    await expect(block.getByTestId('buy-offers-book')).toBeVisible({ timeout: 15_000 });
+    await expect(block).toContainText('3 orders · 6 wanted · buyers not shown');
+    const rows = block.locator('tbody tr');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('td')).toHaveText(['$0.50', '3', '2']);
+    await expect(rows.nth(1).locator('td')).toHaveText(['$0.46', '3', '1']);
+    // A visitor gets the action behind sign-in, not a dead end.
+    await expect(block.getByRole('button', { name: 'Sign in to place a buy order' })).toBeVisible();
+  });
+
+  test('the real book endpoint answers anonymously with aggregate fields only', async ({ request }) => {
+    const r = await request.get('/api/buy-orders/book/12');
+    expect(r.status()).toBe(200);
+    const rows = await r.json();
+    expect(Array.isArray(rows)).toBe(true);
+    for (const l of rows) expect(Object.keys(l).sort()).toEqual(['orders', 'price', 'quantity']);
+  });
+
+  test('an item with no orders says so, with the action next to it', async ({ page }) => {
+    await page.route('**/api/buy-orders/book/12**', (r) => r.fulfill({ json: [] }));
+    await page.goto('/item/12');
+    const empty = page.getByTestId('buy-orders-empty');
+    await expect(empty).toContainText('There are no active buy orders for this item.', { timeout: 15_000 });
+    await expect(empty.getByRole('button', { name: 'Sign in to place one' })).toBeVisible();
+  });
+
+  test('a failed book load offers Retry instead of claiming there are none', async ({ page }) => {
+    await page.route('**/api/buy-orders/book/12**', (r) => r.fulfill({ status: 500, body: '{}' }));
+    await page.goto('/item/12');
+    await expect(page.getByTestId('buy-offers')).toContainText("Couldn't load buy orders.", { timeout: 15_000 });
+    await expect(page.getByTestId('buy-orders-empty')).toHaveCount(0);
+  });
+});

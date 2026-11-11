@@ -41,7 +41,7 @@ test.describe('defect pass 68', () => {
     ])));
     await page.route('**/api/buy-orders/count/item/7*', (r) => r.fulfill(json({ count: 3, bestBid: 4 })));
     let fail = true;
-    await page.route('**/api/buy-orders/for-item/7*', (r) => r.fulfill(fail ? json({ error: 'no' }, 403) : json([])));
+    await page.route('**/api/buy-orders/book/7*', (r) => r.fulfill(fail ? json({ error: 'no' }, 403) : json([])));
     await page.goto('/item/7');
     await expect(page.getByText("Couldn't load buy orders.")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText('There are no active buy orders for this item.')).toHaveCount(0);

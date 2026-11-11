@@ -184,6 +184,22 @@ class BuyOrderController {
             .body(buyOrderService.listActiveForItem(id, lim))
     }
 
+    /**
+     * The item's public buy-order book, grouped by price: `[{price,
+     * orders, quantity}]`, best first, at most `limit` (1-50, default 10)
+     * levels. Drives the item page's "Buy offers" block. Anonymous-safe:
+     * the levels carry no order id, buyer id or name. Same read as the
+     * market's Buy orders tab (BuyOrderService.publicPriceLevels).
+     */
+    @GetMapping("/book/{id}")
+    ResponseEntity<List<Map>> book(@PathVariable Long id,
+                                   @RequestParam(required = false) Integer limit) {
+        int lim = Math.min(Math.max(limit != null ? limit : 10, 1), 50)
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(buyOrderService.publicBookForItem(id, lim))
+    }
+
     /** Bulk demand lookup (batch 415). Accepts a comma-separated
      *  `ids=1,2,3` param (max 200) and returns a map keyed by itemId
      *  with {count, bestBid} for items that have at least one ACTIVE

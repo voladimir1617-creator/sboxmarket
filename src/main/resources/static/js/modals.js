@@ -25,7 +25,7 @@ import {
   regenerate2faBackupCodes, fetch2faRecoveryStatus,
   fetchListings, fetchItem, fetchItemsByIds, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, fetchMyAuthoredReviews, fetchPendingReviews, deleteReview, replyToReview, fetchBuyOrderCountForItem,
-  fetchBuyOrdersForItem,
+  fetchBuyOrderBook,
   fetchWalletActivity, fetchDeliveryPolicy, fetchSellerTrust
 } from './api.js';
 
@@ -569,11 +569,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   }, [item?.id]);
   const buyOrderCount = buyOrderInfo.count;
   const bestBid = buyOrderInfo.bestBid;
-  // Batch 639 — top-N active buy orders for this item (aggregate only,
-  // no counterparty identity). Drives the CSFloat-style "Buy Orders"
-  // table inline on the item detail modal. Open by default as a "Buy
-  // offers" block (White.market shows open orders on every item page,
-  // empty state included); the demand chips still fold it away.
+  // The item's public buy-order book, grouped by price (aggregate only,
+  // no order ids, no counterparty identity). Drives the "Buy offers"
+  // block on the item page. Open by default (White.market shows open
+  // orders on every item page, empty state included); the demand chips
+  // still fold it away.
   const [buyOrdersOpen, setBuyOrdersOpen] = useState(true);
   // null = loading, false = the load failed.
   const [buyOrderRows, setBuyOrderRows]   = useState(null);
@@ -581,7 +581,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   useEffect(() => {
     if (!item?.id || !buyOrdersOpen || buyOrderRows !== null) return;
     let alive = true;
-    fetchBuyOrdersForItem(item.id, 10).then(rows => {
+    fetchBuyOrderBook(item.id, 10).then(rows => {
       if (alive) setBuyOrderRows(Array.isArray(rows) ? rows : false);
     });
     return () => { alive = false; };
@@ -640,6 +640,15 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         return;
       }
       const cancelledPrice = parseFloat(myBuyOrder.maxPrice);
+      const cancelledQty = Number(myBuyOrder.quantity) || 1;
+      // The book is grouped by price: take one order (and its remaining
+      // quantity) off the cancelled order's level, dropping a level left
+      // with no orders.
+      const withoutMyOrder = (levels) => levels
+        .map(l => parseFloat(l.price) === cancelledPrice
+          ? { ...l, orders: (Number(l.orders) || 0) - 1, quantity: Math.max(0, (Number(l.quantity) || 0) - cancelledQty) }
+          : l)
+        .filter(l => (Number(l.orders) || 0) > 0);
       setMyBuyOrder(null);
       // Take the cancelled order out of the demand chips now; the count
       // endpoint is cached, so a refetch would still show it.
@@ -649,17 +658,15 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // Another order may sit at the same price, so the best bid is only
         // known to be gone when the cancelled row was the only one at it.
         const best = parseFloat(info?.bestBid);
-        const others = Array.isArray(buyOrderRows)
-          ? buyOrderRows.filter(r => r.id !== myBuyOrder.id)
-          : null;
+        const others = Array.isArray(buyOrderRows) ? withoutMyOrder(buyOrderRows) : null;
         if (best !== cancelledPrice) return { loaded: info?.loaded, count, bestBid: info.bestBid };
         // Without the table loaded we cannot tell, so hide rather than guess.
         if (!others) return { loaded: info?.loaded, count, bestBid: null };
-        const next = others.reduce((m, r) => Math.max(m, parseFloat(r.maxPrice) || 0), 0);
+        const next = others.reduce((m, r) => Math.max(m, parseFloat(r.price) || 0), 0);
         return { loaded: info?.loaded, count, bestBid: next > 0 ? next : null };
       });
-      // The expanded table must not keep listing the cancelled order.
-      setBuyOrderRows(rows => Array.isArray(rows) ? rows.filter(r => r.id !== myBuyOrder.id) : rows);
+      // The book must not keep counting the cancelled order.
+      setBuyOrderRows(rows => Array.isArray(rows) ? withoutMyOrder(rows) : rows);
       // Batch 910 — personalised toast. Naming the item + the max price +
       // the fact that locked wallet funds are freed gives the user the
       // three things they might want to verify after a cancel, without
@@ -1827,23 +1834,29 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         )
       ),
 
-      // Batch 639 — expandable Buy Orders table (CSFloat Visual Manual §15
-      // "Item Detail Modal" parity). Shows the top 10 ACTIVE buy orders
-      // for this item sorted `maxPrice DESC, createdAt ASC` so the top
-      // row is literally the next to fill. Counterparty identity is
-      // NOT surfaced — same policy as every other aggregate buy-order
-      // endpoint. Lazy-loaded: only hits the API when the user
-      // actually expands the toggle.
+      // "Buy offers": the item's open buy orders grouped by price, best
+      // first (the top row is the next to fill a new Buy Now listing at or
+      // under it). Price, quantity wanted and how many orders sit at that
+      // price; no buyer is named or numbered. Same server read as the
+      // market's Buy orders tab.
       buyOrdersOpen && h('div', {
+        'data-testid': 'buy-offers',
         style: {
           margin: '0 0 16px', padding: '12px 14px',
           background: 'var(--bg-elevated)', border: '1px solid var(--border)',
           borderRadius: 10, fontSize: 12
         }
       },
-        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 } },
           h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 13 } }, 'Buy offers'),
-          h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Top-of-book first · counterparties anonymous')
+          h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+            Array.isArray(buyOrderRows) && buyOrderRows.length > 0
+              ? (() => {
+                  const orders = buyOrderRows.reduce((n, l) => n + (Number(l.orders) || 0), 0);
+                  const wanted = buyOrderRows.reduce((n, l) => n + (Number(l.quantity) || 0), 0);
+                  return `${orders} ${orders === 1 ? 'order' : 'orders'} · ${wanted} wanted · buyers not shown`;
+                })()
+              : 'Best price first · buyers not shown')
         ),
         buyOrderRows === null
           ? h('div', { style: { padding: 8, color: 'var(--text-muted)', fontStyle: 'italic' } }, 'Loading…')
@@ -1871,28 +1884,32 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       style: { padding: '6px 14px', fontSize: 12 },
                       onClick: () => signInWithSteam()
                     }, 'Sign in to place one'))
-            : h('table', { style: { width: '100%', borderCollapse: 'collapse', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } },
+            : h('table', { 'data-testid': 'buy-offers-book', style: { width: '100%', borderCollapse: 'collapse', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } },
+                h('caption', { className: 'visually-hidden' }, 'Open buy orders for this item, grouped by price'),
                 h('thead', null,
                   h('tr', { style: { color: 'var(--text-muted)', fontSize: 10, letterSpacing: 0.4 } },
-                    h('th', { style: { textAlign: 'left',  padding: '6px 4px', fontWeight: 700 } }, '#'),
-                    h('th', { style: { textAlign: 'right', padding: '6px 4px', fontWeight: 700 } }, 'Max price'),
-                    h('th', { style: { textAlign: 'right', padding: '6px 4px', fontWeight: 700 } }, 'Qty'),
-                    h('th', { style: { textAlign: 'right', padding: '6px 4px', fontWeight: 700 } }, 'Placed')
+                    h('th', { scope: 'col', style: { textAlign: 'left',  padding: '6px 4px', fontWeight: 700 } }, 'Price'),
+                    h('th', { scope: 'col', style: { textAlign: 'right', padding: '6px 4px', fontWeight: 700 } }, 'Quantity'),
+                    h('th', { scope: 'col', style: { textAlign: 'right', padding: '6px 4px', fontWeight: 700 } }, 'Orders')
                   )
                 ),
                 h('tbody', null,
-                  buyOrderRows.map((r, i) => h('tr', {
-                    key: r.id,
-                    style: {
-                      borderTop: '1px solid var(--border)',
-                      color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)'
-                    }
-                  },
-                    h('td', { style: { padding: '7px 4px', fontWeight: i === 0 ? 800 : 600 } }, i + 1),
-                    h('td', { style: { padding: '7px 4px', textAlign: 'right', fontWeight: i === 0 ? 800 : 600 } }, fmt(r.maxPrice)),
-                    h('td', { style: { padding: '7px 4px', textAlign: 'right' } }, r.quantity || 1),
-                    h('td', { style: { padding: '7px 4px', textAlign: 'right', fontSize: 10, color: 'var(--text-muted)' } }, timeAgo(r.createdAt))
-                  ))
+                  buyOrderRows.map((r, i) => {
+                    const mine = myBuyOrder && parseFloat(myBuyOrder.maxPrice) === parseFloat(r.price);
+                    return h('tr', {
+                      key: String(r.price),
+                      style: {
+                        borderTop: '1px solid var(--border)',
+                        color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)'
+                      }
+                    },
+                      h('td', { style: { padding: '7px 4px', fontWeight: i === 0 ? 800 : 600 } }, fmt(r.price)),
+                      h('td', { style: { padding: '7px 4px', textAlign: 'right' } }, Number(r.quantity) || 0),
+                      h('td', { style: { padding: '7px 4px', textAlign: 'right', color: 'var(--text-muted)' } },
+                        Number(r.orders) || 0,
+                        mine && h('span', { style: { marginLeft: 6, fontSize: 10, color: 'var(--accent)' } }, '· incl. yours'))
+                    );
+                  })
                 )
               ),
         me && !myBuyOrder && buyOrderRows && buyOrderRows.length > 0 && h('button', {
@@ -1900,7 +1917,13 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           style: { marginTop: 10, width: '100%', border: '1px dashed var(--accent-border)', padding: '8px 12px', fontSize: 11, color: 'var(--accent)' },
           onClick: () => onCreateBuyOrder && onCreateBuyOrder(item),
           title: 'Place your own buy order for this item'
-        }, '+ Create a new order')
+        }, '+ Create a new order'),
+        // A visitor sees the book too; the same action, behind sign-in.
+        !me && buyOrderRows && buyOrderRows.length > 0 && h('button', {
+          className: 'btn btn-ghost',
+          style: { marginTop: 10, width: '100%', border: '1px dashed var(--accent-border)', padding: '8px 12px', fontSize: 11, color: 'var(--accent)' },
+          onClick: () => signInWithSteam()
+        }, 'Sign in to place a buy order')
       ),
 
       h('div', { className: 'modal-body' },

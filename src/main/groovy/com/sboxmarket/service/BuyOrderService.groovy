@@ -474,6 +474,34 @@ class BuyOrderService {
         }
     }
 
+    /**
+     * Public buy-order price levels, the one read the item page's "Buy
+     * offers" block and the market's "Buy orders" tab share. `itemId`
+     * null reads every item. Each row is `[itemId, price, orders,
+     * quantity]`, best price first; no buyer identity of any kind.
+     */
+    List<Map> publicPriceLevels(Long itemId) {
+        def rows = buyOrderRepository.publicPriceLevels(itemId == null, itemId == null ? -1L : itemId) ?: []
+        rows.collect { Object[] r ->
+            [
+                itemId:   r[0] as Long,
+                price:    r[1] as BigDecimal,
+                orders:   ((r[2] as Number)?.longValue() ?: 0L),
+                quantity: ((r[3] as Number)?.longValue() ?: 0L)
+            ]
+        }.findAll { it.price != null && it.price > BigDecimal.ZERO }
+    }
+
+    /** One item's public book: up to `limit` price levels, each
+     *  `{price, orders, quantity}`, best first. */
+    List<Map> publicBookForItem(Long itemId, int limit) {
+        if (itemId == null) return []
+        int lim = Math.min(Math.max(limit, 1), 50)
+        publicPriceLevels(itemId).take(lim).collect { l ->
+            [price: l.price, orders: l.orders, quantity: l.quantity]
+        }
+    }
+
     /** Bulk {count, bestBid} per item (batch 415). Powers the MyStall
      *  "N want · best $X" chip without N+1 per-row queries. Returns a
      *  map keyed on itemId; missing keys mean no active buy orders. */

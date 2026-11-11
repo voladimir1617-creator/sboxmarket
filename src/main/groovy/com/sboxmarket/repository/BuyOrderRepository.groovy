@@ -103,6 +103,31 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
     """)
     List<Object[]> countAndBestBidByItemIds(@Param('itemIds') List<Long> itemIds)
 
+    /**
+     * The public buy-order book: ACTIVE item orders grouped into price
+     * levels, `[itemId, maxPrice, orderCount, quantitySum]`, best price
+     * first. One read behind both public surfaces: the item page's "Buy
+     * offers" block (`all = false`, one item) and the market's "Buy
+     * orders" tab (`all = true`, every item, rolled up per item in
+     * BuyOrderService). Aggregates only: no buyer id or name leaves this
+     * query. Banned buyers are filtered on the join and empty orders
+     * skipped, like findActiveForItem; basket orders (no itemId) are not
+     * an item's demand and stay out.
+     */
+    @Query("""
+        SELECT b.itemId, b.maxPrice, COUNT(b), SUM(b.quantity)
+          FROM BuyOrder b, SteamUser u
+         WHERE b.status = 'ACTIVE'
+           AND b.quantity > 0
+           AND b.itemId IS NOT NULL
+           AND (:all = true OR b.itemId = :itemId)
+           AND b.buyerUserId = u.id
+           AND (u.banned IS NULL OR u.banned = false)
+         GROUP BY b.itemId, b.maxPrice
+         ORDER BY b.maxPrice DESC
+    """)
+    List<Object[]> publicPriceLevels(@Param('all') boolean all, @Param('itemId') Long itemId)
+
     /** Matches candidates for `BuyOrderService.tryMatch`. Joins the
      *  buyer's SteamUser row so banned buyers are filtered at scan
      *  time — without this, every new listing still walks the banned
