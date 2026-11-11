@@ -344,7 +344,11 @@ export function HelpModal({ onClose }) {
               // doesn't mistake this for a browser back/forward. A bare
               // pushState here desynced that counter and broke
               // closeToPrevious() for later modal-close buttons.
-              onClick: (e) => { e.preventDefault(); navigate(paths.support()); }
+              onClick: (e) => {
+                // Ctrl/Cmd/Shift-click opens a new tab; leave it to the browser.
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault(); navigate(paths.support());
+              }
             }, 'Open a ticket →')
           )
         )
