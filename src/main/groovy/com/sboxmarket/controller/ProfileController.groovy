@@ -907,6 +907,7 @@ class ProfileController {
                 // bundle alongside their listings and trades.
                 stallBio:                  user.stallBio,
                 emailNotificationsEnabled: user.emailNotificationsEnabled,
+                anonymousShop:             user.anonymousShop,
                 mutedEmailKinds:           user.mutedEmailKinds,
                 deletionRequestedAt:       user.deletionRequestedAt
             ],
@@ -1196,6 +1197,27 @@ class ProfileController {
         }
         throw new BadRequestException('INVALID_FIELD',
             "'enabled' must be a boolean (true/false)")
+    }
+
+    /**
+     * "Anonymous shop" seller setting. Body: { enabled: boolean }. When on,
+     * public listing surfaces show the caller's listings under a neutral
+     * label (no name, avatar or stall link); trades and staff views keep
+     * the real name. Applies to every listing at once, live, so there is
+     * nothing to re-list.
+     */
+    @PutMapping('/anonymous-shop')
+    @Transactional
+    ResponseEntity<Map> updateAnonymousShop(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException('Unknown user') }
+        if (body == null || body.enabled == null) {
+            throw new BadRequestException('MISSING_FIELD', "'enabled' (boolean) is required")
+        }
+        user.anonymousShop = parseEnabledFlag(body.enabled)
+        steamUserRepository.save(user)
+        log.info("User ${uid} set anonymousShop=${user.anonymousShop}")
+        ResponseEntity.ok([anonymousShop: user.anonymousShop])
     }
 
     /**

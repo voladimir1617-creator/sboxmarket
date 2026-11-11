@@ -159,6 +159,13 @@ class SteamUser {
     @Column(name = 'email_notifications_enabled', nullable = false)
     Boolean emailNotificationsEnabled = true
 
+    /** "Anonymous shop" seller setting (V267). When true, public listing
+     *  surfaces show this seller's listings under a neutral label with no
+     *  name, avatar or stall link (AnonymousShopService). Staff views and
+     *  trade records still show the real seller. Default false. */
+    @Column(name = 'anonymous_shop', nullable = false)
+    Boolean anonymousShop = false
+
     /** Optional self-written seller bio. Rendered on the public
      *  /stall/{id} page under the hero. Sanitised via
      *  TextSanitizer.medium on write — no HTML, capped at 500 chars

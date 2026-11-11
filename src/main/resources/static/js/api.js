@@ -511,6 +511,15 @@ export async function setEmailNotifications(enabled) {
     body: JSON.stringify({ enabled: !!enabled })
   });
 }
+/** "Anonymous shop" seller setting: hide your name, avatar and stall link
+ *  on your public listings. */
+export async function setAnonymousShop(enabled) {
+  return writeJson(`${API}/profile/anonymous-shop`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: !!enabled })
+  });
+}
 /** Per-bucket email-mute preferences (layered on top of the global
  *  emailNotificationsEnabled kill switch). Buckets that can be muted:
  *  TRADES / AUCTIONS / WATCHLIST / FOLLOWS. Transactional emails

@@ -55,6 +55,9 @@ class ListingController {
     @Autowired(required = false) com.sboxmarket.service.SteamEscrowService steamEscrowService
     @Autowired(required = false) com.sboxmarket.service.SellerTrustService sellerTrustService
     @Autowired(required = false) com.sboxmarket.service.ZeroResultSearchTracker zeroResultSearchTracker
+    /** Anonymous shop masking for public listing payloads; absent in unit
+     *  specs that build the controller by hand, where nothing is masked. */
+    @Autowired(required = false) com.sboxmarket.service.AnonymousShopService anonymousShopService
 
     // Batch 659 — canonical enum lists + normaliser live in
     // `com.sboxmarket.util.ListingEnums` (shared with ItemController
@@ -188,6 +191,7 @@ class ListingController {
         }
         def page = all.drop(safeOffset).take(safeLimit)
         decorateWithSellerRating(page)
+        anonymize(page, viewer)
         // Batch 807 — Cache-Control on the main marketplace list. The
         // response varies by viewer (blocked-seller filter at line 119
         // above) so shared caches would leak; `private` keeps it in the
@@ -253,6 +257,7 @@ class ListingController {
         // state promptly. Matches /api/listings cadence.
         def rows = filterBlocked(listingService.getListingsForItem(itemId), req)
         decorateWithSellerRating(rows)
+        anonymize(rows, viewerOf(req))
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=15')
             .body(rows)
@@ -269,6 +274,12 @@ class ListingController {
         // Explicit null-check, not Elvis — `?limit=0` is a legitimate
         // "no other listings please" request; `?: 8` treats 0 as falsy.
         // Same bug class as 0d15de2 / ccfe0b5 / 4e1a0d4 / 8224a9b.
+        // An anonymous shop's listings are not grouped under their seller
+        // anywhere public (this answer is shared-cached, so not even for
+        // the seller).
+        if (anonymousShopService?.isAnonymous(sellerUserId)) {
+            return ResponseEntity.ok().header('Cache-Control', 'public, max-age=60').body([])
+        }
         def rows = listingService.findOtherActiveBySeller(sellerUserId, excludeItemId,
             limit != null ? limit : 8)
         decorateWithSellerRating(rows)
@@ -324,6 +335,7 @@ class ListingController {
         // hidden-listing owner/admin gate above), and the live auction view is
         // kept fresh by the SSE bus + the buy-path PRICE_CHANGED re-validation,
         // so a ≤10s display lag here carries no money risk.
+        anonymizeOne(listing, viewerOf(req))
         ResponseEntity.ok().header('Cache-Control', 'private, max-age=10').body(listing)
     }
 
@@ -735,6 +747,11 @@ class ListingController {
         // can request up to 200 rows. Clamped server-side so a crafted
         // ?limit=10000 can't sweep the seller's full sale history.
         int lim = Math.min(Math.max(limit ?: 10, 1), 200)
+        // An anonymous shop's sales are not listed under its stall (this
+        // answer is shared-cached, so not even for the seller).
+        if (anonymousShopService?.isAnonymous(userId)) {
+            return ResponseEntity.ok().header('Cache-Control', 'public, max-age=60').body([])
+        }
         def rows = listingService.findSoldBySeller(userId,
             org.springframework.data.domain.PageRequest.of(0, lim))
         def out = rows.collect { l ->
@@ -813,6 +830,7 @@ class ListingController {
     ResponseEntity<List<Listing>> justListed(HttpServletRequest req) {
         def rows = filterBlocked(listingService.findNewestActive(20), req)
         decorateWithSellerRating(rows)
+        anonymize(rows, viewerOf(req))
         // `private` — filterBlocked varies by viewer. 30s cache because
         // "just listed" is a freshness surface; longer caches would
         // defeat the "just" part.
@@ -828,6 +846,7 @@ class ListingController {
     ResponseEntity<List<Listing>> topDeals(HttpServletRequest req) {
         def rows = filterBlocked(listingService.findTopDeals(12), req)
         decorateWithSellerRating(rows)
+        anonymize(rows, viewerOf(req))
         // `private` not `public` — filterBlocked varies by viewer
         // (per-session block list). 60s is under the homepage rail's
         // refetch cadence while still catching a just-listed steal.
@@ -883,6 +902,20 @@ class ListingController {
      * Silent no-op when reviewService is unavailable (test contexts where
      * the bean isn't registered).
      */
+    private static Long viewerOf(HttpServletRequest req) {
+        req?.session?.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+    }
+
+    /** Anonymous shop: masks the seller on public payloads (the seller
+     *  sees their own unmasked). Last step before serialising. */
+    private void anonymize(List<Listing> rows, Long viewer) {
+        anonymousShopService?.mask(rows, viewer)
+    }
+
+    private void anonymizeOne(Listing listing, Long viewer) {
+        anonymousShopService?.mask(listing, viewer)
+    }
+
     private void decorateWithSellerRating(List<Listing> rows) {
         if (rows == null || rows.isEmpty()) return
         def sellerIds = rows.collect { it.sellerUserId }.findAll { it != null }.toSet()
@@ -1024,6 +1057,7 @@ class ListingController {
         def deadline = now + window
         def rows = filterBlocked(listingService.findAuctionsEndingBefore(now, deadline).take(20), req)
         decorateWithSellerRating(rows)
+        anonymize(rows, viewerOf(req))
         // `private` — filterBlocked varies by viewer. 30s cap because
         // auctions ending soon change state fast (outbid, extended by
         // anti-snipe, closed on sale) — a longer cache would show
@@ -1069,6 +1103,12 @@ class ListingController {
         // Mirrors the MyStall display cap (batch 1033). Older rows
         // stay in the DB, queryable via item-specific endpoints.
         def visible = listingService.findActiveVisibleBySeller(userId, 500)
+        // Anonymous shop: the stall would tie the hidden-name listings back
+        // to this seller, so other viewers get none of them here (they are
+        // still on the market grid and item pages under the neutral label).
+        boolean anonymousStall = anonymousShopService?.isAnonymous(userId) &&
+            viewerOf(req) != userId
+        if (anonymousStall) visible = []
         decorateWithSellerRating(visible)
         // Derive away-mode: seller has active listings but all of them are
         // hidden. Lets the UI show "This seller is away" instead of an
@@ -1226,6 +1266,10 @@ class ListingController {
                 banned:            isBanned
             ],
             listings:         visible,
+            // True when the seller lists anonymously and the viewer is not
+            // them: `listings` is empty on purpose, so the stall can say so
+            // instead of "no active listings".
+            anonymousShop:    anonymousStall,
             // A COUNT, not the grid's size: the grid stops at 500 rows.
             count:            Math.max(0L, totalActive - hiddenActive),
             away:             away && !isBanned,
@@ -1677,6 +1721,9 @@ class ListingController {
         def lim = Math.min(Math.max(limit ?: 10, 1), 30)
         def rows = listingService.findRecentSales(lim)
         def viewer = req?.session?.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        // The live tape names the seller of each sale; an anonymous shop's
+        // sales go out under the neutral label.
+        if (anonymousShopService != null) rows = anonymousShopService.maskSaleRows(rows, viewer)
         if (viewer != null && userBlockService != null) {
             def blocked = userBlockService.blockedIdsFor(viewer)
             if (!blocked.isEmpty()) {
@@ -1706,6 +1753,7 @@ class ListingController {
         def lim = Math.min(Math.max(limit ?: 8, 1), 30)
         def rows = filterBlocked(listingService.findMostWatched(lim), req)
         decorateWithSellerRating(rows)
+        anonymize(rows, viewerOf(req))
         // Batch 811 — private cache: blocklist filter varies by viewer.
         // 60s matches the rail's client-side poll cadence; TopDealsRail
         // already caches at the same rate.
@@ -1723,6 +1771,7 @@ class ListingController {
         def lim = Math.min(Math.max(limit ?: 8, 1), 30)
         def rows = filterBlocked(listingService.findMostViewed(lim), req)
         decorateWithSellerRating(rows)
+        anonymize(rows, viewerOf(req))
         // Batch 811 — private cache (blocklist filter).
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=60')
@@ -1741,6 +1790,7 @@ class ListingController {
         def win = Math.min(Math.max(days ?: 7, 1), 30)
         def rows = filterBlocked(listingService.findHottest(lim, win), req)
         decorateWithSellerRating(rows)
+        anonymize(rows, viewerOf(req))
         // Batch 811 — private cache (blocklist filter).
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=60')

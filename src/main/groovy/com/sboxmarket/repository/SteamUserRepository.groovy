@@ -226,6 +226,11 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
     @Query("SELECT u.id, u.lastSeenAt FROM SteamUser u WHERE u.id IN :ids")
     List<Object[]> findLastSeenAtByIds(@Param('ids') Collection<Long> ids)
 
+    /** The ids among `ids` whose owner has Anonymous shop on (V267). One
+     *  PK-indexed probe per listing page, for AnonymousShopService. */
+    @Query("SELECT u.id FROM SteamUser u WHERE u.id IN :ids AND u.anonymousShop = true")
+    List<Long> findAnonymousShopIds(@Param('ids') Collection<Long> ids)
+
     /** Single-user lastSeenAt persist (PresenceFilter throttle path).
      *  Bulk UPDATE so we don't load the full SteamUser row just to
      *  bump one timestamp on every authenticated request. */

@@ -244,6 +244,8 @@ function chartRangeUsable(rows, range) {
  */
 export function SellerTrustCard({ listing, trust, avatarUrl }) {
   if (!listing || listing.sellerUserId == null) return null;
+  // Anonymous shop (sellerUserId 0, sellerAnonymous): no public record to show.
+  if (listing.sellerAnonymous) return null;
   const id = listing.sellerUserId;
   const rec = trust ? trust[id] : undefined;
   const name = listing.sellerName || 'Seller';
@@ -780,7 +782,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
     // trade target); single-seller items get the obvious behaviour.
     // Skip entirely for system listings (sellerUserId null).
     const cheapest = [...listings]
-      .filter(l => l.sellerUserId != null)
+      .filter(l => l.sellerUserId)
       .sort((a, b) => (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0))[0];
     if (cheapest && item?.id) {
       (async () => {
@@ -2278,7 +2280,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                     // (no ratings OR avg >= 4). Computed server-side
                     // (/api/sellers/verified bulk endpoint) so the
                     // threshold stays consistent with the stall hero.
-                    l.sellerUserId && sellerVerified[l.sellerUserId] && h('span', {
+                    !!l.sellerUserId && sellerVerified[l.sellerUserId] && h('span', {
                       style: {
                         marginLeft: 6, fontSize: 10, fontWeight: 700,
                         color: 'var(--green)',
@@ -5229,6 +5231,47 @@ function EmailPrefToggle({ initial, onChange }) {
   );
 }
 
+// "Anonymous shop" switch: same toggle-switch as the email preference,
+// optimistic, reverted when the server refuses.
+function AnonymousShopToggle({ initial }) {
+  const [on, setOn] = useState(initial === true);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!busy && typeof initial === 'boolean') setOn(initial); }, [initial]);
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    const next = !on;
+    setOn(next);
+    try {
+      const { setAnonymousShop } = await import('./api.js');
+      const res = await setAnonymousShop(next);
+      if (!res || res.error || res.code) {
+        toast((res && (res.message || res.error)) || 'Could not update Anonymous shop', 'err');
+        setOn(!next);
+      } else {
+        toast(next ? 'Anonymous shop on: your listings no longer show your name.' : 'Anonymous shop off: your listings show your name again.', 'ok');
+      }
+    } catch (_) {
+      toast('Network error updating Anonymous shop', 'err');
+      setOn(!next);
+    } finally { setBusy(false); }
+  };
+  return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+    h('div', {
+      className: `toggle-switch ${on ? '' : 'off'}`,
+      onClick: toggle,
+      onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } },
+      role: 'switch',
+      tabIndex: 0,
+      'aria-checked': on,
+      'aria-label': 'Anonymous shop',
+      'data-testid': 'anonymous-shop-toggle'
+    }),
+    h('span', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+      busy ? 'Saving…' : (on ? 'On' : 'Off'))
+  );
+}
+
 // Per-bucket email-mute selector. Layered on top of the global
 // EmailPrefToggle — with emails globally ON, a user can still silence
 // TRADES-bucket or WATCHLIST-bucket sends here. Checkboxes are
@@ -6880,6 +6923,18 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
         // Only render the granular mutes when the global switch is ON —
         // the buckets are meaningless when *every* email is suppressed.
         emailsOn && h(EmailBucketMutes, null)
+      )
+    ),
+
+    // Anonymous shop — seller setting. Public listing surfaces show the
+    // seller's listings under "Anonymous seller" with no avatar or stall
+    // link; trades and staff views keep the real name.
+    h('div', { className: 'profile-row' },
+      h('div', { className: 'profile-row-label' }, 'Anonymous shop'),
+      h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 } },
+        h(AnonymousShopToggle, { initial: profile?.user?.anonymousShop === true }),
+        h('div', { style: { fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 } },
+          'Your listings show as “Anonymous seller” on the market and item pages, with no avatar or stall link, and your stall stops listing them. Buyers you trade with, and SkinBox staff, still see your name on the trade.')
       )
     ),
 
