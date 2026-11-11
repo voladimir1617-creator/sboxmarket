@@ -105,22 +105,23 @@ class TradeSafetyController {
     }
 
     // ── Copy: peer-to-peer (no bot configured) ────────────────────────────
-    // Exactly what the page said before, preserved verbatim. It is TRUE in
-    // this mode and it is good advice.
+    // TRUE in this mode: no bot holds players' items. SkinBox's own stock is
+    // still held by SkinBox, so the callout speaks of player trades only.
 
     private static final String CALLOUT_P2P = '''<div class="callout">
-      <strong>SkinBox is non-custodial.</strong> We never hold your skins. When a
-      trade clears, the seller sends a Steam trade offer <em>directly</em> to the
-      buyer using the Steam trade URL on file, and the buyer's wallet funds release
-      to the seller only after both sides confirm receipt in the SkinBox trade
-      thread. No bot account ever touches the items.
+      <strong>Players' skins stay with the players.</strong>
+      SkinBox does not hold sellers' items. When you buy from a player, the seller
+      sends the Steam trade offer <em>directly</em> to you using the trade URL on
+      file. Your payment stays in SkinBox escrow until you confirm you have the
+      item, or until 8 days after the seller marks it sent if you do nothing.
+      No bot account touches player trades.
     </div>'''
 
     private static final String BOT_RULE_P2P =
             '''<li><strong>Never accept a trade offer from a SkinBox "bot" — we don't have one.</strong> Every legitimate trade comes from the other user in the transaction (their Steam profile matches the seller/buyer shown in the SkinBox trade page). If someone DMs you claiming to be "the SkinBox bot", it is a scam.</li>'''
 
     private static final String MIDDLEMAN_P2P =
-            '''<li><strong>Never send items to a "middle man".</strong> There is no such thing on SkinBox. The buyer's wallet is locked by Stripe on purchase, the seller sends the Steam trade offer directly, and both sides confirm in the trade thread before the cash releases.</li>'''
+            '''<li><strong>Never send items to a "middle man".</strong> There is no such thing on SkinBox. The buyer's payment is held in SkinBox escrow from the moment they buy, the seller sends the Steam trade offer directly, and the money reaches the seller only when the buyer confirms receipt (or automatically 8 days after it was marked sent).</li>'''
 
     private static final String VERIFY_STEP_P2P =
             '''<li>As the buyer, when the seller's Steam offer arrives in your mobile app or desktop client, verify the sender matches the seller shown on the SkinBox trade page. As the seller, verify the receiver matches the buyer's trade URL SkinBox passed you.</li>'''
@@ -131,8 +132,9 @@ class TradeSafetyController {
 
     private static final String CALLOUT_BOT = '''<div class="callout">
       <strong>SkinBox holds listed items in escrow.</strong> When you list an item,
-      our escrow bot sends you a Steam trade offer <em>requesting</em> that item, and
-      your listing goes live once we have received it. We hold it until it sells,
+      our escrow bot sends you a Steam trade offer <em>requesting</em> that item.
+      Once we have it, we hold it for a safety period in case the trade is
+      reversed in Steam, and then your listing goes live automatically. We keep it until it sells,
       then the bot sends it on to the buyer; if the listing is cancelled or expires,
       the bot sends it back to you. The buyer's wallet funds release to the seller
       only after the buyer has actually received the item.

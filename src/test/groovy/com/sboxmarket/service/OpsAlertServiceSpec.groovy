@@ -62,7 +62,7 @@ class OpsAlertServiceSpec extends Specification {
         ops.alertAdmins('k', 'OPS_X', 'Steam bot offline', 'It is down.', null, true)
 
         then:
-        (1.._) * email.send(_, _, _) >> { String t, String s, String b -> to << t }
+        (1.._) * email.send(_, _, _, EmailService.OPS_ALERT_KIND) >> { String t, String s, String b, String k -> to << t }
         to == ['admin1@example.test']
     }
 
@@ -73,14 +73,14 @@ class OpsAlertServiceSpec extends Specification {
         ops.alertAdmins('b', 'OPS_X', 'T', 'B', null, true)
 
         then:
-        2 * email.send('admin1@example.test', _, _)
+        2 * email.send('admin1@example.test', _, _, EmailService.OPS_ALERT_KIND)
 
         when:
         clock += 3_600_000L
         ops.alertAdmins('a', 'OPS_X', 'T', 'B', null, true)
 
         then:
-        1 * email.send('admin1@example.test', _, _)
+        1 * email.send('admin1@example.test', _, _, EmailService.OPS_ALERT_KIND)
     }
 
     def "the on/off flag stops email but not bells"() {
@@ -102,7 +102,7 @@ class OpsAlertServiceSpec extends Specification {
         int second = ops.emailAdmins('FRAUD_SIGNAL_HIGH', 'Fraud signal: Y', 'summary')
 
         then:
-        1 * email.send('admin1@example.test', { it.contains('Fraud signal: X') }, _)
+        1 * email.send('admin1@example.test', { it.contains('Fraud signal: X') }, _, EmailService.OPS_ALERT_KIND)
         0 * notifications._
         first == 1
         second == 0

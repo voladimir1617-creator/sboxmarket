@@ -163,8 +163,8 @@ class SupportServiceSpec extends Specification {
         then: 'the stored category and the auto-reply template family agree'
         ticket.category == 'TRADE'
         def staffMsg = saved.find { it.author == 'STAFF' }
-        // The TRADE template is the only one that mentions the 8-day Steam hold.
-        staffMsg.body.contains('8-day Steam hold')
+        // The TRADE template is the only one that says trades settle on their own.
+        staffMsg.body.contains('Most trades settle on their own')
 
         where:
         rawCategory << ['trade  :)', 'TRADE!', ' TRADE', 'trade ', 'TrAdE']

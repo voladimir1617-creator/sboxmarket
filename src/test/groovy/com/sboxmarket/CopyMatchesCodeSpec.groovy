@@ -113,7 +113,10 @@ class CopyMatchesCodeSpec extends Specification {
     def "cancelled-trade copy sends sellers to the screen that relists"() {
         expect:
         new File(GROOVY + 'EmailService.groovy').text.contains('Relist it from Sell → Platform Inventory')
-        new File(GROOVY + 'TradeService.groovy').text.contains('Relist from Sell → Platform Inventory')
+        new File(GROOVY + 'EmailService.groovy').text.contains('list it from the Steam tab on the Sell page')
+
+        and: "the auto-cancel reason leaves the relist pointer to that email, so the seller does not read it twice"
+        !new File(GROOVY + 'TradeService.groovy').text.contains('Relist from Sell → Platform Inventory')
     }
 
     def "the sign-in alert says what 'new' means: no sign-in from that IP in 30 days"() {

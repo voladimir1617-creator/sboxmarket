@@ -115,14 +115,14 @@ export function DeliveryExpectation({ sellerUserId, days, compact }) {
     fromSeller
       ? h('span', null,
           h('strong', { style: { color: 'var(--text-primary)' } }, 'Delivery is not instant. '),
-          'Your wallet is charged straight away, but the seller has to send you a Steam trade offer by hand. ',
-          'Your money stays in escrow until you confirm the item arrived',
+          'Your wallet is charged straight away and the item comes to you as a Steam trade offer, from the seller or from our escrow bot. ',
+          'Your money stays in escrow until the item is yours',
           days == null
             // We could not read the policy. Say what always holds and stop —
             // a deadline invented here would be a promise the server has not
             // made.
-            ? h('span', null, ', and if the seller never sends it the purchase cancels itself and you are refunded in full.')
-            : h('span', null, ', and if they have not sent it within ',
+            ? h('span', null, ', and if it is never sent the purchase cancels itself and you are refunded in full.')
+            : h('span', null, ', and if it has not been sent within ',
                 h('strong', { style: { color: 'var(--text-primary)' } }, days, days === 1 ? ' day' : ' days'),
                 ' the purchase cancels itself and you are refunded in full.')
         )
@@ -3203,9 +3203,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             h('div', { className: 'cart-confirm-total-amt' }, fmt(price))
           ),
           !buyConfirmIsHouse && h('div', { className: 'buy-confirm-protection-note', 'data-testid': 'buy-confirm-protection-note' },
-            'Optional, after purchase: Trade Protection (',
+            'Optional, after purchase and until the item is sent: Trade Protection (',
             tpFloored ? fmt(tradeProtection) + ' minimum' : '2%',
-            ') refunds a disputed trade at once instead of after staff review. Cancelled and timed-out trades are refunded either way.'
+            '). If you then open a dispute, you\u2019re refunded at once instead of waiting for staff review, unless Steam shows the trade offer was accepted or our bot\u2019s offer is still open. Cancelled and timed-out trades are refunded either way.'
           ),
           h('div', { className: 'cart-confirm-actions' },
             h('button', {
@@ -3826,9 +3826,6 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
 // page for content creators who want to refer buyers/sellers. Pure
 // presentation — no backend until a real affiliate program launches.
 export function AffiliateModal({ onClose }) {
-  // Custody is decided at runtime by whether the escrow bot is configured, so
-  // the "About Us" blurb below asks the server rather than asserting it.
-  const custody = useCustodyCopy();
   /* N3 cycle 9 — boss QA restated: chip row reads compact, promote to
      full .stall-stat-grid pattern (icon top, bold value middle,
      tracked-out caps label below). Same grid CSS as /stall/<n> hero,
@@ -3868,7 +3865,7 @@ export function AffiliateModal({ onClose }) {
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
         h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'About Us'),
         h('div', { style: { fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 } },
-          `${BRAND.name} is a peer-to-peer marketplace for s&box cosmetic items. We're building the tools s&box traders have been asking for — a real marketplace grid, auctions with live bidding, standing buy orders, ${custody.shortLabel} escrow, and a wallet that pays out in under 2 business days. We want affiliates who share that mission.`)
+          `${BRAND.name} is a peer-to-peer marketplace for s&box cosmetic items. We're building the tools s&box traders have been asking for — a real marketplace grid, auctions with live bidding, standing buy orders, escrowed trades, and a wallet that pays out through Stripe. We want affiliates who share that mission.`)
       ),
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
         h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'Requirements'),
@@ -3987,7 +3984,7 @@ export function FaqModal({ onClose }) {
     ['How does depositing work?',
       "Open your Wallet, pick Deposit, enter an amount (anything from $1 to $10,000), and you'll be handed to Stripe's checkout page. Once the payment clears, our webhook credits your balance automatically. Test mode: no real money moves yet."],
     ['How do withdrawals work?',
-      "From your Wallet, pick Withdraw and the amount. The first time, Set up cash-out links your bank or debit card through Stripe; after that every payout goes there. Your balance is debited and the payout is sent to that account right away; Stripe then pays your bank, usually within 1–2 business days. Any payout processing fee is shown as \"You receive\" before you confirm. Test mode: no real money moves yet."],
+      "From your Wallet, pick Withdraw and the amount. The first time, Set up cash-out links your bank or debit card through Stripe; after that every payout goes there. Your balance is debited and the payout is sent to that account right away; Stripe then pays your bank on its own payout schedule. Any payout processing fee is shown as \"You receive\" before you confirm. Test mode: no real money moves yet."],
     [`Why is ${BRAND.name} cheaper than Steam?`,
       `Steam charges 12% in platform fees on Workshop sales and forces sellers into their pricing ladder. On ${BRAND.name}, sellers set whatever price they like — usually 10-30% below what the Steam store asks. The green '−%' chip on each card shows exactly how much you save versus Steam.`],
     ['Do s&box items have wear levels?',
@@ -9339,7 +9336,10 @@ function ProfileTradesTab({ me, privacy }) {
                   // states so neither side reads them as "a human must act".
                   automated && t.state === 'PENDING_SELLER_SEND' ? 'Delivering automatically'
                     : botOfferFailed ? botOfferFailedText
-                    : automated && t.state === 'PENDING_BUYER_CONFIRM' ? 'Delivered — awaiting confirmation'
+                    // For a bot trade PENDING_BUYER_CONFIRM means the offer was
+                    // SENT; only an 'accepted' offer state means it arrived.
+                    : automated && t.state === 'PENDING_BUYER_CONFIRM'
+                      ? (botOfferState === 'accepted' ? 'Delivered — awaiting confirmation' : 'Offer sent — waiting for the buyer to accept')
                     : meta.label,
                   // Batch 560 — "Seller sent N ago" chip on PENDING_BUYER_CONFIRM
                   // rows. Batch 550 added the sent_at column; surfacing it
@@ -9412,7 +9412,7 @@ function ProfileTradesTab({ me, privacy }) {
                               const refunded = isSeller ? ' · the buyer was refunded' : ' · you were refunded';
                               if (by === 'BUYER')          return (isSeller ? 'Cancelled by the buyer' : 'You cancelled this trade') + refunded;
                               if (by === 'SELLER')         return (isSeller ? 'You cancelled this trade' : 'Cancelled by the seller') + refunded;
-                              if (by === 'SELLER_TIMEOUT') return (isSeller ? 'Cancelled: you did not send in time' : 'Cancelled: the seller did not send in time') + refunded;
+                              if (by === 'SELLER_TIMEOUT') return 'Cancelled: not sent within the time limit' + refunded;
                               if (by === 'SELLER_BANNED')  return 'Cancelled: the seller account was suspended' + refunded;
                               if (by === 'STAFF')          return `Cancelled by ${BRAND.name} support` + refunded;
                               return 'Trade cancelled';
@@ -9543,10 +9543,16 @@ function ProfileTradesTab({ me, privacy }) {
                       : t.state === 'PENDING_SELLER_SEND'
                         ? (isSeller
                             ? 'Your item is in escrow. Our secure bot is delivering it to the buyer automatically — no action needed.'
-                            : 'The item is in escrow and being delivered automatically by our secure bot. It will arrive in your inventory shortly.')
-                        : (isSeller
-                            ? 'Delivered automatically. Waiting for the buyer to confirm receipt so your payout is released.'
-                            : 'Delivered by our secure bot. Confirm receipt once it lands in your inventory to release payment.'))
+                            : 'Our escrow bot is sending you the Steam trade offer for this item. Accept it in Steam to complete the trade.')
+                        : botOfferState === 'accepted'
+                          // Steam reported the offer accepted; the trade has not
+                          // completed yet, so the buyer can still confirm.
+                          ? (isSeller
+                              ? 'Delivered automatically. Waiting for the buyer to confirm receipt so your payout is released.'
+                              : 'Delivered by our secure bot. Confirm receipt once it lands in your inventory to release payment.')
+                          : (isSeller
+                              ? 'Our bot sent the buyer the Steam offer. You\u2019re paid automatically once they accept it.'
+                              : 'Our bot sent you a Steam trade offer for this item. Accept it in Steam; the trade completes on its own once you do.'))
                   ),
                 // Nudge the viewer to set their own URL if the counterparty
                 // can't contact them (common first-time seller friction).
@@ -12848,7 +12854,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         'warn'
       );
       else if (held) toast(
-        `${itemName ? `"${itemName}"` : 'Your item'} is reserved at ${fmt(price)} — accept the Steam trade offer from our bot to send us the item, and it goes live the moment we receive it.`,
+        `${itemName ? `"${itemName}"` : 'Your item'} is reserved at ${fmt(price)} — accept the Steam trade offer from our bot to send us the item, and it goes live automatically after a safety hold once we receive it.`,
         'warn'
       );
       else toast(
@@ -13012,7 +13018,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         // of 4500ms, and this toast asks the seller to go do something in
         // another application, so it needs to be readable that long.
         toast(
-          `${label} is reserved at ${fmt(p)} — accept the Steam trade offer from our bot to send us the item, and it goes live the moment we receive it.`,
+          `${label} is reserved at ${fmt(p)} — accept the Steam trade offer from our bot to send us the item, and it goes live automatically after a safety hold once we receive it.`,
           'warn'
         );
       } else {
@@ -13498,7 +13504,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         await loadSteam();
       }
       if (heldCount > 0) {
-        toast(`Reserved ${heldCount} item${heldCount === 1 ? '' : 's'} at ${fmt(p)}${failed ? ` · ${failed} failed` : ''} — accept the Steam trade offer from our bot and they go live the moment we receive them.`, 'warn');
+        toast(`Reserved ${heldCount} item${heldCount === 1 ? '' : 's'} at ${fmt(p)}${failed ? ` · ${failed} failed` : ''} — accept the Steam trade offer from our bot and they go live automatically after a safety hold once we receive them.`, 'warn');
       } else if (failed === 0) {
         toast(`Listed ${ok} item${ok === 1 ? '' : 's'} at ${fmt(p)}.`, 'ok');
       } else {
@@ -13586,7 +13592,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('ol', { className: 'sell-obligations-list', style: { listStyle: 'decimal' } },
         h('li', null, 'Pick a skin below and set your price.'),
         h('li', null, `Accept the Steam trade offer from the ${BRAND.name} bot. It asks for that one skin and gives nothing in return.`),
-        h('li', null, 'Your listing goes live the moment the bot has it. Unsold skins can be withdrawn back to your Steam from My Stall at any time.'))
+        h('li', null, 'Your listing goes live automatically after a safety hold once the bot has it. Unsold skins can be withdrawn back to your Steam from My Stall at any time.'))
     ),
 
     source === 'steam' && steamData === null && h('div', { className: 'spinner' }),
@@ -15595,7 +15601,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               ? null
               : h(BotOfferSteps, { labels: ['Offer sent', 'Accept in Steam', e.inSteamHold ? 'Steam hold' : (e.inTradeProtection ? 'On hold' : 'Live on market')], active: step }),
             h('div', { className: 'bot-offer-msg' },
-              e.message || 'Waiting for our bot to receive your item. Your listing goes live the moment it arrives.')
+              e.message || 'Waiting for our bot to receive your item. Your listing goes live automatically after a safety hold once it arrives.')
           ),
           h('div', { className: 'bot-offer-side' },
             e.securityCode && h(BotSecurityCode, { code: e.securityCode, botSteamId: e.botSteamId, botName: e.botName }),
@@ -15768,7 +15774,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                 "No sales yet"),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
-                "Settled sales land here with the gross, platform fee, and payout. First list an item; a sold listing shows up in this tab once the buyer confirms receipt."),
+                "Your sales land here with the gross, platform fee, and payout. List an item; it shows up in this tab as soon as someone buys it."),
               // Batch 914 — same CTA pattern as the empty-active stall
               // state. One click to /sell gives the seller an on-ramp
               // back to the flow that seeds the future sales history.
@@ -18481,7 +18487,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
         } else if (connect && connect.simulated) {
           toast(`Test-mode withdrawal of ${fmt(num)} recorded — no real money was sent (no payment processor connected).`, 'ok');
         } else {
-          toast(`Withdrawal of ${fmt(num)} sent to your Stripe cash-out account — it reaches your bank on Stripe's payout schedule, usually 1–2 business days.`, 'ok');
+          toast(`Withdrawal of ${fmt(num)} sent to your Stripe cash-out account. Stripe pays it on to your bank on its own payout schedule.`, 'ok');
         }
       }
     } catch (e) {
@@ -18552,12 +18558,11 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
          (parseFloat(wallet.pendingDepositAmt)  || 0) > 0) &&
           h('div', { className: 'wallet-pending-row' },
             (parseFloat(wallet.pendingWithdrawAmt) || 0) > 0 && (() => {
-              // Batch 686 — ETA tooltip. A user who just submitted a
-              // withdrawal has no signal for when to expect the money.
-              // "1-2 business days" is our payout SLO per the support
-              // SLA. Also surfaces the request age so a user who's
-              // been waiting a week sees "requested 7d ago" and knows
-              // to open a ticket instead of assuming it's normal.
+              // Batch 686 — status tooltip. New withdrawals complete at once,
+              // so a PENDING row is a legacy one; no code sets a payout date,
+              // so the tooltip quotes none. It surfaces the request age so a
+              // user who's been waiting a week sees "requested 7d ago" and
+              // knows to open a ticket instead of assuming it's normal.
               const pendingWithdraw = (transactions || [])
                 .filter(t => (t.type === 'WITHDRAW' || t.type === 'WITHDRAWAL') && t.status === 'PENDING')
                 .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
@@ -18574,8 +18579,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
               return h('div', {
                 className: 'wallet-pending-chip withdraw',
                 title: stale
-                  ? `Requested ${ageLabel} — beyond the typical 1-2 business day window. Open a support ticket for a status check.`
-                  : `Typically arrives in 1-2 business days.${ageLabel ? ' Requested ' + ageLabel + '.' : ''}`
+                  ? `Requested ${ageLabel} and still pending. Open a support ticket for a status check.`
+                  : `Waiting to be sent to Stripe.${ageLabel ? ' Requested ' + ageLabel + '.' : ''}`
               },
                 h('span', { className: 'wallet-pending-dot' }),
                 h('span', { className: 'wallet-pending-label' }, 'Withdrawal pending'),
@@ -19373,30 +19378,10 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                       tab === 'withdraw' && connect && connect.payoutsEnabled &&
                         h('div', { className: 'cashout-ready', title: 'Your payout account is verified — withdrawals are paid out to it.' },
                           '✓ Cash-out ready'),
-                      // Batch 799 — concrete ETA date for withdrawals. "1-2
-                      // business days" is abstract; showing an actual date
-                      // ("arrives by Mon, Apr 22") cuts the "is this stuck?"
-                      // support ticket volume. Skips weekends per Stripe's
-                      // banking-day convention.
-                      tab === 'withdraw' && (() => {
-                        const addBusinessDays = (date, n) => {
-                          const d = new Date(date);
-                          let added = 0;
-                          while (added < n) {
-                            d.setDate(d.getDate() + 1);
-                            const dow = d.getDay();
-                            if (dow !== 0 && dow !== 6) added++;
-                          }
-                          return d;
-                        };
-                        const eta = addBusinessDays(new Date(), 2);
-                        const label = eta.toLocaleDateString(undefined,
-                          { weekday: 'short', month: 'short', day: 'numeric' });
-                        return h('div', { className: 'wallet-fee-row', style: { fontSize: 11 } },
-                          h('span', null, 'Estimated arrival'),
-                          h('strong', { style: { color: 'var(--accent)' } }, 'by ' + label)
-                        );
-                      })(),
+                      // No "Estimated arrival" row: the date was today + a
+                      // hard-coded 2 business days, which no code sets (Stripe
+                      // pays the bank on its own schedule), and it showed in
+                      // test mode where nothing is sent at all.
                       h('div', { className: 'wallet-fee-row', style: { fontSize: 10, color: 'var(--text-muted)' } },
                         h('span', null,
                           // Two different truths depending on whether a fee
@@ -19410,7 +19395,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                                 : 'Test mode — simulated payout, no processor fee applied.')
                             : (tab === 'deposit'
                                 ? `This is the payment processor’s fee, passed through at cost. ${BRAND.name} adds nothing to it. Our fee is 2% when an item sells, plus optional Trade Protection a buyer can choose.`
-                                : `This is the payment processor’s payout cost, passed through at cost. Payouts arrive in 1-2 business days. ${BRAND.name} charges no withdrawal fee. Our fee is 2% when an item sells, plus optional Trade Protection a buyer can choose.`)
+                                : `This is the payment processor’s payout cost, passed through at cost. ${BRAND.name} charges no withdrawal fee. Our fee is 2% when an item sells, plus optional Trade Protection a buyer can choose.`)
                         )
                       )
                     ),
@@ -19459,7 +19444,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                             ),
                             h('div', { className: 'wallet-method-icon' }, h(MaterialIcon, { name: 'account_balance', size: 42, fill: true })),
                             h('div', { className: 'wallet-method-title' }, 'Bank Account / Stripe'),
-                            h('div', { className: 'wallet-method-sub' }, 'Payout in 1–2 business days')
+                            h('div', { className: 'wallet-method-sub' }, 'Paid out through Stripe')
                           )
                     ),
                     // Withdraw-only: the 2FA code sits under the payment-method
@@ -19528,7 +19513,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                 // window that do not exist.
                 connect && connect.simulated
                   ? 'test mode — the withdrawal completes immediately and no real money is sent.'
-                  : 'sent to your Stripe cash-out account as soon as you confirm; Stripe then pays it to your bank, usually within 1–2 business days.'
+                  : 'sent to your Stripe cash-out account as soon as you confirm. Stripe then pays it to your bank on its own payout schedule.'
               ),
               tab === 'deposit' && h('div', { className: 'wallet-note' },
                 wallet.stripeLive

@@ -99,7 +99,7 @@ class UnsubscribeController {
                                        @RequestParam(required = false) String kind) {
         def lower = (email ?: '').trim().toLowerCase()
         if (!lower || !token) {
-            return page('Missing email or token — open the link from your email again.', false)
+            return page('This unsubscribe link is incomplete or damaged. Open it again from the email.', false)
         }
         if (!emailService.verifyUnsubscribeToken(lower, token)) {
             log.warn("Unsubscribe: invalid token for email={}", EmailService.maskEmail(lower))
@@ -142,7 +142,7 @@ class UnsubscribeController {
     private ResponseEntity<String> doUnsubscribe(String email, String token, String kind) {
         def lower = (email ?: '').trim().toLowerCase()
         if (!lower || !token) {
-            return page('Missing email or token — open the link from your email again.', false)
+            return page('This unsubscribe link is incomplete or damaged. Open it again from the email.', false)
         }
         if (!emailService.verifyUnsubscribeToken(lower, token)) {
             log.warn("Unsubscribe: invalid token for email={}", EmailService.maskEmail(lower))

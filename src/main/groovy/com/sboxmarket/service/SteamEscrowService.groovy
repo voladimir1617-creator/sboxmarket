@@ -364,7 +364,7 @@ class SteamEscrowService {
             persist(row)
             log.info("SteamEscrow: deposit offer ${res.offerId} requested for listing ${listing.id} asset ${assetId}")
             safeNotifySeller(listing.sellerUserId, listing.id,
-                    "Accept the Steam trade offer from our bot to deposit your item — your listing goes live the moment we receive it.")
+                    "Accept the Steam trade offer from our bot to deposit your item — your listing goes live automatically after a safety hold once we receive it.")
         } else {
             // Persist the row WITHOUT an offer id so a later retry can
             // re-request. Listing stays held (PENDING_ESCROW) — not buyable.
@@ -1024,7 +1024,8 @@ class SteamEscrowService {
             return
         }
         safeNotifySeller(e.sellerUserId, e.listingId, until != null
-                ? "We've received your item. Steam lets any trade be reversed for a week, so your listing goes live " +
+                ? "We've received your item. We hold new deposits for a safety period in case the trade is reversed " +
+                  "in Steam, so your listing goes live " +
                   "on ${until}, automatically."
                 : "We've received your item. Steam still marks it as trade-protected, so your listing goes live " +
                   "automatically as soon as Steam lets it move.")
@@ -1532,7 +1533,7 @@ class SteamEscrowService {
                     touch(fresh)
                     log.info("SteamEscrow: deposit re-requested for listing ${fresh.listingId} (offer ${res.offerId})")
                     safeNotifySeller(fresh.sellerUserId, fresh.listingId,
-                            "Accept the Steam trade offer from our bot to deposit your item — your listing goes live the moment we receive it.")
+                            "Accept the Steam trade offer from our bot to deposit your item — your listing goes live automatically after a safety hold once we receive it.")
                 } else {
                     String why = "re-request ${res.errorCode}: ${res.message}".toString()
                     touchError(fresh, res.retryable ? why : SteamBotResult.haltNote(inputKey, why))
@@ -1637,7 +1638,7 @@ class SteamEscrowService {
                     // trade URL that was already set.
                     String err = e.lastError ?: ''
                     message = e.depositOfferId != null
-                        ? 'Waiting for you to accept our bot\'s Steam trade offer — your listing goes live the moment we receive the item.'
+                        ? 'Waiting for you to accept our bot\'s Steam trade offer — your listing goes live automatically after a safety hold once we receive the item.'
                         : err.contains('INVENTORY_ERROR')
                         ? 'Our bot couldn\'t find this item in your Steam inventory, so no trade offer was sent. If you traded or moved it, cancel this listing; otherwise we\'ll keep trying.'
                         : (!err || err.contains('trade URL'))
@@ -1646,7 +1647,8 @@ class SteamEscrowService {
                     break
                 case EscrowedItem.IN_TRADE_PROTECTION:
                     message = protectedOn != null
-                        ? "We have your item. Steam's Trade Protection lets a trade be reversed for a week, so your " +
+                        ? "We have your item. We hold new deposits for a safety period in case the trade is reversed in " +
+                          "Steam, so your " +
                           "listing goes live on ${protectedOn}, automatically."
                         : "We have your item. Steam still marks it as trade-protected, so your listing goes live " +
                           "automatically as soon as Steam lets it move."

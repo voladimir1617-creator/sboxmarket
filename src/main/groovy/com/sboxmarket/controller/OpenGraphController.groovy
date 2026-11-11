@@ -540,7 +540,7 @@ class OpenGraphController {
         ['How does depositing work?',
          "Open your Wallet, pick Deposit, enter an amount (anything from \$1 to \$10,000), and you'll be handed to Stripe's checkout page. Once the payment clears, our webhook credits your balance automatically."],
         ['How do withdrawals work?',
-         "From your Wallet, pick Withdraw and the amount. The first time, Set up cash-out links your bank or debit card through Stripe; after that every payout goes there. Your balance is debited and the payout is sent to that account right away; Stripe then pays your bank, usually within 1–2 business days. Any payout processing fee is shown as \"You receive\" before you confirm."],
+         "From your Wallet, pick Withdraw and the amount. The first time, Set up cash-out links your bank or debit card through Stripe; after that every payout goes there. Your balance is debited and the payout is sent to that account right away; Stripe then pays your bank on its own payout schedule. Any payout processing fee is shown as \"You receive\" before you confirm."],
         ['Why is SkinBox cheaper than Steam?',
          "Steam charges 12% in platform fees on Workshop sales and forces sellers into their pricing ladder. On SkinBox, sellers set whatever price they like — usually 10-30% below what the Steam store asks."],
         ['Do s&box items have wear levels?',

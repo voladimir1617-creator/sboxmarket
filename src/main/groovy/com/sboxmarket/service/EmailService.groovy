@@ -63,6 +63,12 @@ class EmailService {
     @Value('${trade.seller-response-days:3}')
     long sellerResponseDays = 3
 
+    /** Days a trade waits in PENDING_BUYER_CONFIRM before
+     *  TradeService.sweepPendingConfirm releases it. Same key the sweep reads,
+     *  so the trade emails can't drift from it. */
+    @Value('${trade.auto-release-days:8}')
+    long autoReleaseDays = 8
+
     /** HMAC secret for signed one-click unsubscribe URLs (batch 891).
      *
      *  <b>No committed fallback.</b> This used to default to the literal
@@ -472,8 +478,10 @@ Reason: ${reason ?: 'Policy violation'}
 
 What this means:
   · Your active listings have been cancelled.
-  · Open trades have been rolled back to the other party.
-  · You can't sign in to SkinBox while the suspension is in effect.
+  · Open trades have been cancelled and refunded (disputed trades, and any
+    that need a staff decision, stay with staff).
+  · You can still sign in, but your account is read-only: you can't list,
+    bid, buy, offer, trade or withdraw.
 
 If you believe this was a mistake, you can appeal by replying to this
 email${appealUrl ? ' or by visiting ' + appealUrl : ''}. Appeals are reviewed within 1-2 business days.
@@ -484,9 +492,10 @@ email${appealUrl ? ' or by visiting ' + appealUrl : ''}. Appeals are reviewed wi
     }
 
     /** Withdrawal approved — funds released to the destination. Fires
-     *  from AdminService.approveWithdrawal. Payout processors can take a
-     *  business day or two to settle so the email gives the user a
-     *  concrete reference to follow up on. */
+     *  from AdminService.approveWithdrawal (legacy PENDING rows only; new
+     *  withdrawals complete at request time). No settlement time is quoted:
+     *  no code sets one. The email gives the user a concrete reference to
+     *  follow up on. */
     void sendWithdrawalApproved(String toEmail, String displayName, BigDecimal amount, String payoutRef) {
         if (!toEmail || amount == null) return
         def subject = "Withdrawal approved · \$${amount.toPlainString()}"
@@ -497,9 +506,7 @@ Your ${usd(amount)} withdrawal has been approved and released.
 
 Payout reference: ${payoutRef ?: '(none)'}
 
-Settlement typically clears within 1-2 business days depending on your
-payout destination. You can track the transaction from Wallet →
-Transactions at any time.
+You can track the transaction from Wallet → Transactions at any time.
 
 — The SkinBox team
 """.stripIndent()
@@ -899,8 +906,9 @@ This alert cannot be disabled — security-critical events always fire.
         def body = """\
 Hi ${displayName ?: 'there'},
 
-We haven't heard from you in 8 days, so we automatically released the
-escrow on your trade for ${itemName ?: 'this item'} to the seller.
+Your trade for ${itemName ?: 'this item'} waited ${autoReleaseDays} day${autoReleaseDays == 1 ? '' : 's'} for you to confirm
+receipt or open a dispute, so we completed it automatically and released
+the escrow.
 
 If you received the item, you're done — nothing more to do.
 
@@ -1023,6 +1031,14 @@ Anti-snipe rules: a bid in the final 30 seconds extends the close by another 30 
      *  closes and the user's bid carried the auction. Charged amount
      *  is already debited from their wallet at settlement. */
     void sendAuctionWon(String toEmail, String displayName, String itemName, BigDecimal finalPrice, String itemUrl) {
+        sendAuctionWon(toEmail, displayName, itemName, finalPrice, itemUrl, true)
+    }
+
+    /** {@code hasSeller} is false for an auction of SkinBox's own stock
+     *  (listing.sellerUserId == null): TradeService.open starts that trade in
+     *  PENDING_BUYER_CONFIRM, so there is no seller and no send window. */
+    void sendAuctionWon(String toEmail, String displayName, String itemName, BigDecimal finalPrice, String itemUrl,
+                        boolean hasSeller) {
         if (!toEmail) return
         def subject = "You won · ${itemName ?: 'auction'}"
         def body = """\
@@ -1030,8 +1046,9 @@ Hi ${displayName ?: 'there'},
 
 You won the auction for ${itemName ?: 'an item'} at ${usd(finalPrice)}.
 
-The seller has been notified and has ${sellerResponseDays} day${sellerResponseDays == 1 ? '' : 's'} to send the Steam
-trade offer. If they don't, the trade cancels and you're refunded in full.
+${hasSeller
+    ? "The seller has been notified and has ${sellerResponseDays} day${sellerResponseDays == 1 ? '' : 's'} to send the Steam\ntrade offer. If they don't, the trade cancels and you're refunded in full."
+    : "This item comes from SkinBox's own stock, so there is no seller to wait on."}
 You can track the trade from
 Profile → Trades${itemUrl ? ' or open the item: ' + absUrl(itemUrl) : '.'}
 
@@ -1130,7 +1147,8 @@ Next steps:
   2. Accept the incoming offer from ${sellerName ?: 'the seller'}
   3. Come back to SkinBox and click "Confirm receipt" on the trade
 
-You have 8 days before the trade auto-releases — plenty of time:
+If you don't confirm, the trade releases to the seller automatically
+${autoReleaseDays} day${autoReleaseDays == 1 ? '' : 's'} after it was marked sent:
 ${publicUrl}/profile?tab=trades
 
 If the item doesn't match the listing or something feels off, open a dispute from the trade row.
@@ -1279,8 +1297,8 @@ notifications to stop these.
 
     /** Offer accepted — fires from OfferService.acceptOffer when the
      *  seller accepts the buyer's offer (or the buyer accepts the
-     *  seller's counter). Confirms the trade ID and the 3-day escrow
-     *  timeline so the buyer knows when their wallet hold drops if
+     *  seller's counter). Confirms the trade ID and the seller's send
+     *  window (trade.seller-response-days) so the buyer knows when their wallet hold drops if
      *  the seller goes silent. Gated on the TRADES bucket. */
     void sendOfferAccepted(String toEmail, String displayName, String itemName,
                            BigDecimal amount, Long tradeId) {
@@ -1293,9 +1311,9 @@ Your ${usd(amount)} offer on ${itemName ?: 'the listing'} was accepted.
 A trade has been opened${tradeId ? " — #${tradeId}" : ''} and ${usd(amount)} is now in escrow.
 
 What happens next:
-  · The seller has 3 days to send you the Steam trade offer.
-  · Confirm receipt in Trades to release escrow to the seller.
-  · If the seller goes silent, your wallet is auto-refunded after 3 days.
+  · The item comes to you as a Steam trade offer within ${sellerResponseDays} day${sellerResponseDays == 1 ? '' : 's'}.
+  · Confirm receipt in Trades (or accept our bot's offer) to complete the trade.
+  · If it isn't sent in time, your wallet is refunded in full automatically.
 
 Open the trade${tradeId ? " (#${tradeId})" : ''} from:
 ${publicUrl}/profile?tab=trades
@@ -1854,6 +1872,7 @@ Thanks for your patience.
         // Only a known bucket is honoured; anything else is treated as
         // ungated rather than minting a URL the controller would ignore.
         final String kind = (bucket != null && MUTABLE_EMAIL_BUCKETS.contains(bucket)) ? bucket : null
+        final boolean opsAlert = OPS_ALERT_KIND == bucket
         // Length caps applied at the boundary so every template benefits
         // without having to remember to clamp at the call site. Subject
         // first (user-visible truncation matters most), then body.
@@ -1874,7 +1893,7 @@ Thanks for your patience.
             return
         }
         if (smtpReady) {
-            def finalBody = appendFooter(safeBody, to, kind)
+            def finalBody = appendFooter(safeBody, to, kind, opsAlert)
             // Header URL only for bucketed (opt-out-able) emails; null
             // otherwise, and null when the token can't be minted.
             final String listUnsubUrl = kind ? oneClickUnsubscribeUrl(to, kind) : null
@@ -1983,7 +2002,7 @@ Thanks for your patience.
             } as Runnable)
         } else {
             log.info("[email/log-sink] to={} subject={}\n---\n{}\n---",
-                     maskEmail(to), safeSubject, appendFooter(safeBody, to, kind))
+                     maskEmail(to), safeSubject, appendFooter(safeBody, to, kind, opsAlert))
         }
     }
 
@@ -2067,8 +2086,24 @@ Thanks for your patience.
     static final String SAFETY_FOOTER_LINE =
         'SkinBox will never ask for your Steam password, Steam Guard code or Web API key.'
 
-    private String appendFooter(String body, String to = null, String kind = null) {
+    /** Passed as {@code bucket} to {@link #send} by OpsAlertService. It is
+     *  not an opt-out bucket: staff ops alerts go out through
+     *  canSendSecurityTo, which ignores email preferences and unsubscribes,
+     *  and only {@code ops.alerts.email-enabled} stops them. So these get a
+     *  footer that says that instead of the generic unsubscribe / help lines. */
+    static final String OPS_ALERT_KIND = 'OPS_ALERT'
+
+    static final String OPS_ALERT_FOOTER_LINE =
+        'Staff alert. To stop these, turn off ops.alerts.email-enabled on the server; ' +
+        'email preferences and unsubscribe links do not stop them.'
+
+    private String appendFooter(String body, String to = null, String kind = null, boolean opsAlert = false) {
         try {
+            if (opsAlert) {
+                return body + "\n\n—\n" + OPS_ALERT_FOOTER_LINE +
+                       "\n" + SAFETY_FOOTER_LINE +
+                       "\n\n© 2026 SkinBox · Not affiliated with Facepunch\n"
+            }
             def base = publicUrl ?: 'https://skinbox.market'
             if (base.endsWith('/')) base = base.substring(0, base.length() - 1)
             // Batch 891/892 — one-click unsubscribe link per recipient.

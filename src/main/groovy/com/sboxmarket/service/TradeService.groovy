@@ -722,7 +722,7 @@ class TradeService {
             NotificationService.joinActionBody(buyerBell, (botHeld
                 ? "${priceStr} held in escrow. Our bot is sending you the Steam offer."
                 : sellerUserId != null
-                ? "${priceStr} held in escrow until ${sellerName} sends the Steam offer."
+                ? "${priceStr} held in escrow. ${sellerName} has ${sellerResponseDays} days to send the Steam offer, and is paid once you confirm you have the item."
                 : "${priceStr} held in escrow until the trade settles.") as String),
             trade.id, '/profile?tab=trades')
         if (sellerUserId != null) {
@@ -731,7 +731,7 @@ class TradeService {
                 (sellerBell?.title ?: "New sale · ${itemName}") as String,
                 NotificationService.joinActionBody(sellerBell, (botHeld
                     ? "${buyerName} bought it for ${priceStr}. Our bot holds your item and is delivering it; you're paid when the buyer accepts."
-                    : "${buyerName} bought it for ${priceStr}. Accept the trade and send the Steam offer to release funds.") as String),
+                    : "${buyerName} bought it for ${priceStr}. Accept and send the Steam offer within ${sellerResponseDays} days. You're paid when the buyer confirms, or automatically ${autoReleaseDays} days after you mark it sent.") as String),
                 trade.id, '/profile?tab=trades')
             // New-sale email (batch 564). The in-app bell push is great for
             // users actively on the site, but most sellers aren't in-app
@@ -2039,7 +2039,7 @@ class TradeService {
         }
         if (!alreadyPaidByProtection) refundBuyer(trade)
         returnListingToSeller(trade)
-        trade.note = "Automatically cancelled — seller did not respond within ${sellerResponseDays} days"
+        trade.note = "Automatically cancelled — not sent within ${sellerResponseDays} days"
         trade.settledAt = System.currentTimeMillis()
         trade.cancelledBy = 'SELLER_TIMEOUT'
         transitionTo(trade, 'CANCELLED')
@@ -2049,25 +2049,26 @@ class TradeService {
         if (trade.buyerUserId != null) {
             notificationService?.safePush(trade.buyerUserId, 'TRADE_CANCELLED',
                 "Trade auto-cancelled · refund issued · ${trade.itemName ?: 'item'}".toString(),
-                "The seller did not respond in ${sellerResponseDays} days. Your wallet has been refunded.",
+                "The item was not sent within ${sellerResponseDays} days. Your wallet has been refunded.",
                 trade.id, '/profile?tab=trades')
         }
         if (trade.sellerUserId != null) {
             notificationService?.safePush(trade.sellerUserId, 'TRADE_CANCELLED',
                 "Trade auto-cancelled · ${trade.itemName ?: 'item'}",
-                "We cancelled this trade because you didn't respond in ${sellerResponseDays} days. Relist the item if you'd still like to sell.",
+                "We cancelled this trade because it wasn't sent within ${sellerResponseDays} days, and refunded the buyer.",
                 trade.id, '/profile?tab=trades')
         }
         // Auto-cancel email fan-out (batch 573). Buyer gets "your
-        // refund is back"; seller gets "relist if you still want to
-        // sell." Same gating as every other trade email.
+        // refund is back"; seller gets the cancel reason. The seller's
+        // where-to-relist line is added by EmailService.sendTradeCancelled
+        // itself (Steam tab or Platform Inventory), so the reason does not
+        // repeat it. "Wasn't sent" covers a seller who never accepted, one
+        // who accepted but never sent, and a bot that failed to deliver.
         fireTradeCancelledEmail(trade,
-            "Seller did not respond within ${sellerResponseDays} days — your wallet has been refunded.",
+            "The item was not sent within ${sellerResponseDays} days — your wallet has been refunded.",
             'buyer')
         fireTradeCancelledEmail(trade,
-            relistNeedsSteamDeposit(trade)
-                ? "You didn't respond within ${sellerResponseDays} days, so the trade was auto-cancelled. List it again from the Steam tab on the Sell page to try again."
-                : "You didn't respond within ${sellerResponseDays} days, so the trade was auto-cancelled. Relist from Sell → Platform Inventory to try again.",
+            "This trade was cancelled because it wasn't sent within ${sellerResponseDays} days, and the buyer was refunded.",
             'seller')
         auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
             "Seller-response timeout after ${sellerResponseDays}d")

@@ -31,7 +31,7 @@ class PublicEndpointsHttpSpec extends Specification {
         then:
         r.response.status == 200
         r.response.contentAsString.contains('Couldn')  // "Couldn't process"
-        r.response.contentAsString.contains('Missing email or token')
+        r.response.contentAsString.contains('This unsubscribe link is incomplete or damaged')
     }
 
     def "GET /api/unsubscribe with bad token renders expired/malformed (batch 891)"() {

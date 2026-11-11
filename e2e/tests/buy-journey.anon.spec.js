@@ -331,7 +331,7 @@ test.describe('the item page answers the buying questions', () => {
       const seller = page.locator('[data-testid="delivery-expectation-seller"]');
       // The buyer is told the wait exists BEFORE he decides, not after he pays.
       await expect(seller).toContainText(/Delivery is not instant/i);
-      await expect(seller).toContainText(/Steam trade offer by hand/i);
+      await expect(seller).toContainText(/comes to you as a Steam trade offer/i);
       // ...and told the bound on it, taken from the server.
       await expect(seller).toHaveAttribute('data-delivery-deadline', '3');
       await expect(seller).toContainText(/within\s+3\s+days/i);

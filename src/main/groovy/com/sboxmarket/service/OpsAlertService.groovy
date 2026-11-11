@@ -115,7 +115,7 @@ class OpsAlertService {
             admins.each { admin ->
                 try {
                     if (emailService.canSendSecurityTo(admin)) {
-                        emailService.send(admin.email, subject, text)
+                        emailService.send(admin.email, subject, text, EmailService.OPS_ALERT_KIND)
                         sent++
                     }
                 } catch (Exception e) {
