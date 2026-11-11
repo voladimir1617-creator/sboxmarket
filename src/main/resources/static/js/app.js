@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=380'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=381'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1987,7 +1987,7 @@ function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
             h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 42 })),
             h('div', { className: 'empty-state-title' }, "Couldn't load buy orders"),
             h('div', { className: 'empty-state-sub' }, 'This is a loading problem, not an empty market.'),
-            h('button', { className: 'btn btn-accent', onClick: () => setRetry(n => n + 1) }, 'Retry'))
+            h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.csfloat-subnav-tab'); setRetry(n => n + 1); } }, 'Retry'))
         : shown.length === 0
           ? h('div', { className: 'empty-state', 'data-testid': 'market-buy-orders-empty' },
               h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'inventory_2', size: 42 })),
@@ -3188,7 +3188,7 @@ function BackToTopButton() {
     onClick: () => {
       const layout = document.querySelector('.layout');
       // An explicit 'smooth' overrides the CSS reduced-motion rule.
-      const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+      const behavior = (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduce-motion')) ? 'auto' : 'smooth';
       if (layout && layout.scrollTop > 0) layout.scrollTo({ top: 0, behavior });
       else window.scrollTo({ top: 0, behavior });
     },

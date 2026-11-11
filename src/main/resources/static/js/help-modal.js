@@ -315,7 +315,7 @@ export function HelpModal({ onClose }) {
             document.getElementById('help-faq-q-' + i)?.focus({ preventScroll: true });
             const el = document.getElementById('help-faq-panel-' + i);
             if (el && typeof el.scrollIntoView === 'function') {
-              const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+              const reduce = (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduce-motion'));
               el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
             }
           });
