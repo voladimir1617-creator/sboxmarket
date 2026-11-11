@@ -33,18 +33,28 @@ async function asCsr(page) {
   await page.route('**/api/csr/check', (r) => r.fulfill(json({ csr: true })));
 }
 
+// Records whether the app cancelled the last click: a capture listener keeps
+// the event and reads defaultPrevented once dispatch has finished (the app may
+// stop propagation, so a bubble listener would never see it). A modifier-click the app leaves alone is what makes the
+// browser open the link in a new tab. (Asserting on the new tab itself was
+// unreliable in CI: the background tab sometimes never left about:blank.)
+async function recordClicks(page) {
+  await page.addInitScript(() => {
+    window.__clickPrevented = null;
+    window.addEventListener('click', (e) => { setTimeout(() => { window.__clickPrevented = e.defaultPrevented; }, 0); }, true);
+  });
+}
+
 test.describe('database item links', () => {
-  test('Ctrl/Cmd-click on an item name opens it in a new tab and leaves the Database in place (real app)', async ({ page, context }) => {
+  test('Ctrl/Cmd-click on an item name opens it in a new tab and leaves the Database in place (real app)', async ({ page }) => {
     await realApi(page, 0);
+    await recordClicks(page);
     await page.goto('/db');
     const link = page.locator('a.db-name').first();
     await expect(link).toBeVisible();
-    const href = await link.getAttribute('href');
-    const popup = context.waitForEvent('page', { timeout: 5000 });
+    expect(await link.getAttribute('href')).toMatch(/^\/item\/\d+/);
     await link.click({ modifiers: ['ControlOrMeta'] });
-    const tab = await popup;
-    // A new tab starts at about:blank; wait for it to reach its URL.
-    await expect.poll(() => { try { return new URL(tab.url()).pathname; } catch (_) { return ''; } }).toBe(href);
+    await expect.poll(() => page.evaluate(() => window.__clickPrevented)).toBe(false);
     await expect(page).toHaveURL(/\/db(\?|$)/);
     await expect(page.getByRole('status').filter({ hasText: /results? · page/ })).toBeVisible();
   });
@@ -172,16 +182,15 @@ test.describe('My Stall cancel all', () => {
 });
 
 test.describe('help center contact link', () => {
-  test('Ctrl/Cmd-click on "Open a ticket" opens Support in a new tab (real app)', async ({ page, context }) => {
+  test('Ctrl/Cmd-click on "Open a ticket" opens Support in a new tab (real app)', async ({ page }) => {
     await realApi(page, 0);
+    await recordClicks(page);
     await page.goto('/help?q=zzqqxx');
     const link = page.getByRole('link', { name: /Open a ticket/ });
     await expect(link).toBeVisible();
-    const popup = context.waitForEvent('page', { timeout: 5000 });
+    expect(new URL(await link.getAttribute('href'), 'http://x').pathname).toBe('/support');
     await link.click({ modifiers: ['ControlOrMeta'] });
-    const tab = await popup;
-    // A new tab starts at about:blank; wait for it to reach its URL.
-    await expect.poll(() => { try { return new URL(tab.url()).pathname; } catch (_) { return ''; } }).toBe('/support');
+    await expect.poll(() => page.evaluate(() => window.__clickPrevented)).toBe(false);
     await expect(page).toHaveURL(/\/help/);
   });
 });
