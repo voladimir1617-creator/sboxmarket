@@ -229,4 +229,10 @@ class Listing {
      *  deterministic-seed pattern shipped before V61. Not persisted. */
     @Transient
     Long sellerLastSeenAt
+
+    /** True when the seller has Anonymous shop on and this payload was
+     *  masked for a public viewer (AnonymousShopService): the name is a
+     *  neutral label and `sellerUserId` is 0. Null otherwise. Not persisted. */
+    @Transient
+    Boolean sellerAnonymous
 }

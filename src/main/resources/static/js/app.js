@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=378'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=379'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -9594,11 +9594,13 @@ export function App() {
                 fetchPublicStall(route.params.id, { fresh: true }).then(s => { if (s && !s.__error) setStallData(s); });
               }
             }),
-            stallData.count === 0
-              ? h('div', { className: 'empty-inline' },
+            (stallData.count === 0 || stallData.anonymousShop)
+              ? h('div', { className: 'empty-inline', 'data-testid': stallData.anonymousShop ? 'stall-anonymous' : undefined },
                   h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: stallData.away ? 'beach_access' : 'inventory_2', size: 26 })),
                   h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 } },
-                    stallData.away
+                    stallData.anonymousShop
+                      ? 'This seller lists anonymously: their listings are on the marketplace under “Anonymous seller”, not on this page.'
+                      : stallData.away
                       ? 'The seller will be back soon — check back later or watchlist one of their items.'
                       : 'This seller has no active listings right now.'),
                   // Batch 900 — concrete CTAs on the empty stall.

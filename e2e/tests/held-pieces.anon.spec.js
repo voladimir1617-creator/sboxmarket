@@ -129,3 +129,41 @@ test.describe('market buy orders board', () => {
     }
   });
 });
+
+// ── Anonymous shop ───────────────────────────────────────────────────────
+// Real API: a seller turns it on, a visitor's item page shows the neutral
+// label with no stall link, the seller's stall says why it lists nothing.
+test.describe('anonymous shop', () => {
+  test('a seller with Anonymous shop on is not named on their listings', async ({ page, playwright, baseURL }) => {
+    const anonCtx = await playwright.request.newContext({ baseURL });
+    const rows = await (await anonCtx.get('/api/listings')).json();
+    const target = rows.find((l) => l.sellerUserId && l.item && l.listingType !== 'AUCTION');
+    test.skip(!target, 'no seller listing in the demo data');
+    const sellerName = target.sellerName;
+
+    const seller = await playwright.request.newContext({ baseURL });
+    await seller.get(`/api/auth/steam/dev-login?userId=${target.sellerUserId}&next=/`, { maxRedirects: 0 });
+    const csrf = (await seller.storageState()).cookies.find((c) => c.name === 'sbox_csrf')?.value || '';
+    const put = (enabled) => seller.put('/api/profile/anonymous-shop', { headers: { 'X-CSRF-Token': csrf }, data: { enabled } });
+    expect((await (await put(true)).json()).anonymousShop).toBe(true);
+    try {
+      const masked = (await (await anonCtx.get(`/api/listings/item/${target.item.id}`)).json()).find((l) => l.id === target.id);
+      expect(masked).toMatchObject({ sellerName: 'Anonymous seller', sellerUserId: 0, sellerAnonymous: true, sellerAvatar: null });
+
+      await page.goto(`/item/${target.item.id}`);
+      const list = page.locator('.modal-listings');
+      await expect(list.getByText('Anonymous seller')).toBeVisible({ timeout: 15_000 });
+      await expect(list.locator(`a[href="/stall/${target.sellerUserId}"]`)).toHaveCount(0);
+
+      await page.goto(`/stall/${target.sellerUserId}`);
+      await expect(page.getByTestId('stall-anonymous')).toContainText('This seller lists anonymously', { timeout: 15_000 });
+      // Their own view still names them.
+      const own = (await (await seller.get(`/api/listings/item/${target.item.id}`)).json()).find((l) => l.id === target.id);
+      expect(own.sellerName).toBe(sellerName);
+    } finally {
+      await put(false);
+    }
+    const back = (await (await anonCtx.get(`/api/listings/item/${target.item.id}`)).json()).find((l) => l.id === target.id);
+    expect(back.sellerName).toBe(sellerName);
+  });
+});
