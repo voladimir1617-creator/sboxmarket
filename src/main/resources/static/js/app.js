@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=381'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=382'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1104,7 +1104,10 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
       : (i <= 0 ? opts.length - 1 : i - 1);
     opts[next].focus();
   };
-  return h('div', { className: 'nav-picker' + (open ? ' open' : ''), ref, onKeyDown: onListKey },
+  return h('div', { className: 'nav-picker' + (open ? ' open' : ''), ref, onKeyDown: onListKey,
+    // Tabbing out must close the panel (as the cart preview does), or it stays
+    // over the page and its Escape handler takes focus from the next menu.
+    onBlur: (e) => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setOpen(false); } },
     h('button', {
       type: 'button',
       className: 'nav-picker-chip',
@@ -1231,7 +1234,10 @@ function SortPicker({ value, options, onChange }) {
       : (i <= 0 ? opts.length - 1 : i - 1);
     opts[next].focus();
   };
-  return h('div', { className: 'sort-picker' + (open ? ' open' : ''), ref, onKeyDown: onListKey },
+  return h('div', { className: 'sort-picker' + (open ? ' open' : ''), ref, onKeyDown: onListKey,
+    // Tabbing out must close the panel (as the cart preview does), or it stays
+    // over the page and its Escape handler takes focus from the next menu.
+    onBlur: (e) => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setOpen(false); } },
     h('button', {
       type: 'button',
       className: 'sort-picker-chip',
@@ -9173,7 +9179,7 @@ export function App() {
     routeName === 'stall' && h(InfoModal, {
       title: stallData?.seller?.displayName
         ? `${stallData.seller.displayName}'s Stall`
-        : 'Stall',
+        : stallData?.__notFound ? 'Stall not found' : 'Stall',
       onClose: () => closeToPrevious(paths.market())
     },
       stallData === null
