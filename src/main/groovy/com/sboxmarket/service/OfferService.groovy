@@ -56,6 +56,9 @@ class OfferService {
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
     @Autowired(required = false) ReviewService reviewService
+    /** Anonymous shop: an offer is not a trade, so a buyer's offer views
+     *  must not name an anonymous seller. Absent in hand-built unit specs. */
+    @Autowired(required = false) AnonymousShopService anonymousShopService
     @Autowired(required = false) @org.springframework.context.annotation.Lazy SteamBotReconcileService steamBotReconcileService
     /** Optional in unit specs that build OfferService directly (no Spring
      *  context); wired in production. Used by `tryAutoAccept` to run the
@@ -784,6 +787,9 @@ class OfferService {
         def listing = listingRepository.findById(listingId).orElse(null)
         def isSeller = listing != null && listing.sellerUserId != null && listing.sellerUserId == viewerUserId
         if (isSeller) return all
+        // Anonymous shop: the thread is public and loads on the item page,
+        // so it must not carry the seller's id (it would name the shop).
+        boolean anonSeller = listing?.sellerUserId != null && anonymousShopService?.isAnonymous(listing.sellerUserId)
 
         // A buyer sees their own rows in full and everyone else's redacted.
         // This used to return `all` to anyone with ANY offer on the listing
@@ -797,7 +803,11 @@ class OfferService {
         def handles = [:]
         int next = 0
         all.collect { o ->
-            if (viewerUserId != null && o.buyerUserId == viewerUserId) return o
+            if (viewerUserId != null && o.buyerUserId == viewerUserId) {
+                // Detached (no transaction here, open-in-view off): not written back.
+                if (anonSeller) o.sellerUserId = AnonymousShopService.MASKED_SELLER_ID
+                return o
+            }
             def handle = handles[o.buyerUserId]
             if (handle == null) {
                 handle = "Buyer #${++next}".toString()
@@ -807,7 +817,7 @@ class OfferService {
                 id:            o.id,
                 listingId:     o.listingId,
                 buyerUserId:   null,
-                sellerUserId:  o.sellerUserId,
+                sellerUserId:  anonSeller ? AnonymousShopService.MASKED_SELLER_ID : o.sellerUserId,
                 amount:        o.amount,
                 askingPrice:   o.askingPrice,
                 buyerName:     handle,
@@ -1512,10 +1522,17 @@ class OfferService {
                 }
             }
         }
+        // Anonymous shop: an open offer is not a trade, so the buyer's list
+        // does not name (or number) an anonymous seller.
+        Set<Long> anonSellers = (sellerIds && anonymousShopService != null)
+            ? anonymousShopService.anonymousAmong(sellerIds) : ([] as Set<Long>)
         offers.collect { o ->
             def m = toMap(o)
             def sid = o.sellerUserId
-            if (sid != null) {
+            if (sid != null && anonSellers.contains(sid)) {
+                m.sellerUserId = AnonymousShopService.MASKED_SELLER_ID
+                m.sellerAnonymous = true
+            } else if (sid != null) {
                 m.sellerName = sellerNames[sid]
                 def s = summaries[sid]
                 m.sellerReviewCount = (s?.count ?: 0L) as Long

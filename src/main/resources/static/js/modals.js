@@ -5233,7 +5233,7 @@ function EmailPrefToggle({ initial, onChange }) {
 
 // "Anonymous shop" switch: same toggle-switch as the email preference,
 // optimistic, reverted when the server refuses.
-function AnonymousShopToggle({ initial }) {
+function AnonymousShopToggle({ initial, onSaved }) {
   const [on, setOn] = useState(initial === true);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (!busy && typeof initial === 'boolean') setOn(initial); }, [initial]);
@@ -5250,6 +5250,9 @@ function AnonymousShopToggle({ initial }) {
         setOn(!next);
       } else {
         toast(next ? 'Anonymous shop on: your listings no longer show your name.' : 'Anonymous shop off: your listings show your name again.', 'ok');
+        // Refresh the profile snapshot: the tab re-mounts from it, so a stale
+        // one showed the old setting after switching tabs and back.
+        try { onSaved && onSaved(); } catch (_) {}
       }
     } catch (_) {
       toast('Network error updating Anonymous shop', 'err');
@@ -6932,7 +6935,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Anonymous shop'),
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 } },
-        h(AnonymousShopToggle, { initial: profile?.user?.anonymousShop === true }),
+        h(AnonymousShopToggle, { initial: profile?.user?.anonymousShop === true, onSaved: refreshProfile }),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 } },
           'Your listings show as “Anonymous seller” on the market and item pages, with no avatar or stall link, and your stall stops listing them. Buyers you trade with, and SkinBox staff, still see your name on the trade.')
       )

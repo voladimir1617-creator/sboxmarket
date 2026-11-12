@@ -43,6 +43,19 @@ const row = (id, name, rarity = 'Standard') => ({
   tradable: true, marketable: true, category: 'Hats', rarity, catalogueId: 3,
   suggestedPrice: 6, steamPrice: null, listedCount: 0, listableQuantity: 1, unlistableReason: null,
 });
+// Listing needs a trade URL on the account, or the server refuses with TRADE_URL_MISSING
+// before it ever looks at the inventory. Save the signed-in user's own (partner = their
+// steamId64 - 76561197960265728) so these tests do not depend on another spec leaving one.
+async function ownTradeUrl(page) {
+  const me = await (await page.request.get(`${JAR}/api/auth/steam/me`)).json();
+  const csrf = ((await page.context().cookies(JAR)).find(c => c.name === 'sbox_csrf') || {}).value;
+  const partner = (BigInt(me.steamId64) - 76561197960265728n).toString();
+  const res = await page.request.put(`${JAR}/api/profile/trade-url`, {
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+    data: { tradeUrl: `https://steamcommunity.com/tradeoffer/new/?partner=${partner}&token=abcDEF12` },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+}
 async function inventory(page, rows) {
   await page.route('**/api/steam/inventory', (r) => r.fulfill(json({
     items: rows, count: rows.length, assetCount: rows.length, lastSyncedAt: Date.now(), steamId64: '7656',
@@ -53,6 +66,7 @@ test.describe('Sell: a refused listing keeps keyboard focus', () => {
   test('List for Sale keeps focus when the server refuses the listing (real app)', async ({ page }) => {
     await prefs(page);
     await realApi(page, 3);
+    await ownTradeUrl(page);
     await inventory(page, [row('110001', 'Alpha Hat')]);
     await page.goto('/sell');
     await page.getByRole('button', { name: 'List Alpha Hat for sale' }).click();
@@ -67,6 +81,7 @@ test.describe('Sell: a refused listing keeps keyboard focus', () => {
   test('the bulk List button keeps focus when every item is refused (real app)', async ({ page }) => {
     await prefs(page);
     await realApi(page, 3);
+    await ownTradeUrl(page);
     await inventory(page, [row('110011', 'Alpha Hat'), row('110012', 'Beta Hat')]);
     await page.goto('/sell');
     for (const n of ['Alpha Hat', 'Beta Hat']) {
@@ -83,6 +98,7 @@ test.describe('Sell: a refused listing keeps keyboard focus', () => {
   test('Quick Sell keeps focus when the server refuses it (real app)', async ({ page }) => {
     await prefs(page);
     await realApi(page, 3);
+    await ownTradeUrl(page);
     await inventory(page, [row('110021', 'Alpha Hat')]);
     // A standing buy order for the row's catalogue item, so the row offers Quick Sell.
     await page.route('**/api/buy-orders/count/bulk*', (r) => r.fulfill(json({ 3: { count: 1, bestBid: 4.5 } })));

@@ -35,6 +35,9 @@ class SellerFollowService {
     @Autowired(required = false) NotificationRepository notificationRepository
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) UserBlockService userBlockService
+    /** Anonymous shop: a follow must not tie the hidden-name listings back
+     *  to their seller (the stall doesn't either). Absent in unit specs. */
+    @Autowired(required = false) AnonymousShopService anonymousShopService
 
     /** 200-follow cap per user — protects the fanout and keeps the
      *  profile tab scannable. */
@@ -237,6 +240,13 @@ class SellerFollowService {
         if (followerUserId == null) return []
         def sellerIds = repo.findSellerIdsByFollower(followerUserId)
         if (sellerIds == null || sellerIds.isEmpty()) return []
+        // An anonymous shop's listings aren't grouped under it anywhere
+        // public; following it mustn't list them by name either.
+        if (anonymousShopService != null) {
+            def anon = anonymousShopService.anonymousAmong(sellerIds)
+            if (!anon.isEmpty()) sellerIds = sellerIds.findAll { !anon.contains(it) }
+            if (sellerIds.isEmpty()) return []
+        }
         int cap = Math.max(1, Math.min(limit, 50))
         listingRepository.findActiveVisibleBySellerIds(
             sellerIds,
@@ -272,6 +282,8 @@ class SellerFollowService {
         // hidden one can't be bought yet. SteamEscrowService calls this
         // again when the deposit lands and the listing goes ACTIVE.
         if (listing.status != 'ACTIVE' || Boolean.TRUE.equals(listing.hidden)) return
+        // "<seller> just listed <item>" would name an anonymous shop's listing.
+        if (anonymousShopService?.isAnonymous(listing.sellerUserId)) return
         def followers = repo.findBySellerUserId(listing.sellerUserId)
         if (followers.isEmpty()) return
         def sellerName = listing.sellerName ?: 'A seller you follow'
