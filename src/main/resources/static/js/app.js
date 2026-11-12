@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=384'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=385'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -277,7 +277,7 @@ function StaffAccessDeniedModal({ what, onClose }) {
           href: '/support',
           // navigate() alone: onClose pushes /market first, so Back would skip
           // this page.
-          onClick: (e) => { e.preventDefault(); navigate(paths.support()); },
+          onClick: followInternalLink,
           style: { color: 'var(--accent)' }
         }, 'Support'),
         '.'
@@ -2946,9 +2946,11 @@ function RecentlyViewedRail({ watchlist, onToggleStar, currentItemId }) {
         href: paths.item(it.id),
         className: 'recently-viewed-card'
       },
-        h('div', { className: 'recently-viewed-thumb' },
+        // Hidden from screen readers: the card's name text follows. ItemImage
+        // shows the category glyph when the image fails to load.
+        h('div', { className: 'recently-viewed-thumb', 'aria-hidden': 'true' },
           it.imageUrl
-            ? h('img', { src: it.imageUrl, alt: it.name, loading: 'lazy' })
+            ? h(ItemImage, { item: it, variant: 'thumb' })
             : h('div', { className: 'recently-viewed-glyph', style: { color: 'var(--ink-3)' } },
                 ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[it.category] || '—')
         ),
@@ -7590,7 +7592,7 @@ export function App() {
             h('a', {
               className: 'csfloat-home-hero-cta primary',
               href: '/market',
-              onClick: (e) => { e.preventDefault(); navigate('/market'); }
+              onClick: followInternalLink
             },
               h(MaterialIcon, { name: 'storefront', size: 18 }),
               ' Marketplace'
@@ -7598,7 +7600,7 @@ export function App() {
             h('a', {
               className: 'csfloat-home-hero-cta secondary',
               href: '/db',
-              onClick: (e) => { e.preventDefault(); navigate('/db'); }
+              onClick: followInternalLink
             },
               h(MaterialIcon, { name: 'database', size: 18 }),
               ' Database'
@@ -7631,7 +7633,7 @@ export function App() {
               top ? h('a', {
                 className: 'csfloat-home-hero-feature',
                 href: '/item/' + top.item.id,
-                onClick: (e) => { e.preventDefault(); navigate('/item/' + top.item.id); },
+                onClick: followInternalLink,
                 'aria-label': `Open ${top.item.name} detail page`
               },
                 h('div', { className: 'csfloat-home-hero-feature-card stack-front' },
@@ -7781,13 +7783,13 @@ export function App() {
             // affordance. Hover-underline is enough signal.
             className: 'csfloat-home-rail-tab',
             href: tab.href,
-            onClick: (e) => { e.preventDefault(); navigate(tab.href); }
+            onClick: followInternalLink
           }, tab.label))
         ),
         h('a', {
           className: 'csfloat-home-rail-cta',
           href: paths.market(),
-          onClick: (e) => { e.preventDefault(); navigate(paths.market()); }
+          onClick: followInternalLink
         }, 'Visit Marketplace ',
           h('span', { className: 'csfloat-home-rail-arrow', 'aria-hidden': 'true' }, '→')
         )
@@ -7808,7 +7810,7 @@ export function App() {
                  : 'Be the first to list an item — sign in through Steam, then put one of your skins up for grabs.'),
             h('div', { className: 'empty-state-actions' },
               me
-                ? h('a', { className: 'btn btn-accent', href: paths.sell(), onClick: (e) => { e.preventDefault(); navigate(paths.sell()); } }, 'Sell Items')
+                ? h('a', { className: 'btn btn-accent', href: paths.sell(), onClick: followInternalLink }, 'Sell Items')
                 : h('button', { className: 'btn btn-accent', onClick: () => signInWithSteam() }, 'Sign in through Steam')
             )
           )
@@ -7862,7 +7864,7 @@ export function App() {
           (homeFeatured.length > 0 || listings.length > 0) && h('a', {
             className: 'csfloat-home-preview-tail',
             href: paths.market(),
-            onClick: (e) => { e.preventDefault(); navigate(paths.market()); }
+            onClick: followInternalLink
           },
             h('span', { className: 'csfloat-home-preview-tail-arrow', 'aria-hidden': 'true' }, '→'),
             h('span', { className: 'csfloat-home-preview-tail-text' },
@@ -7974,7 +7976,7 @@ export function App() {
         h('a', {
           className: 'csfloat-home-faq-more',
           href: paths.faq(),
-          onClick: (e) => { e.preventDefault(); navigate(paths.faq()); },
+          onClick: followInternalLink,
           style: {
             display: 'inline-flex', alignItems: 'center', gap: 6,
             marginTop: 18, fontSize: 13, fontWeight: 600,
@@ -9061,7 +9063,7 @@ export function App() {
           h('a', {
             className: 'csfloat-home-sales-link',
             href: paths.market(),
-            onClick: (e) => { e.preventDefault(); navigate(paths.market()); }
+            onClick: followInternalLink
           }, 'Browse all →')
         ),
         h('div', { className: 'csfloat-home-sales-row' },
@@ -9069,7 +9071,7 @@ export function App() {
             key: s.listing && s.listing.id != null ? ('rs-' + s.listing.id) : ('rs-i-' + i),
             className: 'csfloat-home-sales-card',
             href: s.listing.item.id ? ('/item/' + s.listing.item.id) : '#',
-            onClick: s.listing.item.id ? ((e) => { e.preventDefault(); navigate('/item/' + s.listing.item.id); }) : undefined
+            onClick: s.listing.item.id ? followInternalLink : undefined
           },
             h('div', { className: 'csfloat-home-sales-card-img' },
               h(ItemImage, { item: s.listing.item, variant: 'card' })
@@ -10283,7 +10285,7 @@ export function App() {
                 h('a', {
                   className: 'csfloat-empty-cart-rail-link',
                   href: '/market',
-                  onClick: (e) => { e.preventDefault(); navigate('/market'); }
+                  onClick: followInternalLink
                 }, 'Browse all →')
               ),
               h('div', { className: 'csfloat-empty-cart-rail-grid' },

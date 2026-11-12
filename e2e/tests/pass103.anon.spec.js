@@ -68,7 +68,8 @@ test.describe('pass 103 · thumbnails do not repeat the item name', () => {
     const card = page.locator('.recently-viewed-card').first();
     await card.scrollIntoViewIfNeeded();
     await expect(card).toBeInViewport();
-    await expect(card.locator('img')).toHaveCount(1);
+    // The thumb (image, or the glyph standing in for a failed one) is hidden; the name is read once.
+    await expect(card.locator('.recently-viewed-thumb')).toHaveAttribute('aria-hidden', 'true');
     await expect(card).toHaveAccessibleName(/^Pass Hat 2 \$2\.00$/);
   });
 });
