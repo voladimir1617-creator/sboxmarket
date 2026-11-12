@@ -3050,12 +3050,13 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               key: it.id,
               href: '/item/' + it.id,
               className: 'recently-viewed-card',
-              onClick: (e) => { e.preventDefault(); navigate('/item/' + it.id); }
+              onClick: followInternalLink
             },
-              h('div', { className: 'recently-viewed-thumb' },
+              // Hidden from screen readers: the card's name text follows. ItemImage
+              // shows the category glyph when the image fails to load.
+              h('div', { className: 'recently-viewed-thumb', 'aria-hidden': 'true' },
                 it.imageUrl
-                  // alt '': the card's name text follows; the link read it twice.
-                  ? h('img', { src: it.imageUrl, alt: '', loading: 'lazy' })
+                  ? h(ItemImage, { item: it, variant: 'thumb' })
                   : h('div', { className: 'recently-viewed-glyph', style: { color: 'var(--ink-3)' } },
                       ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[it.category] || '—')
               ),
@@ -4061,7 +4062,7 @@ export function FaqModal({ onClose }) {
       h('span', null, "Can't find an answer?"),
       h('a', {
         href: '/support',
-        onClick: (e) => { e.preventDefault(); navigate('/support'); }
+        onClick: followInternalLink
       }, 'Open a support ticket →')
     ),
     ENTRIES.length > 4 && h('input', {
@@ -4123,7 +4124,7 @@ export function FaqModal({ onClose }) {
               href: '/support',
               className: 'btn btn-accent',
               style: { padding: '8px 14px', fontSize: 12 },
-              onClick: (e) => { e.preventDefault(); navigate('/support'); }
+              onClick: followInternalLink
             }, 'Open a ticket →')
           )
         )
@@ -4146,7 +4147,7 @@ export function FaqModal({ onClose }) {
         href: '/support',
         className: 'btn btn-accent',
         style: { padding: '8px 14px', fontSize: 12 },
-        onClick: (e) => { e.preventDefault(); navigate('/support'); }
+        onClick: followInternalLink
       }, 'Open a ticket →')
     )
   );
@@ -9324,14 +9325,8 @@ function ProfileTradesTab({ me, privacy }) {
                 marginRight: 10, overflow: 'hidden'
               }
             }, t.itemImageUrl
-              ? h('img', {
-                  src: t.itemImageUrl, alt: '', loading: 'lazy',
-                  // Steam CDN 403s hotlinked requests — strip referrer so it loads;
-                  // hide a genuinely broken img instead of the broken-image glyph.
-                  referrerPolicy: 'no-referrer',
-                  onError: (e) => { e.currentTarget.style.display = 'none'; },
-                  style: { width: '100%', height: '100%', objectFit: 'contain' }
-                })
+              // ItemImage swaps a broken image for the item glyph; hiding it left an empty tile.
+              ? h(ItemImage, { item: { name: t.itemName, imageUrl: t.itemImageUrl }, variant: 'mini' })
               : h(MaterialIcon, { name: 'inventory_2', size: 24, color: accent }));
             return h('div', { key: t.id, id: 'trade-' + t.id, className: `trade-row ${(t.state || '').toLowerCase()}` },
               h('div', { className: 'trade-main' },
@@ -10685,9 +10680,10 @@ function ProfileOffersTab() {
     // price block carried `.offer-price` -- the struck-through "was" price
     // style -- so the offer itself read as crossed out.
     return h('div', { key: o.id, className: 'offer-row' },
-      h('div', { className: 'item-thumb', style: { width: 48, height: 48 } },
+      h('div', { className: 'item-thumb', 'aria-hidden': 'true', style: { width: 48, height: 48 } },
         o.itemImageUrl
-          ? h('img', { src: o.itemImageUrl, alt: '', loading: 'lazy', decoding: 'async', referrerPolicy: 'no-referrer', onError: (e) => { e.currentTarget.style.display = 'none'; } })
+          // ItemImage swaps a broken image for the item glyph; hiding it left an empty tile.
+          ? h(ItemImage, { item: { name: o.itemName, imageUrl: o.itemImageUrl }, variant: 'mini' })
           : h('span', null, '—')),
       h('div', { className: 'offer-body' },
         // Tiny thread chain indicator if this row is a counter or was countered
@@ -15259,7 +15255,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             h('button', {
               className: 'btn btn-accent',
               style: { padding: '6px 14px', fontSize: 12 },
-              disabled: bulkAdjustBusy || !previewValid || buyNowCount === 0,
+              // aria-disabled while saving keeps keyboard focus here when it fails; submitBulkAdjust ignores clicks then.
+              disabled: !previewValid || buyNowCount === 0,
+              'aria-disabled': bulkAdjustBusy || undefined,
               onClick: submitBulkAdjust
             }, bulkAdjustBusy ? 'Applying…' : (previewValid ? (pctNum > 0 ? `+${pctNum}% to ${buyNowCount}` : `${pctNum}% to ${buyNowCount}`) : 'Apply'))
           )
@@ -15841,7 +15839,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 style: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'subgrid', padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
               },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
-                  row.imageUrl && h('img', { src: row.imageUrl, alt: '', style: { width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' } }),
+                  // A failed image falls back to the category glyph, not a broken-image box.
+                  row.imageUrl && h('div', { className: 'item-thumb', 'aria-hidden': 'true', style: { width: 32, height: 32, flex: '0 0 auto' } },
+                    h(ItemImage, { item: { name: row.itemName, imageUrl: row.imageUrl, category: row.category }, variant: 'mini' })),
                   h('div', { style: { minWidth: 0, overflow: 'hidden', textAlign: 'left' } },
                     // Name wraps: on a phone the column is ~80px and an ellipsis left
                     // "Scienti…" for both Scientist Gloves and Scientist Respirator.
@@ -16486,7 +16486,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },
                         title: 'Cancel listing',
                         'aria-label': `Cancel listing for ${l.item?.name || 'listing #' + l.id}`,
-                        disabled: cancellingIds.includes(l.id),
+                        // aria-disabled keeps focus here if the cancel is refused; doCancel ignores repeat clicks.
+                        'aria-disabled': cancellingIds.includes(l.id) || undefined,
                         onClick: () => { markLeaving(l.id, 'cancel'); doCancel(l); }
                       }, '✕')
                 )
@@ -16714,7 +16715,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     // item page — without it the modal stays mounted on top.
     const itemHref = offer.itemId ? `/item/${offer.itemId}` : null;
     const thumbInner = offer.itemImageUrl
-      ? h('img', { src: offer.itemImageUrl, alt: offer.itemName, loading: 'lazy', decoding: 'async', referrerPolicy: 'no-referrer', onError: (e) => { e.currentTarget.style.display = 'none'; } })
+      // ItemImage swaps a broken image for the item glyph; hiding it left an empty tile.
+      ? h(ItemImage, { item: { name: offer.itemName, imageUrl: offer.itemImageUrl }, variant: 'mini' })
       : h('span', null, '—');
     return h('div', { key: offer.id, className: 'offer-row' },
       itemHref
