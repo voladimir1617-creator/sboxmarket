@@ -712,7 +712,13 @@ export function NotificationBell({ me }) {
       items.length === 0
         ? (me
             ? h('div', { className: 'notif-empty', role: fullState === 'error' ? 'alert' : undefined },
-                fullState === 'ok' ? "You're all caught up." : fullState === 'error' ? "Couldn't load notifications." : 'Loading…')
+                fullState === 'ok' ? "You're all caught up." : fullState === 'error' ? "Couldn't load notifications." : 'Loading…',
+                // Retry leaves with the error; focus goes back to the bell.
+                fullState === 'error' && h('div', null, h('button', {
+                  className: 'btn btn-ghost',
+                  style: { marginTop: 8, border: '1px solid var(--border)', padding: '4px 12px', fontSize: 12 },
+                  onClick: () => { wrapRef.current?.querySelector('button')?.focus(); setFullState('idle'); loadFull(); }
+                }, 'Retry')))
             : h('div', { className: 'notif-empty', style: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', padding: '14px 12px' } },
                 h('div', { style: { fontSize: 12, color: 'var(--text-secondary)' } },
                   'Sign in with Steam to see your notifications.'),
