@@ -8227,7 +8227,14 @@ export function App() {
             })
           )
         ),
-        h('button', { className: 'btn-clear', onClick: clearFilters, disabled: !filtersActive, 'data-testid': 'sidebar-clear-filters' }, 'Clear Filters'),
+        h('button', { className: 'btn-clear', disabled: !filtersActive, 'data-testid': 'sidebar-clear-filters',
+          // The button greys out once cleared, which drops focus to <body>;
+          // land on the first shown filter group's "All" option instead.
+          onClick: (e) => {
+            const all = Array.prototype.find.call(e.currentTarget.parentElement.querySelectorAll('[role="radio"]'), el => el.getClientRects().length > 0);
+            clearFilters();
+            all?.focus();
+          } }, 'Clear Filters'),
         // Batch 766 — "Copy filtered URL" lets a user share the current
         // filter/sort/price-range snapshot (e.g. "hats under $10, sorted
         // by newest"). The URL already reflects active filters via
