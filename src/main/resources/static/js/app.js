@@ -3076,6 +3076,9 @@ function RecentlyViewedPills({ kind, privacy }) {
         },
           it.imageUrl && h('img', {
             src: it.imageUrl, alt: '',
+            // Steam's CDN refuses hotlinks with a referrer; a dead image goes, the name follows.
+            referrerPolicy: 'no-referrer',
+            onError: (e) => { e.currentTarget.style.display = 'none'; },
             style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
           }),
           h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
@@ -8479,7 +8482,8 @@ export function App() {
               },
                 h('div', { className: 'search-suggest-thumb' },
                   item.imageUrl
-                    ? h('img', { src: item.imageUrl, alt: '', loading: 'lazy' })
+                    // ItemImage swaps a broken image for the item glyph; a bare img left an empty box.
+                    ? h(ItemImage, { item, alt: '', variant: 'mini' })
                     : h('span', { style: { color: 'var(--ink-3)' } }, ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[item.category] || '—')
                 ),
                 h('div', { className: 'search-suggest-body' },
@@ -11254,7 +11258,7 @@ export function App() {
       h('a', {
         className: 'btn btn-accent cart-tray-checkout',
         href: '/cart',
-        onClick: (e) => { e.preventDefault(); navigate('/cart'); }
+        onClick: followInternalLink
       }, 'Checkout')
     ),
 
