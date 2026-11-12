@@ -11547,6 +11547,13 @@ html body .empty-state.is-error .empty-state-title,
 html body .empty-state[data-state="error"] .empty-state-title {
   color: var(--warn) !important;
 }
+/* The generic [class*="empty"] panel fill also lands on each row inside, which
+   drew a dark slab behind the title, the text and the Retry row on the tint. */
+html body .empty-state:has([data-testid$="load-error"]) > *,
+html body .empty-state.is-error > *,
+html body .empty-state[data-state="error"] > * {
+  background-color: transparent !important;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    A CONTROL THAT TAKES FOCUS MUST SHOW IT.
