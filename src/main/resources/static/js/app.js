@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=385'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=386'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -306,6 +306,13 @@ function StaffAccessDeniedModal({ what, onClose }) {
 // textarea. 300-char cap mirrors the service-layer sanitiser.
 // Stall review ids with a reply or delete in flight; busy lags a re-render.
 const stallReviewInFlight = new Set();
+// Text sent on an expired session is kept for the tab: signing back in is a
+// full Steam redirect, and the signed-out stall unmounts the form anyway.
+function keepUnsent(key, val) { try { sessionStorage.setItem(key, JSON.stringify(val)); } catch (_) {} }
+function keptUnsent(key, match) {
+  try { const v = JSON.parse(sessionStorage.getItem(key) || 'null'); return v && match(v) ? v : null; } catch (_) { return null; }
+}
+function dropUnsent(key) { try { sessionStorage.removeItem(key); } catch (_) {} }
 // Market toolbar Refresh in flight.
 const refreshInFlight = new Set();
 function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
@@ -313,6 +320,11 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
+  useEffect(() => {
+    if (!isOwner) return;
+    const kept = keptUnsent('sb_review_reply_unsent', v => v.reviewId === review.id);
+    if (kept) { setDraft(kept.text || ''); setEditing(true); }
+  }, [isOwner]);
   const replyWindowOpen = review.createdAt == null || (Date.now() - Number(review.createdAt)) <= 72 * 3600 * 1000;
   // Batch 850 — inline reason drawers for admin-remove + report-review.
   // Replace native `window.prompt` that had no ARIA, no multiline input,
@@ -320,6 +332,11 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   // = open with that draft text.
   const [adminRemoveDraft, setAdminRemoveDraft] = useState(null);
   const [reportDraft, setReportDraft]           = useState(null);
+  useEffect(() => {
+    if (!me || isAuthor || isOwner) return;
+    const kept = keptUnsent('sb_review_report_unsent', v => v.reviewId === review.id);
+    if (kept) setReportDraft(kept.text || '');
+  }, [me?.id]);
   // Local mirror so the UI updates optimistically on click; the server
   // returns the authoritative count in the response. We keep local
   // state rather than refetching the whole list every vote because
@@ -386,7 +403,9 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
     setBusy(true); setErr('');
     try {
       const res = await replyToReview(review.id, clear ? '' : (draft || '').trim());
+      if (res && res.code === 'SESSION_EXPIRED' && !clear) keepUnsent('sb_review_reply_unsent', { reviewId: review.id, text: draft });
       if (res && (res.error || res.code)) { setErr(res.message || res.error); return; }
+      dropUnsent('sb_review_reply_unsent');
       setEditing(false);
       setDraft('');
       onSaved && onSaved();
@@ -490,7 +509,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       h('button', {
         className: 'btn btn-ghost',
         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
-        disabled: busy,
+        'aria-disabled': busy || undefined,
         onClick: onDelete,
         title: 'Permanently delete your review'
       }, busy ? 'Deleting…' : 'Delete my review')
@@ -576,7 +595,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         initial: reportDraft,
         cta: 'File report',
         busy,
-        onCancel: () => setReportDraft(null),
+        onCancel: () => { dropUnsent('sb_review_report_unsent'); setReportDraft(null); },
         onSubmit: async (reason) => {
           if (!reason) return;
           setBusy(true);
@@ -588,6 +607,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
               subject:  `Report review #${review.id}`,
               body:     `Review ${review.id} (${review.rating}★) by ${review.fromDisplayName || 'anonymous'}:\n\n> ${excerpt.split('\n').join('\n> ')}\n\nReporter's note:\n\n${reason}`
             });
+            if (res && res.code === 'SESSION_EXPIRED') keepUnsent('sb_review_report_unsent', { reviewId: review.id, text: reason });
             if (res && (res.error || res.code)) {
               try {
                 window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
@@ -597,6 +617,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
               } catch (_) {}
               return;
             }
+            dropUnsent('sb_review_report_unsent');
             setReportDraft(null);
             try {
               window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
@@ -620,11 +641,11 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         'aria-label': 'Public reply to this review',
         placeholder: 'Public response to this review (300 chars max)',
         autoFocus: true,
-        onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); setEditing(false); setDraft(''); setErr(''); } }
+        onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); dropUnsent('sb_review_reply_unsent'); setEditing(false); setDraft(''); setErr(''); } }
       }),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
-        h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditing(false); setDraft(''); setErr(''); } }, 'Cancel'),
-        h('button', { className: 'btn btn-accent', disabled: busy || !draft.trim(), onClick: () => submit(false) }, busy ? 'Saving…' : 'Post reply')
+        h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { dropUnsent('sb_review_reply_unsent'); setEditing(false); setDraft(''); setErr(''); } }, 'Cancel'),
+        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !draft.trim()) || undefined, onClick: () => { if (draft.trim()) submit(false); } }, busy ? 'Saving…' : 'Post reply')
       ),
       err && h('div', { className: 'wallet-error', role: 'alert' }, err)
     )
@@ -4557,6 +4578,9 @@ export function App() {
     try {
       const { reportUser } = await import('./api.js');
       const res = await reportUser(stallData.seller.id, reportSellerReason, reportSellerContext || '');
+      if (res && res.code === 'SESSION_EXPIRED') {
+        keepUnsent('sb_report_user_unsent', { seller: stallData.seller.id, reason: reportSellerReason, context: reportSellerContext });
+      }
       if (res && (res.error || res.code)) {
         setReportSellerErr(res.message || res.error || 'Could not file report');
         return;
@@ -4573,6 +4597,18 @@ export function App() {
   const reportSellerPanelRef = React.useRef(null);
   const closeReportSeller = React.useCallback(() => { if (!reportSellerBusyRef.current) setReportSellerOpen(false); }, []);
   useDialogA11y(reportSellerPanelRef, closeReportSeller, reportSellerOpen);
+  useEffect(() => {
+    const sid = stallData?.seller?.id;
+    if (!me || sid == null || me.id === sid) return;
+    const kept = keptUnsent('sb_report_user_unsent', v => String(v.seller) === String(sid));
+    if (kept) { setReportSellerReason(kept.reason || 'Scam attempt'); setReportSellerContext(kept.context || ''); setReportSellerErr(''); setReportSellerOpen(true); }
+  }, [me?.id, stallData?.seller?.id]);
+  // Closing the drawer (filed or cancelled) drops a kept report.
+  const reportSellerWasOpen = React.useRef(false);
+  useEffect(() => {
+    if (reportSellerWasOpen.current && !reportSellerOpen) dropUnsent('sb_report_user_unsent');
+    reportSellerWasOpen.current = reportSellerOpen;
+  }, [reportSellerOpen]);
   const [stallReviews, setStallReviews] = useState(null);
   const [stallSold, setStallSold]       = useState([]);
   const [eligibleTrades, setEligibleTrades] = useState([]);
@@ -4690,6 +4726,9 @@ export function App() {
   // changes only the URL.
   useEffect(() => {
     if (routeName !== 'stall') return;
+    const kept = keptUnsent('sb_review_unsent', v => String(v.seller) === String(route.params?.id)
+      && eligibleTrades.some(t => String(t.tradeId) === String(v.tradeId) && !t.reviewed));
+    if (kept) { setReviewTradeId(kept.tradeId); setReviewStars(kept.stars || 5); setReviewText(kept.text || ''); return; }
     try {
       const qs = new URLSearchParams(window.location.search);
       const wantTradeId = qs.get('leaveReview');
@@ -4713,6 +4752,7 @@ export function App() {
   // Closing the review form unmounts the focused Cancel / textarea; hand
   // focus back to that trade's "Write review" button.
   const closeReviewForm = () => {
+    dropUnsent('sb_review_unsent');
     const id = reviewTradeId;
     setReviewTradeId(null);
     requestAnimationFrame(() => document.querySelector(`.stall-review-cta-row[data-trade-id="${id}"] button`)?.focus());
@@ -4732,7 +4772,11 @@ export function App() {
     setReviewBusy(true);
     try {
       const res = await leaveReview(reviewTradeId, reviewStars, reviewText || '');
+      if (res && res.code === 'SESSION_EXPIRED') {
+        keepUnsent('sb_review_unsent', { seller: route.params?.id, tradeId: reviewTradeId, stars: reviewStars, text: reviewText });
+      }
       if (res && !res.error && !res.code) {
+        dropUnsent('sb_review_unsent');
         setReviewTradeId(null); setReviewText(''); setReviewStars(5);
         // Refresh reviews + eligibility so the UI reflects the new state.
         const [reviews, eligible, stall] = await Promise.all([
@@ -9912,7 +9956,7 @@ export function App() {
                   h('button', {
                     className: 'btn btn-primary',
                     onClick: submitStallReview,
-                    disabled: reviewBusy
+                    'aria-disabled': reviewBusy || undefined
                   }, reviewBusy ? 'Sending…' : 'Submit review')
                 )
               )
@@ -10627,9 +10671,10 @@ export function App() {
             disabled: reportSellerBusy,
             onClick: () => setReportSellerOpen(false)
           }, 'Cancel'),
+          // aria-disabled keeps focus here on a refusal; submitReportSeller ignores in-flight sends.
           h('button', {
             className: 'btn btn-accent',
-            disabled: reportSellerBusy,
+            'aria-disabled': reportSellerBusy || undefined,
             onClick: submitReportSeller
           }, reportSellerBusy ? 'Submitting…' : 'File report')
         )
