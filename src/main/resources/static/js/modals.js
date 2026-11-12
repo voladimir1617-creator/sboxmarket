@@ -3733,7 +3733,9 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
         }, 'Cancel'),
         h('button', {
           className: 'btn btn-accent',
-          'aria-disabled': (busy || !note.trim()) || undefined,
+          // Empty: disabled, so it looks off; busy: aria-disabled, so a refusal keeps focus here.
+          disabled: !note.trim(),
+          'aria-disabled': busy || undefined,
           onClick: () => { if (note.trim()) submit(); }
         }, busy ? 'Submitting…' : 'File report')
       )

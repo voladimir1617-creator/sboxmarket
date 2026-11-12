@@ -645,7 +645,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       }),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
         h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { dropUnsent('sb_review_reply_unsent'); setEditing(false); setDraft(''); setErr(''); } }, 'Cancel'),
-        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !draft.trim()) || undefined, onClick: () => { if (draft.trim()) submit(false); } }, busy ? 'Saving…' : 'Post reply')
+        // Empty: disabled, so it looks off; busy: aria-disabled, so a refusal keeps focus here.
+        h('button', { className: 'btn btn-accent', disabled: !draft.trim(), 'aria-disabled': busy || undefined, onClick: () => { if (draft.trim()) submit(false); } }, busy ? 'Saving…' : 'Post reply')
       ),
       err && h('div', { className: 'wallet-error', role: 'alert' }, err)
     )
