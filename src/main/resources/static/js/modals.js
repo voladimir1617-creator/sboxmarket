@@ -221,8 +221,9 @@ function historySpanDays(rows) {
   return (Date.now() - first) / 86_400_000;
 }
 function chartRangeUsable(rows, range) {
-  if (!Array.isArray(rows) || rows.length === 0) return true;
   if (range.id === 'ALL') return true;
+  // No sales yet: no range draws anything, so only ALL is offered.
+  if (!Array.isArray(rows) || rows.length === 0) return false;
   if (range.needs > 0 && historySpanDays(rows) <= range.needs) return false;
   return historyWithinDays(rows, range.days, true).length >= 2;
 }
@@ -437,7 +438,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
     // it async, so on first render `history` is null/[]. Demoting to 7D
     // before data arrives would also stick on items that DO have rich
     // history (the effect would run once with len=0 and never restore).
-    if (!history || history.length === 0) return;
+    // ItemModal only mounts once history has loaded, so [] means no sales.
+    if (!history) return;
     const cur = CHART_RANGES.find(r => r.id === chartRange);
     if (!cur || chartRangeUsable(history, cur)) return;
     // Shortest range that draws something, else ALL.
@@ -514,6 +516,15 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
   // first-open and reused.
   const [reportTarget, setReportTarget] = useState(null);
   const [reportReasons, setReportReasons] = useState([]);
+  // A report filed on an expired session reopens after signing back in.
+  useEffect(() => {
+    if (!me) return;
+    let kept = null;
+    try { kept = JSON.parse(sessionStorage.getItem('sb_report_listing_unsent') || 'null'); } catch (_) {}
+    const l = kept && (listings || []).find(x => x.id === kept.listingId);
+    if (l) setReportTarget({ ...l, __keptReason: kept.reason, __keptNote: kept.note });
+  }, [me?.id, listings]);
+  const dropKeptReport = () => { try { sessionStorage.removeItem('sb_report_listing_unsent'); } catch (_) {} };
   // Image lightbox open state (clickable magnifier, /item page-mode only).
   const [zoomOpen, setZoomOpen] = useState(false);
   // Lightbox a11y: the trap/Escape/initial+restore-focus is handled by the
@@ -3026,8 +3037,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
       reportTarget && h(ReportListingDrawer, {
         listing: reportTarget,
         reasons: reportReasons,
-        onCancel: () => setReportTarget(null),
-        onSubmitted: () => { setReportTarget(null); onRefresh && onRefresh(); }
+        onCancel: () => { dropKeptReport(); setReportTarget(null); },
+        onSubmitted: () => { dropKeptReport(); setReportTarget(null); onRefresh && onRefresh(); }
       }),
       // CSFloat parity — Recently Viewed strip as the last section in
       // the item modal, so a buyer who's been browsing 4+ items can hop
@@ -3327,9 +3338,9 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   // `reason` state still held the stale hard-coded value — so submit
   // sent a reason the reporter never saw selected. Effect below also
   // corrects the value if `reasons` resolves after this first render.
-  const [reason, setReason] = useState(() =>
-    (Array.isArray(reasons) && reasons.length > 0) ? reasons[0] : 'Suspicious pricing');
-  const [note, setNote]     = useState('');
+  const [reason, setReason] = useState(() => listing.__keptReason ||
+    ((Array.isArray(reasons) && reasons.length > 0) ? reasons[0] : 'Suspicious pricing'));
+  const [note, setNote]     = useState(listing.__keptNote || '');
   const [busy, setBusy]     = useState(false);
   busyRef.current = busy;
   const [err, setErr]       = useState('');
@@ -3367,9 +3378,13 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   }, []);
   const submit = async () => {
     if (!reason) { setErr('Pick a reason first'); return; }
+    if (busyRef.current) return;
     setErr(''); setBusy(true); busyRef.current = true;
     try {
       const res = await reportListing(listing.id, reason, note);
+      if (res && res.code === 'SESSION_EXPIRED') {
+        try { sessionStorage.setItem('sb_report_listing_unsent', JSON.stringify({ listingId: listing.id, reason, note })); } catch (_) {}
+      }
       if (res && (res.error || res.code)) {
         setErr(res.message || res.error);
         return;
@@ -3443,7 +3458,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
             err && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, err),
             h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
               h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: onCancel }, 'Cancel'),
-              h('button', { className: 'btn btn-accent', disabled: busy, onClick: submit },
+              h('button', { className: 'btn btn-accent', 'aria-disabled': busy || undefined, onClick: submit },
                 busy ? 'Submitting…' : 'Submit report')
             )
           )
@@ -3618,8 +3633,8 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
   const stableCancel = useCallback(() => { if (!busyRef.current) onCancelRef.current && onCancelRef.current(); }, []);
   useDialogA11y(panelRef, stableCancel);
   const REASONS = ['Scam attempt','Harassment in chat','Impersonation','Other'];
-  const [reason, setReason] = useState(REASONS[0]);
-  const [note, setNote]     = useState(`Trade #${trade.id} · item ${trade.itemName || '—'}`);
+  const [reason, setReason] = useState(trade.__keptReason || REASONS[0]);
+  const [note, setNote]     = useState(trade.__keptNote ?? `Trade #${trade.id} · item ${trade.itemName || '—'}`);
   const [busy, setBusy]     = useState(false);
   // Batch 1078 — synchronous re-entrancy latch; async setBusy can't stop
   // a same-frame double-click, and reportUser (SupportController#reportUser
@@ -3638,6 +3653,9 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
     try {
       const { reportUser } = await import('./api.js');
       const res = await reportUser(trade.__target, reason, note);
+      if (res && res.code === 'SESSION_EXPIRED') {
+        try { sessionStorage.setItem('sb_report_trade_unsent', JSON.stringify({ ...trade, __keptReason: reason, __keptNote: note })); } catch (_) {}
+      }
       if (res && (res.error || res.code)) {
         setErr(res.message || res.error || 'Could not file report');
         return;
@@ -3715,8 +3733,8 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
         }, 'Cancel'),
         h('button', {
           className: 'btn btn-accent',
-          disabled: busy || !note.trim(),
-          onClick: submit
+          'aria-disabled': (busy || !note.trim()) || undefined,
+          onClick: () => { if (note.trim()) submit(); }
         }, busy ? 'Submitting…' : 'File report')
       )
     )
@@ -8589,7 +8607,10 @@ function ProfileTradesTab({ me, privacy }) {
   // → type context) with a proper dialog. State holds the entire
   // trade row so the drawer can render context (trade id, item,
   // counterparty name).
-  const [reportUserTrade, setReportUserTrade] = useState(null);
+  // A report filed on an expired session reopens here after signing back in.
+  const [reportUserTrade, setReportUserTrade] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('sb_report_trade_unsent') || 'null'); } catch (_) { return null; }
+  });
   const [refundReason, setRefundReason] = useState('');
   const openRefundForTrade = (trade) => {
     setRefundTrade(trade);
@@ -10286,8 +10307,8 @@ function ProfileTradesTab({ me, privacy }) {
     // submits to the same `reportUser` API used by the legacy flow.
     reportUserTrade && h(ReportCounterpartyDrawer, {
       trade: reportUserTrade,
-      onCancel: () => setReportUserTrade(null),
-      onSubmitted: () => { setReportUserTrade(null); }
+      onCancel: () => { try { sessionStorage.removeItem('sb_report_trade_unsent'); } catch (_) {} setReportUserTrade(null); },
+      onSubmitted: () => { try { sessionStorage.removeItem('sb_report_trade_unsent'); } catch (_) {} setReportUserTrade(null); }
     }),
     // Dispute drawer (batch 275) — opens when the row's "Dispute"
     // button is clicked. Submitting fires the existing tradeDispute
@@ -11721,7 +11742,11 @@ function ProfileSupportTab() {
   })();
   const [creating, setCreating] = useState(!!savedTicket);
   const [form, setForm] = useState(savedTicket || { subject: '', category: 'OTHER', body: '' });
-  const [reply, setReply] = useState('');
+  // Same for a reply: the thread reopens with it still in the box.
+  const savedReply = (() => {
+    try { return JSON.parse(sessionStorage.getItem('sb_ticket_reply_unsent') || 'null'); } catch (_) { return null; }
+  })();
+  const [reply, setReply] = useState(savedReply?.body || '');
   const [busy, setBusy] = useState(false);
   // Which New Ticket fields were blank on Submit (marked aria-invalid).
   const [ticketMissing, setTicketMissing] = useState({});
@@ -11857,6 +11882,11 @@ function ProfileSupportTab() {
   }, [window.location.search]);
 
   const openTicket = async (id) => { lastOpenedTicketRef.current = id; await showTicket(id); };
+  useEffect(() => {
+    if (!savedReply?.id) return;
+    try { sessionStorage.removeItem('sb_ticket_reply_unsent'); } catch (_) {}
+    openTicket(savedReply.id);
+  }, []);
   // `/support?ticket=<id>` from a "ticket closed" bell entry: open that
   // ticket and show every status, since the default filter hides
   // resolved tickets.
@@ -11915,7 +11945,11 @@ function ProfileSupportTab() {
     setBusy(true);
     try {
       const res = await replySupportTicket(viewing.ticket.id, reply);
+      if (res && res.code === 'SESSION_EXPIRED') {
+        try { sessionStorage.setItem('sb_ticket_reply_unsent', JSON.stringify({ id: viewing.ticket.id, body: reply })); } catch (_) {}
+      }
       if (res && res.error) { toast(res.error, 'err'); return; }
+      try { sessionStorage.removeItem('sb_ticket_reply_unsent'); } catch (_) {}
       setReply('');
       await showTicket(viewing.ticket.id);
       // A reply moves the ticket to "Waiting staff"; refresh the list too
@@ -11982,14 +12016,14 @@ function ProfileSupportTab() {
           h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none', overflowWrap: 'anywhere' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))
         ),
-        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, disabled: busy, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
+        viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', onClick: resolve, 'aria-disabled': busy || undefined, style: { border: '1px solid var(--border)' } }, 'Mark Resolved'),
         // Batch 858 — Reopen button on RESOLVED tickets. Keeps the
         // existing thread instead of forcing a fresh ticket; staff are
         // re-notified via the same fan-out pattern as user replies.
         viewing.ticket.status === 'RESOLVED' && h('button', {
           className: 'btn btn-ghost',
           onClick: reopen,
-          disabled: busy,
+          'aria-disabled': busy || undefined,
           style: { border: '1px solid rgba(30,165,255,0.4)', color: 'var(--accent)' },
           title: 'Reopen this ticket so staff can pick it back up in the same thread instead of a new one.'
         }, busy ? 'Reopening…' : '↻ Reopen')
