@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=387'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=388'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -7843,7 +7843,26 @@ export function App() {
        below hides itself, leaving the first visitor nothing to do. Show the
        same empty state /market uses, with its Sell Items button, so the
        first seller has a way in from the front page. */
-    routeName === 'home' && !loading && homeTotalListings === 0 && homeFeatured.length === 0 && listings.length === 0 &&
+    // A failed first load left the front page with no cards, no message and
+    // no way to retry; show the market's own error panel and Retry here.
+    routeName === 'home' && !loading && loadError && homeFeatured.length === 0 && listings.length === 0 &&
+      h('section', { className: 'csfloat-home-preview', 'aria-label': 'Listings unavailable' },
+        h('div', { className: 'csfloat-home-preview-inner' },
+          h('div', { className: 'empty-state', role: 'alert' },
+            h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 42 })),
+            h('div', { className: 'empty-state-title', role: 'heading', 'aria-level': 2, 'data-testid': 'home-market-load-error' }, "Couldn't load listings"),
+            h('div', { className: 'empty-state-sub' }, 'The listings request failed. Check your connection and try again.'),
+            h('div', { className: 'empty-state-actions' },
+              h('button', {
+                className: 'btn btn-accent',
+                // The panel gives way to the cards; land on the rail's first link, not <body>.
+                onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.csfloat-home-rail-tab'); setLoadError(null); load(false); }
+              }, 'Retry')
+            )
+          )
+        )
+      ),
+    routeName === 'home' && !loading && !loadError && homeTotalListings === 0 && homeFeatured.length === 0 && listings.length === 0 &&
       h('section', { className: 'csfloat-home-preview', 'aria-label': 'Marketplace is empty' },
         h('div', { className: 'csfloat-home-preview-inner' },
           h('div', { className: 'empty-state' },
@@ -8885,7 +8904,8 @@ export function App() {
                 let title, sub;
                 if (isError) {
                   title = "Couldn't load listings";
-                  sub   = 'Marketplace is reachable but the request failed. Tap Retry to try again — your filters are kept.';
+                  // A dropped connection fails here too, so don't claim the server answered.
+                  sub   = 'The listings request failed. Check your connection and press Retry — your filters are kept.';
                 } else if (onlyTypeFilter) {
                   title = listingTypeFilter === 'AUCTION' ? 'No live auctions right now' : 'No Buy-Now listings right now';
                   sub   = listingTypeFilter === 'AUCTION'
