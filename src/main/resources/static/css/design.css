@@ -13733,3 +13733,4 @@ html body .site-root.full-page-mode .modal-backdrop .modal-backdrop > .modal { w
 @media (min-width: 901px) { html body .site-root.full-page-mode .modal-backdrop { top: var(--pre-nav-h, 0px) !important; } }
 @media (forced-colors:active){:is([role=switch],#_){border:1px solid CanvasText!important}:is([role=switch],#_)::before,:is([role=switch],#_)::after{background:CanvasText!important}:is([aria-selected=true],[aria-pressed=true],[aria-checked=true],#_):not(:focus-visible){outline:2px solid Highlight!important; outline-offset:-2px}}
 html.high-contrast{--ink-3:rgb(206,212,220)!important;--ink-4:rgb(178,186,196)!important;--line:oklch(0.45 0.012 260)}
+html:root body .profile-tabs:not([aria-label^=A])>button.profile-tab:focus-visible{box-shadow:inset 0 0 0 2px #237bff!important}

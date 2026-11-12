@@ -38,10 +38,15 @@ export function useDialogA11y(panelRef, onClose, enabled = true) {
       // the close button or a primary action. Fall back to the panel
       // itself (tabIndex=-1 so focus() lands; declared on the panel
       // element by the caller).
-      const focusables = panelRef.current.querySelectorAll(
-        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      const target = focusables[0] || panelRef.current;
+      // Skip hidden ones (a full-page route hides .modal-close, and focus()
+      // on it no-ops, leaving focus on the opener behind the dialog) and
+      // roving-tabindex ones a Tab would not land on.
+      const target = Array.prototype.find.call(
+        panelRef.current.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ),
+        el => el.tabIndex >= 0 && el.getClientRects().length > 0
+      ) || panelRef.current;
       try { target.focus({ preventScroll: true }); }
       catch { try { target.focus(); } catch (_) {} }
     });

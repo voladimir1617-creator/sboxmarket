@@ -9583,7 +9583,7 @@ function ProfileTradesTab({ me, privacy }) {
                       className: 'trade-counterparty-copy',
                       type: 'button',
                       title: 'Copy URL to clipboard',
-                      'aria-label': 'Copy trade URL',
+                      'aria-label': 'Copy trade URL for ' + rowName,
                       onClick: async () => {
                         // Counterparty trade URL — sellers paste this
                         // into Steam to send the trade offer, so silent
@@ -9721,7 +9721,7 @@ function ProfileTradesTab({ me, privacy }) {
                 h('button', {
                   className: 'trade-copy-id',
                   title: 'Copy trade #' + t.id + ' for support references',
-                  'aria-label': 'Copy trade ID',
+                  'aria-label': 'Copy trade #' + t.id,
                   onClick: async (e) => {
                     e.stopPropagation();
                     const s = '#' + t.id;
