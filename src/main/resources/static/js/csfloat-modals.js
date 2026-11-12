@@ -229,7 +229,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
         // A ?page= past the end (an old link, or rows that sold since) came
         // back empty under "N results"; go to the last page that has rows.
         const last = Math.ceil(Number(res?.total || 0) / PAGE_SIZE) - 1;
-        if (page > 0 && last >= 0 && page > last) setPage(last);
+        // No rows at all: page 1, so the line doesn't read "0 results · page 3 / 1".
+        if (page > 0 && page > Math.max(0, last)) setPage(Math.max(0, last));
       }
     } catch (_) {
       // Backstop only — an unexpected throw (a future refactor, a bug in
@@ -1259,6 +1260,9 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
 // loadout was opened from, and the card to refocus on Back, live here.
 let loadoutListTab = null;
 let loadoutReturn = null;
+// The Discover search, so leaving a loadout opened at /loadout/:id gets it back.
+let loadoutListQ = '';
+const loadoutsDiscoverPath = () => paths.loadouts() + (loadoutListQ ? '?q=' + encodeURIComponent(loadoutListQ) : '');
 export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // A shared /loadout/:id opens straight on its view (spinner until it
   // loads) instead of flashing the Discover list first.
@@ -1282,6 +1286,10 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // .then() had no .catch().
   const [listErr, setListErr] = useState(false);
   const [poolErr, setPoolErr] = useState(false);
+  // Image URLs that failed to load: their slot or card tile shows the item's
+  // emoji instead of an empty box.
+  const [brokenImgs, setBrokenImgs] = useState(() => new Set());
+  const markBrokenImg = (url) => setBrokenImgs(prev => (prev.has(url) ? prev : new Set(prev).add(url)));
   // Batch 973 — debounced search. `searchInput` tracks the visible
   // field; a 300ms setTimeout copies it to `search`, which is the
   // only value that actually triggers the /api/loadouts/discover fetch.
@@ -1304,6 +1312,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       if (tab === 'discover') params.delete('view'); else params.set('view', tab);
       // The search box is on Discover only.
       const q = tab === 'discover' ? (search || '').trim() : '';
+      if (tab === 'discover') loadoutListQ = q;
       if (q) params.set('q', q); else params.delete('q');
       const qs = params.toString();
       window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
@@ -1749,7 +1758,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           loadoutReturn = { tab: backTab, id: viewing.loadout.id };
           setViewing(null); setTab(backTab);
           // A loadout opened at /loadout/:id: leave its URL too, or a reload reopens it.
-          if (loadoutId) navigate(paths.loadouts());
+          if (loadoutId) navigate(backTab === 'discover' ? loadoutsDiscoverPath() : paths.loadouts());
         } }, '← Back'),
         h('div', { className: 'loadout-action-spacer', style: { flex: 1, minWidth: 0 } }),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap' } },
@@ -1908,7 +1917,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               setAdminRemoveDraft(null);
               setViewing(null);
               setTab('discover');
-              if (loadoutId) navigate(paths.loadouts());
+              if (loadoutId) navigate(loadoutsDiscoverPath());
               load();
             } catch (_) {
               toast('Network error removing loadout', 'err');
@@ -2050,7 +2059,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   // emoji glyph as fallback. Backend now decorates each
                   // slot with itemImageUrl + itemAccentColor by joining
                   // through to the Item table at read time.
-                  s.itemImageUrl
+                  s.itemImageUrl && !brokenImgs.has(s.itemImageUrl)
                     ? h('img', {
                         src: s.itemImageUrl,
                         alt: s.itemName || '',
@@ -2060,7 +2069,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                         // strip the referrer so the thumbnail loads; hide a genuinely
                         // broken img rather than show the broken-image glyph.
                         referrerPolicy: 'no-referrer',
-                        onError: (e) => { e.currentTarget.style.display = 'none'; },
+                        onError: () => markBrokenImg(s.itemImageUrl),
                         style: {
                           width: 96, height: 96, objectFit: 'contain',
                           background: s.itemAccentColor ? `${s.itemAccentColor}33` : 'rgba(255,255,255,0.04)',
@@ -2335,8 +2344,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                     : (pi.snapshotPrice != null ? ' · ' + fmt(pi.snapshotPrice) : '')),
                   style: pi.accentColor ? { borderColor: pi.accentColor } : null
                 },
-                  pi.imageUrl
-                    ? h('img', { className: 'loadout-card-preview-img', src: pi.imageUrl, alt: '', loading: 'lazy', referrerPolicy: 'no-referrer', onError: (e) => { e.currentTarget.style.setProperty('display', 'none', 'important'); } })
+                  pi.imageUrl && !brokenImgs.has(pi.imageUrl)
+                    ? h('img', { className: 'loadout-card-preview-img', src: pi.imageUrl, alt: '', loading: 'lazy', referrerPolicy: 'no-referrer', onError: () => markBrokenImg(pi.imageUrl) })
                     : h('span', { className: 'loadout-card-preview-emoji' }, pi.itemEmoji || '◆')
                 ))
               ),
