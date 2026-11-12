@@ -89,7 +89,9 @@ test.describe('defect pass 64', () => {
     await page.getByRole('button', { name: /^Notifications/ }).first().click({ timeout: 20_000 });
     const empty = page.locator('.notif-dropdown .notif-empty');
     await expect(empty).toBeVisible();
-    await expect(empty).toHaveText("Couldn't load notifications.");
+    // The failed state also offers Retry (pass 114).
+    await expect(empty).toContainText("Couldn't load notifications.");
+    await expect(empty).not.toContainText(/all caught up/);
   });
 
   test('the bell says "all caught up" once an empty list has loaded', async ({ page }) => {

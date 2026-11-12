@@ -267,6 +267,8 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         'aria-label': `View ${item?.name || 'item'}`,
         onClick: e => {
           e.stopPropagation();
+          // A button has no new-tab default: open the card's link like its name does.
+          if ((e.metaKey || e.ctrlKey || e.shiftKey) && href !== '#') { window.open(href, '_blank', 'noopener'); return; }
           if (onClick) handleClick(e);
           else if (href !== '#') navigate(href);
         }

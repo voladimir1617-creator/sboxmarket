@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=21';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=22';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -5076,6 +5076,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
                              : 'var(--text-muted)';
             const size = isActive ? 46 : 36;
             return h('div', { key: n.id,
+              // The lit node is the account's level; say so to screen readers too.
+              'aria-current': isActive ? 'step' : undefined,
               style: { position: 'relative', zIndex: 1,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }
             },
@@ -14037,7 +14039,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
-            onClick: () => { setBulkSelected(new Set()); setBulkPrice(''); setBulkAutoPct(''); }
+            // The bar goes away with the selection; keep focus in the picker.
+            onClick: (e) => {
+              const box = e.currentTarget.closest('.sell-bulk-bar')?.parentElement;
+              setBulkSelected(new Set()); setBulkPrice(''); setBulkAutoPct('');
+              box?.querySelector('.sell-filter-bar input, .inventory-grid input[type="checkbox"]')?.focus();
+            }
           }, 'Clear')
         ),
         // Filter bar — rarity chips + free-text search. Hides when the
@@ -14066,7 +14073,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           (sellRarityFilter !== 'All' || sellSearch) && h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
-            onClick: () => { setSellRarityFilter('All'); setSellSearch(''); }
+            // The button goes away with the filter; keep focus in the search box.
+            onClick: (e) => { setSellRarityFilter('All'); setSellSearch(''); e.currentTarget.parentElement.querySelector('input')?.focus(); }
           }, 'Clear')
         ),
         filtered.length === 0
@@ -14388,7 +14396,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           (sellRarityFilter !== 'All' || sellSearch) && h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
-            onClick: () => { setSellRarityFilter('All'); setSellSearch(''); }
+            // The button goes away with the filter; keep focus in the search box.
+            onClick: (e) => { setSellRarityFilter('All'); setSellSearch(''); e.currentTarget.parentElement.querySelector('input')?.focus(); }
           }, 'Clear')
         ),
         filtered.length === 0
@@ -17241,12 +17250,14 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
               q
                 ? h('button', {
                     className: 'btn btn-accent',
-                    onClick: () => setOfferSearch('')
+                    // The button goes away with the no-match state; keep focus in the search box.
+                    onClick: () => { setOfferSearch(''); document.querySelector('input[aria-label="Search offers"]')?.focus(); }
                   }, 'Clear search')
                 : statusFilter !== 'ALL'
                   ? h('button', {
                       className: 'btn btn-accent',
-                      onClick: () => setStatusFilter('ALL')
+                      // The button goes away with the filter; keep focus on the All chip.
+                      onClick: (e) => { setStatusFilter('ALL'); e.currentTarget.closest('[role="tabpanel"]')?.previousElementSibling?.querySelector('button[aria-pressed]')?.focus(); }
                     }, 'Show all offers')
                   : tab === 'incoming'
                     ? h('a', { className: 'btn btn-accent', href: '/me/stall' }, 'Open My Stall →')
