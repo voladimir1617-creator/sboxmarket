@@ -1551,15 +1551,16 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     // A failed reload must not blank the open loadout into a spinner.
     if (!fresh) { toast('Saved, but the loadout did not reload. Refresh to see the change.', 'err'); return; }
     // Clearing a slot unmounts its ✕ button; hand focus to the slot's + Add.
-    if (itemId == null) clearedSlotRef.current = slot;
+    // Picking an item unmounts the picker and its + Add; hand it to the ✕.
+    clearedSlotRef.current = { slot, cleared: itemId == null };
     setViewing(fresh);
   };
   const clearedSlotRef = useRef(null);
   useEffect(() => {
-    const slot = clearedSlotRef.current;
-    if (slot == null) return;
+    const t = clearedSlotRef.current;
+    if (t == null) return;
     clearedSlotRef.current = null;
-    document.querySelector(`.loadout-add-btn[aria-label="Add an item to the ${slot} slot"]`)?.focus();
+    document.querySelector(t.cleared ? `.loadout-add-btn[aria-label="Add an item to the ${t.slot} slot"]` : `.loadout-slot-clear[aria-label="Clear ${t.slot} slot"]`)?.focus();
   }, [viewing]);
 
   const handleLockSlot = async (slot) => {
@@ -3043,7 +3044,12 @@ export function NotificationsModal({ onClose, me }) {
                       const r = await deleteNotification(n.id);
                       if (r && r.ok === false) toast('Could not delete notification — try again.', 'err');
                     } catch (_) { toast('Could not delete notification — try again.', 'err'); }
-                    pendingFocusRef.current = () => { if (!btn.isConnected) neighbours.find(r => r && r.isConnected)?.querySelector('[role="button"]')?.focus(); };
+                    // The last row leaves nothing below or above it: fall back to the All filter.
+                    pendingFocusRef.current = () => {
+                      if (btn.isConnected) return;
+                      const r = neighbours.find(r => r && r.isConnected);
+                      (r ? r.querySelector('[role="button"]') : allBtnRef.current)?.focus();
+                    };
                     await load();
                   } finally { rowBusyRef.current.delete(key); }
                 }
