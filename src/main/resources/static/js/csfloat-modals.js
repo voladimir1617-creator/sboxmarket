@@ -146,6 +146,19 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
     } catch (_) { /* history unavailable */ }
   }, [search]);
+  // A link to this page (the nav Database link, a /db?q= link) pushes a new
+  // URL while the page stays mounted: follow its ?q= instead of the old search.
+  useEffect(() => {
+    const onPop = () => {
+      if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return;
+      let next = '';
+      try { next = (new URLSearchParams(window.location.search).get('q') || '').slice(0, 100); } catch (_) {}
+      setSearchInput(cur => (cur.trim() === next.trim() ? cur : next));
+      setSearch(cur => (cur.trim() === next.trim() ? cur : next));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   // Seeded from the URL (kept in step below) so Back from an item page
   // lands on the same category, rarity, sort and page.
   const urlParam = (k, allowed, dflt) => {
@@ -1318,6 +1331,19 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
     } catch (_) { /* history unavailable */ }
   }, [tab, search]);
+  // A link to /loadout (the nav Loadout Lab link) while Discover is searched
+  // keeps the page mounted: follow the new ?q= instead of the old search.
+  useEffect(() => {
+    const onPop = () => {
+      if (!/^\/loadout\/?$/.test(window.location.pathname)) return;
+      let next = '';
+      try { next = (new URLSearchParams(window.location.search).get('q') || '').slice(0, 100); } catch (_) {}
+      setSearchInput(cur => (cur.trim() === next.trim() ? cur : next));
+      setSearch(cur => (cur.trim() === next.trim() ? cur : next));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const discoverSearchRef = useRef(null);
   // The empty-state "Browse" buttons go away with the tab they sit on; move
   // focus to the Discover tab they switch to instead of dropping it.
