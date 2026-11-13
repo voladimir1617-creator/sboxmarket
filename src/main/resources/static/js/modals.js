@@ -2478,6 +2478,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                           setSelectedAuctionId(l.id);
                           const el = document.querySelector('[data-auction-panel]');
                           if (el) el.scrollIntoView({ block: 'start' });
+                          // Keyboard focus follows to the bid box (after the panel
+                          // switches auction), not left on this row below.
+                          requestAnimationFrame(() => document.querySelector('[data-auction-panel] input')?.focus({ preventScroll: true }));
                         },
                         title: 'Place or update your bid in the auction panel above'
                       }, 'Bid')
@@ -2680,6 +2683,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               onClick: () => {
                 const el = document.querySelector('[data-auction-panel]');
                 if (el) el.scrollIntoView({ block: 'start' });
+                document.querySelector('[data-auction-panel] input')?.focus({ preventScroll: true });
               },
               'aria-label': 'Place a bid in the auction panel above'
             }, 'Place Bid')
