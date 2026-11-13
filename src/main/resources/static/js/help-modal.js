@@ -235,6 +235,17 @@ export function HelpModal({ onClose }) {
       window.history.replaceState(window.history.state, '', window.location.pathname + (next ? '?' + next : ''));
     } catch (_) {}
   };
+  // A link to this page (the nav Help, an in-app /help?q=) pushes a new URL
+  // while the page stays mounted: follow its ?q= instead of the old search.
+  useEffect(() => {
+    const onPop = () => {
+      let next = '';
+      try { next = (new URLSearchParams(window.location.search).get('q') || '').slice(0, 60); } catch (_) {}
+      setSearch(cur => (cur.trim() === next.trim() ? cur : next));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const searchRef = useRef(null);
   const q = search.trim().toLowerCase();
   // Re-render once /api/version answers; live sites drop the test-mode line.
