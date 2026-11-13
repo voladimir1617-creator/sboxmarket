@@ -5566,7 +5566,8 @@ function FollowingListRow() {
     h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
       'Could not load the sellers you follow. ',
       h('button', { className: 'btn btn-ghost', style: { padding: '2px 8px', fontSize: 11 },
-        onClick: () => { setLoadErr(false); setReloadKey(k => k + 1); } }, 'Retry')));
+        // This row goes while the list reloads; focus what follows, not <body>.
+        onClick: (e) => { focusPastOnUnmount(e.currentTarget); setLoadErr(false); setReloadKey(k => k + 1); } }, 'Retry')));
   if (!rows || rows.length === 0) return null;
   return h('div', { className: 'profile-row' },
     h('div', { className: 'profile-row-label' },
@@ -5715,7 +5716,7 @@ function BlockedListRow() {
     h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
       'Could not load the users you blocked. ',
       h('button', { className: 'btn btn-ghost', style: { padding: '2px 8px', fontSize: 11 },
-        onClick: () => { setLoadErr(false); loadRows(); } }, 'Retry')));
+        onClick: (e) => { focusPastOnUnmount(e.currentTarget); setLoadErr(false); loadRows(); } }, 'Retry')));
   if (!rows || rows.length === 0) return null;
   return h('div', { className: 'profile-row' },
     h('div', { className: 'profile-row-label' },
