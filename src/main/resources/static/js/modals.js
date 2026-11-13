@@ -3919,12 +3919,13 @@ export function AffiliateModal({ onClose }) {
        tablet up. */
     h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: 14, marginBottom: 22 } },
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
-        h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'About Us'),
+        // Section titles are headings under the page's h1, so the outline lists them.
+        h('div', { role: 'heading', 'aria-level': 2, style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'About Us'),
         h('div', { style: { fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 } },
           `${BRAND.name} is a peer-to-peer marketplace for s&box cosmetic items. We're building the tools s&box traders have been asking for — a real marketplace grid, auctions with live bidding, standing buy orders, escrowed trades, and a wallet that pays out through Stripe. We want affiliates who share that mission.`)
       ),
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
-        h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'Requirements'),
+        h('div', { role: 'heading', 'aria-level': 2, style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'Requirements'),
         h('div', { style: { fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 } },
           'We require our affiliate partners to focus primarily on s&box content and meet at least one of the platform thresholds below.'),
         /* N3 cycle 9 — stall-stat-grid promotion. Each platform is a
@@ -3983,7 +3984,7 @@ export function AffiliateModal({ onClose }) {
       }
     },
       h('div', null,
-        h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 } }, 'Ready to apply?'),
+        h('div', { role: 'heading', 'aria-level': 2, style: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 } }, 'Ready to apply?'),
         h('div', { style: { fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 } },
           "Email us with your platform(s), audience size, and a link or two. We review every application within a week.")
       ),
@@ -13329,7 +13330,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           type: 'button',
           className: `offer-tab ${sellType === 'BUY_NOW' ? 'active' : ''}`,
           style: { flex: 1 },
-          onClick: () => setSellType('BUY_NOW'),
+          // A check made on the other type's fields (Buy Now price, Auto-accept)
+          // must not stay on screen once that field is gone; List re-checks.
+          onClick: () => { if (sellType !== 'BUY_NOW') setError(''); setSellType('BUY_NOW'); },
           'aria-pressed': sellType === 'BUY_NOW',
           title: 'Instant-buy listing at a flat price'
         }, 'Buy Now'),
@@ -13337,7 +13340,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           type: 'button',
           className: `offer-tab ${sellType === 'AUCTION' ? 'active' : ''}`,
           style: { flex: 1 },
-          onClick: () => setSellType('AUCTION'),
+          onClick: () => { if (sellType !== 'AUCTION') setError(''); setSellType('AUCTION'); },
           'aria-pressed': sellType === 'AUCTION',
           title: 'Starting bid — bidders push the price up until the auction ends'
         }, 'Auction')
