@@ -1658,6 +1658,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               const section = document.querySelector('.active-listings-anchor, .listings-section');
               const reduce = (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduce-motion'));
               if (section) section.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+              // Keyboard focus follows, so Tab goes on into the listings.
+              section?.focus({ preventScroll: true });
             }
           },
             h('span', { className: 'modal-demand-chip-num' }, listings.length),
@@ -2167,7 +2169,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             ))
           )
         ),
-        h('h2', { className: 'modal-section-title active-listings-anchor', id: 'active-listings' }, h('div', { className: 'section-title-dot' }), `Active Listings (${listings.length})`),
+        h('h2', { className: 'modal-section-title active-listings-anchor', id: 'active-listings', tabIndex: -1 }, h('div', { className: 'section-title-dot' }), `Active Listings (${listings.length})`),
         h('div', { className: 'modal-listings' },
           listings.length === 0
             ? h('div', { style: { padding: '14px 16px', background: 'var(--bg-1, var(--bg-elevated))', border: '1px solid var(--line, var(--border))', borderRadius: 'var(--r-md, 8px)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
@@ -4027,6 +4029,17 @@ export function FaqModal({ onClose }) {
       window.history.replaceState(window.history.state, '', window.location.pathname + (next ? '?' + next : ''));
     } catch (_) {}
   }, [q]);
+  // A link to /faq (or /faq?q=) while the page is open keeps it mounted:
+  // follow the new ?q= instead of the old search.
+  useEffect(() => {
+    const onPop = () => {
+      let next = '';
+      try { next = (new URLSearchParams(window.location.search).get('q') || '').slice(0, 60); } catch (_) {}
+      setQ(cur => (cur.trim() === next.trim() ? cur : next));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const searchRef = useRef(null);
   const ENTRIES = [
     [`What is ${BRAND.name}?`,
