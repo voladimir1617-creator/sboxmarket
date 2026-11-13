@@ -26,7 +26,8 @@ test.describe('defect pass 78 · loadout', () => {
     await page.goto('/loadout/5');
     await page.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.getByText(/Loadout "Winter Kit" deleted/)).toBeVisible();
-    await expect(page).toHaveURL(/\/loadout$/);
+    // Lands on the My Loadouts list (pass 120), not back on the deleted loadout.
+    await expect(page).toHaveURL(/\/loadout\?view=mine$/);
   });
 
   test('loadout: closing the rename box returns focus to Rename', async ({ page }) => {

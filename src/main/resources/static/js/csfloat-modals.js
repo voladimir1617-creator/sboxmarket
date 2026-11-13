@@ -1677,6 +1677,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       toast(res.message || res.error || 'Could not delete loadout', 'err');
       return;
     }
+    // Back to My Loadouts with its tab focused (the /loadout list mounts anew).
+    loadoutReturn = { tab: 'mine', id };
     setViewing(null);
     setTab('mine');
     // Opened at /loadout/:id: leave that URL, or a reload lands on a deleted loadout.
@@ -1915,6 +1917,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               if (!r.ok) { toast(`Admin remove failed (HTTP ${r.status})`, 'err'); return; }
               toast('Loadout removed. Owner has been notified.', 'ok');
               setAdminRemoveDraft(null);
+              loadoutReturn = { tab: 'discover', id: viewing.loadout.id };
               setViewing(null);
               setTab('discover');
               if (loadoutId) navigate(loadoutsDiscoverPath());
@@ -2010,7 +2013,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         h('button', {
           className: 'btn btn-accent',
           style: { padding: '4px 12px', fontSize: 11 },
-          disabled: renameBusy || !renameDraft.trim() || renameDraft.trim() === viewing.loadout.name,
+          // aria-disabled while saving keeps focus here on a refusal; the latch ignores clicks.
+          disabled: !renameDraft.trim() || renameDraft.trim() === viewing.loadout.name,
+          'aria-disabled': renameBusy || undefined,
           onClick: async () => {
             const trimmed = (renameDraft || '').trim();
             if (!trimmed || trimmed === viewing.loadout.name || renameBusyRef.current) return;
