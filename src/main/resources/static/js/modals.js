@@ -14327,7 +14327,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
         'Something interrupted the request. Your items are safe — this is only a display hiccup.'),
       h('div', { style: { display: 'flex', justifyContent: 'center' } },
-        h('button', { className: 'btn btn-secondary', onClick: () => { setInternalErr(false); loadInternal(); } }, 'Retry'))),
+        // The card turns into a spinner; keep focus on the Platform Inventory tab, not <body>.
+        h('button', { className: 'btn btn-secondary', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.sell-source-tabs .offer-tab[aria-pressed="true"]'); setInternalErr(false); loadInternal(); } }, 'Retry'))),
     source === 'internal' && !internalErr && internal === null && h('div', { className: 'spinner' }),
     source === 'internal' && internal && internalList.length === 0 && h('div', { className: 'empty-inline' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
