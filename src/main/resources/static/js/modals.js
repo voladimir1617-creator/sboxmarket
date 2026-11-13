@@ -15898,7 +15898,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       analytics === null && analyticsErr
         ? h('div', { className: 'empty-inline', role: 'alert' },
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your listing analytics.'),
-            h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => setAnalyticsErr(false) }, 'Retry'))
+            // The panel turns into a spinner; keep focus on the selected tab, not <body>.
+            h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.mystall-tabs [role="tab"][aria-selected="true"]'); setAnalyticsErr(false); } }, 'Retry'))
       : analytics === null
         ? h('div', { className: 'spinner' })
         : analytics.length === 0
@@ -15973,7 +15974,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
               "Something interrupted the request for your settled sales. Your payout history is safe — this is only a display hiccup."),
             h('div', { style: { display: 'flex', justifyContent: 'center' } },
-              h('button', { className: 'btn btn-secondary', onClick: () => setSoldErr(false) }, 'Retry')))
+              h('button', { className: 'btn btn-secondary', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.mystall-tabs [role="tab"][aria-selected="true"]'); setSoldErr(false); } }, 'Retry')))
         : sold === null
           ? h('div', { className: 'spinner' })
           : sold.length === 0
