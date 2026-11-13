@@ -8316,7 +8316,8 @@ function ProfileAutoBidsTab() {
         className: 'btn btn-ghost',
         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 12px', fontSize: 11 },
         disabled: busy,
-        onClick: cancelAll
+        // Disabled while busy and gone once no auto-bid is left; land on the selected tab, not <body>.
+        onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.profile-tab[role="tab"][aria-selected="true"]'); cancelAll(); }
       }, 'Stop all auto-raises')
     ),
     h('table', { className: 'db-table db-table--list' },
