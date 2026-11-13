@@ -104,7 +104,7 @@ test.describe('defect pass 71', () => {
     await page.route('**/api/reviews/21', slow({}, 1500));
     await page.goto('/profile/reviews');
     await page.getByRole('tab', { name: /^Given/ }).click({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
+    await page.getByRole('button', { name: /^Delete your review of/ }).first().click();
     await expect(page.getByRole('button', { name: 'Deleting…' })).toHaveCount(1);
   });
 });
