@@ -18238,7 +18238,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             rows.length > 0 && h('button', {
               className: 'btn-danger-ghost',
               style: { padding: '6px 12px', fontSize: 11 },
-              onClick: async () => {
+              onClick: async (e) => {
+                const btn = e.currentTarget;
                 // Latch: a double click must not send a second clear.
                 if (bulkInFlight.has('watchlist-clear')) return;
                 bulkInFlight.add('watchlist-clear');
@@ -18258,6 +18259,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                       return;
                     }
                   }
+                  // The list and this button go; land on the empty state's Browse link, not <body>.
+                  focusPastOnUnmount(btn, '.empty-inline a.btn[href="/market"]');
                   // Drop client-side state so the marketplace grid un-stars
                   // cards at once (signed out, the list is local only).
                   if (typeof onClearAll === 'function') onClearAll();

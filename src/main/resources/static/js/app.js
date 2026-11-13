@@ -10591,7 +10591,8 @@ export function App() {
                 h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal))
               ),
               h('div', { className: 'cart-summary-actions' },
-                h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: clearCart }, 'Clear'),
+                // The rows and this button go once the cart is empty; land on the empty state's Browse link, not <body>.
+                h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.empty-inline a.btn[href="/market"]'); clearCart(); } }, 'Clear'),
                 // Preserve buyer intent on a pricing-shift — instead of
                 // forcing them to re-find each item after clearing the
                 // cart, move every cart row to the watchlist in one click.
