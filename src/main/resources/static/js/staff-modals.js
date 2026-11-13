@@ -969,7 +969,7 @@ function AdminAnnouncementsTab() {
           className: 'btn btn-accent',
           // aria-disabled, not disabled: disabling the focused button while
           // posting (and once the box clears) dropped focus to the page.
-          'aria-disabled': (busy || !message.trim()) || undefined,
+          disabled: !message.trim(), 'aria-disabled': busy || undefined,
           onClick: create
         }, busy ? 'Posting…' : 'Post banner')
       ),
@@ -1015,7 +1015,7 @@ function AdminAnnouncementsTab() {
           className: 'btn btn-accent',
           // aria-disabled keeps focus on the button while it sends and once
           // the form clears; the click is ignored while busy or untitled.
-          'aria-disabled': (bcBusy || !bcTitle.trim()) || undefined,
+          disabled: !bcTitle.trim(), 'aria-disabled': bcBusy || undefined,
           onClick: async () => {
             if (bcBusy || !bcTitle.trim()) return;
             if (!confirm(`Send "${bcTitle.trim()}" to every active user? This fans out one notification per user and can't be undone.`)) return;
@@ -3831,7 +3831,7 @@ function AdminTicketsTab() {
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Staff reply…', 'aria-label': 'Staff reply', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
         // aria-disabled keeps focus on Send while the reply posts; sendReply ignores empty or in-flight sends.
-        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: sendReply }, 'Send')
+        h('button', { className: 'btn btn-accent', disabled: !reply.trim(), 'aria-disabled': busy || undefined, onClick: sendReply }, 'Send')
       )
     );
   }
@@ -4507,7 +4507,7 @@ function CsrTicketsTab() {
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply as CSR…', 'aria-label': 'Reply as CSR', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
         // aria-disabled keeps focus on Send while the reply posts; sendReply ignores empty or in-flight sends.
-        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: sendReply }, 'Send')
+        h('button', { className: 'btn btn-accent', disabled: !reply.trim(), 'aria-disabled': busy || undefined, onClick: sendReply }, 'Send')
       )
     );
   }
