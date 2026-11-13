@@ -3455,7 +3455,9 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
                   e.preventDefault(); submit();
                 }
               },
-              disabled: busy
+              // Read-only, not disabled: Ctrl+Enter sends from here, and a
+              // disabled box dropped focus to the page when the send failed.
+              readOnly: busy
             }),
             err && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, err),
             h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
@@ -6555,7 +6557,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               else if (e.key === 'Escape' && !tradeUrlBusy) { e.preventDefault(); setEditingTradeUrl(false); setTradeUrlErr(''); }
             }
           }),
-          h('button', { className: 'btn btn-accent', disabled: tradeUrlBusy, onClick: () => saveTradeUrl(tradeUrlDraft.trim()) }, tradeUrlBusy ? 'Saving…' : 'Save'),
+          h('button', { className: 'btn btn-accent', 'aria-disabled': tradeUrlBusy || undefined, onClick: () => { if (!tradeUrlBusy) saveTradeUrl(tradeUrlDraft.trim()); } }, tradeUrlBusy ? 'Saving…' : 'Save'),
           h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: tradeUrlBusy, onClick: () => { setEditingTradeUrl(false); setTradeUrlErr(''); } }, 'Cancel')
         ),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },

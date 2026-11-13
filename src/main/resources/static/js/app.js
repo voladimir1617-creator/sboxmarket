@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=393'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=394'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1906,7 +1906,8 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         h('button', {
           className: 'btn btn-accent',
           style: { padding: '6px 14px', fontSize: 12 },
-          disabled: busy, onClick: save
+          // aria-disabled keeps focus on a failed save; save() ignores in-flight clicks.
+          'aria-disabled': busy || undefined, onClick: save
         }, busy ? 'Saving…' : 'Save')
       )
     );
