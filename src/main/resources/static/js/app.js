@@ -10468,9 +10468,9 @@ export function App() {
                     // swallowed, and opened the item page instead of removing.
                     onKeyDown: (e) => { if (e.target !== e.currentTarget) return; if ((e.key === 'Enter' || e.key === ' ') && it.itemId) { e.preventDefault(); navigate(paths.item(it.itemId)); } }
                   },
-                  h('div', { className: 'cart-thumb' }, it.thumb
-                    ? h('img', { src: it.thumb, alt: it.name, loading: 'lazy', decoding: 'async' })
-                    : h('span', null, '—')),
+                  // ItemImage draws the item glyph for a missing or broken image; a bare
+                  // img showed the broken-image box with its alt text clipped.
+                  h('div', { className: 'cart-thumb' }, h(ItemImage, { item: { name: it.name, imageUrl: it.thumb }, variant: 'mini' })),
                   h('div', { className: 'cart-info' },
                     h('div', { className: 'cart-name' }, it.name,
                       stale && h('span', {
