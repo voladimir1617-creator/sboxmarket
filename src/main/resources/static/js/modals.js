@@ -7754,9 +7754,12 @@ function ProfileBuyOrdersTab() {
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11, color: 'var(--red)' },
         disabled: busy,
         title: `Cancel all ${counts.ACTIVE + counts.PAUSED} open buy orders (active and paused) in one click`,
-        onClick: async () => {
+        onClick: async (e) => {
+          const btn = e.currentTarget;
           if (busyRef.current) return;
           if (!confirm(`Cancel all ${counts.ACTIVE + counts.PAUSED} open buy orders, paused ones included?`)) return;
+          // The button is disabled while busy and gone once one open order or none is left; land on the selected tab.
+          focusPastOnUnmount(btn, '.profile-tab[role="tab"][aria-selected="true"]');
           // Same latch as Cancel and Bump: busy lags a re-render.
           busyRef.current = true;
           setBusy(true);
@@ -10550,6 +10553,14 @@ function ProfileOffersTab() {
     const seq = offersSeqRef.current;
     try { const d = await fetchBoth(); if (aliveRef.current && seq === offersSeqRef.current) setData(d); } catch (_) {}
   }, [fetchBoth]);
+  // "Cancel all pending" reloads behind a spinner and is gone after; land on the selected tab, not <body>.
+  const tabFocusAfterLoadRef = useRef(false);
+  useEffect(() => {
+    if (!tabFocusAfterLoadRef.current || data == null) return;
+    tabFocusAfterLoadRef.current = false;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    document.querySelector('.offer-tabs [role="tab"][aria-selected="true"]')?.focus();
+  }, [data]);
   useEffect(() => {
     aliveRef.current = true;
     load();
@@ -10733,10 +10744,8 @@ function ProfileOffersTab() {
     // style -- so the offer itself read as crossed out.
     return h('div', { key: o.id, className: 'offer-row' },
       h('div', { className: 'item-thumb', 'aria-hidden': 'true', style: { width: 48, height: 48 } },
-        o.itemImageUrl
-          // ItemImage swaps a broken image for the item glyph; hiding it left an empty tile.
-          ? h(ItemImage, { item: { name: o.itemName, imageUrl: o.itemImageUrl }, variant: 'mini' })
-          : h('span', null, '—')),
+        // ItemImage draws the item glyph for a missing or broken image; a bare dash read as a blank tile.
+        h(ItemImage, { item: { name: o.itemName, imageUrl: o.itemImageUrl }, variant: 'mini' })),
       h('div', { className: 'offer-body' },
         // Tiny thread chain indicator if this row is a counter or was countered
         // A buyer's raise is threaded to their earlier offer the same way a
@@ -11003,6 +11012,7 @@ function ProfileOffersTab() {
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not cancel offers', 'err'); return; }
       const n = (res && res.cancelled) || 0;
       toast(n === 0 ? 'No pending offers to cancel.' : `Cancelled ${n} offer${n === 1 ? '' : 's'}.`, 'ok');
+      tabFocusAfterLoadRef.current = true;
       load();
     } finally { busyRef.current = false; setBusy(false); }
   };
@@ -15673,7 +15683,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         className: 'btn btn-ghost',
         style: { border: '1px solid rgba(248,113,113,0.35)', color: 'var(--red)',
                  padding: '6px 12px', fontSize: 11, marginLeft: 6 },
-        onClick: async () => {
+        onClick: async (e) => {
+          const btn = e.currentTarget;
           if (bulkInFlight.has('stall-cancel-all')) return;
           // Auctions with bids are locked (no single cancel either), so count them out.
           const kept = stall.filter(l => l && l.listingType === 'AUCTION' && (l.bidCount || 0) > 0).length;
@@ -15689,6 +15700,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             if (data.skippedAuctions) parts.push(`${data.skippedAuctions} auction${data.skippedAuctions === 1 ? '' : 's'} with live bids skipped`);
             if (data.failed)          parts.push(`${data.failed} failed`);
             toast(parts.join(' · ') + '.', 'ok');
+            // This button goes once one listing or none is left; land on the selected tab.
+            focusPastOnUnmount(btn, '.mystall-tabs [role="tab"][aria-selected="true"]');
             // Reload the stall itself, not just the market grid, or every
             // cancelled row stays on screen with live Edit/Hide buttons.
             load();
@@ -15911,18 +15924,20 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               // `auto` column is as wide in the header as in the rows. With a
               // grid per row the headings drifted off their numbers and a
               // seller read the price under "vs Floor".
-              h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', columnGap: 10 } },
-              h('div', { style: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'subgrid', padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
-                h('div', { style: { textAlign: 'left' } }, 'Item'),
-                h('div', { style: { textAlign: 'right' } }, 'My Price'),
-                h('div', { style: { textAlign: 'right' } }, 'vs Floor'),
-                h('div', { style: { textAlign: 'right' } }, 'Views'),
-                h('div', { style: { textAlign: 'right' } }, '30d Sold')),
+              // Table roles so a screen reader ties each number to its column.
+              h('div', { role: 'table', 'aria-label': 'Per-listing analytics', style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto auto auto', columnGap: 10 } },
+              h('div', { role: 'row', style: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'subgrid', padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
+                h('div', { role: 'columnheader', style: { textAlign: 'left' } }, 'Item'),
+                h('div', { role: 'columnheader', style: { textAlign: 'right' } }, 'My Price'),
+                h('div', { role: 'columnheader', style: { textAlign: 'right' } }, 'vs Floor'),
+                h('div', { role: 'columnheader', style: { textAlign: 'right' } }, 'Views'),
+                h('div', { role: 'columnheader', style: { textAlign: 'right' } }, '30d Sold')),
               analytics.map(row => h('div', {
                 key: row.listingId,
+                role: 'row',
                 style: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'subgrid', padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
               },
-                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
+                h('div', { role: 'cell', style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
                   // A failed image falls back to the category glyph, not a broken-image box.
                   row.imageUrl && h('div', { className: 'item-thumb', 'aria-hidden': 'true', style: { width: 32, height: 32, flex: '0 0 auto' } },
                     h(ItemImage, { item: { name: row.itemName, imageUrl: row.imageUrl, category: row.category }, variant: 'mini' })),
@@ -15931,11 +15946,11 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     // "Scienti…" for both Scientist Gloves and Scientist Respirator.
                     h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflowWrap: 'break-word', hyphens: 'auto' } }, row.itemName || `#${row.itemId}`),
                     h('div', { style: { fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
-                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600 } }, fmt(row.price)),
-                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
+                h('div', { role: 'cell', style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600 } }, fmt(row.price)),
+                h('div', { role: 'cell', style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
                   row.floorDelta == null ? '—' : (parseFloat(row.floorDelta) >= 0 ? '+' : '') + fmt(row.floorDelta)),
-                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-secondary)' } }, Number(row.viewCount || 0).toLocaleString()),
-                h('div', { style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? Number(row.itemSales30d).toLocaleString() : '—')
+                h('div', { role: 'cell', style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-secondary)' } }, Number(row.viewCount || 0).toLocaleString()),
+                h('div', { role: 'cell', style: { textAlign: 'right', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? Number(row.itemSales30d).toLocaleString() : '—')
               )))
             )
     ),
@@ -16798,10 +16813,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     // OffersModal gets out of the way before the router lands on the
     // item page — without it the modal stays mounted on top.
     const itemHref = offer.itemId ? `/item/${offer.itemId}` : null;
-    const thumbInner = offer.itemImageUrl
-      // ItemImage swaps a broken image for the item glyph; hiding it left an empty tile.
-      ? h(ItemImage, { item: { name: offer.itemName, imageUrl: offer.itemImageUrl }, variant: 'mini' })
-      : h('span', null, '—');
+    // ItemImage draws the item glyph for a missing or broken image; a bare dash
+    // showed as a blank tile and named the thumbnail link "—".
+    const thumbInner = h(ItemImage, { item: { name: offer.itemName, imageUrl: offer.itemImageUrl }, variant: 'mini' });
     return h('div', { key: offer.id, className: 'offer-row' },
       itemHref
         ? h('a', {

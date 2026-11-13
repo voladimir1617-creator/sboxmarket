@@ -236,7 +236,8 @@ export function ItemImage({ item, alt, variant = 'card' }) {
     // a11y: with no image, the glyph IS the only visual for the item —
     // give it an accessible name so screen readers announce the item
     // rather than skipping a decorative-looking span.
-    return h('span', {
+    // alt '' marks the picture decorative (its row already names the item).
+    return h('span', alt === '' ? { className: 'item-poster', 'data-variant': posterVariant, 'aria-hidden': 'true' } : {
       className: 'item-poster',
       'data-variant': posterVariant,
       role: 'img',
@@ -245,7 +246,7 @@ export function ItemImage({ item, alt, variant = 'card' }) {
   }
   return h('img', {
     src: url,
-    alt: alt || item.name || '',
+    alt: alt != null ? alt : (item.name || ''),
     loading: 'lazy',
     decoding: 'async',
     // Steam's CDN (steamcommunity-a.akamaihd.net) returns 403 for hotlinked

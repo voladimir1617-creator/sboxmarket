@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=391'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=392'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4085,6 +4085,11 @@ export function App() {
   // they own the arrow keys whenever no autocomplete rows are on screen.
   const recentShown = suggestOpen && (!searchInput || searchInput.trim().length < 2) && recentSearches.length > 0;
   const recentNav = recentShown && suggest.length === 0;
+  // The list scrolls past about seven rows; keep the row the arrow keys highlight in view.
+  useEffect(() => {
+    if (suggestIdx < 0) return;
+    document.getElementById((recentNav ? 'search-recent-opt-' : 'search-opt-') + suggestIdx)?.scrollIntoView({ block: 'nearest' });
+  }, [suggestIdx]);
   const pickRecent = (q) => {
     setSearchInput(q);
     setSearch(q);
@@ -8456,7 +8461,7 @@ export function App() {
                 'aria-selected': recentNav && i === suggestIdx,
                 onClick: () => pickRecent(q)
               },
-                h('span', { className: 'search-suggest-recent-icon' }, '⟲'),
+                h('span', { className: 'search-suggest-recent-icon', 'aria-hidden': 'true' }, '⟲'),
                 h('span', { style: { flex: 1, fontSize: 13 } }, q),
                 h('button', {
                   className: 'search-suggest-forget',
@@ -8496,7 +8501,7 @@ export function App() {
                   item.imageUrl
                     // ItemImage swaps a broken image for the item glyph; a bare img left an empty box.
                     ? h(ItemImage, { item, alt: '', variant: 'mini' })
-                    : h('span', { style: { color: 'var(--ink-3)' } }, ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[item.category] || '—')
+                    : h('span', { 'aria-hidden': 'true', style: { color: 'var(--ink-3)' } }, ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[item.category] || '—')
                 ),
                 h('div', { className: 'search-suggest-body' },
                   h('div', { className: 'search-suggest-name' }, item.name),
@@ -11314,7 +11319,9 @@ export function App() {
             className: 'csfloat-mobile-nav-link'
               + (t.fab ? ' csfloat-mobile-nav-link-fab' : '')
               + (active ? ' is-active' : ''),
-            'aria-current': active ? 'page' : undefined,
+            // "page" only on the tab's own page; a page under it (Offers under
+            // Profile, an item under Market) marks the tab current, not the page.
+            'aria-current': routeName === t.key ? 'page' : active ? 'true' : undefined,
             'aria-label': t.label
           },
             h('span', { className: 'csfloat-mobile-nav-link-icon' },
