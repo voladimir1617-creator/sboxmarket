@@ -3733,7 +3733,9 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
         }, 'Cancel'),
         h('button', {
           className: 'btn btn-accent',
-          'aria-disabled': (busy || !note.trim()) || undefined,
+          // Empty: disabled, so it looks off; busy: aria-disabled, so a refusal keeps focus here.
+          disabled: !note.trim(),
+          'aria-disabled': busy || undefined,
           onClick: () => { if (note.trim()) submit(); }
         }, busy ? 'Submitting…' : 'File report')
       )
@@ -14743,6 +14745,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     (near && (near.querySelector(sel + ':not([disabled])') || near.querySelector('button:not([disabled])'))
       || document.querySelector('.mystall-tabs [role="tab"][aria-selected="true"]'))?.focus();
   }, [stall]);
+  // Retry on a failed load swaps the panel for a spinner, dropping focus to
+  // <body>; once the stall is back, land on its selected tab.
+  const stallRetryFocusRef = useRef(false);
+  useEffect(() => {
+    if (!stallRetryFocusRef.current || stall == null) return;
+    stallRetryFocusRef.current = false;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    document.querySelector('.mystall-tabs [role="tab"][aria-selected="true"]')?.focus();
+  }, [stall]);
   // A deposit offer the seller still has to accept in Steam.
   const heldAwaitingSeller = held.some(r => r?.escrow?.custodyState !== 'FAILED' && !r?.escrow?.itemLeftSeller);
   // An offer he can actually go and accept: not one the bot never sent.
@@ -14890,7 +14901,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
         "Something interrupted the request for your stall. Your listings are safe — this is only a display hiccup."),
       h('div', { style: { display: 'flex', justifyContent: 'center' } },
-        h('button', { className: 'btn btn-secondary', onClick: () => { setStallErr(false); load(); } }, 'Retry'))));
+        h('button', { className: 'btn btn-secondary', onClick: () => { stallRetryFocusRef.current = true; setStallErr(false); load(); } }, 'Retry'))));
   if (stall === null) return h(InfoModal, { title: 'My Stall', onClose }, h('div', { className: 'spinner' }));
 
   const doCancel = async (listing) => {
@@ -17215,7 +17226,8 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
             'Something went wrong fetching your offers. Check your connection and try again.'),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
-            h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry')))
+            // The panel gives way to the rows; land on the selected tab, not <body>.
+            h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.offer-tab[role="tab"][aria-selected="true"]'); load(); } }, 'Retry')))
       : list === null
       /* Loading: three offer rows in the existing skeleton classes, laid out
          like the loaded rows (thumb, name and sub, price column, status),
@@ -18010,6 +18022,9 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                 },
                   it.imageUrl && h('img', {
                     src: it.imageUrl, alt: '',
+                    // Steam's CDN refuses hotlinks with a referrer; a dead image goes, the name follows.
+                    referrerPolicy: 'no-referrer',
+                    onError: (e) => { e.currentTarget.style.display = 'none'; },
                     style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
                   }),
                   h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),

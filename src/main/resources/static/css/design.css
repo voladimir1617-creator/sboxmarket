@@ -5612,7 +5612,7 @@ body .recently-viewed-head > span:nth-child(2), body .top-deals-head > span:nth-
 body .recently-viewed-cta, body .top-deals-cta, body .just-listed-cta, body .just-sold-cta, body .auctions-ending-soon-cta, body .trending-rail-cta, body .csfloat-home-rail-cta, body .rail-view-all, body .rail-cta { margin-left: auto !important; font-family: Roboto, "Helvetica Neue", sans-serif !important; font-size: 12px !important; font-weight: 500 !important; line-height: 16px !important; letter-spacing: 0.02em !important; text-transform: none !important; color: rgb(35, 123, 255) !important; background: transparent !important; border: 0 !important; padding: 0 !important; text-decoration: none !important; display: inline-flex !important; align-items: center !important; gap: 4px !important; }
 body .recently-viewed-cta:hover, body .top-deals-cta:hover, body .just-listed-cta:hover, body .just-sold-cta:hover, body .auctions-ending-soon-cta:hover, body .trending-rail-cta:hover, body .csfloat-home-rail-cta:hover, body .rail-view-all:hover, body .rail-cta:hover { color: rgb(80, 150, 255) !important; text-decoration: underline !important; text-underline-offset: 2px !important; }
 body .recently-viewed, body .top-deals-rail, body .just-listed-rail, body .just-sold-rail, body .auctions-ending-soon, body .trending-rail { max-width: 1440px !important; margin: 40px auto !important; padding: 0 24px !important; }
-body .recently-viewed-rail, body .top-deals-track, body .just-listed-track, body .just-sold-track, body .auctions-ending-soon-rail, body .trending-rail-track { display: flex !important; gap: 12px !important; overflow-x: auto !important; overflow-y: visible !important; scrollbar-width: none !important; -ms-overflow-style: none !important; scroll-snap-type: x proximity !important; scroll-padding-left: 2px !important; padding: 2px 2px 8px !important; }
+body .recently-viewed-rail, body .top-deals-track, body .just-listed-track, body .just-sold-track, body .auctions-ending-soon-rail, body .trending-rail-track { display: flex !important; gap: 12px !important; overflow-x: auto !important; overflow-y: visible !important; scrollbar-width: thin !important; -ms-overflow-style: none !important; scroll-snap-type: x proximity !important; scroll-padding-left: 2px !important; padding: 2px 2px 8px !important; }
 body .recently-viewed-rail::-webkit-scrollbar, body .top-deals-track::-webkit-scrollbar, body .just-listed-track::-webkit-scrollbar, body .just-sold-track::-webkit-scrollbar, body .auctions-ending-soon-rail::-webkit-scrollbar, body .trending-rail-track::-webkit-scrollbar { display: none !important; }
 body .recently-viewed-card, body .top-deal-card, body .just-listed-card, body .just-sold-card, body .auctions-ending-soon-card, body .trending-rail-card, body .rail-card { flex: 0 0 180px !important; width: 180px !important; background: rgb(28, 30, 36) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: 8px !important; padding: 12px !important; display: flex !important; flex-direction: column !important; gap: 8px !important; scroll-snap-align: start !important; text-decoration: none !important; color: inherit !important; cursor: pointer !important; transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease, box-shadow 180ms ease !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important; }
 body .recently-viewed-card:hover, body .top-deal-card:hover, body .just-listed-card:hover, body .just-sold-card:hover, body .auctions-ending-soon-card:hover, body .trending-rail-card:hover, body .rail-card:hover { transform: translateY(-2px) !important; border-color: rgba(35, 123, 255, 0.35) !important; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(35, 123, 255, 0.18) inset !important; }
@@ -11546,6 +11546,13 @@ html body .empty-state:has([data-testid$="load-error"]) .empty-state-title,
 html body .empty-state.is-error .empty-state-title,
 html body .empty-state[data-state="error"] .empty-state-title {
   color: var(--warn) !important;
+}
+/* The generic [class*="empty"] panel fill also lands on each row inside, which
+   drew a dark slab behind the title, the text and the Retry row on the tint. */
+html body .empty-state:has([data-testid$="load-error"]) > *,
+html body .empty-state.is-error > *,
+html body .empty-state[data-state="error"] > * {
+  background-color: transparent !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

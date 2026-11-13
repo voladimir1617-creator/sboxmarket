@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=388'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=389'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -645,7 +645,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       }),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
         h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { dropUnsent('sb_review_reply_unsent'); setEditing(false); setDraft(''); setErr(''); } }, 'Cancel'),
-        h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !draft.trim()) || undefined, onClick: () => { if (draft.trim()) submit(false); } }, busy ? 'Saving…' : 'Post reply')
+        // Empty: disabled, so it looks off; busy: aria-disabled, so a refusal keeps focus here.
+        h('button', { className: 'btn btn-accent', disabled: !draft.trim(), 'aria-disabled': busy || undefined, onClick: () => { if (draft.trim()) submit(false); } }, busy ? 'Saving…' : 'Post reply')
       ),
       err && h('div', { className: 'wallet-error', role: 'alert' }, err)
     )
@@ -3076,6 +3077,9 @@ function RecentlyViewedPills({ kind, privacy }) {
         },
           it.imageUrl && h('img', {
             src: it.imageUrl, alt: '',
+            // Steam's CDN refuses hotlinks with a referrer; a dead image goes, the name follows.
+            referrerPolicy: 'no-referrer',
+            onError: (e) => { e.currentTarget.style.display = 'none'; },
             style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
           }),
           h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
@@ -8223,7 +8227,14 @@ export function App() {
             })
           )
         ),
-        h('button', { className: 'btn-clear', onClick: clearFilters, disabled: !filtersActive, 'data-testid': 'sidebar-clear-filters' }, 'Clear Filters'),
+        h('button', { className: 'btn-clear', disabled: !filtersActive, 'data-testid': 'sidebar-clear-filters',
+          // The button greys out once cleared, which drops focus to <body>;
+          // land on the first shown filter group's "All" option instead.
+          onClick: (e) => {
+            const all = Array.prototype.find.call(e.currentTarget.parentElement.querySelectorAll('[role="radio"]'), el => el.getClientRects().length > 0);
+            clearFilters();
+            all?.focus();
+          } }, 'Clear Filters'),
         // Batch 766 — "Copy filtered URL" lets a user share the current
         // filter/sort/price-range snapshot (e.g. "hats under $10, sorted
         // by newest"). The URL already reflects active filters via
@@ -8479,7 +8490,8 @@ export function App() {
               },
                 h('div', { className: 'search-suggest-thumb' },
                   item.imageUrl
-                    ? h('img', { src: item.imageUrl, alt: '', loading: 'lazy' })
+                    // ItemImage swaps a broken image for the item glyph; a bare img left an empty box.
+                    ? h(ItemImage, { item, alt: '', variant: 'mini' })
                     : h('span', { style: { color: 'var(--ink-3)' } }, ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[item.category] || '—')
                 ),
                 h('div', { className: 'search-suggest-body' },
@@ -11254,7 +11266,7 @@ export function App() {
       h('a', {
         className: 'btn btn-accent cart-tray-checkout',
         href: '/cart',
-        onClick: (e) => { e.preventDefault(); navigate('/cart'); }
+        onClick: followInternalLink
       }, 'Checkout')
     ),
 
