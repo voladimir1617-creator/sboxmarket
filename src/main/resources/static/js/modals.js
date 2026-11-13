@@ -4276,6 +4276,17 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
     } catch (_) {}
   }, [privacy]);
 
+  // The header currency picker and the other privacy toggles write the same
+  // keys while Settings is open; follow them so the controls are not stale.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'sb_currency' && e.newValue) setCurrency(e.newValue);
+      else if (e.key === 'sb_privacy') setPrivacy(e.newValue === '1');
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const Row = (label, sublabel, control) => h('div', { className: 'settings-row' },
     h('div', null,
       h('div', { className: 'settings-label' }, label),
@@ -11602,7 +11613,7 @@ function ProfileReviewsTab({ me }) {
       : h('div', { className: 'profile-reviews-list' },
           filtered.map(r => h('div', { key: r.id, className: 'stall-review' },
             h('div', { className: 'stall-review-head' },
-              h('span', { className: 'stall-review-stars' }, '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)),
+              h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${r.rating} out of 5 stars` }, '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)),
               h('span', { className: 'stall-review-from' },
                 // Received rows: who wrote it. Given rows: who it's about,
                 // linked to their stall.
@@ -11673,7 +11684,7 @@ function ProfileReviewsTab({ me }) {
                     }, 'Cancel'),
                     h('button', {
                       className: 'btn btn-accent',
-                      disabled: editGivenBusy,
+                      'aria-disabled': editGivenBusy || undefined,
                       onClick: () => saveEditGiven(r)
                     }, editGivenBusy ? 'Saving…' : 'Save changes')
                   )
@@ -11700,7 +11711,7 @@ function ProfileReviewsTab({ me }) {
                   }, (draft || '').length, ' / 300'),
                   h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
                     h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditId(null); setDraft(''); } }, 'Cancel'),
-                    h('button', { className: 'btn btn-accent', disabled: busy || !draft.trim(), onClick: () => submit(r.id, false) }, busy ? 'Saving…' : 'Post reply')
+                    h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !draft.trim()) || undefined, onClick: () => { if (draft.trim()) submit(r.id, false); } }, busy ? 'Saving…' : 'Post reply')
                   )
                 )
               : mode === 'received'
@@ -11718,7 +11729,7 @@ function ProfileReviewsTab({ me }) {
                     r.sellerReply && h('button', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
-                      disabled: busy,
+                      'aria-disabled': busy || undefined,
                       'aria-label': `Remove reply to ${r.fromDisplayName || 'Anonymous'}'s review`,
                       onClick: () => submit(r.id, true)
                     }, 'Remove reply')
@@ -11727,15 +11738,18 @@ function ProfileReviewsTab({ me }) {
                     h('button', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-                      disabled: busy,
+                      'aria-disabled': busy || undefined,
                       'data-edit-given': r.id,
-                      onClick: () => startEditGiven(r),
+                      // Every row's button otherwise read the same "Edit".
+                      'aria-label': `Edit your review of ${r.toUserName || ('seller #' + r.toUserId)}`,
+                      onClick: () => { if (!busy) startEditGiven(r); },
                       title: 'Edit your rating or comment — the stall page will show "· edited" next to the original date.'
                     }, '✎ Edit'),
                     h('button', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
-                      disabled: busy,
+                      'aria-disabled': busy || undefined,
+                      'aria-label': deletingId === r.id ? undefined : `Delete your review of ${r.toUserName || ('seller #' + r.toUserId)}`,
                       onClick: () => deleteMine(r.id),
                       title: 'Permanently delete your review'
                     }, deletingId === r.id ? 'Deleting…' : 'Delete')
@@ -11748,7 +11762,7 @@ function ProfileReviewsTab({ me }) {
 // Same words as the Support tab's filter chips.
 const TICKET_STATUS_LABEL = { OPEN: 'Open', WAITING_STAFF: 'Waiting staff', WAITING_USER: 'Waiting you', RESOLVED: 'Resolved' };
 const ticketStatusLabel = (s) => TICKET_STATUS_LABEL[s] || s;
-const TICKET_CATEGORY_LABEL = { TRADE: 'Trade', PAYMENT: 'Payment', REFUND: 'Refund', ACCOUNT: 'Account', BUG: 'Bug report', OTHER: 'Other' };
+const TICKET_CATEGORY_LABEL = { TRADE: 'Trade', PAYMENT: 'Payment', REFUND: 'Refund', ACCOUNT: 'Account', BUG: 'Bug report', OTHER: 'Other', FRAUD: 'User report' };
 const ticketCategoryLabel = (c) => TICKET_CATEGORY_LABEL[c] || c;
 
 function ProfileSupportTab() {

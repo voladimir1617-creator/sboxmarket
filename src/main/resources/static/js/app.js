@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=390'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=391'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -428,7 +428,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   };
   return h('div', { className: 'stall-review' },
     h('div', { className: 'stall-review-head' },
-      h('span', { className: 'stall-review-stars' }, '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)),
+      h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${review.rating} out of 5 stars` }, '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)),
       h('span', { className: 'stall-review-from' }, review.fromDisplayName || 'Anonymous'),
       // Every review is anchored to a VERIFIED trade (ReviewService
       // enforces `trade.state == 'VERIFIED'`), so every row on the stall
@@ -2698,19 +2698,22 @@ function ContactSellerButton({ seller }) {
   // link below is prepended to it, so the box allows only what fits.
   const stallPrefix = `Seller stall: /stall/${seller.id}\n\n`;
   const maxBody = 2000 - stallPrefix.length;
+  // Focus the box only when the drawer opens: re-running on busy pulled
+  // focus off Send into the box after every send.
   useEffect(() => {
     if (!open) return;
     const id = requestAnimationFrame(() => {
       if (textareaRef.current) textareaRef.current.focus({ preventScroll: true });
     });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
     const onKey = (e) => {
       if (e.key === 'Escape' && !busy) { e.stopPropagation(); close(); }
     };
     document.addEventListener('keydown', onKey);
-    return () => {
-      cancelAnimationFrame(id);
-      document.removeEventListener('keydown', onKey);
-    };
+    return () => document.removeEventListener('keydown', onKey);
   }, [open, busy]);
   const submit = async () => {
     const trimmed = (body || '').trim();
@@ -2807,7 +2810,8 @@ function ContactSellerButton({ seller }) {
           h('button', {
             className: 'btn btn-primary',
             style: { padding: '6px 14px', fontSize: 12 },
-            disabled: busy || !body.trim(),
+            // aria-disabled keeps focus on Send when the ticket fails; submit ignores empty or in-flight sends.
+            'aria-disabled': (busy || !body.trim()) || undefined,
             onClick: submit
           }, busy ? 'Sending…' : 'Send')
         )

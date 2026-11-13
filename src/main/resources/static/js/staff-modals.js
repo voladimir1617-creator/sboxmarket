@@ -3578,7 +3578,7 @@ function AdminUsersTab({ me }) {
                 h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', margin: '10px 0 8px' } }, 'Most recent reviews'),
                 detailData.reviews.slice(0, 6).map(r => h('div', { key: r.id, style: { padding: '8px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, marginBottom: 6 } },
                   h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
-                    '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating),
+                    h('span', { role: 'img', 'aria-label': `${r.rating} out of 5 stars` }, '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)),
                     ' · ', r.fromDisplayName || 'Anonymous',
                     ' · ', new Date(r.createdAt).toLocaleDateString()
                   ),

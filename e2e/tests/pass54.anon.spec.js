@@ -99,7 +99,7 @@ test.describe('defect pass 54', () => {
     await reviews(page, { given: [{ id: 11, rating: 4, comment: 'ok', toUserId: 9, toUserName: 'bob', toDisplayName: 'bob', tradeId: 9, createdAt: Date.now() }] });
     await page.goto('/profile/reviews');
     await page.getByRole('tab', { name: /^Given/ }).first().click({ timeout: 20_000 });
-    await page.getByRole('button', { name: '✎ Edit' }).click();
+    await page.getByRole('button', { name: 'Edit your review of bob' }).click();
     await expect(page.getByRole('button', { name: '4 stars' })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: '2 stars' }).click();
     await expect(page.getByRole('button', { name: '2 stars' })).toHaveAttribute('aria-pressed', 'true');
