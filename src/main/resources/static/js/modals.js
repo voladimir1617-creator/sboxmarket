@@ -18296,7 +18296,10 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                 (catFilter !== 'All' || showDropsOnly || stateFilter !== 'ALL') && h('button', {
                   className: 'btn btn-ghost',
                   style: { marginTop: 10, border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
-                  onClick: () => { setCatFilter('All'); setShowDropsOnly(false); setState('ALL'); }
+                  // This button goes once rows show; land on the selected filter tab, not <body>.
+                  onClick: (e) => { focusPastOnUnmount(e.currentTarget, '[aria-label="Watchlist filter"] [role="tab"][aria-selected="true"]'); setCatFilter('All'); setState('ALL');
+                    // As the All tab does: the URL and title said Price Drops over the full list.
+                    if (showDropsOnly) { setShowDropsOnly(false); navigate('/watchlist/all'); } }
                 }, 'Clear filters'))
             : h('div', { id: 'watchlist-results', className: 'listing-grid', style: { gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' } },
                 filtered.map(r => h('div', { key: r.listing.id, style: { position: 'relative' } },
