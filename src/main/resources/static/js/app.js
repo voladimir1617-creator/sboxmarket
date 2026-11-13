@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=392'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=393'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -7133,6 +7133,9 @@ export function App() {
                   items[next].focus();
                   return;
                 }
+                // A menu item answers Space as well as Enter; the link items
+                // ignored it (only the button items did). Watchlist left as is.
+                if (e.key === ' ' && e.target.matches?.('a[role="menuitem"]:not([href="/watchlist"])')) { e.preventDefault(); e.target.click(); return; }
                 // Keys pressed on a menu item bubble up here; leave them to
                 // the item, or Enter on "Deposit" just closed the menu.
                 if (e.target !== e.currentTarget) return;

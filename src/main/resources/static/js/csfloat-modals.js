@@ -2923,7 +2923,7 @@ export function NotificationsModal({ onClose, me }) {
           }
           if (filter === 'UNREAD') {
             return h('div', { className: 'empty-inline' },
-              h('div', { className: 'empty-icon' }, '✓'),
+              h('div', { className: 'empty-icon', 'aria-hidden': 'true' }, '✓'),
               h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                 "You're all caught up — no unread notifications."),
               h('button', {
@@ -2957,13 +2957,15 @@ export function NotificationsModal({ onClose, me }) {
         })()
       : h('div', { className: 'notif-feed' },
           groups.map(g => h('div', { key: g.key },
-            h('div', { className: 'notif-feed-day' }, g.label),
+            // A heading per day, so a screen reader can jump between days.
+            h('div', { className: 'notif-feed-day', role: 'heading', 'aria-level': 2 }, g.label),
             g.items.map(n => h('div', {
               key: n.id,
               className: `notif-feed-row ${n.read ? '' : 'unread'}`,
               onClick: () => open(n)
             },
-              h('div', { className: 'notif-feed-icon' }, kindIcon(n.kind)),
+              // The glyph is a scan guide; the row's name already says what it is.
+              h('div', { className: 'notif-feed-icon', 'aria-hidden': 'true' }, kindIcon(n.kind)),
               // Keyboard a11y: the text block is the "open" control. It used
               // to be the whole row, so the Mark-unread and Delete buttons sat
               // inside a role=button, where screen readers drop them.
