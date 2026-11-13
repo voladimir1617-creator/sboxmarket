@@ -6967,7 +6967,8 @@ export function App() {
         h('a', {
           className: `nav-link ${routeName === 'loadouts' || routeName === 'loadout' ? 'active' : ''}`,
           href: paths.loadouts(),
-          'aria-current': (routeName === 'loadouts' || routeName === 'loadout') ? 'page' : undefined
+          // "page" only on the list itself; a single loadout is under it (as on the phone tab bar).
+          'aria-current': routeName === 'loadouts' ? 'page' : routeName === 'loadout' ? 'true' : undefined
         }, 'Loadout Lab'),
         h('a', {
           className: `nav-link ${routeName === 'watchlist' ? 'active' : ''}`,
@@ -6980,7 +6981,7 @@ export function App() {
         h('a', {
           className: `nav-link ${routeName === 'help' || routeName === 'faq' ? 'active' : ''}`,
           href: paths.help(),
-          'aria-current': (routeName === 'help' || routeName === 'faq') ? 'page' : undefined
+          'aria-current': routeName === 'help' ? 'page' : routeName === 'faq' ? 'true' : undefined
         }, 'Help'),
       ),
       h('div', { className: 'nav-right' },
