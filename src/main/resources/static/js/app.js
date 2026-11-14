@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=398'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=399'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -320,6 +320,15 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
+  // Closing the reply box (Post reply, Cancel, Escape) unmounts the box that
+  // had focus; hand it back to the row's Reply / Edit reply button.
+  const replyBtnRef = useRef(null);
+  const rowRef = useRef(null);
+  const wasEditingRef = useRef(false);
+  useEffect(() => {
+    if (wasEditingRef.current && !editing && (!document.activeElement || document.activeElement === document.body)) replyBtnRef.current?.focus();
+    wasEditingRef.current = editing;
+  }, [editing]);
   useEffect(() => {
     if (!isOwner) return;
     const kept = keptUnsent('sb_review_reply_unsent', v => v.reviewId === review.id);
@@ -406,6 +415,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       if (res && res.code === 'SESSION_EXPIRED' && !clear) keepUnsent('sb_review_reply_unsent', { reviewId: review.id, text: draft });
       if (res && (res.error || res.code)) { setErr(res.message || res.error); return; }
       dropUnsent('sb_review_reply_unsent');
+      // Remove reply goes away with the reply; keep focus on the row's Reply.
+      if (clear) replyBtnRef.current?.focus();
       setEditing(false);
       setDraft('');
       onSaved && onSaved();
@@ -423,10 +434,12 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       const { deleteReview } = await import('./api.js');
       const res = await deleteReview(review.id);
       if (res && (res.error || res.code)) { setErr(res.message || res.error); return; }
+      // The row goes away with the review; move on to what follows it.
+      focusPastOnUnmount(rowRef.current);
       onSaved && onSaved();
     } finally { stallReviewInFlight.delete(review.id); setBusy(false); }
   };
-  return h('div', { className: 'stall-review' },
+  return h('div', { className: 'stall-review', ref: rowRef },
     h('div', { className: 'stall-review-head' },
       h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${review.rating} out of 5 stars` }, '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)),
       h('span', { className: 'stall-review-from' }, review.fromDisplayName || 'Anonymous'),
@@ -497,11 +510,15 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       h('button', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+        ref: replyBtnRef,
+        // Every row's button otherwise read the same "Reply".
+        'aria-label': `${review.sellerReply ? 'Edit reply' : 'Reply'} to ${review.fromDisplayName || 'Anonymous'}'s review`,
         onClick: () => { setDraft(review.sellerReply || ''); setEditing(true); }
       }, review.sellerReply ? '✎ Edit reply' : '↩ Reply'),
       review.sellerReply && h('button', {
         className: 'btn btn-ghost',
         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
+        'aria-label': `Remove reply to ${review.fromDisplayName || 'Anonymous'}'s review`,
         onClick: () => submit(true)
       }, 'Remove reply')
     ),
