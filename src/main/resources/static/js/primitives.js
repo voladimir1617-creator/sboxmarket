@@ -552,7 +552,7 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
     (deltaPct > 0 ? `Up ${deltaPct}% overall.`
      : deltaPct < 0 ? `Down ${Math.abs(deltaPct)}% overall.`
      : 'Flat overall.') +
-    (volH > 0 ? ` ${totalSales} ${totalSales === 1 ? 'sale' : 'sales'} on SkinBox in this range.` : '');
+    (volH > 0 ? ` ${totalSales.toLocaleString()} ${totalSales === 1 ? 'sale' : 'sales'} on SkinBox in this range.` : '');
   return h('div', { className: 'sparkline-wrap' },
     h('svg', {
       className: 'chart',
@@ -597,7 +597,7 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
           x: W - 4, y: volTop + 11,
           'text-anchor': 'end',
           fill: AXIS_FILL, fontSize: 10
-        }, `${maxVol} ${maxVol === 1 ? 'trade' : 'trades'}`)
+        }, `${maxVol.toLocaleString()} ${maxVol === 1 ? 'trade' : 'trades'}`)
       ),
       // CSFloat parity: a thin (~1.6px) line, not a heavy 2.2px stroke.
       h('polyline', { points: polyline, fill: 'none', stroke: colorSafe, strokeWidth: '1.6',
