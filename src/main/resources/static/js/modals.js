@@ -11730,7 +11730,7 @@ function ProfileReviewsTab({ me }) {
                   }, (draft || '').length, ' / 300'),
                   h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
                     h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditId(null); setDraft(''); } }, 'Cancel'),
-                    h('button', { className: 'btn btn-accent', disabled: !draft.trim(), 'aria-disabled': busy || undefined, onClick: () => { if (draft.trim()) submit(r.id, false); } }, busy ? 'Saving…' : 'Post reply')
+                    h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !draft.trim()) || undefined, onClick: () => { if (draft.trim()) submit(r.id, false); } }, busy ? 'Saving…' : 'Post reply')
                   )
                 )
               : mode === 'received'

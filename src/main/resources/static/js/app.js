@@ -2811,10 +2811,8 @@ function ContactSellerButton({ seller }) {
           h('button', {
             className: 'btn btn-primary',
             style: { padding: '6px 14px', fontSize: 12 },
-            // Greyed out while the box is empty; only aria-disabled while sending, so a
-            // failed ticket keeps focus on Send (submit ignores in-flight sends).
-            disabled: !body.trim(),
-            'aria-disabled': busy || undefined,
+            // aria-disabled keeps focus on Send when the ticket fails; submit ignores empty or in-flight sends.
+            'aria-disabled': (busy || !body.trim()) || undefined,
             onClick: submit
           }, busy ? 'Sending…' : 'Send')
         )
