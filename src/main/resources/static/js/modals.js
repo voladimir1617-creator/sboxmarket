@@ -11482,6 +11482,8 @@ function ProfileReviewsTab({ me }) {
       const r = (received || []).find(x => x.id === reviewId);
       const res = await replyToReview(reviewId, clear ? '' : (draft || '').trim());
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reply failed', 'err'); return; }
+      // Remove reply goes away with the reply; keep focus on the row's Reply.
+      if (clear) document.querySelector(`[data-reply-review="${reviewId}"]`)?.focus();
       setEditId(null); setDraft('');
       await loadReceived();
       const who = r?.fromDisplayName ? `@${r.fromDisplayName}` : 'reviewer';
@@ -11504,6 +11506,8 @@ function ProfileReviewsTab({ me }) {
     try {
       const res = await deleteReview(reviewId);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Delete failed', 'err'); return; }
+      // The row goes away with the review; move on to what follows it.
+      focusPastOnUnmount(document.querySelector(`[data-edit-given="${reviewId}"]`)?.closest('.stall-review'));
       // The deleted review's trade is reviewable again, so Pending (and its
       // count chip) has to refresh too, not just the Given list.
       await Promise.all([loadGiven(), loadPending()]);
