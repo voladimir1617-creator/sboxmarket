@@ -2792,7 +2792,9 @@ function AdminCatalogueTab() {
 function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
   const [reason, setReason] = useState('');
   const [picked, setPicked] = useState('');
-  const choose = (t) => { setPicked(t.id); setReason(t.reason); };
+  // A template chip fills the reason; the caret goes there to edit it.
+  const reasonRef = React.useRef(null);
+  const choose = (t) => { setPicked(t.id); setReason(t.reason); reasonRef.current?.focus(); };
   return h('div', {
     className: 'cart-confirm-backdrop',
     onClick: () => !busy && onCancel()
@@ -2802,7 +2804,6 @@ function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
       style: { maxWidth: 560 },
       onClick: e => e.stopPropagation(),
       role: 'dialog',
-      'aria-modal': true,
       'aria-labelledby': 'ban-reason-title'
     },
       h('div', { id: 'ban-reason-title', className: 'cart-confirm-title' },
@@ -2820,6 +2821,7 @@ function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
         }, t.label))
       ),
       h('textarea', {
+        ref: reasonRef,
         value: reason,
         onChange: e => { setReason(e.target.value); setPicked(''); },
         maxLength: 500,
