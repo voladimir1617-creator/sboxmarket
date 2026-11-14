@@ -18477,6 +18477,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   useEffect(() => {
     if (initialTab && (initialTab === 'deposit' || initialTab === 'withdraw' || initialTab === 'history')) {
       setTab(initialTab);
+      // Back/Forward from a focused tab: focus follows the selected tab.
+      if (document.activeElement?.id?.startsWith('wallet-tab-')) document.getElementById('wallet-tab-' + initialTab)?.focus();
     }
   }, [initialTab]);
   // Batch 829 / Batch 1167 — Escape closes the wallet modal AND focus
