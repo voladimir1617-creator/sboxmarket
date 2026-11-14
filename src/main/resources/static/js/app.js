@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=396'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=397'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -10682,6 +10682,8 @@ export function App() {
           'Reporting ',
           h('strong', null, stallData.seller.displayName || `#${stallData.seller.id}`),
           ". This opens a FRAUD-category support ticket and staff will review. For trade-specific issues use the Dispute button on your trade row instead."),
+        // Inset like ReportListingDrawer: the panel itself has no padding.
+        h('div', { style: { padding: '0 24px 20px' } },
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
         h('select', {
           className: 'price-input',
@@ -10724,7 +10726,7 @@ export function App() {
             'aria-disabled': reportSellerBusy || undefined,
             onClick: submitReportSeller
           }, reportSellerBusy ? 'Submitting…' : 'File report')
-        )
+        ))
       )
     ),
     cartConfirmOpen && h('div', { className: 'cart-confirm-backdrop', onClick: () => setCartConfirmOpen(false) },
