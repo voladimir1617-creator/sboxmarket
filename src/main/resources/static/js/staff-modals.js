@@ -3183,7 +3183,7 @@ function AdminUsersTab({ me }) {
                     title: 'View user detail',
                     'aria-label': `View user detail for ${u.displayName || ('user #' + u.id)}`
                   }, '🔎'),
-                  h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u) }, '$'),
+                  h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u), 'aria-label': `Adjust wallet for ${u.displayName || ('user #' + u.id)}` }, '$'),
                   u.role === 'USER'
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role', 'aria-label': `Grant CSR role to ${u.displayName || ('user #' + u.id)}` }, '+CSR')
                     : u.role === 'CSR'
@@ -3193,13 +3193,13 @@ function AdminUsersTab({ me }) {
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u), 'aria-label': `Grant admin role to ${u.displayName || ('user #' + u.id)}` }, '+Admin')
                     : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevoke(u), 'aria-label': `Revoke admin role from ${u.displayName || ('user #' + u.id)}` }, '−Admin')),
                   u.banned
-                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(74,222,128,0.3)', color: 'var(--green)' }, disabled: busy, onClick: () => doUnban(u) }, 'Unban')
+                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(74,222,128,0.3)', color: 'var(--green)' }, disabled: busy, onClick: () => doUnban(u), 'aria-label': `Unban ${u.displayName || ('user #' + u.id)}` }, 'Unban')
                     // Hide Ban on self — banning your own admin account
                     // locks you out of the panel and bumps your session
                     // epoch. The Force-logout button below already guards
                     // self; Ban (a strict superset of force-logout) was
                     // missing the same check.
-                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, disabled: busy, onClick: () => doBan(u) }, 'Ban')),
+                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, disabled: busy, onClick: () => doBan(u), 'aria-label': `Ban ${u.displayName || ('user #' + u.id)}` }, 'Ban')),
                   // Force-logout — revoke every live session without banning.
                   // Hidden on self (the admin has logout-all on their own
                   // profile) and on already-banned users (ban already
@@ -4300,8 +4300,9 @@ function CsrLookupTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
       h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Steam ID / display name / user #id', 'aria-label': 'Look up a user by Steam ID, display name or user id', value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') search(); } }),
-      // aria-disabled keeps focus on the button while it searches; the click is ignored while busy.
-      h('button', { className: 'btn btn-accent', 'aria-disabled': busy || undefined, onClick: () => { if (!busy) search(); } }, busy ? '…' : 'Search')
+      // aria-disabled keeps focus on the button while it searches; the click is ignored while busy
+      // or with an empty box (search() needs a query), so it looks blocked then too.
+      h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !q.trim()) || undefined, onClick: () => { if (!busy) search(); } }, busy ? '…' : 'Search')
     ),
     data && (data.error
       ? h('div', { className: 'wallet-error', role: 'alert' }, 'Lookup failed, so we can\'t say whether this user exists. ',
