@@ -503,7 +503,9 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
               hasFilters ? 'No items match your filters' : 'Catalogue is empty'),
             h('div', { className: 'empty-state-sub' },
               hasFilters
-                ? 'Try clearing the category, rarity, or price range to broaden the view.'
+                ? (search.trim() && category === 'All' && rarity === 'All' && !listedOnly && !minPrice && !maxPrice
+                    ? 'No catalogue item names match your search. Check the spelling or clear the search.'
+                    : 'Try clearing the search, category, rarity, or price range to broaden the view.')
                 : 'The item catalogue is still syncing. Check back in a minute.'),
             hasFilters && h('div', { className: 'empty-state-actions' },
               h('button', {

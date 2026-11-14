@@ -13742,3 +13742,4 @@ html body .site-root.full-page-mode .modal-backdrop .modal-backdrop > .modal { w
 html.high-contrast{--ink-3:rgb(206,212,220)!important;--ink-4:rgb(178,186,196)!important;--line:oklch(0.45 0.012 260)}
 html:root body .profile-tabs:not([aria-label^=A])>button.profile-tab:focus-visible{box-shadow:inset 0 0 0 2px #237bff!important}
 @media (max-width:1180px){html body nav.nav .nav-link:is(.nav-link):focus-visible{outline-offset:-2px!important}}
+.info-modal .info-modal-body :is([aria-labelledby^=mark-sent-title],[aria-labelledby^=report-counterparty-title],[aria-labelledby=bulk-adjust-title],[aria-labelledby=catalogue-edit-title]) .btn.btn-accent{width:auto!important;max-width:none!important;margin:0!important}

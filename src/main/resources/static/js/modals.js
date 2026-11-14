@@ -8497,6 +8497,8 @@ function ProfileTradesTab({ me, privacy }) {
   const [chatThreads, setChatThreads] = useState({});
   const [chatDraft, setChatDraft] = useState('');
   const [chatSending, setChatSending] = useState(false);
+  // A quick-reply chip fills the box; the caret goes there so Enter sends it.
+  const chatInputRef = useRef(null);
   const [chatErrors, setChatErrors] = useState({});
   // The thread lists oldest first in a 200px scroller: keep it pinned to
   // the newest message when it opens and when a message arrives.
@@ -9342,7 +9344,9 @@ function ProfileTradesTab({ me, privacy }) {
                   && h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 12 },
-                    onClick: () => {
+                    // The button goes away with the empty state; land on the now-selected All chip.
+                    onClick: (e) => {
+                      focusPastOnUnmount(e.currentTarget, '.trade-filter-bar .offer-tab[aria-pressed="true"]');
                       setFilter('ALL');
                       setRole('all');
                       setCollapseActive(false);
@@ -10058,7 +10062,7 @@ function ProfileTradesTab({ me, privacy }) {
                       key: c.l,
                       className: 'btn btn-ghost',
                       style: { padding: '3px 8px', fontSize: 10, border: '1px solid var(--border)' },
-                      onClick: () => setChatDraft(c.v),
+                      onClick: () => { setChatDraft(c.v); chatInputRef.current?.focus(); },
                       title: c.v
                     }, c.l))
                   );
@@ -10070,6 +10074,7 @@ function ProfileTradesTab({ me, privacy }) {
                         : 'This trade is complete, so the chat is read-only.')
                   : h('div', { className: 'inline-cta-row', style: { display: 'flex', gap: 6 } },
                   h('input', {
+                    ref: chatInputRef,
                     className: 'chat-input',
                     style: { flex: 1 },
                     placeholder: 'Type a message…',
@@ -12442,7 +12447,7 @@ function ProfileDevelopersTab() {
               h('td', { className: 'right' },
                 k.revoked
                   ? h('span', { style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, 'REVOKED')
-                  : h('button', { className: 'btn btn-ghost', style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 }, 'aria-label': `Revoke API key ${k.label || k.publicPrefix || '#' + k.id}`, onClick: () => revoke(k.id) }, 'Revoke')
+                  : h('button', { className: 'btn btn-ghost', style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 }, 'aria-label': `Revoke API key ${k.label || k.publicPrefix || '#' + k.id}${k.label && keys.filter(x => x.label === k.label).length > 1 ? ` (${k.publicPrefix || '#' + k.id})` : ''}`, onClick: () => revoke(k.id) }, 'Revoke')
               )
             )))
           )
