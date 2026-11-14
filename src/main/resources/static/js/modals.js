@@ -3845,6 +3845,8 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
       h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
         `Trade #${trade.id} · ${trade.itemName || 'Item'}`,
         trade.price != null && ` · ${fmt(trade.price)}`),
+      // Inset like ReportListingDrawer: the panel itself has no padding.
+      h('div', { style: { padding: '0 24px 20px' } },
       h('div', {
         style: {
           background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)',
@@ -3883,7 +3885,7 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
         h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: onCancel }, 'Cancel'),
         h('button', { className: 'btn btn-accent', style: { background: 'var(--red)', borderColor: 'var(--red)' }, disabled: busy, onClick: submit },
           busy ? 'Filing…' : 'File dispute')
-      )
+      ))
     )
   );
 }
