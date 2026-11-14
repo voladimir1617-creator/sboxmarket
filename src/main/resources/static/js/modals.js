@@ -5216,7 +5216,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     },
       tab === 'personal' && profileErr && h('div', { className: 'empty-inline', role: 'alert' },
         h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Couldn’t load your profile details.'),
-        h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => setProfileRetry(n => n + 1) }, 'Retry')),
+        h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setProfileRetry(n => n + 1); } }, 'Retry')),
       tab === 'personal' && !profileErr && h(ProfilePersonalTab, {
         me, profile, syncing, onSync: runSync, transactions, privacy,
         // Batch 929 — lightweight profile refresh for actions that need
@@ -9977,7 +9977,8 @@ function ProfileTradesTab({ me, privacy }) {
                   chatErrors[t.id] && (chatThreads[t.id] || []).length === 0
                     ? h('div', { role: 'alert', style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
                         "Couldn't load messages. ",
-                        h('button', { className: 'btn btn-sm', onClick: () => loadChat(t.id) }, 'Retry'))
+                        // The notice goes away once the messages load; move on to the reply box.
+                        h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, 'input[aria-label="Message to your trade partner"]'); loadChat(t.id); } }, 'Retry'))
                   : (chatThreads[t.id] || []).length === 0
                     ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
                         'No messages yet. Send the first one — the other party will see a notification.')
