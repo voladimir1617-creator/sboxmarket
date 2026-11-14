@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=399'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=400'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4681,6 +4681,20 @@ export function App() {
   const [stallSearch, setStallSearch] = useState('');
   const stallSearchRef = useRef(null);
   const stallLoadedIdRef = useRef(null);
+  // Retry on a failed stall load re-runs the fetch in place, like the item
+  // page's Retry: a full reload while offline lost the app altogether.
+  const [stallRetry, setStallRetry] = useState(0);
+  const stallRetryFocusRef = useRef(false);
+  useEffect(() => {
+    if (!stallRetryFocusRef.current || !stallData || stallData.__error) return;
+    stallRetryFocusRef.current = false;
+    // The error panel and its focused Retry went; land in the stall instead of <body>.
+    requestAnimationFrame(() => {
+      if (document.activeElement !== document.body) return;
+      const t = document.querySelector('#main .info-modal-body a[href], #main .info-modal-body button');
+      if (t) t.focus();
+    });
+  }, [stallData]);
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
       stallLoadedIdRef.current = null;
@@ -4748,7 +4762,7 @@ export function App() {
       setStallSold(Array.isArray(sold) ? sold : []);
     })();
     return () => { alive = false; };
-  }, [routeName, route.params?.id, me?.id]);
+  }, [routeName, route.params?.id, me?.id, stallRetry]);
   // Deep-link support for Profile → Reviews → Pending "Leave review →"
   // (batch 341). If the URL carries ?leaveReview={tradeId} AND that
   // trade is actually un-reviewed between this viewer and this seller,
@@ -9311,7 +9325,7 @@ export function App() {
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
                 'Something went wrong fetching this seller — it may be a temporary connection issue.'),
               h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
-                h('button', { className: 'btn btn-accent', onClick: () => location.reload(), style: { minWidth: '150px', padding: '10px 22px' } }, 'Retry'),
+                h('button', { className: 'btn btn-accent', onClick: () => { stallRetryFocusRef.current = true; setStallRetry(n => n + 1); }, style: { minWidth: '150px', padding: '10px 22px' } }, 'Retry'),
                 h('a', { className: 'btn btn-ghost', href: '/market', style: { minWidth: '150px', padding: '10px 22px' } }, 'Back to marketplace'))
             )
         : h('div', null,
@@ -9875,7 +9889,7 @@ export function App() {
                   `Sales · last 30 days`,
                   h('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 } },
                     capped
-                      ? `${total} sales · ${fmt(revenue)} gross on the latest ${sampled}`
+                      ? `${total.toLocaleString()} sales · ${fmt(revenue)} gross on the latest ${sampled}`
                       : `${total} sale${total === 1 ? '' : 's'} · ${fmt(revenue)} gross`)
                 ),
                 h('div', {

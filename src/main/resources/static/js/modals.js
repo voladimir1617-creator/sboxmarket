@@ -1766,10 +1766,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
           // for quieter items.
           (velocity.soldLast24h > 0 || velocity.soldLast7d > 0 || velocity.soldLast30d > 0) &&
             h('div', { className: 'modal-demand-chip', style: { background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' } },
+              // Grouped like the views and sold chips beside it.
               h('span', { className: 'modal-demand-chip-num' },
-                velocity.soldLast24h > 0 ? velocity.soldLast24h
+                Number(velocity.soldLast24h > 0 ? velocity.soldLast24h
                   : velocity.soldLast7d > 0 ? velocity.soldLast7d
-                  : velocity.soldLast30d),
+                  : velocity.soldLast30d).toLocaleString()),
               velocity.soldLast24h > 0 ? ' sold in 24h'
                 : velocity.soldLast7d > 0 ? ' sold this week'
                 : ' sold this month'
