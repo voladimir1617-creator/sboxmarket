@@ -3564,6 +3564,8 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
         h('strong', null, trade.counterpartyName || `#${trade.buyerUserId || '?'}`),
         trade.itemName ? h('span', null, ' for ', h('strong', null, trade.itemName)) : null,
         trade.price ? h('span', null, ' (', fmt(trade.price), ')') : null, '.'),
+      // Inset like ReportListingDrawer: the panel itself has no padding.
+      h('div', { style: { padding: '0 24px 20px' } },
       h('div', { className: 'wallet-input-label', style: { marginTop: 4 } },
         'Steam offer URL (optional)'),
       h('input', {
@@ -3618,7 +3620,7 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
           disabled: busy || !valid,
           onClick: () => submit()
         }, busy ? 'Marking…' : 'Mark sent')
-      )
+      ))
     )
   );
 }
@@ -3691,6 +3693,8 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
         'Trade #', String(trade.id), ' · ',
         h('strong', null, counterparty),
         trade.itemName ? h('span', null, ' · ', trade.itemName) : null),
+      // Inset like ReportListingDrawer: the panel itself has no padding.
+      h('div', { style: { padding: '0 24px 20px' } },
       h('div', {
         style: {
           fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12,
@@ -3746,7 +3750,7 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
           'aria-disabled': busy || undefined,
           onClick: () => { if (note.trim()) submit(); }
         }, busy ? 'Submitting…' : 'File report')
-      )
+      ))
     )
   );
 }
@@ -4593,7 +4597,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   useEffect(() => {
     const VALID = ['personal','listings','transactions','buyorders','autobids','trades','offers','reviews','support','developers'];
     // Bare /profile (Back, the nav link) means the default tab.
-    setTab(initialTab && VALID.includes(initialTab) ? initialTab : 'personal');
+    const next = initialTab && VALID.includes(initialTab) ? initialTab : 'personal';
+    setTab(next);
+    // Back/Forward from a focused tab: focus follows the selected tab.
+    if (document.activeElement?.id?.startsWith('profile-tab-')) document.getElementById('profile-tab-' + next)?.focus();
   }, [initialTab]);
 
   // A deep link to a section (/profile/trades from a "seller sent the item"
@@ -14676,7 +14683,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   // Mirrors the WalletModal initialTab sync effect.
   useEffect(() => {
     // Bare /me/stall (Back, the nav link) means the Active tab.
-    setTab(initialTab === 'sold' || initialTab === 'analytics' ? initialTab : 'active');
+    const next = initialTab === 'sold' || initialTab === 'analytics' ? initialTab : 'active';
+    setTab(next);
+    // Back/Forward from a focused tab: focus follows the selected tab.
+    if (document.activeElement?.id?.startsWith('mystall-tab-')) document.getElementById('mystall-tab-' + next)?.focus();
   }, [initialTab]);
   const [editing, setEditing] = useState(null); // listing id being edited inline
   // Closing the inline price editor (Escape, ✕, a save) unmounts the
@@ -16668,7 +16678,10 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // also re-reads the lists, since a notification click means news.
   const tabRouteSeen = useRef(false);
   useEffect(() => {
-    setTab(initialTab === 'outgoing' ? 'outgoing' : 'incoming');
+    const next = initialTab === 'outgoing' ? 'outgoing' : 'incoming';
+    setTab(next);
+    // Back/Forward from a focused tab: focus follows the selected tab.
+    if (document.activeElement?.id?.startsWith('offers-modal-tab-')) document.getElementById('offers-modal-tab-' + next)?.focus();
     if (tabRouteSeen.current && me) load();
     tabRouteSeen.current = true;
   }, [initialTab]);

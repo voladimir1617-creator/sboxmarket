@@ -2719,6 +2719,8 @@ function AdminCatalogueTab() {
         h('div', { className: 'cart-confirm-title', id: 'catalogue-edit-title' }, '✎ Edit ' + editing.name),
         h('div', { className: 'cart-confirm-sub' },
           `ID #${editing.id} — partial edits apply immediately. Clear a field to restore the SCMM default on the next sync.`),
+        // Inset like ReportListingDrawer: the panel itself has no padding.
+        h('div', { style: { padding: '0 24px 20px' } },
         h('div', { style: { marginTop: 14, display: 'grid', gap: 10 } },
           h('div', null,
             h('div', { className: 'settings-label' }, 'Steam price'),
@@ -2778,7 +2780,7 @@ function AdminCatalogueTab() {
             onClick: save,
             disabled: busy
           }, busy ? 'Saving…' : 'Save changes')
-        )
+        ))
       )
     )
   );
