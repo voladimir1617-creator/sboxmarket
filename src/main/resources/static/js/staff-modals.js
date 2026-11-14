@@ -3683,6 +3683,8 @@ function AdminTicketsTab() {
   const [list, setList]     = useState(null);
   const [viewing, setView]  = useState(null);
   const [reply, setReply]   = useState('');
+  // A template chip fills the reply; the caret goes there so Enter sends it.
+  const replyInputRef = React.useRef(null);
   const [filter, setFilter] = useState('');
   // Batch 576 — free-text search across subject / username / category.
   // Debounced at 300ms so typing doesn't thrash the server and the
@@ -3826,12 +3828,12 @@ function AdminTicketsTab() {
         ].map(tpl => h('button', {
           key: tpl.id,
           className: 'wallet-tx-filter-chip',
-          onClick: () => setReply(tpl.body),
+          onClick: () => { setReply(tpl.body); replyInputRef.current?.focus(); },
           title: tpl.body
         }, tpl.label))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Staff reply…', 'aria-label': 'Staff reply', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
+        h('input', { ref: replyInputRef, className: 'chat-input', style: { flex: 1 }, placeholder: 'Staff reply…', 'aria-label': 'Staff reply', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
         // aria-disabled keeps focus on Send while the reply posts; sendReply ignores empty or in-flight sends.
         h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: sendReply }, 'Send')
       )
@@ -4368,6 +4370,8 @@ function CsrTicketsTab() {
   const [list, setList]     = useState(null);
   const [viewing, setView]  = useState(null);
   const [reply, setReply]   = useState('');
+  // A template chip fills the reply; the caret goes there so Enter sends it.
+  const replyInputRef = React.useRef(null);
   const [filter, setFilter] = useState('WAITING_STAFF');
   // Batch 581 — free-text search. Debounced client-side so typing
   // doesn't thrash the server.
@@ -4502,12 +4506,12 @@ function CsrTicketsTab() {
         ].map(tpl => h('button', {
           key: tpl.id,
           className: 'wallet-tx-filter-chip',
-          onClick: () => setReply(tpl.body),
+          onClick: () => { setReply(tpl.body); replyInputRef.current?.focus(); },
           title: tpl.body
         }, tpl.label))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply as CSR…', 'aria-label': 'Reply as CSR', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
+        h('input', { ref: replyInputRef, className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply as CSR…', 'aria-label': 'Reply as CSR', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
         // aria-disabled keeps focus on Send while the reply posts; sendReply ignores empty or in-flight sends.
         h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !reply.trim()) || undefined, onClick: sendReply }, 'Send')
       )
