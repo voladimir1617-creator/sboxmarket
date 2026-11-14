@@ -2800,12 +2800,17 @@ function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
     h('div', {
       className: 'cart-confirm-panel',
       style: { maxWidth: 560 },
-      onClick: e => e.stopPropagation()
+      onClick: e => e.stopPropagation(),
+      role: 'dialog',
+      'aria-modal': true,
+      'aria-labelledby': 'ban-reason-title'
     },
-      h('div', { className: 'cart-confirm-title' },
+      h('div', { id: 'ban-reason-title', className: 'cart-confirm-title' },
         'Ban ', user.displayName || user.steamId64),
       h('div', { className: 'cart-confirm-sub' },
         'The reason is recorded in the audit log and shown to the user in their banned state. Pick a template or type your own.'),
+      // Inset like ReportListingDrawer: the panel itself has no padding.
+      h('div', { style: { padding: '0 24px' } },
       h('div', { className: 'wallet-tx-filter-row', style: { marginTop: 14, marginBottom: 8 } },
         templates.map(t => h('button', {
           key: t.id,
@@ -2820,7 +2825,7 @@ function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
         maxLength: 500,
         placeholder: 'Ban reason (3–500 chars)',
         style: { width: '100%', minHeight: 90, padding: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13, resize: 'vertical' }
-      }),
+      })),
       h('div', { className: 'cart-confirm-actions' },
         h('button', {
           className: 'btn btn-ghost',
