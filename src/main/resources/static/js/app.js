@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=394'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=396'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -6965,7 +6965,8 @@ export function App() {
         h('a', {
           className: `nav-link ${routeName === 'loadouts' || routeName === 'loadout' ? 'active' : ''}`,
           href: paths.loadouts(),
-          'aria-current': (routeName === 'loadouts' || routeName === 'loadout') ? 'page' : undefined
+          // "page" only on the list itself; a single loadout is under it (as on the phone tab bar).
+          'aria-current': routeName === 'loadouts' ? 'page' : routeName === 'loadout' ? 'true' : undefined
         }, 'Loadout Lab'),
         h('a', {
           className: `nav-link ${routeName === 'watchlist' ? 'active' : ''}`,
@@ -6978,7 +6979,7 @@ export function App() {
         h('a', {
           className: `nav-link ${routeName === 'help' || routeName === 'faq' ? 'active' : ''}`,
           href: paths.help(),
-          'aria-current': (routeName === 'help' || routeName === 'faq') ? 'page' : undefined
+          'aria-current': routeName === 'help' ? 'page' : routeName === 'faq' ? 'true' : undefined
         }, 'Help'),
       ),
       h('div', { className: 'nav-right' },
@@ -10466,9 +10467,9 @@ export function App() {
                     // swallowed, and opened the item page instead of removing.
                     onKeyDown: (e) => { if (e.target !== e.currentTarget) return; if ((e.key === 'Enter' || e.key === ' ') && it.itemId) { e.preventDefault(); navigate(paths.item(it.itemId)); } }
                   },
-                  h('div', { className: 'cart-thumb' }, it.thumb
-                    ? h('img', { src: it.thumb, alt: it.name, loading: 'lazy', decoding: 'async' })
-                    : h('span', null, '—')),
+                  // ItemImage draws the item glyph for a missing or broken image; a bare
+                  // img showed the broken-image box with its alt text clipped.
+                  h('div', { className: 'cart-thumb' }, h(ItemImage, { item: { name: it.name, imageUrl: it.thumb }, variant: 'mini' })),
                   h('div', { className: 'cart-info' },
                     h('div', { className: 'cart-name' }, it.name,
                       stale && h('span', {
@@ -10588,7 +10589,8 @@ export function App() {
                 h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal))
               ),
               h('div', { className: 'cart-summary-actions' },
-                h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: clearCart }, 'Clear'),
+                // The rows and this button go once the cart is empty; land on the empty state's Browse link, not <body>.
+                h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.empty-inline a.btn[href="/market"]'); clearCart(); } }, 'Clear'),
                 // Preserve buyer intent on a pricing-shift — instead of
                 // forcing them to re-find each item after clearing the
                 // cart, move every cart row to the watchlist in one click.

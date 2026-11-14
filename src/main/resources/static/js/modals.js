@@ -2478,6 +2478,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                           setSelectedAuctionId(l.id);
                           const el = document.querySelector('[data-auction-panel]');
                           if (el) el.scrollIntoView({ block: 'start' });
+                          // Keyboard focus follows to the bid box (after the panel
+                          // switches auction), not left on this row below.
+                          requestAnimationFrame(() => document.querySelector('[data-auction-panel] input')?.focus({ preventScroll: true }));
                         },
                         title: 'Place or update your bid in the auction panel above'
                       }, 'Bid')
@@ -2680,6 +2683,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               onClick: () => {
                 const el = document.querySelector('[data-auction-panel]');
                 if (el) el.scrollIntoView({ block: 'start' });
+                document.querySelector('[data-auction-panel] input')?.focus({ preventScroll: true });
               },
               'aria-label': 'Place a bid in the auction panel above'
             }, 'Place Bid')
@@ -5562,7 +5566,8 @@ function FollowingListRow() {
     h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
       'Could not load the sellers you follow. ',
       h('button', { className: 'btn btn-ghost', style: { padding: '2px 8px', fontSize: 11 },
-        onClick: () => { setLoadErr(false); setReloadKey(k => k + 1); } }, 'Retry')));
+        // This row goes while the list reloads; focus what follows, not <body>.
+        onClick: (e) => { focusPastOnUnmount(e.currentTarget); setLoadErr(false); setReloadKey(k => k + 1); } }, 'Retry')));
   if (!rows || rows.length === 0) return null;
   return h('div', { className: 'profile-row' },
     h('div', { className: 'profile-row-label' },
@@ -5711,7 +5716,7 @@ function BlockedListRow() {
     h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
       'Could not load the users you blocked. ',
       h('button', { className: 'btn btn-ghost', style: { padding: '2px 8px', fontSize: 11 },
-        onClick: () => { setLoadErr(false); loadRows(); } }, 'Retry')));
+        onClick: (e) => { focusPastOnUnmount(e.currentTarget); setLoadErr(false); loadRows(); } }, 'Retry')));
   if (!rows || rows.length === 0) return null;
   return h('div', { className: 'profile-row' },
     h('div', { className: 'profile-row-label' },
@@ -8312,7 +8317,8 @@ function ProfileAutoBidsTab() {
         className: 'btn btn-ghost',
         style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 12px', fontSize: 11 },
         disabled: busy,
-        onClick: cancelAll
+        // Disabled while busy and gone once no auto-bid is left; land on the selected tab, not <body>.
+        onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.profile-tab[role="tab"][aria-selected="true"]'); cancelAll(); }
       }, 'Stop all auto-raises')
     ),
     h('table', { className: 'db-table db-table--list' },
@@ -14322,7 +14328,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
         'Something interrupted the request. Your items are safe — this is only a display hiccup.'),
       h('div', { style: { display: 'flex', justifyContent: 'center' } },
-        h('button', { className: 'btn btn-secondary', onClick: () => { setInternalErr(false); loadInternal(); } }, 'Retry'))),
+        // The card turns into a spinner; keep focus on the Platform Inventory tab, not <body>.
+        h('button', { className: 'btn btn-secondary', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.sell-source-tabs .offer-tab[aria-pressed="true"]'); setInternalErr(false); loadInternal(); } }, 'Retry'))),
     source === 'internal' && !internalErr && internal === null && h('div', { className: 'spinner' }),
     source === 'internal' && internal && internalList.length === 0 && h('div', { className: 'empty-inline' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
@@ -15893,7 +15900,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       analytics === null && analyticsErr
         ? h('div', { className: 'empty-inline', role: 'alert' },
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your listing analytics.'),
-            h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => setAnalyticsErr(false) }, 'Retry'))
+            // The panel turns into a spinner; keep focus on the selected tab, not <body>.
+            h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.mystall-tabs [role="tab"][aria-selected="true"]'); setAnalyticsErr(false); } }, 'Retry'))
       : analytics === null
         ? h('div', { className: 'spinner' })
         : analytics.length === 0
@@ -15968,7 +15976,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
               "Something interrupted the request for your settled sales. Your payout history is safe — this is only a display hiccup."),
             h('div', { style: { display: 'flex', justifyContent: 'center' } },
-              h('button', { className: 'btn btn-secondary', onClick: () => setSoldErr(false) }, 'Retry')))
+              h('button', { className: 'btn btn-secondary', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.mystall-tabs [role="tab"][aria-selected="true"]'); setSoldErr(false); } }, 'Retry')))
         : sold === null
           ? h('div', { className: 'spinner' })
           : sold.length === 0
@@ -18234,7 +18242,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             rows.length > 0 && h('button', {
               className: 'btn-danger-ghost',
               style: { padding: '6px 12px', fontSize: 11 },
-              onClick: async () => {
+              onClick: async (e) => {
+                const btn = e.currentTarget;
                 // Latch: a double click must not send a second clear.
                 if (bulkInFlight.has('watchlist-clear')) return;
                 bulkInFlight.add('watchlist-clear');
@@ -18254,6 +18263,8 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                       return;
                     }
                   }
+                  // The list and this button go; land on the empty state's Browse link, not <body>.
+                  focusPastOnUnmount(btn, '.empty-inline a.btn[href="/market"]');
                   // Drop client-side state so the marketplace grid un-stars
                   // cards at once (signed out, the list is local only).
                   if (typeof onClearAll === 'function') onClearAll();
@@ -18285,7 +18296,10 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                 (catFilter !== 'All' || showDropsOnly || stateFilter !== 'ALL') && h('button', {
                   className: 'btn btn-ghost',
                   style: { marginTop: 10, border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
-                  onClick: () => { setCatFilter('All'); setShowDropsOnly(false); setState('ALL'); }
+                  // This button goes once rows show; land on the selected filter tab, not <body>.
+                  onClick: (e) => { focusPastOnUnmount(e.currentTarget, '[aria-label="Watchlist filter"] [role="tab"][aria-selected="true"]'); setCatFilter('All'); setState('ALL');
+                    // As the All tab does: the URL and title said Price Drops over the full list.
+                    if (showDropsOnly) { setShowDropsOnly(false); navigate('/watchlist/all'); } }
                 }, 'Clear filters'))
             : h('div', { id: 'watchlist-results', className: 'listing-grid', style: { gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' } },
                 filtered.map(r => h('div', { key: r.listing.id, style: { position: 'relative' } },
