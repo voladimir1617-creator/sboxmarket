@@ -10151,7 +10151,9 @@ export function App() {
             }, "Couldn't load this seller's reviews. ",
               h('button', {
                 className: 'btn btn-sm',
-                onClick: async () => {
+                onClick: async (e) => {
+                  // The alert and its Retry go away once the reviews load; move on past them.
+                  focusPastOnUnmount(e.currentTarget);
                   const fresh = await fetchReviewsForUser(stallData.seller.id, { fresh: true });
                   if (Array.isArray(fresh)) setStallReviews(fresh);
                   else showToast("Couldn't load reviews — try again.", 'err');
