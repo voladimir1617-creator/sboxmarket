@@ -2006,11 +2006,12 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                 'aria-pressed': chartRange === r.id,
                 onClick: () => { if (!insufficient) setChartRange(r.id); },
                 disabled: insufficient,
+                // A failed load is not "not enough history".
                 title: insufficient
-                  ? `Not enough price history in the last ${r.label} to draw a chart${history.length >= 2 ? ' — try ALL' : ''}.`
+                  ? (historyFailed ? 'Price history could not be loaded.' : `Not enough price history in the last ${r.label} to draw a chart${history.length >= 2 ? ' — try ALL' : ''}.`)
                   : null,
                 'aria-label': insufficient
-                  ? `${r.label} (insufficient history)`
+                  ? `${r.label} (${historyFailed ? 'price history unavailable' : 'insufficient history'})`
                   : `Show ${r.label} price history`
               }, r.label);
             })
@@ -8787,7 +8788,8 @@ function ProfileTradesTab({ me, privacy }) {
   }, []);
   useDialogA11y(refundPanelRef, refundClose, !!refundTrade);
   const submitReview = async () => {
-    if (!reviewTrade) return;
+    // Submit stays focusable while busy or saved (aria-disabled), so ignore those clicks here.
+    if (!reviewTrade || reviewDone) return;
     // reviewBusyRef already exists (a11y close-guard); gate the submit on it too
     // so a double-click can't POST the review twice (setReviewBusy is async).
     if (reviewBusyRef.current) return;
@@ -10123,7 +10125,9 @@ function ProfileTradesTab({ me, privacy }) {
         ),
     // Review modal — overlays the trades tab when `reviewTrade` is set.
     // Clean star picker + textarea + submit, no native prompts.
-    reviewTrade && h('div', { className: 'modal-backdrop', onClick: closeReview },
+    // A click outside (or on the X) while sending is ignored, as Escape is,
+    // so the result or error isn't lost with the closed form.
+    reviewTrade && h('div', { className: 'modal-backdrop', onClick: reviewClose },
       h('div', {
         ref: reviewPanelRef,
         className: 'modal review-modal',
@@ -10138,7 +10142,7 @@ function ProfileTradesTab({ me, privacy }) {
         'aria-modal': 'true',
         'aria-labelledby': 'review-modal-title'
       },
-        h('button', { className: 'modal-close', onClick: closeReview, 'aria-label': 'Close' }, '✕'),
+        h('button', { className: 'modal-close', onClick: reviewClose, 'aria-label': 'Close' }, '✕'),
         h('div', { style: { padding: '24px 26px 20px' } },
           h('div', { id: 'review-modal-title', style: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 } },
             // Opened from "Edit Review", it edits the review already posted.
@@ -10267,7 +10271,8 @@ function ProfileTradesTab({ me, privacy }) {
               className: 'btn btn-accent',
               style: { flex: 2, justifyContent: 'center' },
               onClick: submitReview,
-              disabled: reviewBusy || reviewDone
+              // aria-disabled, not disabled: a disabled button drops focus to <body> mid-submit.
+              'aria-disabled': (reviewBusy || reviewDone) || undefined
             }, reviewBusy ? 'Submitting…' : (reviewDone ? 'Saved' : 'Submit review'))
           )
         )

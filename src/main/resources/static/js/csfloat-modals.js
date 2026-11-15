@@ -2518,9 +2518,27 @@ export function NotificationsModal({ onClose, me }) {
   // section and an unread-only filter. Mirrors the way CSFloat (and Slack)
   // organise high-volume feeds so scanning a week of notifications is fast.
   const [data, setData] = useState({ items: [], unread: 0 });
-  const [filter, setFilter] = useState('ALL');
-  const [typeFilter, setTypeFilter] = useState('ALL');
-  const [search, setSearch] = useState('');
+  // The filters live in the URL too (effect below), so Back from a
+  // notification's target lands on the list as it was left.
+  const initQs = (() => { try { return new URLSearchParams(window.location.search); } catch (_) { return new URLSearchParams(); } })();
+  const [filter, setFilter] = useState(initQs.get('show') === 'unread' ? 'UNREAD' : 'ALL');
+  const [typeFilter, setTypeFilter] = useState(() => {
+    const t = (initQs.get('kind') || '').toUpperCase();
+    return ['TRADES', 'AUCTIONS', 'OFFERS', 'MATCHES', 'WALLET', 'OTHER'].includes(t) ? t : 'ALL';
+  });
+  const [search, setSearch] = useState(() => (initQs.get('find') || '').slice(0, 100));
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const put = (k, v) => { if (v) qs.set(k, v); else qs.delete(k); };
+      put('show', filter === 'UNREAD' ? 'unread' : '');
+      put('kind', typeFilter !== 'ALL' ? typeFilter.toLowerCase() : '');
+      put('find', search.trim() ? search : '');
+      const next = qs.toString();
+      const url = window.location.pathname + (next ? '?' + next : '');
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+    } catch (_) { /* no URL API: the filters just are not kept */ }
+  }, [filter, typeFilter, search]);
   // Where focus goes when the control that had it unmounts (the empty
   // states' buttons, Clear read once nothing read is left).
   const searchRef = useRef(null);
@@ -2820,7 +2838,8 @@ export function NotificationsModal({ onClose, me }) {
         style: { marginLeft: 'auto', color: 'var(--accent)', fontWeight: 700, textDecoration: 'none', fontSize: 11 }
       }, 'Manage →')
     ),
-    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
+    // Named groups: both rows start with an "All" toggle.
+    h('div', { role: 'group', 'aria-label': 'Read status', style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
       h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, 'aria-pressed': filter === 'ALL', ref: allBtnRef, onClick: () => setFilter('ALL') },
         'All ', !(loading || loadErr) && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, shownItems.length + (data.items.length >= 100 ? '+' : ''))),
       h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, 'aria-pressed': filter === 'UNREAD', onClick: () => setFilter('UNREAD') },
@@ -2876,7 +2895,7 @@ export function NotificationsModal({ onClose, me }) {
         onChange: e => setSearch(e.target.value)
       })
     ),
-    (data.items.length > 3 || typeFilter !== 'ALL') && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
+    (data.items.length > 3 || typeFilter !== 'ALL') && h('div', { role: 'group', 'aria-label': 'Notification type', style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
       [
         { id: 'ALL',      label: 'All' },
         { id: 'TRADES',   label: 'Trades' },

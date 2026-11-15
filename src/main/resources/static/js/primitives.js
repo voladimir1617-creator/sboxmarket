@@ -321,11 +321,15 @@ export function Avatar({ src, name, alt, className, style }) {
       background: 'var(--bg-card)', border: '1px solid var(--border)',
       borderRadius: '50%', width: 32, height: 32
     }, style || {});
-    return h('span', { className, style: wrapStyle, 'aria-label': safeName }, initials);
+    // An image stand-in: read as the name, not the two initials (aria-label
+    // alone is ignored on a plain span). alt '' marks it decorative.
+    return alt === ''
+      ? h('span', { className, style: wrapStyle, 'aria-hidden': 'true' }, initials)
+      : h('span', { className, style: wrapStyle, role: 'img', 'aria-label': alt || safeName }, initials);
   }
   return h('img', {
     src,
-    alt: alt || safeName,
+    alt: alt === '' ? '' : (alt || safeName),
     loading: 'lazy',
     decoding: 'async',
     draggable: false,

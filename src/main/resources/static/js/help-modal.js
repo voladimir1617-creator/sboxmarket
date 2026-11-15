@@ -427,7 +427,11 @@ export function HelpModal({ onClose }) {
               // role=region needs a discernible name or axe flags it; point
               // aria-labelledby at the question button so SR announces the
               // panel as "<question>, region".
-              isOpen && h('div', { id: panelId, role: 'region', 'aria-labelledby': btnId, className: 'help-faq-a' }, highlightMatch(item.a, q))
+              // Contact addresses in an answer are mailto links, still highlighted.
+              isOpen && h('div', { id: panelId, role: 'region', 'aria-labelledby': btnId, className: 'help-faq-a' },
+                item.a.split(/([\w.+-]+@skinbox\.market)/).map((part, i) => i % 2
+                  ? h('a', { key: i, href: 'mailto:' + part }, highlightMatch(part, q))
+                  : h('span', { key: i }, highlightMatch(part, q))))
             );
             }));
           })
@@ -448,13 +452,12 @@ export function HelpModal({ onClose }) {
         h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 } },
           "Open a support ticket and staff will answer as soon as they can, trade, payment and refund issues first. Include a transaction id if it's about a purchase.")
       ),
-      h('button', {
+      // Batch 787 — route directly to /support instead of /profile.
+      // A link (InfoModal's followInternalLink routes it in-app), so
+      // Ctrl/middle-click opens Support in a new tab like the FAQ's link.
+      h('a', {
         className: 'btn btn-accent',
-        // Batch 787 — route directly to /support instead of /profile.
-        // Before: click landed on Profile → Personal and the user had
-        // to hunt the Support tab. Now a single click drops them at
-        // the ticket list + New Ticket button in one step.
-        onClick: () => { navigate(paths.support()); }
+        href: paths.support()
       }, h(MaterialIcon, { name: 'support_agent', size: 18 }), 'Contact Support')
     )
   );
