@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=403'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=404'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1409,10 +1409,11 @@ function TopSellersRail() {
           }
         }, '#' + (idx + 1)),
         h('div', { className: 'top-seller-avatar' },
+          // The card already shows the name; the picture adds nothing to its link name.
           h(Avatar, {
             src: s.avatarUrl,
             name: s.displayName || 'Player',
-            alt: s.displayName,
+            alt: '',
             style: { width: '100%', height: '100%', borderRadius: 'inherit',
                      background: 'transparent', border: 'none', fontSize: 14 }
           })
@@ -1567,7 +1568,7 @@ function FindSellerBar() {
           background: cursor === i ? 'var(--bg-elev, #111827)' : 'transparent'
         }
       },
-        h(Avatar, { src: s.avatarUrl, name: s.displayName || 'Player',
+        h(Avatar, { src: s.avatarUrl, name: s.displayName || 'Player', alt: '',
           style: { width: 32, height: 32, borderRadius: 8, fontSize: 13 } }),
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { fontWeight: 600, fontSize: 13,

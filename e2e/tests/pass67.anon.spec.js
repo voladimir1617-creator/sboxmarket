@@ -37,7 +37,7 @@ test.describe('defect pass 67', () => {
     await signedIn(page);
     await page.route('**/api/support/tickets*', (r) => r.fulfill(json([])));
     await page.goto('/help');
-    await backReturns(page, page.getByRole('button', { name: /Contact Support/ }).first(), /\/support$/, /\/help$/);
+    await backReturns(page, page.getByRole('link', { name: /Contact Support/ }).first(), /\/support$/, /\/help$/);
   });
 
   test('Back from Support returns to the FAQ, not the market', async ({ page }) => {
