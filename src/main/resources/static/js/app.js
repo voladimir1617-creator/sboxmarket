@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=401'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=402'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -9424,7 +9424,8 @@ export function App() {
                 })
               ),
               h('div', { style: { flex: 1, minWidth: 0 } },
-                h('h2', { className: 'stall-name' },
+                // Named without its "↗ Steam" link, like the item page's rails.
+                h('h2', { className: 'stall-name', 'aria-label': (stallData.seller.displayName || 'Player') + (stallData.seller.verified ? ', Verified' : '') },
                   stallData.seller.displayName || 'Player',
                   // Verified trust badge — 10+ completed sales AND either
                   // no reviews OR 4+ star average. Backend computes it so

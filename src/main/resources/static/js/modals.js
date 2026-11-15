@@ -2565,7 +2565,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
         // browsing item X by seller Y is more likely to want another
         // item from Y than a random similar-SKU match.
         otherFromSeller && otherFromSeller.listings.length > 0 && h('div', null,
-          h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
+          // Named without its "Visit stall →" link, like Price History.
+          h('h2', { className: 'modal-section-title', style: { marginTop: 22 }, 'aria-label': `More from ${otherFromSeller.sellerName || 'this seller'}` },
             h('div', { className: 'section-title-dot' }),
             `More from ${otherFromSeller.sellerName || 'this seller'}`,
             otherFromSeller.sellerId && h('a', {
@@ -6091,6 +6092,15 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     } finally { setTradeUrlBusy(false); }
   };
 
+  // Save in the editor with an empty box went down the Remove path: no
+  // confirm, and a "removed" toast even when no URL had been set.
+  const saveTradeUrlDraft = () => {
+    const raw = tradeUrlDraft.trim();
+    if (raw) { saveTradeUrl(raw); return; }
+    setTradeUrlErr('Paste your Steam trade URL, then press Save.');
+    document.getElementById('profile-trade-url-input')?.focus();
+  };
+
   // Latch: a double-click sent a second PUT that hit the resend cooldown
   // and replaced the success message with an error.
   const emailBusyRef = useRef(false);
@@ -6102,7 +6112,12 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   const saveEmailInner = async () => {
     setEmailResult(null);
     const trimmed = emailDraft.trim();
-    if (!trimmed) return;
+    // An empty box used to return silently, so Save read as a dead button.
+    if (!trimmed) {
+      setEmailResult({ err: 'Enter your email address, then press Save.' });
+      document.getElementById('profile-email-input')?.focus();
+      return;
+    }
     // Batch 748 — pre-flight email format check. The server still
     // runs its own validation (Jakarta @Email on the DTO), so this
     // is belt-and-braces UX polish that saves a round-trip when the
@@ -6378,6 +6393,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+            // Three buttons on this tab read just "Copy"; say what each copies.
+            'aria-label': 'Copy public stall link',
             onClick: async () => {
               const url = `${window.location.origin}/stall/${me.id}`;
               try {
@@ -6419,8 +6436,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Email'),
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 } },
-        !editingEmail && h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-          h('span', { className: 'mono' }, profile?.user?.email || '(not set)'),
+        // Wraps like the trade URL row: a long address pushed the badge and
+        // Edit past a phone's edge, where they could not be reached.
+        !editingEmail && h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+          h('span', { className: 'mono', style: { wordBreak: 'break-all' } }, profile?.user?.email || '(not set)'),
           hasEmail && h('span', {
             style: {
               fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
@@ -6529,6 +6548,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
             title: 'Copy your trade URL to the clipboard',
+            'aria-label': 'Copy Steam trade URL',
             onClick: async () => {
               const url = profile?.user?.tradeUrl || '';
               if (!url) return;
@@ -6568,11 +6588,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             style: { flex: 1, minWidth: 240, fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontSize: 12 },
             onChange: e => setTradeUrlDraft(e.target.value),
             onKeyDown: e => {
-              if (e.key === 'Enter' && !tradeUrlBusy) { e.preventDefault(); saveTradeUrl(tradeUrlDraft.trim()); }
+              if (e.key === 'Enter' && !tradeUrlBusy) { e.preventDefault(); saveTradeUrlDraft(); }
               else if (e.key === 'Escape' && !tradeUrlBusy) { e.preventDefault(); setEditingTradeUrl(false); setTradeUrlErr(''); }
             }
           }),
-          h('button', { className: 'btn btn-accent', 'aria-disabled': tradeUrlBusy || undefined, onClick: () => { if (!tradeUrlBusy) saveTradeUrl(tradeUrlDraft.trim()); } }, tradeUrlBusy ? 'Saving…' : 'Save'),
+          h('button', { className: 'btn btn-accent', 'aria-disabled': tradeUrlBusy || undefined, onClick: () => { if (!tradeUrlBusy) saveTradeUrlDraft(); } }, tradeUrlBusy ? 'Saving…' : 'Save'),
           h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: tradeUrlBusy, onClick: () => { setEditingTradeUrl(false); setTradeUrlErr(''); } }, 'Cancel')
         ),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
@@ -6770,6 +6790,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
+                'aria-label': 'Copy backup codes',
                 onClick: async () => {
                   // Critical safety surface — a silent-failure here used
                   // to leave users without their 2FA recovery codes if
