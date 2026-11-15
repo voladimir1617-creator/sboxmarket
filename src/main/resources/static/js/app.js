@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=402'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=403'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4708,9 +4708,14 @@ export function App() {
     // inventory, or a half-typed review form from stall A's trade
     // lingered. stallReviewSort is the one exception: it is localStorage-
     // backed (an explicit cross-stall user preference) so it is NOT reset.
-    setStallRarity('All');
-    setStallSort('price_asc');
-    setStallSearch('');
+    // The listing filter, sort and name search come from the URL (kept
+    // there by the effect below), so Back from an item lands on the
+    // stall as it was left; a different stall's URL has none of them.
+    // Own names, not ?rarity/?sort/?q: the market reads those on a fresh load.
+    const stallQs = new URLSearchParams(window.location.search);
+    setStallRarity(stallQs.get('filter') || 'All');
+    setStallSort(['price_asc', 'price_desc', 'newest', 'rarity'].includes(stallQs.get('order')) ? stallQs.get('order') : 'price_asc');
+    setStallSearch(stallQs.get('name') || '');
     setStallStarFilter(0);
     setStallReviewsExpanded(false);
     setStallSoldExpanded(false);
@@ -4763,6 +4768,21 @@ export function App() {
     })();
     return () => { alive = false; };
   }, [routeName, route.params?.id, me?.id, stallRetry]);
+  // Mirror the stall's listing filter, sort and search into the URL (replace,
+  // not push) so Back from a listing restores them instead of the defaults.
+  useEffect(() => {
+    if (routeName !== 'stall') return;
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const put = (k, v, d) => { if (v && v !== d) qs.set(k, v); else qs.delete(k); };
+      put('filter', stallRarity, 'All');
+      put('order', stallSort, 'price_asc');
+      put('name', (stallSearch || '').trim() ? stallSearch : '', '');
+      const next = qs.toString();
+      const url = window.location.pathname + (next ? '?' + next : '');
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+    } catch (_) { /* no URL API: the filters just are not kept */ }
+  }, [routeName, stallRarity, stallSort, stallSearch]);
   // Deep-link support for Profile → Reviews → Pending "Leave review →"
   // (batch 341). If the URL carries ?leaveReview={tradeId} AND that
   // trade is actually un-reviewed between this viewer and this seller,
@@ -9761,10 +9781,13 @@ export function App() {
                   const rarities = Array.from(new Set(
                     stallData.listings.map(l => l?.item?.rarity || 'Standard')
                   )).sort();
-                  const search = (stallSearch || '').trim().toLowerCase();
-                  let rows = stallRarity === 'All'
+                  // A ?filter= or ?name= this stall cannot show (no such rarity
+                  // here, or too few listings for the search box) is ignored.
+                  const stallRarityOn = rarities.includes(stallRarity) ? stallRarity : 'All';
+                  const search = stallData.listings.length > 10 ? (stallSearch || '').trim().toLowerCase() : '';
+                  let rows = stallRarityOn === 'All'
                     ? stallData.listings
-                    : stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === stallRarity);
+                    : stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === stallRarityOn);
                   if (search.length > 0) {
                     rows = rows.filter(l => {
                       const name = (l?.item?.name || '').toLowerCase();
@@ -9790,14 +9813,14 @@ export function App() {
                     (rarities.length > 1 || stallData.listings.length > 6) && h('div', { className: 'stall-filter-row' },
                       h('div', { className: 'stall-filter-chips' },
                         h('button', {
-                          className: `wallet-tx-filter-chip ${stallRarity === 'All' ? 'active' : ''}`,
-                          'aria-pressed': stallRarity === 'All',
+                          className: `wallet-tx-filter-chip ${stallRarityOn === 'All' ? 'active' : ''}`,
+                          'aria-pressed': stallRarityOn === 'All',
                           onClick: () => setStallRarity('All')
                         }, `All · ${stallData.listings.length}`),
                         rarities.map(r => h('button', {
                           key: r,
-                          className: `wallet-tx-filter-chip ${stallRarity === r ? 'active' : ''}`,
-                          'aria-pressed': stallRarity === r,
+                          className: `wallet-tx-filter-chip ${stallRarityOn === r ? 'active' : ''}`,
+                          'aria-pressed': stallRarityOn === r,
                           onClick: () => setStallRarity(r)
                         }, `${r === 'Off-Market' ? 'Scarce' : r} · ${stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === r).length}`))
                       ),
@@ -9831,8 +9854,8 @@ export function App() {
                             // Under a rarity chip the search only looked at that
                             // rarity, so "in this stall" was not true.
                             search
-                              ? (stallRarity !== 'All'
-                                  ? `No ${stallRarity === 'Off-Market' ? 'Scarce' : stallRarity} listings match "${stallSearch}".`
+                              ? (stallRarityOn !== 'All'
+                                  ? `No ${stallRarityOn === 'Off-Market' ? 'Scarce' : stallRarityOn} listings match "${stallSearch}".`
                                   : `No listings match "${stallSearch}" in this stall.`)
                               : 'No listings match this filter.'),
                           search && h('button', {
