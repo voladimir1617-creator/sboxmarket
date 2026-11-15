@@ -12261,9 +12261,11 @@ function ProfileSupportTab() {
                 },
                   h('td', { className: 'db-rank' }, '#' + t.id),
                   h('td', { dir: 'auto' }, t.subject),
-                  h('td', { className: 'db-cat' }, ticketCategoryLabel(t.category)),
-                  h('td', { style: { fontSize: 10, fontWeight: 700 } }, ticketStatusLabel(t.status)),
-                  h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
+                  // data-label names each value on a phone, where the header row
+                  // is hidden and "Other" / "Waiting you" stood alone.
+                  h('td', { className: 'db-cat', 'data-label': 'Category' }, ticketCategoryLabel(t.category)),
+                  h('td', { 'data-label': 'Status', style: { fontSize: 10, fontWeight: 700 } }, ticketStatusLabel(t.status)),
+                  h('td', { className: 'right', 'data-label': 'Updated', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
                 ))
               )
             )

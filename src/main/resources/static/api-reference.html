@@ -37,7 +37,7 @@
       .legal-doc { padding: 0 16px; }
       .legal-doc th, .legal-doc td { padding: 8px 6px; }
       /* Route tables: the route on its own line, then what it does + scope. */
-      .legal-doc table.routes thead { display: none; }
+      .legal-doc table.routes thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
       .legal-doc table.routes tr { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; border-bottom: 1px solid var(--border); }
       .legal-doc table.routes td { border-bottom: 0; }
       .legal-doc table.routes td:first-child { grid-column: 1 / -1; padding-bottom: 0; }
@@ -58,7 +58,7 @@
 
     <h2 id="authentication">Authentication</h2>
     <p>Send the token in the <code>Authorization</code> header on every request:</p>
-    <pre><code>curl https://skinbox.market/api/wallet \
+    <pre tabindex="0" role="region" aria-label="Example request"><code>curl https://skinbox.market/api/wallet \
   -H "Authorization: Bearer sbx_live_…"</code></pre>
     <p>
       A key replaces the browser sign-in, so you don't send cookies or a CSRF token.
