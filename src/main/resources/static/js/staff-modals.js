@@ -2792,7 +2792,9 @@ function AdminCatalogueTab() {
 function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
   const [reason, setReason] = useState('');
   const [picked, setPicked] = useState('');
-  const choose = (t) => { setPicked(t.id); setReason(t.reason); };
+  // A template chip fills the reason; the caret goes there to edit it.
+  const reasonRef = React.useRef(null);
+  const choose = (t) => { setPicked(t.id); setReason(t.reason); reasonRef.current?.focus(); };
   return h('div', {
     className: 'cart-confirm-backdrop',
     onClick: () => !busy && onCancel()
@@ -2800,12 +2802,16 @@ function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
     h('div', {
       className: 'cart-confirm-panel',
       style: { maxWidth: 560 },
-      onClick: e => e.stopPropagation()
+      onClick: e => e.stopPropagation(),
+      role: 'dialog',
+      'aria-labelledby': 'ban-reason-title'
     },
-      h('div', { className: 'cart-confirm-title' },
+      h('div', { id: 'ban-reason-title', className: 'cart-confirm-title' },
         'Ban ', user.displayName || user.steamId64),
       h('div', { className: 'cart-confirm-sub' },
         'The reason is recorded in the audit log and shown to the user in their banned state. Pick a template or type your own.'),
+      // Inset like ReportListingDrawer: the panel itself has no padding.
+      h('div', { style: { padding: '0 24px' } },
       h('div', { className: 'wallet-tx-filter-row', style: { marginTop: 14, marginBottom: 8 } },
         templates.map(t => h('button', {
           key: t.id,
@@ -2815,12 +2821,13 @@ function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
         }, t.label))
       ),
       h('textarea', {
+        ref: reasonRef,
         value: reason,
         onChange: e => { setReason(e.target.value); setPicked(''); },
         maxLength: 500,
         placeholder: 'Ban reason (3–500 chars)',
         style: { width: '100%', minHeight: 90, padding: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13, resize: 'vertical' }
-      }),
+      })),
       h('div', { className: 'cart-confirm-actions' },
         h('button', {
           className: 'btn btn-ghost',
@@ -3178,7 +3185,7 @@ function AdminUsersTab({ me }) {
                     title: 'View user detail',
                     'aria-label': `View user detail for ${u.displayName || ('user #' + u.id)}`
                   }, '🔎'),
-                  h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u) }, '$'),
+                  h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u), 'aria-label': `Adjust wallet for ${u.displayName || ('user #' + u.id)}` }, '$'),
                   u.role === 'USER'
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role', 'aria-label': `Grant CSR role to ${u.displayName || ('user #' + u.id)}` }, '+CSR')
                     : u.role === 'CSR'
@@ -3188,13 +3195,13 @@ function AdminUsersTab({ me }) {
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u), 'aria-label': `Grant admin role to ${u.displayName || ('user #' + u.id)}` }, '+Admin')
                     : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevoke(u), 'aria-label': `Revoke admin role from ${u.displayName || ('user #' + u.id)}` }, '−Admin')),
                   u.banned
-                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(74,222,128,0.3)', color: 'var(--green)' }, disabled: busy, onClick: () => doUnban(u) }, 'Unban')
+                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(74,222,128,0.3)', color: 'var(--green)' }, disabled: busy, onClick: () => doUnban(u), 'aria-label': `Unban ${u.displayName || ('user #' + u.id)}` }, 'Unban')
                     // Hide Ban on self — banning your own admin account
                     // locks you out of the panel and bumps your session
                     // epoch. The Force-logout button below already guards
                     // self; Ban (a strict superset of force-logout) was
                     // missing the same check.
-                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, disabled: busy, onClick: () => doBan(u) }, 'Ban')),
+                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, disabled: busy, onClick: () => doBan(u), 'aria-label': `Ban ${u.displayName || ('user #' + u.id)}` }, 'Ban')),
                   // Force-logout — revoke every live session without banning.
                   // Hidden on self (the admin has logout-all on their own
                   // profile) and on already-banned users (ban already
@@ -4295,8 +4302,9 @@ function CsrLookupTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
       h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Steam ID / display name / user #id', 'aria-label': 'Look up a user by Steam ID, display name or user id', value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') search(); } }),
-      // aria-disabled keeps focus on the button while it searches; the click is ignored while busy.
-      h('button', { className: 'btn btn-accent', 'aria-disabled': busy || undefined, onClick: () => { if (!busy) search(); } }, busy ? '…' : 'Search')
+      // aria-disabled keeps focus on the button while it searches; the click is ignored while busy
+      // or with an empty box (search() needs a query), so it looks blocked then too.
+      h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !q.trim()) || undefined, onClick: () => { if (!busy) search(); } }, busy ? '…' : 'Search')
     ),
     data && (data.error
       ? h('div', { className: 'wallet-error', role: 'alert' }, 'Lookup failed, so we can\'t say whether this user exists. ',

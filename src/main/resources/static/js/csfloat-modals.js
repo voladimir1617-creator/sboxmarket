@@ -1116,7 +1116,8 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
             "Couldn't load buy orders"),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
             'Your buy orders failed to load. Check your connection and try again.'),
-          h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry')
+          // The error goes away once the orders load; move on past it.
+          h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget); load(); } }, 'Retry')
         )
       : orders === null
       /* Boss QA cycle 11 micro-polish — was a centered .spinner pulse,

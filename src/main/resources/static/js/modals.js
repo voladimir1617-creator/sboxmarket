@@ -3845,6 +3845,8 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
       h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
         `Trade #${trade.id} · ${trade.itemName || 'Item'}`,
         trade.price != null && ` · ${fmt(trade.price)}`),
+      // Inset like ReportListingDrawer: the panel itself has no padding.
+      h('div', { style: { padding: '0 24px 20px' } },
       h('div', {
         style: {
           background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)',
@@ -3883,7 +3885,7 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
         h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: onCancel }, 'Cancel'),
         h('button', { className: 'btn btn-accent', style: { background: 'var(--red)', borderColor: 'var(--red)' }, disabled: busy, onClick: submit },
           busy ? 'Filing…' : 'File dispute')
-      )
+      ))
     )
   );
 }
@@ -5214,7 +5216,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     },
       tab === 'personal' && profileErr && h('div', { className: 'empty-inline', role: 'alert' },
         h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Couldn’t load your profile details.'),
-        h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: () => setProfileRetry(n => n + 1) }, 'Retry')),
+        h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setProfileRetry(n => n + 1); } }, 'Retry')),
       tab === 'personal' && !profileErr && h(ProfilePersonalTab, {
         me, profile, syncing, onSync: runSync, transactions, privacy,
         // Batch 929 — lightweight profile refresh for actions that need
@@ -9975,7 +9977,8 @@ function ProfileTradesTab({ me, privacy }) {
                   chatErrors[t.id] && (chatThreads[t.id] || []).length === 0
                     ? h('div', { role: 'alert', style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
                         "Couldn't load messages. ",
-                        h('button', { className: 'btn btn-sm', onClick: () => loadChat(t.id) }, 'Retry'))
+                        // The notice goes away once the messages load; move on to the reply box.
+                        h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, 'input[aria-label="Message to your trade partner"]'); loadChat(t.id); } }, 'Retry'))
                   : (chatThreads[t.id] || []).length === 0
                     ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
                         'No messages yet. Send the first one — the other party will see a notification.')
@@ -18477,6 +18480,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   useEffect(() => {
     if (initialTab && (initialTab === 'deposit' || initialTab === 'withdraw' || initialTab === 'history')) {
       setTab(initialTab);
+      // Back/Forward from a focused tab: focus follows the selected tab.
+      if (document.activeElement?.id?.startsWith('wallet-tab-')) document.getElementById('wallet-tab-' + initialTab)?.focus();
     }
   }, [initialTab]);
   // Batch 829 / Batch 1167 — Escape closes the wallet modal AND focus
