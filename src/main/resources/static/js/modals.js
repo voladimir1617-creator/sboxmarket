@@ -9904,13 +9904,13 @@ function ProfileTradesTab({ me, privacy }) {
                   h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11 },
-                    disabled: busy, onClick: () => onDispute(t.id), 'aria-label': `Dispute ${rowName}`
+                    disabled: busy, onClick: () => onDispute(t.id)
                   }, 'Dispute'),
                 (isSeller || isBuyer) && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND'].includes(t.state) &&
                   h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 10px', fontSize: 11 },
-                    disabled: busy, onClick: () => onCancel(t.id), 'aria-label': `Cancel ${rowName}`
+                    disabled: busy, onClick: () => onCancel(t.id)
                   }, 'Cancel'),
                 // Leave review — only the buyer of a VERIFIED trade. Opens
                 // the proper review modal below instead of native prompts.
