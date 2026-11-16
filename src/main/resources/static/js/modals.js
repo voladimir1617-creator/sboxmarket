@@ -8455,7 +8455,14 @@ function ProfileTradesTab({ me, privacy }) {
   const [err, setErr] = useState(false);
   const aliveRef = useRef(true);
   const [busy, setBusy]     = useState(false);
-  const [filter, setFilter] = useState('ALL');
+  // The state chip and search are kept in the URL (?state/?find, effect
+  // below) so Back from a trade's item or stall lands on the same list.
+  const [filter, setFilter] = useState(() => {
+    try {
+      const f = (new URLSearchParams(window.location.search).get('state') || '').toUpperCase();
+      return ['OPEN','PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','VERIFIED','DISPUTED','CANCELLED'].includes(f) ? f : 'ALL';
+    } catch (_) { return 'ALL'; }
+  });
   // Per-30s tick so the trade-row countdown chips ("⏱ Xh left") actually
   // advance. Without it they freeze at whatever Date.now() returned on
   // the last load() / visibilitychange and can read a stale "1h left"
@@ -8506,7 +8513,20 @@ function ProfileTradesTab({ me, privacy }) {
   // Search box for the trade list (batch 374). Case-insensitive match
   // against item name + counterparty display. Helpful when a user with
   // 100+ historical trades needs to find "that hat I sold last month."
-  const [tradeSearch, setTradeSearch] = useState('');
+  const [tradeSearch, setTradeSearch] = useState(() => {
+    try { return (new URLSearchParams(window.location.search).get('find') || '').slice(0, 100); } catch (_) { return ''; }
+  });
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const put = (k, v) => { if (v) qs.set(k, v); else qs.delete(k); };
+      put('state', filter !== 'ALL' ? filter.toLowerCase() : '');
+      put('find', tradeSearch.trim() ? tradeSearch : '');
+      const next = qs.toString();
+      const url = window.location.pathname + (next ? '?' + next : '');
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+    } catch (_) { /* no URL API: the filters just are not kept */ }
+  }, [filter, tradeSearch]);
   // Date-range filter — drives both the client-side row filter and the
   // CSV-export href (?from=&to= passed through to the controller). Lets
   // a user pull a quarterly slice for tax / accounting without piping a
