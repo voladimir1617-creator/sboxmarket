@@ -16693,17 +16693,39 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // user with hundreds of historical offers can jump to one bucket
   // without scrolling. Defaults to ALL so the baseline view matches the
   // older UX.
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  // The filter and search live in the URL too (?state/?find, effect below),
+  // so Back from an offer's item lands on the list as it was left.
+  const initQs = (() => { try { return new URLSearchParams(window.location.search); } catch (_) { return new URLSearchParams(); } })();
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const s = (initQs.get('state') || '').toUpperCase();
+    return ['PENDING', 'ACCEPTED', 'REJECTED', 'COUNTERED', 'CANCELLED', 'EXPIRED', 'CLOSED'].includes(s) ? s : 'ALL';
+  });
   // Text search across item name + counterparty name. A seller with
   // dozens of PENDING offers otherwise has to eyeball-scan the list
   // to find "the offer on the blue shirt from X." Matches case-insensitive
   // substrings. Empty = everything. Only surfaces when the list is long
   // enough to warrant it (threshold below), so small inboxes stay clean.
-  const [offerSearch, setOfferSearch] = useState('');
+  const [offerSearch, setOfferSearch] = useState(() => (initQs.get('find') || '').slice(0, 100));
   // Filters belong to the tab they were set on; the other tab can be too
   // short to render the chips and search box, which would leave it
-  // filtered with no way to clear it.
-  useEffect(() => { setStatusFilter('ALL'); setOfferSearch(''); }, [tab]);
+  // filtered with no way to clear it. Not on mount: that would drop the
+  // filters just read back from the URL.
+  const tabMountedRef = useRef(false);
+  useEffect(() => {
+    if (!tabMountedRef.current) { tabMountedRef.current = true; return; }
+    setStatusFilter('ALL'); setOfferSearch('');
+  }, [tab]);
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const put = (k, v) => { if (v) qs.set(k, v); else qs.delete(k); };
+      put('state', statusFilter !== 'ALL' ? statusFilter.toLowerCase() : '');
+      put('find', offerSearch.trim() ? offerSearch : '');
+      const next = qs.toString();
+      const url = window.location.pathname + (next ? '?' + next : '');
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+    } catch (_) { /* no URL API: the filters just are not kept */ }
+  }, [statusFilter, offerSearch]);
   // Load-failure state. Pre-fix, a rejected fetch left `incoming`/`outgoing`
   // null forever → the `list === null` branch rendered a spinner with no
   // way out. Track the error so we can show a retryable message instead.
@@ -17212,10 +17234,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     { id: 'EXPIRED',   label: 'Expired' },
     { id: 'CLOSED',    label: 'Closed' }
   ];
-  const q = (offerSearch || '').trim().toLowerCase();
+  // A ?state= or ?find= read back from the URL is ignored while the list
+  // is too short to show the chips or the search box that would clear it.
+  const q = rawList && rawList.length > 8 ? (offerSearch || '').trim().toLowerCase() : '';
+  const statusOn = rawList && rawList.length > 3 ? statusFilter : 'ALL';
   const list = rawList == null
     ? rawList
-    : (statusFilter === 'ALL' ? rawList : rawList.filter(o => (o.status || '').toUpperCase() === statusFilter))
+    : (statusOn === 'ALL' ? rawList : rawList.filter(o => (o.status || '').toUpperCase() === statusOn))
         .filter(o => {
           if (!q) return true;
           const hay = [
@@ -17358,13 +17383,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               q
                 ? `No offers match “${offerSearch}”`
-                : statusFilter !== 'ALL'
-                  ? `No ${statusFilter.toLowerCase()} offers`
+                : statusOn !== 'ALL'
+                  ? `No ${statusOn.toLowerCase()} offers`
                   : (tab === 'incoming' ? 'No incoming offers yet' : 'No offers out')),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
               q
                 ? 'Clear the search or adjust the status chip to see other offers.'
-                : statusFilter !== 'ALL'
+                : statusOn !== 'ALL'
                   ? 'Switch to "All" to see every offer, or pick a different status chip.'
                   : tab === 'incoming'
                     ? "They'll show up here when buyers make offers on your listings."
@@ -17376,7 +17401,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     // The button goes away with the no-match state; keep focus in the search box.
                     onClick: () => { setOfferSearch(''); document.querySelector('input[aria-label="Search offers"]')?.focus(); }
                   }, 'Clear search')
-                : statusFilter !== 'ALL'
+                : statusOn !== 'ALL'
                   ? h('button', {
                       className: 'btn btn-accent',
                       // The button goes away with the filter; keep focus on the All chip.
