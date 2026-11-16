@@ -5405,7 +5405,7 @@ function EmailBucketMutes() {
     AUCTIONS:  { name: 'Auction activity',        hint: 'Outbid notices, auctions ending soon, auction won and auction ended without a sale' },
     WATCHLIST: { name: 'Watchlist alerts',        hint: 'Emails when a price alert you set is hit' },
     FOLLOWS:   { name: 'Followed sellers',        hint: 'Emails when a seller you follow lists a new item' },
-    MATCHES:   { name: 'Saved-search matches',    hint: 'Emails when a fresh listing matches one of your saved searches' }
+    MATCHES:   { name: 'Saved-search matches',    hint: 'Emails when a fresh listing matches one of your saved searches, and seller alerts when a buyer bids below your price or a cheaper copy of your item is listed' }
   };
   // A named group, and each box named by its category alone (the hint is its
   // description): the wrapping label read the whole hint and "· MUTED".
@@ -6136,10 +6136,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       document.getElementById('profile-email-input')?.focus();
       return;
     }
-    if (emailVerified && trimmed.toLowerCase() === (profile?.user?.email || '').toLowerCase()) {
-      setEditingEmail(false);
-      return;
-    }
+    // No client-side skip for the verified address already on file: the
+    // server answers that as a no-op ({verified: true}), except when our
+    // mail to it bounced or was marked as spam, where re-saving it is how
+    // the user gets a fresh link (the bell tells them to do exactly that).
     const res = await setEmail(trimmed);
     if (res.code || res.error) { setEmailResult({ err: res.message || res.error }); return; }
     setEmailResult({ ok: true, token: res.token, verified: res.verified === true, sentTo: res.verified ? null : res.email });
