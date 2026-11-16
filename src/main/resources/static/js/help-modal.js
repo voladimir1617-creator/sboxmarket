@@ -430,7 +430,7 @@ export function HelpModal({ onClose }) {
               // Contact addresses in an answer are mailto links, and site pages
               // it names (/api-reference.html, /status.html) are links, still highlighted.
               isOpen && h('div', { id: panelId, role: 'region', 'aria-labelledby': btnId, className: 'help-faq-a' },
-                item.a.split(/([\w.+-]+@skinbox\.market|\/[\w/-]+\.html)/).map((part, i) => i % 2
+                item.a.split(/([\w.+-]+@skinbox\.market|\/[\w./-]+\.(?:html|txt))/).map((part, i) => i % 2
                   ? h('a', { key: i, href: part.startsWith('/') ? part : 'mailto:' + part, style: { textDecoration: 'underline', textUnderlineOffset: 3 } }, highlightMatch(part, q))
                   : h('span', { key: i }, highlightMatch(part, q))))
             );
