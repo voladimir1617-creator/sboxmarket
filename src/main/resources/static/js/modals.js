@@ -17468,6 +17468,10 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   useEffect(() => {
     if (initialTab === 'drops') setShowDropsOnlyRaw(true);
     else if (initialTab === 'all') setShowDropsOnlyRaw(false);
+    // Back/Forward from a focused tab: focus follows the selected tab, as on the Wallet.
+    if ((initialTab === 'drops' || initialTab === 'all') && document.activeElement?.matches?.('[role="tab"][aria-controls="watchlist-results"]')) {
+      document.querySelectorAll('[role="tab"][aria-controls="watchlist-results"]')[initialTab === 'drops' ? 1 : 0]?.focus();
+    }
   }, [initialTab]);
   // Category chip filter — lets users with 50+ starred items drill to a
   // single slice (Hats / Pants / Shirts / Accessories / …) without hunting.
