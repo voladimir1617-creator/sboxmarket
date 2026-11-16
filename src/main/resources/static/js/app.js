@@ -9455,7 +9455,9 @@ export function App() {
                   // the threshold is uniform across every surface.
                   stallData.seller.verified && h('span', {
                     className: 'seller-verified',
-                    title: `Verified seller · ${stallData.seller.soldCount}+ completed sales`
+                    // The badge counts delivered trades; soldCount also counts sales
+                    // still in escrow, so it overstated "completed".
+                    title: `Verified seller · ${stallData.seller.completedTrades ?? stallData.seller.soldCount}+ completed sales`
                   }, 'Verified'),
                   // Batch 726 — small "↗ Steam" link opens the seller's
                   // Steam community profile in a new tab. Trust signal
