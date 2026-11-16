@@ -84,18 +84,16 @@ test.describe('pass130 · Support new-ticket draft (real jar)', () => {
   test('support: a reply typed in a ticket thread survives another tab and Back', async ({ page }) => {
     await consent(page);
     await devLogin(page, 2);
+    // The ticket is stubbed: a real one would ping user 2 (Atlas in the
+    // multi-user spec) with an unread "Support opened" notification and
+    // change that spec's bell count.
+    const now = Date.now();
+    const T = { id: 9130, userId: 2, subject: 'Pass130 reply keep', category: 'OTHER', status: 'WAITING_STAFF', createdAt: now, updatedAt: now };
+    const M = [{ id: 1, ticketId: 9130, author: 'USER', authorName: 'atlas', body: 'First message', createdAt: now }];
+    await page.route(`${base}/api/support/tickets`, (r) => (r.request().method() === 'GET' ? r.fulfill(json([T])) : r.fulfill(json({ error: 'stubbed' }, 400))));
+    await page.route(`${base}/api/support/tickets/9130`, (r) => r.fulfill(json({ ticket: T, messages: M })));
     await page.goto(`${base}/support`);
-    await expect(page.getByRole('button', { name: /New Ticket/ }).first()).toBeVisible({ timeout: 20_000 });
-    const subject = 'Pass130 reply keep ' + Date.now();
-    const created = await page.evaluate(async (subject) => {
-      const t = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1] || '';
-      const r = await fetch('/api/support/tickets', { method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': t },
-        body: JSON.stringify({ subject, category: 'OTHER', body: 'First message' }) });
-      return r.json();
-    }, subject);
-    expect(created.id).toBeTruthy();
-    await page.reload();
+    const created = T;
     await page.getByRole('button', { name: new RegExp(`Open ticket #${created.id} `) }).click({ timeout: 20_000 });
     await page.getByRole('textbox', { name: 'Reply to support' }).fill('Pass130 half-typed reply');
     await page.getByRole('tab', { name: /^Trades/ }).click();
