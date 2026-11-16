@@ -2263,8 +2263,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                     // legacy path is unchanged for sellers without avatars.
                     const url = l.sellerUserId && sellerAvatars[l.sellerUserId];
                     if (url) {
+                      // Decorative: the seller's name link follows (read as "TR TradeHaven").
                       return h('div', {
                         className: 'modal-seller-av',
+                        'aria-hidden': 'true',
                         style: { overflow: 'hidden', padding: 0, background: 'var(--bg-2, var(--bg-elevated))' }
                       },
                         h('img', {
@@ -2278,7 +2280,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                         })
                       );
                     }
-                    return h('div', { className: 'modal-seller-av' },
+                    return h('div', { className: 'modal-seller-av', 'aria-hidden': 'true' },
                       (l.sellerAvatar || l.sellerName?.substring(0,2) || 'US').toUpperCase());
                   })(),
                   h('div', { className: 'modal-seller-info' },
