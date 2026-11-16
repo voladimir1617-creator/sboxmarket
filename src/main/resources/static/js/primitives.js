@@ -515,11 +515,15 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
   // still renders muted, not default black.
   const AXIS_FILL = 'rgb(158,167,177)';
   const dateLabel = (p) => (p && p.label) ? p.label : '';
+  // The middle tick sits under its own point (an even count has no point
+  // at W/2), and a two-point line has no middle day, so it gets none: it
+  // used to repeat the first date in the centre.
+  const midPt = pts.length >= 3 ? pts[Math.floor((pts.length - 1) / 2)] : null;
   const xTicks = showAxes ? [
     { x: 0,     anchor: 'start',  text: dateLabel(pts[0]) },
-    { x: W / 2, anchor: 'middle', text: dateLabel(pts[Math.floor((pts.length - 1) / 2)]) },
+    midPt && { x: midPt.x, anchor: 'middle', text: dateLabel(midPt) },
     { x: W,     anchor: 'end',    text: dateLabel(pts[pts.length - 1]) }
-  ].filter(t => t.text) : [];
+  ].filter(t => t && t.text) : [];
 
   const onMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -622,9 +626,11 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
       // Y-axis price extremes (item-page variant only) — max near the top
       // band edge, min near the band floor, hugging the left gutter. Kept
       // out of the small sparklines by the same `showAxes` gate.
+      // A flat line sits mid-band, so its one price label sits just above
+      // the line rather than at the empty top of the band.
       showAxes && h('text', {
         className: 'axis-tick',
-        x: 4, y: padTop + 9,
+        x: 4, y: max === min ? pts[0].y - 6 : padTop + 9,
         'text-anchor': 'start',
         fill: AXIS_FILL, fontSize: 10
       }, fmt(max)),
@@ -645,8 +651,11 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
         fill: colorSafe, stroke: 'var(--bg)', strokeWidth: 2
       })
     ),
+    // Centred on the point, except near either edge, where it is pinned to
+    // that side so it never hangs off the chart (on a phone the first and
+    // last days' tooltips ran off the screen).
     hoverPt && h('div', {
-      className: 'sparkline-tooltip',
+      className: 'sparkline-tooltip' + (hoverPt.x < W * 0.15 ? ' is-start' : hoverPt.x > W * 0.85 ? ' is-end' : ''),
       style: { left: `${(hoverPt.x / W) * 100}%` }
     },
       h('div', { className: 'sparkline-tt-price' }, fmt(hoverPt.price)),
