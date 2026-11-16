@@ -427,10 +427,11 @@ export function HelpModal({ onClose }) {
               // role=region needs a discernible name or axe flags it; point
               // aria-labelledby at the question button so SR announces the
               // panel as "<question>, region".
-              // Contact addresses in an answer are mailto links, still highlighted.
+              // Contact addresses in an answer are mailto links, and site pages
+              // it names (/api-reference.html, /status.html) are links, still highlighted.
               isOpen && h('div', { id: panelId, role: 'region', 'aria-labelledby': btnId, className: 'help-faq-a' },
-                item.a.split(/([\w.+-]+@skinbox\.market)/).map((part, i) => i % 2
-                  ? h('a', { key: i, href: 'mailto:' + part }, highlightMatch(part, q))
+                item.a.split(/([\w.+-]+@skinbox\.market|\/[\w/-]+\.html)/).map((part, i) => i % 2
+                  ? h('a', { key: i, href: part.startsWith('/') ? part : 'mailto:' + part, style: { textDecoration: 'underline', textUnderlineOffset: 3 } }, highlightMatch(part, q))
                   : h('span', { key: i }, highlightMatch(part, q))))
             );
             }));
