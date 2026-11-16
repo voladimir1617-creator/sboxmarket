@@ -41,7 +41,9 @@ function lazyRouteModal(name, fallback) {
     const [, setLoaded] = useState(!!_routeMods);
     const [err, setErr] = useState(null);
     useEffect(() => {
-      if (_routeMods) return;
+      // The preload can land between this component's render and this
+      // effect: re-render then, or the page sat on its fallback for good.
+      if (_routeMods) { setLoaded(true); return; }
       let alive = true;
       loadRouteMods().then(() => alive && setLoaded(true)).catch(e => alive && setErr(e));
       return () => { alive = false; };
