@@ -91,7 +91,7 @@ test.describe('market buy orders board', () => {
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0)).toContainText('Vintage Design Crop Top');
     await expect(rows.nth(0)).toContainText('$0.50');
-    await expect(rows.nth(1)).toContainText('None listed');
+    await expect(rows.nth(1)).toContainText('None');
     await expect(page).toHaveURL(/view=buyorders/);
     // Picking a listing type returns to the grid.
     await page.getByRole('group', { name: 'Listing type' }).getByRole('button', { name: 'All', exact: true }).click();

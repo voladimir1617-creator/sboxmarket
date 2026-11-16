@@ -2070,7 +2070,7 @@ function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
                     h('div', { style: { textAlign: 'right', flexShrink: 0 } },
                       h('div', { style: { fontFamily: MONO, fontWeight: 700, color: 'var(--accent)', fontSize: 14 } }, fmt(r.bestPrice)),
                       h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2 } },
-                        r.lowestListing != null ? `Lowest listing ${fmt(r.lowestListing)}` : 'None listed')));
+                        r.lowestListing != null ? `Lowest Buy Now ${fmt(r.lowestListing)}` : 'No Buy Now listing')));
                 }))
           : h('div', null,
               h('table', { className: 'listing-table' },
@@ -2082,7 +2082,7 @@ function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
                     h('th', { scope: 'col', className: 'center' }, 'Orders'),
                     h('th', { scope: 'col', className: 'center' }, 'Wanted'),
                     h('th', { scope: 'col', className: 'right' }, 'Buyers pay'),
-                    h('th', { scope: 'col', className: 'right' }, 'Lowest listing'),
+                    h('th', { scope: 'col', className: 'right' }, 'Lowest Buy Now'),
                     h('th', { scope: 'col', className: 'center' }, 'Action'))),
                 h('tbody', null,
                   shown.map(r => {
@@ -2109,8 +2109,8 @@ function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
                       h('td', { className: 'center' }, orders),
                       h('td', { className: 'center' }, Number(r.quantity) || 0),
                       h('td', { className: 'right', style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--accent)' } }, fmt(r.bestPrice)),
-                      h('td', { className: 'right', style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-muted)' } },
-                        r.lowestListing != null ? fmt(r.lowestListing) : 'None listed'),
+                      h('td', { className: 'right', style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-muted)', whiteSpace: 'nowrap' } },
+                        r.lowestListing != null ? fmt(r.lowestListing) : 'None'),
                       h('td', { className: 'center' },
                         h('button', {
                           className: 'btn btn-ghost',
