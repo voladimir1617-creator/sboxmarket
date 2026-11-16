@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=23';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=24';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
