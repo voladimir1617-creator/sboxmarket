@@ -158,6 +158,8 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
     // while the visible price + discount used the current bid.
     if (effectivePrice) segs.push(fmt(effectivePrice));
     if (listing.sellerName) segs.push('by ' + listing.sellerName);
+    // The ✓ mark below is a titled icon a screen reader never reaches.
+    if (listing.sellerName && listing.sellerVerified === true) segs.push('verified seller');
     if (disc > 0) segs.push(disc + '% off Steam');
     return segs.join(', ');
   })();
