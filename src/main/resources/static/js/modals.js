@@ -14711,6 +14711,8 @@ function BotSecurityCode({ code, botSteamId, botName }) {
       'From our bot: ',
       h('a', {
         className: 'bot-code-account',
+        // The label above is uppercased; the bot's name keeps its own capitals.
+        style: { textTransform: 'none', letterSpacing: 0 },
         href: 'https://steamcommunity.com/profiles/' + id,
         target: '_blank',
         rel: 'noopener noreferrer'
