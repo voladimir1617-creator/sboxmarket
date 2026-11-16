@@ -128,7 +128,9 @@ class UnsubscribeController {
         AUCTIONS:  'auction activity emails',
         WATCHLIST: 'watchlist alert emails',
         FOLLOWS:   'followed-seller emails',
-        MATCHES:   'saved-search match emails'
+        // Seller market alerts (SellerMarketPingService) share this bucket,
+        // so a seller unsubscribing from one must see what they stop.
+        MATCHES:   'saved-search match and seller market alert emails'
     ]
 
     private static String bucketEmails(String bucket) {

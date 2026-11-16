@@ -190,7 +190,7 @@ class UnsubscribeControllerSpec extends Specification {
         'AUCTIONS'  | 'auction activity emails'
         'WATCHLIST' | 'watchlist alert emails'
         'FOLLOWS'   | 'followed-seller emails'
-        'MATCHES'   | 'saved-search match emails'
+        'MATCHES'   | 'saved-search match and seller market alert emails'
     }
 
     def "POST one-click with invalid token still returns 2xx 'OK' (idempotent)"() {
