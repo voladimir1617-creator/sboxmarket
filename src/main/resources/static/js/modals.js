@@ -14786,6 +14786,19 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   const [awayUntil, setAwayUntil] = useState(null);
   const [pickingAwayUntil, setPickingAwayUntil] = useState(false);
   const [awayDraftDate, setAwayDraftDate] = useState('');
+  // Set, Cancel and Escape unmount the return-date picker and the focused
+  // control in it; hand focus to Schedule return, or the Away switch.
+  const wasPickingAwayRef = useRef(false);
+  useEffect(() => {
+    const was = wasPickingAwayRef.current;
+    wasPickingAwayRef.current = pickingAwayUntil;
+    if (!was || pickingAwayUntil) return;
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae.isConnected) return;
+    const bar = document.querySelector('.stall-toolbar');
+    ([...(bar?.querySelectorAll('button') || [])].find(b => b.textContent === 'Schedule return')
+      || bar?.querySelector('[role="switch"]'))?.focus();
+  }, [pickingAwayUntil]);
   // Per-item watcher counts on the seller's stall — bulk-fetched via
   // /api/watchlist/counts after the stall load. Lets the seller see
   // which items have buyer demand at a glance and consider price drops.
