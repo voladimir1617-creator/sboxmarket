@@ -538,7 +538,8 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
               className: 'seller-avatar',
               style: { width: 28, height: 28, borderRadius: '50%', padding: 0, background: 'transparent', objectFit: 'cover', border: '1px solid var(--border)' }
             })
-          : h('div', { className: 'seller-avatar' }, (listing.sellerAvatar || 'US').toUpperCase()),
+          // Decorative like the photo above: the name follows.
+          : h('div', { className: 'seller-avatar', 'aria-hidden': 'true' }, (listing.sellerAvatar || 'US').toUpperCase()),
         h('div', { style: { display: 'flex', flexDirection: 'column', minWidth: 0 } },
           h('span', { className: 'seller-name' }, listing.sellerName),
           // Inline seller rating chip on table-view rows — populated by

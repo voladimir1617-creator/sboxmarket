@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=22';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=23';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -2263,8 +2263,10 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                     // legacy path is unchanged for sellers without avatars.
                     const url = l.sellerUserId && sellerAvatars[l.sellerUserId];
                     if (url) {
+                      // Decorative: the seller's name link follows (read as "TR TradeHaven").
                       return h('div', {
                         className: 'modal-seller-av',
+                        'aria-hidden': 'true',
                         style: { overflow: 'hidden', padding: 0, background: 'var(--bg-2, var(--bg-elevated))' }
                       },
                         h('img', {
@@ -2278,7 +2280,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                         })
                       );
                     }
-                    return h('div', { className: 'modal-seller-av' },
+                    return h('div', { className: 'modal-seller-av', 'aria-hidden': 'true' },
                       (l.sellerAvatar || l.sellerName?.substring(0,2) || 'US').toUpperCase());
                   })(),
                   h('div', { className: 'modal-seller-info' },
@@ -8455,7 +8457,14 @@ function ProfileTradesTab({ me, privacy }) {
   const [err, setErr] = useState(false);
   const aliveRef = useRef(true);
   const [busy, setBusy]     = useState(false);
-  const [filter, setFilter] = useState('ALL');
+  // The state chip and search are kept in the URL (?state/?find, effect
+  // below) so Back from a trade's item or stall lands on the same list.
+  const [filter, setFilter] = useState(() => {
+    try {
+      const f = (new URLSearchParams(window.location.search).get('state') || '').toUpperCase();
+      return ['OPEN','PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','VERIFIED','DISPUTED','CANCELLED'].includes(f) ? f : 'ALL';
+    } catch (_) { return 'ALL'; }
+  });
   // Per-30s tick so the trade-row countdown chips ("⏱ Xh left") actually
   // advance. Without it they freeze at whatever Date.now() returned on
   // the last load() / visibilitychange and can read a stale "1h left"
@@ -8506,7 +8515,20 @@ function ProfileTradesTab({ me, privacy }) {
   // Search box for the trade list (batch 374). Case-insensitive match
   // against item name + counterparty display. Helpful when a user with
   // 100+ historical trades needs to find "that hat I sold last month."
-  const [tradeSearch, setTradeSearch] = useState('');
+  const [tradeSearch, setTradeSearch] = useState(() => {
+    try { return (new URLSearchParams(window.location.search).get('find') || '').slice(0, 100); } catch (_) { return ''; }
+  });
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const put = (k, v) => { if (v) qs.set(k, v); else qs.delete(k); };
+      put('state', filter !== 'ALL' ? filter.toLowerCase() : '');
+      put('find', tradeSearch.trim() ? tradeSearch : '');
+      const next = qs.toString();
+      const url = window.location.pathname + (next ? '?' + next : '');
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+    } catch (_) { /* no URL API: the filters just are not kept */ }
+  }, [filter, tradeSearch]);
   // Date-range filter — drives both the client-side row filter and the
   // CSV-export href (?from=&to= passed through to the controller). Lets
   // a user pull a quarterly slice for tax / accounting without piping a
@@ -16706,17 +16728,39 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // user with hundreds of historical offers can jump to one bucket
   // without scrolling. Defaults to ALL so the baseline view matches the
   // older UX.
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  // The filter and search live in the URL too (?state/?find, effect below),
+  // so Back from an offer's item lands on the list as it was left.
+  const initQs = (() => { try { return new URLSearchParams(window.location.search); } catch (_) { return new URLSearchParams(); } })();
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const s = (initQs.get('state') || '').toUpperCase();
+    return ['PENDING', 'ACCEPTED', 'REJECTED', 'COUNTERED', 'CANCELLED', 'EXPIRED', 'CLOSED'].includes(s) ? s : 'ALL';
+  });
   // Text search across item name + counterparty name. A seller with
   // dozens of PENDING offers otherwise has to eyeball-scan the list
   // to find "the offer on the blue shirt from X." Matches case-insensitive
   // substrings. Empty = everything. Only surfaces when the list is long
   // enough to warrant it (threshold below), so small inboxes stay clean.
-  const [offerSearch, setOfferSearch] = useState('');
+  const [offerSearch, setOfferSearch] = useState(() => (initQs.get('find') || '').slice(0, 100));
   // Filters belong to the tab they were set on; the other tab can be too
   // short to render the chips and search box, which would leave it
-  // filtered with no way to clear it.
-  useEffect(() => { setStatusFilter('ALL'); setOfferSearch(''); }, [tab]);
+  // filtered with no way to clear it. Not on mount: that would drop the
+  // filters just read back from the URL.
+  const tabMountedRef = useRef(false);
+  useEffect(() => {
+    if (!tabMountedRef.current) { tabMountedRef.current = true; return; }
+    setStatusFilter('ALL'); setOfferSearch('');
+  }, [tab]);
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const put = (k, v) => { if (v) qs.set(k, v); else qs.delete(k); };
+      put('state', statusFilter !== 'ALL' ? statusFilter.toLowerCase() : '');
+      put('find', offerSearch.trim() ? offerSearch : '');
+      const next = qs.toString();
+      const url = window.location.pathname + (next ? '?' + next : '');
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+    } catch (_) { /* no URL API: the filters just are not kept */ }
+  }, [statusFilter, offerSearch]);
   // Load-failure state. Pre-fix, a rejected fetch left `incoming`/`outgoing`
   // null forever → the `list === null` branch rendered a spinner with no
   // way out. Track the error so we can show a retryable message instead.
@@ -17225,10 +17269,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
     { id: 'EXPIRED',   label: 'Expired' },
     { id: 'CLOSED',    label: 'Closed' }
   ];
-  const q = (offerSearch || '').trim().toLowerCase();
+  // A ?state= or ?find= read back from the URL is ignored while the list
+  // is too short to show the chips or the search box that would clear it.
+  const q = rawList && rawList.length > 8 ? (offerSearch || '').trim().toLowerCase() : '';
+  const statusOn = rawList && rawList.length > 3 ? statusFilter : 'ALL';
   const list = rawList == null
     ? rawList
-    : (statusFilter === 'ALL' ? rawList : rawList.filter(o => (o.status || '').toUpperCase() === statusFilter))
+    : (statusOn === 'ALL' ? rawList : rawList.filter(o => (o.status || '').toUpperCase() === statusOn))
         .filter(o => {
           if (!q) return true;
           const hay = [
@@ -17371,13 +17418,13 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               q
                 ? `No offers match “${offerSearch}”`
-                : statusFilter !== 'ALL'
-                  ? `No ${statusFilter.toLowerCase()} offers`
+                : statusOn !== 'ALL'
+                  ? `No ${statusOn.toLowerCase()} offers`
                   : (tab === 'incoming' ? 'No incoming offers yet' : 'No offers out')),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
               q
                 ? 'Clear the search or adjust the status chip to see other offers.'
-                : statusFilter !== 'ALL'
+                : statusOn !== 'ALL'
                   ? 'Switch to "All" to see every offer, or pick a different status chip.'
                   : tab === 'incoming'
                     ? "They'll show up here when buyers make offers on your listings."
@@ -17389,7 +17436,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     // The button goes away with the no-match state; keep focus in the search box.
                     onClick: () => { setOfferSearch(''); document.querySelector('input[aria-label="Search offers"]')?.focus(); }
                   }, 'Clear search')
-                : statusFilter !== 'ALL'
+                : statusOn !== 'ALL'
                   ? h('button', {
                       className: 'btn btn-accent',
                       // The button goes away with the filter; keep focus on the All chip.
@@ -17434,12 +17481,30 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   useEffect(() => {
     if (initialTab === 'drops') setShowDropsOnlyRaw(true);
     else if (initialTab === 'all') setShowDropsOnlyRaw(false);
+    // Back/Forward from a focused tab: focus follows the selected tab, as on the Wallet.
+    if ((initialTab === 'drops' || initialTab === 'all') && document.activeElement?.matches?.('[role="tab"][aria-controls="watchlist-results"]')) {
+      document.querySelectorAll('[role="tab"][aria-controls="watchlist-results"]')[initialTab === 'drops' ? 1 : 0]?.focus();
+    }
   }, [initialTab]);
   // Category chip filter — lets users with 50+ starred items drill to a
   // single slice (Hats / Pants / Shirts / Accessories / …) without hunting.
   // 'All' is the default. Chip set is derived from the watchlist's own
   // categories so dead buttons don't render.
-  const [catFilter, setCatFilter] = useState('All');
+  // Kept in the URL (?cat=, effect below) so Back from a watched item lands
+  // on the same category.
+  const [catFilter, setCatFilter] = useState(() => {
+    try { return (new URLSearchParams(window.location.search).get('cat') || '').slice(0, 40) || 'All'; }
+    catch (_) { return 'All'; }
+  });
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if (catFilter !== 'All') qs.set('cat', catFilter); else qs.delete('cat');
+      const next = qs.toString();
+      const url = window.location.pathname + (next ? '?' + next : '');
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+    } catch (_) { /* no URL API: the filter just is not kept */ }
+  }, [catFilter, initialTab]);
   // Batch 640 — State filter (CSFloat Visual Manual §27 parity).
   // ALL: every watched item. LISTED: only items with an active listing
   // right now — the "buy now" subset. UNAVAILABLE: items currently off
