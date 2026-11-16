@@ -10525,10 +10525,10 @@ const bulkInFlight = new Set();
 // A Retry gives way to a spinner; land on the open Profile tab, not <body>.
 const PROFILE_TAB_NOW = '.profile-tabs [role="tab"][aria-selected="true"]';
 // Profile sub-tab state in ?view=, replaced in place (no new history entry).
-function setViewParam(v) {
+function setViewParam(v, key = 'view') {
   try {
     const qs = new URLSearchParams(window.location.search);
-    if (v) qs.set('view', v); else qs.delete('view');
+    if (v) qs.set(key, v); else qs.delete(key);
     const next = qs.toString();
     window.history.replaceState(window.history.state, '', window.location.pathname + (next ? '?' + next : ''));
   } catch (_) {}
@@ -11294,7 +11294,12 @@ function ProfileReviewsTab({ me }) {
   const [givenErr, setGivenErr] = useState(false);
   const [pending, setPending] = useState(null);
   const [summary, setSummary] = useState(null);
-  const [starFilter, setStarFilter] = useState(0);
+  // ?stars= keeps the star filter across a stall link and Back, like ?view=.
+  const [starFilter, setStarFilterState] = useState(() => {
+    try { const n = Number(new URLSearchParams(window.location.search).get('stars')); return n >= 1 && n <= 5 ? n : 0; }
+    catch { return 0; }
+  });
+  const setStarFilter = (n) => { setStarFilterState(n); setViewParam(n ? String(n) : null, 'stars'); };
   const [editId, setEditId]   = useState(null);
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
