@@ -9551,7 +9551,9 @@ function ProfileTradesTab({ me, privacy }) {
                     // For a bot trade PENDING_BUYER_CONFIRM means the offer was
                     // SENT; only an 'accepted' offer state means it arrived.
                     : automated && t.state === 'PENDING_BUYER_CONFIRM'
-                      ? (botOfferState === 'accepted' ? 'Delivered — awaiting confirmation' : 'Offer sent — waiting for the buyer to accept')
+                      ? (botOfferState === 'accepted' ? 'Delivered — awaiting confirmation'
+                        // The buyer is the one who accepts; Confirm receipt is hidden until then.
+                        : isBuyer ? 'Offer sent — accept it in Steam' : 'Offer sent — waiting for the buyer to accept')
                     : meta.label,
                   // Batch 560 — "Seller sent N ago" chip on PENDING_BUYER_CONFIRM
                   // rows. Batch 550 added the sent_at column; surfacing it
@@ -14690,6 +14692,7 @@ function BotSecurityCode({ code, botSteamId, botName }) {
     id && h('span', { className: 'bot-code-label', 'data-testid': 'bot-code-from' },
       'From our bot: ',
       h('a', {
+        className: 'bot-code-account',
         href: 'https://steamcommunity.com/profiles/' + id,
         target: '_blank',
         rel: 'noopener noreferrer'
