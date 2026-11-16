@@ -2032,13 +2032,13 @@ function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
       : rows === false
         ? h('div', { className: 'empty-state' },
             h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 42 })),
-            h('div', { className: 'empty-state-title' }, "Couldn't load buy orders"),
+            h('div', { className: 'empty-state-title', role: 'heading', 'aria-level': 2 }, "Couldn't load buy orders"),
             h('div', { className: 'empty-state-sub' }, 'This is a loading problem, not an empty market.'),
             h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.csfloat-subnav-tab'); setRetry(n => n + 1); } }, 'Retry'))
         : shown.length === 0
           ? h('div', { className: 'empty-state', 'data-testid': 'market-buy-orders-empty' },
               h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'inventory_2', size: 42 })),
-              h('div', { className: 'empty-state-title' }, narrowed ? 'No buy orders match your filters' : 'No open buy orders yet'),
+              h('div', { className: 'empty-state-title', role: 'heading', 'aria-level': 2 }, narrowed ? 'No buy orders match your filters' : 'No open buy orders yet'),
               h('div', { className: 'empty-state-sub' },
                 narrowed ? 'Try another search, category or rarity.'
                   : 'Set a standing “pay up to” on any item and the next matching Buy Now listing is bought for you.'),
