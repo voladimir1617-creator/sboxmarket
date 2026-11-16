@@ -3156,8 +3156,9 @@ function AdminUsersTab({ me }) {
               h('td', null,
                 h('div', { className: 'db-item-cell' },
                   u.avatarUrl
-                    ? h('img', { src: u.avatarUrl, alt: u.displayName, style: { width: 32, height: 32, borderRadius: 6 } })
-                    : h('div', { className: 'db-thumb', style: { width: 32, height: 32, fontSize: 14 } }, (u.displayName || 'U').substring(0,2).toUpperCase()),
+                    // Decorative: the name is shown beside it (as on the user detail).
+                    ? h('img', { src: u.avatarUrl, alt: '', style: { width: 32, height: 32, borderRadius: 6 } })
+                    : h('div', { className: 'db-thumb', 'aria-hidden': 'true', style: { width: 32, height: 32, fontSize: 14 } }, (u.displayName || 'U').substring(0,2).toUpperCase()),
                   h('div', null,
                     h('div', { className: 'db-name' }, u.displayName || 'Player'),
                     h('div', { className: 'db-sub' }, '#' + u.id)
@@ -3248,7 +3249,7 @@ function AdminUsersTab({ me }) {
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' } },
           detailUser.avatarUrl
             ? h('img', { src: detailUser.avatarUrl, alt: '', style: { width: 56, height: 56, borderRadius: '50%' } })
-            : h('div', { className: 'db-thumb', style: { width: 56, height: 56, fontSize: 18 } }, (detailUser.displayName || 'U').substring(0, 2).toUpperCase()),
+            : h('div', { className: 'db-thumb', 'aria-hidden': 'true', style: { width: 56, height: 56, fontSize: 18 } }, (detailUser.displayName || 'U').substring(0, 2).toUpperCase()),
           h('div', { style: { flex: '1 1 260px', minWidth: 0 } },
             h('div', { className: 'cart-confirm-title', id: 'admin-user-detail-title', style: { overflowWrap: 'anywhere' } }, detailUser.displayName || 'Player'),
             h('div', { className: 'cart-confirm-sub' },
@@ -4315,8 +4316,9 @@ function CsrLookupTab() {
       : (data.matches || []).map(u => h('div', { key: u.id, className: 'csr-user-card' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' } },
             u.avatarUrl
-              ? h('img', { src: u.avatarUrl, alt: u.displayName, style: { width: 44, height: 44, borderRadius: 8 } })
-              : h('div', { className: 'db-thumb', style: { width: 44, height: 44 } }, (u.displayName || 'U').substring(0,2).toUpperCase()),
+              // Decorative: the name is shown beside it (as on the admin user detail).
+              ? h('img', { src: u.avatarUrl, alt: '', style: { width: 44, height: 44, borderRadius: 8 } })
+              : h('div', { className: 'db-thumb', 'aria-hidden': 'true', style: { width: 44, height: 44 } }, (u.displayName || 'U').substring(0,2).toUpperCase()),
             h('div', { style: { flex: '1 1 160px', minWidth: 0, overflowWrap: 'anywhere' } },
               h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, u.displayName || 'Player'),
               h('div', { style: { fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, u.steamId64 + ' · ' + u.role + (u.banned ? ' · 🚫 BANNED' : '')),
@@ -4330,7 +4332,8 @@ function CsrLookupTab() {
               h('div', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Balance'),
               h('div', { style: { fontSize: 16, fontWeight: 800, color: 'var(--accent)', fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace" } }, usdAmount(u.balance || 0))
             ),
-            h('button', { className: 'btn btn-accent', style: { marginLeft: 10, padding: '8px 14px' }, disabled: busy, onClick: () => giveCredit(u) }, '+ Goodwill')
+            // Every match card's button otherwise reads just "+ Goodwill".
+            h('button', { className: 'btn btn-accent', style: { marginLeft: 10, padding: '8px 14px' }, disabled: busy, onClick: () => giveCredit(u), 'aria-label': `Give goodwill credit to ${u.displayName || ('user #' + u.id)}` }, '+ Goodwill')
           ),
           u.banned && h('div', { style: { fontSize: 11, padding: '8px 10px', background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: 6, color: 'var(--red)', marginBottom: 8 } },
             'Ban reason: ', u.banReason || '(none)'),
