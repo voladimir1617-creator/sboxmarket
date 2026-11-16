@@ -243,7 +243,7 @@ function chartRangeUsable(rows, range) {
  * House listings (no seller) render nothing: DeliveryExpectation above already
  * says the platform delivers them.
  */
-export function SellerTrustCard({ listing, trust, avatarUrl }) {
+export function SellerTrustCard({ listing, trust, avatarUrl, verified }) {
   if (!listing || listing.sellerUserId == null) return null;
   // Anonymous shop (sellerUserId 0, sellerAnonymous): no public record to show.
   if (listing.sellerAnonymous) return null;
@@ -332,7 +332,24 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
         h('span', { className: 'seller-trust-initials' }, name.slice(0, 2).toUpperCase())),
       h('span', { className: 'seller-trust-id' },
         h('span', { className: 'seller-trust-eyebrow' }, 'Sold by' + (since ? ' · since ' + since : '')),
-        h('span', { className: 'seller-trust-name' }, name)),
+        verified
+          // The same chip the Active Listings row gives this seller below;
+          // a long name gives way to it rather than clipping it.
+          ? h('span', { className: 'seller-trust-name', style: { display: 'flex', alignItems: 'center' } },
+              h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } }, name),
+              h('span', {
+                style: {
+                  flexShrink: 0,
+                  marginLeft: 6, fontSize: 10, fontWeight: 700,
+                  color: 'var(--green)',
+                  background: 'rgba(34,197,94,0.12)',
+                  border: '1px solid rgba(34,197,94,0.35)',
+                  padding: '1px 6px', borderRadius: 10,
+                  letterSpacing: 0.3, whiteSpace: 'nowrap'
+                },
+                title: VERIFIED_SELLER_RULE
+              }, 'Verified'))
+          : h('span', { className: 'seller-trust-name' }, name)),
       h('span', {
         className: 'seller-trust-presence' + (online ? ' is-online' : ''),
         title: online ? 'Active on the site in the last 15 minutes' : 'Not active on the site in the last 15 minutes'
@@ -1514,7 +1531,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               h(SellerTrustCard, {
                 listing: cheap,
                 trust: sellerTrust,
-                avatarUrl: cheap.sellerUserId != null ? sellerAvatars[cheap.sellerUserId] : null
+                avatarUrl: cheap.sellerUserId != null ? sellerAvatars[cheap.sellerUserId] : null,
+                verified: cheap.sellerUserId != null && !!sellerVerified[cheap.sellerUserId]
               })
             );
           })(),
