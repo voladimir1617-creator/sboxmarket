@@ -78,15 +78,20 @@ function render(results) {
   // mode, race with DOMContentLoaded), bail rather than throw on
   // `.innerHTML` of null. The 30s interval will retry.
   if (!headline || !sub || !grid) return;
-  headline.innerHTML =
-    '<span class="status-dot ' + overall + '"></span>' +
-    (overall === 'up'   ? 'All systems operational' :
-     overall === 'warn' ? 'Degraded performance'   :
-                          'Partial outage');
-  sub.textContent =
-    overall === 'up'   ? 'Every probed service is responding normally.' :
-    overall === 'warn' ? 'Some services are slower than expected — bids and buys may be queued.' :
-                         'One or more services are unreachable. Trades in flight are safe — see below.';
+  // #hero is a live region: rewrite it only when the overall state changes,
+  // or every 30-second re-check would read the same headline out again.
+  if (headline.dataset.state !== overall) {
+    headline.dataset.state = overall;
+    headline.innerHTML =
+      '<span class="status-dot ' + overall + '"></span>' +
+      (overall === 'up'   ? 'All systems operational' :
+       overall === 'warn' ? 'Degraded performance'   :
+                            'Partial outage');
+    sub.textContent =
+      overall === 'up'   ? 'Every probed service is responding normally.' :
+      overall === 'warn' ? 'Some services are slower than expected — bids and buys may be queued.' :
+                           'One or more services are unreachable. Trades in flight are safe — see below.';
+  }
 
   grid.innerHTML = '';
   results.forEach(r => {
@@ -97,7 +102,7 @@ function render(results) {
       : (r.sub + ' · ' + r.endpoint + ' · ' + r.ms + 'ms');
     row.innerHTML =
       '<div>' +
-        '<div class="status-row-name">' + r.name + '</div>' +
+        '<div class="status-row-name" role="heading" aria-level="3">' + r.name + '</div>' +
         '<div class="status-row-sub">' + subText + '</div>' +
       '</div>' +
       '<div class="status-row-badge ' + r.status + '">' +

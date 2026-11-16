@@ -244,10 +244,10 @@ class DesignTokenContractSpec extends Specification {
     // bumping the tokens — that records the breakage instead of fixing it.
     private static final Map<String, List<String>> RECORDED_TOKENISED_ASSETS = [
             '/static/css/design.css': ['eecbc0293ac3', '408'],
-            '/static/js/app.js': ['af39e4954a5d', '448'],
+            '/static/js/app.js': ['3f16643840fd', '449'],
             '/static/js/cards.js': ['2f41ee4c1405', '23'],
-            '/static/js/main.js': ['c609ad4dd501', '418'],
-            '/static/js/modals.js': ['c3adb515d240', '406'],
+            '/static/js/main.js': ['5158dbc2eaf0', '419'],
+            '/static/js/modals.js': ['c1af6a09aa65', '407'],
     ].asImmutable()
 
     /**

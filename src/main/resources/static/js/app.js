@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=406'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=407'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4717,7 +4717,8 @@ export function App() {
     setStallRarity(stallQs.get('filter') || 'All');
     setStallSort(['price_asc', 'price_desc', 'newest', 'rarity'].includes(stallQs.get('order')) ? stallQs.get('order') : 'price_asc');
     setStallSearch(stallQs.get('name') || '');
-    setStallStarFilter(0);
+    // The reviews star filter too (?stars=), so Back from a listing keeps it.
+    setStallStarFilter([1, 2, 3, 4, 5].includes(Number(stallQs.get('stars'))) ? Number(stallQs.get('stars')) : 0);
     setStallReviewsExpanded(false);
     setStallSoldExpanded(false);
     setReviewTradeId(null);
@@ -4779,11 +4780,12 @@ export function App() {
       put('filter', stallRarity, 'All');
       put('order', stallSort, 'price_asc');
       put('name', (stallSearch || '').trim() ? stallSearch : '', '');
+      put('stars', stallStarFilter ? String(stallStarFilter) : '', '');
       const next = qs.toString();
       const url = window.location.pathname + (next ? '?' + next : '');
       if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
     } catch (_) { /* no URL API: the filters just are not kept */ }
-  }, [routeName, stallRarity, stallSort, stallSearch]);
+  }, [routeName, stallRarity, stallSort, stallSearch, stallStarFilter]);
   // Deep-link support for Profile → Reviews → Pending "Leave review →"
   // (batch 341). If the URL carries ?leaveReview={tradeId} AND that
   // trade is actually un-reviewed between this viewer and this seller,
@@ -9909,7 +9911,7 @@ export function App() {
               // drifts vs the server's exact BigDecimal revenue. (audit)
               const revenue = recent.reduce((sum, s) => sum + Math.round((parseFloat(s.price) || 0) * 100), 0) / 100;
               return h('div', { className: 'stall-recent-sales', style: { marginBottom: 14 } },
-                h('div', { className: 'stall-reviews-head', style: { marginBottom: 8 } },
+                h('div', { className: 'stall-reviews-head', role: 'heading', 'aria-level': 2, style: { marginBottom: 8 } },
                   h('span', { className: 'section-title-dot' }),
                   `Sales · last 30 days`,
                   h('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 } },
@@ -9942,7 +9944,7 @@ export function App() {
             // identities. Builds trust by showing the seller actually
             // moves inventory.
             stallSold.length > 0 && h('div', { className: 'stall-recent-sales' },
-              h('div', { className: 'stall-reviews-head' },
+              h('div', { className: 'stall-reviews-head', role: 'heading', 'aria-level': 2 },
                 h('span', { className: 'section-title-dot' }),
                 stallSoldExpanded
                   ? `Recent sales (${stallSold.length})`
@@ -9997,7 +9999,7 @@ export function App() {
             // in `eligibleTrades` is already filtered server-side so there's
             // nothing more to check here.
             eligibleTrades.length > 0 && h('div', { className: 'stall-review-cta' },
-              h('div', { className: 'stall-review-cta-head' },
+              h('div', { className: 'stall-review-cta-head', role: 'heading', 'aria-level': 2 },
                 h('span', { className: 'section-title-dot' }),
                 // Name the trade: with several trades from one seller, the open form
                 // (often reached from a bell link) did not say which item it rates.
@@ -10070,7 +10072,7 @@ export function App() {
               // Star filter first, then sort. Sorting the post-filter set
               // keeps the top row authoritative ("most helpful 5-star review")
               // and avoids the filter ever hiding the sort's top pick.
-              const starFiltered = stallStarFilter > 0
+              const starFiltered = stallStarFilter > 0 && stallReviews.length >= 3
                 ? stallReviews.filter(r => r.rating === stallStarFilter)
                 : stallReviews;
               const displayReviews = [...starFiltered].sort((a, b) => {
@@ -10091,7 +10093,7 @@ export function App() {
                 return (b.createdAt || 0) - (a.createdAt || 0);  // default newest
               });
               return h('div', { className: 'stall-reviews' },
-                h('div', { className: 'stall-reviews-head' },
+                h('div', { className: 'stall-reviews-head', role: 'heading', 'aria-level': 2 },
                   h('span', { className: 'section-title-dot' }),
                   `Recent reviews (${stallReviews.length})`
                 ),
@@ -10195,7 +10197,7 @@ export function App() {
               // Trust column — verified badge or "Building reputation"
               // copy + key trust stats from the seller record.
               h('div', { className: 'stall-trust-card' },
-                h('div', { className: 'stall-trust-card-head' },
+                h('div', { className: 'stall-trust-card-head', role: 'heading', 'aria-level': 2 },
                   h('span', { className: 'section-title-dot' }),
                   'Trust signals'),
                 h('ul', { className: 'stall-trust-list' },
@@ -10245,7 +10247,7 @@ export function App() {
               // Only for a list that loaded empty: a failed fetch (null)
               // used to read "No reviews yet" beside "4.8 · 12 reviews".
               Array.isArray(stallReviews) && stallReviews.length === 0 && h('div', { className: 'stall-trust-card' },
-                h('div', { className: 'stall-trust-card-head' },
+                h('div', { className: 'stall-trust-card-head', role: 'heading', 'aria-level': 2 },
                   h('span', { className: 'section-title-dot' }),
                   'Reviews'),
                 h('div', { className: 'stall-trust-empty' },
@@ -10260,7 +10262,7 @@ export function App() {
               // Discover other sellers — outbound CTA so a buyer who
               // bottoms out on a sparse stall has somewhere to go next.
               h('div', { className: 'stall-trust-card' },
-                h('div', { className: 'stall-trust-card-head' },
+                h('div', { className: 'stall-trust-card-head', role: 'heading', 'aria-level': 2 },
                   h('span', { className: 'section-title-dot' }),
                   'Keep browsing'),
                 h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
