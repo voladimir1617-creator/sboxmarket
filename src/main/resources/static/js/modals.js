@@ -17451,7 +17451,21 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
   // single slice (Hats / Pants / Shirts / Accessories / …) without hunting.
   // 'All' is the default. Chip set is derived from the watchlist's own
   // categories so dead buttons don't render.
-  const [catFilter, setCatFilter] = useState('All');
+  // Kept in the URL (?cat=, effect below) so Back from a watched item lands
+  // on the same category.
+  const [catFilter, setCatFilter] = useState(() => {
+    try { return (new URLSearchParams(window.location.search).get('cat') || '').slice(0, 40) || 'All'; }
+    catch (_) { return 'All'; }
+  });
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if (catFilter !== 'All') qs.set('cat', catFilter); else qs.delete('cat');
+      const next = qs.toString();
+      const url = window.location.pathname + (next ? '?' + next : '');
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+    } catch (_) { /* no URL API: the filter just is not kept */ }
+  }, [catFilter, initialTab]);
   // Batch 640 — State filter (CSFloat Visual Manual §27 parity).
   // ALL: every watched item. LISTED: only items with an active listing
   // right now — the "buy now" subset. UNAVAILABLE: items currently off
