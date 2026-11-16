@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=23';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=24';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -243,7 +243,7 @@ function chartRangeUsable(rows, range) {
  * House listings (no seller) render nothing: DeliveryExpectation above already
  * says the platform delivers them.
  */
-export function SellerTrustCard({ listing, trust, avatarUrl }) {
+export function SellerTrustCard({ listing, trust, avatarUrl, verified }) {
   if (!listing || listing.sellerUserId == null) return null;
   // Anonymous shop (sellerUserId 0, sellerAnonymous): no public record to show.
   if (listing.sellerAnonymous) return null;
@@ -332,7 +332,24 @@ export function SellerTrustCard({ listing, trust, avatarUrl }) {
         h('span', { className: 'seller-trust-initials' }, name.slice(0, 2).toUpperCase())),
       h('span', { className: 'seller-trust-id' },
         h('span', { className: 'seller-trust-eyebrow' }, 'Sold by' + (since ? ' · since ' + since : '')),
-        h('span', { className: 'seller-trust-name' }, name)),
+        verified
+          // The same chip the Active Listings row gives this seller below;
+          // a long name gives way to it rather than clipping it.
+          ? h('span', { className: 'seller-trust-name', style: { display: 'flex', alignItems: 'center' } },
+              h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } }, name),
+              h('span', {
+                style: {
+                  flexShrink: 0,
+                  marginLeft: 6, fontSize: 10, fontWeight: 700,
+                  color: 'var(--green)',
+                  background: 'rgba(34,197,94,0.12)',
+                  border: '1px solid rgba(34,197,94,0.35)',
+                  padding: '1px 6px', borderRadius: 10,
+                  letterSpacing: 0.3, whiteSpace: 'nowrap'
+                },
+                title: VERIFIED_SELLER_RULE
+              }, 'Verified'))
+          : h('span', { className: 'seller-trust-name' }, name)),
       h('span', {
         className: 'seller-trust-presence' + (online ? ' is-online' : ''),
         title: online ? 'Active on the site in the last 15 minutes' : 'Not active on the site in the last 15 minutes'
@@ -1514,7 +1531,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               h(SellerTrustCard, {
                 listing: cheap,
                 trust: sellerTrust,
-                avatarUrl: cheap.sellerUserId != null ? sellerAvatars[cheap.sellerUserId] : null
+                avatarUrl: cheap.sellerUserId != null ? sellerAvatars[cheap.sellerUserId] : null,
+                verified: cheap.sellerUserId != null && !!sellerVerified[cheap.sellerUserId]
               })
             );
           })(),
@@ -5405,7 +5423,7 @@ function EmailBucketMutes() {
     AUCTIONS:  { name: 'Auction activity',        hint: 'Outbid notices, auctions ending soon, auction won and auction ended without a sale' },
     WATCHLIST: { name: 'Watchlist alerts',        hint: 'Emails when a price alert you set is hit' },
     FOLLOWS:   { name: 'Followed sellers',        hint: 'Emails when a seller you follow lists a new item' },
-    MATCHES:   { name: 'Saved-search matches',    hint: 'Emails when a fresh listing matches one of your saved searches' }
+    MATCHES:   { name: 'Saved-search matches',    hint: 'Emails when a fresh listing matches one of your saved searches, and seller alerts when a buyer bids below your price or a cheaper copy of your item is listed' }
   };
   // A named group, and each box named by its category alone (the hint is its
   // description): the wrapping label read the whole hint and "· MUTED".
@@ -6136,10 +6154,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       document.getElementById('profile-email-input')?.focus();
       return;
     }
-    if (emailVerified && trimmed.toLowerCase() === (profile?.user?.email || '').toLowerCase()) {
-      setEditingEmail(false);
-      return;
-    }
+    // No client-side skip for the verified address already on file: the
+    // server answers that as a no-op ({verified: true}), except when our
+    // mail to it bounced or was marked as spam, where re-saving it is how
+    // the user gets a fresh link (the bell tells them to do exactly that).
     const res = await setEmail(trimmed);
     if (res.code || res.error) { setEmailResult({ err: res.message || res.error }); return; }
     setEmailResult({ ok: true, token: res.token, verified: res.verified === true, sentTo: res.verified ? null : res.email });
@@ -9551,7 +9569,9 @@ function ProfileTradesTab({ me, privacy }) {
                     // For a bot trade PENDING_BUYER_CONFIRM means the offer was
                     // SENT; only an 'accepted' offer state means it arrived.
                     : automated && t.state === 'PENDING_BUYER_CONFIRM'
-                      ? (botOfferState === 'accepted' ? 'Delivered — awaiting confirmation' : 'Offer sent — waiting for the buyer to accept')
+                      ? (botOfferState === 'accepted' ? 'Delivered — awaiting confirmation'
+                        // The buyer is the one who accepts; Confirm receipt is hidden until then.
+                        : isBuyer ? 'Offer sent — accept it in Steam' : 'Offer sent — waiting for the buyer to accept')
                     : meta.label,
                   // Batch 560 — "Seller sent N ago" chip on PENDING_BUYER_CONFIRM
                   // rows. Batch 550 added the sent_at column; surfacing it
@@ -14690,6 +14710,7 @@ function BotSecurityCode({ code, botSteamId, botName }) {
     id && h('span', { className: 'bot-code-label', 'data-testid': 'bot-code-from' },
       'From our bot: ',
       h('a', {
+        className: 'bot-code-account',
         href: 'https://steamcommunity.com/profiles/' + id,
         target: '_blank',
         rel: 'noopener noreferrer'

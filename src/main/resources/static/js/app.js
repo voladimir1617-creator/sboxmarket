@@ -11,7 +11,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers, fetchPublicBuyOrders
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip, RarityBadge } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=23';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=24';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=408'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=409'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2070,7 +2070,7 @@ function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
                     h('div', { style: { textAlign: 'right', flexShrink: 0 } },
                       h('div', { style: { fontFamily: MONO, fontWeight: 700, color: 'var(--accent)', fontSize: 14 } }, fmt(r.bestPrice)),
                       h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2 } },
-                        r.lowestListing != null ? `Lowest listing ${fmt(r.lowestListing)}` : 'None listed')));
+                        r.lowestListing != null ? `Lowest Buy Now ${fmt(r.lowestListing)}` : 'No Buy Now listing')));
                 }))
           : h('div', null,
               h('table', { className: 'listing-table' },
@@ -2082,7 +2082,7 @@ function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
                     h('th', { scope: 'col', className: 'center' }, 'Orders'),
                     h('th', { scope: 'col', className: 'center' }, 'Wanted'),
                     h('th', { scope: 'col', className: 'right' }, 'Buyers pay'),
-                    h('th', { scope: 'col', className: 'right' }, 'Lowest listing'),
+                    h('th', { scope: 'col', className: 'right' }, 'Lowest Buy Now'),
                     h('th', { scope: 'col', className: 'center' }, 'Action'))),
                 h('tbody', null,
                   shown.map(r => {
@@ -2109,8 +2109,8 @@ function MarketBuyOrdersBoard({ me, search, category, rarity, sort }) {
                       h('td', { className: 'center' }, orders),
                       h('td', { className: 'center' }, Number(r.quantity) || 0),
                       h('td', { className: 'right', style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--accent)' } }, fmt(r.bestPrice)),
-                      h('td', { className: 'right', style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-muted)' } },
-                        r.lowestListing != null ? fmt(r.lowestListing) : 'None listed'),
+                      h('td', { className: 'right', style: { fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace", color: 'var(--text-muted)', whiteSpace: 'nowrap' } },
+                        r.lowestListing != null ? fmt(r.lowestListing) : 'None'),
                       h('td', { className: 'center' },
                         h('button', {
                           className: 'btn btn-ghost',
@@ -9455,7 +9455,9 @@ export function App() {
                   // the threshold is uniform across every surface.
                   stallData.seller.verified && h('span', {
                     className: 'seller-verified',
-                    title: `Verified seller · ${stallData.seller.soldCount}+ completed sales`
+                    // The badge counts delivered trades; soldCount also counts sales
+                    // still in escrow, so it overstated "completed".
+                    title: `Verified seller · ${stallData.seller.completedTrades ?? stallData.seller.soldCount}+ completed sales`
                   }, 'Verified'),
                   // Batch 726 — small "↗ Steam" link opens the seller's
                   // Steam community profile in a new tab. Trust signal

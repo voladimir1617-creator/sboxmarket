@@ -201,7 +201,11 @@ class OpenGraphController {
         def priceStr = (item.lowestPrice != null && item.lowestPrice > BigDecimal.ZERO)
             ? '$' + item.lowestPrice.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString()
             : 'Out of stock'
-        def desc = "${name} — floor price ${priceStr} on SkinBox. " +
+        // "floor price Out of stock" read as broken copy in search results.
+        def stockLine = (item.lowestPrice != null && item.lowestPrice > BigDecimal.ZERO)
+            ? "floor price ${priceStr} on SkinBox."
+            : 'out of stock on SkinBox right now.'
+        def desc = "${name} — ${stockLine} " +
                    "Browse live listings, trade safely with Stripe-secured checkout and 2% fees."
         def image = item.imageUrl ?: (base + '/img/favicon-512.png')
         def title = "${name} · ${priceStr} · SkinBox"

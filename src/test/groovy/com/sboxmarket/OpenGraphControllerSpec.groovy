@@ -108,6 +108,8 @@ class OpenGraphControllerSpec extends Specification {
         then:
         body.contains('Out of stock')
         body.contains('og:image" content="https://skinbox.test/img/favicon-512.png"')
+        body.contains('name="description" content="Wizard Hat — out of stock on SkinBox right now. ')
+        !body.contains('floor price Out of stock')
     }
 
     def "itemPage returns 200 noindex shell when item id is unknown (batch 968)"() {
