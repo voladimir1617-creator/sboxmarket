@@ -5407,10 +5407,13 @@ function EmailBucketMutes() {
     FOLLOWS:   { name: 'Followed sellers',        hint: 'Emails when a seller you follow lists a new item' },
     MATCHES:   { name: 'Saved-search matches',    hint: 'Emails when a fresh listing matches one of your saved searches' }
   };
-  return h('div', { ref: boxRef, style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
+  // A named group, and each box named by its category alone (the hint is its
+  // description): the wrapping label read the whole hint and "· MUTED".
+  return h('div', { ref: boxRef, role: 'group', 'aria-label': 'Email categories', style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
     available.map(b => {
       const meta = LABELS[b] || { name: b, hint: '' };
       const off = muted.has(b);
+      const idBase = 'email-mute-' + String(b).toLowerCase();
       return h('label', {
         key: b,
         style: {
@@ -5429,14 +5432,16 @@ function EmailBucketMutes() {
           // aria-disabled, not disabled: disabling the focused box dropped
           // keyboard focus to the page. toggle() already ignores busy clicks.
           'aria-disabled': busy || undefined,
+          'aria-labelledby': idBase + '-name',
+          'aria-describedby': meta.hint ? idBase + '-hint' : undefined,
           style: { accentColor: 'var(--accent)' }
         }),
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { fontWeight: 700, color: off ? 'var(--text-muted)' : 'var(--text-primary)' } },
-            meta.name,
+            h('span', { id: idBase + '-name' }, meta.name),
             off && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--red)', fontWeight: 800 } }, '· MUTED')
           ),
-          h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 } }, meta.hint)
+          h('div', { id: idBase + '-hint', style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 } }, meta.hint)
         )
       );
     })
@@ -11876,6 +11881,16 @@ function ProfileSupportTab() {
   const [busy, setBusy] = useState(false);
   // Which New Ticket fields were blank on Submit (marked aria-invalid).
   const [ticketMissing, setTicketMissing] = useState({});
+  // Keep a typed ticket for this tab while the form is open, so leaving for
+  // another tab (to look up a trade ID) and coming Back reopens it filled in.
+  // Cancel and a sent ticket remove it, as before.
+  useEffect(() => {
+    if (!creating) return;
+    try {
+      if (form.subject.trim() || form.body.trim()) sessionStorage.setItem('sb_ticket_unsent', JSON.stringify(form));
+      else sessionStorage.removeItem('sb_ticket_unsent');
+    } catch (_) {}
+  }, [creating, form]);
   const ticketSubjectRef = useRef(null);
   const ticketBodyRef = useRef(null);
   // Batch 1078 — synchronous re-entrancy latch shared by submitCreate +
@@ -12008,6 +12023,14 @@ function ProfileSupportTab() {
   }, [window.location.search]);
 
   const openTicket = async (id) => { lastOpenedTicketRef.current = id; await showTicket(id); };
+  // Same for a reply typed in an open thread: Back reopens the thread with it.
+  useEffect(() => {
+    if (viewingId == null) return;
+    try {
+      if (reply.trim()) sessionStorage.setItem('sb_ticket_reply_unsent', JSON.stringify({ id: viewingId, body: reply }));
+      else sessionStorage.removeItem('sb_ticket_reply_unsent');
+    } catch (_) {}
+  }, [viewingId, reply]);
   useEffect(() => {
     if (!savedReply?.id) return;
     try { sessionStorage.removeItem('sb_ticket_reply_unsent'); } catch (_) {}
@@ -12137,7 +12160,7 @@ function ProfileSupportTab() {
   if (viewing) {
     return h('div', { className: 'profile-panel' },
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } },
-        h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; setViewing(null); load(); } }, '← Tickets'),
+        h('button', { className: 'btn btn-ghost', onClick: () => { showSeqRef.current++; try { sessionStorage.removeItem('sb_ticket_reply_unsent'); } catch (_) {} setReply(''); setViewing(null); load(); } }, '← Tickets'),
         h('div', { style: { flex: '1 1 200px', minWidth: 0 } },
           h('h2', { ref: threadHeadRef, tabIndex: -1, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, outline: 'none', overflowWrap: 'anywhere' } }, '#' + viewing.ticket.id + ' · ' + viewing.ticket.subject),
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, ticketCategoryLabel(viewing.ticket.category) + ' · ' + ticketStatusLabel(viewing.ticket.status))

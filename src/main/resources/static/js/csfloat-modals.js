@@ -413,6 +413,9 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
         type: 'button',
         className: `cf-rarity-legend-item rarity-${r.v}` + (rarity === r.v ? ' active' : ''),
         title: r.t,
+        // The tooltip is drawn from title by CSS ::after, which also leaked
+        // into the name ("Scarce Scarce — limited-supply items…").
+        'aria-label': r.label,
         'aria-pressed': rarity === r.v,
         onClick: () => setRar(rarity === r.v ? 'All' : r.v)
       },
@@ -462,7 +465,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
         },
           h('div', { className: 'empty-state-icon', 'aria-hidden': 'true' },
             h(MaterialIcon, { name: 'error_outline', size: 26 })),
-          h('div', { className: 'empty-state-title' }, "Couldn't load catalogue"),
+          h('div', { className: 'empty-state-title', role: 'heading', 'aria-level': 2 }, "Couldn't load catalogue"),
           h('div', { className: 'empty-state-sub' },
             'The item database failed to load. Check your connection and try again.'),
           h('div', { className: 'empty-state-actions' },
@@ -499,7 +502,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
                 h('line', { x1: 21, y1: 21, x2: 24, y2: 24 })
               )
             ),
-            h('div', { className: 'empty-state-title' },
+            h('div', { className: 'empty-state-title', role: 'heading', 'aria-level': 2 },
               hasFilters ? 'No items match your filters' : 'Catalogue is empty'),
             h('div', { className: 'empty-state-sub' },
               hasFilters

@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=407'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=408'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -7939,7 +7939,7 @@ export function App() {
         h('div', { className: 'csfloat-home-preview-inner' },
           h('div', { className: 'empty-state' },
             h('div', { className: 'empty-state-icon' }, h(MaterialIcon, { name: 'inventory_2', size: 42 })),
-            h('div', { className: 'empty-state-title', 'data-testid': 'home-market-empty' }, 'Marketplace is empty'),
+            h('div', { className: 'empty-state-title', role: 'heading', 'aria-level': 2, 'data-testid': 'home-market-empty' }, 'Marketplace is empty'),
             h('div', { className: 'empty-state-sub' },
               me ? 'Be the first to list an item — put one of your skins up for grabs.'
                  : 'Be the first to list an item — sign in through Steam, then put one of your skins up for grabs.'),
@@ -9084,7 +9084,7 @@ export function App() {
                       h('div', { className: 'empty-state-icon' },
                         h(MaterialIcon, { name: 'search', size: 42 })
                       ),
-                      h('div', { className: 'empty-state-title' }, 'No matches on this page'),
+                      h('div', { className: 'empty-state-title', role: 'heading', 'aria-level': 2 }, 'No matches on this page'),
                       h('div', { className: 'empty-state-sub' },
                         'None of the first ' + listings.length + ' listings match your filters — load more to keep looking.')
                     )
