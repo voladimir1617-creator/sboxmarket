@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=412'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=413'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -3459,6 +3459,9 @@ export function SiteFooter() {
   const [lastSync, setLastSync] = useState(0);
   const [version, setVersion]   = useState('');
   const testMode = useTestMode();
+  // Mark the link to the page being shown, as the top nav does.
+  const routeName = useRoute().name;
+  const cur = (name) => routeName === name ? 'page' : undefined;
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -3533,31 +3536,31 @@ export function SiteFooter() {
       ),
       h('div', { className: 'site-footer-col' },
         h('div', { className: 'site-footer-title' }, 'Marketplace'),
-        h('a', { href: paths.market() }, 'Browse Market'),
-        h('a', { href: paths.database() }, 'Item Database'),
-        h('a', { href: paths.buyorders() }, 'Buy Orders'),
-        h('a', { href: paths.sell() }, 'Sell Items'),
-        h('a', { href: paths.loadouts() }, 'Loadout Lab')
+        h('a', { href: paths.market(), 'aria-current': cur('market') }, 'Browse Market'),
+        h('a', { href: paths.database(), 'aria-current': cur('database') }, 'Item Database'),
+        h('a', { href: paths.buyorders(), 'aria-current': cur('buyorders') }, 'Buy Orders'),
+        h('a', { href: paths.sell(), 'aria-current': cur('sell') }, 'Sell Items'),
+        h('a', { href: paths.loadouts(), 'aria-current': cur('loadouts') }, 'Loadout Lab')
       ),
       h('div', { className: 'site-footer-col' },
         h('div', { className: 'site-footer-title' }, 'Account'),
-        h('a', { href: paths.profile() }, 'Profile'),
+        h('a', { href: paths.profile(), 'aria-current': cur('profile') }, 'Profile'),
         h('a', { href: paths.wallet() }, 'Wallet'),
-        h('a', { href: paths.offers() }, 'Offers'),
+        h('a', { href: paths.offers(), 'aria-current': cur('offers') }, 'Offers'),
         h('a', { href: paths.watchlist() }, 'Watchlist'),
-        h('a', { href: paths.notifications() }, 'Notifications')
+        h('a', { href: paths.notifications(), 'aria-current': cur('notifications') }, 'Notifications')
       ),
       h('div', { className: 'site-footer-col' },
         h('div', { className: 'site-footer-title' }, 'Resources'),
-        h('a', { href: paths.help() }, 'Help Center'),
-        h('a', { href: paths.faq() }, 'FAQ'),
-        h('a', { href: paths.support() }, 'Support'),
+        h('a', { href: paths.help(), 'aria-current': cur('help') }, 'Help Center'),
+        h('a', { href: paths.faq(), 'aria-current': cur('faq') }, 'FAQ'),
+        h('a', { href: paths.support(), 'aria-current': cur('support') }, 'Support'),
         h('a', { href: paths.support() + '?topic=bug' }, 'Report a Bug'),
         h('a', { href: paths.faq() + '?q=' + encodeURIComponent('platform fee') }, 'Fees & Pricing'),
         h('a', { href: '/status.html' }, 'System Status'),
         h('a', { href: '/changelog.html' }, 'Changelog'),
-        h('a', { href: paths.affiliate() }, 'Affiliate Program'),
-        h('a', { href: paths.settings() }, 'Settings')
+        h('a', { href: paths.affiliate(), 'aria-current': cur('affiliate') }, 'Affiliate Program'),
+        h('a', { href: paths.settings(), 'aria-current': cur('settings') }, 'Settings')
       ),
       h('div', { className: 'site-footer-col' },
         h('div', { className: 'site-footer-title' }, 'Legal'),
@@ -8332,6 +8335,8 @@ export function App() {
               if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(url);
                 flash();
+                // The flash alone is not read out.
+                showToast('Link copied to clipboard.', 'ok');
               } else {
                 window.prompt('Copy this URL:', url);
               }

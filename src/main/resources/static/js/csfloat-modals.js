@@ -2967,7 +2967,7 @@ export function NotificationsModal({ onClose, me }) {
           if (search.trim()) {
             return h('div', { className: 'empty-inline' },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search_off', size: 26 })),
-              h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                 'No notifications match "', h('strong', null, search.trim()), '".'),
               h('button', {
                 className: 'btn btn-ghost',
@@ -2980,8 +2980,11 @@ export function NotificationsModal({ onClose, me }) {
           if (filter === 'UNREAD') {
             return h('div', { className: 'empty-inline' },
               h('div', { className: 'empty-icon', 'aria-hidden': 'true' }, '✓'),
-              h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
-                "You're all caught up — no unread notifications."),
+              // Under a type filter there may be unread rows of other types.
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
+                typeFilter !== 'ALL'
+                  ? `No unread ${typeFilter.toLowerCase()} notifications in this view.`
+                  : "You're all caught up — no unread notifications."),
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
@@ -2991,7 +2994,7 @@ export function NotificationsModal({ onClose, me }) {
           if (typeFilter !== 'ALL') {
             return h('div', { className: 'empty-inline' },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'filter_list', size: 26 })),
-              h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                 `No ${typeFilter.toLowerCase()} notifications in this view.`),
               h('button', {
                 className: 'btn btn-ghost',
