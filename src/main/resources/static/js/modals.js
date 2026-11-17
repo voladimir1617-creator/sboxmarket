@@ -10166,7 +10166,9 @@ function ProfileTradesTab({ me, privacy }) {
                     value: chatDraft,
                     maxLength: 2000,
                     onChange: e => setChatDraft(e.target.value),
-                    onKeyDown: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(t.id); } }
+                    // Enter that ends an IME composition (Japanese, Chinese, Korean) picks
+                    // the word; it must not send the half-typed message.
+                    onKeyDown: e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendChat(t.id); } }
                   }),
                   h('button', {
                     className: 'btn btn-accent',
@@ -11681,12 +11683,14 @@ function ProfileReviewsTab({ me }) {
       buckets.map((n, i) => {
         const stars = 5 - i;
         const pct = Math.round((n / maxBucket) * 100);
+        // Each row reads "5 stars: 3 reviews", not "5★ 3".
         return h('div', { key: stars, className: 'rating-breakdown-row' },
-          h('span', { className: 'rating-breakdown-stars' }, stars + '★'),
-          h('div', { className: 'rating-breakdown-bar' },
+          h('span', { className: 'rating-breakdown-stars', 'aria-hidden': 'true' }, stars + '★'),
+          h('div', { className: 'rating-breakdown-bar', 'aria-hidden': 'true' },
             h('div', { className: 'rating-breakdown-fill', style: { width: pct + '%' } })
           ),
-          h('span', { className: 'rating-breakdown-count' }, n)
+          h('span', { className: 'rating-breakdown-count', 'aria-hidden': 'true' }, n),
+          h('span', { className: 'visually-hidden' }, `${stars} star${stars === 1 ? '' : 's'}: ${n} review${n === 1 ? '' : 's'}`)
         );
       })
     ),
@@ -11741,7 +11745,8 @@ function ProfileReviewsTab({ me }) {
             'No reviews match this filter.'))
       : h('div', { className: 'profile-reviews-list' },
           filtered.map(r => h('div', { key: r.id, className: 'stall-review' },
-            h('div', { className: 'stall-review-head' },
+            // Wraps on a phone: a long reviewer name ran under the date.
+            h('div', { className: 'stall-review-head', style: { flexWrap: 'wrap' } },
               h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${r.rating} out of 5 stars` }, '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)),
               h('span', { className: 'stall-review-from' },
                 // Received rows: who wrote it. Given rows: who it's about,
@@ -12234,7 +12239,8 @@ function ProfileSupportTab() {
         ))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', 'aria-label': 'Reply to support', value: reply, maxLength: 2000, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
+        // Enter that ends an IME composition picks the word; it must not send the half-typed reply.
+        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', 'aria-label': 'Reply to support', value: reply, maxLength: 2000, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !busy && reply.trim()) submitReply(); } }),
         // btn-primary: the panel's full-width btn-accent rule squeezed the
         // reply box to a sliver on a phone.
         // aria-disabled keeps focus on Send while the reply posts; submitReply ignores empty or in-flight sends.

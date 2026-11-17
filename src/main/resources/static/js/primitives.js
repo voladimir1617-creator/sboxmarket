@@ -550,8 +550,8 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
   // Batch 828 — a11y label on the SVG so a screen reader announces
   // the chart as "Price history chart, $min to $max, N points" rather
   // than skipping it entirely (svgs default to "image" with no label).
-  // Hover interactions stay mouse-only — low value for a keyboard-
-  // driven reader and adds significant tab-stop churn.
+  // Only the item-page chart takes keyboard focus (see onKey below); the
+  // small sparklines would add tab stops for little value.
   const firstPrice = prices[0];
   const lastPrice  = prices[prices.length - 1];
   const deltaPct   = firstPrice > 0 ? Math.round(((lastPrice - firstPrice) / firstPrice) * 100) : 0;
@@ -560,7 +560,21 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
     (deltaPct > 0 ? `Up ${deltaPct}% overall.`
      : deltaPct < 0 ? `Down ${Math.abs(deltaPct)}% overall.`
      : 'Flat overall.') +
-    (volH > 0 ? ` ${totalSales.toLocaleString()} ${totalSales === 1 ? 'sale' : 'sales'} on SkinBox in this range.` : '');
+    (volH > 0 ? ` ${totalSales.toLocaleString()} ${totalSales === 1 ? 'sale' : 'sales'} on SkinBox in this range.` : '') +
+    (showAxes ? ' Use the arrow keys to read each day.' : '');
+  // The item-page chart (showAxes) takes focus, and the arrow keys walk
+  // the same tooltip a pointer shows, so a keyboard user can read a day's
+  // price too. The small inline sparklines stay out of the tab order.
+  const onKey = (e) => {
+    const last = pts.length - 1;
+    const cur = hoverIdx === null ? last : hoverIdx;
+    const next = e.key === 'ArrowLeft' ? Math.max(0, cur - 1)
+      : e.key === 'ArrowRight' ? Math.min(last, cur + 1)
+      : e.key === 'Home' ? 0 : e.key === 'End' ? last : null;
+    if (next === null) return;
+    e.preventDefault();
+    setHover(next);
+  };
   return h('div', { className: 'sparkline-wrap' },
     h('svg', {
       className: 'chart',
@@ -568,6 +582,10 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
       preserveAspectRatio: 'none',
       onMouseMove: onMove,
       onMouseLeave: () => setHover(null),
+      tabIndex: showAxes ? 0 : undefined,
+      onKeyDown: showAxes ? onKey : undefined,
+      onFocus: showAxes ? () => setHover(cur => (cur === null ? pts.length - 1 : cur)) : undefined,
+      onBlur: showAxes ? () => setHover(null) : undefined,
       role: 'img',
       'aria-label': chartDesc
     },
@@ -656,7 +674,9 @@ export function Sparkline({ data, color, height, showAxes, showVolume }) {
     // last days' tooltips ran off the screen).
     hoverPt && h('div', {
       className: 'sparkline-tooltip' + (hoverPt.x < W * 0.15 ? ' is-start' : hoverPt.x > W * 0.85 ? ' is-end' : ''),
-      style: { left: `${(hoverPt.x / W) * 100}%` }
+      style: { left: `${(hoverPt.x / W) * 100}%` },
+      // Announces the day the arrow keys land on.
+      role: showAxes ? 'status' : undefined
     },
       h('div', { className: 'sparkline-tt-price' }, fmt(hoverPt.price)),
       h('div', { className: 'sparkline-tt-date' }, hoverPt.label || ''),

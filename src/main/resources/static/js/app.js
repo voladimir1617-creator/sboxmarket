@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=414'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=415'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -442,7 +442,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
     } finally { stallReviewInFlight.delete(review.id); setBusy(false); }
   };
   return h('div', { className: 'stall-review', ref: rowRef },
-    h('div', { className: 'stall-review-head' },
+    // Wraps on a phone: a long reviewer name ran under the date.
+    h('div', { className: 'stall-review-head', style: { flexWrap: 'wrap' } },
       h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${review.rating} out of 5 stars` }, '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)),
       h('span', { className: 'stall-review-from' }, review.fromDisplayName || 'Anonymous'),
       // Every review is anchored to a VERIFIED trade (ReviewService
@@ -825,15 +826,17 @@ export function RatingBreakdown({ summary }) {
     buckets.map((n, i) => {
       const stars = 5 - i;
       const pct = Math.round((n / max) * 100);
+      // Each row reads "5 stars: 3 reviews", not "5★ 3".
       return h('div', { key: stars, className: 'rating-breakdown-row' },
-        h('span', { className: 'rating-breakdown-stars' }, stars + '★'),
-        h('div', { className: 'rating-breakdown-bar' },
+        h('span', { className: 'rating-breakdown-stars', 'aria-hidden': 'true' }, stars + '★'),
+        h('div', { className: 'rating-breakdown-bar', 'aria-hidden': 'true' },
           h('div', {
             className: 'rating-breakdown-fill',
             style: { width: pct + '%' }
           })
         ),
-        h('span', { className: 'rating-breakdown-count' }, n)
+        h('span', { className: 'rating-breakdown-count', 'aria-hidden': 'true' }, n),
+        h('span', { className: 'visually-hidden' }, `${stars} star${stars === 1 ? '' : 's'}: ${n} review${n === 1 ? '' : 's'}`)
       );
     })
   );
@@ -8490,11 +8493,10 @@ export function App() {
             // Recent-searches dropdown — shown when the input is empty
             // and focused. Clicking a row fills the search + opens the
             // item autocomplete.
+            // The heading and Clear all sit outside the listbox: a listbox
+            // holds options only, so they were read as stray list content.
             suggestOpen && (!searchInput || searchInput.trim().length < 2) && recentSearches.length > 0 && h('div', {
-              className: 'search-suggest',
-              id: 'search-recent-listbox',
-              role: 'listbox',
-              'aria-label': 'Recent searches'
+              className: 'search-suggest'
             },
               // Batch 922 — header row now includes a "Clear all" affordance
               // for users who've accumulated 5-6 recent searches and want
@@ -8519,12 +8521,15 @@ export function App() {
                   title: 'Forget every recent search on this device'
                 }, 'Clear all')
               ),
+              h('div', { id: 'search-recent-listbox', role: 'listbox', 'aria-label': 'Recent searches' },
               recentSearches.map((q, i) => h('div', {
                 key: 'rs-' + i,
                 id: 'search-recent-opt-' + i,
                 className: `search-suggest-row recent ${recentNav && i === suggestIdx ? 'active' : ''}`,
                 role: 'option',
                 'aria-selected': recentNav && i === suggestIdx,
+                // Named by the search alone, not "boot Forget "boot"".
+                'aria-label': q,
                 onClick: () => pickRecent(q)
               },
                 h('span', { className: 'search-suggest-recent-icon', 'aria-hidden': 'true' }, '⟲'),
@@ -8542,7 +8547,7 @@ export function App() {
                   title: 'Forget this search',
                   'aria-label': `Forget "${q}"`
                 }, '✕')
-              ))
+              )))
             ),
             suggestOpen && suggest.length > 0 && h('div', {
               className: 'search-suggest',
@@ -9646,8 +9651,10 @@ export function App() {
                                 : avg >= 3.0 ? 'Mixed'
                                 :              'Poor';
                   return h('div', { className: 'stall-rating', title: `Average rating across ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}` },
-                    h('span', { className: 'stall-rating-stars', 'aria-hidden': 'true' }, '★'.repeat(Math.round(avg)) + '☆'.repeat(5 - Math.round(avg))),
-                    h('span', { className: 'stall-rating-avg' }, avg.toFixed(1)),
+                    // Read as "4.0 out of 5 stars": with the stars hidden the
+                    // bare "4.0" gave no scale.
+                    h('span', { className: 'stall-rating-stars', role: 'img', 'aria-label': `${avg.toFixed(1)} out of 5 stars` }, '★'.repeat(Math.round(avg)) + '☆'.repeat(5 - Math.round(avg))),
+                    h('span', { className: 'stall-rating-avg', 'aria-hidden': 'true' }, avg.toFixed(1)),
                     h('span', { className: 'stall-rating-count', style: { fontWeight: 600, color: 'var(--text-secondary)', marginLeft: 6 } }, verdict),
                     h('span', { className: 'stall-rating-count' },
                       ` · ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}`
