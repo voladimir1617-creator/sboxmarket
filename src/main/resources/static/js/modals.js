@@ -19230,7 +19230,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                     )
                   )
                 ),
-                h('div', { className: 'wallet-tx-filter-row', role: 'group', 'aria-label': 'Transaction type' },
+                h('div', { className: 'wallet-tx-filter-row' },
                   [
                     { id: 'ALL',        label: 'All' },
                     { id: 'DEPOSIT',    label: 'Deposits' },
@@ -19288,7 +19288,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                 ),
                 h('div', { className: 'wallet-tx-list' },
                   filtered.length === 0
-                    ? h('div', { className: 'wallet-tx-empty', role: 'heading', 'aria-level': 2 },
+                    ? h('div', { className: 'wallet-tx-empty' },
                         transactions.length === 0
                           ? 'No transactions yet'
                           : q
@@ -19314,7 +19314,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                               tx.createdAt && h('span', {
                                 style: { marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 },
                                 title: new Date(tx.createdAt).toLocaleString()
-                              }, ' · ', timeAgo(tx.createdAt))
+                              }, '· ', timeAgo(tx.createdAt))
                             ),
                             h('div', { className: 'wallet-tx-desc', title: tx.description || customerFacingRef(tx.stripeReference) || undefined }, tx.description || customerFacingRef(tx.stripeReference)),
                             // Copyable transaction id — lets users quote the
@@ -19344,8 +19344,6 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                                   if (navigator.clipboard?.writeText) {
                                     await navigator.clipboard.writeText(ref);
                                     flash();
-                                    // The flash alone is not read out.
-                                    toast('Reference copied.', 'ok');
                                   } else {
                                     window.prompt('Copy this reference:', ref);
                                   }
