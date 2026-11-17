@@ -15433,7 +15433,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   return h(InfoModal, { title: (
     tab === 'sold'      ? `Sold · My Stall` :
     tab === 'analytics' ? `Analytics · My Stall` :
-                          `My Stall · ${stall.length} active`
+                          // Hidden (away-mode) rows are off the market, as Profile > Listings counts them.
+                          `My Stall · ${stall.filter(l => !l?.hidden).length} active` + (stall.some(l => l?.hidden) ? ` · ${stall.filter(l => l?.hidden).length} hidden` : '')
   ), onClose },
     // Batch 818 — bulk-adjust drawer. Replaces the window.prompt flow
     // triggered by the "⚖ Bulk price adjust" button. Quick-chip picker
@@ -19342,6 +19343,8 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                                   if (navigator.clipboard?.writeText) {
                                     await navigator.clipboard.writeText(ref);
                                     flash();
+                                    // The flash alone is not read out.
+                                    toast('Reference copied.', 'ok');
                                   } else {
                                     window.prompt('Copy this reference:', ref);
                                   }
