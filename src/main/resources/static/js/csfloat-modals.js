@@ -1192,7 +1192,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
           // Status filter chips — only shown when there's something
           // other than pure ACTIVE to look at. Fresh users with only
           // live orders never see the chips, keeping the UX clean.
-          orders.length > 0 && orders.some(o => o.status !== 'ACTIVE') && h('div', {
+          orders.length > 0 && orders.some(o => o.status !== 'ACTIVE') && h('div', { role: 'group', 'aria-label': 'Order status',
             style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }
           },
             ['ACTIVE','PAUSED','FILLED','CANCELLED','EXPIRED','ALL'].map(opt => {

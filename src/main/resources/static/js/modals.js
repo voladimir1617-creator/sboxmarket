@@ -7466,7 +7466,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
       )
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-      h('div', { className: 'wallet-tx-filter-row', style: { flex: '1 1 260px', minWidth: 0 } },
+      h('div', { className: 'wallet-tx-filter-row', role: 'group', 'aria-label': 'Transaction type', style: { flex: '1 1 260px', minWidth: 0 } },
         [
           { id: 'ALL',      label: 'All' },
           { id: 'IN',       label: 'Credits' },
@@ -7529,7 +7529,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
     ),
   visibleTx.length === 0
     ? h('div', { className: 'empty-inline', style: { marginTop: 8 } },
-        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)' } }, 'No transactions match this filter.'))
+        h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-secondary)' } }, 'No transactions match this filter.'))
     : h('table', { className: 'db-table db-table--list' },
       h('thead', null, h('tr', null,
         h('th', null, 'ID'),
@@ -7805,7 +7805,7 @@ function ProfileBuyOrdersTab() {
       )
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-      h('div', { className: 'wallet-tx-filter-row', style: { flex: '1 1 260px', minWidth: 0 } },
+      h('div', { className: 'wallet-tx-filter-row', role: 'group', 'aria-label': 'Order status', style: { flex: '1 1 260px', minWidth: 0 } },
         [
           { id: 'ALL',       label: 'All' },
           { id: 'ACTIVE',    label: 'Active' },
@@ -12320,7 +12320,7 @@ function ProfileSupportTab() {
         RESOLVED:      tickets.filter(t => t.status === 'RESOLVED').length
       };
       return h('div', null,
-        h('div', { className: 'wallet-tx-filter-row' },
+        h('div', { className: 'wallet-tx-filter-row', role: 'group', 'aria-label': 'Ticket status' },
           [
             { id: 'ALL',           label: 'All' },
             { id: 'OPEN',          label: 'Open' },
@@ -14563,6 +14563,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           }, '⚡ ', h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(intLiquidValue)), ' liquid now')
         ),
         (rarities.length > 1 || internalList.length > 6 || sellRarityFilter !== 'All' || sellSearch) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
+          h('div', { role: 'group', 'aria-label': 'Rarity', style: { display: 'contents' } },
           h('button', {
             className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === 'All',
@@ -14573,7 +14574,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             className: `wallet-tx-filter-chip ${sellRarityFilter === r ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === r,
             onClick: () => setSellRarityFilter(r)
-          }, `${r === 'Off-Market' ? 'Scarce' : r} · ${internalList.filter(l => (l.item?.rarity || 'Standard') === r).length}`)),
+          }, `${r === 'Off-Market' ? 'Scarce' : r} · ${internalList.filter(l => (l.item?.rarity || 'Standard') === r).length}`))),
           h('div', { style: { flex: 1, minWidth: 140 } },
             h('input', {
               className: 'price-input',
@@ -14593,7 +14594,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         filtered.length === 0
           ? h('div', { className: 'empty-inline', style: { marginTop: 8 } },
-              h('div', { style: { fontSize: 13, color: 'var(--text-secondary)' } },
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-secondary)' } },
                 'No platform-inventory items match this filter.'))
           : h('div', { className: 'inventory-grid' },
               filtered.map(l => h('div', {
@@ -17435,7 +17436,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         'aria-label': 'Search offers'
       })
     ),
-    rawList && rawList.length > 3 && h('div', {
+    rawList && rawList.length > 3 && h('div', { role: 'group', 'aria-label': 'Offer status',
       style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }
     },
       STATUS_CHIPS.map(opt => {
@@ -18303,7 +18304,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
           // Category chip row — only rendered when the watchlist spans
           // more than one category, so a user with 3 items in the same
           // category doesn't see noise. Each chip is a one-click filter.
-          categoriesInWatchlist.length > 1 && h('div', {
+          categoriesInWatchlist.length > 1 && h('div', { role: 'group', 'aria-label': 'Category',
             style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }
           },
             h('button', {
@@ -18333,7 +18334,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             const listedN = rows.filter(r => !r.listing?.__noListing).length;
             const gone    = rows.filter(r => r.listing?.__noListing === true).length;
             if (listedN === 0 || gone === 0) return null; // uniform state, hide
-            return h('div', {
+            return h('div', { role: 'group', 'aria-label': 'State',
               style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }
             },
               h('span', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, marginRight: 2 } }, 'State'),
@@ -19229,7 +19230,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                     )
                   )
                 ),
-                h('div', { className: 'wallet-tx-filter-row' },
+                h('div', { className: 'wallet-tx-filter-row', role: 'group', 'aria-label': 'Transaction type' },
                   [
                     { id: 'ALL',        label: 'All' },
                     { id: 'DEPOSIT',    label: 'Deposits' },
@@ -19287,7 +19288,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                 ),
                 h('div', { className: 'wallet-tx-list' },
                   filtered.length === 0
-                    ? h('div', { className: 'wallet-tx-empty' },
+                    ? h('div', { className: 'wallet-tx-empty', role: 'heading', 'aria-level': 2 },
                         transactions.length === 0
                           ? 'No transactions yet'
                           : q
