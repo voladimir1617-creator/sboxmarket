@@ -1516,7 +1516,8 @@ function FindSellerBar() {
         // cursor, Enter opens the highlighted (or first) row, Escape
         // closes the dropdown.
         onKeyDown: e => {
-          if (!open || rows.length === 0) return;
+          // An IME composition's Enter/arrows pick the word, not a seller.
+          if (!open || rows.length === 0 || e.nativeEvent.isComposing) return;
           if (e.key === 'ArrowDown') {
             e.preventDefault();
             setCursor(c => Math.min(c + 1, rows.length - 1));
@@ -3810,7 +3811,7 @@ function SaveSearchDrawer({ initial, onCancel, onSave }) {
       placeholder: 'e.g. Limited hats under $20',
       onChange: (e) => setName(e.target.value),
       onKeyDown: (e) => {
-        if (e.key === 'Enter' && canSave) { e.preventDefault(); onSave(trimmed); }
+        if (e.key === 'Enter' && canSave && !e.nativeEvent.isComposing) { e.preventDefault(); onSave(trimmed); }
       },
       'aria-label': 'Saved search name',
       style: {
@@ -8388,6 +8389,9 @@ export function App() {
               onChange: e => { setSearchInput(e.target.value); setSuggestOpen(true); setSuggestIdx(-1); },
               onFocus: () => { setSuggestOpen(true); },
               onKeyDown: (e) => {
+                // Keys that drive an IME composition (Enter picks the word,
+                // arrows walk the candidates) are not ours.
+                if (e.nativeEvent.isComposing) return;
                 // Batch 763 — Escape handler runs regardless of
                 // suggestOpen so a user can clear an active search even
                 // when the suggestion dropdown has already closed (e.g.
