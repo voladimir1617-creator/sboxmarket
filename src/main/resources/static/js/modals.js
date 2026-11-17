@@ -10842,7 +10842,7 @@ function ProfileOffersTab() {
           : o.author === 'SELLER'
             ? "This offer auto-declines after a period of inactivity. You can accept or decline the seller's counter before then."
             : 'This offer auto-declines after a period of inactivity. The seller can accept, reject, or counter; you can raise or cancel before then.'
-      }, '· expires in ' + label);
+      }, ' · expires in ' + label);
     })();
 
     // Four cells, in the order `.offer-row`'s grid lays out (48px thumb ·
@@ -10864,7 +10864,9 @@ function ProfileOffersTab() {
         h('div', { className: 'offer-sub' },
           fromLabel, ' · ', timeAgo(o.createdAt),
           o.askingPrice && h('span', { style: { marginLeft: 8, color: 'var(--text-faint)' } },
-            'Ask: ', fmt(o.askingPrice)),
+            // Leading spaces: the gap is a margin, so without them a screen
+            // reader ran the words together ("1h agoAsk:", "$5.00· expires").
+            ' Ask: ', fmt(o.askingPrice)),
           expiresChip
         )
       ),
