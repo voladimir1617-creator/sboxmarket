@@ -35,21 +35,23 @@ If `skinbox-demo` already exists on Render (it does since 2026-10-13):
    GitHub**. No card.
 2. Create a project: any name (for example `skinbox`), Postgres 16, region
    **AWS US West (Oregon)** (same place as the Render site).
-3. On the project page click **Connect**, pick **Java** in the list, and keep
-   that window open. It shows the host, database, user and password.
-4. In Render open `skinbox-demo`, then **Environment**, then add:
-   - `SPRING_DATASOURCE_URL` = `jdbc:postgresql://<host>/<database>?sslmode=require`
-   - `SPRING_DATASOURCE_USERNAME` = the user
-   - `SPRING_DATASOURCE_PASSWORD` = the password
-   Delete `DB_HOST`, `DB_PORT`, `DB_NAME` and `DB_USER` there if they are
-   listed. Click **Save, rebuild, and deploy**.
+3. On the project page click **Connect**. Turn **Connection pooling** off
+   (the site sets up its tables on first start and needs a direct
+   connection), pick **Java** in the list, and click **Copy snippet**. It is
+   one line starting `jdbc:postgresql://` with the user and password inside.
+4. In Render open `skinbox-demo`, then **Environment**, then add one value:
+   - `SPRING_DATASOURCE_URL` = the line you copied, pasted as it is
+   Leave `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` empty
+   (the user and password in the line are used). Delete `DB_HOST`,
+   `DB_PORT`, `DB_NAME` and `DB_USER` there if they are listed. Click
+   **Save, rebuild, and deploy**.
 5. Wait about 10 minutes. When `skinbox-demo` says **Live**, open
    https://skinbox-demo.onrender.com. The demo stock is filled in by itself.
 
 Starting from nothing instead: do steps 1-3, then open
 **https://render.com/deploy?repo=https://github.com/voladimir1617-creator/sboxmarket**,
-sign in with GitHub, click **Deploy Blueprint**, and paste the three values
-when Render asks for them.
+sign in with GitHub, click **Deploy Blueprint**, paste the copied line into
+`SPRING_DATASOURCE_URL` when Render asks, and leave the other two empty.
 
 After that, every change merged into `main` on GitHub updates the site by
 itself.

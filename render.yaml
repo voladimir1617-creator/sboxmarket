@@ -30,11 +30,12 @@ services:
         generateValue: true
       # Database: a free Neon Postgres (neon.tech, 1 GB, no expiry, no card).
       # Render's own free Postgres is deleted 30 days after it is made, so
-      # it is not used. Paste these three from Neon's "Connection string"
-      # (Java / JDBC tab) into the service's Environment yourself.
-      #   SPRING_DATASOURCE_URL       jdbc:postgresql://<host>/<db>?sslmode=require
-      #   SPRING_DATASOURCE_USERNAME  <user>
-      #   SPRING_DATASOURCE_PASSWORD  <password>
+      # it is not used. In Neon: Connect, Connection pooling OFF (Flyway
+      # migrates on boot and needs a direct connection), Java, Copy snippet.
+      # Paste that one line into SPRING_DATASOURCE_URL as it is:
+      #   jdbc:postgresql://<host>/<db>?user=<u>&password=<p>&sslmode=require...
+      # The user and password in the URL win, so USERNAME and PASSWORD can
+      # stay empty (or hold the same values split out).
       - key: SPRING_DATASOURCE_URL
         sync: false
       - key: SPRING_DATASOURCE_USERNAME
