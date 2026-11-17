@@ -468,7 +468,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         review.editedAt && h('span', {
           style: { marginLeft: 6, fontSize: 10, fontStyle: 'italic', color: 'var(--text-muted)' },
           title: 'Last edited ' + new Date(review.editedAt).toLocaleString()
-        }, '· edited')
+        }, ' · edited')
       ),
       // Helpful vote — CSFloat-style upvote so high-signal reviews
       // (detail, context) bubble above one-liners. Self-authors + anon
@@ -2697,7 +2697,7 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
     status.following ? 'Following' : 'Follow',
     status.followerCount > 0 && h('span', {
       style: { marginLeft: 6, fontSize: 10, opacity: 0.7 }
-    }, `· ${Number(status.followerCount).toLocaleString()}`)
+    }, ` · ${Number(status.followerCount).toLocaleString()}`)
   );
 }
 
@@ -3587,7 +3587,7 @@ export function SiteFooter() {
     h('div', { className: 'site-footer-bottom' },
       h('div', { className: 'site-footer-copy' },
         '© ', new Date().getFullYear(), ` ${BRAND.name} · Not affiliated with Facepunch Studios. s&box is a trademark of Facepunch Ltd.`,
-        version && h('span', { style: { color: 'var(--ink-3)', marginLeft: 10 } }, '· v', version)),
+        version && h('span', { style: { color: 'var(--ink-3)', marginLeft: 10 } }, ' · v', version)),
       h('div', { className: 'site-footer-socials', 'aria-label': 'Community' },
         // Boss QA cycle 2 N1 — "coming soon" Discord/X buttons removed.
         // A live marketplace doesn't ship disabled-with-tooltip social
@@ -10836,7 +10836,7 @@ export function App() {
               if (sellers.size <= 1) return null;
               return h('div', {
                 style: { marginTop: 4, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }
-              }, `· ${sellers.size} sellers — expect ${sellers.size} separate trade offers`);
+              }, ` · ${sellers.size} sellers — expect ${sellers.size} separate trade offers`);
             })())
         ),
         // WHAT "DELIVERED" MEANS, AT THE MOMENT THE MONEY MOVES.

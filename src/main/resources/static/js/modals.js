@@ -1943,7 +1943,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       h('td', { style: { padding: '7px 4px', textAlign: 'right' } }, Number(r.quantity) || 0),
                       h('td', { style: { padding: '7px 4px', textAlign: 'right', color: 'var(--text-muted)' } },
                         Number(r.orders) || 0,
-                        mine && h('span', { style: { marginLeft: 6, fontSize: 10, color: 'var(--accent)' } }, '· incl. yours'))
+                        mine && h('span', { style: { marginLeft: 6, fontSize: 10, color: 'var(--accent)' } }, ' · incl. yours'))
                     );
                   })
                 )
@@ -4970,7 +4970,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
             return createdAt && h('span', {
               style: { marginLeft: 10, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 },
               title: 'Account created ' + new Date(createdAt).toLocaleString()
-            }, '· Member since ', new Date(createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }));
+            }, ' · Member since ', new Date(createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }));
           })(),
           // Self-rating chip (batch 491). Renders the user's own seller
           // rating next to their tenure so sellers see their score at a
@@ -4979,7 +4979,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           profile?.rating && profile.rating.count > 0 && h('span', {
             style: { marginLeft: 10, fontSize: 11, color: '#fbbf24', fontWeight: 700 },
             title: `${profile.rating.count} review${profile.rating.count === 1 ? '' : 's'} across your completed sales`
-          }, '· ★ ', Number(profile.rating.average || 0).toFixed(2), ' (', profile.rating.count, ')')
+          }, ' · ★ ', Number(profile.rating.average || 0).toFixed(2), ' (', profile.rating.count, ')')
         ),
         h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 2 } },
           me.profileUrl && h('a', { href: me.profileUrl, target: '_blank', rel: 'noopener noreferrer', className: 'profile-link' }, 'View Steam profile ↗'),
@@ -5459,7 +5459,7 @@ function EmailBucketMutes() {
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { fontWeight: 700, color: off ? 'var(--text-muted)' : 'var(--text-primary)' } },
             h('span', { id: idBase + '-name' }, meta.name),
-            off && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--red)', fontWeight: 800 } }, '· MUTED')
+            off && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--red)', fontWeight: 800 } }, ' · MUTED')
           ),
           h('div', { id: idBase + '-hint', style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 } }, meta.hint)
         )
@@ -9595,7 +9595,7 @@ function ProfileTradesTab({ me, privacy }) {
                     className: 'trade-sent-ago',
                     style: { marginLeft: 10, fontSize: 11, color: 'var(--accent)', fontWeight: 700 },
                     title: `Seller marked sent at ${new Date(t.sentAt).toLocaleString()}`
-                  }, '· sent ' + timeAgo(t.sentAt).replace(/^Just now$/, 'just now')),
+                  }, ' · sent ' + timeAgo(t.sentAt).replace(/^Just now$/, 'just now')),
                   // Countdown chip — server computes an absolute epoch-ms
                   // deadline for states that auto-cancel or auto-release.
                   // Converts to a terse "Xh left / Xd left" so users know
@@ -9633,7 +9633,7 @@ function ProfileTradesTab({ me, privacy }) {
                         color: urgent ? 'var(--red)' : 'var(--text-muted)'
                       },
                       title: tip
-                    }, '· ⏱ ', label);
+                    }, ' · ⏱ ', label);
                   })()
                 ),
                 // Labeled phase stepper — four checkpoints with descriptive
@@ -11776,7 +11776,7 @@ function ProfileReviewsTab({ me }) {
                 r.editedAt && h('span', {
                   style: { marginLeft: 6, fontSize: 10, fontStyle: 'italic', color: 'var(--text-muted)' },
                   title: 'Last edited ' + new Date(r.editedAt).toLocaleString()
-                }, '· edited')
+                }, ' · edited')
               )
             ),
             r.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + r.itemName),
@@ -16411,7 +16411,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             h('div', { style: { flex: 1, minWidth: 0 } },
               // title: a phone cuts the name (and its chips) with an ellipsis.
               h('div', { className: 'item-name', title: l.item.name + (l.hidden ? ' · HIDDEN' : '') }, l.item.name,
-                l.hidden && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 } }, '· HIDDEN'),
+                l.hidden && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 } }, ' · HIDDEN'),
                 // Batch 722 — "⚠ reported" chip for sellers. Fires when
                 // a listing has at least one pending report from a
                 // buyer. Lets the seller know staff is about to review.
@@ -16456,7 +16456,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace"
                   },
                   title: `${Number(l.item.viewCount).toLocaleString()} lifetime item-detail opens. High views with no watchers means people look but don't star — check the price, description, or condition.`
-                }, '· ', Number(l.item.viewCount).toLocaleString(), ' views'),
+                }, ' · ', Number(l.item.viewCount).toLocaleString(), ' views'),
                 // Buy-order demand chip (batch 415). Renders when at least
                 // one buyer has a standing buy order on this item —
                 // signals "someone is ready to auto-buy at $X if you
@@ -17086,7 +17086,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                 color: urgent ? 'var(--red)' : 'var(--text-muted)'
               },
               title: `Auto-declines at ${new Date(offer.expiresAt).toLocaleString()} if neither side responds`
-            }, '· ⏱ ', label, ' left');
+            }, ' · ⏱ ', label, ' left');
           })()
         ),
         // Counterparty reputation chips (batch 847, extended in 851).
@@ -19314,7 +19314,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                               tx.createdAt && h('span', {
                                 style: { marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 },
                                 title: new Date(tx.createdAt).toLocaleString()
-                              }, '· ', timeAgo(tx.createdAt))
+                              }, ' · ', timeAgo(tx.createdAt))
                             ),
                             h('div', { className: 'wallet-tx-desc', title: tx.description || customerFacingRef(tx.stripeReference) || undefined }, tx.description || customerFacingRef(tx.stripeReference)),
                             // Copyable transaction id — lets users quote the
