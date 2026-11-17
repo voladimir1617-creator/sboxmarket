@@ -1407,6 +1407,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   if (navigator.clipboard?.writeText) {
                     await navigator.clipboard.writeText(url);
                     flashCopied();
+                    // The flash alone is not read out.
+                    toast('Link copied to clipboard.', 'ok');
                   } else {
                     window.prompt('Copy this link:', url);
                   }
@@ -6380,6 +6382,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 btn.textContent = '✓';
                 btn.style.color = 'var(--green)';
                 setTimeout(() => { btn.textContent = prev; btn.style.color = ''; delete btn.dataset.flashing; }, 1200);
+                toast('Steam ID copied.', 'ok');
               } else {
                 window.prompt('Copy:', me.steamId64);
               }
@@ -12500,14 +12503,14 @@ function ProfileDevelopersTab() {
     // Also after a refresh fails, so a stale list or "No API keys yet" never shows.
     keysErr
       ? h('div', { className: 'empty-inline', role: 'alert' },
-          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your API keys.'),
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your API keys.'),
           h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setKeysErr(false); load(); } }, 'Retry'))
     : keys === null
       ? h('div', { className: 'spinner' })
       : keys.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No API keys yet.'))
+            h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No API keys yet.'))
         : h('div', null,
             // Batch 705 — security panic button. Only rendered when
             // the user has at least 2 active keys — revoking a single
@@ -12545,8 +12548,8 @@ function ProfileDevelopersTab() {
               h('th', { className: 'right' }, 'Action'))),
             h('tbody', null, keys.map(k => h('tr', { key: k.id, className: 'db-row' },
               h('td', null, k.label || '—'),
-              h('td', { className: 'db-mono' }, k.publicPrefix + '…'),
-              h('td', null, h('span', {
+              h('td', { className: 'db-mono', 'data-label': 'Prefix' }, k.publicPrefix + '…'),
+              h('td', { 'data-label': 'Scope' }, h('span', {
                 title: k.scope === 'RO' ? 'Read-only — cannot buy, sell, or transfer funds' : 'Full access — can act on your account',
                 style: {
                   fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
@@ -15732,6 +15735,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             if (navigator.clipboard?.writeText) {
               await navigator.clipboard.writeText(url);
               flash();
+              toast('Stall link copied.', 'ok');
             } else {
               window.prompt('Copy this stall link:', url);
             }
