@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=24';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=25';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -7275,6 +7275,9 @@ function ProfileListingsTab({ me }) {
   // banner explains the cap and points power-sellers at the full stall.
   const DISPLAY_CAP = 500;
   const shown = data.slice(0, DISPLAY_CAP);
+  // Hidden listings are off the market, so they don't count as active.
+  const hiddenCount = data.filter(l => l?.hidden).length;
+  const activeCount = Math.max(0, total - hiddenCount);
   return h('div', null,
     // Header strip: live count + a manage deep-link to the full stall
     // (inline edit / relist / cancel / analytics all live there).
@@ -7282,8 +7285,9 @@ function ProfileListingsTab({ me }) {
       style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }
     },
       h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
-        h('strong', { style: { color: 'var(--text-primary)' } }, total),
-        ' active listing', total === 1 ? '' : 's'),
+        h('strong', { style: { color: 'var(--text-primary)' } }, activeCount),
+        ' active listing', activeCount === 1 ? '' : 's',
+        hiddenCount > 0 && ` · ${hiddenCount} hidden`),
       h('a', {
         className: 'btn btn-ghost',
         style: { marginLeft: 'auto', border: '1px solid var(--border)', padding: '6px 12px', fontSize: 12 },
@@ -11681,7 +11685,7 @@ function ProfileReviewsTab({ me }) {
         );
       })
     ),
-    rows.length > 0 && h('div', { className: 'profile-reviews-filter' },
+    rows.length > 0 && h('div', { className: 'profile-reviews-filter', role: 'group', 'aria-label': 'Filter by stars' },
       [0, 5, 4, 3, 2, 1].map(n => h('button', {
         key: n,
         className: `wallet-tx-filter-chip ${starFilter === n ? 'active' : ''}`,
@@ -11728,7 +11732,7 @@ function ProfileReviewsTab({ me }) {
               onClick: () => setMode('pending')
             }, `Check ${pending.length} pending review${pending.length === 1 ? '' : 's'} →`)
           ),
-          rows.length > 0 && h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+          rows.length > 0 && h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } },
             'No reviews match this filter.'))
       : h('div', { className: 'profile-reviews-list' },
           filtered.map(r => h('div', { key: r.id, className: 'stall-review' },
@@ -14226,6 +14230,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         // Also while a filter is on (a /sell?q= deep link, or a chip picked on
         // the other tab), or its Clear button is gone and the items stay hidden.
         (steamList.length > 6 || sellRarityFilter !== 'All' || sellSearch) && h('div', { className: 'sell-filter-bar' },
+          h('div', { role: 'group', 'aria-label': 'Rarity', style: { display: 'contents' } },
           h('button', {
             className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === 'All',
@@ -14236,7 +14241,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             className: `wallet-tx-filter-chip ${sellRarityFilter === r ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === r,
             onClick: () => setSellRarityFilter(r)
-          }, `${r === 'Off-Market' ? 'Scarce' : r} · ${steamList.filter(s => (s.rarity || 'Standard') === r).length}`)),
+          }, `${r === 'Off-Market' ? 'Scarce' : r} · ${steamList.filter(s => (s.rarity || 'Standard') === r).length}`))),
           h('input', {
             className: 'sell-filter-search',
             placeholder: 'Search items…',
@@ -14253,7 +14258,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         filtered.length === 0
           ? h('div', { className: 'empty-inline' },
-              h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-muted)' } },
                 'No Steam items match this filter.'))
           : h('div', { className: 'inventory-grid' },
         filtered.map(si => h('div', {

@@ -328,6 +328,8 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       ),
       h('div', { className: 'grid-cat' },
         isAuction && h('span', { className: 'grid-auction-tag' }, 'AUCTION '),
+        // Only the owner's own feeds carry hidden rows (Profile > Listings).
+        listing.hidden && h('span', { className: 'grid-auction-tag', title: 'Hidden from the market. Show it again from your stall.' }, 'HIDDEN '),
         item.category || '',
         // Inline seller-rating chip after the category. Compact, mono,
         // ink-3 — reads as a small trust signal next to the row meta

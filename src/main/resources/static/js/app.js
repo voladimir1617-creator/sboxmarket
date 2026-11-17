@@ -11,7 +11,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers, fetchPublicBuyOrders
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip, RarityBadge } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=24';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=25';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=411'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=412'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -9818,7 +9818,7 @@ export function App() {
                   });
                   return h('div', null,
                     (rarities.length > 1 || stallData.listings.length > 6) && h('div', { className: 'stall-filter-row' },
-                      h('div', { className: 'stall-filter-chips' },
+                      h('div', { className: 'stall-filter-chips', role: 'group', 'aria-label': 'Rarity' },
                         h('button', {
                           className: `wallet-tx-filter-chip ${stallRarityOn === 'All' ? 'active' : ''}`,
                           'aria-pressed': stallRarityOn === 'All',
@@ -9857,7 +9857,7 @@ export function App() {
                     ),
                     rows.length === 0
                       ? h('div', { className: 'empty-inline' },
-                          h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: search ? 8 : 0 } },
+                          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: search ? 8 : 0 } },
                             // Under a rarity chip the search only looked at that
                             // rarity, so "in this stall" was not true.
                             search
@@ -10107,7 +10107,7 @@ export function App() {
                   className: 'stall-reviews-filter',
                   style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }
                 },
-                  h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap' } },
+                  h('div', { role: 'group', 'aria-label': 'Filter by stars', style: { display: 'flex', gap: 4, flexWrap: 'wrap' } },
                     [0, 5, 4, 3, 2, 1].map(n => h('button', {
                       key: n,
                       className: `wallet-tx-filter-chip ${stallStarFilter === n ? 'active' : ''}`,
