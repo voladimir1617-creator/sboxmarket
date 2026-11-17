@@ -3548,9 +3548,9 @@ export function SiteFooter() {
       h('div', { className: 'site-footer-col' },
         h('div', { className: 'site-footer-title' }, 'Account'),
         h('a', { href: paths.profile(), 'aria-current': cur('profile') }, 'Profile'),
-        h('a', { href: paths.wallet() }, 'Wallet'),
+        h('a', { href: paths.wallet(), 'aria-current': cur('wallet') }, 'Wallet'),
         h('a', { href: paths.offers(), 'aria-current': cur('offers') }, 'Offers'),
-        h('a', { href: paths.watchlist() }, 'Watchlist'),
+        h('a', { href: paths.watchlist(), 'aria-current': cur('watchlist') }, 'Watchlist'),
         h('a', { href: paths.notifications(), 'aria-current': cur('notifications') }, 'Notifications')
       ),
       h('div', { className: 'site-footer-col' },
