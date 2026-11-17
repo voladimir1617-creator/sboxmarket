@@ -379,11 +379,11 @@ export function RarityBadge({ rarity }) {
   // fired because RarityBadge emitted no `title`. Supply a concise tier
   // description (mirrors the cf-rarity-legend copy in csfloat-modals.js) so
   // the hover tooltip works on /db rows as the stylesheet intends. Keyed on
-  // the canonical `tier`, not the relabelled `display`, so an Off-Market
-  // pill explains the underlying scarcity tier.
+  // the canonical `tier`; an Off-Market pill reads "Scarce" in its tooltip
+  // too, as on the Database legend (the tier's internal name never shows).
   const RARITY_TITLE = {
     'Standard':   'Standard — common items everyone can craft.',
-    'Off-Market': 'Off-Market — scarce items not currently sold by Steam.',
+    'Off-Market': 'Scarce — limited-supply items not currently sold by Steam.',
     'Limited':    'Limited — capped supply, hardest to find.'
   };
   // a11y: the gradient + text alone don't tell assistive tech this pill
