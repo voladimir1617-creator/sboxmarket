@@ -2248,7 +2248,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
          forever. Surface an error with a Retry that re-runs load(). */
       ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             "Couldn't load loadouts"),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
             'This list failed to load. Check your connection and try again.'),

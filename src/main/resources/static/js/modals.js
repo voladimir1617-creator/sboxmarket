@@ -2215,7 +2215,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                   )
                 ),
                 h('div', { style: { flex: 1, minWidth: 200 } },
-                  h('div', { style: { fontFamily: "'Geist', 'Inter', system-ui, sans-serif", fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', color: 'var(--ink, var(--text-primary))', marginBottom: 4 } },
+                  h('div', { role: 'heading', 'aria-level': 3, style: { fontFamily: "'Geist', 'Inter', system-ui, sans-serif", fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', color: 'var(--ink, var(--text-primary))', marginBottom: 4 } },
                     'No active listings'),
                   // I6 Boss-QA: copy tweaked to point users at Database
                   // (past sales) as the next-best surface when nothing
@@ -7243,7 +7243,7 @@ function ProfileListingsTab({ me }) {
   // network blip never reads as "you have no listings".
   if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+    h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your listings'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your active listings. Check your connection and try again.'),
@@ -7258,7 +7258,7 @@ function ProfileListingsTab({ me }) {
   // same empty-inline shell + MaterialIcon as ProfileBuyOrdersTab.
   if (data.length === 0) return h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'storefront', size: 26 })),
-    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+    h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'No active listings'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'List an item from your inventory and it’ll show up here and on your public stall.'),
@@ -8968,7 +8968,7 @@ function ProfileTradesTab({ me, privacy }) {
   if (!me) return h(SignInNeededEmptyState, { what: 'your trades' });
   if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+    h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your trades'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your trades. Your escrowed trades are safe — check your connection and try again.'),
@@ -9284,6 +9284,8 @@ function ProfileTradesTab({ me, privacy }) {
       )
     ),
     h('div', { className: 'trade-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 } },
+      // Named groups (laid out as part of the bar): both rows start with "All".
+      h('div', { role: 'group', 'aria-label': 'Trade state', style: { display: 'contents' } },
       ['ALL','OPEN','PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','VERIFIED','DISPUTED','CANCELLED'].map(f =>
         h('button', {
           key: f,
@@ -9292,10 +9294,11 @@ function ProfileTradesTab({ me, privacy }) {
           onClick: () => setFilter(f)
         // The rows' own state names, so a chip and the rows it shows agree.
         }, ({ ALL: 'All', OPEN: 'Open', VERIFIED: 'Verified' })[f] || STATE_LABEL[f]?.label || f)
-      ),
+      )),
       h('div', { style: { flex: 1 } }),
       // Role toggle — muted divider then three pill buttons. Persisted
       // so a heavy seller doesn't have to flip "Selling" every visit.
+      h('div', { role: 'group', 'aria-label': 'Role', style: { display: 'contents' } },
       h('span', { style: { fontSize: 11, color: 'var(--text-muted)', marginRight: 6 } }, 'Role:'),
       ['all','buying','selling'].map(r => h('button', {
         key: r,
@@ -9305,7 +9308,7 @@ function ProfileTradesTab({ me, privacy }) {
         title: r === 'all' ? 'Show every trade'
              : r === 'buying' ? 'Only trades you bought'
              : 'Only trades you sold'
-      }, r === 'all' ? 'All' : r[0].toUpperCase() + r.slice(1))),
+      }, r === 'all' ? 'All' : r[0].toUpperCase() + r.slice(1)))),
       // Collapse-active toggle per CSFloat Visual Manual §29. Hides the three
       // PENDING_* rows so a heavy seller auditing their completed trades
       // (for tax / feedback) doesn't scroll past active escrow noise.
@@ -9400,7 +9403,7 @@ function ProfileTradesTab({ me, privacy }) {
           // clear the filter instead.
           trades.length === 0
             ? h('div', null,
-                h('div', { style: { fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+                h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                   'No trades yet'),
                 h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', maxWidth: 340, margin: '0 auto 14px', lineHeight: 1.5 } },
                   "Every Buy Now purchase and every auction you win or lose lands here. Browse the marketplace to get started."),
@@ -9409,7 +9412,7 @@ function ProfileTradesTab({ me, privacy }) {
                   h('a', { className: 'btn btn-ghost', href: '/sell', style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 12 } }, 'Sell an item')
                 ))
             : h('div', null,
-                h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
+                h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                   'No trades match this filter.'),
                 (filter !== 'ALL' || roleFilter !== 'all' || collapseActive || tradeSearch || tradeDateFrom != null || tradeDateTo != null)
                   && h('button', {
@@ -10678,7 +10681,7 @@ function ProfileOffersTab() {
 
   if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+    h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your offers'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your offers. Nothing was lost — check your connection and try again.'),
@@ -11274,14 +11277,14 @@ function ProfileOffersTab() {
     list.length === 0 && offersDateOn && rawList.length > 0
       ? h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'No offers in these dates'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
             'Clear the date filter to see every offer.'))
     : list.length === 0
       ? h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             tab === 'incoming' ? 'No incoming offers yet' : 'No offers out'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
             tab === 'incoming'
@@ -11493,13 +11496,13 @@ function ProfileReviewsTab({ me }) {
   // alone removed the tabs, so a failed Given load left no way back.
   const loadErrCard = (mode === 'received' && reviewsErr) ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '24px 16px' } },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load your reviews"),
+    h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load your reviews"),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
       'Something went wrong fetching your reviews — your reputation is safe; check your connection and retry.'),
     h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); loadReceived(); } }, 'Retry')
   ) : (mode === 'given' && givenErr) ? h('div', { className: 'empty-inline', role: 'alert', style: { padding: '24px 16px' } },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load the reviews you've written"),
+    h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, "Couldn't load the reviews you've written"),
     h('button', { className: 'btn btn-accent', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); loadGiven(); } }, 'Retry')
   ) : null;
   // Built before the loading return so the tabs stay put (and keep focus)
@@ -11706,13 +11709,13 @@ function ProfileReviewsTab({ me }) {
             )
           ),
           rows.length === 0 && mode === 'received' && h('div', null,
-            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               'No reviews yet'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 4px', lineHeight: 1.55 } },
               'Every VERIFIED trade lets the buyer rate you 1–5 stars. Settle a few trades and the rating starts building here.')
           ),
           rows.length === 0 && mode === 'given' && h('div', null,
-            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               "No reviews given yet"),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 14px', lineHeight: 1.55 } },
               "After a trade settles, you can leave the seller feedback from their stall page. The Pending tab lists trades waiting on a review."),
@@ -12284,7 +12287,7 @@ function ProfileSupportTab() {
       if (tickets === null) return h('div', { className: 'spinner' });
       if (tickets.length === 0) return creating ? null : h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'No support tickets yet'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
             'Open a ticket if something goes wrong with a trade, a payment or your account.'),
@@ -13949,7 +13952,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       return h('div', { className: 'empty-inline', role: couldNotRead ? 'alert' : undefined },
       h('div', { className: 'empty-icon' },
         h(MaterialIcon, { name: icon, size: 26 })),
-      h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
         title),
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
         detail),
@@ -15082,7 +15085,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   if (stallErr) return h(InfoModal, { title: 'My Stall', onClose },
     h('div', { className: 'empty-inline', role: 'alert' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
-      h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
         "Couldn't load your stall"),
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
         "Something interrupted the request for your stall. Your listings are safe — this is only a display hiccup."),
@@ -16044,7 +16047,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         : analytics.length === 0
           ? h('div', { className: 'empty-inline' },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'analytics', size: 26 })),
-              h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'No analytics yet'),
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'No analytics yet'),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 16px', lineHeight: 1.55 } },
                 'List an item from your inventory and stats land here — view counts, item supply, 30-day demand for the same SKU across the whole marketplace, and how your price compares to the floor.'),
               h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
@@ -16108,7 +16111,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       soldErr
         ? h('div', { className: 'empty-inline', role: 'alert' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
-            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               "Couldn't load your sold history"),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
               "Something interrupted the request for your settled sales. Your payout history is safe — this is only a display hiccup."),
@@ -16119,7 +16122,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           : sold.length === 0
           ? h('div', { className: 'empty-inline' },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-              h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                 "No sales yet"),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
                 "Your sales land here with the gross, platform fee, and payout. List an item; it shows up in this tab as soon as someone buys it."),
@@ -16305,7 +16308,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       if (nonZero <= 1) return null;
       // A saved chip whose bucket emptied shows as All (the list does too).
       const activeChip = (stallTypeFilter !== 'ALL' && counts[stallTypeFilter] > 0) ? stallTypeFilter : 'ALL';
-      return h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 } },
+      return h('div', { role: 'group', 'aria-label': 'Listing type', style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 } },
         [
           { id: 'ALL',     label: 'All' },
           { id: 'BUY_NOW', label: 'Buy Now' },
@@ -16323,7 +16326,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     tab === 'active' && (stall.length === 0
       ? h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'Your stall is empty'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
             `List an item to start selling — pick from your Steam inventory or anything you bought on ${BRAND.name}. Bulk-list at one price is available too.`),
@@ -17440,7 +17443,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       // retryable message so a transient network error is recoverable.
       ? h('div', { className: 'empty-inline', role: 'alert' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             "Couldn't load your offers"),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
             'Something went wrong fetching your offers. Check your connection and try again.'),
@@ -17466,7 +17469,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       : list.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               q
                 ? `No offers match “${offerSearch}”`
                 : statusOn !== 'ALL'
