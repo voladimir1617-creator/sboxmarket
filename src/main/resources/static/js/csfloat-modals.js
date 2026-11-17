@@ -1305,6 +1305,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   // .then() had no .catch().
   const [listErr, setListErr] = useState(false);
   const [poolErr, setPoolErr] = useState(false);
+  // The picker says "Loading items…", not "No items match.", until the pool answers.
+  const [poolLoaded, setPoolLoaded] = useState(false);
   // Image URLs that failed to load: their slot or card tile shows the item's
   // emoji instead of an empty box.
   const [brokenImgs, setBrokenImgs] = useState(() => new Set());
@@ -1522,6 +1524,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       if (!alive) return;
       if (!res || res.error) { setPoolErr(true); return; }
       setAllItems((res.items || []).filter(it => it && it.id != null && it.name));
+      setPoolLoaded(true);
     }).catch(() => {
       // Audit fix — without a .catch() a rejected listings fetch left
       // the slot picker's item pool permanently empty with no feedback.
@@ -2087,10 +2090,14 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             s && s.itemId
               ? h('div', {
                   className: 'loadout-slot-filled',
+                  // position: relative anchors the slot's absolute lock button
+                  // here; without it every slot's lock stacked in one spot at
+                  // the top of the page.
                   style: s.locked ? {
+                    position: 'relative',
                     borderColor: 'var(--accent)',
                     boxShadow: 'inset 0 0 0 1px rgba(30,165,255,0.35)'
-                  } : undefined
+                  } : { position: 'relative' }
                 },
                   // Real product thumbnail when the backend has one,
                   // emoji glyph as fallback. Backend now decorates each
@@ -2162,7 +2169,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 )
               : h('div', { className: 'loadout-slot-empty' },
                   isOwner
-                    ? h(SlotPicker, { slot: slotName, allItems, poolErr, onPick: (id) => handleSlot(slotName, id) })
+                    ? h(SlotPicker, { slot: slotName, allItems, poolErr, poolLoaded, onPick: (id) => handleSlot(slotName, id) })
                     : h('span', { style: { color: 'var(--text-muted)', fontSize: 11 } }, 'empty')
                 )
           );
@@ -2446,7 +2453,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   );
 }
 
-function SlotPicker({ slot, allItems, poolErr, onPick }) {
+function SlotPicker({ slot, allItems, poolErr, poolLoaded = true, onPick }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   // Cancel and Escape unmount the picker; hand focus back to its + Add
@@ -2489,7 +2496,7 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
       },
         poolErr
           ? "Couldn't load items — check your connection and reopen the loadout."
-          : 'No items match.'),
+          : poolLoaded ? 'No items match.' : 'Loading items…'),
       filtered.map(it => h('div', {
         key: it.id, className: 'loadout-picker-item',
         onClick: () => { onPick(it.id); setOpen(false); },
@@ -2511,7 +2518,8 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
           parseFloat(it.lowestPrice) > 0 ? fmt(it.lowestPrice) : '—')
       ))
     ),
-    h('button', { className: 'loadout-add-btn', style: { marginTop: 6 }, onClick: () => setOpen(false) }, 'Cancel')
+    // Every open picker has one; name the slot so they don't all read "Cancel".
+    h('button', { className: 'loadout-add-btn', style: { marginTop: 6 }, 'aria-label': `Cancel adding to the ${slot} slot`, onClick: () => setOpen(false) }, 'Cancel')
   );
 }
 
