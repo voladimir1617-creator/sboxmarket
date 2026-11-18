@@ -336,7 +336,10 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         // without inventing a whole "online status" row underneath.
         listing.sellerRating != null && listing.sellerReviewCount > 0 && h('span', {
           style: { marginLeft: 8, fontSize: 10, fontWeight: 700, color: 'var(--ink-3)', whiteSpace: 'nowrap' },
-          title: `Seller rated ${listing.sellerRating.toFixed(1)}★ across ${listing.sellerReviewCount} review${listing.sellerReviewCount === 1 ? '' : 's'}`
+          title: `Seller rated ${listing.sellerRating.toFixed(1)}★ across ${listing.sellerReviewCount} review${listing.sellerReviewCount === 1 ? '' : 's'}`,
+          // Read with its scale, as on the market table: not "black star 4.5".
+          role: 'img',
+          'aria-label': `Rated ${listing.sellerRating.toFixed(1)} out of 5 from ${listing.sellerReviewCount} review${listing.sellerReviewCount === 1 ? '' : 's'}`
         }, ' · ★ ', listing.sellerRating.toFixed(1))
       ),
       // Buy-Now ceiling chip on auction cards — small chip above price row.

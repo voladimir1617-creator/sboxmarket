@@ -406,8 +406,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
         // name. 'Off-Market' shows as "Scarce" so the legend matches the
         // table's RarityBadge, which relabels that tier the same way.
         { v: 'Standard',   label: 'Standard', t: 'Standard — common items everyone can craft.' },
-        { v: 'Off-Market', label: 'Scarce',   t: 'Scarce — limited-supply items not currently sold by Steam.' },
-        { v: 'Limited',    label: 'Limited',  t: 'Limited — capped supply, hardest to find.' }
+        { v: 'Off-Market', label: 'Scarce',   t: 'Scarce — limited-supply items Steam still sells: fewer than 5% of all minted are left.' },
+        { v: 'Limited',    label: 'Limited',  t: 'Limited — Steam no longer sells these, so supply is fixed.' }
       ].map(r => h('button', {
         key: r.v,
         type: 'button',

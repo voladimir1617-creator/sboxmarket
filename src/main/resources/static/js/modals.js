@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=26';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=27';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -3447,13 +3447,15 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
       h('div', { id: 'report-listing-title-' + listing.id, className: 'cart-confirm-title' }, 'Report listing'),
       h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
         `Listing #${listing.id} · ${listing.sellerName || 'Seller'} · ${fmt(listing.price)}`),
+      // Inset like the form it replaces, and announced: the Submit button
+      // that had focus is gone, so nothing else said the report went in.
       done
-        ? h('div', { style: {
+        ? h('div', { style: { padding: '0 24px 20px' } }, h('div', { role: 'status', style: {
             background: 'rgba(34,197,94,0.1)',
             border: '1px solid rgba(34,197,94,0.4)',
             color: '#22c55e',
             padding: 12, borderRadius: 6, fontSize: 13, textAlign: 'center'
-          } }, done)
+          } }, done))
         : h('div', { style: { padding: '0 24px 20px' } },
             h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
             h('select', {
@@ -9022,11 +9024,13 @@ function ProfileTradesTab({ me, privacy }) {
   const filtered = (() => {
     let rows = roleFiltered;
     const q = (tradeSearch || '').trim().toLowerCase();
+    // Trades are shown and copied as "#71"; a pasted "#71" matched nothing.
+    const qId = q.replace(/^#\s*/, '');
     if (q) {
       rows = rows.filter(t =>
         (t.itemName || '').toLowerCase().includes(q) ||
         (t.counterpartyName || '').toLowerCase().includes(q) ||
-        String(t.id).includes(q));
+        (qId !== '' && String(t.id).includes(qId)));
     }
     if (tradeDateFrom != null) rows = rows.filter(t => (t.createdAt || 0) >= tradeDateFrom);
     if (tradeDateTo   != null) rows = rows.filter(t => (t.createdAt || 0) <= tradeDateTo);
@@ -9540,7 +9544,10 @@ function ProfileTradesTab({ me, privacy }) {
                                   : rating >= 3.5 ? '#fbbf24'
                                   : 'var(--red)'
                           },
-                          title: `${rating.toFixed(1)}★ across ${reviewCount} review${reviewCount === 1 ? '' : 's'}`
+                          title: `${rating.toFixed(1)}★ across ${reviewCount} review${reviewCount === 1 ? '' : 's'}`,
+                          // Read with its scale, as the listing rows' chips are.
+                          role: 'img',
+                          'aria-label': `Rated ${rating.toFixed(1)} out of 5 from ${reviewCount} review${reviewCount === 1 ? '' : 's'}`
                         }, rating.toFixed(1) + '★')
                       : null;
                     const body = [
@@ -9872,7 +9879,8 @@ function ProfileTradesTab({ me, privacy }) {
               ),
               h('div', { className: 'trade-side' },
                 h('div', { className: 'trade-price' }, privacy ? '$•••••' : fmt(t.price)),
-                h('div', { className: 'trade-date' }, timeAgo(t.createdAt)),
+                // "400d ago" alone hid when the trade opened; the date is on hover.
+                h('div', { className: 'trade-date', title: t.createdAt ? 'Opened ' + new Date(t.createdAt).toLocaleString() : undefined }, timeAgo(t.createdAt)),
                 // Copy trade ID — useful when opening a support ticket
                 // about a specific trade. The support form references
                 // #TRADE_ID; copying straight from the row beats retyping.
@@ -10106,19 +10114,25 @@ function ProfileTradesTab({ me, privacy }) {
                                 linkifyText(m.body, 'tcm-' + m.id)
                               ),
                           h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 } },
-                            h('span', null,
+                            h('span', { title: m.createdAt ? new Date(m.createdAt).toLocaleString() : undefined },
                               (mine ? 'You' : (t.counterpartyName || 'Other')) + ' · ' + timeAgo(m.createdAt)),
                             // Read receipt — only on OWN messages (batch 280).
                             // ✓✓ in accent when the counterparty has loaded the
                             // thread; ✓ in muted when still unread. Tooltip
                             // shows the absolute "read at" timestamp.
+                            // Named marks: a screen reader read a bare "check mark",
+                            // and the meaning was only in a hover tooltip.
                             mine && (m.readAt
                               ? h('span', {
                                   style: { color: 'var(--accent)', fontWeight: 700 },
+                                  role: 'img',
+                                  'aria-label': 'Read ' + new Date(m.readAt).toLocaleString(),
                                   title: 'Read ' + new Date(m.readAt).toLocaleString()
                                 }, '✓✓')
                               : h('span', {
                                   style: { color: 'var(--text-muted)' },
+                                  role: 'img',
+                                  'aria-label': 'Sent, not read yet',
                                   title: 'Sent — counterparty has not opened the thread yet'
                                 }, '✓'))
                           )
