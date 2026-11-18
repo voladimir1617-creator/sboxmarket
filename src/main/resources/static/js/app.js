@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=417'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=418'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -8176,7 +8176,13 @@ export function App() {
       ),
       h('aside', {
         className: 'sidebar' + (mobileFiltersOpen ? ' mobile-drawer-open' : ''),
-        'aria-label': 'Filters'
+        'aria-label': 'Filters',
+        // Tabbing out of the open phone drawer put focus on the page hidden
+        // under its backdrop; close it, as the bell and pickers do.
+        onBlur: (e) => {
+          const to = e.relatedTarget;
+          if (mobileFiltersOpen && to && !e.currentTarget.contains(to) && !to.closest?.('.mobile-filters-fab')) setMobileFiltersOpen(false);
+        }
       },
         // Batch 935 — sidebar filter sections use role=radiogroup +
         // role=radio + aria-checked. Each category / rarity row is a
@@ -9772,7 +9778,8 @@ export function App() {
             (stallData.count === 0 || stallData.anonymousShop)
               ? h('div', { className: 'empty-inline', 'data-testid': stallData.anonymousShop ? 'stall-anonymous' : undefined },
                   h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: stallData.away ? 'beach_access' : 'inventory_2', size: 26 })),
-                  h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 } },
+                  // A heading, like the stall's "No listings match" line.
+                  h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 } },
                     stallData.anonymousShop
                       ? 'This seller lists anonymously: their listings are on the marketplace under “Anonymous seller”, not on this page.'
                       : stallData.away

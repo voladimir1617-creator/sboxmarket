@@ -6644,7 +6644,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 } },
         !enrolling && !has2fa && h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
           h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, 'Disabled'),
-          h('button', { ref: enable2faBtnRef, className: 'btn btn-accent', style: { padding: '6px 14px', fontSize: 11 }, disabled: twofaBusy, onClick: startEnroll }, 'Enable 2FA')
+          // aria-disabled, not disabled: a refused start keeps focus here.
+          h('button', { ref: enable2faBtnRef, className: 'btn btn-accent', style: { padding: '6px 14px', fontSize: 11 }, 'aria-disabled': twofaBusy || undefined, onClick: () => { if (!twofaBusy) startEnroll(); } }, 'Enable 2FA')
         ),
         // A failed enroll start set twofaErr, but it only rendered inside the
         // enrolling panel, so the click did nothing visible.
@@ -6728,8 +6729,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid rgba(248,113,113,0.4)', color: 'var(--red)', padding: '5px 12px', fontSize: 11 },
-                disabled: disableBusy || !disableCode.trim(),
-                onClick: () => submitDisable()
+                // aria-disabled while busy: a refused code keeps focus here.
+                disabled: !disableCode.trim(),
+                'aria-disabled': disableBusy || undefined,
+                onClick: () => { if (!disableBusy) submitDisable(); }
               }, disableBusy ? 'Disabling…' : 'Disable 2FA')
             )
           ),
@@ -6784,8 +6787,9 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               h('button', {
                 className: 'btn btn-accent',
                 style: { padding: '5px 12px', fontSize: 11 },
-                disabled: regenBusy || regenCode.length !== 6,
-                onClick: () => submitRegen()
+                disabled: regenCode.length !== 6,
+                'aria-disabled': regenBusy || undefined,
+                onClick: () => { if (!regenBusy) submitRegen(); }
               }, regenBusy ? 'Regenerating…' : 'Mint new codes')
             )
           ),
@@ -6921,7 +6925,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               try { await cancel2fa(); } catch (_) {}
               setEnrolling(false); setTwofaSecret(''); setTwofaUrl(''); setTwofaCode(''); setTwofaErr('');
             } }, 'Cancel'),
-            h('button', { className: 'btn btn-accent', disabled: twofaBusy || twofaCode.length !== 6, onClick: finishEnroll }, 'Confirm & Enable')
+            h('button', { className: 'btn btn-accent', disabled: twofaCode.length !== 6, 'aria-disabled': twofaBusy || undefined, onClick: () => { if (!twofaBusy) finishEnroll(); } }, 'Confirm & Enable')
           )
         )
       )
@@ -14293,6 +14297,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // with role="button" around the bulk checkbox and Quick Sell
           // nested buttons inside a button.
           onClick: steamRowBlock(si) ? undefined : () => startPickSteam(si),
+          // A name on a plain div is dropped by screen readers; the blocked
+          // card is a named group so its reason (and unlock date) is read.
+          role: steamRowBlock(si) ? 'group' : undefined,
           'aria-label': !steamRowBlock(si)
             ? null
             : steamRowBlock(si) === 'ALREADY_LISTED'

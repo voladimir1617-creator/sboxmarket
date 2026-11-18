@@ -742,8 +742,9 @@ export function NotificationBell({ me }) {
               tabIndex: 0,
               // The name replaces the row's text, so it carries the body too
               // (that is where "click Confirm Receipt", "$1.08 credited" and
-              // the item live). The row opens a page in this tab, not a new one.
-              'aria-label': `${n.read ? '' : 'Unread: '}${n.title}${n.body ? '. ' + n.body : ''}`,
+              // the item live), and the time shown under it, as the page rows do.
+              // The row opens a page in this tab, not a new one.
+              'aria-label': `${n.read ? '' : 'Unread: '}${n.title}${n.body ? '. ' + n.body : ''} — ${timeAgo(n.createdAt)}`,
               onClick: () => onItemClick(n),
               onKeyDown: (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
