@@ -4981,7 +4981,9 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           // first review arrives so new users don't see a ★ 0 placeholder.
           profile?.rating && profile.rating.count > 0 && h('span', {
             style: { marginLeft: 10, fontSize: 11, color: '#fbbf24', fontWeight: 700 },
-            title: `${profile.rating.count} review${profile.rating.count === 1 ? '' : 's'} across your completed sales`
+            title: `${profile.rating.count} review${profile.rating.count === 1 ? '' : 's'} across your completed sales`,
+            role: 'img',
+            'aria-label': `Rated ${Number(profile.rating.average || 0).toFixed(2)} out of 5 from ${profile.rating.count} review${profile.rating.count === 1 ? '' : 's'}`
           }, ' · ★ ', Number(profile.rating.average || 0).toFixed(2), ' (', profile.rating.count, ')')
         ),
         h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 2 } },
@@ -11696,7 +11698,7 @@ function ProfileReviewsTab({ me }) {
     // With no reviews the empty state below already says so; the big
     // average line only earns its place once there is a number to show.
     mode === 'received' && (summary?.count || 0) > 0 && h('div', { className: 'profile-reviews-head' },
-      h('div', { className: 'profile-reviews-avg' }, avgLabel)
+      h('div', { className: 'profile-reviews-avg', role: 'img', 'aria-label': `Rated ${Number(summary.average || 0).toFixed(1)} out of 5 from ${summary.count} review${summary.count === 1 ? '' : 's'}` }, avgLabel)
     ),
     mode === 'received' && (summary?.count || 0) >= 3 && h('div', { className: 'rating-breakdown', style: { marginBottom: 14 } },
       buckets.map((n, i) => {
@@ -17153,7 +17155,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                   background: 'rgba(251,191,36,0.08)', color: '#fbbf24',
                   border: '1px solid rgba(251,191,36,0.25)', fontWeight: 700
                 },
-                title: `Average buyer rating across ${revCount} reviews — how sellers have rated this buyer's past behavior.`
+                title: `Average buyer rating across ${revCount} reviews — how sellers have rated this buyer's past behavior.`,
+                role: 'img',
+                'aria-label': `Buyer rated ${Number(offer.buyerReviewAvg).toFixed(1)} out of 5 from ${revCount} reviews`
               }, '★ ', Number(offer.buyerReviewAvg).toFixed(1), ' (', revCount, ')')
             );
           }
@@ -17173,7 +17177,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                 background: 'rgba(251,191,36,0.08)', color: '#fbbf24',
                 border: '1px solid rgba(251,191,36,0.25)', fontWeight: 700
               },
-              title: `Seller rating across ${sellerRev} reviews — buyer feedback from past trades.`
+              title: `Seller rating across ${sellerRev} reviews — buyer feedback from past trades.`,
+              role: 'img',
+              'aria-label': `Seller rated ${Number(offer.sellerReviewAvg).toFixed(1)} out of 5 from ${sellerRev} reviews`
             }, '★ ', Number(offer.sellerReviewAvg).toFixed(1), ' (', sellerRev, ')')
           );
         })()
