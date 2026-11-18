@@ -8173,6 +8173,8 @@ export function App() {
         type: 'button',
         className: 'mobile-filters-fab',
         onClick: () => setMobileFiltersOpen(o => !o),
+        // Shift+Tab from here left the open drawer for the page under it.
+        onBlur: (e) => { const to = e.relatedTarget; if (mobileFiltersOpen && to && !to.closest?.('aside.sidebar')) setMobileFiltersOpen(false); },
         'aria-label': mobileFiltersOpen ? 'Close filters' : 'Open filters',
         'aria-expanded': mobileFiltersOpen
       },
