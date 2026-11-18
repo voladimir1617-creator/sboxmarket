@@ -3070,7 +3070,9 @@ export function NotificationsModal({ onClose, me }) {
                 },
                 title: 'Mark as unread',
                 // Name the row: every row's buttons otherwise read the same.
-                'aria-label': `Mark as unread: ${n.title || 'notification'}`,
+                // ...and its body, like the row's open control: two rows
+                // titled "New 5★ review" read the same otherwise.
+                'aria-label': `Mark as unread: ${n.title || 'notification'}${n.body ? '. ' + n.body : ''}`,
                 onClick: async (e) => {
                   e.stopPropagation();
                   // Pre-fix: errors here were swallowed and `load()` re-fetched
@@ -3104,7 +3106,7 @@ export function NotificationsModal({ onClose, me }) {
                   border: '1px solid transparent', marginLeft: 4
                 },
                 title: 'Delete this notification',
-                'aria-label': `Delete this notification: ${n.title || 'notification'}`,
+                'aria-label': `Delete this notification: ${n.title || 'notification'}${n.body ? '. ' + n.body : ''}`,
                 onClick: async (e) => {
                   e.stopPropagation();
                   // Pre-fix: errors swallowed; failed deletes silently no-oped
