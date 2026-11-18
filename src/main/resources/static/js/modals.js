@@ -1943,7 +1943,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       h('td', { style: { padding: '7px 4px', textAlign: 'right' } }, Number(r.quantity) || 0),
                       h('td', { style: { padding: '7px 4px', textAlign: 'right', color: 'var(--text-muted)' } },
                         Number(r.orders) || 0,
-                        mine && h('span', { style: { marginLeft: 6, fontSize: 10, color: 'var(--accent)' } }, '· incl. yours'))
+                        mine && h('span', { style: { marginLeft: 6, fontSize: 10, color: 'var(--accent)' } }, ' · incl. yours'))
                     );
                   })
                 )
@@ -4970,7 +4970,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
             return createdAt && h('span', {
               style: { marginLeft: 10, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 },
               title: 'Account created ' + new Date(createdAt).toLocaleString()
-            }, '· Member since ', new Date(createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }));
+            }, ' · Member since ', new Date(createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }));
           })(),
           // Self-rating chip (batch 491). Renders the user's own seller
           // rating next to their tenure so sellers see their score at a
@@ -4979,7 +4979,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           profile?.rating && profile.rating.count > 0 && h('span', {
             style: { marginLeft: 10, fontSize: 11, color: '#fbbf24', fontWeight: 700 },
             title: `${profile.rating.count} review${profile.rating.count === 1 ? '' : 's'} across your completed sales`
-          }, '· ★ ', Number(profile.rating.average || 0).toFixed(2), ' (', profile.rating.count, ')')
+          }, ' · ★ ', Number(profile.rating.average || 0).toFixed(2), ' (', profile.rating.count, ')')
         ),
         h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 2 } },
           me.profileUrl && h('a', { href: me.profileUrl, target: '_blank', rel: 'noopener noreferrer', className: 'profile-link' }, 'View Steam profile ↗'),
@@ -5459,7 +5459,7 @@ function EmailBucketMutes() {
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { fontWeight: 700, color: off ? 'var(--text-muted)' : 'var(--text-primary)' } },
             h('span', { id: idBase + '-name' }, meta.name),
-            off && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--red)', fontWeight: 800 } }, '· MUTED')
+            off && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--red)', fontWeight: 800 } }, ' · MUTED')
           ),
           h('div', { id: idBase + '-hint', style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 } }, meta.hint)
         )
@@ -7466,7 +7466,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
       )
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-      h('div', { className: 'wallet-tx-filter-row', style: { flex: '1 1 260px', minWidth: 0 } },
+      h('div', { className: 'wallet-tx-filter-row', role: 'group', 'aria-label': 'Transaction type', style: { flex: '1 1 260px', minWidth: 0 } },
         [
           { id: 'ALL',      label: 'All' },
           { id: 'IN',       label: 'Credits' },
@@ -7529,7 +7529,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
     ),
   visibleTx.length === 0
     ? h('div', { className: 'empty-inline', style: { marginTop: 8 } },
-        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)' } }, 'No transactions match this filter.'))
+        h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-secondary)' } }, 'No transactions match this filter.'))
     : h('table', { className: 'db-table db-table--list' },
       h('thead', null, h('tr', null,
         h('th', null, 'ID'),
@@ -7805,7 +7805,7 @@ function ProfileBuyOrdersTab() {
       )
     ),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-      h('div', { className: 'wallet-tx-filter-row', style: { flex: '1 1 260px', minWidth: 0 } },
+      h('div', { className: 'wallet-tx-filter-row', role: 'group', 'aria-label': 'Order status', style: { flex: '1 1 260px', minWidth: 0 } },
         [
           { id: 'ALL',       label: 'All' },
           { id: 'ACTIVE',    label: 'Active' },
@@ -9595,7 +9595,7 @@ function ProfileTradesTab({ me, privacy }) {
                     className: 'trade-sent-ago',
                     style: { marginLeft: 10, fontSize: 11, color: 'var(--accent)', fontWeight: 700 },
                     title: `Seller marked sent at ${new Date(t.sentAt).toLocaleString()}`
-                  }, '· sent ' + timeAgo(t.sentAt).replace(/^Just now$/, 'just now')),
+                  }, ' · sent ' + timeAgo(t.sentAt).replace(/^Just now$/, 'just now')),
                   // Countdown chip — server computes an absolute epoch-ms
                   // deadline for states that auto-cancel or auto-release.
                   // Converts to a terse "Xh left / Xd left" so users know
@@ -9633,7 +9633,7 @@ function ProfileTradesTab({ me, privacy }) {
                         color: urgent ? 'var(--red)' : 'var(--text-muted)'
                       },
                       title: tip
-                    }, '· ⏱ ', label);
+                    }, ' · ⏱ ', label);
                   })()
                 ),
                 // Labeled phase stepper — four checkpoints with descriptive
@@ -11776,7 +11776,7 @@ function ProfileReviewsTab({ me }) {
                 r.editedAt && h('span', {
                   style: { marginLeft: 6, fontSize: 10, fontStyle: 'italic', color: 'var(--text-muted)' },
                   title: 'Last edited ' + new Date(r.editedAt).toLocaleString()
-                }, '· edited')
+                }, ' · edited')
               )
             ),
             r.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + r.itemName),
@@ -12320,7 +12320,7 @@ function ProfileSupportTab() {
         RESOLVED:      tickets.filter(t => t.status === 'RESOLVED').length
       };
       return h('div', null,
-        h('div', { className: 'wallet-tx-filter-row' },
+        h('div', { className: 'wallet-tx-filter-row', role: 'group', 'aria-label': 'Ticket status' },
           [
             { id: 'ALL',           label: 'All' },
             { id: 'OPEN',          label: 'Open' },
@@ -14563,6 +14563,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           }, '⚡ ', h('span', { className: 'sell-summary-num' }, localStorage.getItem('sb_privacy') === '1' ? '$•••••' : fmt(intLiquidValue)), ' liquid now')
         ),
         (rarities.length > 1 || internalList.length > 6 || sellRarityFilter !== 'All' || sellSearch) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
+          h('div', { role: 'group', 'aria-label': 'Rarity', style: { display: 'contents' } },
           h('button', {
             className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === 'All',
@@ -14573,7 +14574,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             className: `wallet-tx-filter-chip ${sellRarityFilter === r ? 'active' : ''}`,
             'aria-pressed': sellRarityFilter === r,
             onClick: () => setSellRarityFilter(r)
-          }, `${r === 'Off-Market' ? 'Scarce' : r} · ${internalList.filter(l => (l.item?.rarity || 'Standard') === r).length}`)),
+          }, `${r === 'Off-Market' ? 'Scarce' : r} · ${internalList.filter(l => (l.item?.rarity || 'Standard') === r).length}`))),
           h('div', { style: { flex: 1, minWidth: 140 } },
             h('input', {
               className: 'price-input',
@@ -14593,7 +14594,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         ),
         filtered.length === 0
           ? h('div', { className: 'empty-inline', style: { marginTop: 8 } },
-              h('div', { style: { fontSize: 13, color: 'var(--text-secondary)' } },
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-secondary)' } },
                 'No platform-inventory items match this filter.'))
           : h('div', { className: 'inventory-grid' },
               filtered.map(l => h('div', {
@@ -15433,7 +15434,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   return h(InfoModal, { title: (
     tab === 'sold'      ? `Sold · My Stall` :
     tab === 'analytics' ? `Analytics · My Stall` :
-                          `My Stall · ${stall.length} active`
+                          // Hidden (away-mode) rows are off the market, as Profile > Listings counts them.
+                          `My Stall · ${stall.filter(l => !l?.hidden).length} active` + (stall.some(l => l?.hidden) ? ` · ${stall.filter(l => l?.hidden).length} hidden` : '')
   ), onClose },
     // Batch 818 — bulk-adjust drawer. Replaces the window.prompt flow
     // triggered by the "⚖ Bulk price adjust" button. Quick-chip picker
@@ -16409,7 +16411,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
             h('div', { style: { flex: 1, minWidth: 0 } },
               // title: a phone cuts the name (and its chips) with an ellipsis.
               h('div', { className: 'item-name', title: l.item.name + (l.hidden ? ' · HIDDEN' : '') }, l.item.name,
-                l.hidden && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 } }, '· HIDDEN'),
+                l.hidden && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 } }, ' · HIDDEN'),
                 // Batch 722 — "⚠ reported" chip for sellers. Fires when
                 // a listing has at least one pending report from a
                 // buyer. Lets the seller know staff is about to review.
@@ -16454,7 +16456,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace"
                   },
                   title: `${Number(l.item.viewCount).toLocaleString()} lifetime item-detail opens. High views with no watchers means people look but don't star — check the price, description, or condition.`
-                }, '· ', Number(l.item.viewCount).toLocaleString(), ' views'),
+                }, ' · ', Number(l.item.viewCount).toLocaleString(), ' views'),
                 // Buy-order demand chip (batch 415). Renders when at least
                 // one buyer has a standing buy order on this item —
                 // signals "someone is ready to auto-buy at $X if you
@@ -17084,7 +17086,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                 color: urgent ? 'var(--red)' : 'var(--text-muted)'
               },
               title: `Auto-declines at ${new Date(offer.expiresAt).toLocaleString()} if neither side responds`
-            }, '· ⏱ ', label, ' left');
+            }, ' · ⏱ ', label, ' left');
           })()
         ),
         // Counterparty reputation chips (batch 847, extended in 851).
@@ -17434,7 +17436,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         'aria-label': 'Search offers'
       })
     ),
-    rawList && rawList.length > 3 && h('div', {
+    rawList && rawList.length > 3 && h('div', { role: 'group', 'aria-label': 'Offer status',
       style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }
     },
       STATUS_CHIPS.map(opt => {
@@ -18302,7 +18304,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
           // Category chip row — only rendered when the watchlist spans
           // more than one category, so a user with 3 items in the same
           // category doesn't see noise. Each chip is a one-click filter.
-          categoriesInWatchlist.length > 1 && h('div', {
+          categoriesInWatchlist.length > 1 && h('div', { role: 'group', 'aria-label': 'Category',
             style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }
           },
             h('button', {
@@ -18332,7 +18334,7 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
             const listedN = rows.filter(r => !r.listing?.__noListing).length;
             const gone    = rows.filter(r => r.listing?.__noListing === true).length;
             if (listedN === 0 || gone === 0) return null; // uniform state, hide
-            return h('div', {
+            return h('div', { role: 'group', 'aria-label': 'State',
               style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }
             },
               h('span', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, marginRight: 2 } }, 'State'),

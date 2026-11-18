@@ -1192,7 +1192,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
           // Status filter chips — only shown when there's something
           // other than pure ACTIVE to look at. Fresh users with only
           // live orders never see the chips, keeping the UX clean.
-          orders.length > 0 && orders.some(o => o.status !== 'ACTIVE') && h('div', {
+          orders.length > 0 && orders.some(o => o.status !== 'ACTIVE') && h('div', { role: 'group', 'aria-label': 'Order status',
             style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }
           },
             ['ACTIVE','PAUSED','FILLED','CANCELLED','EXPIRED','ALL'].map(opt => {
@@ -2008,7 +2008,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           maxLength: 80,
           onChange: e => setRenameDraft(e.target.value),
           onKeyDown: async (e) => {
-            if (e.key === 'Enter' && !renameBusy && !renameBusyRef.current) {
+            // Enter that ends an IME composition picks the word; it must not save the half-typed name.
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing && !renameBusy && !renameBusyRef.current) {
               e.preventDefault();
               const trimmed = (renameDraft || '').trim();
               if (!trimmed || trimmed === viewing.loadout.name) {
@@ -2231,7 +2232,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         // Escape backs out like the rename box does; stopPropagation keeps the
         // page-level Escape from closing the whole loadout view.
         onKeyDown: e => {
-          if (e.key === 'Enter') { e.preventDefault(); handleCreate(); }
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); handleCreate(); }
           else if (e.key === 'Escape') { e.stopPropagation(); setCreating(false); setNewName(''); }
         },
         style: { flex: 1 } }),

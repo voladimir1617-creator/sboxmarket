@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=415'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=416'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -468,7 +468,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         review.editedAt && h('span', {
           style: { marginLeft: 6, fontSize: 10, fontStyle: 'italic', color: 'var(--text-muted)' },
           title: 'Last edited ' + new Date(review.editedAt).toLocaleString()
-        }, '· edited')
+        }, ' · edited')
       ),
       // Helpful vote — CSFloat-style upvote so high-signal reviews
       // (detail, context) bubble above one-liners. Self-authors + anon
@@ -1516,7 +1516,8 @@ function FindSellerBar() {
         // cursor, Enter opens the highlighted (or first) row, Escape
         // closes the dropdown.
         onKeyDown: e => {
-          if (!open || rows.length === 0) return;
+          // An IME composition's Enter/arrows pick the word, not a seller.
+          if (!open || rows.length === 0 || e.nativeEvent.isComposing) return;
           if (e.key === 'ArrowDown') {
             e.preventDefault();
             setCursor(c => Math.min(c + 1, rows.length - 1));
@@ -2696,7 +2697,7 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
     status.following ? 'Following' : 'Follow',
     status.followerCount > 0 && h('span', {
       style: { marginLeft: 6, fontSize: 10, opacity: 0.7 }
-    }, `· ${Number(status.followerCount).toLocaleString()}`)
+    }, ` · ${Number(status.followerCount).toLocaleString()}`)
   );
 }
 
@@ -3548,9 +3549,9 @@ export function SiteFooter() {
       h('div', { className: 'site-footer-col' },
         h('div', { className: 'site-footer-title' }, 'Account'),
         h('a', { href: paths.profile(), 'aria-current': cur('profile') }, 'Profile'),
-        h('a', { href: paths.wallet() }, 'Wallet'),
+        h('a', { href: paths.wallet(), 'aria-current': cur('wallet') }, 'Wallet'),
         h('a', { href: paths.offers(), 'aria-current': cur('offers') }, 'Offers'),
-        h('a', { href: paths.watchlist() }, 'Watchlist'),
+        h('a', { href: paths.watchlist(), 'aria-current': cur('watchlist') }, 'Watchlist'),
         h('a', { href: paths.notifications(), 'aria-current': cur('notifications') }, 'Notifications')
       ),
       h('div', { className: 'site-footer-col' },
@@ -3586,7 +3587,7 @@ export function SiteFooter() {
     h('div', { className: 'site-footer-bottom' },
       h('div', { className: 'site-footer-copy' },
         '© ', new Date().getFullYear(), ` ${BRAND.name} · Not affiliated with Facepunch Studios. s&box is a trademark of Facepunch Ltd.`,
-        version && h('span', { style: { color: 'var(--ink-3)', marginLeft: 10 } }, '· v', version)),
+        version && h('span', { style: { color: 'var(--ink-3)', marginLeft: 10 } }, ' · v', version)),
       h('div', { className: 'site-footer-socials', 'aria-label': 'Community' },
         // Boss QA cycle 2 N1 — "coming soon" Discord/X buttons removed.
         // A live marketplace doesn't ship disabled-with-tooltip social
@@ -3810,7 +3811,7 @@ function SaveSearchDrawer({ initial, onCancel, onSave }) {
       placeholder: 'e.g. Limited hats under $20',
       onChange: (e) => setName(e.target.value),
       onKeyDown: (e) => {
-        if (e.key === 'Enter' && canSave) { e.preventDefault(); onSave(trimmed); }
+        if (e.key === 'Enter' && canSave && !e.nativeEvent.isComposing) { e.preventDefault(); onSave(trimmed); }
       },
       'aria-label': 'Saved search name',
       style: {
@@ -8388,6 +8389,9 @@ export function App() {
               onChange: e => { setSearchInput(e.target.value); setSuggestOpen(true); setSuggestIdx(-1); },
               onFocus: () => { setSuggestOpen(true); },
               onKeyDown: (e) => {
+                // Keys that drive an IME composition (Enter picks the word,
+                // arrows walk the candidates) are not ours.
+                if (e.nativeEvent.isComposing) return;
                 // Batch 763 — Escape handler runs regardless of
                 // suggestOpen so a user can clear an active search even
                 // when the suggestion dropdown has already closed (e.g.
@@ -10832,7 +10836,7 @@ export function App() {
               if (sellers.size <= 1) return null;
               return h('div', {
                 style: { marginTop: 4, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }
-              }, `· ${sellers.size} sellers — expect ${sellers.size} separate trade offers`);
+              }, ` · ${sellers.size} sellers — expect ${sellers.size} separate trade offers`);
             })())
         ),
         // WHAT "DELIVERED" MEANS, AT THE MOMENT THE MONEY MOVES.
