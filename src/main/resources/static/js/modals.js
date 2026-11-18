@@ -3256,9 +3256,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               spellCheck: false,
               placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=\u2026&token=\u2026',
               value: confirmTradeUrl,
+              'aria-invalid': confirmTradeUrlErr ? 'true' : undefined,
+              'aria-describedby': confirmTradeUrlErr ? 'buy-confirm-tradeurl-err' : undefined,
               onChange: (e) => { setConfirmTradeUrl(e.target.value); setConfirmTradeUrlErr(''); }
             }),
-            confirmTradeUrlErr && h('div', { className: 'wallet-error', role: 'alert' }, confirmTradeUrlErr)
+            confirmTradeUrlErr && h('div', { id: 'buy-confirm-tradeurl-err', className: 'wallet-error', role: 'alert' }, confirmTradeUrlErr)
           ),
           // Price breakdown — only what this click charges. The optional Trade
           // Protection used to sit IN the breakdown as a priced line ($0.25)
@@ -15523,6 +15525,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               type: 'text', step: '0.5', min: '-50', max: '50',
               inputMode: 'decimal',
               'aria-label': 'Bulk adjust percent',
+              'aria-invalid': bulkAdjustErr ? 'true' : undefined,
+              'aria-describedby': bulkAdjustErr ? 'bulk-adjust-err' : undefined,
               style: { flex: 1 },
               placeholder: '-5 for 5% off',
               value: bulkAdjustPct,
@@ -15541,7 +15545,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       ' by ', h('strong', null, Math.abs(pctNum) + '%'), '.');
                   })()
                 : 'Pick a chip or type a non-zero percentage from -50 to +50.'),
-          bulkAdjustErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, bulkAdjustErr),
+          bulkAdjustErr && h('div', { id: 'bulk-adjust-err', className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, bulkAdjustErr),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
             h('button', {
               className: 'btn btn-ghost',

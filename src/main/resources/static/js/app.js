@@ -659,6 +659,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         onChange: e => setDraft(e.target.value),
         maxLength: 300,
         'aria-label': 'Public reply to this review',
+        'aria-invalid': err ? 'true' : undefined,
+        'aria-describedby': err ? 'review-reply-err-' + review.id : undefined,
         placeholder: 'Public response to this review (300 chars max)',
         autoFocus: true,
         onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); dropUnsent('sb_review_reply_unsent'); setEditing(false); setDraft(''); setErr(''); } }
@@ -668,7 +670,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         // Empty: disabled, so it looks off; busy: aria-disabled, so a refusal keeps focus here.
         h('button', { className: 'btn btn-accent', disabled: !draft.trim(), 'aria-disabled': busy || undefined, onClick: () => { if (draft.trim()) submit(false); } }, busy ? 'Saving…' : 'Post reply')
       ),
-      err && h('div', { className: 'wallet-error', role: 'alert' }, err)
+      err && h('div', { id: 'review-reply-err-' + review.id, className: 'wallet-error', role: 'alert' }, err)
     )
   );
 }
