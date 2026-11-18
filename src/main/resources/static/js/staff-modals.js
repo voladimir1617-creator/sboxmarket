@@ -4325,7 +4325,9 @@ function CsrLookupTab() {
               // Rating chip (batch 489). Single-glance trust signal
               // alongside the banned/chargeback signals further down.
               u.rating && u.rating.count > 0 && h('div', {
-                style: { fontSize: 11, color: '#fbbf24', marginTop: 2, fontWeight: 600 }
+                style: { fontSize: 11, color: '#fbbf24', marginTop: 2, fontWeight: 600 },
+                role: 'img',
+                'aria-label': `Rated ${Number(u.rating.average || 0).toFixed(2)} out of 5 from ${u.rating.count} review${u.rating.count === 1 ? '' : 's'}`
               }, '★ ', Number(u.rating.average || 0).toFixed(2), ' · ', u.rating.count, ' review', u.rating.count === 1 ? '' : 's')
             ),
             h('div', { style: { textAlign: 'right' } },
