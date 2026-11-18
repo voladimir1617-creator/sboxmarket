@@ -4658,6 +4658,9 @@ export function App() {
     reportSellerWasOpen.current = reportSellerOpen;
   }, [reportSellerOpen]);
   const [stallReviews, setStallReviews] = useState(null);
+  // The reviews Retry stays on screen while it asks again: one request per press.
+  const [stallRevRetryBusy, setStallRevRetryBusy] = useState(false);
+  const stallRevRetryBusyRef = useRef(false);
   const [stallSold, setStallSold]       = useState([]);
   const [eligibleTrades, setEligibleTrades] = useState([]);
   // Star-rating filter for the recent-reviews strip. 0 = all.
@@ -7023,9 +7026,10 @@ export function App() {
       // without them having to read every label.
       h('nav', { className: 'nav-links', 'aria-label': 'Primary' },
         h('a', {
-          className: `nav-link ${routeName === 'market' ? 'active' : ''}`,
+          className: `nav-link ${routeName === 'market' || routeName === 'item' ? 'active' : ''}`,
           href: paths.market(),
-          'aria-current': routeName === 'market' ? 'page' : undefined
+          // An item page sits under Market (as on the phone tab bar): "true", not "page".
+          'aria-current': routeName === 'market' ? 'page' : routeName === 'item' ? 'true' : undefined
         }, 'Market'),
         h('a', {
           className: `nav-link ${routeName === 'database' ? 'active' : ''}`,
@@ -10214,12 +10218,19 @@ export function App() {
             }, "Couldn't load this seller's reviews. ",
               h('button', {
                 className: 'btn btn-sm',
+                // aria-disabled keeps focus here while it asks; the latch ignores repeat presses.
+                'aria-disabled': stallRevRetryBusy || undefined,
                 onClick: async (e) => {
+                  if (stallRevRetryBusyRef.current) return;
+                  stallRevRetryBusyRef.current = true;
+                  setStallRevRetryBusy(true);
                   // The alert and its Retry go away once the reviews load; move on past them.
                   focusPastOnUnmount(e.currentTarget);
-                  const fresh = await fetchReviewsForUser(stallData.seller.id, { fresh: true });
-                  if (Array.isArray(fresh)) setStallReviews(fresh);
-                  else showToast("Couldn't load reviews — try again.", 'err');
+                  try {
+                    const fresh = await fetchReviewsForUser(stallData.seller.id, { fresh: true });
+                    if (Array.isArray(fresh)) setStallReviews(fresh);
+                    else showToast("Couldn't load reviews — try again.", 'err');
+                  } finally { stallRevRetryBusyRef.current = false; setStallRevRetryBusy(false); }
                 }
               }, 'Retry')),
             // S1 Boss-QA — trust + discovery panel that fills the empty

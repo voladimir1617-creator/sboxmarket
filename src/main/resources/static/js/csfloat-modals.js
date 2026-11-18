@@ -1464,6 +1464,15 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     })();
     return () => { alive = false; };
   }, [loadoutId, deepRetry]);
+  // Retry swaps the error panel for a spinner, which dropped focus to <body>:
+  // once the loadout answers, focus its Back button (or the new Retry or
+  // Browse button if it failed again or is gone).
+  const deepRetryFocusRef = useRef(false);
+  useEffect(() => {
+    if (!viewing || !deepRetryFocusRef.current) return;
+    deepRetryFocusRef.current = false;
+    document.querySelector('.loadout-action-row button, [data-loadout-retry], .empty-inline button')?.focus();
+  }, [viewing]);
   // Name the browser tab after the open loadout, like item and stall pages
   // do. The route-level title is a generic "Loadout · SkinBox", which
   // replaced the loadout's name the server put in the page title.
@@ -1736,7 +1745,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         h('h2', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' } }, "Couldn't load this loadout"),
         h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
           'Check your connection and try again.'),
-        h('button', { className: 'btn btn-accent', onClick: () => { setViewing(null); setDeepRetry(n => n + 1); } }, 'Retry')
+        h('button', { className: 'btn btn-accent', 'data-loadout-retry': '', onClick: () => { deepRetryFocusRef.current = true; setViewing(null); setDeepRetry(n => n + 1); } }, 'Retry')
       )
     );
   }
