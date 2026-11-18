@@ -105,30 +105,6 @@ test.describe('pass140 · desktop header current section (real jar)', () => {
   });
 });
 
-test.describe('pass140 · stall Retry (real jar)', () => {
-  test('a double-click on the stall Retry asks for the stall once and keeps focus', async ({ page }) => {
-    await consent(page);
-    await noWrites(page);
-    let gets = 0;
-    await page.route(/\/api\/listings\/stall\/2(\?.*)?$/, (r) => {
-      if (r.request().method() !== 'GET') return r.fallback();
-      gets += 1;
-      return new Promise((ok) => setTimeout(ok, 700)).then(() => r.fulfill(json({ error: 'boom' }, 500)));
-    });
-    await page.goto(`${base}/stall/2`);
-    const alert = page.getByRole('alert').filter({ hasText: /Couldn.t load this stall/ });
-    await expect(alert).toBeVisible({ timeout: 20_000 });
-    const retry = alert.getByRole('button', { name: 'Retry' });
-    const before = gets;
-    await retry.dblclick();
-    await expect(retry).toHaveAttribute('aria-disabled', 'true');
-    await page.waitForTimeout(1500);
-    expect(gets - before).toBe(1);
-    await expect(retry).not.toHaveAttribute('aria-disabled', 'true');
-    await expect(retry).toBeFocused();
-  });
-});
-
 const STALL = { seller: { id: 9, displayName: 'dave', soldCount: 4 }, count: 0, rating: { count: 1, average: 5 }, listings: [] };
 const REVIEW = { id: 5, rating: 5, comment: 'fast and friendly', createdAt: Date.now() - 86400e3, fromDisplayName: 'erin' };
 test.describe('pass140 · stall reviews Retry (stubbed)', () => {

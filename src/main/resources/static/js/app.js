@@ -4703,9 +4703,6 @@ export function App() {
   // page's Retry: a full reload while offline lost the app altogether.
   const [stallRetry, setStallRetry] = useState(0);
   const stallRetryFocusRef = useRef(false);
-  // The error panel stays up while Retry asks again: one request per press.
-  const [stallRetryBusy, setStallRetryBusy] = useState(false);
-  const stallRetryBusyRef = useRef(false);
   useEffect(() => {
     if (!stallRetryFocusRef.current || !stallData || stallData.__error) return;
     stallRetryFocusRef.current = false;
@@ -4760,7 +4757,6 @@ export function App() {
       // arrays for a stall that doesn't exist. Adds one serial round trip
       // on the happy path; eliminates 3 wasted requests per dead link.
       const stall = await fetchPublicStall(route.params.id);
-      stallRetryBusyRef.current = false; setStallRetryBusy(false);
       if (!alive) return;
       let reviews = null, eligible = [], sold = [];
       if (stall && !stall.__error) {
@@ -9383,7 +9379,7 @@ export function App() {
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
                 'Something went wrong fetching this seller — it may be a temporary connection issue.'),
               h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
-                h('button', { className: 'btn btn-accent', 'aria-disabled': stallRetryBusy || undefined, onClick: () => { if (stallRetryBusyRef.current) return; stallRetryBusyRef.current = true; setStallRetryBusy(true); stallRetryFocusRef.current = true; setStallRetry(n => n + 1); }, style: { minWidth: '150px', padding: '10px 22px' } }, 'Retry'),
+                h('button', { className: 'btn btn-accent', onClick: () => { stallRetryFocusRef.current = true; setStallRetry(n => n + 1); }, style: { minWidth: '150px', padding: '10px 22px' } }, 'Retry'),
                 h('a', { className: 'btn btn-ghost', href: '/market', style: { minWidth: '150px', padding: '10px 22px' } }, 'Back to marketplace'))
             )
         : h('div', null,
