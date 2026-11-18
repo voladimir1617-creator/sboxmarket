@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=419'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=420'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1895,6 +1895,9 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         maxLength: CAP,
         onChange: e => setDraft(e.target.value),
         'aria-label': 'Stall bio',
+        // The error below names this box, not just the page.
+        'aria-invalid': err ? 'true' : undefined,
+        'aria-describedby': err ? 'stall-bio-err' : undefined,
         // The button that opened the editor unmounts; land the caret here.
         autoFocus: true,
         // Batch 923 — Ctrl+Enter saves so a seller typing a multi-line
@@ -1922,7 +1925,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' } },
         h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
           `${draft.length} / ${CAP}`),
-        err && h('span', { role: 'alert', style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, err),
+        err && h('span', { id: 'stall-bio-err', role: 'alert', style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, err),
         h('div', { style: { flex: 1 } }),
         h('button', {
           className: 'btn btn-ghost',

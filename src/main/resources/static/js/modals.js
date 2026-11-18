@@ -14761,6 +14761,8 @@ function BotSecurityCode({ code, botSteamId, botName }) {
       }, (typeof botName === 'string' && botName.trim()) ? botName.trim() : id)));
 }
 
+/** Away-mode writes in flight (double-click latch on the My Stall switch). */
+const awayInFlight = new Set();
 export function MyStallModal(props) {
   if (!props.me) {
     return h(InfoModal, { title: 'My Stall', onClose: props.onClose },
@@ -15273,6 +15275,13 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   };
 
   const toggleAway = async () => {
+    // Double-click latch: the second click read the flipped `away` and sent
+    // the opposite write, so the stall went away and straight back.
+    if (awayInFlight.has('away')) return;
+    awayInFlight.add('away');
+    try { await toggleAwayOnce(); } finally { awayInFlight.delete('away'); }
+  };
+  const toggleAwayOnce = async () => {
     const next = !away;
     setAway(next);
     // Toggle-OFF clears any scheduled return time on the server too.
@@ -16738,7 +16747,9 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                     title: 'Copy a link to this listing',
                     'aria-label': `Copy a link to ${l.item?.name || 'listing #' + l.id}`,
                     onClick: async () => {
-                      const url = `${window.location.origin}/item/${l.item.id}`;
+                      // ?listing= opens on this listing; the bare item page leads with
+                      // the cheapest copy, often another seller's.
+                      const url = `${window.location.origin}/item/${l.item.id}?listing=${l.id}`;
                       try {
                         if (navigator.clipboard?.writeText) {
                           await navigator.clipboard.writeText(url);

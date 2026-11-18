@@ -449,7 +449,7 @@ export function HelpModal({ onClose }) {
 
     h('div', { className: 'help-contact' },
       h('div', null,
-        h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, "Still need a hand?"),
+        h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, "Still need a hand?"),
         h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 } },
           "Open a support ticket and staff will answer as soon as they can, trade, payment and refund issues first. Include a transaction id if it's about a purchase.")
       ),
