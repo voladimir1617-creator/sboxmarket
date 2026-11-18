@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=25';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=26';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -2328,7 +2328,8 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
                       },
                       title: VERIFIED_SELLER_RULE
                     }, 'Verified'),
-                    rating && rating.count > 0 && h('span', { className: 'modal-seller-rating', title: `${rating.count} review${rating.count === 1 ? '' : 's'}` },
+                    // Read "Rated 4.5 out of 5 from 3 reviews", not "black star 4.5 (3)".
+                    rating && rating.count > 0 && h('span', { className: 'modal-seller-rating', role: 'img', 'aria-label': `Rated ${rating.average.toFixed(1)} out of 5 from ${rating.count} review${rating.count === 1 ? '' : 's'}`, title: `${rating.count} review${rating.count === 1 ? '' : 's'}` },
                       '★ ', rating.average.toFixed(1),
                       h('span', { className: 'modal-seller-rating-count' }, ` (${rating.count})`)
                     ),
@@ -5239,7 +5240,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       'aria-labelledby': 'profile-tab-' + tab
     },
       tab === 'personal' && profileErr && h('div', { className: 'empty-inline', role: 'alert' },
-        h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Couldn’t load your profile details.'),
+        h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Couldn’t load your profile details.'),
         h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setProfileRetry(n => n + 1); } }, 'Retry')),
       tab === 'personal' && !profileErr && h(ProfilePersonalTab, {
         me, profile, syncing, onSync: runSync, transactions, privacy,
@@ -12297,7 +12298,7 @@ function ProfileSupportTab() {
     (() => {
       // Also after a refresh fails: the old list (or "No tickets yet") is stale.
       if (ticketsErr) return h('div', { className: 'empty-inline', role: 'alert' },
-          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your support tickets.'),
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your support tickets.'),
           h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setTicketsErr(false); load(); } }, 'Retry'));
       if (tickets === null) return h('div', { className: 'spinner' });
       if (tickets.length === 0) return creating ? null : h('div', { className: 'empty-inline' },
@@ -16058,7 +16059,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     tab === 'analytics' && (
       analytics === null && analyticsErr
         ? h('div', { className: 'empty-inline', role: 'alert' },
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your listing analytics.'),
+            h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Could not load your listing analytics.'),
             // The panel turns into a spinner; keep focus on the selected tab, not <body>.
             h('button', { className: 'btn btn-ghost', style: { marginTop: 8 }, onClick: (e) => { focusPastOnUnmount(e.currentTarget, '.mystall-tabs [role="tab"][aria-selected="true"]'); setAnalyticsErr(false); } }, 'Retry'))
       : analytics === null

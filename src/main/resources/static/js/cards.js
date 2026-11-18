@@ -552,6 +552,8 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
           // Hidden when the seller has zero reviews or is a system listing.
           listing.sellerRating != null && listing.sellerReviewCount > 0 && h('span', {
             style: { fontSize: 10, color: 'var(--ink-3)', fontWeight: 600, marginTop: 1 },
+            role: 'img',
+            'aria-label': `Rated ${listing.sellerRating.toFixed(1)} out of 5 from ${listing.sellerReviewCount} review${listing.sellerReviewCount === 1 ? '' : 's'}`,
             title: `${listing.sellerReviewCount} review${listing.sellerReviewCount === 1 ? '' : 's'}`
           }, '★ ', listing.sellerRating.toFixed(1), ' (', listing.sellerReviewCount, ')')
         )

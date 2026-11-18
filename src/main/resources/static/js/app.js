@@ -11,7 +11,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers, fetchPublicBuyOrders
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip, RarityBadge } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=25';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=26';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=416'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=417'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1429,9 +1429,11 @@ function TopSellersRail() {
           ),
           h('div', { className: 'top-seller-meta' },
             `${s.saleCount} sale${s.saleCount === 1 ? '' : 's'}`,
-            (s.rating && s.rating.count > 0)
-              ? ` · ★ ${Number(s.rating.average || 0).toFixed(1)}`
-              : ''
+            (s.rating && s.rating.count > 0) && ' · ',
+            (s.rating && s.rating.count > 0) && h('span', {
+              role: 'img',
+              'aria-label': `Rated ${Number(s.rating.average || 0).toFixed(1)} out of 5 from ${s.rating.count} review${s.rating.count === 1 ? '' : 's'}`
+            }, `★ ${Number(s.rating.average || 0).toFixed(1)}`)
           )
         )
       ))
