@@ -383,8 +383,8 @@ export function RarityBadge({ rarity }) {
   // too, as on the Database legend (the tier's internal name never shows).
   const RARITY_TITLE = {
     'Standard':   'Standard — common items everyone can craft.',
-    'Off-Market': 'Scarce — limited-supply items not currently sold by Steam.',
-    'Limited':    'Limited — capped supply, hardest to find.'
+    'Off-Market': 'Scarce — limited-supply items Steam still sells.',
+    'Limited':    'Limited — Steam no longer sells these.'
   };
   // a11y: the gradient + text alone don't tell assistive tech this pill
   // is a rarity tier — give it an explicit role + label.
