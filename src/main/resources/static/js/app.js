@@ -653,7 +653,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
     // Shown to everyone who can act on the row: a failed admin remove or
     // reply removal used to set this and show nothing.
     !editing && err && h('div', { className: 'wallet-error', role: 'alert', style: { marginTop: 6 } }, err),
-    isOwner && editing && h('div', { className: 'stall-review-reply-edit' },
+    // Escape from Cancel or Post reply closes the editor too; the box handles its own.
+    isOwner && editing && h('div', { className: 'stall-review-reply-edit', onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!busy) { dropUnsent('sb_review_reply_unsent'); setEditing(false); setDraft(''); setErr(''); } } } },
       h('textarea', {
         value: draft,
         onChange: e => setDraft(e.target.value),
@@ -1887,6 +1888,8 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   if (editing) {
     const CAP = 500;
     return h('div', {
+      // Escape from Cancel or Save closes the editor too; the box handles its own.
+      onKeyDown: (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!busy) cancel(); } },
       style: {
         margin: '12px 0 4px', padding: 12, borderRadius: 8,
         background: 'var(--bg-elevated)', border: '1px solid var(--border)'
@@ -10081,7 +10084,8 @@ export function App() {
                       }, 'Write review')
                 ))
               ),
-              reviewTradeId && h('div', { className: 'stall-review-form' },
+              // Escape from the stars, Cancel or Submit closes the form too; the box handles its own.
+              reviewTradeId && h('div', { className: 'stall-review-form', onKeyDown: (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!reviewBusy) closeReviewForm(); } } },
                 h('div', { className: 'stall-review-stars-picker' },
                   [1, 2, 3, 4, 5].map(n => h('button', {
                     key: n,

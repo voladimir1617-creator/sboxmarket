@@ -6495,7 +6495,9 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             'aria-label': 'Edit email address'
           }, 'Edit')
         ),
-        editingEmail && h('div', { style: { display: 'flex', gap: 6, width: '100%' } },
+        // Escape from Save or ✕ closes the editor too; the box handles its own.
+        editingEmail && h('div', { style: { display: 'flex', gap: 6, width: '100%' },
+          onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!emailBusyRef.current) setEditingEmail(false); } } },
           h('input', {
             className: 'price-input', style: { flex: 1 },
             type: 'email', placeholder: 'you@example.com',
@@ -6619,14 +6621,17 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             }
           }, 'Remove')
         ),
-        editingTradeUrl && h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, width: '100%', flexWrap: 'wrap' } },
+        // Escape from Save or Cancel closes the editor too; the box handles its own.
+        editingTradeUrl && h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, width: '100%', flexWrap: 'wrap' },
+          onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented && !tradeUrlBusy) { e.preventDefault(); setEditingTradeUrl(false); setTradeUrlErr(''); } } },
           h('input', {
             type: 'url',
             id: 'profile-trade-url-input',
             className: 'wallet-amount-input',
             'aria-label': 'Steam trade URL',
             'aria-invalid': tradeUrlErr ? 'true' : undefined,
-            'aria-describedby': tradeUrlErr ? 'profile-trade-url-error' : undefined,
+            // The help line below says where to find the URL; tie it to the box as well as any error.
+            'aria-describedby': tradeUrlErr ? 'profile-trade-url-error profile-trade-url-help' : 'profile-trade-url-help',
             autoFocus: true,
             placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
             value: tradeUrlDraft,
@@ -6640,7 +6645,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('button', { className: 'btn btn-accent', 'aria-disabled': tradeUrlBusy || undefined, onClick: () => { if (!tradeUrlBusy) saveTradeUrlDraft(); } }, tradeUrlBusy ? 'Saving…' : 'Save'),
           h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: tradeUrlBusy, onClick: () => { setEditingTradeUrl(false); setTradeUrlErr(''); } }, 'Cancel')
         ),
-        h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+        h('div', { id: 'profile-trade-url-help', style: { fontSize: 11, color: 'var(--text-muted)' } },
           'Required for escrowed trades. Get it at ',
           h('a', {
             href: 'https://steamcommunity.com/my/tradeoffers/privacy',
@@ -6696,6 +6701,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           // 6-digit app code OR a backup/recovery code (server validates
           // both shapes). Auto-submits on 6-digit autofill match.
           disableDrawerOpen && h('div', {
+            // Escape from Cancel or Disable 2FA closes the drawer too; the box handles its own.
+            onKeyDown: (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!disableBusy) { setDisableDrawerOpen(false); setDisableCode(''); setDisableErr(''); } } },
             style: {
               width: '100%', marginTop: 8,
               padding: 14, borderRadius: 8,
@@ -6756,6 +6763,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           // TOTP code (the backup-code path would let an attacker with
           // one recovered code mint a fresh set, which is bad).
           regenDrawerOpen && h('div', {
+            // Escape from Cancel or Mint new codes closes the drawer too; the box handles its own.
+            onKeyDown: (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!regenBusy) { setRegenDrawerOpen(false); setRegenCode(''); setRegenErr(''); } } },
             style: {
               width: '100%', marginTop: 8,
               padding: 14, borderRadius: 8,
@@ -11816,7 +11825,8 @@ function ProfileReviewsTab({ me }) {
             // row is being edited, replace the star bar + comment with
             // a picker + textarea. Otherwise show them normally.
             mode === 'given' && editGivenId === r.id
-              ? h('div', { style: { marginTop: 6 } },
+              // Escape from the stars, Cancel or Save changes closes the editor too; the box handles its own.
+              ? h('div', { style: { marginTop: 6 }, onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!editGivenBusy) cancelEditGiven(); } } },
                   h('div', { className: 'stall-review-stars-picker' },
                     [1,2,3,4,5].map(n => h('button', {
                       key: n,
@@ -11862,7 +11872,8 @@ function ProfileReviewsTab({ me }) {
               h('div', { className: 'stall-review-reply-body', dir: 'auto' }, r.sellerReply)
             ),
             mode === 'received' && editId === r.id
-              ? h('div', { className: 'stall-review-reply-edit' },
+              // Escape from Cancel or Post reply closes the editor too; the box handles its own.
+              ? h('div', { className: 'stall-review-reply-edit', onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!busy) { setEditId(null); setDraft(''); } } } },
                   h('textarea', {
                     value: draft,
                     onChange: e => setDraft(e.target.value),
@@ -15833,6 +15844,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
       }, 'Schedule return'),
       pickingAwayUntil && h('span', {
         className: 'inline-cta-row',
+        // Escape from Set or Cancel closes the picker too; the date box handles its own.
+        onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); setPickingAwayUntil(false); } },
         style: { marginLeft: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }
       },
         h('input', {
