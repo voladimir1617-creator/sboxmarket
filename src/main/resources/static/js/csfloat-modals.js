@@ -508,7 +508,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
               hasFilters
                 ? (search.trim() && category === 'All' && rarity === 'All' && !listedOnly && !minPrice && !maxPrice
                     ? 'No catalogue item names match your search. Check the spelling or clear the search.'
-                    : `Try clearing the search, category, rarity, price range${listedOnly ? ' or Listed only' : ''} to broaden the view.`)
+                    : `Try clearing the search, category, rarity, ${listedOnly ? 'price range or Listed only' : 'or price range'} to broaden the view.`)
                 : 'The item catalogue is still syncing. Check back in a minute.'),
             hasFilters && h('div', { className: 'empty-state-actions' },
               h('button', {
@@ -1115,7 +1115,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
          forever. Surface a real error with a Retry that re-runs load(). */
       ? h('div', { className: 'empty-inline', style: { padding: '32px 16px' }, role: 'alert' },
           h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             "Couldn't load buy orders"),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
             'Your buy orders failed to load. Check your connection and try again.'),

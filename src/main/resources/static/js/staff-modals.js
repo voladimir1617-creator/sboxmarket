@@ -3416,7 +3416,7 @@ function AdminUsersTab({ me }) {
                 ),
                 h('div', { className: 'health-card' },
                   h('div', { className: 'health-card-label' }, 'Reviews'),
-                  h('div', { className: 'health-card-value' },
+                  h('div', { className: 'health-card-value', ...(detailData.stall?.rating?.count ? { role: 'img', 'aria-label': `Rated ${Number(detailData.stall.rating.average || 0).toFixed(1)} out of 5` } : {}) },
                     detailData.stall?.rating?.count
                       ? `${Number(detailData.stall.rating.average || 0).toFixed(1)} ★`
                       : '—'

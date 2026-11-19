@@ -3256,9 +3256,11 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               spellCheck: false,
               placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=\u2026&token=\u2026',
               value: confirmTradeUrl,
+              'aria-invalid': confirmTradeUrlErr ? 'true' : undefined,
+              'aria-describedby': confirmTradeUrlErr ? 'buy-confirm-tradeurl-err' : undefined,
               onChange: (e) => { setConfirmTradeUrl(e.target.value); setConfirmTradeUrlErr(''); }
             }),
-            confirmTradeUrlErr && h('div', { className: 'wallet-error', role: 'alert' }, confirmTradeUrlErr)
+            confirmTradeUrlErr && h('div', { id: 'buy-confirm-tradeurl-err', className: 'wallet-error', role: 'alert' }, confirmTradeUrlErr)
           ),
           // Price breakdown — only what this click charges. The optional Trade
           // Protection used to sit IN the breakdown as a priced line ($0.25)
@@ -4981,7 +4983,9 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           // first review arrives so new users don't see a ★ 0 placeholder.
           profile?.rating && profile.rating.count > 0 && h('span', {
             style: { marginLeft: 10, fontSize: 11, color: '#fbbf24', fontWeight: 700 },
-            title: `${profile.rating.count} review${profile.rating.count === 1 ? '' : 's'} across your completed sales`
+            title: `${profile.rating.count} review${profile.rating.count === 1 ? '' : 's'} across your completed sales`,
+            role: 'img',
+            'aria-label': `Rated ${Number(profile.rating.average || 0).toFixed(2)} out of 5 from ${profile.rating.count} review${profile.rating.count === 1 ? '' : 's'}`
           }, ' · ★ ', Number(profile.rating.average || 0).toFixed(2), ' (', profile.rating.count, ')')
         ),
         h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 2 } },
@@ -7732,7 +7736,7 @@ function ProfileBuyOrdersTab() {
   };
   if (err) return h('div', { className: 'empty-inline', role: 'alert' },
     h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
-    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+    h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Couldn’t load your buy orders'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
       'Something went wrong fetching your buy orders. Your standing orders are safe — check your connection and try again.'),
@@ -11696,7 +11700,7 @@ function ProfileReviewsTab({ me }) {
     // With no reviews the empty state below already says so; the big
     // average line only earns its place once there is a number to show.
     mode === 'received' && (summary?.count || 0) > 0 && h('div', { className: 'profile-reviews-head' },
-      h('div', { className: 'profile-reviews-avg' }, avgLabel)
+      h('div', { className: 'profile-reviews-avg', role: 'img', 'aria-label': `Rated ${Number(summary.average || 0).toFixed(1)} out of 5 from ${summary.count} review${summary.count === 1 ? '' : 's'}` }, avgLabel)
     ),
     mode === 'received' && (summary?.count || 0) >= 3 && h('div', { className: 'rating-breakdown', style: { marginBottom: 14 } },
       buckets.map((n, i) => {
@@ -14482,7 +14486,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     // Announced like the Steam-inventory read error on the tab beside it.
     source === 'internal' && internalErr && h('div', { className: 'empty-inline', role: 'alert' },
       h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
-      h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
         "Couldn't load your platform inventory"),
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
         'Something interrupted the request. Your items are safe — this is only a display hiccup.'),
@@ -15521,6 +15525,8 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               type: 'text', step: '0.5', min: '-50', max: '50',
               inputMode: 'decimal',
               'aria-label': 'Bulk adjust percent',
+              'aria-invalid': bulkAdjustErr ? 'true' : undefined,
+              'aria-describedby': bulkAdjustErr ? 'bulk-adjust-err' : undefined,
               style: { flex: 1 },
               placeholder: '-5 for 5% off',
               value: bulkAdjustPct,
@@ -15539,7 +15545,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       ' by ', h('strong', null, Math.abs(pctNum) + '%'), '.');
                   })()
                 : 'Pick a chip or type a non-zero percentage from -50 to +50.'),
-          bulkAdjustErr && h('div', { className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, bulkAdjustErr),
+          bulkAdjustErr && h('div', { id: 'bulk-adjust-err', className: 'wallet-error', role: 'alert', style: { marginBottom: 10 } }, bulkAdjustErr),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
             h('button', {
               className: 'btn btn-ghost',
@@ -17153,7 +17159,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                   background: 'rgba(251,191,36,0.08)', color: '#fbbf24',
                   border: '1px solid rgba(251,191,36,0.25)', fontWeight: 700
                 },
-                title: `Average buyer rating across ${revCount} reviews — how sellers have rated this buyer's past behavior.`
+                title: `Average buyer rating across ${revCount} reviews — how sellers have rated this buyer's past behavior.`,
+                role: 'img',
+                'aria-label': `Buyer rated ${Number(offer.buyerReviewAvg).toFixed(1)} out of 5 from ${revCount} reviews`
               }, '★ ', Number(offer.buyerReviewAvg).toFixed(1), ' (', revCount, ')')
             );
           }
@@ -17173,7 +17181,9 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                 background: 'rgba(251,191,36,0.08)', color: '#fbbf24',
                 border: '1px solid rgba(251,191,36,0.25)', fontWeight: 700
               },
-              title: `Seller rating across ${sellerRev} reviews — buyer feedback from past trades.`
+              title: `Seller rating across ${sellerRev} reviews — buyer feedback from past trades.`,
+              role: 'img',
+              'aria-label': `Seller rated ${Number(offer.sellerReviewAvg).toFixed(1)} out of 5 from ${sellerRev} reviews`
             }, '★ ', Number(offer.sellerReviewAvg).toFixed(1), ' (', sellerRev, ')')
           );
         })()

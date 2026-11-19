@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=421'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=422'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -659,6 +659,8 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         onChange: e => setDraft(e.target.value),
         maxLength: 300,
         'aria-label': 'Public reply to this review',
+        'aria-invalid': err ? 'true' : undefined,
+        'aria-describedby': err ? 'review-reply-err-' + review.id : undefined,
         placeholder: 'Public response to this review (300 chars max)',
         autoFocus: true,
         onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); dropUnsent('sb_review_reply_unsent'); setEditing(false); setDraft(''); setErr(''); } }
@@ -668,7 +670,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         // Empty: disabled, so it looks off; busy: aria-disabled, so a refusal keeps focus here.
         h('button', { className: 'btn btn-accent', disabled: !draft.trim(), 'aria-disabled': busy || undefined, onClick: () => { if (draft.trim()) submit(false); } }, busy ? 'Saving…' : 'Post reply')
       ),
-      err && h('div', { className: 'wallet-error', role: 'alert' }, err)
+      err && h('div', { id: 'review-reply-err-' + review.id, className: 'wallet-error', role: 'alert' }, err)
     )
   );
 }
@@ -8175,6 +8177,8 @@ export function App() {
         type: 'button',
         className: 'mobile-filters-fab',
         onClick: () => setMobileFiltersOpen(o => !o),
+        // Shift+Tab from here left the open drawer for the page under it.
+        onBlur: (e) => { const to = e.relatedTarget; if (mobileFiltersOpen && to && !to.closest?.('aside.sidebar')) setMobileFiltersOpen(false); },
         'aria-label': mobileFiltersOpen ? 'Close filters' : 'Open filters',
         'aria-expanded': mobileFiltersOpen
       },
