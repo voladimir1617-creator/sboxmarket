@@ -6193,7 +6193,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     // input value.
     const raw = (tokenArg != null ? tokenArg : emailToken).trim();
     // An empty box used to return silently, so Verify read as a dead button.
-    if (!raw) { setEmailResult({ err: 'Paste the code from your verification email into the box, then press Verify.' }); return; }
+    if (!raw) {
+      setEmailResult({ err: 'Paste the code from your verification email into the box, then press Verify.' });
+      document.getElementById('profile-email-code-input')?.focus();
+      return;
+    }
     const res = await verifyEmail(raw);
     if (res.code || res.error) { setEmailResult({ err: res.message || res.error }); return; }
     setEmailResult({ ok: true, verified: true });
@@ -6519,7 +6523,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
         ),
         // Mail was sent (no token comes back when real mail is on): say so,
         // otherwise Save and Resend look like they did nothing.
-        emailResult?.ok && !emailResult.token && !emailResult.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } },
+        // role=status: Save closes the editor, so this line is the only word it worked.
+        emailResult?.ok && !emailResult.token && !emailResult.verified && h('div', { role: 'status', style: { fontSize: 11, color: 'var(--green)' } },
           `Verification email sent${emailResult.sentTo ? ` to ${emailResult.sentTo}` : ''}. Check your inbox.`),
         // The email tells the user to paste its code here, so the box shows
         // whenever the address is unverified, not only in dev mode.
@@ -6529,6 +6534,10 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           emailResult?.token && h('div', { className: 'mono', style: { fontSize: 11, color: 'var(--accent)', marginBottom: 6 } }, emailResult.token),
           h('div', { style: { display: 'flex', gap: 6 } },
             h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Paste token', 'aria-label': 'Email verification code',
+              // Tied to the error below, like the other boxes on this tab.
+              id: 'profile-email-code-input',
+              'aria-invalid': emailResult?.err && !editingEmail ? 'true' : undefined,
+              'aria-describedby': emailResult?.err && !editingEmail ? 'profile-email-error' : undefined,
               // The code is lower-case hex and checked exactly: no phone auto-capital or autocorrect.
               autoComplete: 'one-time-code', autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false,
               value: emailToken, onChange: e => setEmailToken(e.target.value),
@@ -6536,7 +6545,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             h('button', { className: 'buy-btn', onClick: () => confirmEmail() }, 'Verify')
           )
         ),
-        emailResult?.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } }, 'Email verified'),
+        emailResult?.verified && h('div', { role: 'status', style: { fontSize: 11, color: 'var(--green)' } }, 'Email verified'),
         emailResult?.err && h('div', { className: 'wallet-error', role: 'alert', id: 'profile-email-error' }, emailResult.err),
         // Resend verification link — only meaningful when email is set but
         // not yet verified. Regenerates the token and re-delivers via

@@ -408,7 +408,9 @@ export function HelpModal({ onClose }) {
               // pattern so screen readers announce "collapsed/expanded"
               // and can jump to the panel. Without these, blind users
               // hear an unlabelled button with no state.
-              h('button', {
+              // Inside a heading (under its h3 group) so a screen-reader
+              // heading list reaches each question, as on the FAQ page.
+              h('div', { role: 'heading', 'aria-level': 4 }, h('button', {
                 id: btnId,
                 className: 'help-faq-q',
                 'aria-expanded': isOpen,
@@ -423,7 +425,7 @@ export function HelpModal({ onClose }) {
                 // text + <mark> pieces were spaced apart mid-word.
                 h('span', null, highlightMatch(item.q, q)),
                 h(MaterialIcon, { name: isOpen ? 'expand_less' : 'expand_more', size: 20 })
-              ),
+              )),
               // role=region needs a discernible name or axe flags it; point
               // aria-labelledby at the question button so SR announces the
               // panel as "<question>, region".
