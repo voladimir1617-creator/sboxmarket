@@ -71,7 +71,7 @@
     </p>
 
     <h2 id="scopes">Key scopes</h2>
-    <table>
+    <table aria-labelledby="scopes">
       <thead><tr><th>Scope</th><th>What it can do</th></tr></thead>
       <tbody>
         <tr><td><strong>RO</strong> · read-only</td><td>Only <code>GET</code> and <code>HEAD</code> requests: prices, listings, your wallet balance, orders and trades. Anything that changes data is refused with <code>RO_KEY_WRITE_FORBIDDEN</code>.</td></tr>
@@ -82,8 +82,8 @@
     <h2 id="routes">Routes a key can use</h2>
     <p>The <strong>Key</strong> column is the scope a route needs. Routes marked RO also work with an RW key.</p>
 
-    <h3>Market data</h3>
-    <table class="routes">
+    <h3 id="routes-market">Market data</h3>
+    <table class="routes" aria-labelledby="routes-market">
       <thead><tr><th>Route</th><th>What it returns</th><th>Key</th></tr></thead>
       <tbody>
         <tr data-route="GET /api/items"><td><code>GET /api/items</code></td><td>The item catalogue.</td><td>RO</td></tr>
@@ -98,8 +98,8 @@
       </tbody>
     </table>
 
-    <h3>Buying</h3>
-    <table class="routes">
+    <h3 id="routes-buying">Buying</h3>
+    <table class="routes" aria-labelledby="routes-buying">
       <thead><tr><th>Route</th><th>What it does</th><th>Key</th></tr></thead>
       <tbody>
         <tr data-route="POST /api/listings/{id}/buy"><td><code>POST /api/listings/{id}/buy</code></td><td>Buy a listing from your wallet balance. Optional body <code>{"expectedPrice"}</code> refuses with <code>PRICE_CHANGED</code> if the price moved.</td><td>RW</td></tr>
@@ -113,8 +113,8 @@
       </tbody>
     </table>
 
-    <h3>Buy orders</h3>
-    <table class="routes">
+    <h3 id="routes-buy-orders">Buy orders</h3>
+    <table class="routes" aria-labelledby="routes-buy-orders">
       <thead><tr><th>Route</th><th>What it does</th><th>Key</th></tr></thead>
       <tbody>
         <tr data-route="GET /api/buy-orders"><td><code>GET /api/buy-orders</code></td><td>Your buy orders.</td><td>RO</td></tr>
@@ -124,8 +124,8 @@
       </tbody>
     </table>
 
-    <h3>Selling</h3>
-    <table class="routes">
+    <h3 id="routes-selling">Selling</h3>
+    <table class="routes" aria-labelledby="routes-selling">
       <thead><tr><th>Route</th><th>What it does</th><th>Key</th></tr></thead>
       <tbody>
         <tr data-route="GET /api/listings/my-stall"><td><code>GET /api/listings/my-stall</code></td><td>Your listings.</td><td>RO</td></tr>
@@ -138,8 +138,8 @@
       </tbody>
     </table>
 
-    <h3>Trades, wallet and alerts</h3>
-    <table class="routes">
+    <h3 id="routes-trades">Trades, wallet and alerts</h3>
+    <table class="routes" aria-labelledby="routes-trades">
       <thead><tr><th>Route</th><th>What it does</th><th>Key</th></tr></thead>
       <tbody>
         <tr data-route="GET /api/trades"><td><code>GET /api/trades</code></td><td>Your trades.</td><td>RO</td></tr>
@@ -161,7 +161,7 @@
 
     <h2 id="errors">Errors</h2>
     <p>Errors come back as JSON with a <code>code</code> and a <code>message</code>.</p>
-    <table>
+    <table aria-labelledby="errors">
       <thead><tr><th>Status</th><th>Code</th><th>Meaning</th></tr></thead>
       <tbody>
         <tr data-error="401 INVALID_API_KEY"><td>401</td><td><code>INVALID_API_KEY</code></td><td>The key is unknown or has been revoked.</td></tr>

@@ -152,6 +152,8 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
     const segs = [item.name];
     if (isAuction) segs.push('auction');
     else if (listing.listingType === 'BUY_NOW') segs.push('buy now');
+    // The HIDDEN tag sits outside the link; say it here too (owner's own feeds only).
+    if (listing.hidden) segs.push('hidden from the market');
     // Announce the same figure the card shows — the live top bid for an
     // auction with bids, otherwise the listed price. Using `listing.price`
     // here made a bid-up auction read its stale reserve to screen readers
