@@ -12079,6 +12079,11 @@ function ProfileSupportTab() {
       if (draft) {
         setForm(draft);
         setCreating(true);
+        // From an open ticket (the footer's Report a Bug) the form sat behind
+        // the thread, so the link seemed to do nothing.
+        showSeqRef.current++;
+        lastOpenedTicketRef.current = null;
+        setViewing(null);
       }
       // Clean the URL so a refresh / back-nav doesn't keep firing.
       if (qs.get('topic')) {
