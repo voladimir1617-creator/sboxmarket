@@ -148,6 +148,9 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   }, [search]);
   // A link to this page (the nav Database link, a /db?q= link) pushes a new
   // URL while the page stays mounted: follow its ?q= instead of the old search.
+  // The other filters and the page follow it too: the nav link on a filtered
+  // page left them on under a bare /db, so a refresh showed something else.
+  const popPageRef = useRef(null);
   useEffect(() => {
     const onPop = () => {
       if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return;
@@ -155,6 +158,13 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       try { next = (new URLSearchParams(window.location.search).get('q') || '').slice(0, 100); } catch (_) {}
       setSearchInput(cur => (cur.trim() === next.trim() ? cur : next));
       setSearch(cur => (cur.trim() === next.trim() ? cur : next));
+      setCat(urlParam('category', DB_CATS, 'All'));
+      setRar(urlParam('rarity', DB_RARS, 'All'));
+      setSort(urlParam('sort', DB_SORTS, 'rarest'));
+      setMinPrice(urlPrice('min'));
+      setMaxPrice(urlPrice('max'));
+      popPageRef.current = urlPage();
+      setPage(popPageRef.current);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -168,9 +178,12 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       return allowed.includes(v) ? v : dflt;
     } catch (_) { return dflt; }
   };
-  const [category, setCat]    = useState(() => urlParam('category', ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'], 'All'));
-  const [rarity, setRar]      = useState(() => urlParam('rarity', ['Limited','Off-Market','Standard'], 'All'));
-  const [sort, setSort]       = useState(() => urlParam('sort', ['most_traded','most_viewed','price_desc','price_asc','newest'], 'rarest'));
+  const DB_CATS = ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
+  const DB_RARS = ['Limited','Off-Market','Standard'];
+  const DB_SORTS = ['most_traded','most_viewed','price_desc','price_asc','newest'];
+  const [category, setCat]    = useState(() => urlParam('category', DB_CATS, 'All'));
+  const [rarity, setRar]      = useState(() => urlParam('rarity', DB_RARS, 'All'));
+  const [sort, setSort]       = useState(() => urlParam('sort', DB_SORTS, 'rarest'));
   // "Listed only" — hides catalogue rows with no active listings. CSFloat
   // parity: browsing the database, a buyer usually only cares about
   // items they can actually buy right now. Persisted in localStorage so
@@ -196,13 +209,14 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   useEffect(() => {
     try { localStorage.setItem('sb_db_listed_only', listedOnly ? '1' : '0'); } catch (_) {}
   }, [listedOnly]);
-  const [page, setPage]       = useState(() => {
+  const urlPage = () => {
     try {
       if (!/^\/(db|database)\/?$/.test(window.location.pathname)) return 0;
       const n = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10);
       return Number.isFinite(n) && n > 1 && n <= 1000 ? n - 1 : 0;
     } catch (_) { return 0; }
-  });
+  };
+  const [page, setPage]       = useState(urlPage);
   const PAGE_SIZE = 30;
 
   // Race-condition guard — bump a monotonic request id on every load()
@@ -261,8 +275,11 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
   useEffect(() => {
     if (filterKeyRef.current === filterKey) return;
     filterKeyRef.current = filterKey;
+    // Filters that came with a new URL bring that URL's page.
+    if (popPageRef.current != null) return;
     setPage(0);
   }, [filterKey]);
+  useEffect(() => { popPageRef.current = null; });
   // Keep category / rarity / sort / page in the URL (replaceState, like ?q=).
   useEffect(() => {
     try {
@@ -2549,12 +2566,28 @@ export function NotificationsModal({ onClose, me }) {
   // The filters live in the URL too (effect below), so Back from a
   // notification's target lands on the list as it was left.
   const initQs = (() => { try { return new URLSearchParams(window.location.search); } catch (_) { return new URLSearchParams(); } })();
-  const [filter, setFilter] = useState(initQs.get('show') === 'unread' ? 'UNREAD' : 'ALL');
-  const [typeFilter, setTypeFilter] = useState(() => {
-    const t = (initQs.get('kind') || '').toUpperCase();
+  const kindFromQs = (qs) => {
+    const t = (qs.get('kind') || '').toUpperCase();
     return ['TRADES', 'AUCTIONS', 'OFFERS', 'MATCHES', 'WALLET', 'OTHER'].includes(t) ? t : 'ALL';
-  });
+  };
+  const [filter, setFilter] = useState(initQs.get('show') === 'unread' ? 'UNREAD' : 'ALL');
+  const [typeFilter, setTypeFilter] = useState(() => kindFromQs(initQs));
   const [search, setSearch] = useState(() => (initQs.get('find') || '').slice(0, 100));
+  // A link to this page (the bell's View all, the account menu, the footer)
+  // keeps it mounted: follow the new URL's filters instead of keeping the old
+  // ones under a bare /notifications.
+  useEffect(() => {
+    const onPop = () => {
+      if (!/^\/notifications\/?$/.test(window.location.pathname)) return;
+      let qs;
+      try { qs = new URLSearchParams(window.location.search); } catch (_) { return; }
+      setFilter(qs.get('show') === 'unread' ? 'UNREAD' : 'ALL');
+      setTypeFilter(kindFromQs(qs));
+      setSearch((qs.get('find') || '').slice(0, 100));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   useEffect(() => {
     try {
       const qs = new URLSearchParams(window.location.search);

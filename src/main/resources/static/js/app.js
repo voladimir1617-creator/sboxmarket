@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=424'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=425'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2682,7 +2682,9 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
     // a11y: SRs hear "…" as "ellipsis" / nothing useful — name the
     // pending state so focus on the still-mounted-but-loading button
     // doesn't strand the user on an unlabelled control.
-    return h('button', { className: 'stall-share-btn', disabled: true, 'aria-label': 'Loading follow status' }, '…');
+    // aria-disabled, not disabled: Retry follow status turns into this
+    // button, and disabling it dropped keyboard focus to <body>.
+    return h('button', { className: 'stall-share-btn', 'aria-disabled': 'true', 'aria-label': 'Loading follow status' }, '…');
   }
   if (status === 'error') {
     return h('button', {
@@ -8388,6 +8390,13 @@ export function App() {
             onBlur: (e) => {
               const to = e.relatedTarget;
               if (to && !e.currentTarget.contains(to)) { setSuggestOpen(false); setSuggestIdx(-1); }
+            },
+            // Escape on Clear all or a Forget button left the list open; close
+            // it and go back to the box (focus first: its onFocus reopens).
+            onKeyDown: (e) => {
+              if (e.key !== 'Escape' || e.target.classList?.contains('search-input') || !suggestOpen) return;
+              e.currentTarget.querySelector('.search-input')?.focus();
+              setSuggestOpen(false); setSuggestIdx(-1);
             } },
             h('span', { className: 'search-icon' }, h(Icon, { name: 'search', size: 14 })),
             /* csfloat-style "/" keyboard hint chip in the right of the input */
@@ -8553,7 +8562,12 @@ export function App() {
                 'aria-selected': recentNav && i === suggestIdx,
                 // Named by the search alone, not "boot Forget "boot"".
                 'aria-label': q,
-                onClick: () => pickRecent(q)
+                // A click on the row blurred the box to <body>, so the arrow
+                // keys and Escape no longer reached it; keep focus there.
+                onClick: (e) => {
+                  e.currentTarget.closest('.search-wrap')?.querySelector('.search-input')?.focus();
+                  pickRecent(q);
+                }
               },
                 h('span', { className: 'search-suggest-recent-icon', 'aria-hidden': 'true' }, '⟲'),
                 h('span', { style: { flex: 1, fontSize: 13 } }, q),
