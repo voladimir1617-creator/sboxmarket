@@ -2001,6 +2001,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       ),
       // Batch 833 — inline rename panel. Replaces window.prompt.
       isOwner && renaming && h('div', {
+        // Escape backs out from Save and Cancel as it does from the box.
+        onKeyDown: e => { if (e.key === 'Escape' && !renameBusyRef.current) setRenaming(false); },
         style: {
           display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
           padding: '10px 14px', marginBottom: 10, borderRadius: 8,
@@ -2233,7 +2235,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         me && h('button', { className: 'btn btn-accent', ref: createBtnRef, onClick: () => setCreating(c => !c) }, creating ? 'Cancel' : '+ Create')
       );
     })(),
-    creating && h('div', { style: { marginBottom: 14, display: 'flex', gap: 10 } },
+    creating && h('div', { style: { marginBottom: 14, display: 'flex', gap: 10 },
+      // Escape from the Create button backs out as it does from the box.
+      onKeyDown: e => { if (e.key === 'Escape') { setCreating(false); setNewName(''); } } },
       // Same 80-character cap as rename (the server cuts longer names), and
       // Enter creates like it renames.
       h('input', { className: 'price-input', 'aria-label': 'New loadout name', placeholder: 'Loadout name…', value: newName, maxLength: 80, autoFocus: true,
@@ -2478,14 +2482,17 @@ function SlotPicker({ slot, allItems, poolErr, poolLoaded = true, onPick }) {
     let pool = allItems;
     if (slot !== 'Wild') pool = pool.filter(i => i.category === slot);
     if (q) pool = pool.filter(i => i.name.toLowerCase().includes(q.toLowerCase()));
-    return pool.slice(0, 20);
+    // The list scrolls; a 20-row cap hid the rest of the catalogue (Wild
+    // showed 20 of 39 items) with nothing saying more existed.
+    return pool;
   }, [allItems, slot, q]);
 
   if (!open) {
     // Every empty slot has one; name the slot so they don't all read "+ Add".
     return h('button', { className: 'loadout-add-btn', ref: addBtnRef, 'aria-label': `Add an item to the ${slot} slot`, onClick: () => setOpen(true) }, '+ Add');
   }
-  return h('div', { className: 'loadout-picker' },
+  // Escape closes the picker from its items and Cancel too, not only the filter box.
+  return h('div', { className: 'loadout-picker', onKeyDown: e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } } },
     // Audit fix — aria-label was a stale "Filter loadouts" copy-paste
     // from the Discover search box. This input filters the ITEM pool for
     // a specific clothing slot, so a screen-reader user heard the wrong
