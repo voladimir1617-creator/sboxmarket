@@ -53,7 +53,11 @@ async function runChecks() {
           if (finishedAt) {
             const ageMs = Date.now() - finishedAt;
             const ageS  = Math.max(0, Math.round(ageMs / 1000));
-            subOverride = 'data is ' + ageS + 's old';
+            // Minutes and hours past a minute: "data is 7500s old" had to be worked out.
+            const ageM = Math.floor(ageS / 60);
+            subOverride = 'data is ' + (ageS < 60 ? ageS + 's'
+              : ageM < 60 ? ageM + 'm'
+              : Math.floor(ageM / 60) + 'h ' + (ageM % 60) + 'm') + ' old';
             if (ageMs > 15 * 60_000)      status = 'down';
             else if (ageMs > 5 * 60_000)  status = 'warn';
           }
