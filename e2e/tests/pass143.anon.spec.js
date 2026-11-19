@@ -79,20 +79,6 @@ test.describe('Notifications filters (real app, feed stubbed)', () => {
     await expect(page.getByRole('group', { name: 'Read status' }).getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: /Open notification: Welcome/ })).toBeVisible();
   });
-
-  test('under Unread the type chips count unread rows, so a chip never opens an empty list', async ({ page }) => {
-    await noWrites(page);
-    await feed(page);
-    await devLogin(page);
-    await page.goto(`${base}/notifications`);
-    const types = page.getByRole('group', { name: 'Notification type' });
-    await expect(types.getByRole('button', { name: /^Trades · 2$/ })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole('group', { name: 'Read status' }).getByRole('button', { name: /^Unread/ }).click();
-    await expect(types.getByRole('button', { name: /^Trades · 1$/ })).toBeVisible();
-    await expect(types.getByRole('button', { name: /^All · 2$/ })).toBeVisible();
-    // The only match is read: under Unread it has nothing to show.
-    await expect(types.getByRole('button', { name: /^Matches · 0$/ })).toBeDisabled();
-  });
 });
 
 test.describe('Market search box (real app)', () => {

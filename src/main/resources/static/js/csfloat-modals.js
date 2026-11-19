@@ -2968,9 +2968,7 @@ export function NotificationsModal({ onClose, me }) {
       ].map(opt => {
         // Count what the list can show: muted types are filtered out of it,
         // so counting them offered a "Matches · 7" chip that opened empty.
-        // Under Unread only unread rows can show, so read ones don't count.
-        const chipItems = filter === 'UNREAD' ? shownItems.filter(n => !n.read) : shownItems;
-        const c = opt.id === 'ALL' ? chipItems.length + (data.items.length >= 100 ? '+' : '') : chipItems.filter(n => typeOf(n.kind) === opt.id).length;
+        const c = opt.id === 'ALL' ? shownItems.length + (data.items.length >= 100 ? '+' : '') : shownItems.filter(n => typeOf(n.kind) === opt.id).length;
         return h('button', {
           key: opt.id,
           className: `wallet-tx-filter-chip ${typeFilter === opt.id ? 'active' : ''}`,
