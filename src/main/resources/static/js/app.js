@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=426'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=427'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -733,7 +733,7 @@ function EmailVerifyNag({ me }) {
     } finally { resendBusyRef.current = false; }
   };
   return h('div', { className: 'announce-banner sev-warn', role: 'status' },
-    h('span', { className: 'announce-banner-icon' }, '✉'),
+    h('span', { className: 'announce-banner-icon', 'aria-hidden': 'true' }, '✉'),
     h('div', { className: 'announce-banner-text' },
       'Your email ', h('strong', null, me.email), ' is not confirmed yet. ',
       h('a', { href: paths.profile(), style: { color: 'inherit', textDecoration: 'underline', fontWeight: 700 } }, 'Confirm it'),
@@ -802,7 +802,7 @@ function AnnouncementBanner() {
   // The stylesheet styles sev-warn and sev-error; CRITICAL is the red one.
   // A critical banner (trading halted, etc.) interrupts; the rest wait.
   return h('div', { className: `announce-banner sev-${sev === 'critical' ? 'error' : sev}`, role: sev === 'critical' ? 'alert' : 'status' },
-    h('span', { className: 'announce-banner-icon' },
+    h('span', { className: 'announce-banner-icon', 'aria-hidden': 'true' },
       sev === 'critical' ? '⚠' : sev === 'warn' ? '⚠' : 'ℹ'),
     h('div', { className: 'announce-banner-text' }, ann.message),
     h('button', {
@@ -3162,7 +3162,10 @@ export class ErrorBoundary extends React.Component {
     if (this.state.error) {
       const err = this.state.error;
       const stack = String(err && err.stack ? err.stack : err);
+      // id="main": the static "Skip to main content" link's target, which
+      // the crashed App no longer renders.
       return h('div', {
+        id: 'main', role: 'main',
         style: {
           padding: '48px 32px', maxWidth: 560, margin: '60px auto',
           background: 'var(--bg-card, #111827)', border: '1px solid var(--border, #1f2937)',
@@ -3171,7 +3174,7 @@ export class ErrorBoundary extends React.Component {
           textAlign: 'center', boxShadow: '0 8px 28px rgba(0,0,0,0.35)'
         }
       },
-        h('div', { style: { fontSize: 44, marginBottom: 10 } }, '—'),
+        h('div', { style: { fontSize: 44, marginBottom: 10 }, 'aria-hidden': 'true' }, '—'),
         h('h1', { style: { fontSize: 22, fontWeight: 800, margin: '0 0 8px', color: 'var(--text-primary, #e5e7eb)' } },
           'Maintenance in progress'),
         h('p', { style: { color: 'var(--text-secondary, #9ca3af)', margin: '0 0 24px' } },
@@ -3193,6 +3196,7 @@ export class ErrorBoundary extends React.Component {
         h('div', { style: { marginTop: 28, fontSize: 12, color: 'var(--text-muted, #6b7280)' } },
           h('button', {
             style: { background: 'none', border: 'none', color: 'var(--text-muted, #6b7280)', cursor: 'pointer', fontSize: 12, textDecoration: 'underline', padding: 0 },
+            'aria-expanded': this.state.showDetails,
             onClick: () => this.setState({ showDetails: !this.state.showDetails })
           }, this.state.showDetails ? 'Hide technical details' : 'Show technical details')
         ),
@@ -6925,7 +6929,7 @@ export function App() {
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap'
       }
     },
-      h('span', { style: { fontSize: 16 } }, '⚠'),
+      h('span', { style: { fontSize: 16 }, 'aria-hidden': 'true' }, '⚠'),
       h('span', { style: { flex: 1 } },
         h('strong', null, `${BRAND.name} is temporarily unavailable. `),
         'The service is reporting a degraded state. Your wallet, listings, and trades are safe — refreshed data will appear once service is restored.'),
@@ -9166,16 +9170,17 @@ export function App() {
                       }))
                     )
                   : h('table', { className: 'listing-table' },
+                      h('caption', { className: 'visually-hidden' }, 'Market listings'),
                       h('thead', null,
                         h('tr', null,
-                          h('th', null, 'Item'),
-                          h('th', null, 'Rarity'),
-                          h('th', { className: 'center' }, 'vs Steam'),
-                          h('th', { className: 'center' }, 'Trend'),
-                          h('th', null, 'Seller'),
-                          h('th', null, 'Listed'),
-                          h('th', { className: 'right' }, 'Price'),
-                          h('th', { className: 'center' }, 'Action'),
+                          h('th', { scope: 'col' }, 'Item'),
+                          h('th', { scope: 'col' }, 'Rarity'),
+                          h('th', { scope: 'col', className: 'center' }, 'vs Steam'),
+                          h('th', { scope: 'col', className: 'center' }, 'Trend'),
+                          h('th', { scope: 'col' }, 'Seller'),
+                          h('th', { scope: 'col' }, 'Listed'),
+                          h('th', { scope: 'col', className: 'right' }, 'Price'),
+                          h('th', { scope: 'col', className: 'center' }, 'Action'),
                         )
                       ),
                       h('tbody', null,
@@ -9222,7 +9227,7 @@ export function App() {
                     'aria-disabled': loadingMore || undefined,
                     onClick: loadMore,
                     title: `Load the next 100 listings after the current ${listings.length}`
-                  }, loadingMore ? 'Loading…' : `↓ Load more (${listings.length} listings loaded)`)
+                  }, loadingMore ? 'Loading…' : [h('span', { key: 'a', 'aria-hidden': 'true' }, '↓ '), `Load more (${listings.length} listings loaded)`])
                 )
               )
           )

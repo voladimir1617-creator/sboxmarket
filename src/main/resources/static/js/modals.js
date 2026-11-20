@@ -2578,9 +2578,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             title: showAllListings
               ? `Collapse back to the cheapest 6 listings`
               : `Load every active listing on this item — compare seller rating, ship time, and price across the full set`
-          }, showAllListings
-              ? `↑ Collapse to top 6`
-              : `↓ Show all ${listings.length} listings (+${listings.length - 6})`)
+          }, h('span', { 'aria-hidden': 'true' }, showAllListings ? '↑ ' : '↓ '), showAllListings
+              ? `Collapse to top 6`
+              : `Show all ${listings.length} listings (+${listings.length - 6})`)
         ),
 
         // ── More from this seller strip (batch 312) ───────────────
