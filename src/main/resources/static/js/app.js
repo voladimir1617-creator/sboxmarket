@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=427'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=428'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -10052,9 +10052,9 @@ export function App() {
                 },
                 'aria-expanded': stallSoldExpanded,
                 onClick: () => setStallSoldExpanded(v => !v)
-              }, stallSoldExpanded
-                   ? '↑ Collapse to 10 most recent'
-                   : `↓ Show all ${stallSold.length} sales`)
+              }, h('span', { 'aria-hidden': 'true' }, stallSoldExpanded ? '↑ ' : '↓ '), stallSoldExpanded
+                   ? 'Collapse to 10 most recent'
+                   : `Show all ${stallSold.length} sales`)
             ),
             // "Leave a review" CTA — only shows up when the signed-in viewer
             // has at least one VERIFIED trade with this seller. Every trade
@@ -10229,9 +10229,9 @@ export function App() {
                   },
                   'aria-expanded': stallReviewsExpanded,
                   onClick: () => setStallReviewsExpanded(v => !v)
-                }, stallReviewsExpanded
-                     ? '↑ Collapse to 10 most relevant'
-                     : `↓ Show all ${displayReviews.length} reviews`)
+                }, h('span', { 'aria-hidden': 'true' }, stallReviewsExpanded ? '↑ ' : '↓ '), stallReviewsExpanded
+                     ? 'Collapse to 10 most relevant'
+                     : `Show all ${displayReviews.length} reviews`)
               );
             })(),
             // A failed reviews load (null once the stall is in) used to drop the
