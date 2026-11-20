@@ -3815,7 +3815,8 @@ function AdminTicketsTab() {
         ),
         viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', disabled: busy, onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close Ticket')
       ),
-      h('div', { className: 'support-thread' },
+      // A log: a reply that lands is read out, and the list is named.
+      h('div', { className: 'support-thread', role: 'log', 'aria-label': 'Messages in ticket #' + viewing.ticket.id },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
           h('div', { className: 'support-msg-head' }, m.authorName, ' · ', timeAgo(m.createdAt)),
           h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'st-' + m.id))
@@ -4501,7 +4502,8 @@ function CsrTicketsTab() {
         ),
         viewing.ticket.status !== 'RESOLVED' && h('button', { className: 'btn btn-ghost', disabled: busy, onClick: closeTicket, style: { border: '1px solid var(--border)' } }, 'Close')
       ),
-      h('div', { className: 'support-thread' },
+      // A log: a reply that lands is read out, and the list is named.
+      h('div', { className: 'support-thread', role: 'log', 'aria-label': 'Messages in ticket #' + viewing.ticket.id },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
           h('div', { className: 'support-msg-head' }, m.authorName, ' · ', timeAgo(m.createdAt)),
           h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'st-' + m.id))

@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=429'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=430'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -4541,6 +4541,15 @@ export function App() {
   const [meLoaded, setMeLoaded]         = useState(false);
   const [menuOpen, setMenuOpen]         = useState(false);
   const userChipRef = useRef(null);
+  // The account menu marks the page you are on, as the header and footer
+  // links do; every item read the same on its own page. Watchlist left as is.
+  const menuCur = (name) => {
+    const tab = route.params && route.params.tab;
+    if (name === 'profile') return routeName === 'profile' && tab !== 'trades' ? 'page' : undefined;
+    if (name === 'trades') return routeName === 'profile' && tab === 'trades' ? 'page' : undefined;
+    if (name === 'loadouts') return routeName === 'loadouts' ? 'page' : routeName === 'loadout' ? 'true' : undefined;
+    return routeName === name ? 'page' : undefined;
+  };
   // Batch 933 — close the user menu on Escape. Pointer users can click
   // the backdrop to close; keyboard-only users were stranded inside
   // the open menu with no dismissal path. Listener mounts only while
@@ -7290,13 +7299,13 @@ export function App() {
                 className: 'user-menu-backdrop',
                 onClick: (e) => { e.stopPropagation(); setMenuOpen(false); }
               }),
-              menuOpen && h('div', { id: 'user-menu-panel', className: 'user-menu', role: 'menu', onClick: e => { e.stopPropagation(); followInternalLink(e); } },
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.profile(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18, fill: true, color: 'var(--ink-2)' }), 'Profile'),
+              menuOpen && h('div', { id: 'user-menu-panel', className: 'user-menu', role: 'menu', 'aria-label': 'Account menu', onClick: e => { e.stopPropagation(); followInternalLink(e); } },
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.profile(),       'aria-current': menuCur('profile'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18, fill: true, color: 'var(--ink-2)' }), 'Profile'),
                 h('div', { className: 'user-menu-divider' }),
                 h('button', { role: 'menuitem', className: 'user-menu-item', onClick: () => { setWalletInitialTab('deposit');  navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'upload', size: 18, fill: true, color: 'var(--ink-2)' }), 'Deposit'),
                 h('button', { role: 'menuitem', className: 'user-menu-item', onClick: () => { setWalletInitialTab('withdraw'); navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'credit_card', size: 18, fill: true, color: 'var(--ink-2)' }), 'Withdraw'),
                 h('div', { className: 'user-menu-divider' }),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: '/profile/trades', onClick: () => setMenuOpen(false) },
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: '/profile/trades', 'aria-current': menuCur('trades'), onClick: () => setMenuOpen(false) },
                   h(MaterialIcon, { name: 'swap_horiz', size: 18, fill: true, color: 'var(--ink-2)' }),
                   'Trades',
                   // Combined seller+buyer+disputed+unread-chat+pending-reviews
@@ -7315,8 +7324,8 @@ export function App() {
                     }, (pendingActions.sellerTrades || 0) + (pendingActions.buyerTrades || 0) + (pendingActions.disputedTrades || 0) + (pendingActions.unreadChat || 0) + (pendingActions.pendingReviews || 0))
                 ),
                 h('div', { className: 'user-menu-divider' }),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.sell(),          onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'sell', size: 18, fill: true, color: 'var(--ink-2)' }), 'Sell Items'),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.mystall(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'storefront', size: 18, fill: true, color: 'var(--ink-2)' }), 'My Stall'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.sell(),          'aria-current': menuCur('sell'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'sell', size: 18, fill: true, color: 'var(--ink-2)' }), 'Sell Items'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.mystall(),       'aria-current': menuCur('mystall'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'storefront', size: 18, fill: true, color: 'var(--ink-2)' }), 'My Stall'),
                 h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.offers(),        onClick: () => setMenuOpen(false) },
                   h(MaterialIcon, { name: 'swap_vert', size: 18, fill: true, color: 'var(--ink-2)' }),
                   'Offers',
@@ -7334,13 +7343,13 @@ export function App() {
                   'Watchlist',
                   watchlist.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 'auto' } }, watchlist.length)
                 ),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.notifications(), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'notifications', size: 18, fill: true, color: 'var(--ink-2)' }), 'Notifications'),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.loadouts(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'checkroom', size: 18, fill: true, color: 'var(--ink-2)' }), 'Loadout Lab'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.notifications(), 'aria-current': menuCur('notifications'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'notifications', size: 18, fill: true, color: 'var(--ink-2)' }), 'Notifications'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.loadouts(),      'aria-current': menuCur('loadouts'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'checkroom', size: 18, fill: true, color: 'var(--ink-2)' }), 'Loadout Lab'),
                 h('div', { className: 'user-menu-divider' }),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.database(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'database', size: 18, fill: true, color: 'var(--ink-3)' }), 'Database'),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.help(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'help', size: 18, fill: true, color: 'var(--ink-3)' }), 'Help Center'),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.support(),   onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'chat_bubble', size: 18, fill: true, color: 'var(--ink-3)' }), 'Support'),
-                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.settings(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'settings', size: 18, fill: true, color: 'var(--ink-3)' }), 'Settings'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.database(),  'aria-current': menuCur('database'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'database', size: 18, fill: true, color: 'var(--ink-3)' }), 'Database'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.help(),      'aria-current': menuCur('help'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'help', size: 18, fill: true, color: 'var(--ink-3)' }), 'Help Center'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.support(),   'aria-current': menuCur('support'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'chat_bubble', size: 18, fill: true, color: 'var(--ink-3)' }), 'Support'),
+                h('a', { role: 'menuitem', className: 'user-menu-item', href: paths.settings(),  'aria-current': menuCur('settings'), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'settings', size: 18, fill: true, color: 'var(--ink-3)' }), 'Settings'),
                 // Staff shortcuts — only visible to CSR / ADMIN roles. Admin
                 // role is ONLY granted via the server-side bootstrap list
                 // (env var ADMIN_BOOTSTRAP_STEAM_IDS) or by an existing admin
@@ -7348,11 +7357,11 @@ export function App() {
                 (isCsr || isAdmin) && h('div', { className: 'user-menu-divider' }),
                 isCsr && h('a', {
                   role: 'menuitem', className: 'user-menu-item staff',
-                  href: paths.csr(), onClick: () => setMenuOpen(false)
+                  href: paths.csr(), 'aria-current': menuCur('csr'), onClick: () => setMenuOpen(false)
                 }, h(MaterialIcon, { name: 'headset_mic', size: 18, fill: true, color: 'var(--ink-2)' }), 'Customer Service'),
                 isAdmin && h('a', {
                   role: 'menuitem', className: 'user-menu-item staff admin',
-                  href: paths.admin(), onClick: () => setMenuOpen(false)
+                  href: paths.admin(), 'aria-current': menuCur('admin'), onClick: () => setMenuOpen(false)
                 }, h(MaterialIcon, { name: 'admin_panel_settings', size: 18, fill: true, color: 'var(--ink-2)' }), 'Admin Panel'),
                 h('div', { className: 'user-menu-divider' }),
                 h('button', { role: 'menuitem', className: 'user-menu-item danger', onClick: doLogout }, h(MaterialIcon, { name: 'logout', size: 18, fill: true, color: 'var(--ink-2)' }), 'Logout')
