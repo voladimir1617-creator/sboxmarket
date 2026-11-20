@@ -2143,7 +2143,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             // The count line below takes this button's place; move focus there.
             onClick: () => { setRecentSalesLimit(50); requestAnimationFrame(() => document.querySelector('[data-recent-sales-note]')?.focus()); },
             title: 'Load up to 50 of the most-recent sales for a deeper price anchor'
-          }, '↓ Show more sales'),
+          }, h('span', { 'aria-hidden': 'true' }, '↓ '), 'Show more sales'),
           recentSalesLimit > 10 && h('div', {
             'data-recent-sales-note': '', tabIndex: -1,
             style: { fontSize: 10, marginTop: 6, color: 'var(--text-muted)', textAlign: 'center' }
