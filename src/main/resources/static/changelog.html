@@ -105,7 +105,7 @@
   </nav>
 
   <main class="changelog" id="main" tabindex="-1">
-    <a class="changelog-back" href="/">← Back to SkinBox</a>
+    <a class="changelog-back" href="/"><span aria-hidden="true">←</span> Back to SkinBox</a>
     <h1>Changelog</h1>
     <p class="changelog-intro">
       What's new on SkinBox. The platform ships changes continuously —
@@ -115,7 +115,7 @@
     </p>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">May 3, 2026 — latest</h2>
+      <h2 class="changelog-date"><time datetime="2026-05-03">May 3, 2026</time> — latest</h2>
       <h3 class="changelog-title">Site reliability + UX sweep</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag polish">POLISH</span>Cookie-aware health checks, currency consistency across listings + cart, stack-aware Sell Items grouping, freshness chip on grid cards, and a soft-fade on nav active state.</li>
@@ -123,7 +123,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">May 1, 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-05-01">May 1, 2026</time></h2>
       <h3 class="changelog-title">SEO + PWA + share URL fixes · HSTS · /watchlist 401 silenced · browser-search routing · seller-stall analytics</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag fix">FIX</span><strong>Public sitemap was emitting <code>http://localhost:8082/...</code> URLs.</strong> Search engines crawling skinbox.market would have indexed broken URLs. <code>SitemapController</code> now derives the base URL from the actual request via <code>X-Forwarded-Proto</code> + <code>X-Forwarded-Host</code> (Cloudflare). Local dev still emits localhost URLs; public visitors get https://skinbox.market. Same fix applied to <code>OpenGraphController</code> (Discord / Facebook / Twitter shares of /item/{id}, /stall/{id}, /faq, /loadout/{id} all leaked localhost canonical + og:url tags).</li>
@@ -138,7 +138,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">May 1, 2026 — earlier</h2>
+      <h2 class="changelog-date"><time datetime="2026-05-01">May 1, 2026</time> — earlier</h2>
       <h3 class="changelog-title">Sessions never expire (365d TTL, persist across restarts) · branded error pages · NUL-byte 500 fix · /sell + /wallet H1 a11y</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span><strong>Sessions effectively never expire and now survive container restarts.</strong> Re-enabled Spring Session JDBC with a 365-day TTL on all three layers — Tomcat servlet session timeout, Spring Session row TTL (<code>@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 365 * 24 * 60 * 60)</code>), and the browser cookie's <code>Max-Age=31536000</code> so the cookie itself sticks across browser closes. Verified live: same <code>SBOX_SESSION</code> cookie issued before <code>docker restart</code> still returns 200 after the restart. Closes the standing complaint about being signed out mid-grind.</li>
@@ -149,7 +149,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 30, 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04-30">April 30, 2026</time></h2>
       <h3 class="changelog-title">QA sweep · listing-count sync · sort price-asc fix · reflexive legal redirects · footer column re-balance</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag fix">FIX</span>Sort by price (and any sort that relies on API order) was silently re-ordered alphabetically by <code>item.id</code> after dedup — the dedup map used a plain object whose <code>Object.values()</code> iterates integer-string keys in numeric order. Switched to a <code>Map</code> so insertion order is preserved. Now <code>?sort=price_asc</code> correctly puts $1.08 first instead of $1.47.</li>
@@ -161,7 +161,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 30, 2026 — earlier</h2>
+      <h2 class="changelog-date"><time datetime="2026-04-30">April 30, 2026</time> — earlier</h2>
       <h3 class="changelog-title">CSFloat 1:1 home redesign · marketing landing split · grid card chrome · /db hero banner</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span><code>/</code> is now a true marketing landing — pure hero + tab rail + 6-card preview strip + trust strip, no marketplace grid. The visitor lands, scans the live featured listings, and clicks "Visit Marketplace →" (or any tab) to enter <code>/market</code> for the full grid. Mirrors csfloat.com's home/market split.</li>
@@ -178,7 +178,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026 — earlier</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time> — earlier</h2>
       <h3 class="changelog-title">Inline seller ratings · trust signals · perf sweep · Profile overflow banners · staff-panel rate limits</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Inline seller ratings on every listing. Each row in the marketplace grid + the Active Listings table on /item now carries a "★ 4.7" chip when the seller has reviews — populated server-side via a single GROUP BY across every seller in the response (no per-seller round-trip). Buyers see seller reputation at a glance without opening the stall page first. CSFloat-1:1.</li>
@@ -200,7 +200,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026 — prior</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time> — prior</h2>
       <h3 class="changelog-title">Security hardening · CSV injection fix · trailing-slash sweep · wallet leak fix</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>♿ Full WAI-ARIA tablist semantics on every tab strip: Profile, Wallet, Offers, Admin, CSR. Arrow keys cycle tabs, <code>Home</code>/<code>End</code> jump to first/last, screen readers announce "Tab 3 of 9, selected" instead of raw button labels.</li>
@@ -239,7 +239,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">Profile analytics + trust signals</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Capital-exposure summary strips on Profile → Buy Orders, Active Bids, and Offers — see your total potential outlay across standing positions at a glance instead of hand-summing rows.</li>
@@ -259,7 +259,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">Polish sprint · loadouts + cart + cache</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Loadout slots can now be locked — click the on a filled slot and Generate keeps it intact while reshuffling the rest.</li>
@@ -281,7 +281,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">Developer platform + export surface</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Find a seller by name — debounced dropdown under the Top Sellers rail with ★ rating, verified badge, and keyboard nav (↑↓ Enter Esc).</li>
@@ -304,7 +304,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">CSFloat-manual parity sprint</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Affiliate Program page at <a href="/affiliate" style="color:var(--accent)">/affiliate</a> with hero banner, platform requirements, and apply CTA.</li>
@@ -335,7 +335,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">SEO + social-preview overhaul</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Platform-wide "Just Sold" ticker on the homepage — social proof from live activity.</li>
@@ -349,7 +349,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">Moderation + staff tooling</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Users can Report a listing or report a seller — reports route to a dedicated admin queue.</li>
@@ -360,7 +360,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">Profile + wallet upgrades</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Export your trade + offer + transaction history as CSV for tax and accounting.</li>
@@ -372,7 +372,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">Marketplace + discovery</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Biggest-discount sort option + "−X%" chips on listing rows below Steam Market price.</li>
@@ -383,7 +383,7 @@
     </div>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">April 2026</h2>
+      <h2 class="changelog-date"><time datetime="2026-04">April 2026</time></h2>
       <h3 class="changelog-title">Security + infrastructure</h3>
       <ul class="changelog-list">
         <li><span class="changelog-tag security">SECURITY</span>CSRF double-submit-cookie on every write endpoint; session cookies HttpOnly + SameSite-lax in prod (Lax, not Strict, so Steam OpenID and Stripe redirects back to the site keep the session).</li>

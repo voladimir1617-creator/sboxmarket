@@ -4330,10 +4330,13 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+  // Each row's sublabel has an id its control points at (aria-describedby),
+  // so a switch is read with what it does, not only its name.
+  const hint = (label) => 'settings-hint-' + String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const Row = (label, sublabel, control) => h('div', { className: 'settings-row' },
     h('div', null,
       h('div', { className: 'settings-label' }, label),
-      sublabel && h('div', { className: 'settings-sublabel' }, sublabel)
+      sublabel && h('div', { className: 'settings-sublabel', id: hint(label) }, sublabel)
     ),
     control
   );
@@ -4350,11 +4353,12 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
   // is mouse-only and invisible to assistive tech. The .toggle-switch
   // :focus-visible ring already exists in design.css, awaiting a focusable
   // host. The sibling away-mode toggle already shipped role:'switch'.
-  const Toggle = (on, onChange, label) => h('div', {
+  const Toggle = (on, onChange, label, describedBy) => h('div', {
     className: `toggle-switch ${on ? '' : 'off'}`,
     role: 'switch',
     'aria-checked': on ? 'true' : 'false',
     'aria-label': label,
+    'aria-describedby': describedBy,
     tabIndex: 0,
     onClick: onChange,
     onKeyDown: (e) => {
@@ -4421,6 +4425,7 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
     Row('Currency', 'Prices shown in your chosen currency (stored as USD)', h('select', {
         className: 'sort-select', value: currency,
         'aria-label': 'Display currency',
+        'aria-describedby': hint('Currency'),
         onChange: e => setCurrency(e.target.value)
       },
       h('option', { value: 'USD' }, 'USD · $'),
@@ -4432,7 +4437,7 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
       h('option', { value: 'JPY' }, 'JPY · ¥')
     )),
     me && Section('Notifications & sound'),
-    me && Row('Sale notifications', 'Toast when someone buys', Toggle(notifs, () => setNotifs(v => !v), 'Sale notifications')),
+    me && Row('Sale notifications', 'Toast when someone buys', Toggle(notifs, () => setNotifs(v => !v), 'Sale notifications', hint('Sale notifications'))),
     // Batch 819 — Sound-effects row now includes a "Send test
     // notification" button so users can hear the ding before deciding
     // whether to enable it. Bypasses the mute flag via `{force:true}`
@@ -4481,13 +4486,13 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
             transition: 'color 200ms ease'
           }
         }, soundTestStatus?.text || ' '),
-        Toggle(sounds, () => setSounds(v => !v), 'Sound effects')
+        Toggle(sounds, () => setSounds(v => !v), 'Sound effects', hint('Sound effects'))
       )),
     // Mute per-category — hide alerts you don't care about from the bell
     // and the Notifications page without silencing everything else.
     me && Row('Mute notification types',
       'Hide these categories from the bell + /notifications. Applied client-side; the server still records the event.',
-      h('div', { role: 'group', 'aria-label': 'Mute notification types', style: { display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', maxWidth: 320 } },
+      h('div', { role: 'group', 'aria-label': 'Mute notification types', 'aria-describedby': hint('Mute notification types'), style: { display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', maxWidth: 320 } },
         [
           { id: 'TRADES',   label: 'Trades' },
           { id: 'AUCTIONS', label: 'Auctions' },
@@ -4510,12 +4515,12 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
     Section('Privacy'),
     Row('Hide $ amounts',
       'Mask wallet balance, earnings, profile and stall totals as "$•••••" — useful for streaming or screenshotting. Item prices stay visible.',
-      Toggle(privacy, () => setPrivacy(v => !v), 'Hide dollar amounts')),
+      Toggle(privacy, () => setPrivacy(v => !v), 'Hide dollar amounts', hint('Hide $ amounts'))),
     Section('Accessibility & appearance'),
     Row('Reduce motion',      'Disable animations for card hover + ticker scroll',
-      Toggle(reduceMotion, () => setRM(v => !v), 'Reduce motion')),
+      Toggle(reduceMotion, () => setRM(v => !v), 'Reduce motion', hint('Reduce motion'))),
     Row('High contrast',      'Boost text / border contrast for readability',
-      Toggle(highContrast, () => setHC(v => !v), 'High contrast')),
+      Toggle(highContrast, () => setHC(v => !v), 'High contrast', hint('High contrast'))),
     Row('Accent colour',      'Editorial mono-primary palette — near-white chrome with blue reserved for CTAs and live indicators. No theme picker.',
       h('span', { style: { color: 'var(--text-muted)', fontSize: 12 } }, 'Dark · mono')
     ),
@@ -5280,7 +5285,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
 // Email preference writes in flight: busy lags a re-render, so a quick
 // second click would act on the pre-click value.
 const emailPrefInFlight = new Set();
-function EmailPrefToggle({ initial, onChange }) {
+function EmailPrefToggle({ initial, onChange, describedBy }) {
   const [on, setOn] = useState(initial !== false);
   const [busy, setBusy] = useState(false);
   // The tab can render before the profile loads (initial undefined reads
@@ -5319,6 +5324,7 @@ function EmailPrefToggle({ initial, onChange }) {
       tabIndex: 0,
       'aria-checked': on,
       'aria-label': 'Email notifications',
+      'aria-describedby': describedBy,
       title: on ? 'Email notifications ON — click to disable' : 'Email notifications OFF — click to enable'
     }),
     h('span', { style: { fontSize: 11, color: 'var(--text-muted)' } },
@@ -5328,7 +5334,7 @@ function EmailPrefToggle({ initial, onChange }) {
 
 // "Anonymous shop" switch: same toggle-switch as the email preference,
 // optimistic, reverted when the server refuses.
-function AnonymousShopToggle({ initial, onSaved }) {
+function AnonymousShopToggle({ initial, onSaved, describedBy }) {
   const [on, setOn] = useState(initial === true);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (!busy && typeof initial === 'boolean') setOn(initial); }, [initial]);
@@ -5363,6 +5369,7 @@ function AnonymousShopToggle({ initial, onSaved }) {
       tabIndex: 0,
       'aria-checked': on,
       'aria-label': 'Anonymous shop',
+      'aria-describedby': describedBy,
       'data-testid': 'anonymous-shop-toggle'
     }),
     h('span', { style: { fontSize: 11, color: 'var(--text-muted)' } },
@@ -7066,9 +7073,12 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'stretch', gap: 10 } },
         h(EmailPrefToggle, {
           initial: profile?.user?.emailNotificationsEnabled !== false,
-          onChange: (v) => { setEmailsOn(!!v); if (onEmailPref) onEmailPref(!!v); }
+          onChange: (v) => { setEmailsOn(!!v); if (onEmailPref) onEmailPref(!!v); },
+          // The switch's name is only "Email notifications"; tie the line
+          // that says what it never turns off.
+          describedBy: 'profile-email-pref-hint'
         }),
-        h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+        h('div', { id: 'profile-email-pref-hint', style: { fontSize: 11, color: 'var(--text-muted)' } },
           'Security + account-state emails (verification, withdrawal, ban) always send regardless of the settings below.'),
         // Only render the granular mutes when the global switch is ON —
         // the buckets are meaningless when *every* email is suppressed.
@@ -7082,8 +7092,8 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Anonymous shop'),
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 } },
-        h(AnonymousShopToggle, { initial: profile?.user?.anonymousShop === true, onSaved: refreshProfile }),
-        h('div', { style: { fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 } },
+        h(AnonymousShopToggle, { initial: profile?.user?.anonymousShop === true, onSaved: refreshProfile, describedBy: 'profile-anon-shop-hint' }),
+        h('div', { id: 'profile-anon-shop-hint', style: { fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 } },
           'Your listings show as “Anonymous seller” on the market and item pages, with no avatar or stall link, and your stall stops listing them. Buyers you trade with, and SkinBox staff, still see your name on the trade.')
       )
     ),
