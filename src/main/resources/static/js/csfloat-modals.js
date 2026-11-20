@@ -2114,8 +2114,10 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       h('div', { className: 'loadout-grid' },
         SLOT_NAMES.map(slotName => {
           const s = slotsBySlot[slotName];
-          return h('div', { key: slotName, className: 'loadout-slot' },
-            h('div', { className: 'loadout-slot-label' }, slotName),
+          // A named group per slot: its item, price and buttons read under
+          // the slot's name instead of running into the next slot's label.
+          return h('div', { key: slotName, className: 'loadout-slot', role: 'group', 'aria-labelledby': 'loadout-slot-' + slotName },
+            h('div', { className: 'loadout-slot-label', id: 'loadout-slot-' + slotName }, slotName),
             s && s.itemId
               ? h('div', {
                   className: 'loadout-slot-filled',
@@ -2135,7 +2137,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   s.itemImageUrl && !brokenImgs.has(s.itemImageUrl)
                     ? h('img', {
                         src: s.itemImageUrl,
-                        alt: s.itemName || '',
+                        // The item's name link sits right under it.
+                        alt: '',
                         className: 'loadout-slot-img',
                         loading: 'lazy',
                         // Steam CDN 403s hotlinked (cross-origin Referer) requests —
@@ -2152,7 +2155,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                           display: 'block'
                         }
                       })
-                    : h('div', { className: 'loadout-slot-emoji' }, s.itemEmoji || '—'),
+                    : h('div', { className: 'loadout-slot-emoji', 'aria-hidden': 'true' }, s.itemEmoji || '—'),
                   // The name opens the item, so a visitor can go and buy
                   // what the loadout wears (the share card promises it).
                   h('div', { className: 'loadout-slot-name' },
@@ -2421,7 +2424,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                 },
                   pi.imageUrl && !brokenImgs.has(pi.imageUrl)
                     ? h('img', { className: 'loadout-card-preview-img', src: pi.imageUrl, alt: '', loading: 'lazy', referrerPolicy: 'no-referrer', onError: () => markBrokenImg(pi.imageUrl) })
-                    : h('span', { className: 'loadout-card-preview-emoji' }, pi.itemEmoji || '◆')
+                    : h('span', { className: 'loadout-card-preview-emoji', 'aria-hidden': 'true' }, pi.itemEmoji || '◆')
                 ))
               ),
               l.ownerName && h('div', { className: 'loadout-card-owner' },

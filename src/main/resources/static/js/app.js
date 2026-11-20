@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=428'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=429'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -8210,8 +8210,8 @@ export function App() {
         // which is exactly the radio-group semantic. Prior code was
         // clickable <div>s: not in tab order, not announced as a
         // selector, keyboard users couldn't filter at all.
-        h('details', { className: 'filter-section', open: true },
-          h('summary', { className: 'filter-title' }, 'Category'),
+        h('details', { className: 'filter-section', open: true, 'aria-labelledby': 'filter-title-category' },
+          h('summary', { className: 'filter-title', id: 'filter-title-category' }, 'Category'),
           // A <details> takes no role, so the group is a box-less wrapper
           // inside it. One Tab stop (the checked option); arrows move the choice.
           h('div', { role: 'radiogroup', 'aria-label': 'Category filter', style: { display: 'contents' } },
@@ -8247,8 +8247,8 @@ export function App() {
           )
         ),
         h('div', { className: 'filter-divider' }),
-        h('details', { className: 'filter-section', open: true },
-          h('summary', { className: 'filter-title' }, 'Rarity'),
+        h('details', { className: 'filter-section', open: true, 'aria-labelledby': 'filter-title-rarity' },
+          h('summary', { className: 'filter-title', id: 'filter-title-rarity' }, 'Rarity'),
           // A <details> takes no role, so the group is a box-less wrapper
           // inside it. One Tab stop (the checked option); arrows move the choice.
           h('div', { role: 'radiogroup', 'aria-label': 'Rarity filter', style: { display: 'contents' } },
@@ -8292,8 +8292,8 @@ export function App() {
           )
         ),
         h('div', { className: 'filter-divider' }),
-        h('details', { className: 'filter-section', open: true },
-          h('summary', { className: 'filter-title' }, 'Price Range'),
+        h('details', { className: 'filter-section', open: true, 'aria-labelledby': 'filter-title-price' },
+          h('summary', { className: 'filter-title', id: 'filter-title-price' }, 'Price Range'),
           h('div', { className: 'price-inputs' },
             // The currencySymbol() prefix ("$" / "CA$" / "€" etc.) keeps
             // the placeholder readable in the operator's currency. Numeric
@@ -8334,9 +8334,13 @@ export function App() {
         ),
         h('button', { className: 'btn-clear', disabled: !filtersActive, 'data-testid': 'sidebar-clear-filters',
           // The button greys out once cleared, which drops focus to <body>;
-          // land on the first shown filter group's "All" option instead.
+          // land on the first shown filter group's "All" option instead, or,
+          // with every option group folded shut, on the first group's toggle.
           onClick: (e) => {
-            const all = Array.prototype.find.call(e.currentTarget.parentElement.querySelectorAll('[role="radio"]'), el => el.getClientRects().length > 0);
+            // A folded section's options keep their boxes; checkVisibility() sees them as hidden.
+            const shown = (sel) => Array.prototype.find.call(e.currentTarget.parentElement.querySelectorAll(sel),
+              el => (el.checkVisibility ? el.checkVisibility() : el.getClientRects().length > 0));
+            const all = shown('[role="radio"]') || shown('summary');
             clearFilters();
             all?.focus();
           } }, 'Clear Filters'),

@@ -131,6 +131,7 @@ async function renderVersion() {
     const el = document.getElementById('version-line');
     if (!el) return;
     const bits = [];
+    let started = null;
     if (data.version) bits.push('v' + data.version);
     // Guard: a malformed/missing startupAt (string, 0, NaN, future
     // timestamp) used to render "uptime NaNh NaNm" or a negative
@@ -143,9 +144,13 @@ async function renderVersion() {
       const m  = Math.floor((ms % 3_600_000) / 60_000);
       const label = h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
       bits.push('uptime ' + label);
-      bits.push('started ' + new Date(startupAt).toLocaleString());
+      // A <time> element, so the start carries its machine-readable instant.
+      started = document.createElement('time');
+      started.dateTime = new Date(startupAt).toISOString();
+      started.textContent = new Date(startupAt).toLocaleString();
     }
-    el.textContent = bits.join(' · ');
+    el.textContent = bits.join(' · ') + (started ? (bits.length ? ' · ' : '') + 'started ' : '');
+    if (started) el.appendChild(started);
   } catch (_) { /* silent — version line stays blank */ }
 }
 renderVersion();
