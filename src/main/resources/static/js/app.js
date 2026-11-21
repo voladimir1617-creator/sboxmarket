@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=430'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=431'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -3190,6 +3190,10 @@ export class ErrorBoundary extends React.Component {
           }, 'Go to home'),
           h('a', {
             href: '/support',
+            // The app behind this page has crashed, so the SPA router can't
+            // show /support (the URL changed and nothing else did); keep the
+            // click from the document interceptor and let the browser load it.
+            onClick: (e) => e.stopPropagation(),
             style: { padding: '10px 22px', background: 'transparent', color: 'var(--text-primary, #e5e7eb)', border: '1px solid var(--border, #374151)', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 14, textDecoration: 'none', display: 'inline-block' }
           }, 'Contact support')
         ),
@@ -7898,6 +7902,7 @@ export function App() {
        quantity (volume, payout time), compute it from real records
        server-side first. */
     routeName === 'home' && h('section', { className: 'csfloat-home-metrics', 'aria-label': 'Marketplace trust metrics' },
+      h('h2', { className: 'visually-hidden' }, 'Marketplace trust metrics'),
       h('div', { className: 'csfloat-home-metrics-inner' },
         // The tiles count listings and fees, not traders, and no real money has
         // moved yet, so the heading names what they are.
@@ -8062,12 +8067,13 @@ export function App() {
        custody wording comes from `custody` (server-resolved), because
        whether we hold the items depends on STEAM_BOT_BASE_URL. */
     routeName === 'home' && h('section', { className: 'csfloat-home-tiles', 'aria-label': `How ${BRAND.name} trades work` },
+      h('h2', { className: 'visually-hidden' }, `How ${BRAND.name} trades work`),
       h('div', { className: 'csfloat-home-tiles-inner' },
         h('div', { className: 'csfloat-home-tile' },
           h('div', { className: 'csfloat-home-tile-icon' },
             h(MaterialIcon, { name: 'gavel', size: 22 })
           ),
-          h('div', { className: 'csfloat-home-tile-title' }, 'Live Auctions'),
+          h('div', { className: 'csfloat-home-tile-title', role: 'heading', 'aria-level': 3 }, 'Live Auctions'),
           h('div', { className: 'csfloat-home-tile-blurb' },
             'Bid in real time on rare s&box items. A bid in the last 30 seconds moves the close to 30 seconds after that bid, up to 20 times.')
         ),
@@ -8075,7 +8081,7 @@ export function App() {
           h('div', { className: 'csfloat-home-tile-icon' },
             h(MaterialIcon, { name: 'sell', size: 22 })
           ),
-          h('div', { className: 'csfloat-home-tile-title' }, 'Bargain Engine'),
+          h('div', { className: 'csfloat-home-tile-title', role: 'heading', 'aria-level': 3 }, 'Bargain Engine'),
           h('div', { className: 'csfloat-home-tile-blurb' },
             'Send or counter offers without ever leaving the listing. No DMs, no haggling threads, just price moves.')
         ),
@@ -8083,7 +8089,7 @@ export function App() {
           h('div', { className: 'csfloat-home-tile-icon' },
             h(MaterialIcon, { name: 'shield', size: 22 })
           ),
-          h('div', { className: 'csfloat-home-tile-title' }, custody.tileTitle),
+          h('div', { className: 'csfloat-home-tile-title', role: 'heading', 'aria-level': 3 }, custody.tileTitle),
           h('div', { className: 'csfloat-home-tile-blurb' }, custody.tileBlurb)
         )
       )

@@ -11470,6 +11470,9 @@ function ProfileReviewsTab({ me }) {
 
   if (!me) return h(InfoModal, { title: 'Reviews' },
     h(SignInNeededEmptyState, { what: 'your reviews' }));
+  // The Received / Given / Pending tabs control this panel (the tabs had no
+  // tabpanel, so nothing said which list belonged to the selected tab).
+  const panel = (...kids) => h('div', { role: 'tabpanel', id: 'profile-reviews-panel', 'aria-labelledby': 'profile-reviews-tab-' + mode }, ...kids);
 
   // Pending is its own rendering path (no star filter, no edit/delete, each
   // row deep-links to the seller's stall for the review form). Handle it
@@ -11481,6 +11484,8 @@ function ProfileReviewsTab({ me }) {
     const P_TABS = ['received', 'given', 'pending'];
     const pTab = (id) => ({
       role: 'tab',
+      id: 'profile-reviews-tab-' + id,
+      'aria-controls': 'profile-reviews-panel',
       'aria-selected': mode === id,
       tabIndex: mode === id ? 0 : -1,
       onKeyDown: (e) => {
@@ -11516,14 +11521,14 @@ function ProfileReviewsTab({ me }) {
         }, 'Pending', pending && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, pending.length))
       )),
       // A failed check (?view=pending on reload) has no list to map.
-      pending === false
+      panel(pending === false
         ? h('div', { className: 'wallet-error', role: 'alert' },
             "Couldn't check for trades waiting on a review. ",
             h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setPending(null); loadPending(); } }, 'Retry'))
         : pending.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+            h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } },
               "You're all caught up — no trades waiting on a review."))
         : h('div', { className: 'profile-reviews-list' },
             pending.map(t => h('div', {
@@ -11551,9 +11556,9 @@ function ProfileReviewsTab({ me }) {
                 // making the user scan the CTA list (batch 341).
                 href: '/stall/' + t.sellerUserId + '?leaveReview=' + t.tradeId,
                 style: { padding: '8px 14px', fontSize: 12, whiteSpace: 'nowrap' }
-              }, 'Leave review →')
+              }, 'Leave review', h('span', { 'aria-hidden': 'true' }, ' →'))
             ))
-          )
+          ))
     );
   }
 
@@ -11590,6 +11595,8 @@ function ProfileReviewsTab({ me }) {
     };
     const sharedProps = (id) => ({
       role: 'tab',
+      id: 'profile-reviews-tab-' + id,
+      'aria-controls': 'profile-reviews-panel',
       'aria-selected': mode === id,
       tabIndex: mode === id ? 0 : -1,
       onKeyDown: onKey
@@ -11617,8 +11624,8 @@ function ProfileReviewsTab({ me }) {
       "Couldn't check for trades waiting on a review. ",
       h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setPending(null); loadPending(); } }, 'Retry')));
   })();
-  if (loadErrCard) return h('div', null, tabList, loadErrCard);
-  if (rows === null) return h('div', null, tabList, h('div', { className: 'spinner' }));
+  if (loadErrCard) return h('div', null, tabList, panel(loadErrCard));
+  if (rows === null) return h('div', null, tabList, panel(h('div', { className: 'spinner' })));
 
   const filtered = starFilter > 0 ? rows.filter(r => r.rating === starFilter) : rows;
   const submit = async (reviewId, clear = false) => {
@@ -11729,6 +11736,7 @@ function ProfileReviewsTab({ me }) {
     // WAI-ARIA tabs pattern + Arrow/Home/End keyboard nav, mirroring
     // /wallet, /loadout, /me/stall, /watchlist.
     tabList,
+    panel(
     // With no reviews the empty state below already says so; the big
     // average line only earns its place once there is a number to show.
     mode === 'received' && (summary?.count || 0) > 0 && h('div', { className: 'profile-reviews-head' },
@@ -11794,7 +11802,7 @@ function ProfileReviewsTab({ me }) {
               className: 'btn btn-accent',
               style: { padding: '10px 18px', fontWeight: 700 },
               onClick: () => setMode('pending')
-            }, `Check ${pending.length} pending review${pending.length === 1 ? '' : 's'} →`)
+            }, `Check ${pending.length} pending review${pending.length === 1 ? '' : 's'}`, h('span', { 'aria-hidden': 'true' }, ' →'))
           ),
           rows.length > 0 && h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } },
             'No reviews match this filter.'))
@@ -11812,7 +11820,7 @@ function ProfileReviewsTab({ me }) {
                       href: '/stall/' + r.toUserId,
                       style: { color: 'inherit', textDecoration: 'none' },
                       title: "View this seller's stall"
-                    }, '→ about ' + (r.toUserName || ('seller #' + r.toUserId)))
+                    }, h('span', { 'aria-hidden': 'true' }, '→ '), 'about ' + (r.toUserName || ('seller #' + r.toUserId)))
               ),
               // Verified buyer chip — every review is trade-gated.
               h('span', {
@@ -11946,7 +11954,7 @@ function ProfileReviewsTab({ me }) {
                     }, deletingId === r.id ? 'Deleting…' : 'Delete')
                   )
           ))
-        )
+        ))
   );
 }
 
