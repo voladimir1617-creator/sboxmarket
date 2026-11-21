@@ -347,6 +347,11 @@ export function HelpModal({ onClose }) {
       ref: searchRef,
       onChange: e => changeSearch(e.target.value)
     }),
+    // Read the match count out as the list narrows: the questions changed
+    // under the box with nothing said, and no match was silent too.
+    h('div', { className: 'visually-hidden', role: 'status', 'aria-atomic': 'true' },
+      q ? (filteredFaq.length === 0 ? 'No matching questions'
+        : `${filteredFaq.length} matching question${filteredFaq.length === 1 ? '' : 's'}`) : ''),
     filteredFaq.length === 0
       ? h('div', {
           // Batch 928 — richer zero-match state: headline + concrete CTAs
@@ -385,7 +390,7 @@ export function HelpModal({ onClose }) {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                 e.preventDefault(); navigate(paths.support());
               }
-            }, 'Open a ticket →')
+            }, 'Open a ticket', h('span', { 'aria-hidden': 'true' }, ' →'))
           )
         )
       : h('div', { className: 'help-faq' },

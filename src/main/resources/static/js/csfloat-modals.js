@@ -584,7 +584,8 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
               h('td', { className: 'db-rank' }, '#' + (page * PAGE_SIZE + i + 1)),
               h('td', null,
                 h('div', { className: 'db-item-cell' },
-                  h('div', { className: 'db-thumb' }, h(ItemImage, { item, variant: 'mini' })),
+                  // alt '': the link beside it names the item; the row read the name twice.
+                  h('div', { className: 'db-thumb' }, h(ItemImage, { item, alt: '', variant: 'mini' })),
                   h('div', null,
                     h('a', {
                       className: 'db-name',

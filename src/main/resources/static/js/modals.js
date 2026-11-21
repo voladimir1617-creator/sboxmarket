@@ -4139,7 +4139,7 @@ export function FaqModal({ onClose }) {
       h('a', {
         href: '/support',
         onClick: followInternalLink
-      }, 'Open a support ticket →')
+      }, 'Open a support ticket', h('span', { 'aria-hidden': 'true' }, ' →'))
     ),
     ENTRIES.length > 4 && h('input', {
       className: 'price-input',
@@ -4150,6 +4150,10 @@ export function FaqModal({ onClose }) {
       onChange: e => setQ(e.target.value),
       'aria-label': 'Search FAQ'
     }),
+    // The match count, read out as the list narrows (as on the Help Center).
+    ENTRIES.length > 4 && h('div', { className: 'visually-hidden', role: 'status', 'aria-atomic': 'true' },
+      t ? (filtered.length === 0 ? 'No matching questions'
+        : `${filtered.length} matching question${filtered.length === 1 ? '' : 's'}`) : ''),
     // What we charge, as tiles (the home "2% Platform fee" style) instead
     // of a search result. Shown on the plain FAQ and on any fee search,
     // which is where the footer "Fees & Pricing" link lands. Rates are the
@@ -4201,7 +4205,7 @@ export function FaqModal({ onClose }) {
               className: 'btn btn-accent',
               style: { padding: '8px 14px', fontSize: 12 },
               onClick: followInternalLink
-            }, 'Open a ticket →')
+            }, 'Open a ticket', h('span', { 'aria-hidden': 'true' }, ' →'))
           )
         )
       : filtered.map(([question, answer]) => h('div', { key: question, style: { marginBottom: 20, textAlign: 'left' } },
@@ -4224,7 +4228,7 @@ export function FaqModal({ onClose }) {
         className: 'btn btn-accent',
         style: { padding: '8px 14px', fontSize: 12 },
         onClick: followInternalLink
-      }, 'Open a ticket →')
+      }, 'Open a ticket', h('span', { 'aria-hidden': 'true' }, ' →'))
     )
   );
 }
@@ -12272,7 +12276,8 @@ function ProfileSupportTab() {
           title: 'Reopen this ticket so staff can pick it back up in the same thread instead of a new one.'
         }, busy ? 'Reopening…' : '↻ Reopen')
       ),
-      h('div', { className: 'support-thread' },
+      // A log: a reply that lands is read out, and the list is named.
+      h('div', { className: 'support-thread', role: 'log', 'aria-label': 'Messages in ticket #' + viewing.ticket.id },
         viewing.messages.map(m => h('div', { key: m.id, className: `support-msg ${m.author === 'STAFF' ? 'staff' : 'user'}` },
           h('div', { className: 'support-msg-head' },
             m.authorName,
