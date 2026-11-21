@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=431'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=432'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -9551,7 +9551,7 @@ export function App() {
                              whiteSpace: 'nowrap' },
                     title: 'View this seller\'s Steam community profile — check account age, friends, badges, trade history',
                     onClick: (e) => e.stopPropagation()
-                  }, '↗ Steam')
+                  }, h('span', { 'aria-hidden': 'true' }, '↗ '), 'Steam')
                 ),
                 // S2 Boss-QA — decoration row was a free-form chain of
                 // chips ("1 last 30d / Active recently / Last sold 9d ago")
@@ -10212,7 +10212,8 @@ export function App() {
                 h('div', { className: 'stall-reviews-list' },
                   displayReviews.length === 0
                     ? h('div', { className: 'empty-inline' },
-                        h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
+                        // A heading, like the stall's other no-match lines.
+                        h('div', { role: 'heading', 'aria-level': 3, style: { fontSize: 13, color: 'var(--text-muted)' } },
                           `No ${stallStarFilter}★ reviews yet.`))
                     : (stallReviewsExpanded ? displayReviews : displayReviews.slice(0, 10))
                         .map(r => h(StallReviewRow, {
@@ -10291,7 +10292,7 @@ export function App() {
                   'Trust signals'),
                 h('ul', { className: 'stall-trust-list' },
                   h('li', null,
-                    h('span', { className: 'stall-trust-icon' },
+                    h('span', { className: 'stall-trust-icon', 'aria-hidden': 'true' },
                       stallData.seller.verified ? '✓' : '·'),
                     h('span', null,
                       stallData.seller.verified
@@ -10302,7 +10303,7 @@ export function App() {
                             : 'New seller — no completed sales yet')(stallData.seller.completedTrades ?? stallData.seller.soldCount)))
                   ),
                   stallData.seller.profileUrl && h('li', null,
-                    h('span', { className: 'stall-trust-icon' }, '↗'),
+                    h('span', { className: 'stall-trust-icon', 'aria-hidden': 'true' }, '↗'),
                     h('span', null,
                       'Steam profile linked · ',
                       h('a', {
@@ -10312,7 +10313,7 @@ export function App() {
                       }, 'view on Steam'))
                   ),
                   stallData.seller.joinedAt && h('li', null,
-                    h('span', { className: 'stall-trust-icon' }, '·'),
+                    h('span', { className: 'stall-trust-icon', 'aria-hidden': 'true' }, '·'),
                     h('span', null, `Joined ${BRAND.name} `,
                       // Same rule as the header "Joined" stat: relative under
                       // a year, the year for older accounts.
@@ -10321,12 +10322,12 @@ export function App() {
                         : 'in ' + new Date(stallData.seller.joinedAt).getFullYear())
                   ),
                   stallData.seller.responseRatePct != null && h('li', null,
-                    h('span', { className: 'stall-trust-icon' }, '·'),
+                    h('span', { className: 'stall-trust-icon', 'aria-hidden': 'true' }, '·'),
                     h('span', null,
                       Math.round(stallData.seller.responseRatePct), '% offer response rate')
                   ),
                   h('li', null,
-                    h('span', { className: 'stall-trust-icon' }, '·'),
+                    h('span', { className: 'stall-trust-icon', 'aria-hidden': 'true' }, '·'),
                     h('span', null, `Every trade is escrow-protected by ${BRAND.name} until both sides confirm`)
                   )
                 )

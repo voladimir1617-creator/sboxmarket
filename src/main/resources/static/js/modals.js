@@ -4998,7 +4998,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
           }, ' · ★ ', Number(profile.rating.average || 0).toFixed(2), ' (', profile.rating.count, ')')
         ),
         h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 2 } },
-          me.profileUrl && h('a', { href: me.profileUrl, target: '_blank', rel: 'noopener noreferrer', className: 'profile-link' }, 'View Steam profile ↗'),
+          me.profileUrl && h('a', { href: me.profileUrl, target: '_blank', rel: 'noopener noreferrer', className: 'profile-link' }, 'View Steam profile', h('span', { 'aria-hidden': 'true' }, ' ↗')),
           // Copy-my-stall-URL affordance. Users wanting to share their
           // storefront with friends or on Discord didn't have a single-
           // click copy before — they had to navigate to /stall/{my-id}
@@ -5118,7 +5118,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         }
       },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 8 } },
-          h('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' } }, 'Account Standing'),
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' } }, 'Account Standing'),
           h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } }, standing.note || 'No recent restrictions')
         ),
         h('div', { style: {
@@ -6361,7 +6361,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
         (setupMissing.some(s => s.id === 'trade' || s.id === 'verified') ? ' warn' : '')
     },
       h('div', { style: { fontWeight: 700, marginBottom: 6 } },
-        setupMissing.some(s => s.id === 'trade') ? '⚠' : '—',
+        h('span', { 'aria-hidden': 'true' }, setupMissing.some(s => s.id === 'trade') ? '⚠' : '—'),
         ' Account setup · ',
         h('strong', { style: { color: 'var(--accent)' } }, `${setupDone}/4`),
         ' steps complete'),
@@ -6375,7 +6375,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             color: s.done ? 'var(--text-muted)' : 'var(--text-primary)',
             marginBottom: 2
           }
-        }, s.done ? '✓ ' : '◯ ', s.label))
+        },
+          // The glyph and strike-through were the only sign of a step's state.
+          h('span', { 'aria-hidden': 'true' }, s.done ? '✓ ' : '◯ '),
+          h('span', { className: 'visually-hidden' }, s.done ? 'Done: ' : 'To do: '),
+          s.label))
       )
     ),
     h('div', { className: 'profile-row' },
@@ -6423,7 +6427,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           className: 'btn btn-ghost',
           style: { padding: '3px 8px', fontSize: 10, border: '1px solid var(--border)', textDecoration: 'none' },
           title: 'Open your Steam profile in a new tab'
-        }, '↗ Steam')
+        }, h('span', { 'aria-hidden': 'true' }, '↗ '), 'Steam')
       )
     ),
 
