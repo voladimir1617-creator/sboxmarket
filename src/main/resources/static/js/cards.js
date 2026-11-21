@@ -201,7 +201,8 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         className: `gc-rarity-top gc-rarity-top--${item.rarity}`,
         'aria-hidden': 'true'
       }),
-      h(ItemImage, { item, variant: 'card' }),
+      // Decorative: the name link below already names the item.
+      h(ItemImage, { item, alt: '', variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
       // CSFloat-1:1 — decorative magnifier-zoom cue at the bottom-right
       // of the thumbnail. Pure visual signal that the image is clickable
@@ -501,7 +502,8 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
   },
     h('td', null,
       h('div', { className: 'item-cell' },
-        h('div', { className: 'item-thumb' }, h(ItemImage, { item, variant: 'thumb' })),
+        // Decorative, as on Database rows: the name link beside it names the item.
+        h('div', { className: 'item-thumb' }, h(ItemImage, { item, alt: '', variant: 'thumb' })),
         h('div', { className: 'item-info' },
           h('div', { className: 'item-name' },
             h('a', {
@@ -531,7 +533,9 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
         : h('span', { style: { color: 'var(--text-muted)', fontSize: 11 } }, '—')
     ),
     h('td', { className: 'center' },
-      h('span', { className: `trend ${trendFlat ? 'flat' : trendUp ? 'up' : 'down'}` },
+      // The arrow glyphs carry the direction; say it in words.
+      h('span', { className: `trend ${trendFlat ? 'flat' : trendUp ? 'up' : 'down'}`, role: 'img',
+        'aria-label': trendFlat ? 'No change' : trendUp ? `Up ${trend}%` : `Down ${Math.abs(trend)}%` },
         trendFlat ? '━' : trendUp ? `▲ ${trend}%` : `▼ ${Math.abs(trend)}%`
       )
     ),

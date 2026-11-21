@@ -11,7 +11,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers, fetchPublicBuyOrders
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip, RarityBadge } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=28';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=29';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=433'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=434'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -9930,7 +9930,10 @@ export function App() {
                         h('option', { value: 'price_desc' }, 'Price: High → Low'),
                         h('option', { value: 'newest' },     'Newest first'),
                         h('option', { value: 'rarity' },     'Lowest supply')
-                      )
+                      ),
+                      // Rarity chips and the name filter change the grid silently; say how many show.
+                      h('span', { className: 'visually-hidden', role: 'status' },
+                        `${rows.length} ${rows.length === 1 ? 'listing' : 'listings'} shown`)
                     ),
                     rows.length === 0
                       ? h('div', { className: 'empty-inline' },
