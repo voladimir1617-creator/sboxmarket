@@ -12359,13 +12359,13 @@ function ProfileSupportTab() {
       // a11y audit — visible label exists but wasn't programmatically tied
       // to the input. Screen-reader users heard "edit, blank" instead of
       // "Ticket subject, edit". Same fix for the Message textarea below.
-      h('input', { ref: ticketSubjectRef, className: 'wallet-amount-input', 'aria-label': 'Ticket subject', 'aria-invalid': ticketMissing.subject ? 'true' : undefined, autoFocus: true, value: form.subject, onChange: e => { setForm({ ...form, subject: e.target.value }); setTicketMissing(m => ({ ...m, subject: false })); }, maxLength: 80, placeholder: 'Short subject line…' }),
+      h('input', { ref: ticketSubjectRef, className: 'wallet-amount-input', 'aria-label': 'Ticket subject', 'aria-required': 'true', 'aria-invalid': ticketMissing.subject ? 'true' : undefined, autoFocus: true, value: form.subject, onChange: e => { setForm({ ...form, subject: e.target.value }); setTicketMissing(m => ({ ...m, subject: false })); }, maxLength: 80, placeholder: 'Short subject line…' }),
       h('div', { className: 'wallet-input-label' }, 'Category'),
       h('select', { className: 'sort-select', 'aria-label': 'Ticket category', value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) },
         ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, ticketCategoryLabel(c)))
       ),
       h('div', { className: 'wallet-input-label' }, 'Message'),
-      h('textarea', { ref: ticketBodyRef, className: 'wallet-amount-input', 'aria-label': 'Ticket message body', 'aria-invalid': ticketMissing.body ? 'true' : undefined, style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => { setForm({ ...form, body: e.target.value }); setTicketMissing(m => ({ ...m, body: false })); }, maxLength: 2000, placeholder: 'Describe your issue…' }),
+      h('textarea', { ref: ticketBodyRef, className: 'wallet-amount-input', 'aria-label': 'Ticket message body', 'aria-required': 'true', 'aria-invalid': ticketMissing.body ? 'true' : undefined, style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => { setForm({ ...form, body: e.target.value }); setTicketMissing(m => ({ ...m, body: false })); }, maxLength: 2000, placeholder: 'Describe your issue…' }),
       // aria-disabled keeps focus on the button; submitCreate ignores in-flight sends.
       h('button', { className: 'btn btn-accent wallet-submit', 'aria-disabled': busy || undefined, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
@@ -12411,7 +12411,7 @@ function ProfileSupportTab() {
         ),
         filtered.length === 0
           ? h('div', { className: 'empty-inline' },
-              h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No tickets in this filter.'))
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No tickets in this filter.'))
           : h('table', { className: 'db-table db-table--list' },
               h('thead', null, h('tr', null,
                 h('th', null, 'ID'), h('th', null, 'Subject'), h('th', null, 'Category'), h('th', null, 'Status'), h('th', { className: 'right' }, 'Updated'))),
