@@ -2596,7 +2596,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             otherFromSeller.sellerId && h('a', {
               href: '/stall/' + otherFromSeller.sellerId,
               style: { marginLeft: 10, fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }
-            }, 'Visit stall →')),
+            }, 'Visit stall', h('span', { 'aria-hidden': 'true' }, ' →'))),
           h('div', { className: 'similar-strip' },
             otherFromSeller.listings.map(l => h('a', {
               key: l.id,
@@ -3975,9 +3975,12 @@ export function AffiliateModal({ onClose }) {
            in the middle, tracked-out caps platform label at the
            bottom. Reuses .stall-stat shell (auto-fill grid w/ 140px
            min) so spacing matches /stall/<n>. */
-        h('div', { className: 'stall-stat-grid affiliate-req-grid' },
+        // A list, so a screen reader says there are five thresholds and reads
+        // each one as an item instead of one run of text.
+        h('div', { className: 'stall-stat-grid affiliate-req-grid', role: 'list', 'aria-label': 'Platform thresholds' },
           REQUIREMENTS.map(r => h('div', {
             key: r.platform,
+            role: 'listitem',
             className: 'stall-stat affiliate-req-stat',
             style: { alignItems: 'center', textAlign: 'center', padding: '14px 12px' }
           },
@@ -4538,13 +4541,13 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
           style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12, textDecoration: 'none' },
           // InfoModal routes the link; closing first pushed /market and broke Back.
           href: '/profile/personal'
-        }, 'Manage account →'),
+        }, 'Manage account', h('span', { 'aria-hidden': 'true' }, ' →')),
         h('a', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 12, textDecoration: 'none' },
           href: '/api/profile/export',
           title: 'Download every piece of your data we store as a JSON file'
-        }, '⇣ Export my data (JSON)')
+        }, h('span', { 'aria-hidden': 'true' }, '⇣ '), 'Export my data (JSON)')
       )
     ),
     h('div', { style: { marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)' } },
@@ -7060,7 +7063,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 11 },
           href: '/api/profile/export',
           title: 'Download every piece of your data we store as a JSON file'
-        }, '⇣ Export my data (JSON)'),
+        }, h('span', { 'aria-hidden': 'true' }, '⇣ '), 'Export my data (JSON)'),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
           'Includes wallet, transactions, listings, trades, offers, buy orders, auto-bids, reviews, notifications. No secrets.')
       )

@@ -1814,7 +1814,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         h('a', {
           href: '/loadout',
           style: { color: 'var(--accent)', textDecoration: 'none', fontWeight: 700 }
-        }, 'Browse all public loadouts →')
+        }, 'Browse all public loadouts', h('span', { 'aria-hidden': 'true' }, ' →'))
       ),
       h('div', { className: 'loadout-action-row', style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
         h('button', { className: 'btn btn-ghost', onClick: () => {
@@ -1828,7 +1828,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         h('div', { className: 'loadout-action-spacer', style: { flex: 1, minWidth: 0 } }),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap' } },
           'By ', h('strong', { style: { color: 'var(--text-secondary)' } }, viewing.loadout.ownerName || 'anon'),
-          ' · ❤ ', Number(viewing.loadout.favorites || 0).toLocaleString()
+          // "6 favorites", not "red heart 6".
+          ' · ', h('span', { 'aria-hidden': 'true' }, '❤ '), Number(viewing.loadout.favorites || 0).toLocaleString(),
+          h('span', { className: 'visually-hidden' }, Number(viewing.loadout.favorites || 0) === 1 ? ' favorite' : ' favorites')
         ),
         !isOwner && me && h('button', {
           className: 'btn btn-ghost',
@@ -2241,6 +2243,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
         h('div', { role: 'tablist', 'aria-label': 'Loadout sections', style: { display: 'contents' } },
         TABS.map(id => h('button', {
           key: id,
+          id: 'loadout-tab-' + id,
           className: `offer-tab ${tab === id ? 'active' : ''}`,
           role: 'tab',
           'aria-selected': tab === id,
@@ -2284,7 +2287,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     }),
     // Wrap the result-region ternary so the role=tab buttons above can
     // resolve their aria-controls="loadout-results" pointer (WCAG 4.1.2).
-    h('div', { id: 'loadout-results' },
+    // role=tabpanel, named by the selected tab, so the tabs' aria-controls
+    // lands on a panel a screen reader announces.
+    h('div', { id: 'loadout-results', role: 'tabpanel', 'aria-labelledby': 'loadout-tab-' + tab },
     listErr
       /* Audit fix — fetchPublicLoadouts/fetchMyLoadouts rejected. Without
          this branch `list` stayed null and the spinner below spun
@@ -2347,7 +2352,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             }
             if (tab === 'favorites') {
               return h('div', { className: 'empty-inline' },
-                h('div', { className: 'empty-icon' }, '❤'),
+                h('div', { className: 'empty-icon', 'aria-hidden': 'true' }, '❤'),
                 h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                   'No favorites yet'),
                 h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 14px', lineHeight: 1.55 } },
@@ -2356,7 +2361,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   className: 'btn btn-accent',
                   style: { padding: '10px 18px', fontWeight: 700 },
                   onClick: focusDiscoverTab
-                }, 'Browse public loadouts →')
+                }, 'Browse public loadouts', h('span', { 'aria-hidden': 'true' }, ' →'))
               );
             }
             // Default: Discover tab with zero public loadouts — rare path
@@ -2406,7 +2411,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   }
                 }, highlightMatch(l.name || '', search))),
               h('div', { className: 'loadout-card-meta' },
-                h('span', null, '❤ ', Number(l.favorites || 0).toLocaleString()),
+                h('span', null, h('span', { 'aria-hidden': 'true' }, '❤ '), Number(l.favorites || 0).toLocaleString(),
+                  h('span', { className: 'visually-hidden' }, Number(l.favorites || 0) === 1 ? ' favorite' : ' favorites')),
                 h('span', null, fmt(l.totalValue)),
                 l.filledSlots != null && h('span', null, l.filledSlots, l.filledSlots === 1 ? ' item' : ' items')
               ),
@@ -2530,12 +2536,15 @@ function SlotPicker({ slot, allItems, poolErr, poolLoaded = true, onPick }) {
       // Audit fix — when the catalogue pool fetch failed, `allItems` is
       // empty for every slot. Without a hint the list rendered blank and
       // read as "no items exist". Surface the load failure instead.
-      filtered.length === 0 && h('div', {
+      // Kept mounted as a status region so "No items match." is read out
+      // when the filter empties the list; it holds nothing (and takes no
+      // space) while items show.
+      h('div', { role: 'status' }, filtered.length === 0 && h('div', {
         style: { padding: 10, fontSize: 11, color: poolErr ? 'var(--red)' : 'var(--text-muted)' }
       },
         poolErr
           ? "Couldn't load items — check your connection and reopen the loadout."
-          : poolLoaded ? 'No items match.' : 'Loading items…'),
+          : poolLoaded ? 'No items match.' : 'Loading items…')),
       filtered.map(it => h('div', {
         key: it.id, className: 'loadout-picker-item',
         onClick: () => { onPick(it.id); setOpen(false); },
