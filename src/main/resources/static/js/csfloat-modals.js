@@ -557,10 +557,11 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
             h('th', { scope: 'col' }, 'Item'),
             h('th', { scope: 'col' }, 'Category'),
             h('th', { scope: 'col' }, 'Rarity'),
-            h('th', { scope: 'col', className: 'right' }, 'Supply'),
-            h('th', { scope: 'col', className: 'right' }, 'Sold'),
-            h('th', { scope: 'col', className: 'right', title: 'Lifetime GET /api/items/{id} hits' }, 'Views'),
-            h('th', { scope: 'col', className: 'right' }, 'Floor'),
+            // aria-sort names the column the Sort select orders by.
+            h('th', { scope: 'col', className: 'right', 'aria-sort': sort === 'rarest' ? 'ascending' : undefined }, 'Supply'),
+            h('th', { scope: 'col', className: 'right', 'aria-sort': sort === 'most_traded' ? 'descending' : undefined }, 'Sold'),
+            h('th', { scope: 'col', className: 'right', title: 'Lifetime GET /api/items/{id} hits', 'aria-sort': sort === 'most_viewed' ? 'descending' : undefined }, 'Views'),
+            h('th', { scope: 'col', className: 'right', 'aria-sort': sort === 'price_asc' ? 'ascending' : sort === 'price_desc' ? 'descending' : undefined }, 'Floor'),
             // Boss QA D5 — last column was just a glyph (★ / ☆) which
             // read like a stray chevron at viewport scale. Rename the
             // header to "Watch" so users know what the toggle does and

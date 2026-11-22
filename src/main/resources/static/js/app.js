@@ -3558,24 +3558,24 @@ export function SiteFooter() {
           )
         )
       ),
-      h('div', { className: 'site-footer-col' },
-        h('div', { className: 'site-footer-title' }, 'Marketplace'),
+      h('div', { className: 'site-footer-col', role: 'navigation', 'aria-labelledby': 'site-footer-market' },
+        h('div', { className: 'site-footer-title', id: 'site-footer-market', role: 'heading', 'aria-level': 2 }, 'Marketplace'),
         h('a', { href: paths.market(), 'aria-current': cur('market') }, 'Browse Market'),
         h('a', { href: paths.database(), 'aria-current': cur('database') }, 'Item Database'),
         h('a', { href: paths.buyorders(), 'aria-current': cur('buyorders') }, 'Buy Orders'),
         h('a', { href: paths.sell(), 'aria-current': cur('sell') }, 'Sell Items'),
         h('a', { href: paths.loadouts(), 'aria-current': cur('loadouts') }, 'Loadout Lab')
       ),
-      h('div', { className: 'site-footer-col' },
-        h('div', { className: 'site-footer-title' }, 'Account'),
+      h('div', { className: 'site-footer-col', role: 'navigation', 'aria-labelledby': 'site-footer-account' },
+        h('div', { className: 'site-footer-title', id: 'site-footer-account', role: 'heading', 'aria-level': 2 }, 'Account'),
         h('a', { href: paths.profile(), 'aria-current': cur('profile') }, 'Profile'),
         h('a', { href: paths.wallet(), 'aria-current': cur('wallet') }, 'Wallet'),
         h('a', { href: paths.offers(), 'aria-current': cur('offers') }, 'Offers'),
         h('a', { href: paths.watchlist(), 'aria-current': cur('watchlist') }, 'Watchlist'),
         h('a', { href: paths.notifications(), 'aria-current': cur('notifications') }, 'Notifications')
       ),
-      h('div', { className: 'site-footer-col' },
-        h('div', { className: 'site-footer-title' }, 'Resources'),
+      h('div', { className: 'site-footer-col', role: 'navigation', 'aria-labelledby': 'site-footer-resources' },
+        h('div', { className: 'site-footer-title', id: 'site-footer-resources', role: 'heading', 'aria-level': 2 }, 'Resources'),
         h('a', { href: paths.help(), 'aria-current': cur('help') }, 'Help Center'),
         h('a', { href: paths.faq(), 'aria-current': cur('faq') }, 'FAQ'),
         h('a', { href: paths.support(), 'aria-current': cur('support') }, 'Support'),
@@ -3586,8 +3586,8 @@ export function SiteFooter() {
         h('a', { href: paths.affiliate(), 'aria-current': cur('affiliate') }, 'Affiliate Program'),
         h('a', { href: paths.settings(), 'aria-current': cur('settings') }, 'Settings')
       ),
-      h('div', { className: 'site-footer-col' },
-        h('div', { className: 'site-footer-title' }, 'Legal'),
+      h('div', { className: 'site-footer-col', role: 'navigation', 'aria-labelledby': 'site-footer-legal' },
+        h('div', { className: 'site-footer-title', id: 'site-footer-legal', role: 'heading', 'aria-level': 2 }, 'Legal'),
         h('a', { href: '/legal/terms.html' }, 'Terms of Service'),
         h('a', { href: '/legal/privacy.html' }, 'Privacy Policy'),
         h('a', { href: '/legal/refunds.html' }, 'Refund Policy'),
@@ -9197,8 +9197,9 @@ export function App() {
                           h('th', { scope: 'col', className: 'center' }, 'vs Steam'),
                           h('th', { scope: 'col', className: 'center' }, 'Trend'),
                           h('th', { scope: 'col' }, 'Seller'),
-                          h('th', { scope: 'col' }, 'Listed'),
-                          h('th', { scope: 'col', className: 'right' }, 'Price'),
+                          // aria-sort names the column the Sort picker orders by.
+                          h('th', { scope: 'col', 'aria-sort': sort === 'newest' ? 'descending' : undefined }, 'Listed'),
+                          h('th', { scope: 'col', className: 'right', 'aria-sort': sort === 'price_asc' ? 'ascending' : sort === 'price_desc' ? 'descending' : undefined }, 'Price'),
                           h('th', { scope: 'col', className: 'center' }, 'Action'),
                         )
                       ),
@@ -9571,7 +9572,8 @@ export function App() {
                               if (ageMs < 365 * 24 * 3600_000) return timeAgo(stallData.seller.joinedAt);
                               return new Date(stallData.seller.joinedAt).getFullYear();
                             })())
-                        : '—')
+                        : [h('span', { key: 'd', 'aria-hidden': 'true' }, '—'),
+                           h('span', { key: 't', className: 'visually-hidden' }, 'Unknown')])
                   ),
                   // Last seen ON THIS SITE — the same presence field the
                   // Online/Offline dot on every card reads. It used the Steam
