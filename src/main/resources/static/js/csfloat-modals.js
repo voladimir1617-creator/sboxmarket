@@ -2993,6 +2993,11 @@ export function NotificationsModal({ onClose, me }) {
         }, `${opt.label} · ${c}`);
       })
     ),
+    // Read the narrowed count out: a search or filter changed the list
+    // under the controls with nothing said.
+    !(loading || loadErr) && h('div', { className: 'visually-hidden', role: 'status', 'aria-atomic': 'true' },
+      (filter === 'UNREAD' || typeFilter !== 'ALL' || search.trim())
+        ? `${count.toLocaleString()} notification${count === 1 ? '' : 's'} shown` : ''),
     loadErr
       /* Audit fix — fetchNotifications() rejected. Without this branch
          the empty `data` fell through to the "all caught up / Quiet so
@@ -3076,10 +3081,11 @@ export function NotificationsModal({ onClose, me }) {
           }
           return h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'notifications_off', size: 26 })),
+            // Every loaded row is a muted type: the feed is not empty.
             h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
-              'Quiet so far'),
+              data.items.length > 0 ? 'Only muted notifications' : 'Quiet so far'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 16px', lineHeight: 1.55 } },
-              "Every trade move, bid update, offer, price-alert hit, and seller-follow ping lands here. List an item, place a bid, or watchlist something — the first notification shows up the moment it happens."),
+              data.items.length > 0 ? 'Every notification you have is a type you muted. Unmute types in Settings to see them here.' : "Every trade move, bid update, offer, price-alert hit, and seller-follow ping lands here. List an item, place a bid, or watchlist something — the first notification shows up the moment it happens."),
             h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
               h('a', { className: 'btn btn-accent', href: '/market', style: { padding: '10px 18px', fontWeight: 700 } }, 'Browse marketplace →'),
               h('a', { className: 'btn btn-ghost', href: '/watchlist', style: { border: '1px solid var(--border)', padding: '10px 18px' } }, 'Open watchlist')

@@ -6150,6 +6150,9 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     document.getElementById('profile-trade-url-input')?.focus();
   };
 
+  // Cancel/Escape: the error was about the draft that is going away; left
+  // up, it also marked the verification-code box invalid.
+  const closeEmailEditor = () => { setEditingEmail(false); setEmailResult(r => (r && r.err ? null : r)); };
   // Latch: a double-click sent a second PUT that hit the resend cooldown
   // and replaced the success message with an error.
   const emailBusyRef = useRef(false);
@@ -6509,13 +6512,14 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             className: 'btn btn-ghost',
             style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
             ref: emailEditRef,
-            onClick: () => { setEditingEmail(true); setEmailDraft(profile?.user?.email || ''); },
+            // A verify-code error is about the box this editor replaces; drop it.
+            onClick: () => { setEditingEmail(true); setEmailDraft(profile?.user?.email || ''); setEmailResult(r => (r && r.err ? null : r)); },
             'aria-label': 'Edit email address'
           }, 'Edit')
         ),
         // Escape from Save or ✕ closes the editor too; the box handles its own.
         editingEmail && h('div', { style: { display: 'flex', gap: 6, width: '100%' },
-          onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!emailBusyRef.current) setEditingEmail(false); } } },
+          onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!emailBusyRef.current) closeEmailEditor(); } } },
           h('input', {
             className: 'price-input', style: { flex: 1 },
             type: 'email', placeholder: 'you@example.com',
@@ -6535,11 +6539,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
             onKeyDown: e => {
               if (e.key === 'Enter') { e.preventDefault(); saveEmail(); }
               // A save in flight keeps the box: closing it lost the draft the error is about.
-              else if (e.key === 'Escape') { e.preventDefault(); if (!emailBusyRef.current) setEditingEmail(false); }
+              else if (e.key === 'Escape') { e.preventDefault(); if (!emailBusyRef.current) closeEmailEditor(); }
             }
           }),
           h('button', { className: 'buy-btn', onClick: saveEmail }, 'Save'),
-          h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => { if (!emailBusyRef.current) setEditingEmail(false); }, 'aria-label': 'Cancel email edit' }, '✕')
+          h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => { if (!emailBusyRef.current) closeEmailEditor(); }, 'aria-label': 'Cancel email edit' }, '✕')
         ),
         // Mail was sent (no token comes back when real mail is on): say so,
         // otherwise Save and Resend look like they did nothing.
