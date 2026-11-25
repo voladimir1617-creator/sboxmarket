@@ -353,7 +353,7 @@ export const sellerPayoutTotal = (prices) => {
  *                             (helps when the same text might render in
  *                             multiple components on the same page)
  */
-export function linkifyText(text, keyPrefix = 'lnk') {
+export function linkifyText(text, keyPrefix = 'lnk', trimTrail = false) {
   // Coerce to string so non-string inputs (number from a typed JSON
   // payload, null after `|| ''`, etc.) don't blow up on the `.slice`
   // calls below. `String(null) === 'null'` so guard the null/undefined
@@ -365,9 +365,17 @@ export function linkifyText(text, keyPrefix = 'lnk') {
   let last = 0, match;
   while ((match = re.exec(src)) !== null) {
     if (match.index > last) parts.push(src.slice(last, match.index));
+    // Sentence punctuation after a URL ("see https://x.gg/a.") is not part
+    // of it; a ")" stays only when it closes a "(" inside the URL.
+    let url = match[0];
+    while (trimTrail && /[.,;:!?)\]]$/.test(url)) {
+      if (url.endsWith(')') && url.split('(').length > url.split(')').length - 1) break;
+      url = url.slice(0, -1);
+    }
+    re.lastIndex = match.index + url.length;
     parts.push(h('a', {
       key: keyPrefix + '-' + match.index,
-      href: match[0],
+      href: url,
       target: '_blank',
       // Batch 713 — `nofollow ugc` on user-generated-content links so
       // a bad actor spamming URLs in reviews / trade messages /
@@ -377,8 +385,8 @@ export function linkifyText(text, keyPrefix = 'lnk') {
       // + referrer-privacy guarantees.
       rel: 'nofollow ugc noopener noreferrer',
       style: { color: 'var(--accent)', textDecoration: 'underline', wordBreak: 'break-all' }
-    }, match[0]));
-    last = match.index + match[0].length;
+    }, url));
+    last = match.index + url.length;
   }
   if (last < src.length) parts.push(src.slice(last));
   return parts.length > 0 ? parts : src;
