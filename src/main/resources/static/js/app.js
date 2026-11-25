@@ -11,7 +11,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers, fetchPublicBuyOrders
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip, RarityBadge } from './primitives.js';
-import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=29';
+import { GridCard, ListingRow, VERIFIED_SELLER_RULE } from './cards.js?v=30';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import { useDialogA11y, fmtDelay } from './dialog-a11y.js';
@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=436'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=437'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -441,7 +441,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       onSaved && onSaved();
     } finally { stallReviewInFlight.delete(review.id); setBusy(false); }
   };
-  return h('div', { className: 'stall-review', ref: rowRef },
+  return h('div', { className: 'stall-review', role: 'listitem', ref: rowRef },
     // Wraps on a phone: a long reviewer name ran under the date.
     h('div', { className: 'stall-review-head', style: { flexWrap: 'wrap' } },
       h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${review.rating} out of 5 stars` }, '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)),
@@ -7674,7 +7674,7 @@ export function App() {
                 /* CSFloat-1:1: orange italic wear + muted category — same
                    wear-line treatment as the hero stack and main grid cards. */
                 h('div', { className: 'csfloat-band-card-sub' },
-                  h('span', { className: 'csfloat-band-card-wear' }, it.rarity || 'Standard'),
+                  h('span', { className: 'csfloat-band-card-wear' }, it.rarity === 'Off-Market' ? 'Scarce' : (it.rarity || 'Standard')),
                   h('span', { className: 'csfloat-band-card-cat' }, ' ' + (it.category || 'Cosmetic'))
                 )
               ),
@@ -8627,6 +8627,8 @@ export function App() {
                 onMouseEnter: () => setSuggestIdx(i),
                 onClick: (e) => {
                   e.preventDefault();
+                  // Same as Enter on the row: the search goes in Recent searches.
+                  pushRecentSearch(searchInput);
                   setSuggestOpen(false); setSuggestIdx(-1);
                   navigate(paths.item(item.id));
                 }
@@ -8641,7 +8643,7 @@ export function App() {
                   h('div', { className: 'search-suggest-name' }, item.name),
                   h('div', { className: 'search-suggest-meta' },
                     item.category || 'Item',
-                    item.rarity && item.rarity !== 'Standard' ? ` · ${item.rarity}` : ''
+                    item.rarity && item.rarity !== 'Standard' ? ` · ${item.rarity === 'Off-Market' ? 'Scarce' : item.rarity}` : ''
                   )
                 ),
                 h('div', { className: 'search-suggest-price' },
@@ -10214,7 +10216,7 @@ export function App() {
                     h('option', { value: 'lowest' },  'Lowest rating')
                   )
                 ),
-                h('div', { className: 'stall-reviews-list' },
+                h('div', { className: 'stall-reviews-list', role: displayReviews.length === 0 ? undefined : 'list' },
                   displayReviews.length === 0
                     ? h('div', { className: 'empty-inline' },
                         // A heading, like the stall's other no-match lines.

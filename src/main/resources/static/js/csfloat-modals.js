@@ -2852,6 +2852,14 @@ export function NotificationsModal({ onClose, me }) {
     try { return new Set(JSON.parse(localStorage.getItem('sb_mute_kinds') || '[]')); }
     catch { return new Set(); }
   })();
+  const mutedKey = [...mutedSet].sort().join(',');
+  // A mute changed in Settings (this tab or another) repaints the list.
+  const [, setMuteTick] = useState(0);
+  useEffect(() => {
+    const onStorage = (e) => { if (e.key === 'sb_mute_kinds' || e.key === null) setMuteTick(t => t + 1); };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   // Group items by local-calendar day and label each bucket.
   const groups = useMemo(() => {
@@ -2874,7 +2882,7 @@ export function NotificationsModal({ onClose, me }) {
     return Object.entries(buckets)
       .sort(([a], [b]) => (a < b ? 1 : -1))
       .map(([k, v]) => ({ key: k, label: v.label, items: v.items }));
-  }, [data.items, filter, typeFilter, search, mutedSet.size]);
+  }, [data.items, filter, typeFilter, search, mutedKey]);
 
   const count = groups.reduce((s, g) => s + g.items.length, 0);
   // Muted rows are hidden from the list, so the title and chips count
