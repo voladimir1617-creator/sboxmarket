@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=437'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=438'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1970,7 +1970,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   },
     // Auto-linkify URLs in the bio (batch 442) — sellers often paste a
     // Discord/Twitter/Steam-group contact link.
-    h('div', { dir: 'auto', style: { flex: 1 } }, linkifyText(bio, 'biolnk')),
+    h('div', { dir: 'auto', style: { flex: 1 } }, linkifyText(bio, 'biolnk', true)),
     canEdit && h('button', {
       className: 'btn btn-ghost',
       style: { flexShrink: 0, padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)' },
@@ -10348,7 +10348,7 @@ export function App() {
                   h('span', { className: 'section-title-dot' }),
                   'Reviews'),
                 h('div', { className: 'stall-trust-empty' },
-                  h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8, fontWeight: 600 } },
+                  h('div', { role: 'heading', 'aria-level': 3, style: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8, fontWeight: 600 } },
                     'No reviews yet'),
                   h('div', { style: { fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55 } },
                     me && me.id !== stallData.seller.id && eligibleTrades.length > 0

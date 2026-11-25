@@ -6369,11 +6369,12 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     // stranded on the far right, plus a muddy orange blur (design review).
     // The class styling (.profile-setup-banner) keeps it a clean left-aligned
     // stacked callout.
-    setupDone < 4 && h('div', {
+    // Only once /profile/me answers: before that every step read as To do.
+    profile && setupDone < 4 && h('div', {
       className: 'profile-setup-banner' +
         (setupMissing.some(s => s.id === 'trade' || s.id === 'verified') ? ' warn' : '')
     },
-      h('div', { style: { fontWeight: 700, marginBottom: 6 } },
+      h('div', { role: 'heading', 'aria-level': 2, style: { fontWeight: 700, marginBottom: 6 } },
         h('span', { 'aria-hidden': 'true' }, setupMissing.some(s => s.id === 'trade') ? '⚠' : '—'),
         ' Account setup · ',
         h('strong', { style: { color: 'var(--accent)' } }, `${setupDone}/4`),
@@ -6507,7 +6508,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
         // Wraps like the trade URL row: a long address pushed the badge and
         // Edit past a phone's edge, where they could not be reached.
         !editingEmail && h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-          h('span', { className: 'mono', style: { wordBreak: 'break-all' } }, profile?.user?.email || '(not set)'),
+          h('span', { className: 'mono', style: { wordBreak: 'break-all' } }, profile?.user?.email || (profile === undefined ? '…' : '(not set)')),
           hasEmail && h('span', {
             style: {
               fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
@@ -6612,7 +6613,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 rel: 'noopener noreferrer',
                 style: { fontSize: 11, color: 'var(--accent)', wordBreak: 'break-all' }
               }, profile.user.tradeUrl)
-            : h('span', { className: 'mono', style: { color: 'var(--text-muted)' } }, '(not set)'),
+            : h('span', { className: 'mono', style: { color: 'var(--text-muted)' } }, profile === undefined ? '…' : '(not set)'),
           h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
@@ -6692,7 +6693,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       h('div', { className: 'profile-row-label' }, 'Two-Factor Auth'),
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 } },
         !enrolling && !has2fa && h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-          h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, 'Disabled'),
+          h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, profile === undefined ? '…' : 'Disabled'),
           // aria-disabled, not disabled: a refused start keeps focus here.
           h('button', { ref: enable2faBtnRef, className: 'btn btn-accent', style: { padding: '6px 14px', fontSize: 11 }, 'aria-disabled': twofaBusy || undefined, onClick: () => { if (!twofaBusy) startEnroll(); } }, 'Enable 2FA')
         ),
@@ -12325,7 +12326,7 @@ function ProfileSupportTab() {
             // The exact time, as on trade rows: "1d ago" alone could not be checked.
             ' · ', m.createdAt ? h('time', { dateTime: new Date(m.createdAt).toISOString(), title: 'Sent ' + new Date(m.createdAt).toLocaleString() }, timeAgo(m.createdAt)) : timeAgo(m.createdAt)
           ),
-          h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'sup-' + m.id))
+          h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'sup-' + m.id, true))
         ))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
