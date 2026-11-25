@@ -3,7 +3,7 @@
 import { BRAND } from './brand.js';
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, focusPastOnUnmount, linkifyText, highlightMatch, useTestMode, testModeCopy, ReactDOM, currencySymbol, fxConvertUsd, platformFee, sellerPayout, sellerPayoutTotal, useCustodyCopy, parseMoneyInput, moneyInputError } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, LineIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip, Money } from './primitives.js';
-import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=29';
+import { GridCard, VERIFIED_SELLER_RULE } from './cards.js?v=30';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, followInternalLink } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
@@ -1689,7 +1689,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             className: 'modal-demand-chip',
             title: `${Number(item.viewCount).toLocaleString()} lifetime item-detail opens`
           },
-            '—',
+            h('span', { 'aria-hidden': 'true' }, '—'),
             h('span', { className: 'modal-demand-chip-num' }, Number(item.viewCount).toLocaleString()),
             ' views'
           ),
@@ -1702,7 +1702,7 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
             className: 'modal-demand-chip',
             title: `${Number(item.totalSold).toLocaleString()} lifetime sales on ${BRAND.name}`
           },
-            '✓ ',
+            h('span', { 'aria-hidden': 'true' }, '✓ '),
             h('span', { className: 'modal-demand-chip-num' }, Number(item.totalSold).toLocaleString()),
             ' sold'
           ),
@@ -4332,6 +4332,13 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
     const onStorage = (e) => {
       if (e.key === 'sb_currency' && e.newValue) setCurrency(e.newValue);
       else if (e.key === 'sb_privacy') setPrivacy(e.newValue === '1');
+      // Settings open in another tab writes these too; a stale chip or
+      // switch here wrote its old value back over that change.
+      else if (e.key === 'sb_mute_kinds') { try { setMutedState(new Set(JSON.parse(e.newValue || '[]'))); } catch (_) {} }
+      else if (e.key === 'sb_notifs') setNotifs(e.newValue !== 'false');
+      else if (e.key === 'sb_sounds') setSounds(e.newValue !== 'false');
+      else if (e.key === 'sb_reduce_motion') setRM(e.newValue === '1');
+      else if (e.key === 'sb_contrast') setHC(e.newValue === '1');
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
@@ -5876,9 +5883,9 @@ function SignInHistoryRow() {
           ? h('div', { role: 'alert', style: { fontSize: 11, color: 'var(--red)' } }, "Couldn't load your sign-ins. Hide and show them again to retry.")
         : rows.length === 0
           ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'No sign-in history recorded yet.')
-          : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, width: '100%', maxHeight: 220, overflowY: 'auto' } },
+          : h('div', { role: 'list', 'aria-label': 'Recent sign-ins', style: { display: 'flex', flexDirection: 'column', gap: 4, width: '100%', maxHeight: 220, overflowY: 'auto' } },
               rows.map(r => h('div', {
-                key: r.id,
+                key: r.id, role: 'listitem',
                 style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, padding: '4px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 4 }
               },
                 h('span', { className: 'mono', style: { color: 'var(--text-secondary)', minWidth: 140 } },
@@ -5969,11 +5976,11 @@ function SecurityActivityRow() {
           ? h('div', { role: 'alert', style: { fontSize: 11, color: 'var(--red)' } }, "Couldn't load your security events. Hide and show them again to retry.")
         : rows.length === 0
           ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'No security-relevant events on record yet.')
-          : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, width: '100%', maxHeight: 260, overflowY: 'auto' } },
+          : h('div', { role: 'list', 'aria-label': 'Security activity', style: { display: 'flex', flexDirection: 'column', gap: 4, width: '100%', maxHeight: 260, overflowY: 'auto' } },
               rows.map(r => {
                 const meta = EVENT_META[r.eventType] || { label: r.eventType, icon: '•' };
                 return h('div', {
-                  key: r.id,
+                  key: r.id, role: 'listitem',
                   style: {
                     display: 'flex', alignItems: 'center', gap: 8, fontSize: 11,
                     padding: '6px 10px', background: 'var(--bg-elevated)',
@@ -5981,7 +5988,7 @@ function SecurityActivityRow() {
                   },
                   title: r.summary || ''
                 },
-                  h('span', { style: { fontSize: 14, flexShrink: 0 } }, meta.icon),
+                  h('span', { 'aria-hidden': 'true', style: { fontSize: 14, flexShrink: 0 } }, meta.icon),
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' } },
                       meta.label,
@@ -11817,8 +11824,8 @@ function ProfileReviewsTab({ me }) {
           ),
           rows.length > 0 && h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)' } },
             'No reviews match this filter.'))
-      : h('div', { className: 'profile-reviews-list' },
-          filtered.map(r => h('div', { key: r.id, className: 'stall-review' },
+      : h('div', { className: 'profile-reviews-list', role: 'list' },
+          filtered.map(r => h('div', { key: r.id, className: 'stall-review', role: 'listitem' },
             // Wraps on a phone: a long reviewer name ran under the date.
             h('div', { className: 'stall-review-head', style: { flexWrap: 'wrap' } },
               h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${r.rating} out of 5 stars` }, '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)),
@@ -12315,7 +12322,8 @@ function ProfileSupportTab() {
               },
               title: `Official reply from a ${BRAND.name} staff member`
             }, 'STAFF'),
-            ' · ', timeAgo(m.createdAt)
+            // The exact time, as on trade rows: "1d ago" alone could not be checked.
+            ' · ', m.createdAt ? h('time', { dateTime: new Date(m.createdAt).toISOString(), title: 'Sent ' + new Date(m.createdAt).toLocaleString() }, timeAgo(m.createdAt)) : timeAgo(m.createdAt)
           ),
           h('div', { className: 'support-msg-body', dir: 'auto' }, linkifyText(m.body, 'sup-' + m.id))
         ))

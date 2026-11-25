@@ -191,7 +191,7 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       // only (no "stripe at top"): ship #1390 replaced the old top
       // hairline with the gradient overlay, so the prior wording was
       // describing a visual that no longer renders.
-      title: item.rarity ? `${item.rarity} rarity` : undefined
+      title: item.rarity ? `${item.rarity === 'Off-Market' ? 'Scarce' : item.rarity} rarity` : undefined
     },
       // CSFloat-1:1 — thin rarity-colored hairline along the TOP edge of the
       // image. csfloat caps each card image with a rarity stripe top+bottom;
