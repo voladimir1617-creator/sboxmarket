@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=438'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=439'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2707,9 +2707,11 @@ function FollowSellerButton({ sellerId, sellerName, showToast, onCountChange }) 
   },
     h('span', { className: 'stall-share-icon' }, status.following ? '✓' : '+'),
     status.following ? 'Following' : 'Follow',
+    // The number alone read as "Follow · 3"; say what it counts.
     status.followerCount > 0 && h('span', {
       style: { marginLeft: 6, fontSize: 10, opacity: 0.7 }
-    }, ` · ${Number(status.followerCount).toLocaleString()}`)
+    }, ` · ${Number(status.followerCount).toLocaleString()}`,
+      h('span', { className: 'visually-hidden' }, status.followerCount === 1 ? ' follower' : ' followers'))
   );
 }
 

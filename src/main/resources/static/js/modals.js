@@ -5656,12 +5656,14 @@ function FollowingListRow() {
         'aria-label': 'Unfollow all sellers'
       }, '✕ all')
     ),
-    h('div', { ref: followListRef, className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
+    // A named list, so a screen reader hears how many sellers there are.
+    h('div', { ref: followListRef, className: 'profile-row-value', role: 'list', 'aria-label': 'Sellers you follow', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
       (showAllFollows ? rows : rows.slice(0, 10)).map(r => {
        // Every row's buttons otherwise read the same to a screen reader.
        const who = names[r.sellerUserId] || ('Seller #' + r.sellerUserId);
        return h('div', {
         key: r.id,
+        role: 'listitem',
         style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }
       },
         h('a', {
@@ -5694,12 +5696,13 @@ function FollowingListRow() {
         }, '✕')
       );
       }),
-      rows.length > 10 && h('button', {
+      // A list holds only items; the toggle sits in the last one.
+      rows.length > 10 && h('span', { role: 'listitem', style: { display: 'flex' } }, h('button', {
         className: 'btn btn-ghost',
         style: { padding: '2px 8px', fontSize: 11, color: 'var(--text-muted)' },
         'aria-expanded': showAllFollows,
         onClick: () => setShowAllFollows(v => !v)
-      }, showAllFollows ? 'Show fewer' : `+ ${rows.length - 10} more`)
+      }, showAllFollows ? 'Show fewer' : `+ ${rows.length - 10} more`))
     )
   );
 }
@@ -5798,9 +5801,11 @@ function BlockedListRow() {
         'aria-label': 'Unblock all users'
       }, '✕ all')
     ),
-    h('div', { ref: blockListRef, className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
+    // A named list, as on the Following row.
+    h('div', { ref: blockListRef, className: 'profile-row-value', role: 'list', 'aria-label': 'Blocked users', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
       (showAll ? rows : rows.slice(0, 10)).map(r => h('div', {
         key: r.blockedUserId,
+        role: 'listitem',
         style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }
       },
         h('a', {
@@ -5819,13 +5824,13 @@ function BlockedListRow() {
       )),
       // A button, like the Following row's: the "+N more" text could not
       // be opened, so blocks past the first ten could not be undone here.
-      rows.length > 10 && h('button', {
+      rows.length > 10 && h('span', { role: 'listitem', style: { display: 'flex' } }, h('button', {
         className: 'btn btn-ghost',
         style: { padding: '2px 8px', fontSize: 11, color: 'var(--text-muted)' },
         'aria-expanded': showAll,
         'data-testid': 'blocked-more',
         onClick: () => setShowAll(v => !v)
-      }, showAll ? 'Show fewer' : `+ ${rows.length - 10} more`)
+      }, showAll ? 'Show fewer' : `+ ${rows.length - 10} more`))
     )
   );
 }
