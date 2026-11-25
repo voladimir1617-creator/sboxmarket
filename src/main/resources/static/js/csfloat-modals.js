@@ -408,38 +408,6 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
       h('strong', null, Number(data.total).toLocaleString()), Number(data.total) === 1 ? ' result · page ' : ' results · page ',
       h('strong', null, page + 1), ' / ', totalPages
     ),
-    /* CSFLOAT-1:1 ship #10302 — rarity legend / key. Three tier swatches
-       laid out in csfloat's filter-row style. Each swatch carries a
-       title attr that drives the native tooltip explaining what that
-       tier means in s&box. Click filters the table to that rarity. */
-    h('div', {
-      className: 'cf-rarity-legend',
-      role: 'group',
-      'aria-label': 'Rarity tier legend'
-    },
-      h('span', { className: 'cf-rarity-legend-label' }, 'Rarity:'),
-      [
-        // `v` is the data value used for filtering; `label` is the display
-        // name. 'Off-Market' shows as "Scarce" so the legend matches the
-        // table's RarityBadge, which relabels that tier the same way.
-        { v: 'Standard',   label: 'Standard', t: 'Standard — common items everyone can craft.' },
-        { v: 'Off-Market', label: 'Scarce',   t: 'Scarce — limited-supply items Steam still sells.' },
-        { v: 'Limited',    label: 'Limited',  t: 'Limited — Steam no longer sells these.' }
-      ].map(r => h('button', {
-        key: r.v,
-        type: 'button',
-        className: `cf-rarity-legend-item rarity-${r.v}` + (rarity === r.v ? ' active' : ''),
-        title: r.t,
-        // The tooltip is drawn from title by CSS ::after, which also leaked
-        // into the name ("Scarce Scarce — limited-supply items…").
-        'aria-label': r.label,
-        'aria-pressed': rarity === r.v,
-        onClick: () => setRar(rarity === r.v ? 'All' : r.v)
-      },
-        h('span', { className: `cf-rarity-swatch rarity-${r.v}`, 'aria-hidden': 'true' }),
-        h('span', { className: 'cf-rarity-legend-name' }, r.label)
-      ))
-    ),
     loading
       /* Boss QA cycle 11 micro-polish — was a generic .spinner pulse, which
          left the database surface as a single dot in the middle of dark
@@ -649,6 +617,41 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
             ))
           )
         )),
+    // After the table in the DOM, where the grid draws it (under the filters,
+    // beside the pager): Tab went from the price boxes to the bottom of the
+    // page and back up to the first row.
+    /* CSFLOAT-1:1 ship #10302 — rarity legend / key. Three tier swatches
+       laid out in csfloat's filter-row style. Each swatch carries a
+       title attr that drives the native tooltip explaining what that
+       tier means in s&box. Click filters the table to that rarity. */
+    h('div', {
+      className: 'cf-rarity-legend',
+      role: 'group',
+      'aria-label': 'Rarity tier legend'
+    },
+      h('span', { className: 'cf-rarity-legend-label' }, 'Rarity:'),
+      [
+        // `v` is the data value used for filtering; `label` is the display
+        // name. 'Off-Market' shows as "Scarce" so the legend matches the
+        // table's RarityBadge, which relabels that tier the same way.
+        { v: 'Standard',   label: 'Standard', t: 'Standard — common items everyone can craft.' },
+        { v: 'Off-Market', label: 'Scarce',   t: 'Scarce — limited-supply items Steam still sells.' },
+        { v: 'Limited',    label: 'Limited',  t: 'Limited — Steam no longer sells these.' }
+      ].map(r => h('button', {
+        key: r.v,
+        type: 'button',
+        className: `cf-rarity-legend-item rarity-${r.v}` + (rarity === r.v ? ' active' : ''),
+        title: r.t,
+        // The tooltip is drawn from title by CSS ::after, which also leaked
+        // into the name ("Scarce Scarce — limited-supply items…").
+        'aria-label': r.label,
+        'aria-pressed': rarity === r.v,
+        onClick: () => setRar(rarity === r.v ? 'All' : r.v)
+      },
+        h('span', { className: `cf-rarity-swatch rarity-${r.v}`, 'aria-hidden': 'true' }),
+        h('span', { className: 'cf-rarity-legend-name' }, r.label)
+      ))
+    ),
     /* Pager only when there's genuine multi-page data. Previously it
        rendered even on the error / empty / single-page paths as a dead
        "1 of 1" control with both arrows disabled — CSFloat hides
@@ -2389,9 +2392,10 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                   }, 'Sign in to create a loadout')
             );
           })()
-        : h('div', { className: 'loadout-list' },
+        // A list, so a screen reader hears how many loadouts the tab holds.
+        : h('div', { className: 'loadout-list', role: 'list' },
             list.map(l => h('div', {
-              key: l.id, className: 'loadout-card',
+              key: l.id, className: 'loadout-card', role: 'listitem',
               // Mouse convenience only. Keyboard and screen readers open the
               // card through the name link below; a role=button card could
               // not contain the Copy link button as a separate control.
