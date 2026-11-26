@@ -11505,7 +11505,6 @@ function ProfileReviewsTab({ me }) {
   // row deep-links to the seller's stall for the review form). Handle it
   // before the shared filter/rows logic to keep the rest untouched.
   if (mode === 'pending') {
-    if (pending === null) return h('div', { className: 'spinner' });
     // Same WAI-ARIA tabs pattern as the main branch below, so Pending
     // keeps its tab role and selected state.
     const P_TABS = ['received', 'given', 'pending'];
@@ -11547,8 +11546,11 @@ function ProfileReviewsTab({ me }) {
           ...pTab('pending')
         }, 'Pending', pending && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, pending.length))
       )),
-      // A failed check (?view=pending on reload) has no list to map.
-      panel(pending === false
+      // A failed check (?view=pending on reload) has no list to map. The
+      // tabs stay up while it loads (a bare spinner dropped them and focus).
+      panel(pending === null
+        ? h('div', { className: 'spinner' })
+        : pending === false
         ? h('div', { className: 'wallet-error', role: 'alert' },
             "Couldn't check for trades waiting on a review. ",
             h('button', { className: 'btn btn-sm', onClick: (e) => { focusPastOnUnmount(e.currentTarget, PROFILE_TAB_NOW); setPending(null); loadPending(); } }, 'Retry'))

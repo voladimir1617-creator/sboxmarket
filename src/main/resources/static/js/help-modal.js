@@ -225,6 +225,10 @@ export function HelpModal({ onClose }) {
   });
   const [openIdx, setOpenIdx] = useState(0);
   const [search, setSearch]   = useState(initialQ);
+  // The search whose best answer opens once: the load's ?q=, then each ?q=
+  // a link or Back/Forward brings while the page stays mounted.
+  const [expandQ, setExpandQ] = useState(initialQ);
+  const [_autoExpanded, setAutoExpanded] = useState(false);
   // Mirror the box into ?q= (read above) so a reload keeps the search.
   const changeSearch = (v) => {
     setSearch(v);
@@ -242,6 +246,9 @@ export function HelpModal({ onClose }) {
       let next = '';
       try { next = (new URLSearchParams(window.location.search).get('q') || '').slice(0, 60); } catch (_) {}
       setSearch(cur => (cur.trim() === next.trim() ? cur : next));
+      // Open the new search's answer, as a fresh /help?q= load does.
+      setExpandQ(next.trim());
+      setAutoExpanded(false);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -258,10 +265,9 @@ export function HelpModal({ onClose }) {
   // Batch 708 — auto-expand the first match on a query-prefilled open
   // so a deep-linker lands on the answer, not a collapsed list. Only
   // runs once per initial query change.
-  const [_autoExpanded, setAutoExpanded] = useState(false);
   useEffect(() => {
     if (_autoExpanded) return;
-    if (initialQ && filteredFaq.length > 0) {
+    if (expandQ && filteredFaq.length > 0) {
       // Prefer a question that names the term over one that only
       // mentions it in passing in its answer.
       const best = filteredFaq.find(item => item.q.toLowerCase().includes(q)) || filteredFaq[0];
@@ -273,7 +279,7 @@ export function HelpModal({ onClose }) {
         if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
       });
     }
-  }, [initialQ, filteredFaq, _autoExpanded]);
+  }, [expandQ, filteredFaq, _autoExpanded]);
   return h(InfoModal, { title: 'Help Center', onClose },
     h('div', { className: 'help-intro' },
       h(MaterialIcon, { name: 'info', size: 22 }),
