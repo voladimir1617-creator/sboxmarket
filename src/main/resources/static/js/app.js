@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=441'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=442'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -5858,7 +5858,11 @@ export function App() {
         // on a modal-heavy page (profile / wallet / cart) doesn't
         // silently flip the marketplace view the user can't see.
         e.preventDefault();
-        setView(view === 'grid' ? 'table' : 'grid');
+        // The focused card or row goes away with the old view: land on the
+        // same item's link in the new one instead of <body>.
+        const href = e.target?.closest?.('.listing-grid .grid-card, .listing-table tr')?.querySelector('a[href^="/item/"]')?.getAttribute('href');
+        ReactDOM.flushSync(() => setView(view === 'grid' ? 'table' : 'grid'));
+        if (href) document.querySelector(`.grid-card-link[href="${href}"], .listing-table .item-name a[href="${href}"]`)?.focus();
       }
     };
     document.addEventListener('keydown', onKey);
@@ -6208,9 +6212,11 @@ export function App() {
       // empty-state renders the regular "no listings" copy instead of
       // a stale Retry CTA.
       setLoadError(null);
+      return true;
     } catch (e) {
       console.error(e);
       setLoadError(e?.message || 'Failed to load listings');
+      return false;
     }
     finally { if (!silent) setLoading(false); }
   }, [sort, category, rarity, minPrice, maxPrice, search, listingTypeFilter]);
@@ -8854,8 +8860,10 @@ export function App() {
             onClick: async () => {
               if (loading || refreshInFlight.has('market')) return;
               refreshInFlight.add('market');
-              try { await load(false); } finally { refreshInFlight.delete('market'); }
-              showToast('Listings refreshed.', 'ok');
+              let ok = false;
+              try { ok = await load(false); } finally { refreshInFlight.delete('market'); }
+              // A failed reload shows its own error; don't also say it worked.
+              if (ok) showToast('Listings refreshed.', 'ok');
             },
             // aria-disabled keeps focus on the button while it reloads; the click handler ignores it meanwhile.
             'aria-disabled': loading || undefined,
