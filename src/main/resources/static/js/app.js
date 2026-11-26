@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=439'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=440'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -10469,7 +10469,8 @@ export function App() {
           })
         ),
         h('div', { className: 'empty-icon', style: { position: 'relative', zIndex: 1 } }, nfIconNode),
-        h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, position: 'relative', zIndex: 1 } }, nfHeading),
+        // A heading under the page title; the flavoured pages repeat the title here, so only the 404 one.
+        h('div', { role: nfHeading !== nfTitle ? 'heading' : undefined, 'aria-level': nfHeading !== nfTitle ? 2 : undefined, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, position: 'relative', zIndex: 1 } }, nfHeading),
         h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 18px', position: 'relative', zIndex: 1 } },
           nfBody),
         h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', position: 'relative', zIndex: 1 } },

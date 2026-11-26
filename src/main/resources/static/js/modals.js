@@ -1356,7 +1356,9 @@ export function ItemModal({ item, listings, history, historyFailed, onClose, onB
               className: 'modal-name-rarity',
               href: '/market?rarity=' + encodeURIComponent(item.rarity || 'Standard'),
               onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
-              title: `Browse all ${item.rarity === 'Off-Market' ? 'Scarce' : (item.rarity || 'Standard')} items`
+              title: `Browse all ${item.rarity === 'Off-Market' ? 'Scarce' : (item.rarity || 'Standard')} items`,
+              // "Standard" alone did not say the link opens the market.
+              'aria-label': `Browse all ${item.rarity === 'Off-Market' ? 'Scarce' : (item.rarity || 'Standard')} items`
             }, item.rarity === 'Off-Market' ? 'Scarce' : (item.rarity || 'Standard')),
             // Share button — tries the Web Share API first (opens the
             // native share sheet on mobile + Chrome desktop with every
@@ -4907,7 +4909,8 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         })
       ),
       h('div', { style: { flex: 1, minWidth: 0 } },
-        h('div', { className: 'profile-name' }, me.displayName || 'Player',
+        // The name heads the overview, as the stall hero's name does.
+        h('div', { className: 'profile-name', role: 'heading', 'aria-level': 2 }, me.displayName || 'Player',
           // Account standing chip — single source of truth for "is this
           // account in trouble / verified / unverified". Most users see
           // "Good standing" (quiet green). Banned, pending-deletion, or
@@ -5032,7 +5035,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
                 window.prompt('Copy your stall link:', url);
               }
             }
-          }, '⎘ Copy stall link')
+          }, h('span', { 'aria-hidden': 'true' }, '⎘ '), 'Copy stall link')
         )
       ),
       // Privacy toggle moved to the Earnings card header in batch 610.
@@ -12587,7 +12590,7 @@ function ProfileDevelopersTab() {
               window.prompt('Copy the API key:', newKey.token);
             }
           }
-        }, '⎘ Copy key'),
+        }, h('span', { 'aria-hidden': 'true' }, '⎘ '), 'Copy key'),
         h('a', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
