@@ -51,7 +51,10 @@ async function runChecks() {
           const body = await r.json();
           const finishedAt = body && body.floor && body.floor.finishedAt;
           if (finishedAt) {
-            const ageMs = Date.now() - finishedAt;
+            // The server's own clock (serverNow) when it sent one: a viewer
+            // whose clock runs fast saw a fresh sweep as stale and "DOWN".
+            const now = Number.isFinite(body.serverNow) ? body.serverNow : Date.now();
+            const ageMs = now - finishedAt;
             const ageS  = Math.max(0, Math.round(ageMs / 1000));
             // Minutes and hours past a minute: "data is 7500s old" had to be worked out.
             const ageM = Math.floor(ageS / 60);

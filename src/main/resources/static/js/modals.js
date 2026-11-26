@@ -12509,7 +12509,13 @@ function ProfileDevelopersTab() {
   const revoke = async (id) => {
     // Per-key latch: a double click must not send a second revoke.
     if (revokeInFlight.has(id)) return;
-    if (!confirm('Revoke this API key? Applications using it will stop working immediately.')) return;
+    // Name the key, like its Revoke button and the toast, so the confirm
+    // says which one goes when there are several.
+    const k = (keys || []).find(x => x.id === id);
+    const which = !k ? 'this API key'
+      : k.label ? `the API key "${k.label}"${k.publicPrefix ? ` (${k.publicPrefix}…)` : ''}`
+      : `the API key ${k.publicPrefix ? k.publicPrefix + '…' : '#' + id}`;
+    if (!confirm(`Revoke ${which}? Applications using it will stop working immediately.`)) return;
     revokeInFlight.add(id);
     try { await revokeOnce(id); } finally { revokeInFlight.delete(id); }
   };
@@ -12571,7 +12577,9 @@ function ProfileDevelopersTab() {
         : 'Full-access keys can buy, sell, move funds, and cancel trades on your behalf. Only use for trusted bots you control.'
     ),
     newKey && h('div', { className: 'api-key-new' },
-      h('div', { style: { fontSize: 11, color: 'var(--yellow)', fontWeight: 700, marginBottom: 6, letterSpacing: 0.4 } },
+      // A status, so a screen reader hears that the key was made (focus
+      // stays on + New Key).
+      h('div', { role: 'status', style: { fontSize: 11, color: 'var(--yellow)', fontWeight: 700, marginBottom: 6, letterSpacing: 0.4 } },
         'COPY THIS NOW — it will not be shown again'),
       h('div', { className: 'api-key-token' }, newKey.token),
       h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },

@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=440'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=441'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1213,12 +1213,16 @@ function ShortcutsOverlay({ onClose }) {
       'aria-labelledby': 'shortcuts-title'
     },
       h('div', { className: 'shortcuts-title', id: 'shortcuts-title' }, 'Keyboard Shortcuts'),
-      h('div', { className: 'shortcuts-grid' },
+      // Scrolls inside the panel when the list is taller than the screen
+      // (a phone): the dialog cannot scroll, so the title and Close were cut off.
+      h('div', { className: 'shortcuts-grid', style: { maxHeight: 'calc(96vh - 120px)', overflowY: 'auto' } },
         [
           ['/',       'Focus search'],
           ['⌘/Ctrl+K','Focus search (works from anywhere)'],
           ['?',       'Toggle this panel'],
-          ['Esc',     'Back to market / close detail'],
+          // Escape leaves only the item page; on Settings, Profile and the
+          // other pages it closes a dialog and stays put (as /help says).
+          ['Esc',     'Close the item page or a dialog'],
           ['g m',     'Go to Market'],
           ['g d',     'Go to Database'],
           ['g p',     'Go to Profile'],
@@ -9900,6 +9904,9 @@ export function App() {
                     return 0;
                   });
                   return h('div', null,
+                    // The grid is the one stall section without a heading; the
+                    // cards are visible, so the heading is for screen readers.
+                    h('h2', { className: 'visually-hidden' }, 'Listings'),
                     (rarities.length > 1 || stallData.listings.length > 6) && h('div', { className: 'stall-filter-row' },
                       h('div', { className: 'stall-filter-chips', role: 'group', 'aria-label': 'Rarity' },
                         h('button', {
