@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=442'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=443'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -421,7 +421,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       if (clear) replyBtnRef.current?.focus();
       setEditing(false);
       setDraft('');
-      onSaved && onSaved();
+      onSaved && onSaved({ id: review.id, sellerReply: clear ? null : (draft || '').trim() });
     } finally { stallReviewInFlight.delete(review.id); setBusy(false); }
   };
   // Buyer-side delete for their own reviews. Only shown to the review's
@@ -438,7 +438,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       if (res && (res.error || res.code)) { setErr(res.message || res.error); return; }
       // The row goes away with the review; move on to what follows it.
       focusPastOnUnmount(rowRef.current);
-      onSaved && onSaved();
+      onSaved && onSaved({ id: review.id, deleted: true });
     } finally { stallReviewInFlight.delete(review.id); setBusy(false); }
   };
   return h('div', { className: 'stall-review', role: 'listitem', ref: rowRef },
@@ -1871,7 +1871,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       }
       refocusRef.current = true;
       setEditing(false);
-      onSaved && onSaved();
+      onSaved && onSaved(res);
       // Batch 923 — surface save success. Previously the block collapsed
       // back to read-mode silently, and a user who'd scrolled away while
       // the save was in flight had no way to know it landed. Toast copy
@@ -1915,7 +1915,9 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         // Batch 933 — Esc cancels the edit so keyboard users have a
         // parallel path to the Cancel button without mouse reach.
         onKeyDown: (e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !busy && draft.trim()) {
+          // An emptied box saves too (it removes the bio, as Save does);
+          // save() itself says "Type a bio first" when there is none yet.
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !busy) {
             e.preventDefault();
             save();
           } else if (e.key === 'Escape' && !busy) {
@@ -5874,7 +5876,9 @@ export function App() {
 
   // logout
   const doLogout = async () => {
-    await logoutSteam();
+    // A failed request left the server session alive while the page said
+    // "Signed out"; a reload signed the user straight back in.
+    if (!(await logoutSteam())) { showToast('Could not sign out. Try again.', 'err'); return; }
     // Commit the signed-out state before navigate() below. navigate()
     // fires a popstate, which React renders at a higher priority than this
     // update, so /market used to mount with the old user still set; its
@@ -9839,7 +9843,10 @@ export function App() {
             h(StallBioBlock, {
               bio: stallData.seller.stallBio,
               canEdit: me && me.id === stallData.seller.id,
-              onSaved: () => {
+              onSaved: (res) => {
+                // Show the bio the server saved at once: the stall kept the
+                // old one until the refetch landed, and for good if it failed.
+                if (res && 'stallBio' in res) setStallData(d => (d && d.seller ? { ...d, seller: { ...d.seller, stallBio: res.stallBio } } : d));
                 // Keep the page on screen if the refetch fails; the bio
                 // itself saved, so only the header refresh is skipped.
                 fetchPublicStall(route.params.id, { fresh: true }).then(s => { if (s && !s.__error) setStallData(s); });
@@ -10251,7 +10258,11 @@ export function App() {
                           isAuthor: !!r.mine,
                           // A deleted or removed review also changes the rating
                           // header and frees the buyer's trade for a new review.
-                          onSaved: async () => {
+                          onSaved: async (patch) => {
+                            // Show the saved reply or the deletion at once; a
+                            // failed refetch kept the old row on screen.
+                            if (patch && patch.deleted) setStallReviews(list => Array.isArray(list) ? list.filter(x => x.id !== patch.id) : list);
+                            else if (patch && 'sellerReply' in patch) setStallReviews(list => Array.isArray(list) ? list.map(x => x.id === patch.id ? { ...x, sellerReply: patch.sellerReply } : x) : list);
                             const [fresh, eligible, stall] = await Promise.all([
                               fetchReviewsForUser(stallData.seller.id, { fresh: true }),
                               me ? fetchEligibleReviews(stallData.seller.id) : Promise.resolve(null),

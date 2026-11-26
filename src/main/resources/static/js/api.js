@@ -1006,8 +1006,13 @@ export async function fetchMe(opts) {
   }
 }
 
+// True once the server session is gone (a 401 means it already was);
+// false when the request failed, so the page does not claim a sign-out.
 export async function logoutSteam() {
-  await fetch(`${API}/auth/steam/logout`, { method: 'POST', credentials: 'same-origin' });
+  try {
+    const res = await fetch(`${API}/auth/steam/logout`, { method: 'POST', credentials: 'same-origin' });
+    return res.ok || res.status === 401;
+  } catch (_) { return false; }
 }
 
 // ── Offers ──────────────────────────────────────────────────────

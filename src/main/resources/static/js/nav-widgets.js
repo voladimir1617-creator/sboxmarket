@@ -250,6 +250,9 @@ export function NotificationBell({ me }) {
   // ('error'), so an empty list doesn't read "all caught up" before the
   // first fetch lands or after it fails.
   const [fullState, setFullState] = useState('idle');
+  // Every loaded row is a muted type: the list is empty but the user is not
+  // "all caught up" (the Notifications page says the same).
+  const [mutedOnly, setMutedOnly] = useState(false);
   const wrapRef = React.useRef(null);
   // Bumped on scroll/resize while open so the phone panel re-reads the
   // nav's bottom edge (see --notif-top below).
@@ -283,6 +286,7 @@ export function NotificationBell({ me }) {
     const visible = muted.size > 0 ? all.filter(n => !muted.has(kindBucket(n.kind))) : all;
     const visibleUnread = visible.filter(n => !n.read).length;
     setFullState('ok');
+    setMutedOnly(all.length > 0 && visible.length === 0);
     setItems(visible);
     // The badge needs the TRUE unread count. Deriving it from the 12-row
     // dropdown slice caps the badge at 12 for any user with more unread.
@@ -712,7 +716,7 @@ export function NotificationBell({ me }) {
       items.length === 0
         ? (me
             ? h('div', { className: 'notif-empty', role: fullState === 'error' ? 'alert' : undefined },
-                fullState === 'ok' ? "You're all caught up." : fullState === 'error' ? "Couldn't load notifications." : 'Loading…',
+                fullState === 'ok' ? (mutedOnly ? 'Only muted notifications. Unmute types in Settings to see them here.' : "You're all caught up.") : fullState === 'error' ? "Couldn't load notifications." : 'Loading…',
                 // Retry leaves with the error; focus goes back to the bell.
                 fullState === 'error' && h('div', null, h('button', {
                   className: 'btn btn-ghost',
