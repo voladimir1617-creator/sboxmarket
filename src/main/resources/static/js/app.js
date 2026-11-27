@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=444'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=445'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -5742,9 +5742,14 @@ export function App() {
     // Raycast, Linear, GitHub, Slack, Notion etc). Fires even when the
     // focus is inside an input so it always works; the other shortcuts
     // are plain-letter and only fire when the user isn't typing.
+    // The shortcuts panel is a modal dialog: close it before moving focus to
+    // the search behind it (focus left the open dialog, and closing it later
+    // pulled focus back off the search).
+    const closeShortcutsFirst = () => { if (shortcutsOpen) ReactDOM.flushSync(() => setShortcutsOpen(false)); };
     const onMetaKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
+        closeShortcutsFirst();
         const tryFocus = () => {
           const el = document.querySelector('.search-input');
           if (el) { el.focus(); el.select(); return true; }
@@ -5772,7 +5777,7 @@ export function App() {
       if (e.key === '/') {
         e.preventDefault();
         const el = document.querySelector('.search-input');
-        if (el) { el.focus(); el.select(); }
+        if (el) { closeShortcutsFirst(); el.focus(); el.select(); }
       } else if (e.key === '?') {
         e.preventDefault();
         setShortcutsOpen(v => !v);

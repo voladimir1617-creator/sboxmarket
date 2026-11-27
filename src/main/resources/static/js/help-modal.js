@@ -278,6 +278,15 @@ export function HelpModal({ onClose }) {
         const el = document.getElementById('help-faq-q-' + best.origIdx);
         if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
       });
+    } else if (expandQ) {
+      // Nothing matches the link's search: bring the search box and its
+      // "No FAQs match" line into view (it sat below the guides, off screen),
+      // and don't auto-open the first answer the user's next edit matches.
+      setAutoExpanded(true);
+      requestAnimationFrame(() => {
+        const el = searchRef.current;
+        if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+      });
     }
   }, [expandQ, filteredFaq, _autoExpanded]);
   return h(InfoModal, { title: 'Help Center', onClose },
