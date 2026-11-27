@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=443'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=444'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -8994,6 +8994,9 @@ export function App() {
                       : null;
                   })(),
                   category !== 'All' && h('span', null, ' in ', h('strong', null, category)),
+                  // The rarity filter is named too: on a phone the count is
+                  // announced while the filter drawer covers the grid.
+                  rarity !== 'All' && h('span', null, ' · ', h('strong', null, rarity === 'Off-Market' ? 'Scarce' : rarity)),
                   search && h('span', null, ' matching ', h('strong', null, `"${search}"`))
                 )
         ),

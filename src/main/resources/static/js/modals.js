@@ -4386,7 +4386,7 @@ export function SettingsModal({ onClose, me, meLoaded = true }) {
   });
 
   const resetLocal = () => {
-    if (!confirm('Reset UI preferences (currency, theme, reduce-motion, high-contrast, sounds, notification mutes, cookie consent)? Watchlist and cart are kept.')) return;
+    if (!confirm('Reset UI preferences (currency, hidden $ amounts, sale notifications, sounds, notification mutes, reduce motion, high contrast, cookie consent)? Watchlist and cart are kept.')) return;
     ['sb_currency','sb_notifs','sb_sounds','sb_mute_kinds','sb_reduce_motion','sb_contrast','sb_theme','sb_privacy','sb_cookie_consent']
       .forEach(k => localStorage.removeItem(k));
     location.reload();
@@ -12065,8 +12065,15 @@ function ProfileSupportTab() {
   // hand focus to whichever New Ticket button is now on screen.
   const newTicketBtnRef = useRef(null);
   const wasCreatingRef = useRef(false);
+  // A ticket just filed: its id, so focus lands on its row once the form closes.
+  const createdTicketRef = useRef(null);
   useEffect(() => {
-    if (wasCreatingRef.current && !creating) newTicketBtnRef.current?.focus();
+    if (wasCreatingRef.current && !creating) {
+      const id = createdTicketRef.current;
+      createdTicketRef.current = null;
+      const row = id != null && document.querySelector(`tr[data-ticket-id="${id}"]`);
+      if (row) row.focus(); else newTicketBtnRef.current?.focus();
+    }
     wasCreatingRef.current = creating;
   }, [creating]);
   const viewingId = viewing?.ticket?.id ?? null;
@@ -12212,6 +12219,11 @@ function ProfileSupportTab() {
       // empty-state New Ticket button (which took focus) unmounted when the
       // list arrived, dropping focus to the page.
       await load();
+      // The new ticket is open: a Resolved / Waiting filter hid it, so the
+      // list read "No tickets in this filter." right after it was filed.
+      setStatusFilter(f => (f === 'ALL' || f === 'OPEN' ? f : 'OPEN'));
+      // Land on the new ticket's row, not the New Ticket button.
+      createdTicketRef.current = ticketId ?? null;
       setCreating(false);
       setForm({ subject: '', category: 'OTHER', body: '' });
       // Name the ticket. No reply time is promised: SupportService has no
