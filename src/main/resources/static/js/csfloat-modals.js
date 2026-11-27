@@ -548,7 +548,11 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
                  lives on a real <a> wrapping the item name (focusable, named).
                  Watchlist button stops propagation so cell clicks don't
                  double-fire. */
-              onClick: () => onPickItem && onPickItem(item)
+              onClick: (e) => {
+                // A row has no new-tab default: Ctrl/Cmd/Shift-click opens the item like its name link.
+                if (e.metaKey || e.ctrlKey || e.shiftKey) { window.open('/item/' + item.id, '_blank', 'noopener'); return; }
+                onPickItem && onPickItem(item);
+              }
             },
               h('td', { className: 'db-rank' }, '#' + (page * PAGE_SIZE + i + 1)),
               h('td', null,
@@ -1370,6 +1374,10 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
       try { next = (new URLSearchParams(window.location.search).get('q') || '').slice(0, 100); } catch (_) {}
       setSearchInput(cur => (cur.trim() === next.trim() ? cur : next));
       setSearch(cur => (cur.trim() === next.trim() ? cur : next));
+      // Follow its ?view= too: the nav link from My Loadouts left that tab under a bare /loadout.
+      let view = null;
+      try { view = new URLSearchParams(window.location.search).get('view'); } catch (_) {}
+      setTab(cur => (cur === 'view' ? cur : view === 'mine' || view === 'favorites' ? view : 'discover'));
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -1517,7 +1525,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     setListErr(false);
     try {
       let next = null;
-      if (tab === 'discover') next = await fetchPublicLoadouts(search);
+      // Trimmed, as the URL's ?q= is: the server matched "Plague " literally and found nothing.
+      if (tab === 'discover') next = await fetchPublicLoadouts(search.trim());
       else if (tab === 'mine' && me) next = await fetchMyLoadouts();
       else if (tab === 'favorites' && me) {
         const { fetchFavoriteLoadouts } = await import('./api.js');
@@ -2399,7 +2408,11 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               // Mouse convenience only. Keyboard and screen readers open the
               // card through the name link below; a role=button card could
               // not contain the Copy link button as a separate control.
-              onClick: () => goLoadout(l.id)
+              onClick: (e) => {
+                // Ctrl/Cmd/Shift-click opens the loadout in a new tab, as its name link does.
+                if (e.metaKey || e.ctrlKey || e.shiftKey) { window.open('/loadout/' + l.id, '_blank', 'noopener'); return; }
+                goLoadout(l.id);
+              }
             },
               // title: a long name is cut with an ellipsis (phone width).
               h('div', { className: 'loadout-card-name', title: l.name || undefined },
