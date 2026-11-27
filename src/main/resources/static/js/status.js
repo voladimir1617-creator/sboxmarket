@@ -104,6 +104,8 @@ function render(results) {
   results.forEach(r => {
     const row = document.createElement('div');
     row.className = 'status-row';
+    // On a phone the endpoint text ran into the badge with no space between.
+    row.style.gap = '12px';
     const subText = r.subOverride
       ? (r.subOverride + ' · ' + r.endpoint + ' · ' + r.ms + 'ms')
       : (r.sub + ' · ' + r.endpoint + ' · ' + r.ms + 'ms');

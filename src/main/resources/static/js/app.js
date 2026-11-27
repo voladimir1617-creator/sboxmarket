@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=447'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=448'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -2804,7 +2804,7 @@ function ContactSellerButton({ seller }) {
       'aria-controls': 'contact-seller-drawer',
       title: 'Contact this seller through support'
     },
-      h('span', { className: 'stall-share-icon' }, '✉'),
+      h('span', { className: 'stall-share-icon', 'aria-hidden': 'true' }, '✉'),
       'Contact'),
     open && h('div', {
       id: 'contact-seller-drawer',
@@ -2901,7 +2901,8 @@ function ShareStallButton({ userId, sellerName, showToast }) {
         await navigator.clipboard.writeText(url);
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
-        showToast && showToast('Link copied to clipboard', 'ok');
+        // Same words as My Stall's and Profile's Copy stall link.
+        showToast && showToast('Stall link copied.', 'ok');
       } else {
         window.prompt('Copy this link:', url);
       }
@@ -8508,7 +8509,8 @@ export function App() {
                 if (recentNav) {
                   const n = recentSearches.length;
                   if (e.key === 'ArrowDown') { e.preventDefault(); setSuggestIdx(i => (i + 1) % n); }
-                  else if (e.key === 'ArrowUp') { e.preventDefault(); setSuggestIdx(i => (i - 1 + n) % n); }
+                  // ArrowUp from the box (nothing highlighted) goes to the last row.
+                  else if (e.key === 'ArrowUp') { e.preventDefault(); setSuggestIdx(i => i < 0 ? n - 1 : (i - 1 + n) % n); }
                   else if (e.key === 'Enter' && suggestIdx >= 0 && recentSearches[suggestIdx]) {
                     e.preventDefault();
                     pickRecent(recentSearches[suggestIdx]);
@@ -8521,7 +8523,7 @@ export function App() {
                 }
                 else if (e.key === 'ArrowUp' && suggest.length > 0) {
                   e.preventDefault();
-                  setSuggestIdx(i => (i - 1 + suggest.length) % suggest.length);
+                  setSuggestIdx(i => i < 0 ? suggest.length - 1 : (i - 1 + suggest.length) % suggest.length);
                 }
                 else if (e.key === 'Enter') {
                   if (suggestIdx >= 0 && suggest[suggestIdx]) {
@@ -9790,7 +9792,7 @@ export function App() {
                 },
                 title: 'This is your own stall — jump to MyStall to edit prices, cancel listings, or toggle away-mode.'
               },
-                h('span', { className: 'stall-share-icon' }, '⚙'),
+                h('span', { className: 'stall-share-icon', 'aria-hidden': 'true' }, '⚙'),
                 'Manage stall'
               ),
               // Follow/unfollow — subscribes the viewer to NEW_LISTING
