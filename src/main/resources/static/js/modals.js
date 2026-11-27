@@ -11479,6 +11479,29 @@ function ProfileReviewsTab({ me }) {
     setPending(prev => Array.isArray(data?.items) ? data.items : (Array.isArray(prev) ? prev : false));
   }, [me?.id]);
   useEffect(() => { loadReceived(); }, [loadReceived]);
+  const dropReplyUnsent = () => { try { sessionStorage.removeItem('sb_review_reply_unsent'); } catch (_) {} };
+  const closeReplyEditor = () => { dropReplyUnsent(); setEditId(null); setDraft(''); };
+  // Reopen a reply that an expired session kept, once its review is listed.
+  const replyKeptRef = useRef(false);
+  useEffect(() => {
+    if (replyKeptRef.current || !Array.isArray(received)) return;
+    replyKeptRef.current = true;
+    try {
+      const kept = JSON.parse(sessionStorage.getItem('sb_review_reply_unsent') || 'null');
+      if (kept && received.some(x => x.id === kept.reviewId)) { setDraft(kept.text || ''); setEditId(kept.reviewId); }
+    } catch (_) {}
+  }, [received]);
+  const editKeptRef = useRef(false);
+  useEffect(() => {
+    if (editKeptRef.current || !Array.isArray(given)) return;
+    editKeptRef.current = true;
+    try {
+      const kept = JSON.parse(sessionStorage.getItem('sb_review_edit_unsent') || 'null');
+      if (kept && given.some(x => x.id === kept.reviewId)) {
+        setEditGivenId(kept.reviewId); setEditGivenStars(kept.stars || 5); setEditGivenComment(kept.text || '');
+      }
+    } catch (_) {}
+  }, [given]);
   // Pending is the one query we want the badge from, so load it on mount
   // regardless of active tab. Small payload (cap 50), one round-trip.
   useEffect(() => { loadPending(); }, [loadPending]);
@@ -11668,10 +11691,17 @@ function ProfileReviewsTab({ me }) {
       // isn't the inconsistent outlier on this modal.
       const r = (received || []).find(x => x.id === reviewId);
       const res = await replyToReview(reviewId, clear ? '' : (draft || '').trim());
+      // A reply sent on an expired session is kept for the tab, as on the
+      // stall: signing back in reloads the page and the box opens with it.
+      if (res && res.code === 'SESSION_EXPIRED' && !clear) {
+        try { sessionStorage.setItem('sb_review_reply_unsent', JSON.stringify({ reviewId, text: draft })); } catch (_) {}
+      }
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reply failed', 'err'); return; }
       // Remove reply goes away with the reply; keep focus on the row's Reply.
       if (clear) document.querySelector(`[data-reply-review="${reviewId}"]`)?.focus();
-      setEditId(null); setDraft('');
+      // Remove reply on one review closed a reply being written on another
+      // and threw its text away; only a posted reply closes its own box.
+      else { setEditId(null); setDraft(''); dropReplyUnsent(); }
       await loadReceived();
       const who = r?.fromDisplayName ? `@${r.fromDisplayName}` : 'reviewer';
       toast(clear
@@ -11713,6 +11743,7 @@ function ProfileReviewsTab({ me }) {
     setEditGivenComment(r.comment || '');
   };
   const cancelEditGiven = () => {
+    try { sessionStorage.removeItem('sb_review_edit_unsent'); } catch (_) {}
     setEditGivenId(null);
     setEditGivenStars(5);
     setEditGivenComment('');
@@ -11729,6 +11760,9 @@ function ProfileReviewsTab({ me }) {
     try {
       const { leaveReview } = await import('./api.js');
       const res = await leaveReview(r.tradeId, stars, (editGivenComment || '').trim());
+      if (res && res.code === 'SESSION_EXPIRED') {
+        try { sessionStorage.setItem('sb_review_edit_unsent', JSON.stringify({ reviewId: r.id, stars, text: editGivenComment })); } catch (_) {}
+      }
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || 'Save failed', 'err');
         return;
@@ -11924,13 +11958,13 @@ function ProfileReviewsTab({ me }) {
             ),
             mode === 'received' && editId === r.id
               // Escape from Cancel or Post reply closes the editor too; the box handles its own.
-              ? h('div', { className: 'stall-review-reply-edit', onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!busy) { setEditId(null); setDraft(''); } } } },
+              ? h('div', { className: 'stall-review-reply-edit', onKeyDown: e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); if (!busy) closeReplyEditor(); } } },
                   h('textarea', {
                     value: draft,
                     onChange: e => setDraft(e.target.value),
                     maxLength: 300,
                     'aria-label': 'Seller reply to review',
-                    onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); setEditId(null); setDraft(''); } },
+                    onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); closeReplyEditor(); } },
                     placeholder: 'Public response (300 chars)',
                     autoFocus: true
                   }),
@@ -11938,7 +11972,7 @@ function ProfileReviewsTab({ me }) {
                     style: { fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', marginTop: 2 }
                   }, (draft || '').length, ' / 300'),
                   h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
-                    h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditId(null); setDraft(''); } }, 'Cancel'),
+                    h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: closeReplyEditor }, 'Cancel'),
                     h('button', { className: 'btn btn-accent', 'aria-disabled': (busy || !draft.trim()) || undefined, onClick: () => { if (draft.trim()) submit(r.id, false); } }, busy ? 'Saving…' : 'Post reply')
                   )
                 )
