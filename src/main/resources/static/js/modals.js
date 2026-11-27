@@ -12036,7 +12036,13 @@ function ProfileSupportTab() {
   // Status filter — mirrors the backend's ticket lifecycle. 'ALL' = no
   // filter; default is 'OPEN' which excludes RESOLVED tickets so the
   // active queue is front and centre.
-  const [statusFilter, setStatusFilter] = useState('OPEN');
+  // ?status= keeps the filter across a reload and Back, like Reviews' ?view=.
+  const [statusFilter, setStatusFilter] = useState(() => {
+    try {
+      const s = (new URLSearchParams(window.location.search).get('status') || '').toUpperCase();
+      return ['ALL', 'WAITING_STAFF', 'WAITING_USER', 'RESOLVED'].includes(s) ? s : 'OPEN';
+    } catch (_) { return 'OPEN'; }
+  });
 
   const [ticketsErr, setTicketsErr] = useState(false);
   const load = useCallback(async () => {
@@ -12194,6 +12200,7 @@ function ProfileSupportTab() {
       window.history.replaceState({}, '', window.location.pathname + (next ? '?' + next : ''));
     } catch (_) { /* no ticket in the URL */ }
   }, [window.location.search]);
+  useEffect(() => { setViewParam(statusFilter === 'OPEN' ? null : statusFilter.toLowerCase(), 'status'); }, [statusFilter]);
 
   const submitCreate = async () => {
     if (!form.subject.trim() || !form.body.trim()) {
@@ -12559,17 +12566,17 @@ function ProfileDevelopersTab() {
       // the Help modal opens pre-filtered to the API entry.
       h('a', {
         href: '/help?q=API', style: { color: 'var(--accent)', marginLeft: 6 }
-      }, 'How to use the API →'),
+      }, 'How to use the API', h('span', { 'aria-hidden': 'true' }, ' →')),
       // The route-by-route reference: scopes, routes a key can use, errors.
       h('a', {
         href: '/api-reference.html', style: { color: 'var(--accent)', marginLeft: 10 },
         'data-testid': 'api-reference-link'
-      }, 'API reference →')),
+      }, 'API reference', h('span', { 'aria-hidden': 'true' }, ' →'))),
     h('div', { className: 'inline-cta-row', style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
       // Named for screen readers like the scope select; 80 is where
       // ApiKeyService cuts the label.
       h('input', { className: 'price-input', 'aria-label': 'API key label', maxLength: 80, placeholder: 'Label (e.g. my-bot)', style: { flex: 1, minWidth: 180 }, value: label, onChange: e => setLabel(e.target.value),
-        onKeyDown: e => { if (e.key === 'Enter' && !e.repeat && !busy) { e.preventDefault(); mint(); } } }),
+        onKeyDown: e => { if (e.key === 'Enter' && !e.repeat && !e.nativeEvent.isComposing && !busy) { e.preventDefault(); mint(); } } }),
       h('select', {
         className: 'price-input',
         'aria-label': 'API key scope',

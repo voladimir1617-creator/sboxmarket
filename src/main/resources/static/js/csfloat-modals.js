@@ -2936,7 +2936,7 @@ export function NotificationsModal({ onClose, me }) {
       h('a', {
         href: paths.settings ? paths.settings() : '/settings',
         style: { marginLeft: 'auto', color: 'var(--accent)', fontWeight: 700, textDecoration: 'none', fontSize: 11 }
-      }, 'Manage →')
+      }, 'Manage', h('span', { 'aria-hidden': 'true' }, ' →'))
     ),
     // Named groups: both rows start with an "All" toggle.
     h('div', { role: 'group', 'aria-label': 'Read status', style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
