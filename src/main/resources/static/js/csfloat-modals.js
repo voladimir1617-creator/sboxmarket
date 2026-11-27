@@ -2017,7 +2017,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           // while it runs; handleGenerate already returns early mid-run.
           'aria-disabled': generatingLoadout ? 'true' : undefined,
           title: 'Auto-fill unlocked slots with the cheapest active listing per category, capped at the budget. Locked slots are preserved.'
-        }, generatingLoadout ? '…' : 'Generate'),
+        }, generatingLoadout ? 'Generating…' : 'Generate'),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, marginLeft: 'auto' } },
           'Total Value · ',
           h('strong', { style: { color: 'var(--accent)' } }, fmt(viewing.currentTotal ?? viewing.loadout.totalValue))
@@ -2110,7 +2110,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               await load();
             } finally { renameBusyRef.current = false; setRenameBusy(false); }
           }
-        }, renameBusy ? '…' : 'Save'),
+        }, renameBusy ? 'Saving…' : 'Save'),
         h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
