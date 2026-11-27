@@ -223,12 +223,30 @@ export function HelpModal({ onClose }) {
       return (u.get('q') || '').slice(0, 60);
     } catch { return ''; }
   });
-  const [openIdx, setOpenIdx] = useState(0);
+  // The open answer is kept in this history entry's state, so Back from a
+  // link in it (Contact Support, /status.html) reopens that answer, not the first.
+  const [restoredIdx] = useState(() => {
+    try { const v = window.history.state && window.history.state.helpOpenIdx; return Number.isInteger(v) ? v : null; }
+    catch { return null; }
+  });
+  const [openIdx, setOpenIdxState] = useState(restoredIdx == null ? 0 : restoredIdx);
+  const setOpenIdx = (v) => {
+    setOpenIdxState(v);
+    try { window.history.replaceState({ ...(window.history.state || {}), helpOpenIdx: v }, '', window.location.href); } catch (_) {}
+  };
   const [search, setSearch]   = useState(initialQ);
   // The search whose best answer opens once: the load's ?q=, then each ?q=
   // a link or Back/Forward brings while the page stays mounted.
   const [expandQ, setExpandQ] = useState(initialQ);
-  const [_autoExpanded, setAutoExpanded] = useState(false);
+  // A restored answer wins over the ?q= auto-open; bring it back into view.
+  const [_autoExpanded, setAutoExpanded] = useState(restoredIdx != null);
+  useEffect(() => {
+    if (restoredIdx == null || restoredIdx < 0) return;
+    requestAnimationFrame(() => {
+      const el = document.getElementById('help-faq-q-' + restoredIdx);
+      if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+    });
+  }, []);
   // Mirror the box into ?q= (read above) so a reload keeps the search.
   const changeSearch = (v) => {
     setSearch(v);
