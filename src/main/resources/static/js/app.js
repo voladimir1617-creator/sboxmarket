@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=446'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=447'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1917,7 +1917,8 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         onKeyDown: (e) => {
           // An emptied box saves too (it removes the bio, as Save does);
           // save() itself says "Type a bio first" when there is none yet.
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !busy) {
+          // Not while an IME is composing: that Enter picks the word.
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !busy && !e.nativeEvent.isComposing) {
             e.preventDefault();
             save();
           } else if (e.key === 'Escape' && !busy) {
@@ -2829,7 +2830,7 @@ function ContactSellerButton({ seller }) {
         placeholder: 'What do you want to ask? (question about a listing, trade, etc.)',
         onChange: (e) => setBody(e.target.value),
         onKeyDown: (e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
         },
         rows: 5,
         'aria-label': 'Message to support about this seller',
