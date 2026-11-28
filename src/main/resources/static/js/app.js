@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=449'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=450'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1200,12 +1200,24 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
 // where it was on close.
 function ShortcutsOverlay({ onClose }) {
   const panelRef = useRef(null);
+  const gridRef = useRef(null);
   useDialogA11y(panelRef, onClose, true);
   return h('div', { className: 'shortcuts-backdrop', onClick: onClose },
     h('div', {
       className: 'shortcuts-card',
       ref: panelRef,
       onClick: e => e.stopPropagation(),
+      // On a phone the list scrolls, but the Tab trap only holds Close, so
+      // arrow and page keys scroll it from there.
+      onKeyDown: e => {
+        const g = gridRef.current;
+        if (!g || e.altKey || e.ctrlKey || e.metaKey) return;
+        const page = Math.max(40, g.clientHeight - 40);
+        const to = { ArrowDown: g.scrollTop + 40, ArrowUp: g.scrollTop - 40, PageDown: g.scrollTop + page, PageUp: g.scrollTop - page, Home: 0, End: g.scrollHeight }[e.key];
+        if (to == null) return;
+        e.preventDefault();
+        g.scrollTop = to;
+      },
       // role=dialog + aria-modal so the panel announces correctly;
       // useDialogA11y above handles Escape, focus and the Tab trap.
       role: 'dialog',
@@ -1215,7 +1227,7 @@ function ShortcutsOverlay({ onClose }) {
       h('div', { className: 'shortcuts-title', id: 'shortcuts-title' }, 'Keyboard Shortcuts'),
       // Scrolls inside the panel when the list is taller than the screen
       // (a phone): the dialog cannot scroll, so the title and Close were cut off.
-      h('div', { className: 'shortcuts-grid', style: { maxHeight: 'calc(96vh - 120px)', overflowY: 'auto' } },
+      h('div', { ref: gridRef, className: 'shortcuts-grid', style: { maxHeight: 'calc(96vh - 120px)', overflowY: 'auto' } },
         [
           ['/',       'Focus search'],
           ['⌘/Ctrl+K','Focus search (works from anywhere)'],
@@ -1856,8 +1868,10 @@ function StallBioBlock({ bio, canEdit, onSaved, sellerId }) {
   };
   // Double-click latch: the busy state lags a re-render, so a quick second click saved the bio twice.
   const bioBusyRef = useRef(false);
+  // Nothing changed: Save would only re-send the same bio and toast "Bio updated."
+  const bioUnchanged = !!bio && draft === bio;
   const save = async () => {
-    if (bioBusyRef.current) return;
+    if (bioBusyRef.current || bioUnchanged) return;
     bioBusyRef.current = true;
     try { return await saveOnce(); } finally { bioBusyRef.current = false; }
   };
@@ -1956,8 +1970,8 @@ function StallBioBlock({ bio, canEdit, onSaved, sellerId }) {
         h('button', {
           className: 'btn btn-accent',
           style: { padding: '6px 14px', fontSize: 12 },
-          // aria-disabled keeps focus on a failed save; save() ignores in-flight clicks.
-          'aria-disabled': busy || undefined, onClick: save
+          // aria-disabled keeps focus on a failed save; save() ignores in-flight clicks and an unchanged bio.
+          'aria-disabled': (busy || bioUnchanged) || undefined, onClick: save
         }, busy ? 'Saving…' : 'Save')
       )
     );

@@ -3150,7 +3150,7 @@ export function NotificationsModal({ onClose, me }) {
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 16px', lineHeight: 1.55 } },
               data.items.length > 0 ? 'Every notification you have is a type you muted. Unmute types in Settings to see them here.' : "Every trade move, bid update, offer, price-alert hit, and seller-follow ping lands here. List an item, place a bid, or watchlist something — the first notification shows up the moment it happens."),
             h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
-              h('a', { className: 'btn btn-accent', href: '/market', style: { padding: '10px 18px', fontWeight: 700 } }, 'Browse marketplace →'),
+              h('a', { className: 'btn btn-accent', href: '/market', style: { padding: '10px 18px', fontWeight: 700 } }, 'Browse marketplace', h('span', { 'aria-hidden': 'true' }, ' →')),
               h('a', { className: 'btn btn-ghost', href: '/watchlist', style: { border: '1px solid var(--border)', padding: '10px 18px' } }, 'Open watchlist')
             )
           );
