@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=450'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=451'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -10001,7 +10001,7 @@ export function App() {
                     ),
                     rows.length === 0
                       ? h('div', { className: 'empty-inline' },
-                          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: search ? 8 : 0 } },
+                          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: search ? 8 : 0, overflowWrap: 'anywhere' } },
                             // Under a rarity chip the search only looked at that
                             // rarity, so "in this stall" was not true.
                             search

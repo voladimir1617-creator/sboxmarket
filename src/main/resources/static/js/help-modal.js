@@ -396,7 +396,7 @@ export function HelpModal({ onClose }) {
             padding: '20px 10px', textAlign: 'center'
           }
         },
-          h('div', { role: 'heading', 'aria-level': 3, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 3, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, overflowWrap: 'anywhere' } },
             'No FAQs match "', h('strong', { style: { color: 'var(--accent)' } }, search.trim()), '"'),
           h('div', { style: { maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
             'Try a broader keyword, or open a ticket and staff will answer as soon as they can (trade, payment and refund issues first).'),

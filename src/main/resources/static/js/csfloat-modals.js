@@ -2364,7 +2364,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             if (searching) {
               return h('div', { className: 'empty-inline' },
                 h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search_off', size: 26 })),
-                h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
+                h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10, overflowWrap: 'anywhere' } },
                   'No loadouts match "', h('strong', null, search.trim()), '".'),
                 h('button', {
                   className: 'btn btn-ghost',
@@ -3107,7 +3107,7 @@ export function NotificationsModal({ onClose, me }) {
           if (search.trim()) {
             return h('div', { className: 'empty-inline' },
               h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search_off', size: 26 })),
-              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
+              h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10, overflowWrap: 'anywhere' } },
                 'No notifications match "', h('strong', null, search.trim()), '".'),
               h('button', {
                 className: 'btn btn-ghost',
