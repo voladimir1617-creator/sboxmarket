@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=448'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=449'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -1827,7 +1827,7 @@ function PopularNowRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas,
 // Clears on empty save. Bio-less stalls show nothing for non-owners
 // and a dimmed "Add a bio" prompt for owners so they know the feature
 // exists without forcing a nag on every stall.
-function StallBioBlock({ bio, canEdit, onSaved }) {
+function StallBioBlock({ bio, canEdit, onSaved, sellerId }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
@@ -1837,6 +1837,12 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
   // whichever bio button is drawn once the new bio arrives.
   const refocusRef = useRef(false);
   const startEdit = () => { refocusRef.current = false; setDraft(bio || ''); setEditing(true); setErr(''); };
+  // A bio sent on an expired session reopens here after signing back in.
+  useEffect(() => {
+    if (!canEdit) return;
+    const kept = keptUnsent('sb_stall_bio_unsent', v => String(v.seller) === String(sellerId));
+    if (kept) { setDraft(kept.text || ''); setEditing(true); }
+  }, [canEdit]);
   // The editor unmounts the focused textarea / Cancel; land focus back on
   // the Edit (or Add a bio) button instead of <body>.
   const editBtnRef = useRef(null);
@@ -1844,6 +1850,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
     if (refocusRef.current && !editing) editBtnRef.current?.focus();
   }, [editing, bio]);
   const cancel = () => {
+    dropUnsent('sb_stall_bio_unsent');
     setEditing(false); setDraft(''); setErr('');
     requestAnimationFrame(() => editBtnRef.current?.focus());
   };
@@ -1866,9 +1873,11 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       const { setStallBio } = await import('./api.js');
       const res = await setStallBio(draft);
       if (res && (res.error || res.code)) {
+        if (res.code === 'SESSION_EXPIRED') keepUnsent('sb_stall_bio_unsent', { seller: sellerId, text: draft });
         setErr(res.message || res.error || 'Could not save');
         return;
       }
+      dropUnsent('sb_stall_bio_unsent');
       refocusRef.current = true;
       setEditing(false);
       onSaved && onSaved(res);
@@ -2603,7 +2612,7 @@ function BlockSellerButton({ sellerId, sellerName, showToast, blockedByViewer, o
       const who = sellerName ? `@${sellerName}` : 'Seller';
       showToast && showToast(
         blocked
-          ? `${who} unblocked — their listings return to your grid.`
+          ? `${who} unblocked. Their listings return to your grid.`
           : `${who} blocked — their listings and offers are hidden.`,
         'ok'
       );
@@ -9316,7 +9325,7 @@ export function App() {
             className: 'csfloat-home-sales-link',
             href: paths.market(),
             onClick: followInternalLink
-          }, 'Browse all →')
+          }, 'Browse all', h('span', { 'aria-hidden': 'true' }, ' →'))
         ),
         h('div', { className: 'csfloat-home-sales-row' },
           recentSales.slice(0, 6).map((s, i) => h('a', {
@@ -9539,7 +9548,8 @@ export function App() {
                     // The unblock landed even if the refetch failed; drop the banner anyway.
                     if (fresh && !fresh.__error) setStallData(fresh);
                     else setStallData(s => s ? Object.assign({}, s, { blockedByViewer: false }) : s);
-                    showToast('Unblocked.', 'ok');
+                    const who = stallData.seller && (stallData.seller.displayName || stallData.seller.name);
+                    showToast(`${who ? '@' + who : 'Seller'} unblocked. Their listings return to your grid.`, 'ok');
                   } finally { btn.disabled = false; }
                 }
               }, 'Unblock')
@@ -9854,6 +9864,7 @@ export function App() {
             h(StallBioBlock, {
               bio: stallData.seller.stallBio,
               canEdit: me && me.id === stallData.seller.id,
+              sellerId: stallData.seller.id,
               onSaved: (res) => {
                 // Show the bio the server saved at once: the stall kept the
                 // old one until the refetch landed, and for good if it failed.
@@ -9886,7 +9897,7 @@ export function App() {
                       className: 'btn btn-accent',
                       style: { padding: '8px 16px', fontSize: 12, textDecoration: 'none' },
                       href: paths.market()
-                    }, 'Browse marketplace →'),
+                    }, 'Browse marketplace', h('span', { 'aria-hidden': 'true' }, ' →')),
                     h('a', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid var(--border)', padding: '8px 16px', fontSize: 12, textDecoration: 'none' },
@@ -10406,7 +10417,7 @@ export function App() {
                     className: 'btn btn-accent',
                     style: { padding: '10px 14px', fontSize: 13, textDecoration: 'none', textAlign: 'center' },
                     href: paths.market()
-                  }, 'Browse all listings →'),
+                  }, 'Browse all listings', h('span', { 'aria-hidden': 'true' }, ' →')),
                   h('a', {
                     className: 'btn btn-ghost',
                     style: { padding: '10px 14px', fontSize: 13, textDecoration: 'none', textAlign: 'center', border: '1px solid var(--border)' },
