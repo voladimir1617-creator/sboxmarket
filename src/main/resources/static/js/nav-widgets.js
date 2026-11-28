@@ -758,7 +758,8 @@ export function NotificationBell({ me }) {
               }
             },
               h('div', { className: 'notif-icon' }, KIND_ICONS[n.kind] || '•'),
-              h('div', { className: 'notif-text' },
+              // A long link or code in the text wraps instead of running past the row's edge.
+              h('div', { className: 'notif-text', style: { overflowWrap: 'anywhere' } },
                 n.title,
                 n.body && h('div', { dir: 'auto', style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 } }, n.body),
                 h('div', { className: 'notif-time' }, timeAgo(n.createdAt))
