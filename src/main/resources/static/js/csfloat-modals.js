@@ -325,6 +325,15 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
     pagerEdgeRef.current = null;
     pagerRef.current?.querySelectorAll('button')[which === 'prev' ? 0 : 1]?.focus();
   }, [page]);
+  // Prev / Next sit under the rows: once the new page lands, bring its
+  // first rows into view (a phone was left on the footer of a short page).
+  const metaRef = useRef(null);
+  const pagerScrollRef = useRef(false);
+  useEffect(() => {
+    if (loading || !pagerScrollRef.current) return;
+    pagerScrollRef.current = false;
+    metaRef.current?.scrollIntoView({ block: 'start' });
+  }, [loading]);
 
   // The header must not assert a catalogue size we could not read.
   // "Database · 0 indexed" was the FIRST thing the walk saw under a forced
@@ -404,7 +413,7 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
        read "0 results · page 1 / 1" sitting above the error panel, which
        looks like a contradictory healthy-but-empty result. */
     // role=status so a filter, search or page change reads the new count out.
-    !loadErr && loaded && h('div', { className: 'db-meta', role: 'status', 'aria-atomic': 'true' },
+    !loadErr && loaded && h('div', { className: 'db-meta', role: 'status', 'aria-atomic': 'true', ref: metaRef },
       h('strong', null, Number(data.total).toLocaleString()), Number(data.total) === 1 ? ' result · page ' : ' results · page ',
       h('strong', null, page + 1), ' / ', totalPages
     ),
@@ -664,9 +673,9 @@ export function DatabaseModal({ onClose, onPickItem, me, onWatchlistIds }) {
        through a page-to-page fetch avoids it flickering out and back on
        every Next/Prev click (totalPages stays stable across the fetch). */
     !loadErr && totalPages > 1 && h('div', { className: 'db-pager', ref: pagerRef },
-      h('button', { className: 'btn btn-ghost', disabled: page === 0, onClick: () => { if (page <= 1) pagerEdgeRef.current = 'next'; setPage(p => Math.max(0, p - 1)); } }, '← Prev'),
+      h('button', { className: 'btn btn-ghost', disabled: page === 0, onClick: () => { if (page <= 1) pagerEdgeRef.current = 'next'; pagerScrollRef.current = true; setPage(p => Math.max(0, p - 1)); } }, '← Prev'),
       h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, `${page + 1} of ${totalPages}`),
-      h('button', { className: 'btn btn-ghost', disabled: page + 1 >= totalPages, onClick: () => { if (page + 2 >= totalPages) pagerEdgeRef.current = 'prev'; setPage(p => p + 1); } }, 'Next →')
+      h('button', { className: 'btn btn-ghost', disabled: page + 1 >= totalPages, onClick: () => { if (page + 2 >= totalPages) pagerEdgeRef.current = 'prev'; pagerScrollRef.current = true; setPage(p => p + 1); } }, 'Next →')
     )
   );
 }
@@ -1416,13 +1425,39 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
   const wasRenamingRef = useRef(false);
   const wasCreatingRef = useRef(false);
   useEffect(() => {
-    if (wasRenamingRef.current && !renaming) renameBtnRef.current?.focus();
+    if (wasRenamingRef.current && !renaming) {
+      renameBtnRef.current?.focus();
+      try { sessionStorage.removeItem('sb_loadout_rename_unsent'); } catch (_) {}
+    }
     wasRenamingRef.current = renaming;
   }, [renaming]);
+  // A rename sent on an expired session reopens here after signing back in.
+  const keepRenameIfExpired = (res) => {
+    if (res && res.code === 'SESSION_EXPIRED') {
+      try { sessionStorage.setItem('sb_loadout_rename_unsent', JSON.stringify({ id: viewing?.loadout?.id, name: renameDraft })); } catch (_) {}
+    }
+  };
   useEffect(() => {
-    if (wasCreatingRef.current && !creating) createBtnRef.current?.focus();
+    const l = viewing && viewing.loadout;
+    if (!l || !me || l.ownerUserId !== me.id) return;
+    let kept = null;
+    try { kept = JSON.parse(sessionStorage.getItem('sb_loadout_rename_unsent') || 'null'); } catch (_) {}
+    if (kept && kept.id === l.id) { setRenameDraft(kept.name || ''); setRenaming(true); }
+  }, [viewing?.loadout?.id, me?.id]);
+  useEffect(() => {
+    if (wasCreatingRef.current && !creating) {
+      createBtnRef.current?.focus();
+      try { sessionStorage.removeItem('sb_loadout_create_unsent'); } catch (_) {}
+    }
     wasCreatingRef.current = creating;
   }, [creating]);
+  // A new loadout's name sent on an expired session reopens after signing back in.
+  useEffect(() => {
+    if (!me) return;
+    let kept = null;
+    try { kept = JSON.parse(sessionStorage.getItem('sb_loadout_create_unsent') || 'null'); } catch (_) {}
+    if (kept && kept.name) { setNewName(kept.name); setCreating(true); }
+  }, [me?.id]);
 
   // Deep-link: /loadout/:id lands here with `loadoutId` set. Jump
   // straight to the view tab with the right row loaded instead of
@@ -1604,6 +1639,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
     // returns INVALID_PARAMETER / RATE_LIMITED via `code` so a rate-
     // limited create looked silent. Aligned with handleLockSlot pattern.
     if (created && (created.error || created.code)) {
+      if (created.code === 'SESSION_EXPIRED') { try { sessionStorage.setItem('sb_loadout_create_unsent', JSON.stringify({ name: newName })); } catch (_) {} }
       toast(created.message || created.error || 'Could not create loadout', 'err');
       return;
     }
@@ -2064,6 +2100,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
               try {
                 const res = await updateLoadout(viewing.loadout.id, { name: trimmed });
                 if (res && (res.error || res.code)) {
+                  keepRenameIfExpired(res);
                   toast(res.message || res.error || 'Rename failed', 'err');
                   return;
                 }
@@ -2104,6 +2141,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
             try {
               const res = await updateLoadout(viewing.loadout.id, { name: trimmed });
               if (res && (res.error || res.code)) {
+                keepRenameIfExpired(res);
                 toast(res.message || res.error || 'Rename failed', 'err');
                 return;
               }

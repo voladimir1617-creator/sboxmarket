@@ -5762,7 +5762,7 @@ function BlockedListRow() {
       // The last unblock removes the whole row; focus what follows it.
       focusPastOnUnmount(blockListRef.current?.closest('.profile-row'));
       setRows(rs => (rs || []).filter(r => Number(r.blockedUserId) !== key));
-      toast(who ? `Unblocked @${who} — their listings are visible again.` : 'Unblocked.', 'ok');
+      toast(`${who ? '@' + who : 'Seller'} unblocked. Their listings return to your grid.`, 'ok');
     } finally { unblockBusyRef.current.delete(key); }
   };
   const doUnblockAll = async () => {
@@ -6477,7 +6477,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               try {
                 if (navigator.clipboard?.writeText) {
                   await navigator.clipboard.writeText(url);
-                  toast('Stall link copied — paste into Discord, Steam groups, etc.', 'ok');
+                  toast('Stall link copied.', 'ok');
                 } else {
                   window.prompt('Copy this link:', url);
                 }
