@@ -4194,7 +4194,7 @@ export function FaqModal({ onClose }) {
           // batch. Users no longer dead-end on a search box.
           style: { fontSize: 13, color: 'var(--text-secondary)', padding: '20px 10px', textAlign: 'center' }
         },
-          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+          h('div', { role: 'heading', 'aria-level': 2, style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, overflowWrap: 'anywhere' } },
             'No FAQs match "', h('strong', { style: { color: 'var(--accent)' } }, q.trim()), '"'),
           h('div', { style: { maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
             'Try a broader keyword, or open a ticket and staff will answer as soon as they can (trade, payment and refund issues first).'),
@@ -12507,7 +12507,7 @@ function ProfileSupportTab() {
                   }
                 },
                   h('td', { className: 'db-rank' }, '#' + t.id),
-                  h('td', { dir: 'auto' }, t.subject),
+                  h('td', { dir: 'auto', style: { overflowWrap: 'anywhere' } }, t.subject),
                   // data-label names each value on a phone, where the header row
                   // is hidden and "Other" / "Waiting you" stood alone.
                   h('td', { className: 'db-cat', 'data-label': 'Category' }, ticketCategoryLabel(t.category)),
