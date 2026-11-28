@@ -1874,8 +1874,8 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
           if (loadoutId) navigate(backTab === 'discover' ? loadoutsDiscoverPath() : paths.loadouts());
         } }, '← Back'),
         h('div', { className: 'loadout-action-spacer', style: { flex: 1, minWidth: 0 } }),
-        h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap' } },
-          'By ', h('strong', { style: { color: 'var(--text-secondary)' } }, viewing.loadout.ownerName || 'anon'),
+        h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap', minWidth: 0 } },
+          'By ', h('strong', { style: { color: 'var(--text-secondary)', whiteSpace: 'normal', overflowWrap: 'anywhere' } }, viewing.loadout.ownerName || 'anon'),
           // "6 favorites", not "red heart 6".
           ' · ', h('span', { 'aria-hidden': 'true' }, '❤ '), Number(viewing.loadout.favorites || 0).toLocaleString(),
           h('span', { className: 'visually-hidden' }, Number(viewing.loadout.favorites || 0) === 1 ? ' favorite' : ' favorites')
@@ -2212,7 +2212,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId, meLoaded = true }) {
                     : h('div', { className: 'loadout-slot-emoji', 'aria-hidden': 'true' }, s.itemEmoji || '—'),
                   // The name opens the item, so a visitor can go and buy
                   // what the loadout wears (the share card promises it).
-                  h('div', { className: 'loadout-slot-name' },
+                  h('div', { className: 'loadout-slot-name', style: { overflowWrap: 'anywhere' } },
                     h('a', {
                       href: paths.item(s.itemId),
                       style: { color: 'inherit', textDecoration: 'none' },
@@ -3183,7 +3183,7 @@ export function NotificationsModal({ onClose, me }) {
                   }
                 }
               },
-                h('div', { className: 'notif-feed-title' }, highlightMatch(n.title || '', search)),
+                h('div', { className: 'notif-feed-title', style: { overflowWrap: 'anywhere' } }, highlightMatch(n.title || '', search)),
                 n.body && h('div', { className: 'notif-feed-body', dir: 'auto' }, highlightMatch(n.body, search)),
                 h('div', { className: 'notif-feed-time' }, timeAgo(n.createdAt))
               ),

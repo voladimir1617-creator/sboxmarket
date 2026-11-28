@@ -11874,7 +11874,7 @@ function ProfileReviewsTab({ me }) {
             // Wraps on a phone: a long reviewer name ran under the date.
             h('div', { className: 'stall-review-head', style: { flexWrap: 'wrap' } },
               h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${r.rating} out of 5 stars` }, '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)),
-              h('span', { className: 'stall-review-from' },
+              h('span', { className: 'stall-review-from', style: { minWidth: 0, overflowWrap: 'anywhere' } },
                 // Received rows: who wrote it. Given rows: who it's about,
                 // linked to their stall.
                 mode === 'received'
@@ -11905,7 +11905,7 @@ function ProfileReviewsTab({ me }) {
                 }, ' · edited')
               )
             ),
-            r.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + r.itemName),
+            r.itemName && h('div', { className: 'stall-review-item', style: { overflowWrap: 'anywhere' } }, '↳ ' + r.itemName),
             // Batch 750 — inline edit UI for Given reviews. When the
             // row is being edited, replace the star bar + comment with
             // a picker + textarea. Otherwise show them normally.
@@ -11954,7 +11954,7 @@ function ProfileReviewsTab({ me }) {
             r.sellerReply && editId !== r.id && h('div', { className: 'stall-review-reply' },
               h('span', { className: 'stall-review-reply-label' },
                 mode === 'received' ? 'Your response' : "Seller's response"),
-              h('div', { className: 'stall-review-reply-body', dir: 'auto' }, r.sellerReply)
+              h('div', { className: 'stall-review-reply-body', dir: 'auto', style: { overflowWrap: 'anywhere' } }, r.sellerReply)
             ),
             mode === 'received' && editId === r.id
               // Escape from Cancel or Post reply closes the editor too; the box handles its own.

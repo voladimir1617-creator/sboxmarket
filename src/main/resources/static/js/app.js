@@ -26,7 +26,7 @@ let _routeModsPromise = null;
 let _routeMods = null;
 function loadRouteMods() {
   if (!_routeModsPromise) {
-    _routeModsPromise = Promise.all([import('./modals.js?v=451'), import('./csfloat-modals.js')])
+    _routeModsPromise = Promise.all([import('./modals.js?v=452'), import('./csfloat-modals.js')])
       .then(([m, c]) => (_routeMods = { ...m, ...c }))
       .catch(e => { _routeModsPromise = null; throw e; });
   }
@@ -445,7 +445,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
     // Wraps on a phone: a long reviewer name ran under the date.
     h('div', { className: 'stall-review-head', style: { flexWrap: 'wrap' } },
       h('span', { className: 'stall-review-stars', role: 'img', 'aria-label': `${review.rating} out of 5 stars` }, '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)),
-      h('span', { className: 'stall-review-from' }, review.fromDisplayName || 'Anonymous'),
+      h('span', { className: 'stall-review-from', style: { minWidth: 0, overflowWrap: 'anywhere' } }, review.fromDisplayName || 'Anonymous'),
       // Every review is anchored to a VERIFIED trade (ReviewService
       // enforces `trade.state == 'VERIFIED'`), so every row on the stall
       // page can advertise the badge. Mirrors Amazon's "Verified
@@ -501,11 +501,11 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         'aria-label': `Helpful · ${helpfulCount} · review by ${review.fromDisplayName || 'Anonymous'}`
       }, hasVoted ? 'Helpful · ' : 'Helpful · ', helpfulCount)
     ),
-    review.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + review.itemName),
+    review.itemName && h('div', { className: 'stall-review-item', style: { overflowWrap: 'anywhere' } }, '↳ ' + review.itemName),
     review.comment && h('div', { className: 'stall-review-body', dir: 'auto' }, review.comment),
     review.sellerReply && !editing && h('div', { className: 'stall-review-reply' },
       h('span', { className: 'stall-review-reply-label' }, 'Seller response'),
-      h('div', { className: 'stall-review-reply-body', dir: 'auto' }, review.sellerReply)
+      h('div', { className: 'stall-review-reply-body', dir: 'auto', style: { overflowWrap: 'anywhere' } }, review.sellerReply)
     ),
     // The server refuses reply edits 72h after the review (ReviewService
     // REPLY_EDIT_WINDOW_MS); past that the buttons only led to an error.
@@ -2759,6 +2759,7 @@ function ContactSellerButton({ seller }) {
   const [body, setBody]       = useState('');
   const [busy, setBusy]       = useState(false);
   const textareaRef           = useRef(null);
+  const drawerRef             = useRef(null);
   // Closing unmounts the focused textarea or button; hand focus back to
   // Contact instead of dropping it on <body>.
   const triggerRef            = useRef(null);
@@ -2779,7 +2780,11 @@ function ContactSellerButton({ seller }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
-      if (e.key === 'Escape' && !busy) { e.stopPropagation(); close(); }
+      if (e.key !== 'Escape' || busy || e.defaultPrevented) return;
+      // Escape in another menu or box (the bell, a review) closes that one alone.
+      const a = e.target instanceof Element ? e.target : document.activeElement;
+      if (a && a !== document.body && a !== triggerRef.current && !drawerRef.current?.contains(a)) return;
+      e.stopPropagation(); close();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -2830,6 +2835,7 @@ function ContactSellerButton({ seller }) {
       h('span', { className: 'stall-share-icon', 'aria-hidden': 'true' }, '✉'),
       'Contact'),
     open && h('div', {
+      ref: drawerRef,
       id: 'contact-seller-drawer',
       role: 'dialog',
       'aria-modal': 'false',
